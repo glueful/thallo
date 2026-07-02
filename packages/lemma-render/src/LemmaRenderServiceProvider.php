@@ -113,6 +113,9 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             $container->get(ReservedPaths::class),
             $container->get(RenderErrorCache::class),
             $container->get(\Psr\Log\LoggerInterface::class),
+            $container->has(FacetCountsReader::class)
+                ? $container->get(FacetCountsReader::class)
+                : null,
         );
     }
 

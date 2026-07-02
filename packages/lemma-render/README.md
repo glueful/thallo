@@ -76,6 +76,13 @@ word as an archive field segment. Templates: `listing/{type}.twig` →
 Cached pages carry the broad `lemma:type:{type}` surrogate tag, so ANY publish
 of the type purges every listing page immediately.
 
+Term INDEX pages live at `/{type}/terms/{field}` — every term of the field with its
+count, each linking to its archive page (500-term cap, no pagination). `terms` is a
+reserved word alongside `page`: an archive field literally named `terms` cannot have
+rendered archive pages (entries slugged `terms` are unaffected — the reservation only
+applies at three segments). A valid field with zero terms renders an empty index;
+unknown/non-filterable fields render the themed 404.
+
 | Key (env) | Default |
 |---|---|
 | `lemma_render.listing_types` (`RENDER_LISTING_TYPES`, comma-separated) | `''` — feature dormant |

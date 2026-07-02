@@ -17,16 +17,22 @@ A rendered page enumerating all terms of a filterable reference field with count
 
 - At 3 segments, **`terms` parses BEFORE archive lookup, exactly like `page`** —
   `terms` joins `page` as a static reserved word. Costs (documented + characterization-
-  tested, same precedent): an entry slugged `terms` is shadowed; an archive FIELD named
-  `terms` cannot have rendered archives. Rejected alternatives: `/{type}/{field}`
-  field-wins (schema edits silently shadow published entry URLs) and entry-wins
-  (data-dependent URLs — publishing an entry slugged like a field kills the index).
+  tested, same precedent): an archive FIELD named `terms` cannot have rendered archives
+  AT ANY PAGE NUMBER — the reservation is enforced at 3 segments AND via an explicit
+  5-segment seal on the paged form (its term INDEX still works); entries slugged
+  `terms` are UNAFFECTED — 2-segment entry paths never contain the reserved segment
+  (corrected from the original draft, characterization-tested). Rejected alternatives:
+  `/{type}/{field}` field-wins (schema edits silently shadow published entry URLs) and
+  entry-wins (data-dependent URLs — publishing an entry slugged like a field kills the
+  index).
 - Gated by the same **`lemma_render.listing_types` allowlist** — a term index is a
   listing variant; unlisted types stay `not_found` (grammar dormant when the list is
   empty).
 - **No pagination in v1**: the reader caps at 500 terms, one page;
-  `/{type}/terms/{field}/page/n` stays `not_found` (4-segment paths with `terms` do not
-  parse).
+  `/{type}/terms/{field}/page/{n≥2}` is `not_found` via the explicit 5-segment `terms`
+  seal (not implicit archive-gate fallthrough — a real field named `terms` must not
+  leak paged archives); `/page/1` 301s to the index (harmless canonical). 4-segment
+  paths with `terms` do not parse.
 
 ## 2. Resolution split (thin kind; the reader's invariant does the gating)
 
@@ -66,10 +72,11 @@ facet sidebars).
 
 ## 4. Testing
 
-- Grammar: `terms` beats archive parsing at 3 segments (a filterable field named
-  `terms` — its index still works, its ARCHIVE path is shadowed: characterized); locale
-  variants; unlisted type → not_found; `/{type}/terms/{field}/page/2` → not_found;
-  entry slugged `terms` shadowed (characterized).
+- Grammar: `terms` beats archive parsing at 3 segments; a filterable field literally
+  named `terms` has NO rendered archive at any page number (regression — the 5-segment
+  seal) while its term index still works; locale variants; unlisted type → not_found;
+  `/{type}/terms/{field}/page/2` → not_found; entry slugged `terms` NOT shadowed —
+  2-segment paths unaffected (characterized).
 - Gate-vs-empty split: non-filterable/unknown field → themed 404; valid field with zero
   members → 200 rendering the template's empty-state branch; non-visible target type →
   themed 404.

@@ -168,7 +168,8 @@ published content using a filesystem theme."**
   `docs/superpowers/specs/2026-07-02-rendered-listing-archive-pages-design.md`)
 - ✅ preview-through-theme — **shipped 2026-07-02**
   (`docs/superpowers/specs/2026-07-02-preview-through-theme-design.md`)
-- taxonomy term INDEX pages (enumerating all terms of a field)
+- ✅ taxonomy term INDEX pages — **shipped 2026-07-02**
+  (`docs/superpowers/specs/2026-07-02-term-index-pages-design.md`)
 - DB-edited templates / Twig-sandbox admin overrides
 - page/block builder
 

@@ -6,6 +6,7 @@ namespace Glueful\Lemma\Render\Http\Controllers;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response as ApiResponse;
+use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
 use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
 use Glueful\Lemma\Render\HomepageConfigError;
 use Glueful\Lemma\Render\RenderContextExtension;
@@ -37,6 +38,7 @@ final class RenderController
         private readonly ReservedPaths $reserved,
         private readonly RenderErrorCache $errors,
         private readonly LoggerInterface $logger,
+        private readonly ?FacetCountsReader $facetReader = null,
     ) {
     }
 
@@ -85,6 +87,7 @@ final class RenderController
             ),
             'content' => $this->renderEntry($result),
             'listing', 'archive' => $this->renderCollection($result, '/' . ltrim($path, '/')),
+            'terms' => $this->renderTerms($result),
             default => $this->errors->themed404(
                 fn (): Response => $this->render('404.twig', $this->defaultLocale(), null, 404),
             ),
@@ -286,6 +289,55 @@ final class RenderController
         // Drain on SUCCESS only: tags collected by facets() during this render join the
         // page's Cache-Tag, so facet sidebars purge event-driven like everything else.
         $this->mergeCacheTags($response, $this->extension->drainTags());
+        return $response;
+    }
+
+    /**
+     * Term index pages (term-index spec §2–§3): the resolver classified the path
+     * (thin kind); THIS side fetches counts and dispatches on the FacetCountsReader
+     * invariant — empty cache_tags means a gate failed (unknown/non-filterable field,
+     * non-visible type) and a VALID facet always carries tags, even with zero items.
+     * hrefs are built HERE (the reader stays counts + tags): the term's archive path
+     * with the same default-locale collapse the other rendered hrefs use.
+     *
+     * @param array<string,mixed> $result
+     */
+    private function renderTerms(array $result): Response
+    {
+        $notFound = fn (): Response => $this->errors->themed404(
+            fn (): Response => $this->render('404.twig', $this->defaultLocale(), null, 404),
+        );
+        if ($this->facetReader === null) {
+            return $notFound();
+        }
+        $typeSlug = (string) $result['type'];
+        $field = (string) $result['field'];
+        $locale = (string) $result['locale'];
+
+        $counts = $this->facetReader->counts($typeSlug, $field, $locale, 500);
+        if ($counts['cache_tags'] === []) {
+            return $notFound(); // the pinned invariant: empty tags ⇔ gate failure
+        }
+
+        $prefix = $locale === $this->defaultLocale() ? '' : '/' . rawurlencode($locale);
+        $terms = [];
+        foreach ($counts['items'] as $item) {
+            $slug = $item['slug'];
+            $item['href'] = $slug === null
+                ? null
+                : $prefix . '/' . rawurlencode($typeSlug) . '/' . rawurlencode($field)
+                    . '/' . rawurlencode($slug);
+            $terms[] = $item;
+        }
+
+        $candidate = "terms/{$typeSlug}.twig";
+        $template = $this->twig()->getLoader()->exists($candidate) ? $candidate : 'terms.twig';
+        $response = $this->render($template, $locale, null, 200, [
+            'terms' => $terms,
+            'type' => $typeSlug,
+            'field' => $field,
+        ]);
+        $this->mergeCacheTags($response, $counts['cache_tags']);
         return $response;
     }
 

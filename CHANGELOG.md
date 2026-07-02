@@ -7,6 +7,13 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Taxonomy term index pages**: `/{type}/terms/{field}` renders every term of a
+  filterable reference field with counts and archive links (`terms` joins `page` as a
+  reserved segment, sealed at the paged 5-segment form too; allowlist-gated; 500-term
+  cap). The resolver kind is THIN — the render controller fetches via
+  `FacetCountsReader` and dispatches on its now-pinned invariant (empty `cache_tags` ⇔
+  gate failure → themed 404; valid-but-empty → 200); index pages carry both type tags
+  so publishes purge them structurally.
 - **Preview-through-theme**: `GET /_preview/{token}` renders drafts/pinned versions
   through the active Twig theme (structurally uncached dedicated route; `no-store` +
   `noindex`; fail-closed themed 404s; `preview` template flag + default-theme banner).
