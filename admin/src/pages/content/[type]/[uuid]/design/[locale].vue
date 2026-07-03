@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
+import type { BlockType } from '@/queries/blockTypes'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
 import { mintPreviewData } from '@/queries/preview'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
@@ -100,7 +101,15 @@ const stageWidth = computed(
 )
 
 // ── Selection (spec §5) ────────────────────────────────────────────────────────
-const fieldEditorRef = ref<{ selectBlockById: (id: string) => boolean } | null>(null)
+interface FieldEditorExposed {
+  selectBlockById: (id: string) => boolean
+  moveBlockById: (id: string, delta: number) => { beforeId: string } | { afterId: string } | null
+  duplicateBlockById: (id: string) => { newId: string; idMap: Record<string, string> } | null
+  deleteBlockById: (id: string) => boolean
+  insertAfterById: (id: string, typeSlug: string) => string | null
+  pickerTypesForBlock: (id: string) => BlockType[]
+}
+const fieldEditorRef = ref<FieldEditorExposed | null>(null)
 const selected = ref<string | null>(null)
 
 bridge.onBlockSelect((id) => {
@@ -115,6 +124,53 @@ function onOutlineSelect(id: string): void {
   bridge.scrollTo(id)
 }
 
+// ── Stage toolbar intents (stage-toolbar spec §2/§4): mutate through the
+// FieldEditor (single tree authority), mirror ONLY after the commit. ──────────
+bridge.onBlockMove((id, delta) => {
+  const neighbor = fieldEditorRef.value?.moveBlockById(id, delta) ?? null
+  if (neighbor) bridge.mirrorMove(id, neighbor)
+})
+
+bridge.onBlockDuplicate((id) => {
+  const result = fieldEditorRef.value?.duplicateBlockById(id) ?? null
+  if (result) {
+    bridge.mirrorDuplicate(id, result.idMap)
+    selected.value = result.newId
+    fieldEditorRef.value?.selectBlockById(result.newId)
+  }
+})
+
+// Delete is parent-confirmed (review pin): the bridge only ever REQUESTS.
+const deleteRequest = ref<string | null>(null)
+bridge.onBlockDeleteRequest((id) => {
+  deleteRequest.value = id
+})
+
+function confirmDelete(): void {
+  const id = deleteRequest.value
+  deleteRequest.value = null
+  if (id !== null && fieldEditorRef.value?.deleteBlockById(id)) {
+    bridge.mirrorRemove(id)
+    if (selected.value === id) selected.value = null
+  }
+}
+
+// Add-after: parent-side picker over the CONTAINING list's rules (spec §5).
+// No mirror — the new block appears in the stage on the next Save & refresh.
+const addAfterId = ref<string | null>(null)
+const addAfterTypes = ref<BlockType[]>([])
+bridge.onBlockAddAfter((id) => {
+  addAfterTypes.value = fieldEditorRef.value?.pickerTypesForBlock(id) ?? []
+  addAfterId.value = id
+})
+
+function chooseAddType(slug: string): void {
+  const id = addAfterId.value
+  addAfterId.value = null
+  const newId = id !== null ? (fieldEditorRef.value?.insertAfterById(id, slug) ?? null) : null
+  if (newId !== null) selected.value = newId
+}
+
 // ── Apply loop (spec §6): explicit save -> re-mint -> reload ──────────────────
 const save = useSaveDraft(uuid.value, () => locale.value, type.value)
 const applying = ref(false)
@@ -126,6 +182,7 @@ async function saveAndRefresh(): Promise<void> {
     success('Draft saved')
     await mintAndLoad() // fresh session per apply — never stretch a 10-minute token
   } catch (e: unknown) {
+    reloadStage() // discard optimistic mirrors — the stage falls back to last-applied truth
     // BYTE-MIRROR of the editor's onSave 409 branches.
     if (e instanceof ApiError && e.status === 409) {
       if (apiErrorCode(e) === 'BLOCK_MIGRATION_IN_PROGRESS') {
@@ -151,6 +208,20 @@ async function saveAndRefresh(): Promise<void> {
 /** Re-mint WITHOUT saving — the expired-token affordance (spec §6). */
 function refreshPreview(): void {
   void mintAndLoad()
+}
+
+/**
+ * Save-failure reset (stage-toolbar spec §2): discard mirror-only DOM by
+ * remounting the iframe on the SAME URL (v-if unmount + remount = reload).
+ * No re-mint — that stays behind the explicit Refresh preview affordance.
+ */
+function reloadStage(): void {
+  const src = iframeSrc.value
+  if (!src) return
+  iframeSrc.value = ''
+  void nextTick(() => {
+    iframeSrc.value = src
+  })
 }
 </script>
 
@@ -248,7 +319,7 @@ function refreshPreview(): void {
           />
         </aside>
 
-        <div class="min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3" data-test="canvas-stage">
+        <div class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3" data-test="canvas-stage">
           <div class="mx-auto h-full transition-[width]" :style="{ width: stageWidth }">
             <iframe
               v-if="iframeSrc"
@@ -260,6 +331,57 @@ function refreshPreview(): void {
               @load="onIframeLoad()"
             />
             <p v-else class="py-16 text-center text-sm text-muted">Starting preview…</p>
+          </div>
+
+          <!-- Parent-side delete confirm (stage-toolbar spec §4): the bridge only requests. -->
+          <div
+            v-if="deleteRequest"
+            class="absolute inset-x-0 top-3 z-10 mx-auto w-fit rounded-lg border border-default bg-default p-3 shadow-lg"
+            data-test="canvas-delete-confirm"
+          >
+            <p class="mb-2 text-sm font-medium">Delete this block?</p>
+            <div class="flex justify-end gap-2">
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                data-test="canvas-delete-cancel"
+                @click="deleteRequest = null"
+              >
+                Cancel
+              </UButton>
+              <UButton size="xs" color="error" data-test="canvas-delete-confirm-yes" @click="confirmDelete()">
+                Delete
+              </UButton>
+            </div>
+          </div>
+
+          <!-- Add-after picker (stage-toolbar spec §5): the containing list's types. -->
+          <div
+            v-if="addAfterId"
+            class="absolute inset-x-0 top-3 z-10 mx-auto w-64 rounded-lg border border-default bg-default p-2 shadow-lg"
+            data-test="canvas-add-picker"
+          >
+            <p class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide text-muted">Add block after</p>
+            <button
+              v-for="t in addAfterTypes"
+              :key="t.slug"
+              class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-elevated"
+              type="button"
+              :data-test="`canvas-add-type-${t.slug}`"
+              @click="chooseAddType(t.slug)"
+            >
+              <UIcon :name="t.icon || 'i-lucide-box'" />
+              <span class="font-medium">{{ t.label }}</span>
+            </button>
+            <p v-if="!addAfterTypes.length" class="px-2 py-1.5 text-sm text-muted">
+              No block types available here.
+            </p>
+            <div class="mt-1 flex justify-end">
+              <UButton size="xs" variant="ghost" color="neutral" data-test="canvas-add-cancel" @click="addAfterId = null">
+                Cancel
+              </UButton>
+            </div>
           </div>
         </div>
 

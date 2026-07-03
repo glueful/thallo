@@ -16,6 +16,7 @@ interface BridgeMessage {
   nonce?: string
   id?: string
   ids?: string[]
+  delta?: number
 }
 
 export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
@@ -26,6 +27,10 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let selectCb: ((id: string) => void) | null = null
   let hoverCb: ((id: string) => void) | null = null
   let indexCb: ((ids: string[]) => void) | null = null
+  let moveCb: ((id: string, delta: 1 | -1) => void) | null = null
+  let duplicateCb: ((id: string) => void) | null = null
+  let deleteRequestCb: ((id: string) => void) | null = null
+  let addAfterCb: ((id: string) => void) | null = null
 
   function targetOrigin(): string {
     const src = iframeRef.value?.src ?? ''
@@ -47,6 +52,19 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     if (data.type === 'lemma:block-hover' && typeof data.id === 'string') hoverCb?.(data.id)
     if (data.type === 'lemma:blocks-index' && Array.isArray(data.ids)) {
       indexCb?.(data.ids.filter((v): v is string => typeof v === 'string'))
+    }
+    // Stage toolbar intents (stage-toolbar spec §1).
+    if (data.type === 'lemma:block-move' && typeof data.id === 'string') {
+      if (data.delta === 1 || data.delta === -1) moveCb?.(data.id, data.delta)
+    }
+    if (data.type === 'lemma:block-duplicate' && typeof data.id === 'string') {
+      duplicateCb?.(data.id)
+    }
+    if (data.type === 'lemma:block-delete-request' && typeof data.id === 'string') {
+      deleteRequestCb?.(data.id)
+    }
+    if (data.type === 'lemma:block-add-after' && typeof data.id === 'string') {
+      addAfterCb?.(data.id)
     }
   }
 
@@ -71,6 +89,28 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     },
     scrollTo(id: string): void {
       post({ type: 'lemma:scroll-to', id })
+    },
+    onBlockMove(cb: (id: string, delta: 1 | -1) => void): void {
+      moveCb = cb
+    },
+    onBlockDuplicate(cb: (id: string) => void): void {
+      duplicateCb = cb
+    },
+    onBlockDeleteRequest(cb: (id: string) => void): void {
+      deleteRequestCb = cb
+    },
+    onBlockAddAfter(cb: (id: string) => void): void {
+      addAfterCb = cb
+    },
+    // Mirrors (stage-toolbar spec §1): posted ONLY after the tree committed.
+    mirrorMove(id: string, neighbor: { beforeId: string } | { afterId: string }): void {
+      post({ type: 'lemma:mirror-move', id, ...neighbor })
+    },
+    mirrorRemove(id: string): void {
+      post({ type: 'lemma:mirror-remove', id })
+    },
+    mirrorDuplicate(sourceId: string, idMap: Record<string, string>): void {
+      post({ type: 'lemma:mirror-duplicate', sourceId, idMap })
     },
     dispose(): void {
       window.removeEventListener('message', onMessage)

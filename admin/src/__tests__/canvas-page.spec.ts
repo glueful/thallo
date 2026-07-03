@@ -39,6 +39,41 @@ vi.mock('@/queries/contentTypes', async (importOriginal) => ({
 const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
 vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
 
+// The REAL composable is covered by canvas-bridge.spec — the page suite asserts
+// wiring only: intents in via captured callbacks, mirrors out via spies.
+const bridge = vi.hoisted(() => {
+  const callbacks: {
+    select?: (id: string) => void
+    hover?: (id: string) => void
+    index?: (ids: string[]) => void
+    move?: (id: string, d: 1 | -1) => void
+    duplicate?: (id: string) => void
+    deleteRequest?: (id: string) => void
+    addAfter?: (id: string) => void
+  } = {}
+  return {
+    callbacks,
+    instance: {
+      nonce: 'n',
+      hello: vi.fn(),
+      onBlockSelect: (cb: (id: string) => void) => (callbacks.select = cb),
+      onBlockHover: (cb: (id: string) => void) => (callbacks.hover = cb),
+      onBlocksIndex: (cb: (ids: string[]) => void) => (callbacks.index = cb),
+      onBlockMove: (cb: (id: string, d: 1 | -1) => void) => (callbacks.move = cb),
+      onBlockDuplicate: (cb: (id: string) => void) => (callbacks.duplicate = cb),
+      onBlockDeleteRequest: (cb: (id: string) => void) => (callbacks.deleteRequest = cb),
+      onBlockAddAfter: (cb: (id: string) => void) => (callbacks.addAfter = cb),
+      highlight: vi.fn(),
+      scrollTo: vi.fn(),
+      mirrorMove: vi.fn(),
+      mirrorRemove: vi.fn(),
+      mirrorDuplicate: vi.fn(),
+      dispose: vi.fn(),
+    },
+  }
+})
+vi.mock('@/composables/useCanvasBridge', () => ({ useCanvasBridge: () => bridge.instance }))
+
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
   useRoute: () => ({ params: { type: 'page', uuid: 'entry0000001', locale: 'en' }, query: {} }),
@@ -90,13 +125,22 @@ beforeEach(() => {
   setActivePinia(createPinia())
   blockTypes.value = [bt('card')]
   draft.value = {
-    fields: { title: 'T', body: [{ id: 'blockaaa0001', type: 'card', data: { title: 'A' } }] },
+    fields: {
+      title: 'T',
+      body: [
+        { id: 'blockaaa0001', type: 'card', data: { title: 'A' } },
+        { id: 'blockbbb0002', type: 'card', data: { title: 'B' } },
+      ],
+    },
     lock_version: 3,
   }
   mintMock.mockReset()
   saveMock.mockReset()
   notify.warning.mockReset()
   notify.success.mockReset()
+  bridge.instance.mirrorMove.mockClear()
+  bridge.instance.mirrorRemove.mockClear()
+  bridge.instance.mirrorDuplicate.mockClear()
 })
 
 describe('canvas page', () => {
@@ -181,6 +225,116 @@ describe('canvas page', () => {
     await flushPromises()
     // Inspector selection landed (header focused via selectBlockById).
     expect(document.activeElement?.getAttribute('data-test')).toBe('block-toggle-blockaaa0001')
+    wrapper.unmount()
+  })
+
+  it('move intent mutates the tree and posts mirror-move; boundary posts nothing', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    bridge.callbacks.move?.('blockaaa0001', 1)
+    await flushPromises()
+    expect(bridge.instance.mirrorMove).toHaveBeenCalledWith('blockaaa0001', {
+      afterId: 'blockbbb0002',
+    })
+
+    bridge.instance.mirrorMove.mockClear()
+    bridge.callbacks.move?.('blockaaa0001', 1) // now last -> boundary no-op
+    await flushPromises()
+    expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('delete intent needs the parent-side confirm; cancel does nothing', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    bridge.callbacks.deleteRequest?.('blockaaa0001')
+    await flushPromises()
+    expect(wrapper.find('[data-test="canvas-delete-confirm"]').exists()).toBe(true)
+    expect(bridge.instance.mirrorRemove).not.toHaveBeenCalled()
+
+    await wrapper.find('[data-test="canvas-delete-cancel"]').trigger('click')
+    expect(wrapper.find('[data-test="canvas-delete-confirm"]').exists()).toBe(false)
+    expect(bridge.instance.mirrorRemove).not.toHaveBeenCalled()
+
+    bridge.callbacks.deleteRequest?.('blockaaa0001')
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-delete-confirm-yes"]').trigger('click')
+    await flushPromises()
+    expect(bridge.instance.mirrorRemove).toHaveBeenCalledWith('blockaaa0001')
+    wrapper.unmount()
+  })
+
+  it('duplicate intent posts mirror-duplicate with the idMap and selects the copy', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    bridge.callbacks.duplicate?.('blockaaa0001')
+    await flushPromises()
+    expect(bridge.instance.mirrorDuplicate).toHaveBeenCalledWith(
+      'blockaaa0001',
+      expect.objectContaining({ blockaaa0001: expect.any(String) }),
+    )
+    wrapper.unmount()
+  })
+
+  it('add-after opens the per-list picker; choosing inserts, selects, and posts NO mirror', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    bridge.callbacks.addAfter?.('blockaaa0001')
+    await flushPromises()
+    const picker = wrapper.find('[data-test="canvas-add-picker"]')
+    expect(picker.exists()).toBe(true)
+    await picker.find('[data-test="canvas-add-type-card"]').trigger('click')
+    await flushPromises()
+    expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
+    expect(bridge.instance.mirrorDuplicate).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('save failure reloads the SAME iframe URL without re-minting, keeping dirty fields', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+    const before = wrapper.find('[data-test="canvas-iframe"]').element
+
+    // Make the tree dirty via a structural op (the mirror-then-fail scenario).
+    bridge.callbacks.move?.('blockaaa0001', 1)
+    await flushPromises()
+
+    saveMock.mockRejectedValueOnce(new ApiError('conflict', 409, {}, { success: false }))
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    const iframe = wrapper.find('[data-test="canvas-iframe"]')
+    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1') // SAME URL
+    expect(iframe.element).not.toBe(before) // remounted -> reloaded
+    expect(mintMock).toHaveBeenCalledTimes(1) // NO re-mint on failure
+    expect(notify.warning).toHaveBeenCalled() // banner still shows
+    // Pinned product rule: local edits SURVIVE the stage reset. Assert
+    // behaviorally (no Nuxt UI internals): a retry save still submits the
+    // MOVED order — the failed save discarded nothing.
+    saveMock.mockResolvedValue(undefined)
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    expect(saveMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        fields: expect.objectContaining({
+          body: [
+            expect.objectContaining({ id: 'blockbbb0002' }),
+            expect.objectContaining({ id: 'blockaaa0001' }),
+          ],
+        }),
+      }),
+    )
     wrapper.unmount()
   })
 })

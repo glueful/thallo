@@ -75,6 +75,42 @@ export function createBlockListOps(regionsOf: RegionResolver) {
     return null
   }
 
+  /** The list containing `id`: its identity (parentId/region), the block's index, and the array itself. */
+  function locateById(
+    tree: BlockInstance[],
+    id: string,
+    parentId: string | null = null,
+    region: string | null = null,
+  ): { parentId: string | null; region: string | null; index: number; list: BlockInstance[] } | null {
+    const index = tree.findIndex((b) => b.id === id)
+    if (index >= 0) return { parentId, region, index, list: tree }
+    for (const block of tree) {
+      for (const r of regionsOf(block.type)) {
+        const hit = locateById(asList(block.data[r]), id, block.id, r)
+        if (hit) return hit
+      }
+    }
+    return null
+  }
+
+  /**
+   * Old-id → new-id map between a source subtree and its reIdSubtree copy —
+   * the two have identical shape by construction, so a parallel walk suffices.
+   * This is what mirror-duplicate needs to rewrite data-lemma-block in a clone.
+   */
+  function idMapBetween(source: BlockInstance, copy: BlockInstance): Record<string, string> {
+    const map: Record<string, string> = { [source.id]: copy.id }
+    for (const r of regionsOf(source.type)) {
+      const sourceInner = asList(source.data[r])
+      const copyInner = asList(copy.data[r])
+      sourceInner.forEach((child, i) => {
+        const copyChild = copyInner[i]
+        if (copyChild) Object.assign(map, idMapBetween(child, copyChild))
+      })
+    }
+    return map
+  }
+
   function insertAt(tree: BlockInstance[], target: InsertTarget, block: BlockInstance): BlockInstance[] {
     return mapLists(tree, (list, parentId, region) => {
       if (parentId !== target.parentId || region !== target.region) return list
@@ -241,9 +277,11 @@ export function createBlockListOps(regionsOf: RegionResolver) {
 
   return {
     findById,
+    locateById,
     insertAt,
     removeById,
     duplicateById,
+    idMapBetween,
     patchDataById,
     moveById,
     moveAcross,

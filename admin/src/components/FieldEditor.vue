@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ComponentPublicInstance } from 'vue'
 import type { FieldDef } from '@/fields/types'
+import type { BlockType } from '@/queries/blockTypes'
 import { fieldComponent } from '@/fields/registry'
 
 defineProps<{ schema: FieldDef[] }>()
@@ -16,6 +17,11 @@ const model = defineModel<Record<string, unknown>>({ required: true })
 interface BlocksFieldExposed {
   hasBlock: (id: string) => boolean
   selectBlock: (id: string) => void
+  moveBlock: (id: string, delta: number) => { beforeId: string } | { afterId: string } | null
+  duplicateBlock: (id: string) => { newId: string; idMap: Record<string, string> } | null
+  deleteBlock: (id: string) => boolean
+  insertAfter: (id: string, typeSlug: string) => string | null
+  pickerTypesFor: (id: string) => BlockType[]
 }
 
 const blocksFields = new Map<string, BlocksFieldExposed>()
@@ -29,6 +35,14 @@ function trackField(name: string, type: string, el: Element | ComponentPublicIns
   blocksFields.set(name, el as unknown as BlocksFieldExposed)
 }
 
+/** The live blocks field owning `id` — entry-wide id uniqueness makes this unambiguous. */
+function fieldOwning(id: string): BlocksFieldExposed | null {
+  for (const field of blocksFields.values()) {
+    if (field.hasBlock?.(id)) return field
+  }
+  return null
+}
+
 defineExpose({
   /**
    * Find the blocks field containing `id` and drive its selectBlock. Returns
@@ -36,13 +50,26 @@ defineExpose({
    * unambiguous across fields (visual-canvas spec §5). Iterates only LIVE refs.
    */
   selectBlockById(id: string): boolean {
-    for (const field of blocksFields.values()) {
-      if (field.hasBlock?.(id)) {
-        field.selectBlock(id)
-        return true
-      }
-    }
-    return false
+    const field = fieldOwning(id)
+    if (field) field.selectBlock(id)
+    return field !== null
+  },
+  // Canvas structural routing (stage-toolbar spec §4): same shape as selection —
+  // route to the owning field, return that field's result, safe empties otherwise.
+  moveBlockById(id: string, delta: number) {
+    return fieldOwning(id)?.moveBlock(id, delta) ?? null
+  },
+  duplicateBlockById(id: string) {
+    return fieldOwning(id)?.duplicateBlock(id) ?? null
+  },
+  deleteBlockById(id: string) {
+    return fieldOwning(id)?.deleteBlock(id) ?? false
+  },
+  insertAfterById(id: string, typeSlug: string) {
+    return fieldOwning(id)?.insertAfter(id, typeSlug) ?? null
+  },
+  pickerTypesForBlock(id: string): BlockType[] {
+    return fieldOwning(id)?.pickerTypesFor(id) ?? []
   },
 })
 </script>

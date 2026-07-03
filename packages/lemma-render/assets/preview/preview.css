@@ -7,3 +7,36 @@
 .lemma-canvas-hover-target { outline: 2px dashed rgba(37, 99, 235, 0.6); outline-offset: 2px; }
 [data-lemma-block].lemma-canvas-selected > *,
 .lemma-canvas-selected-target { outline: 2px solid rgba(37, 99, 235, 0.9); outline-offset: 2px; }
+
+/* Stage toolbar (stage-toolbar spec §3): positioned by DOM placement + these
+   STATIC rules only — never inline geometry (CSP pin). The anchor class goes
+   on the selected block's first element child; the toolbar sits absolute
+   against it with constant offsets. */
+.lemma-canvas-anchor { position: relative; }
+.lemma-canvas-toolbar {
+  position: absolute;
+  top: -14px;
+  right: 8px;
+  z-index: 2147483000;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 6px;
+  background: #18181b;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.lemma-canvas-toolbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #e4e4e7;
+  cursor: pointer;
+}
+.lemma-canvas-toolbar button:hover { background: #3f3f46; }
+.lemma-canvas-toolbar svg { width: 14px; height: 14px; }

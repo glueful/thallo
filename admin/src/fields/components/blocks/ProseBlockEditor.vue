@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, inject } from 'vue'
+import { computed } from 'vue'
 import type { EditorCustomHandlers, EditorSuggestionMenuItem } from '@nuxt/ui'
 import RichTextLink from '@/components/RichTextLink.vue'
 import { bubbleItems } from '@/components/richTextToolbar'
-import { BlocksContextKey } from './context'
+import type { BlockType } from '@/queries/blockTypes'
 
 // Chromeless prose (spec §3): a rich_text-shaped block renders as flowing text —
 // bubble toolbar on selection, no fixed toolbar, and a `/` suggestion menu with
@@ -11,14 +11,15 @@ import { BlocksContextKey } from './context'
 // and Lemma block types. TipTap stays BOUNDED: its only structural output is the
 // insert-block event ({slug, beforeHtml, afterHtml}); block order/ids/tree are
 // the Vue tree's alone.
-defineProps<{ modelValue?: string; placeholder?: string }>()
+// `pickerTypes` is the CONTAINING LIST's options (stage-toolbar spec §5): the
+// `/` menu's widgets insert as split-siblings into the same list, so the
+// owning BlockCard resolves them via the one pickerTypesForList resolver.
+const props = defineProps<{ modelValue?: string; placeholder?: string; pickerTypes: BlockType[] }>()
 
 const emit = defineEmits<{
   'update:modelValue': [html: string]
   'insert-block': [payload: { slug: string; beforeHtml: string; afterHtml: string }]
 }>()
-
-const ctx = inject(BlocksContextKey)!
 
 // Derive the Tiptap Editor type from @nuxt/ui's handler signature — @tiptap/*
 // core types aren't a direct/hoisted dependency (same derivation as RichText.vue).
@@ -74,7 +75,7 @@ const suggestionItems = computed(
       ],
       [
         { type: 'label', label: 'Blocks' },
-        ...ctx.pickerTypes.value.map((t) => ({
+        ...props.pickerTypes.map((t) => ({
           kind: 'lemmaBlock' as const,
           slug: t.slug,
           label: t.label,

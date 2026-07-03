@@ -220,4 +220,161 @@ describe('BlocksField', () => {
     expect(nested.exists()).toBe(true)
     expect((nested.props('field') as { referenceType?: string }).referenceType).toBe('blog')
   })
+
+  it('nested insert menus use the REGION\'s own allowlist, not the root field\'s', async () => {
+    // A `section` whose content region declares its OWN block_types allowlist
+    // (stage-toolbar spec §5) — local fixture so other tests keep the open region.
+    blockTypes.value = defaultTypes().map((t) =>
+      t.slug === 'section'
+        ? {
+            ...t,
+            schema: [
+              {
+                name: 'content',
+                type: 'blocks',
+                required: false,
+                localized: false,
+                filterable: false,
+                block_types: ['quote'],
+              },
+            ],
+          }
+        : t,
+    )
+    const model = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([
+      { id: 'sec00000001', type: 'section', data: { content: [] } },
+    ])
+    const wrapper = mount(BlocksField, {
+      props: {
+        field, // root field: NO allowlist -> all active types at root
+        modelValue: model.value,
+        'onUpdate:modelValue': (v: typeof model.value) => (model.value = v),
+      },
+    })
+    await flushPromises()
+
+    // Expand the section card, open the NESTED region's add button first (DOM
+    // order: nested precedes outer): its menu offers ONLY the region allowlist.
+    await wrapper.find('[data-test="block-toggle-sec00000001"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+    const addButtons = wrapper.findAll('[data-test="add-block"]')
+    expect(addButtons.length).toBeGreaterThanOrEqual(2)
+    await addButtons[0]!.trigger('click')
+    const nestedPicker = wrapper.find('[data-test="block-picker"]')
+    expect(nestedPicker.exists()).toBe(true)
+    expect(nestedPicker.find('[data-test="picker-item-quote"]').exists()).toBe(true)
+    expect(nestedPicker.find('[data-test="picker-item-hero"]').exists()).toBe(false)
+    expect(nestedPicker.find('[data-test="picker-item-section"]').exists()).toBe(false)
+
+    // The ROOT list's menu still offers all active types.
+    await addButtons[addButtons.length - 1]!.trigger('click')
+    const pickers = wrapper.findAll('[data-test="block-picker"]')
+    const rootPicker = pickers[pickers.length - 1]!
+    expect(rootPicker.find('[data-test="picker-item-hero"]').exists()).toBe(true)
+    expect(rootPicker.find('[data-test="picker-item-quote"]').exists()).toBe(true)
+    expect(rootPicker.find('[data-test="picker-item-section"]').exists()).toBe(true)
+  })
+
+  it('canvas structural methods: move/duplicate/delete/insertAfter/pickerTypesFor', async () => {
+    let model: { id: string; type: string; data: Record<string, unknown> }[] = [
+      { id: 'aaa000000001', type: 'quote', data: { text: 'A' } },
+      { id: 'bbb000000002', type: 'quote', data: { text: 'B' } },
+      { id: 'sec00000001', type: 'section', data: { content: [] } },
+    ]
+    const wrapper = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: model,
+        'onUpdate:modelValue': (v: typeof model) => (model = v),
+      },
+    })
+    await flushPromises()
+    const api = wrapper.vm as unknown as {
+      moveBlock: (id: string, delta: number) => { beforeId: string } | { afterId: string } | null
+      duplicateBlock: (id: string) => { newId: string; idMap: Record<string, string> } | null
+      deleteBlock: (id: string) => boolean
+      insertAfter: (id: string, slug: string) => string | null
+      pickerTypesFor: (id: string) => { slug: string }[]
+    }
+
+    // moveBlock down: neighbor is the sibling now following it.
+    expect(api.moveBlock('aaa000000001', 1)).toEqual({ beforeId: 'sec00000001' })
+    expect(model.map((b) => b.id)).toEqual(['bbb000000002', 'aaa000000001', 'sec00000001'])
+    await wrapper.setProps({ modelValue: model })
+
+    // Boundary no-op: first block up -> null, model untouched.
+    expect(api.moveBlock('bbb000000002', -1)).toBeNull()
+    expect(model.map((b) => b.id)).toEqual(['bbb000000002', 'aaa000000001', 'sec00000001'])
+
+    // Move to LIST END -> afterId (the sibling now preceding it).
+    expect(api.moveBlock('aaa000000001', 1)).toEqual({ afterId: 'sec00000001' })
+    await wrapper.setProps({ modelValue: model })
+
+    // duplicateBlock: fresh id, idMap keyed by the source id.
+    const dup = api.duplicateBlock('bbb000000002')
+    expect(dup).not.toBeNull()
+    expect(dup!.idMap['bbb000000002']).toBe(dup!.newId)
+    expect(model[1]!.id).toBe(dup!.newId)
+    await wrapper.setProps({ modelValue: model })
+
+    // insertAfter: sibling position, returns the new id.
+    const newId = api.insertAfter('bbb000000002', 'quote')
+    expect(newId).not.toBeNull()
+    expect(model[1]!.id).toBe(newId)
+    expect(model[1]!.type).toBe('quote')
+    await wrapper.setProps({ modelValue: model })
+
+    // pickerTypesFor at the root list: all active types (open root allowlist).
+    expect(api.pickerTypesFor('bbb000000002').map((t) => t.slug).sort()).toEqual([
+      'hero',
+      'quote',
+      'section',
+    ])
+
+    // deleteBlock: true then the block is gone; unknown id -> false.
+    expect(api.deleteBlock('bbb000000002')).toBe(true)
+    expect(model.some((b) => b.id === 'bbb000000002')).toBe(false)
+    expect(api.deleteBlock('missing')).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('pickerTypesFor a block INSIDE a region uses the region allowlist', async () => {
+    blockTypes.value = defaultTypes().map((t) =>
+      t.slug === 'section'
+        ? {
+            ...t,
+            schema: [
+              {
+                name: 'content',
+                type: 'blocks',
+                required: false,
+                localized: false,
+                filterable: false,
+                block_types: ['quote'],
+              },
+            ],
+          }
+        : t,
+    )
+    let model: { id: string; type: string; data: Record<string, unknown> }[] = [
+      {
+        id: 'sec00000001',
+        type: 'section',
+        data: { content: [{ id: 'inner0000001', type: 'quote', data: {} }] },
+      },
+    ]
+    const wrapper = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: model,
+        'onUpdate:modelValue': (v: typeof model) => (model = v),
+      },
+    })
+    await flushPromises()
+    const api = wrapper.vm as unknown as { pickerTypesFor: (id: string) => { slug: string }[] }
+    expect(api.pickerTypesFor('inner0000001').map((t) => t.slug)).toEqual(['quote'])
+    expect(api.pickerTypesFor('missing')).toEqual([])
+    wrapper.unmount()
+  })
 })

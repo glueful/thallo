@@ -155,6 +155,15 @@ limit:** block templates that must be literal children of semantic containers
 (`ul > li`, `table > tr`) are not compatible with canvas annotation; Lemma blocks
 are page/layout fragments, so no starter block is affected.
 
+In a canvas session the bridge also renders a small toolbar on the selected
+block (move up/down, duplicate, delete, add block after). The toolbar posts
+intents to the admin canvas; the block tree is mutated there, and the canvas
+answers with mirror commands that update the preview DOM optimistically until
+the next Save & refresh re-renders the truth. All toolbar styling lives in the
+static `/_preview.css` (never inline styles); the toolbar is positioned by DOM
+placement inside the selected block's first element, so blocks whose templates
+render no element (text-only output) get selection but no toolbar.
+
 **Changing block schemas:** additive edits (new fields, retypes) are free via
 `PATCH /block-types/{slug}`; renaming or deleting a field is a declared migration
 (`POST /block-types/{slug}/migrations` with `{ops:[{op:"rename",from,to}|{op:"delete",name}]}`)

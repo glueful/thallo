@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { inject, ref, watch } from 'vue'
+import { computed, inject, ref, watch } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { BlocksContextKey } from './context'
 import type { BlockInstance } from './useBlockListOps'
@@ -20,6 +20,10 @@ const props = defineProps<{
 }>()
 
 const ctx = inject(BlocksContextKey)!
+
+// This list's picker options (stage-toolbar spec §5): resolved by the ONE
+// context resolver from this list's own identity.
+const pickerTypes = computed(() => ctx.pickerTypesForList(props.parentId, props.region))
 
 // Sortable mutates this LOCAL mirror only — the model is written exclusively by
 // the root's onDragEnd through the ops layer (thin-binding rule). Re-derived
@@ -91,7 +95,13 @@ function insertType(type: BlockType): void {
             <span class="h-px flex-1 bg-accented" />
           </button>
         </div>
-        <BlockInsertMenu v-if="menuIndex === index" open @select="insertType" @close="closeMenu" />
+        <BlockInsertMenu
+          v-if="menuIndex === index"
+          open
+          :types="pickerTypes"
+          @select="insertType"
+          @close="closeMenu"
+        />
 
         <BlockCard
           :block="block"
@@ -132,6 +142,7 @@ function insertType(type: BlockType): void {
       <BlockInsertMenu
         v-if="menuIndex === blocks.length"
         open
+        :types="pickerTypes"
         @select="insertType"
         @close="closeMenu"
       />

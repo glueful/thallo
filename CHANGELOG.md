@@ -91,6 +91,13 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   mirrors the form editor). Select-only stage in v1 — structure edits stay in
   the inspector's Notion UX; no HTML/CSS editing surface. New stored-contract
   invariant: block ids are unique across the whole entry (validated).
+- Canvas stage toolbar (v2): selecting a block in the Design view's stage now
+  shows an in-preview toolbar — move up/down, duplicate, delete (confirmed in
+  the admin), and add-after (per-list block picker). Structural edits route
+  through the inspector's block tree and mirror optimistically in the stage
+  until the next Save & refresh; save failures reload the stage to the
+  last-applied render. The inspector's insert menus (and the prose `/` menu)
+  now respect a nested container region's own `block_types` allowlist.
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

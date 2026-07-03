@@ -72,6 +72,82 @@ describe('useCanvasBridge', () => {
     bridge.dispose()
   })
 
+  it('dispatches intents to their callbacks with nonce filtering', () => {
+    const bridge = useCanvasBridge(ref(null))
+    const move = vi.fn()
+    const dup = vi.fn()
+    const del = vi.fn()
+    const add = vi.fn()
+    bridge.onBlockMove(move)
+    bridge.onBlockDuplicate(dup)
+    bridge.onBlockDeleteRequest(del)
+    bridge.onBlockAddAfter(add)
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-move', id: 'b1', delta: -1, nonce: bridge.nonce },
+      }),
+    )
+    expect(move).toHaveBeenCalledWith('b1', -1)
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-move', id: 'b1', delta: 1, nonce: 'wrong' },
+      }),
+    )
+    expect(move).toHaveBeenCalledTimes(1)
+    // Malformed delta dropped.
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-move', id: 'b1', delta: 5, nonce: bridge.nonce },
+      }),
+    )
+    expect(move).toHaveBeenCalledTimes(1)
+
+    for (const [type, cb] of [
+      ['lemma:block-duplicate', dup],
+      ['lemma:block-delete-request', del],
+      ['lemma:block-add-after', add],
+    ] as const) {
+      window.dispatchEvent(
+        new MessageEvent('message', { data: { type, id: 'b2', nonce: bridge.nonce } }),
+      )
+      expect(cb).toHaveBeenCalledWith('b2')
+    }
+    bridge.dispose()
+  })
+
+  it('posts mirror commands to the derived origin with the nonce', () => {
+    // Same iframe-double pattern as the highlight/scrollTo test above.
+    const postSpy = vi.fn()
+    const iframe = ref({
+      src: 'https://site.test/_preview/tok123',
+      contentWindow: { postMessage: postSpy },
+    } as unknown as HTMLIFrameElement)
+    const bridge = useCanvasBridge(iframe as Ref<HTMLIFrameElement | null>)
+
+    bridge.mirrorMove('b1', { beforeId: 'b2' })
+    expect(postSpy).toHaveBeenCalledWith(
+      { type: 'lemma:mirror-move', id: 'b1', beforeId: 'b2', nonce: bridge.nonce },
+      'https://site.test',
+    )
+    bridge.mirrorMove('b1', { afterId: 'b3' })
+    expect(postSpy).toHaveBeenCalledWith(
+      { type: 'lemma:mirror-move', id: 'b1', afterId: 'b3', nonce: bridge.nonce },
+      'https://site.test',
+    )
+    bridge.mirrorRemove('b1')
+    expect(postSpy).toHaveBeenCalledWith(
+      { type: 'lemma:mirror-remove', id: 'b1', nonce: bridge.nonce },
+      'https://site.test',
+    )
+    bridge.mirrorDuplicate('b1', { b1: 'b9' })
+    expect(postSpy).toHaveBeenCalledWith(
+      { type: 'lemma:mirror-duplicate', sourceId: 'b1', idMap: { b1: 'b9' }, nonce: bridge.nonce },
+      'https://site.test',
+    )
+    bridge.dispose()
+  })
+
   it('blocks-index dispatch filters non-strings', () => {
     const bridge = useCanvasBridge(ref(null))
     let ids: string[] = []
@@ -160,6 +236,32 @@ describe('FieldEditor.selectBlockById', () => {
     const vm = wrapper.vm as unknown as { selectBlockById: (id: string) => boolean }
     expect(vm.selectBlockById('inside000001')).toBe(false) // never throws, never stale
     expect(vm.selectBlockById('inbody000001')).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('routes structural methods to the field that owns the block', async () => {
+    const wrapper = mountEditor()
+    await warmBlocksField()
+    await flushPromises()
+    const api = wrapper.vm as unknown as {
+      moveBlockById: (id: string, d: number) => { beforeId: string } | { afterId: string } | null
+      duplicateBlockById: (id: string) => { newId: string; idMap: Record<string, string> } | null
+      deleteBlockById: (id: string) => boolean
+      insertAfterById: (id: string, slug: string) => string | null
+      pickerTypesForBlock: (id: string) => { slug: string }[]
+    }
+    // Unknown id -> safe empties, no throw.
+    expect(api.moveBlockById('missing', 1)).toBeNull()
+    expect(api.duplicateBlockById('missing')).toBeNull()
+    expect(api.deleteBlockById('missing')).toBe(false)
+    expect(api.insertAfterById('missing', 'card')).toBeNull()
+    expect(api.pickerTypesForBlock('missing')).toEqual([])
+    // Owned id routes to the owning field (sidebar's block, not body's).
+    const dup = api.duplicateBlockById('inside000001')
+    expect(dup).not.toBeNull()
+    expect(dup!.idMap['inside000001']).toBe(dup!.newId)
+    // pickerTypesForBlock resolves through the owning field's per-list rules.
+    expect(api.pickerTypesForBlock('inbody000001').map((t) => t.slug)).toEqual(['card'])
     wrapper.unmount()
   })
 })
