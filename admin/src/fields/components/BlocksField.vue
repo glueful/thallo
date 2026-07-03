@@ -119,9 +119,15 @@ const context: BlocksContext = {
 }
 provide(BlocksContextKey, context)
 
-// Direct-handler testing seam (jsdom cannot simulate sortable — the recorded
-// harness rule): tests call onDragEnd with synthetic {item,to,from,newIndex}.
-defineExpose({ onDragEnd })
+/** Canvas routing (visual-canvas spec §5): does this field's tree contain `id`? */
+function hasBlock(id: string): boolean {
+  return ops.findById(model.value ?? [], id) !== null
+}
+
+// Exposed API: onDragEnd is the direct-handler testing seam (jsdom cannot
+// simulate sortable); selectBlock/hasBlock let the visual canvas route a
+// stage selection to this field and expand/scroll/focus the block.
+defineExpose({ onDragEnd, selectBlock, hasBlock })
 
 // ── Tail prose (spec §3) ──────────────────────────────────────────────────────
 // Selection rule: allowed active rich_text -> first allowed active prose type ->

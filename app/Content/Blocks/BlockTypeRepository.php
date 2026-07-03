@@ -160,6 +160,17 @@ final class BlockTypeRepository
         $this->schemas = null;
     }
 
+    /**
+     * Drop the per-instance schemasBySlug() memo. Writes through THIS instance
+     * reset it automatically; this is for consumers that must re-read after
+     * ANOTHER instance (or another process actor) wrote — the test harness resets
+     * the container singleton per test for exactly that reason.
+     */
+    public function resetSchemaMemo(): void
+    {
+        $this->schemas = null;
+    }
+
     public function setActive(string $uuid, bool $active): void
     {
         $this->db->table('lemma_block_types')->where('uuid', '=', $uuid)->update([

@@ -124,6 +124,12 @@ abstract class LemmaTestCase extends TestCase
         foreach (self::TABLES as $t) {
             $this->connection()->table($t)->where('id', '>', 0)->forceDelete();
         }
+
+        // The CONTAINER BlockTypeRepository memoises schemasBySlug() per instance:
+        // a prior test that warmed it through container-resolved services (render
+        // resolver, validator, …) would poison this test's registry when fixtures
+        // create types through FRESH repo instances. Reset the singleton per test.
+        $this->container()->get(\App\Content\Blocks\BlockTypeRepository::class)->resetSchemaMemo();
     }
 
     protected function appContext(): ApplicationContext

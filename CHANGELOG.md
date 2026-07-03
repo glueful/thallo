@@ -80,6 +80,17 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   half; one structured-tree operation). TipTap/UEditor remains bounded to text
   editing — the Vue block tree stays canonical. SPA-only; stored model,
   validation, and render contracts unchanged.
+  Follow-up: **visual canvas (v1)** — a full-screen Design view per entry:
+  theme-rendered preview iframe (real Twig through the preview session; every
+  preview render now annotates blocks() output with layout-inert
+  `.lemma-preview-block` wrappers and injects a token-free, nonce-correlated
+  postMessage bridge), click-a-rendered-block-to-edit selection into a
+  full-form inspector (the same FieldEditor/BlocksField the editor uses),
+  entry-wide outline rail, responsive viewport presets, and an explicit
+  Save & refresh loop (saveDraft + re-minted preview per apply; 409 handling
+  mirrors the form editor). Select-only stage in v1 — structure edits stay in
+  the inspector's Notion UX; no HTML/CSS editing surface. New stored-contract
+  invariant: block ids are unique across the whole entry (validated).
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

@@ -146,6 +146,15 @@ starter styling ships standalone as `assets/blocks.css`: block TEMPLATES fall ba
 to the pack default per-template, but assets don't — a custom theme adopts the
 starter blocks by copying (or rewriting) that one file.
 
+**Canvas annotation (preview only):** every preview-session render wraps each
+`blocks()` instance in a layout-inert `<div class="lemma-preview-block"
+data-lemma-block="{id}">` carrier (`display: contents` from the static
+`/_preview.css`) and injects the token-free `/_preview-bridge.js` — the visual
+canvas maps DOM to block ids through it. Live renders carry neither. **Shape
+limit:** block templates that must be literal children of semantic containers
+(`ul > li`, `table > tr`) are not compatible with canvas annotation; Lemma blocks
+are page/layout fragments, so no starter block is affected.
+
 **Changing block schemas:** additive edits (new fields, retypes) are free via
 `PATCH /block-types/{slug}`; renaming or deleting a field is a declared migration
 (`POST /block-types/{slug}/migrations` with `{ops:[{op:"rename",from,to}|{op:"delete",name}]}`)

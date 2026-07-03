@@ -271,6 +271,15 @@ async function onSave() {
             :summaries="entryLocales ?? []"
             :addable="addableLocales"
           />
+          <UButton
+            variant="outline"
+            color="neutral"
+            icon="i-lucide-layout-template"
+            :to="`/content/${type}/${uuid}/design/${locale}`"
+            data-test="design-link"
+          >
+            Design
+          </UButton>
           <UButton :loading="save.isLoading.value" @click="onSave">Save draft</UButton>
         </template>
       </UDashboardNavbar>

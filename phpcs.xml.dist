@@ -17,6 +17,12 @@
     <rule ref="PSR12"/>
 
     <!--
+      Static browser assets (vanilla JS/CSS served verbatim, e.g. the preview
+      canvas bridge) are not PHP — PSR-12 indentation/brace sniffs don't apply.
+    -->
+    <exclude-pattern>packages/*/assets/*</exclude-pattern>
+
+    <!--
       Lemma migrations are intentionally GLOBAL (unnamespaced): the framework's
       MigrationManager include()s each file and instantiates the bare class name,
       and framework-core + every Glueful extension ships migrations this way.

@@ -51,6 +51,14 @@ final class RenderContextExtension extends AbstractExtension
     /** Render-scoped nesting depth (see resetBlockDepth). */
     private int $blockDepth = 0;
 
+    /**
+     * Preview-only block annotation (visual-canvas spec §2): when on, blocks()
+     * wraps each rendered instance in a layout-inert `.lemma-preview-block`
+     * carrier so the canvas bridge can map DOM to block ids. Reset-family: the
+     * controller ASSIGNS it before every render; never on for live renders.
+     */
+    private bool $annotateBlocks = false;
+
     /** @var array<string,bool> block types already logged this process (log ONCE per type) */
     private array $loggedBlockMisses = [];
 
@@ -205,12 +213,19 @@ final class RenderContextExtension extends AbstractExtension
                     continue;
                 }
                 $data = is_array($item['data'] ?? null) ? $item['data'] : [];
-                $html[] = $env->render($template, [
+                $rendered = $env->render($template, [
                     'block' => ['id' => $item['id'] ?? null, 'type' => $type, 'data' => $data],
                     'data' => $data,
                     'entry' => $entry,
                     'index' => $index,
                 ]);
+                // Preview-only annotation (visual-canvas spec §2): successfully
+                // rendered instances with a string id only — missing-template
+                // comments/placeholders carry nothing selectable.
+                $html[] = $this->annotateBlocks && is_string($item['id'] ?? null)
+                    ? '<div class="lemma-preview-block" data-lemma-block="'
+                        . htmlspecialchars((string) $item['id'], ENT_QUOTES) . '">' . $rendered . '</div>'
+                    : $rendered;
             }
             return implode('', $html);
         } finally {
@@ -225,6 +240,12 @@ final class RenderContextExtension extends AbstractExtension
     public function resetBlockDepth(): void
     {
         $this->blockDepth = 0;
+    }
+
+    /** Reset-family (see $annotateBlocks): the controller assigns per render. */
+    public function setBlockAnnotations(bool $on): void
+    {
+        $this->annotateBlocks = $on;
     }
 
     private function logBlockMiss(string $type, string $reason): void
