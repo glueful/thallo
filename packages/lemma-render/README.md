@@ -98,6 +98,15 @@ page cache, and carry a `preview` flag templates can read (the default theme sho
 banner). Preview content has NO `entry.seo` object. All token failures render the
 themed 404.
 
+Opening a preview also starts a short-lived **preview session** (a signed cookie that
+expires with the token): navigation stays in preview chrome (banner with an Exit
+link, `no-store`, `noindex`, never cached), your draft appears at its own URL, and
+every other page shows published content. `GET /_preview/exit` ends the session.
+Minting accepts an optional `theme` (validated against installed themes, signed into
+the token): the whole session renders through that theme, with assets served from the
+token-scoped `/_preview-assets/{token}/…` route. Sessions work with the page cache
+disabled; junk cookies never bypass the cache.
+
 ## Facet counts in templates
 
 `facets('post', 'category', limit = 100)` returns `[{uuid, slug, count}, …]` (count

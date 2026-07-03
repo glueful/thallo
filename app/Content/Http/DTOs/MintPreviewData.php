@@ -21,6 +21,13 @@ final class MintPreviewData implements RequestData
         /** @var string|null UUID of a historical version to pin instead of the current draft. */
         #[Rule('string')]
         public readonly ?string $version_uuid = null,
+        /**
+         * @var string|null Per-preview theme name, signed into the token; validated via
+         *      the render-owned PreviewThemeValidator contract (422 when unknown or
+         *      when rendered delivery is unavailable).
+         */
+        #[Rule('string')]
+        public readonly ?string $theme = null,
     ) {
     }
 }

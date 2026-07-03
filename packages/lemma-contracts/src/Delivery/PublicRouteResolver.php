@@ -31,8 +31,11 @@ interface PublicRouteResolver
      *   every other payload key null) — the renderer fetches counts via
      *   FacetCountsReader and dispatches on its invariant. `preview` is true only on
      *   resolvePreview successes — preview is a content render, not a kind.
+     *   `$previewSession` is an ALREADY-VERIFIED session (preview-sessions spec §2) —
+     *   when the path resolves to its {entry, locale}, the draft is returned
+     *   (`kind: content`, `preview: true`); the resolver never re-verifies.
      */
-    public function resolvePath(string $path): array;
+    public function resolvePath(string $path, ?PreviewSession $previewSession = null): array;
 
     /** Same result shape, for a known entry (homepage; previews later). */
     public function resolveEntry(string $entryUuid, ?string $locale = null): array;

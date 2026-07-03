@@ -16,6 +16,7 @@ use App\Content\Seo\RouteResolver;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
+use Glueful\Lemma\Contracts\Delivery\PreviewSession;
 use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
 use Glueful\Lemma\Contracts\Delivery\ReferenceTargetResolver;
 use Glueful\Support\FieldSelection\FieldSelector;
@@ -52,7 +53,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
     ) {
     }
 
-    public function resolvePath(string $path): array
+    public function resolvePath(string $path, ?PreviewSession $previewSession = null): array
     {
         $raw = $path === '' ? '/' : $path;
         $normalized = $this->normalize($raw);
@@ -154,6 +155,21 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         }
 
         $row = $result->content();
+
+        // Single-draft overlay (preview-sessions spec §3): the session's OWN entry
+        // shows its draft at its canonical URL; everything else stays published.
+        if (
+            $previewSession !== null
+            && $previewSession->entry === (string) $row['entry_uuid']
+            && $previewSession->locale === (string) $row['locale']
+        ) {
+            try {
+                return $this->previewContent($this->preview->readVerified($previewSession));
+            } catch (PreviewNotFoundException) {
+                // Draft vanished mid-session: fall through to the published render.
+            }
+        }
+
         return [
             'kind' => 'content',
             'locale' => (string) $row['locale'],
@@ -228,6 +244,19 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
             return $this->notFound();
         }
 
+        return $this->previewContent($read);
+    }
+
+    /**
+     * Draft/pinned-version content from a READER RESULT — the shared shaping between
+     * resolvePreview() (token path) and the session overlay (verified-VO path).
+     *
+     * @param array{entry_uuid:string,locale:string,version_uuid:?string,
+     *               version:?int,schema_version:int,fields:array<string,mixed>} $read
+     * @return array<string,mixed>
+     */
+    private function previewContent(array $read): array
+    {
         $entry = $this->entries->findEntry($read['entry_uuid']);
         if ($entry === null || ($entry['status'] ?? null) === 'deleted') {
             return $this->notFound();

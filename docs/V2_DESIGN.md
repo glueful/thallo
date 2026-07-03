@@ -167,7 +167,9 @@ published content using a filesystem theme."**
 - ✅ listing/archive pages — **shipped 2026-07-02** (incl. term-archive pages;
   `docs/superpowers/specs/2026-07-02-rendered-listing-archive-pages-design.md`)
 - ✅ preview-through-theme — **shipped 2026-07-02**
-  (`docs/superpowers/specs/2026-07-02-preview-through-theme-design.md`)
+  (`docs/superpowers/specs/2026-07-02-preview-through-theme-design.md`); preview
+  SESSIONS (full-site nav, listing preview, per-preview themes) shipped 2026-07-02
+  (`docs/superpowers/specs/2026-07-02-preview-sessions-design.md`)
 - ✅ taxonomy term INDEX pages — **shipped 2026-07-02**
   (`docs/superpowers/specs/2026-07-02-term-index-pages-design.md`)
 - DB-edited templates / Twig-sandbox admin overrides

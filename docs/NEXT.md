@@ -145,6 +145,8 @@ Shape" as post‑V1 and have **no** design doc yet:
    server‑decided `theme_url` on mint + an admin "Preview in theme" action, plus
    `facets()` in Twig. Spec:
    `docs/superpowers/specs/2026-07-02-preview-through-theme-design.md`.
+   Preview SESSIONS (full-site nav, listing preview, per-preview themes) shipped
+   2026-07-02 (`docs/superpowers/specs/2026-07-02-preview-sessions-design.md`).
    ✅ **Term index pages** also shipped (2026‑07‑02): `/{type}/terms/{field}` with
    counts and archive links. Spec:
    `docs/superpowers/specs/2026-07-02-term-index-pages-design.md`.

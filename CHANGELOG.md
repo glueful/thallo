@@ -7,6 +7,16 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Preview sessions (preview v2)**: `/_preview/{token}` now starts a signed-cookie
+  session (Secure on HTTPS; dies with the token) — full-site navigation in preview
+  chrome with an Exit link, the tokened draft overlaid at its canonical URL
+  (single-draft scope: everything else stays published), listing/archive/term pages
+  navigable uncached, and in-session 404s rendered fresh. New contracts:
+  `PreviewSession` VO + `PreviewSessionVerifier` (one verification per request via
+  `PreviewSessionMiddleware` — sessions survive `cache_enabled=false`) and
+  `PreviewThemeValidator` (render-owned mint validation). Optional per-preview
+  `theme` is signed into the token; themed sessions render through request-local
+  Twig environments with token-scoped `/_preview-assets/{token}/…` assets.
 - **Taxonomy term index pages**: `/{type}/terms/{field}` renders every term of a
   filterable reference field with counts and archive links (`terms` joins `page` as a
   reserved segment, sealed at the paged 5-segment form too; allowlist-gated; 500-term

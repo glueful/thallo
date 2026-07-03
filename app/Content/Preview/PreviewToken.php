@@ -25,7 +25,19 @@ final class PreviewToken
         public readonly string $locale,
         public readonly ?string $versionUuid,
         public readonly int $expiresAt,
+        public readonly ?string $theme = null,
     ) {
+    }
+
+    /** For ALREADY-VERIFIED claims only (PreviewReader::readVerified) — never wire input. */
+    public static function fromVerifiedClaims(
+        string $entryUuid,
+        string $locale,
+        ?string $versionUuid,
+        int $expiresAt,
+        ?string $theme = null,
+    ): self {
+        return new self($entryUuid, $locale, $versionUuid, $expiresAt, $theme);
     }
 
     public static function mint(
@@ -34,12 +46,16 @@ final class PreviewToken
         ?string $versionUuid,
         int $expiresAt,
         string $key,
+        ?string $theme = null,
     ): string {
         $payload = self::b64(json_encode([
             'e' => $entryUuid,
             'l' => $locale,
             'v' => $versionUuid,
             'exp' => $expiresAt,
+            // Additive claim (preview-sessions spec §5): absent on old tokens, which
+            // keep verifying — the payload shape is forward-compatible.
+            't' => $theme,
         ], JSON_THROW_ON_ERROR));
 
         $sig = self::b64(hash_hmac('sha256', $payload, $key, true));
@@ -76,6 +92,7 @@ final class PreviewToken
             (string) $data['l'],
             isset($data['v']) && is_string($data['v']) ? $data['v'] : null,
             (int) $data['exp'],
+            isset($data['t']) && is_string($data['t']) ? $data['t'] : null,
         );
     }
 

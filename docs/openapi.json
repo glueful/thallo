@@ -29374,11 +29374,19 @@
                                             "null"
                                         ],
                                         "description": "UUID of a historical version to pin instead of the current draft."
+                                    },
+                                    "theme": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Per-preview theme name, signed into the token; validated via"
                                     }
                                 }
                             },
                             "example": {
-                                "version_uuid": "example"
+                                "version_uuid": "example",
+                                "theme": "example"
                             }
                         }
                     }

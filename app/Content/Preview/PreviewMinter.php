@@ -25,15 +25,24 @@ final class PreviewMinter
     {
     }
 
-    /** Mint a signed token for the entry+locale (optionally pinned to a version). */
-    public function mint(string $entryUuid, string $locale, ?string $versionUuid = null): string
-    {
+    /**
+     * Mint a signed token for the entry+locale (optionally pinned to a version, and
+     * optionally carrying a per-preview theme — validated by the CALLER via the
+     * PreviewThemeValidator contract before it reaches here).
+     */
+    public function mint(
+        string $entryUuid,
+        string $locale,
+        ?string $versionUuid = null,
+        ?string $theme = null,
+    ): string {
         return PreviewToken::mint(
             $entryUuid,
             $locale,
             $versionUuid,
             time() + $this->ttlSeconds(),
             $this->previewKey($this->context),
+            $theme,
         );
     }
 
