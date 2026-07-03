@@ -1,0 +1,91 @@
+/* ── Starter block library (lemma:blocks:seed) ─────────────────────────────
+   One rule set per starter, selectors exactly on the lemma-block-* classes
+   the block templates emit. Standalone on purpose: a custom theme adopts the
+   starter blocks by copying THIS ONE FILE (templates already fall back to the
+   pack default per-template; assets do not). Uses only the variables site.css
+   defines (--ink, --muted, --line, --accent). */
+.lemma-block { margin: 1.25rem 0; }
+
+/* section */
+.lemma-block-section { padding: 1.5rem; border-radius: 8px; }
+.lemma-block-section--none { padding: 0; }
+.lemma-block-section--subtle { background: #f6f6f6; }
+.lemma-block-section--emphasis { background: var(--accent); color: #fff; }
+.lemma-block-section--emphasis a { color: #fff; }
+.lemma-block-section__title { margin-top: 0; }
+
+/* columns */
+.lemma-block-columns { display: grid; gap: 1.25rem; }
+.lemma-block-columns--2 { grid-template-columns: repeat(2, 1fr); }
+.lemma-block-columns--3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 40rem) {
+  .lemma-block-columns--2, .lemma-block-columns--3 { grid-template-columns: 1fr; }
+}
+
+/* divider */
+.lemma-block-divider--line { border: 0; border-top: 1px solid var(--line); }
+.lemma-block-divider--space { height: 1.5rem; margin: 0; }
+
+/* spacer */
+.lemma-block-spacer { margin: 0; }
+.lemma-block-spacer--small { height: 1rem; }
+.lemma-block-spacer--medium { height: 2rem; }
+.lemma-block-spacer--large { height: 4rem; }
+
+/* hero */
+.lemma-block-hero { display: block; border-bottom: 0; padding: 2rem 0; }
+.lemma-block-hero--center { text-align: center; }
+.lemma-block-hero__image { max-width: 100%; border-radius: 8px; }
+.lemma-block-hero__heading { margin: 0.5rem 0 0; font-size: 2rem; }
+.lemma-block-hero__subheading { color: var(--muted); margin: 0.5rem 0 0; }
+.lemma-block-hero__cta {
+  display: inline-block;
+  margin-top: 1rem;
+  padding: 0.5rem 1.25rem;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+}
+
+/* quote */
+.lemma-block-quote {
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 1rem;
+  border-left: 3px solid var(--accent);
+  color: var(--muted);
+}
+.lemma-block-quote cite { display: block; margin-top: 0.5rem; font-style: normal; font-size: 0.9em; }
+
+/* cta */
+.lemma-block-cta { padding: 1.5rem; border-radius: 8px; border: 1px solid var(--line); }
+.lemma-block-cta--primary { background: var(--accent); color: #fff; border: 0; }
+.lemma-block-cta--primary a { color: #fff; }
+.lemma-block-cta__heading { margin-top: 0; }
+.lemma-block-cta__button {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.5rem 1.25rem;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--accent);
+  border: 1px solid currentColor;
+  text-decoration: none;
+}
+.lemma-block-cta--secondary .lemma-block-cta__button { background: var(--accent); color: #fff; border: 0; }
+
+/* image */
+.lemma-block-image { margin-left: 0; margin-right: 0; }
+.lemma-block-image img { max-width: 100%; border-radius: 8px; }
+.lemma-block-image--wide img { width: 100%; }
+.lemma-block-image--full { margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); }
+.lemma-block-image--full img { width: 100%; border-radius: 0; }
+.lemma-block-image figcaption { color: var(--muted); font-size: 0.9em; margin-top: 0.5rem; }
+
+/* gallery */
+.lemma-block-gallery { display: grid; gap: 0.75rem; }
+.lemma-block-gallery--2 { grid-template-columns: repeat(2, 1fr); }
+.lemma-block-gallery--3 { grid-template-columns: repeat(3, 1fr); }
+.lemma-block-gallery--4 { grid-template-columns: repeat(4, 1fr); }
+.lemma-block-gallery__item { width: 100%; border-radius: 6px; }

@@ -6,6 +6,8 @@ namespace App\Content\Validation;
 
 use App\Content\Blocks\BlockDepth;
 use App\Content\Blocks\BlockTypeRepository;
+use App\Content\Sanitization\TipTapHtmlSanitizer;
+use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Schema\FieldDefinition;
 use Glueful\Bootstrap\ApplicationContext;
@@ -18,6 +20,7 @@ final class FieldValidator
         private readonly ?Connection $db = null,
         private readonly ?ApplicationContext $context = null,
         private ?BlockTypeRepository $blockTypes = null,
+        private ?RichHtmlSanitizer $sanitizer = null,
     ) {
     }
 
@@ -27,6 +30,11 @@ final class FieldValidator
             $this->blockTypes = new BlockTypeRepository($this->db);
         }
         return $this->blockTypes;
+    }
+
+    private function sanitizer(): RichHtmlSanitizer
+    {
+        return $this->sanitizer ??= new TipTapHtmlSanitizer();
     }
 
     /**
@@ -136,6 +144,13 @@ final class FieldValidator
             if ($strict && $field->type === 'reference' && is_string($value) && !$this->referenceExists($value)) {
                 $errors[$field->name] = 'must reference an existing entry';
                 continue;
+            }
+            // Rich HTML sanitizes at SAVE into the cleaned payload (sanitizer spec
+            // §3): stored data is clean by construction. Blocks recursion routes
+            // nested rich fields through this same line — zero special-casing.
+            // Plain text fields stay untouched (escaping is the renderer's job).
+            if ($field->type === 'text' && $field->format === 'rich' && is_string($value)) {
+                $value = $this->sanitizer()->sanitize($value);
             }
             // Normalize datetime values to canonical ISO-8601 UTC so stored values are
             // lexicographically comparable as TEXT (the only IMMUTABLE index expression

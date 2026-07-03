@@ -1,0 +1,4 @@
+<section class="lemma-block lemma-block-section lemma-block-section--{{ data.background|default('none') }}">
+  {% if data.title %}<h2 class="lemma-block-section__title">{{ data.title }}</h2>{% endif %}
+  {{ blocks(data.content) }}
+</section>

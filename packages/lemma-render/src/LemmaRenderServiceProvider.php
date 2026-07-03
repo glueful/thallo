@@ -14,6 +14,8 @@ use Glueful\Lemma\Render\Templates\TemplateLinter;
 use Glueful\Lemma\Render\Templates\TemplateRepository;
 use Glueful\Lemma\Contracts\Capability\Capability;
 use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
+use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
+use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
 use Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator;
@@ -242,6 +244,14 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             // read from Twig context.
             $container->get(\Psr\Log\LoggerInterface::class),
             (bool) config($context, 'app.debug', false),
+            // safe_html (sanitizer spec §4): soft-bound; null fails CLOSED (escapes).
+            $container->has(RichHtmlSanitizer::class)
+                ? $container->get(RichHtmlSanitizer::class)
+                : null,
+            // media() (starter-library spec §3): soft-bound; null = always-null URLs.
+            $container->has(MediaUrlResolver::class)
+                ? $container->get(MediaUrlResolver::class)
+                : null,
         );
     }
 

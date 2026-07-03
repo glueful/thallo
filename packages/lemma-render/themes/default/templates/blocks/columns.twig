@@ -1,0 +1,6 @@
+{% set layout = data.layout|default('2') %}
+<div class="lemma-block lemma-block-columns lemma-block-columns--{{ layout }}">
+  <div class="lemma-block-columns__col">{{ blocks(data.col_1) }}</div>
+  <div class="lemma-block-columns__col">{{ blocks(data.col_2) }}</div>
+  {% if layout == '3' %}<div class="lemma-block-columns__col">{{ blocks(data.col_3) }}</div>{% endif %}
+</div>
