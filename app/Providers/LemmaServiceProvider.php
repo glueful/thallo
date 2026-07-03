@@ -87,6 +87,7 @@ use App\Content\Pipeline\PublishEventEmitter;
 use App\Content\Preview\EnginePreviewSessionVerifier;
 use App\Content\Preview\PreviewMinter;
 use App\Content\Preview\PreviewReader;
+use App\Content\Preview\PreviewWorkingCopyStore;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\MigrationRepository;
@@ -116,6 +117,7 @@ use App\Content\Services\PublishService;
 use App\Content\Sanitization\TipTapHtmlSanitizer;
 use App\Content\Validation\FieldValidator;
 use Glueful\Bootstrap\ApplicationContext;
+use Glueful\Cache\CacheStore;
 use Glueful\Lemma\Contracts\Authoring\ContentWriter;
 use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Authoring\DraftSummaryReader;
@@ -594,6 +596,10 @@ final class LemmaServiceProvider extends ServiceProvider
                 'shared' => true,
                 'factory' => [self::class, 'makePreviewController'],
             ],
+            PreviewWorkingCopyStore::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makePreviewWorkingCopyStore'],
+            ],
         ];
     }
 
@@ -608,6 +614,11 @@ final class LemmaServiceProvider extends ServiceProvider
                 ? $container->get(PreviewThemeValidator::class)
                 : null,
         );
+    }
+
+    public static function makePreviewWorkingCopyStore(ContainerInterface $container): PreviewWorkingCopyStore
+    {
+        return new PreviewWorkingCopyStore($container->get(CacheStore::class));
     }
 
     public static function makeMediaUrlResolver(ContainerInterface $container): EngineMediaUrlResolver

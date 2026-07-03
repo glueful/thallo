@@ -181,7 +181,7 @@ final class PreviewSessionTest extends LemmaTestCase
         // Prime the cache, then plant a sentinel.
         $this->handle(Request::create('/blog/hello', 'GET'));
         $cache = $this->container()->get(CacheStore::class);
-        $key = 'render:default:/blog/hello';
+        $key = 'render:default:%2Fblog%2Fhello';
         $cached = $cache->get($key);
         self::assertIsArray($cached);
         $cached['body'] = 'SENTINEL-CACHED';
@@ -288,7 +288,7 @@ final class PreviewSessionTest extends LemmaTestCase
         self::assertStringContainsString('preview-banner', $html); // …but in chrome
         self::assertStringContainsString('no-store', (string) $listing->headers->get('Cache-Control'));
         // And nothing entered the page cache.
-        self::assertNull($this->container()->get(CacheStore::class)->get('render:default:/blog'));
+        self::assertNull($this->container()->get(CacheStore::class)->get('render:default:%2Fblog'));
     }
 
     public function testInSessionNotFoundRendersFreshWithChrome(): void

@@ -31,6 +31,11 @@ const type = computed(() => ctx.bySlug.value.get(props.block.type))
 const prose = computed(() => (type.value ? isProseBlockType(type.value) : false))
 const richField = computed(() => (type.value ? proseRichFieldName(type.value) : null))
 
+// This block's containing-list picker rules (stage-toolbar spec §5): the `/`
+// menu inserts split-siblings into the SAME list, so it uses the same resolver
+// as the insert dividers.
+const listPickerTypes = computed(() => ctx.pickerTypesForList(props.parentId, props.region))
+
 function onInsertBlock(payload: { slug: string; beforeHtml: string; afterHtml: string }): void {
   const name = richField.value
   if (!name || payload.slug === '') return
@@ -160,6 +165,7 @@ function onHeaderKeydown(event: KeyboardEvent): void {
     </div>
     <ProseBlockEditor
       :model-value="(block.data[richField] as string) ?? ''"
+      :picker-types="listPickerTypes"
       @update:model-value="(v: string) => patchData(richField!, v)"
       @insert-block="onInsertBlock"
     />

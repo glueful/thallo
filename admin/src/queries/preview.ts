@@ -45,3 +45,20 @@ export function useThemePreview(uuid: string, locale: string) {
     mutation: () => mintPreviewData(uuid, locale),
   })
 }
+
+// Loop C: apply the CURRENT working fields as an ephemeral preview — nothing
+// persisted; the stage's /_preview/{token} URL then renders the working copy.
+export async function applyPreview(
+  uuid: string,
+  locale: string,
+  token: string,
+  fields: Record<string, unknown>,
+): Promise<void> {
+  const { error, response } = await client.POST('/entries/{uuid}/preview/{locale}/apply', {
+    params: { path: { uuid, locale } },
+    // The spec types `fields` as unknown[]; the backend expects a keyed object —
+    // cast through (same convention as drafts.ts saveDraft).
+    body: { token, fields: fields as unknown as unknown[] },
+  })
+  if (error) throw toApiError(error, response)
+}

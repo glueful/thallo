@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { computed, ref, inject, watch } from 'vue'
-import { BlocksContextKey } from './context'
+import { computed, ref, watch } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 
 // The searchable block picker (spec §2): category-grouped, TYPE-TO-FILTER list.
 // One component serves the per-list "Add block" button, the hover "+" dividers,
 // and the `/` keyboard shortcut — anchored wherever its parent renders it.
-const props = defineProps<{ open: boolean }>()
+// `types` is the CONTAINING LIST's options (stage-toolbar spec §5): the parent
+// resolves them via pickerTypesForList, so this menu carries no list identity.
+const props = defineProps<{ open: boolean; types: BlockType[] }>()
 const emit = defineEmits<{ select: [type: BlockType]; close: [] }>()
 
-const ctx = inject(BlocksContextKey)!
 const filter = ref('')
 
 watch(
@@ -21,8 +21,8 @@ watch(
 
 const filtered = computed(() => {
   const q = filter.value.trim().toLowerCase()
-  if (q === '') return ctx.pickerTypes.value
-  return ctx.pickerTypes.value.filter(
+  if (q === '') return props.types
+  return props.types.filter(
     (t) =>
       t.label.toLowerCase().includes(q) ||
       t.slug.toLowerCase().includes(q) ||

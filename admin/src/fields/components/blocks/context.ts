@@ -7,9 +7,13 @@ import type { BlockInstance, BlockListOps } from './useBlockListOps'
 // — ONE model emission per operation at the root, the single writer.
 export interface BlocksContext {
   bySlug: ComputedRef<Map<string, BlockType>>
-  /** Active types filtered by the field's picker-only allowlist. */
-  pickerTypes: ComputedRef<BlockType[]>
-  allowlist: string[]
+  /**
+   * Picker types for ONE list (stage-toolbar spec §5): active types ∩ that
+   * list's own blocks-field allowlist. Root list (null, null) = the entry
+   * field's allowlist; a nested region = the containing block type's
+   * blocks-typed schema field for that region. Empty allowlist = all active.
+   */
+  pickerTypesForList: (parentId: string | null, region: string | null) => BlockType[]
   /** Blocks-typed field names (container regions) of a block-type schema. */
   regionsOf: (slug: string) => string[]
   apply: (fn: (tree: BlockInstance[]) => BlockInstance[]) => void

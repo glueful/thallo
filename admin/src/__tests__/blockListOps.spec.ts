@@ -121,6 +121,37 @@ describe('useBlockListOps', () => {
     expect(isEmptyHtml('<p></p>')).toBe(true)
     expect(isEmptyHtml('<p>x</p>')).toBe(false)
   })
+
+  it('locateById names the containing list (root and nested) with the index', () => {
+    const tree = [leaf('a'), nest('n', [leaf('x'), leaf('y')])]
+    expect(ops.locateById(tree, 'a')).toMatchObject({
+      parentId: null,
+      region: null,
+      index: 0,
+    })
+    const nested = ops.locateById(tree, 'y')
+    expect(nested).toMatchObject({ parentId: 'n', region: 'inner', index: 1 })
+    expect(nested!.list.map((b) => b.id)).toEqual(['x', 'y'])
+    expect(ops.locateById(tree, 'missing')).toBeNull()
+  })
+
+  it('idMapBetween maps every id in the subtree to its fresh copy id', () => {
+    const tree = [nest('n', [leaf('a'), nest('m', [leaf('b')])])]
+    const out = ops.duplicateById(tree, 'n')
+    const source = out[0]!
+    const copy = out[1]!
+    const map = ops.idMapBetween(source, copy)
+    // Whole subtree covered: n, a, m, b — all mapped to fresh ids.
+    expect(Object.keys(map).sort()).toEqual(['a', 'b', 'm', 'n'])
+    expect(map.n).toBe(copy.id)
+    for (const [oldId, newId] of Object.entries(map)) {
+      expect(newId).not.toBe(oldId)
+    }
+    // Structural correspondence: the mapped child ids exist in the copy.
+    const copyInner = copy.data.inner as BlockInstance[]
+    expect(copyInner[0]!.id).toBe(map.a)
+    expect((copyInner[1]!.data.inner as BlockInstance[])[0]!.id).toBe(map.b)
+  })
 })
 
 describe('proseDetection', () => {

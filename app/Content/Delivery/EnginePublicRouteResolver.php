@@ -7,6 +7,7 @@ namespace App\Content\Delivery;
 use App\Content\Preview\PreviewNotFoundException;
 use App\Content\Preview\PreviewReader;
 use App\Content\Preview\PreviewTokenException;
+use App\Content\Preview\PreviewWorkingCopyStore;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\PublishedReferenceRepository;
@@ -50,6 +51,8 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         private readonly PreviewReader $preview,
         private readonly EntryRepository $entries,
         private readonly LoggerInterface $logger,
+        /** Loop C working-copy stash; null = no ephemeral overlay (minimal wiring). */
+        private readonly ?PreviewWorkingCopyStore $workingCopies = null,
     ) {
     }
 
@@ -246,6 +249,15 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
                 'error' => $e->getMessage(),
             ]);
             return $this->notFound();
+        }
+
+        // Loop C overlay (spec §3): DRAFT-MODE tokens only — a version-pinned
+        // token renders its immutable version, never the working copy (hard pin).
+        if ($read['version_uuid'] === null && $this->workingCopies !== null) {
+            $working = $this->workingCopies->get($read['entry_uuid'], $read['locale']);
+            if ($working !== null) {
+                $read['fields'] = $working;
+            }
         }
 
         return $this->previewContent($read);

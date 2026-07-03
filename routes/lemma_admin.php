@@ -158,6 +158,11 @@ $router->group(['prefix' => '/v1/admin', 'middleware' => ['auth']], function (Ro
     $router->post('/entries/{uuid}/preview/{locale}', [PreviewController::class, 'mint'])
         ->middleware('lemma_permission:content.view');
 
+    // Loop C: apply the CURRENT working fields as an ephemeral preview. Reveals
+    // UNSAVED edits through the preview token, so it takes the editor's permission.
+    $router->post('/entries/{uuid}/preview/{locale}/apply', [EntryController::class, 'applyPreview'])
+        ->middleware('lemma_permission:content.edit');
+
     // Scheduled publication: POST body is {action:"publish"|"unpublish", run_at:<absolute ISO-8601 with timezone>};
     // response wraps {schedule:{...row,replaced:bool}}. GET returns {schedules:[...history]}.
     $router->post('/entries/{uuid}/schedules/{locale}', [ScheduleController::class, 'store'])

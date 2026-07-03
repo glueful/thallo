@@ -4,6 +4,7 @@ import type { FieldDef } from '../types'
 import { toFieldDef } from '../normalize'
 import { useBlockTypes } from '@/queries/blockTypes'
 import { MAX_BLOCK_DEPTH } from '@/queries/blockTypes'
+import type { BlockType } from '@/queries/blockTypes'
 import { BlocksContextKey, type BlocksContext } from './blocks/context'
 import { createBlockListOps, newBlockId, type BlockInstance } from './blocks/useBlockListOps'
 import { defaultProseType, proseRichFieldName } from './blocks/proseDetection'
@@ -23,13 +24,6 @@ const bySlug = computed(() => new Map((allTypes.value ?? []).map((t) => [t.slug,
 
 const allowlist = computed(() => props.field.blockTypes ?? [])
 
-// Picker: ACTIVE types, filtered by the field's picker-only allowlist (spec §1).
-const pickerTypes = computed(() =>
-  (allTypes.value ?? []).filter(
-    (t) => t.active && (allowlist.value.length === 0 || allowlist.value.includes(t.slug)),
-  ),
-)
-
 // Container regions of a block type = its blocks-typed field names.
 function regionsOf(slug: string): string[] {
   const type = bySlug.value.get(slug)
@@ -39,6 +33,26 @@ function regionsOf(slug: string): string[] {
 
 const ops = createBlockListOps(regionsOf)
 const expanded = reactive<Record<string, boolean>>({})
+
+/**
+ * Per-list picker rules (stage-toolbar spec §5): ONE resolver for the
+ * inspector's insert menus, the prose `/` menu, AND the canvas add-after
+ * picker, so they can never drift. Root list -> the entry field's allowlist;
+ * nested region -> the containing block type's blocks-field allowlist for
+ * that region.
+ */
+function pickerTypesForList(parentId: string | null, region: string | null): BlockType[] {
+  let allowed = allowlist.value
+  if (parentId !== null && region !== null) {
+    const parent = ops.findById(model.value ?? [], parentId)
+    const parentType = parent ? bySlug.value.get(parent.type) : undefined
+    const regionField = parentType?.schema.find((f) => f.name === region)
+    allowed = (regionField ? toFieldDef(regionField).blockTypes : undefined) ?? []
+  }
+  return (allTypes.value ?? []).filter(
+    (t) => t.active && (allowed.length === 0 || allowed.includes(t.slug)),
+  )
+}
 
 function apply(fn: (tree: BlockInstance[]) => BlockInstance[]): void {
   model.value = fn(model.value ?? [])
@@ -105,8 +119,7 @@ function onDragEnd(event: {
 
 const context: BlocksContext = {
   bySlug,
-  pickerTypes,
-  allowlist: allowlist.value,
+  pickerTypesForList,
   regionsOf,
   apply,
   ops,
@@ -124,10 +137,82 @@ function hasBlock(id: string): boolean {
   return ops.findById(model.value ?? [], id) !== null
 }
 
+// ── Canvas structural ops (stage-toolbar spec §4) ─────────────────────────────
+// Same-list, id-addressed, all through the ops layer. Each returns exactly the
+// payload the canvas needs to post the matching mirror — or null/false when the
+// intent is a no-op, so NO mirror is ever posted for an uncommitted change.
+
+/** Reorder within the block's own list. Returns the moved block's new neighbor. */
+function moveBlock(id: string, delta: number): { beforeId: string } | { afterId: string } | null {
+  const tree = model.value ?? []
+  const loc = ops.locateById(tree, id)
+  if (!loc) return null
+  const to = loc.index + delta
+  if (to < 0 || to >= loc.list.length) return null // boundary no-op — no mirror
+  // Compute the next tree ONCE and locate within it — model.value does not
+  // reflect the emission synchronously under a parent-controlled v-model.
+  const nextTree = ops.moveById(tree, id, delta)
+  apply(() => nextTree)
+  const after = ops.locateById(nextTree, id)!
+  const following = after.list[after.index + 1]
+  // A committed move always has >= 1 neighbor (list length >= 2), so when
+  // nothing follows, the preceding sibling exists.
+  return following ? { beforeId: following.id } : { afterId: after.list[after.index - 1]!.id }
+}
+
+/** Duplicate in place. Returns the copy's id + the whole-subtree old->new id map. */
+function duplicateBlock(id: string): { newId: string; idMap: Record<string, string> } | null {
+  const tree = model.value ?? []
+  const source = ops.findById(tree, id)
+  if (!source) return null
+  const nextTree = ops.duplicateById(tree, id)
+  apply(() => nextTree)
+  const loc = ops.locateById(nextTree, id)!
+  const copy = loc.list[loc.index + 1]!
+  expanded[copy.id] = true
+  return { newId: copy.id, idMap: ops.idMapBetween(source, copy) }
+}
+
+function deleteBlock(id: string): boolean {
+  if (!ops.findById(model.value ?? [], id)) return false
+  apply((t) => ops.removeById(t, id))
+  return true
+}
+
+/** Insert a fresh empty block of `typeSlug` as the next sibling of `id`. */
+function insertAfter(id: string, typeSlug: string): string | null {
+  const loc = ops.locateById(model.value ?? [], id)
+  if (!loc) return null
+  const block: BlockInstance = { id: newBlockId(), type: typeSlug, data: {} }
+  apply((t) =>
+    ops.insertAt(t, { parentId: loc.parentId, region: loc.region, index: loc.index + 1 }, block),
+  )
+  expanded[block.id] = true
+  selectBlock(block.id)
+  return block.id
+}
+
+/** Picker options for inserting NEXT TO `id` — the containing list's rules (§5). */
+function pickerTypesFor(id: string): BlockType[] {
+  const loc = ops.locateById(model.value ?? [], id)
+  if (!loc) return []
+  return pickerTypesForList(loc.parentId, loc.region)
+}
+
 // Exposed API: onDragEnd is the direct-handler testing seam (jsdom cannot
 // simulate sortable); selectBlock/hasBlock let the visual canvas route a
-// stage selection to this field and expand/scroll/focus the block.
-defineExpose({ onDragEnd, selectBlock, hasBlock })
+// stage selection to this field; the structural methods are the canvas
+// toolbar's single mutation path (stage-toolbar spec §4).
+defineExpose({
+  onDragEnd,
+  selectBlock,
+  hasBlock,
+  moveBlock,
+  duplicateBlock,
+  deleteBlock,
+  insertAfter,
+  pickerTypesFor,
+})
 
 // ── Tail prose (spec §3) ──────────────────────────────────────────────────────
 // Selection rule: allowed active rich_text -> first allowed active prose type ->

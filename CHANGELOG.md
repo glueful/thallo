@@ -91,6 +91,22 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   mirrors the form editor). Select-only stage in v1 — structure edits stay in
   the inspector's Notion UX; no HTML/CSS editing surface. New stored-contract
   invariant: block ids are unique across the whole entry (validated).
+- Canvas stage toolbar (v2): selecting a block in the Design view's stage now
+  shows an in-preview toolbar — move up/down, duplicate, delete (confirmed in
+  the admin), and add-after (per-list block picker). Structural edits route
+  through the inspector's block tree and mirror optimistically in the stage
+  until the next Save & refresh; save failures reload the stage to the
+  last-applied render. The inspector's insert menus (and the prose `/` menu)
+  now respect a nested container region's own `block_types` allowlist.
+- Ephemeral preview render (loop C): the Design view's primary action is now
+  Apply — the working block tree is validated with the exact draft-save guard
+  set (block-migration gate included) and stashed in cache, and the stage
+  reloads its same preview URL to render unsaved work instantly. Save draft
+  persists as before and clears the stash; version-pinned preview tokens can
+  neither write nor read a working copy (409 `PREVIEW_VERSION_PINNED`).
+- Fixed: the render page cache built per-path keys containing raw `/`, which
+  the framework's Redis cache driver rejects — every live render 500'd on
+  Redis. Keys now rawurlencode the path segment.
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /
