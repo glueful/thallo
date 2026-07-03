@@ -169,6 +169,13 @@ editor's *unsaved* working tree: the app validates and stashes it (cache-only,
 TTL-bounded) and the same `/_preview/{token}` URL overlays it over the draft —
 version-pinned previews are never overlaid.
 
+Prose blocks (the exactly-one-rich-text convention) are also editable
+in-place: annotated renders wrap the sanitized rich-field output in a
+`.lemma-edit-region` marker (emitted by `safe_html` itself, only for prose
+blocks), and double-clicking one in the canvas turns it into a plain
+contenteditable whose text flows back to the admin's block tree. Typed HTML
+is sanitized at save and re-sanitized by `safe_html` at render.
+
 **Changing block schemas:** additive edits (new fields, retypes) are free via
 `PATCH /block-types/{slug}`; renaming or deleting a field is a declared migration
 (`POST /block-types/{slug}/migrations` with `{ops:[{op:"rename",from,to}|{op:"delete",name}]}`)

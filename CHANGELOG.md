@@ -107,6 +107,12 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 - Fixed: the render page cache built per-path keys containing raw `/`, which
   the framework's Redis cache driver rejects — every live render 500'd on
   Redis. Keys now rawurlencode the path segment.
+- Edit-in-place text (canvas v3): double-click a prose block in the Design
+  view's stage to type directly into the rendered page — bare contenteditable
+  with native shortcuts, debounced back into the block tree, server-touched
+  only at Apply/Save (existing sanitizer chain). Renderer marks prose
+  rich-field output via a new soft-bound `BlockEditableFieldResolver`
+  contract; non-prose blocks are never marked.
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

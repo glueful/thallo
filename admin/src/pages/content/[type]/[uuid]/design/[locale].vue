@@ -2,7 +2,9 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
+import { useBlockTypes } from '@/queries/blockTypes'
 import type { BlockType } from '@/queries/blockTypes'
+import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
 import { applyPreview, mintPreviewData } from '@/queries/preview'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
@@ -98,6 +100,13 @@ function onIframeLoad(): void {
   bridge.hello()
 }
 
+// Outline panel visibility — same affordance shape as the inspector's
+// per-field outline rail toggle. Collapsed by default: the stage is the star.
+const outlineOpen = ref(false)
+function toggleOutline(): void {
+  outlineOpen.value = !outlineOpen.value
+}
+
 // Viewport presets (spec §6): stage width only.
 const viewport = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
 function setViewport(v: 'desktop' | 'tablet' | 'mobile'): void {
@@ -115,6 +124,8 @@ interface FieldEditorExposed {
   deleteBlockById: (id: string) => boolean
   insertAfterById: (id: string, typeSlug: string) => string | null
   pickerTypesForBlock: (id: string) => BlockType[]
+  patchBlockDataById: (id: string, field: string, value: unknown) => boolean
+  blockTypeOfBlock: (id: string) => string | null
 }
 const fieldEditorRef = ref<FieldEditorExposed | null>(null)
 const selected = ref<string | null>(null)
@@ -186,6 +197,30 @@ function chooseAddType(slug: string): void {
   if (newId !== null) selected.value = newId
 }
 
+// ── Edit-in-place (edit-in-place spec §4): grant prose blocks only; typed
+// text patches the tree — no mirrors, the contenteditable IS the stage DOM.
+const { data: allBlockTypes } = useBlockTypes()
+
+/** The prose rich field of block `id`, or null — the ONE validation both paths use. */
+function proseFieldOf(id: string): string | null {
+  const slug = fieldEditorRef.value?.blockTypeOfBlock(id)
+  const blockType = slug ? allBlockTypes.value?.find((t) => t.slug === slug) : undefined
+  return blockType ? proseRichFieldName(blockType) : null
+}
+
+bridge.onEditRequest((id) => {
+  const richField = proseFieldOf(id)
+  if (richField !== null) bridge.editGrant(id, richField)
+})
+
+bridge.onTextChanged((id, field, html) => {
+  // Re-validate (review P1): iframe scripts can see the nonce after hello, so
+  // edit messages are REQUESTS, not authority. Patch only when the claimed
+  // field IS the block's prose rich field — anything else is ignored.
+  if (proseFieldOf(id) !== field) return
+  fieldEditorRef.value?.patchBlockDataById(id, field, html)
+})
+
 // ── Apply loop (loop C spec §4): ephemeral render, nothing persisted ──────────
 const save = useSaveDraft(uuid.value, () => locale.value, type.value)
 const applying = ref(false)
@@ -193,6 +228,7 @@ const applying = ref(false)
 async function applyWorking(): Promise<void> {
   applying.value = true
   try {
+    await bridge.editFlush() // commit any in-stage typing before reading fields
     try {
       await applyPreview(uuid.value, locale.value, previewToken.value, fields.value)
     } catch (e: unknown) {
@@ -300,7 +336,7 @@ function reloadStage(): void {
           <UBadge size="xs" color="neutral" variant="subtle" class="ml-2">Design · {{ locale }}</UBadge>
         </template>
         <template #right>
-          <UButtonGroup size="xs">
+          <UFieldGroup size="xs">
             <UButton
               variant="outline"
               color="neutral"
@@ -328,7 +364,16 @@ function reloadStage(): void {
               :class="{ 'bg-elevated': viewport === 'mobile' }"
               @click="setViewport('mobile')"
             />
-          </UButtonGroup>
+          </UFieldGroup>
+          <UButton
+            variant="ghost"
+            color="neutral"
+            icon="i-lucide-list-tree"
+            aria-label="Toggle outline"
+            data-test="canvas-outline-toggle"
+            :class="{ 'bg-elevated': outlineOpen }"
+            @click="toggleOutline()"
+          />
           <UButton
             v-if="mintFailed || (!renderDisabled && iframeSrc)"
             variant="ghost"
@@ -449,7 +494,7 @@ function reloadStage(): void {
             </div>
           </div>
         </div>
-         <aside class="w-56 shrink-0 overflow-y-auto">
+         <aside v-if="outlineOpen" class="w-56 shrink-0 overflow-y-auto">
           <CanvasOutline
             :fields="fields"
             :schema="schema"

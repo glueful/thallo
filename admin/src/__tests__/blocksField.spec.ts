@@ -339,6 +339,30 @@ describe('BlocksField', () => {
     wrapper.unmount()
   })
 
+  it('patchBlockData patches one field through the tree; blockTypeById resolves types', async () => {
+    let model: { id: string; type: string; data: Record<string, unknown> }[] = [
+      { id: 'aaa000000001', type: 'quote', data: { text: 'A' } },
+    ]
+    const wrapper = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: model,
+        'onUpdate:modelValue': (v: typeof model) => (model = v),
+      },
+    })
+    await flushPromises()
+    const api = wrapper.vm as unknown as {
+      patchBlockData: (id: string, f: string, v: unknown) => boolean
+      blockTypeById: (id: string) => string | null
+    }
+    expect(api.blockTypeById('aaa000000001')).toBe('quote')
+    expect(api.blockTypeById('missing')).toBeNull()
+    expect(api.patchBlockData('aaa000000001', 'text', '<p>typed</p>')).toBe(true)
+    expect(model[0]!.data.text).toBe('<p>typed</p>')
+    expect(api.patchBlockData('missing', 'text', 'x')).toBe(false)
+    wrapper.unmount()
+  })
+
   it('pickerTypesFor a block INSIDE a region uses the region allowlist', async () => {
     blockTypes.value = defaultTypes().map((t) =>
       t.slug === 'section'

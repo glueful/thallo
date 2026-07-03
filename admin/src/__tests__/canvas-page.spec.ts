@@ -39,6 +39,17 @@ vi.mock('@/queries/contentTypes', async (importOriginal) => ({
 const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
 vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
 
+// Mounting a real UEditor in jsdom is out of harness scope (recorded rule):
+// the prose fixture block would otherwise render TipTap inside the inspector.
+vi.mock('@/fields/components/blocks/ProseBlockEditor.vue', () => ({
+  default: {
+    name: 'ProseBlockEditor',
+    props: ['modelValue', 'placeholder', 'pickerTypes'],
+    emits: ['update:modelValue', 'insert-block'],
+    template: '<div data-test="prose-editor-stub" />',
+  },
+}))
+
 // The REAL composable is covered by canvas-bridge.spec — the page suite asserts
 // wiring only: intents in via captured callbacks, mirrors out via spies.
 const bridge = vi.hoisted(() => {
@@ -50,6 +61,8 @@ const bridge = vi.hoisted(() => {
     duplicate?: (id: string) => void
     deleteRequest?: (id: string) => void
     addAfter?: (id: string) => void
+    editRequest?: (id: string) => void
+    textChanged?: (id: string, field: string, html: string) => void
   } = {}
   return {
     callbacks,
@@ -63,6 +76,11 @@ const bridge = vi.hoisted(() => {
       onBlockDuplicate: (cb: (id: string) => void) => (callbacks.duplicate = cb),
       onBlockDeleteRequest: (cb: (id: string) => void) => (callbacks.deleteRequest = cb),
       onBlockAddAfter: (cb: (id: string) => void) => (callbacks.addAfter = cb),
+      onEditRequest: (cb: (id: string) => void) => (callbacks.editRequest = cb),
+      onTextChanged: (cb: (id: string, field: string, html: string) => void) =>
+        (callbacks.textChanged = cb),
+      editGrant: vi.fn(),
+      editFlush: vi.fn().mockResolvedValue(undefined),
       highlight: vi.fn(),
       scrollTo: vi.fn(),
       mirrorMove: vi.fn(),
@@ -123,13 +141,29 @@ beforeAll(async () => {
 
 beforeEach(() => {
   setActivePinia(createPinia())
-  blockTypes.value = [bt('card')]
+  blockTypes.value = [
+    bt('card'),
+    {
+      ...bt('rich_text'),
+      schema: [
+        {
+          name: 'body',
+          type: 'text',
+          format: 'rich',
+          required: false,
+          localized: false,
+          filterable: false,
+        },
+      ],
+    } as BlockType,
+  ]
   draft.value = {
     fields: {
       title: 'T',
       body: [
         { id: 'blockaaa0001', type: 'card', data: { title: 'A' } },
         { id: 'blockbbb0002', type: 'card', data: { title: 'B' } },
+        { id: 'prose0000003', type: 'rich_text', data: { body: '<p>old</p>' } },
       ],
     },
     lock_version: 3,
@@ -142,6 +176,9 @@ beforeEach(() => {
   bridge.instance.mirrorMove.mockClear()
   bridge.instance.mirrorRemove.mockClear()
   bridge.instance.mirrorDuplicate.mockClear()
+  bridge.instance.editGrant.mockClear()
+  bridge.instance.editFlush.mockClear()
+  bridge.instance.editFlush.mockResolvedValue(undefined)
 })
 
 describe('canvas page', () => {
@@ -278,6 +315,7 @@ describe('canvas page', () => {
           body: [
             expect.objectContaining({ id: 'blockbbb0002' }),
             expect.objectContaining({ id: 'blockaaa0001' }),
+            expect.objectContaining({ id: 'prose0000003' }),
           ],
         }),
       }),
@@ -319,6 +357,7 @@ describe('canvas page', () => {
     await flushPromises()
     await flushPromises()
 
+    await wrapper.find('[data-test="canvas-outline-toggle"]').trigger('click') // collapsed by default
     await wrapper.find('[data-test="canvas-outline-item-blockaaa0001"]').trigger('click')
     await flushPromises()
     // Inspector selection landed (header focused via selectBlockById).
@@ -334,7 +373,14 @@ describe('canvas page', () => {
     bridge.callbacks.move?.('blockaaa0001', 1)
     await flushPromises()
     expect(bridge.instance.mirrorMove).toHaveBeenCalledWith('blockaaa0001', {
-      afterId: 'blockbbb0002',
+      beforeId: 'prose0000003',
+    })
+
+    bridge.instance.mirrorMove.mockClear()
+    bridge.callbacks.move?.('blockaaa0001', 1) // to list end
+    await flushPromises()
+    expect(bridge.instance.mirrorMove).toHaveBeenCalledWith('blockaaa0001', {
+      afterId: 'prose0000003',
     })
 
     bridge.instance.mirrorMove.mockClear()
@@ -397,6 +443,107 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
+  it('the outline panel starts COLLAPSED and toggles via the navbar button', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+    expect(wrapper.find('[data-test="canvas-outline"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="canvas-outline-toggle"]').trigger('click')
+    expect(wrapper.find('[data-test="canvas-outline"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="canvas-outline-toggle"]').trigger('click')
+    expect(wrapper.find('[data-test="canvas-outline"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('edit-request grants ONLY for prose blocks, with the rich field name', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    bridge.callbacks.editRequest?.('prose0000003')
+    await flushPromises()
+    expect(bridge.instance.editGrant).toHaveBeenCalledWith('prose0000003', 'body')
+
+    bridge.instance.editGrant.mockClear()
+    bridge.callbacks.editRequest?.('blockaaa0001') // card: NOT prose
+    bridge.callbacks.editRequest?.('missing')
+    await flushPromises()
+    expect(bridge.instance.editGrant).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('text-changed for a wrong field or a non-prose block is IGNORED (review P1)', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+
+    // Wrong field on a prose block; any field on a non-prose block: no patch.
+    bridge.callbacks.textChanged?.('prose0000003', 'title', '<p>evil</p>')
+    bridge.callbacks.textChanged?.('blockaaa0001', 'title', '<p>evil</p>')
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+      fields: { body: { id: string; data: Record<string, unknown> }[] }
+    }
+    expect(saved.fields.body.find((b) => b.id === 'prose0000003')!.data.body).toBe('<p>old</p>')
+    expect(saved.fields.body.find((b) => b.id === 'blockaaa0001')!.data.title).toBe('A')
+    wrapper.unmount()
+  })
+
+  it('text-changed patches the tree (visible in the next save payload)', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+
+    bridge.callbacks.textChanged?.('prose0000003', 'body', '<p>typed in stage</p>')
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    expect(saveMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        fields: expect.objectContaining({
+          body: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'prose0000003',
+              data: expect.objectContaining({ body: '<p>typed in stage</p>' }),
+            }),
+          ]),
+        }),
+      }),
+    )
+    wrapper.unmount()
+  })
+
+  it('Apply awaits the flush and the FINAL flushed text reaches the apply payload', async () => {
+    // Review P2: order alone is not the risk — the last sub-debounce keystroke
+    // is. The mocked flush delivers a final text-changed BEFORE resolving, the
+    // way the real bridge commits during lemma:edit-flush; Apply must read the
+    // tree AFTER that commit landed.
+    mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+    applyMock.mockResolvedValue(undefined)
+    bridge.instance.editFlush.mockImplementationOnce(async () => {
+      bridge.callbacks.textChanged?.('prose0000003', 'body', '<p>final keystroke</p>')
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    expect(bridge.instance.editFlush).toHaveBeenCalled()
+    const applied = applyMock.mock.calls[applyMock.mock.calls.length - 1]![3] as {
+      body: { id: string; data: Record<string, unknown> }[]
+    }
+    expect(applied.body.find((b) => b.id === 'prose0000003')!.data.body).toBe(
+      '<p>final keystroke</p>',
+    )
+    wrapper.unmount()
+  })
+
   it('save failure reloads the SAME iframe URL without re-minting, keeping dirty fields', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     const wrapper = mountPage()
@@ -429,6 +576,7 @@ describe('canvas page', () => {
           body: [
             expect.objectContaining({ id: 'blockbbb0002' }),
             expect.objectContaining({ id: 'blockaaa0001' }),
+            expect.objectContaining({ id: 'prose0000003' }),
           ],
         }),
       }),

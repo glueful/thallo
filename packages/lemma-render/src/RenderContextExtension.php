@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Glueful\Lemma\Render;
 
+use Glueful\Lemma\Contracts\Content\BlockEditableFieldResolver;
 use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
@@ -59,6 +60,17 @@ final class RenderContextExtension extends AbstractExtension
      */
     private bool $annotateBlocks = false;
 
+    /**
+     * Per-block frame stack (edit-in-place spec §2): pushed around each block
+     * template render so safe_html knows WHICH block instance it is emitting
+     * for — and whether that block is prose (editable_field non-null). A stack,
+     * not a scalar: nested blocks() calls run inside parent templates.
+     * Reset-family (resetBlockFrames): cleared before every render.
+     *
+     * @var list<array{id: mixed, editable_field: ?string}>
+     */
+    private array $blockFrames = [];
+
     /** @var array<string,bool> block types already logged this process (log ONCE per type) */
     private array $loggedBlockMisses = [];
 
@@ -74,6 +86,8 @@ final class RenderContextExtension extends AbstractExtension
         private readonly ?RichHtmlSanitizer $htmlSanitizer = null,
         /** Soft-bound (starter-library spec §3): null → media() always returns null. */
         private readonly ?MediaUrlResolver $mediaUrls = null,
+        /** Soft-bound (edit-in-place spec §2): null → safe_html never marks. */
+        private readonly ?BlockEditableFieldResolver $editableFields = null,
     ) {
         $this->locale = $defaultLocale;
     }
@@ -154,12 +168,34 @@ final class RenderContextExtension extends AbstractExtension
         }
         if ($this->htmlSanitizer !== null) {
             try {
-                return $this->htmlSanitizer->sanitize($value);
+                return $this->markEditable($this->htmlSanitizer->sanitize($value));
             } catch (\Throwable) {
                 // fall through to the escaped fallback
             }
         }
-        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        return $this->markEditable(htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+    }
+
+    /**
+     * Edit-in-place marking (spec §2): wraps safe_html OUTPUT with the editable
+     * region ONLY when annotations are on AND the current block frame is prose
+     * (editable_field non-null) AND the instance has a string id. Non-prose
+     * blocks using safe_html produce no markers at all (review pin).
+     */
+    private function markEditable(string $safe): string
+    {
+        if (!$this->annotateBlocks || $this->blockFrames === []) {
+            return $safe;
+        }
+        $frame = $this->blockFrames[count($this->blockFrames) - 1];
+        if (!is_string($frame['id']) || $frame['editable_field'] === null) {
+            return $safe;
+        }
+        return '<div class="lemma-edit-region" data-lemma-edit-block="'
+            . htmlspecialchars($frame['id'], ENT_QUOTES)
+            . '" data-lemma-edit-field="'
+            . htmlspecialchars($frame['editable_field'], ENT_QUOTES)
+            . '">' . $safe . '</div>';
     }
 
     /**
@@ -213,12 +249,24 @@ final class RenderContextExtension extends AbstractExtension
                     continue;
                 }
                 $data = is_array($item['data'] ?? null) ? $item['data'] : [];
-                $rendered = $env->render($template, [
-                    'block' => ['id' => $item['id'] ?? null, 'type' => $type, 'data' => $data],
-                    'data' => $data,
-                    'entry' => $entry,
-                    'index' => $index,
-                ]);
+                $this->blockFrames[] = [
+                    'id' => $item['id'] ?? null,
+                    // Resolved ONLY when annotating: live renders never consult
+                    // the resolver, and non-prose blocks get a null field.
+                    'editable_field' => $this->annotateBlocks
+                        ? $this->editableFields?->editableRichField($type)
+                        : null,
+                ];
+                try {
+                    $rendered = $env->render($template, [
+                        'block' => ['id' => $item['id'] ?? null, 'type' => $type, 'data' => $data],
+                        'data' => $data,
+                        'entry' => $entry,
+                        'index' => $index,
+                    ]);
+                } finally {
+                    array_pop($this->blockFrames);
+                }
                 // Preview-only annotation (visual-canvas spec §2): successfully
                 // rendered instances with a string id only — missing-template
                 // comments/placeholders carry nothing selectable.
@@ -240,6 +288,12 @@ final class RenderContextExtension extends AbstractExtension
     public function resetBlockDepth(): void
     {
         $this->blockDepth = 0;
+    }
+
+    /** Reset-family: an escaped exception must not leak frames into the next render. */
+    public function resetBlockFrames(): void
+    {
+        $this->blockFrames = [];
     }
 
     /** Reset-family (see $annotateBlocks): the controller assigns per render. */

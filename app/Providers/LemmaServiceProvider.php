@@ -77,6 +77,7 @@ use App\Content\Pipeline\Listeners\MediaUsageProjector;
 use App\Content\Pipeline\Listeners\ReindexSearchListener;
 use App\Content\Blocks\BlockMigrationGate;
 use App\Content\Blocks\BlockRestoreProjector;
+use App\Content\Blocks\EngineBlockEditableFieldResolver;
 use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Blocks\BlockUsageScanner;
 use App\Content\Blocks\Migration\BlockBackfillRunner;
@@ -119,6 +120,7 @@ use App\Content\Validation\FieldValidator;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Cache\CacheStore;
 use Glueful\Lemma\Contracts\Authoring\ContentWriter;
+use Glueful\Lemma\Contracts\Content\BlockEditableFieldResolver;
 use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Authoring\DraftSummaryReader;
 use Glueful\Lemma\Contracts\Authoring\PublishGate;
@@ -583,6 +585,11 @@ final class LemmaServiceProvider extends ServiceProvider
             ],
             RichHtmlSanitizer::class => [
                 'class' => TipTapHtmlSanitizer::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            BlockEditableFieldResolver::class => [
+                'class' => EngineBlockEditableFieldResolver::class,
                 'shared' => true,
                 'autowire' => true,
             ],

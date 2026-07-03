@@ -545,6 +545,7 @@ final class RenderController
         $this->extension->resetTags();
         $this->extension->setAssetBase($assetBase);
         $this->extension->resetBlockDepth();
+        $this->extension->resetBlockFrames();
         // Controller-scoped intent, applied per render: every entry point ASSIGNS
         // $annotateBlocks (true only for preview renders), so the shared singleton
         // can never leak annotation into a live response.

@@ -17,6 +17,8 @@ interface BridgeMessage {
   id?: string
   ids?: string[]
   delta?: number
+  field?: string
+  html?: string
 }
 
 export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
@@ -31,6 +33,9 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let duplicateCb: ((id: string) => void) | null = null
   let deleteRequestCb: ((id: string) => void) | null = null
   let addAfterCb: ((id: string) => void) | null = null
+  let editRequestCb: ((id: string) => void) | null = null
+  let textChangedCb: ((id: string, field: string, html: string) => void) | null = null
+  let flushResolve: (() => void) | null = null
 
   function targetOrigin(): string {
     const src = iframeRef.value?.src ?? ''
@@ -65,6 +70,22 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     }
     if (data.type === 'lemma:block-add-after' && typeof data.id === 'string') {
       addAfterCb?.(data.id)
+    }
+    // Edit-in-place (edit-in-place spec §3/§4).
+    if (data.type === 'lemma:edit-request' && typeof data.id === 'string') {
+      editRequestCb?.(data.id)
+    }
+    if (
+      data.type === 'lemma:text-changed' &&
+      typeof data.id === 'string' &&
+      typeof data.field === 'string' &&
+      typeof data.html === 'string'
+    ) {
+      textChangedCb?.(data.id, data.field, data.html)
+    }
+    if (data.type === 'lemma:edit-flushed') {
+      flushResolve?.()
+      flushResolve = null
     }
   }
 
@@ -111,6 +132,30 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     },
     mirrorDuplicate(sourceId: string, idMap: Record<string, string>): void {
       post({ type: 'lemma:mirror-duplicate', sourceId, idMap })
+    },
+    onEditRequest(cb: (id: string) => void): void {
+      editRequestCb = cb
+    },
+    onTextChanged(cb: (id: string, field: string, html: string) => void): void {
+      textChangedCb = cb
+    },
+    editGrant(id: string, field: string): void {
+      post({ type: 'lemma:edit-grant', id, field })
+    },
+    /**
+     * Flush any in-stage editing session before Apply (spec §4): resolves on
+     * the bridge's unconditional edit-flushed ack, or after 200ms when no
+     * bridge answers (a mid-reload stage must not wedge Apply).
+     */
+    editFlush(): Promise<void> {
+      post({ type: 'lemma:edit-flush' })
+      return new Promise((resolve) => {
+        flushResolve = () => resolve()
+        setTimeout(() => {
+          flushResolve = null
+          resolve()
+        }, 200)
+      })
     },
     dispose(): void {
       window.removeEventListener('message', onMessage)

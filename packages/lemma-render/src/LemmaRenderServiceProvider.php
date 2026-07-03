@@ -14,6 +14,7 @@ use Glueful\Lemma\Render\Templates\TemplateLinter;
 use Glueful\Lemma\Render\Templates\TemplateRepository;
 use Glueful\Lemma\Contracts\Capability\Capability;
 use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
+use Glueful\Lemma\Contracts\Content\BlockEditableFieldResolver;
 use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
@@ -251,6 +252,10 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             // media() (starter-library spec §3): soft-bound; null = always-null URLs.
             $container->has(MediaUrlResolver::class)
                 ? $container->get(MediaUrlResolver::class)
+                : null,
+            // Edit-in-place marking (spec §2): soft-bound; null = never marks.
+            $container->has(BlockEditableFieldResolver::class)
+                ? $container->get(BlockEditableFieldResolver::class)
                 : null,
         );
     }
