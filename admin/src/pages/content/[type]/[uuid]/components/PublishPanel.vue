@@ -119,6 +119,11 @@ async function onCancelSchedule(scheduleUuid: string) {
 const localeSchedules = computed(() =>
   (schedules.value ?? []).filter((s) => !s.locale || s.locale === props.locale),
 )
+
+// Void handler for UButton's typed onClick — an inline toggle returns a value.
+function toggleSchedule(): void {
+  scheduleOpen.value = !scheduleOpen.value
+}
 </script>
 
 <template>
@@ -200,7 +205,7 @@ const localeSchedules = computed(() =>
           variant="ghost"
           icon="i-lucide-clock"
           data-test="schedule-toggle"
-          @click="scheduleOpen = !scheduleOpen"
+          @click="toggleSchedule()"
         >
           Schedule…
         </UButton>

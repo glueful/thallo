@@ -2,11 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
-import type { BlockType } from '@/queries/blockTypes'
+import { MAX_BLOCK_DEPTH, type BlockType } from '@/queries/blockTypes'
 
 const blockTypes = ref<BlockType[]>([])
 
-vi.mock('@/queries/blockTypes', () => ({
+vi.mock('@/queries/blockTypes', async (importOriginal) => ({
+  // MAX_BLOCK_DEPTH (and the rest) stay real; only the query hook is mocked.
+  ...(await importOriginal<typeof import('@/queries/blockTypes')>()),
   useBlockTypes: () => ({ data: blockTypes }),
 }))
 vi.mock('vue-router/auto', () => ({
@@ -46,6 +48,18 @@ const defaultTypes = (): BlockType[] => [
     description: null,
     active: false,
     schema: [],
+  },
+  {
+    uuid: 'bt5',
+    slug: 'section',
+    label: 'Section',
+    icon: null,
+    category: 'Layout',
+    description: null,
+    active: true,
+    schema: [
+      { name: 'content', type: 'blocks', required: false, localized: false, filterable: false },
+    ],
   },
 ]
 
@@ -129,6 +143,49 @@ describe('BlocksField', () => {
     })
     await flushPromises()
     expect(wrapper.find('[data-test="block-inactive-z"]').exists()).toBe(true)
+  })
+
+  it('recurses: adds a child block inside a section', async () => {
+    const model = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([
+      { id: 's1', type: 'section', data: { content: [] } },
+    ])
+    const wrapper = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: model.value,
+        'onUpdate:modelValue': (v: typeof model.value) => (model.value = v),
+      },
+    })
+    await flushPromises()
+    await wrapper.find('[data-test="block-toggle-s1"]').trigger('click')
+    await flushPromises() // async component resolution
+    await flushPromises()
+    // The nested BlocksField renders its own add-block button. DOM order: the
+    // nested button (inside the expanded card) precedes the outer list's button.
+    const addButtons = wrapper.findAll('[data-test="add-block"]')
+    expect(addButtons.length).toBeGreaterThanOrEqual(2)
+    await addButtons[0]!.trigger('click')
+    await wrapper.findAll('[data-test="picker-item-hero"]')[0]!.trigger('click')
+    await flushPromises()
+    const content = model.value[0]!.data.content as { type: string }[]
+    expect(content).toHaveLength(1)
+    expect(content[0]!.type).toBe('hero')
+  })
+
+  it('shows the max-depth notice instead of an editor at depth 3', async () => {
+    expect(MAX_BLOCK_DEPTH).toBe(3) // §A2 mirror assertion
+    const wrapper = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: [{ id: 's1', type: 'section', data: { content: [] } }],
+        depth: 3,
+      },
+    })
+    await flushPromises()
+    await wrapper.find('[data-test="block-toggle-s1"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="max-depth-notice"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-test="add-block"]')).toHaveLength(1) // only the outer one
   })
 
   it('normalizes snake_case block-schema fields for nested widgets (reference target)', async () => {

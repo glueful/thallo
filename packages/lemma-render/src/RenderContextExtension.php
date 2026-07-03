@@ -39,6 +39,15 @@ final class RenderContextExtension extends AbstractExtension
     /** Render-scoped asset-base override (see setAssetBase). */
     private ?string $assetBase = null;
 
+    /**
+     * Nesting amendment §A2: mirrors the app-side BlockDepth::MAX (packs cannot
+     * import app classes); an app-side test asserts the two agree.
+     */
+    public const MAX_BLOCK_DEPTH = 3;
+
+    /** Render-scoped nesting depth (see resetBlockDepth). */
+    private int $blockDepth = 0;
+
     /** @var array<string,bool> block types already logged this process (log ONCE per type) */
     private array $loggedBlockMisses = [];
 
@@ -91,32 +100,56 @@ final class RenderContextExtension extends AbstractExtension
         if (!is_array($list) || !array_is_list($list)) {
             return '';
         }
-        $entry = $context['entry'] ?? null;
-        $html = [];
-        foreach ($list as $index => $item) {
-            $type = is_array($item) && is_string($item['type'] ?? null) ? $item['type'] : null;
-            if ($type === null || preg_match('/\A[a-z][a-z0-9_-]*\z/', $type) !== 1) {
-                $this->logBlockMiss($type ?? '(malformed)', 'malformed block instance');
-                continue;
-            }
-            $template = "blocks/{$type}.twig";
-            if (!$env->getLoader()->exists($template)) {
-                $this->logBlockMiss($type, "no template at {$template}");
-                $html[] = $this->debug
-                    ? '<div style="border:1px dashed red;padding:.5rem">Missing block template: '
-                        . htmlspecialchars($template, ENT_QUOTES) . '</div>'
-                    : '<!-- lemma: no template for block "' . htmlspecialchars($type, ENT_QUOTES) . '" -->';
-                continue;
-            }
-            $data = is_array($item['data'] ?? null) ? $item['data'] : [];
-            $html[] = $env->render($template, [
-                'block' => ['id' => $item['id'] ?? null, 'type' => $type, 'data' => $data],
-                'data' => $data,
-                'entry' => $entry,
-                'index' => $index,
-            ]);
+        // Depth cap (nesting amendment §A5): validation caps AUTHORED content at MAX;
+        // this guards data written around the API. try/finally keeps the counter
+        // honest through mid-render exceptions; resetBlockDepth() (reset family)
+        // covers anything that escapes the render entirely.
+        if ($this->blockDepth + 1 > self::MAX_BLOCK_DEPTH) {
+            $this->logBlockMiss('(depth)', 'exceeds maximum block nesting depth');
+            return $this->debug
+                ? '<div style="border:1px dashed red;padding:.5rem">Blocks beyond maximum nesting depth</div>'
+                : '';
         }
-        return implode('', $html);
+        $this->blockDepth++;
+        try {
+            $entry = $context['entry'] ?? null;
+            $html = [];
+            foreach ($list as $index => $item) {
+                $type = is_array($item) && is_string($item['type'] ?? null) ? $item['type'] : null;
+                if ($type === null || preg_match('/\A[a-z][a-z0-9_-]*\z/', $type) !== 1) {
+                    $this->logBlockMiss($type ?? '(malformed)', 'malformed block instance');
+                    continue;
+                }
+                $template = "blocks/{$type}.twig";
+                if (!$env->getLoader()->exists($template)) {
+                    $this->logBlockMiss($type, "no template at {$template}");
+                    $html[] = $this->debug
+                        ? '<div style="border:1px dashed red;padding:.5rem">Missing block template: '
+                            . htmlspecialchars($template, ENT_QUOTES) . '</div>'
+                        : '<!-- lemma: no template for block "' . htmlspecialchars($type, ENT_QUOTES) . '" -->';
+                    continue;
+                }
+                $data = is_array($item['data'] ?? null) ? $item['data'] : [];
+                $html[] = $env->render($template, [
+                    'block' => ['id' => $item['id'] ?? null, 'type' => $type, 'data' => $data],
+                    'data' => $data,
+                    'entry' => $entry,
+                    'index' => $index,
+                ]);
+            }
+            return implode('', $html);
+        } finally {
+            $this->blockDepth--;
+        }
+    }
+
+    /**
+     * Reset-before-every-render family (with resetTags/setAssetBase): an exception
+     * that escapes a render entirely must not leak depth into the next response.
+     */
+    public function resetBlockDepth(): void
+    {
+        $this->blockDepth = 0;
     }
 
     private function logBlockMiss(string $type, string $reason): void

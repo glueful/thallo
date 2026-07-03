@@ -94,6 +94,11 @@ async function reopenAfterRestore() {
   if (selectedPath.value) await open(selectedPath.value)
 }
 
+// Void handler for UButton's typed onClick — an inline assignment returns a value.
+function openHistory(): void {
+  historyOpen.value = true
+}
+
 onMounted(loadList)
 </script>
 
@@ -130,7 +135,7 @@ onMounted(loadList)
           color="neutral"
           icon="i-lucide-history"
           label="History"
-          @click="historyOpen = true"
+          @click="openHistory()"
         />
         <UButton
           v-if="origin === 'db'"

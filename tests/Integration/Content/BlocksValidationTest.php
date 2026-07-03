@@ -27,6 +27,12 @@ final class BlocksValidationTest extends LemmaTestCase
         $this->blocks->create(['slug' => 'quote', 'label' => 'Quote', 'schema' => [
             ['name' => 'text', 'type' => 'text'],
         ]]);
+        // Container type (nesting amendment §A1): a blocks field inside a block schema.
+        $this->blocks->create(['slug' => 'section', 'label' => 'Section', 'category' => 'Layout',
+            'schema' => [
+                ['name' => 'title', 'type' => 'string'],
+                ['name' => 'content', 'type' => 'blocks', 'block_types' => ['hero']],
+            ]]);
         $this->validator = new FieldValidator($this->connection(), $this->appContext(), $this->blocks);
         // The field allowlists ONLY hero — proving the picker-only rule below.
         $this->schema = ContentTypeSchema::fromArray([
@@ -145,6 +151,61 @@ final class BlocksValidationTest extends LemmaTestCase
         } catch (ValidationException $e) {
             self::assertArrayHasKey('body.0.author', $e->errors());
         }
+    }
+
+    public function testNestedBlocksValidateWithComposedDotPaths(): void
+    {
+        // Depth 1 (body) → 2 (section.content) — valid nesting.
+        $clean = $this->clean(['body' => [
+            ['type' => 'section', 'data' => ['title' => 'S', 'content' => [
+                ['type' => 'hero', 'data' => ['heading' => 'Nested']],
+            ]]],
+        ]]);
+        self::assertSame('Nested', $clean['body'][0]['data']['content'][0]['data']['heading']);
+        self::assertSame(12, strlen($clean['body'][0]['data']['content'][0]['id'])); // ids generated at depth
+
+        // Nested field error carries the COMPOSED path.
+        try {
+            $this->clean(['body' => [
+                ['type' => 'section', 'data' => ['content' => [
+                    ['type' => 'hero', 'data' => ['heading' => 123]],
+                ]]],
+            ]]);
+            self::fail('expected ValidationException');
+        } catch (ValidationException $e) {
+            self::assertArrayHasKey('body.0.content.0.heading', $e->errors());
+        }
+    }
+
+    public function testDepthFourErrorsAtTheExactPath(): void
+    {
+        // section > section > section holds depth 3; its nested content field would
+        // put items at depth 4 → the FIELD errors, nothing deeper validates. (section
+        // inside section is OUTSIDE content's allowlist — doubling as the picker-only
+        // acceptance proof at depth.)
+        $deep = ['type' => 'section', 'data' => ['content' => [
+            ['type' => 'section', 'data' => ['content' => [
+                ['type' => 'section', 'data' => ['content' => [
+                    ['type' => 'hero', 'data' => ['heading' => 'too deep']],
+                ]]],
+            ]]],
+        ]]];
+        try {
+            $this->clean(['body' => [$deep]]);
+            self::fail('expected ValidationException');
+        } catch (ValidationException $e) {
+            $errors = $e->errors();
+            self::assertArrayHasKey('body.0.content.0.content.0.content', $errors);
+            self::assertStringContainsString('nesting depth', $errors['body.0.content.0.content.0.content']);
+        }
+        // Exactly at MAX (3) is fine.
+        $ok = ['type' => 'section', 'data' => ['content' => [
+            ['type' => 'section', 'data' => ['content' => [
+                ['type' => 'hero', 'data' => ['heading' => 'depth three']],
+            ]]],
+        ]]];
+        $this->clean(['body' => [$ok]]);
+        $this->addToAssertionCount(1);
     }
 
     public function testRequiredBlockFieldMissingIsAlwaysAnError(): void

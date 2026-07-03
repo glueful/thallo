@@ -1,4 +1,4 @@
-import type { Component } from 'vue'
+import { defineAsyncComponent, type Component } from 'vue'
 import type { FieldDef } from './types'
 import StringField from './components/StringField.vue'
 import TextField from './components/TextField.vue'
@@ -9,7 +9,10 @@ import EnumField from './components/EnumField.vue'
 import AssetField from './components/AssetField.vue'
 import ReferenceField from './components/ReferenceField.vue'
 import JsonField from './components/JsonField.vue'
-import BlocksField from './components/BlocksField.vue'
+
+// BlocksField recurses through fieldComponent(); loading it async removes the
+// registry ↔ widget static import cycle (nesting amendment §A4).
+const BlocksField = defineAsyncComponent(() => import('./components/BlocksField.vue'))
 
 const registry: Record<FieldDef['type'], Component> = {
   string: StringField,

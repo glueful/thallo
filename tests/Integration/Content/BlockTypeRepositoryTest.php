@@ -51,15 +51,20 @@ final class BlockTypeRepositoryTest extends LemmaTestCase
         self::assertArrayHasKey('hero', $r->schemasBySlug());
     }
 
-    public function testBlockSchemaRulesRejectNestingLocalizationAndFilterable(): void
+    public function testBlockSchemasMayNestBlocksButStillRejectLocalizedAndFilterable(): void
     {
         $r = $this->repo();
-        $cases = [
-            [['name' => 'sections', 'type' => 'blocks']],           // no nesting (spec §2)
-            [['name' => 'title', 'type' => 'string', 'localized' => true]],  // outer-field only
-            [['name' => 'flag', 'type' => 'boolean', 'filterable' => true, 'filter_type' => 'boolean']],
-        ];
-        foreach ($cases as $i => $schema) {
+        // Lifted (nesting amendment §A1): blocks fields inside block schemas are allowed.
+        $r->create(['slug' => 'section', 'label' => 'Section',
+            'schema' => [['name' => 'content', 'type' => 'blocks']]]);
+        self::assertNotNull($r->findBySlug('section'));
+
+        foreach (
+            [
+                [['name' => 'title', 'type' => 'string', 'localized' => true]],
+                [['name' => 'flag', 'type' => 'boolean', 'filterable' => true, 'filter_type' => 'boolean']],
+            ] as $i => $schema
+        ) {
             try {
                 $r->create(['slug' => "bad{$i}", 'label' => 'Bad', 'schema' => $schema]);
                 self::fail("expected SchemaParseException for case {$i}");

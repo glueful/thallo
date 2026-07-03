@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Content\Validation;
 
+use App\Content\Blocks\BlockDepth;
 use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Schema\FieldDefinition;
@@ -43,6 +44,21 @@ final class FieldValidator
      */
     public function validate(ContentTypeSchema $schema, array $payload, bool $strict = false): array
     {
+        return $this->validateAt($schema, $payload, $strict, 0);
+    }
+
+    /**
+     * The depth-carrying internal (nesting amendment §A3): public validate() enters at
+     * depth 0; a blocks field's items sit at $depth + 1; beyond BlockDepth::MAX the
+     * FIELD errors at its dot path and nothing deeper validates. Recursion for nested
+     * block data goes through HERE — never blindly through public validate().
+     *
+     * @param array<string,mixed> $payload
+     * @return array<string,mixed>
+     * @throws ValidationException
+     */
+    private function validateAt(ContentTypeSchema $schema, array $payload, bool $strict, int $depth): array
+    {
         $errors = [];
         $clean = [];
 
@@ -68,7 +84,7 @@ final class FieldValidator
             // type's schema, dot-path errors `field.index[.blockField]`. The field's
             // block_types allowlist is PICKER-ONLY and deliberately not enforced here.
             if ($field->type === 'blocks') {
-                [$cleanBlocks, $blockErrors] = $this->validateBlocks($field->name, $value, $strict);
+                [$cleanBlocks, $blockErrors] = $this->validateBlocks($field->name, $value, $strict, $depth);
                 foreach ($blockErrors as $path => $message) {
                     $errors[$path] = $message;
                 }
@@ -187,10 +203,17 @@ final class FieldValidator
      * @return array{0: list<array{id: string, type: string, data: array<string,mixed>}>,
      *   1: array<string,string>}
      */
-    private function validateBlocks(string $fieldName, mixed $value, bool $strict): array
+    private function validateBlocks(string $fieldName, mixed $value, bool $strict, int $depth): array
     {
         if (!is_array($value) || !array_is_list($value)) {
             return [[], [$fieldName => 'must be an ordered list of blocks']];
+        }
+        // Depth cap (nesting amendment §A2/§A3): this list's items sit at $depth + 1.
+        if ($depth + 1 > BlockDepth::MAX) {
+            return [[], [$fieldName => sprintf(
+                'exceeds maximum block nesting depth (%d)',
+                BlockDepth::MAX,
+            )]];
         }
         $registry = $this->blockTypes();
         if ($registry === null) {
@@ -229,7 +252,7 @@ final class FieldValidator
                 continue;
             }
             try {
-                $cleanData = $this->validate($schemas[$type], $data, $strict);
+                $cleanData = $this->validateAt($schemas[$type], $data, $strict, $depth + 1);
             } catch (ValidationException $e) {
                 foreach ($e->errors() as $blockField => $message) {
                     $errors["{$path}.{$blockField}"] = $message;
