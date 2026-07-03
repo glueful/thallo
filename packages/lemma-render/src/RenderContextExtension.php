@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Glueful\Lemma\Render;
 
+use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
 use Glueful\Lemma\Contracts\Navigation\MenuReader;
@@ -11,6 +12,7 @@ use Psr\Log\LoggerInterface;
 use Twig\Environment;
 use Twig\Error\RuntimeError;
 use Twig\Extension\AbstractExtension;
+use Twig\TwigFilter;
 use Twig\TwigFunction;
 
 /**
@@ -59,6 +61,8 @@ final class RenderContextExtension extends AbstractExtension
         // Provider-injected (block-builder spec §6) — NEVER read from Twig context.
         private readonly ?LoggerInterface $logger = null,
         private readonly bool $debug = false,
+        /** Soft-bound (sanitizer spec §4): null → safe_html fails CLOSED (escapes). */
+        private readonly ?RichHtmlSanitizer $htmlSanitizer = null,
     ) {
         $this->locale = $defaultLocale;
     }
@@ -82,6 +86,36 @@ final class RenderContextExtension extends AbstractExtension
                 'is_safe' => ['html'],
             ]),
         ];
+    }
+
+    /** @return list<TwigFilter> */
+    public function getFilters(): array
+    {
+        return [
+            // is_safe is justified ONLY because every path out of safeHtml() is
+            // already safe: sanitized markup or pre-escaped text (sanitizer spec §4).
+            new TwigFilter('safe_html', $this->safeHtml(...), ['is_safe' => ['html']]),
+        ];
+    }
+
+    /**
+     * Sanitized rich HTML for templates (sanitizer spec §4). Fail-closed, exactly:
+     * no sanitizer bound OR the sanitizer throws → htmlspecialchars(ENT_QUOTES |
+     * ENT_SUBSTITUTE, UTF-8). There is NO path returning unprocessed input.
+     */
+    public function safeHtml(mixed $value): string
+    {
+        if (!is_string($value)) {
+            return '';
+        }
+        if ($this->htmlSanitizer !== null) {
+            try {
+                return $this->htmlSanitizer->sanitize($value);
+            } catch (\Throwable) {
+                // fall through to the escaped fallback
+            }
+        }
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
     /**

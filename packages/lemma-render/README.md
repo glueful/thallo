@@ -131,6 +131,14 @@ HTML comment in production and a visible placeholder in debug, logged once per t
 Containers nest via `{{ blocks(data.region) }}` up to 3 levels; deeper data renders
 nothing. Reference values inside `data` are raw uuids — use `path(uuid)` for links.
 
+## Rich HTML in templates
+
+`format: rich` text fields are sanitized SERVER-SIDE on save (TipTap-scoped
+allowlist — no scripts, event handlers, unsafe schemes, images, or tables) and
+templates render them with `{{ value|safe_html }}`, which re-sanitizes at output
+(defense-in-depth) and falls back to escaped text if no sanitizer is bound. Never
+use `|raw` on content fields.
+
 ## Facet counts in templates
 
 `facets('post', 'category', limit = 100)` returns `[{uuid, slug, count}, …]` (count

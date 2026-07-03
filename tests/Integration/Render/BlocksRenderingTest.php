@@ -152,10 +152,58 @@ final class BlocksRenderingTest extends LemmaTestCase
     public function testBlocksJoinsTheSandboxAllowlistWithACacheVersionBump(): void
     {
         self::assertContains('blocks', TemplatePolicy::FUNCTIONS);
-        self::assertSame(2, TemplatePolicy::CACHE_VERSION); // spec §6 pin
+        self::assertSame(3, TemplatePolicy::CACHE_VERSION); // 3 = safe_html joined FILTERS
 
         // A DB template calling blocks() lints clean.
         $linter = $this->container()->get(TemplateLinter::class);
         self::assertSame([], $linter->lint('{{ blocks(entry.fields.body) }}'));
+    }
+
+    public function testSafeHtmlSanitizesAndFailsClosed(): void
+    {
+        // Bound path: sanitizes and the output may render raw.
+        $ext = $this->container()->get(RenderContextExtension::class);
+        $out = $ext->safeHtml('<p>ok</p><script>alert(1)</script>');
+        self::assertStringContainsString('<p>ok</p>', $out);
+        self::assertStringNotContainsString('<script', $out);
+
+        // Rendering through Twig: markup survives (is_safe), attacks don't.
+        $rendered = $this->env()->createTemplate("{{ body|safe_html }}")
+            ->render(['body' => '<p>hi</p><script>x</script>']);
+        self::assertStringContainsString('<p>hi</p>', $rendered);
+        self::assertStringNotContainsString('<script', $rendered);
+
+        // FAIL-CLOSED (spec §4, exact): unbound sanitizer → ESCAPED output.
+        $targets = $this->container()->get(\Glueful\Lemma\Contracts\Delivery\EntryTargetResolver::class);
+        $unbound = new RenderContextExtension(null, $targets);
+        $escaped = $unbound->safeHtml('<p>x</p>');
+        self::assertSame(htmlspecialchars('<p>x</p>', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), $escaped);
+
+        // FAIL-CLOSED: throwing sanitizer → same escaped fallback.
+        $throwing = new RenderContextExtension(
+            null,
+            $targets,
+            htmlSanitizer: new class implements \Glueful\Lemma\Contracts\Content\RichHtmlSanitizer {
+                public function sanitize(string $html): string
+                {
+                    throw new \RuntimeException('boom');
+                }
+            },
+        );
+        self::assertSame(
+            htmlspecialchars('<b>y</b>', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'),
+            $throwing->safeHtml('<b>y</b>'),
+        );
+
+        // Non-string → ''.
+        self::assertSame('', $ext->safeHtml(null));
+        self::assertSame('', $ext->safeHtml(42));
+
+        // Policy: DB templates may use it.
+        self::assertContains('safe_html', TemplatePolicy::FILTERS);
+        self::assertSame(
+            [],
+            $this->container()->get(TemplateLinter::class)->lint('{{ data.body|safe_html }}'),
+        );
     }
 }

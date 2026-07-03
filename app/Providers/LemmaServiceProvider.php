@@ -102,9 +102,11 @@ use App\Content\Delivery\EngineIndexableContentReader;
 use App\Content\Schema\FieldTypes\DefaultFieldTypeRegistry;
 use App\Content\Schema\FieldTypes\EditorialFieldTypes;
 use App\Content\Services\PublishService;
+use App\Content\Sanitization\TipTapHtmlSanitizer;
 use App\Content\Validation\FieldValidator;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Lemma\Contracts\Authoring\ContentWriter;
+use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Authoring\DraftSummaryReader;
 use Glueful\Lemma\Contracts\Authoring\PublishGate;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
@@ -528,6 +530,11 @@ final class LemmaServiceProvider extends ServiceProvider
             ],
             PreviewSessionVerifier::class => [
                 'class' => EnginePreviewSessionVerifier::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            RichHtmlSanitizer::class => [
+                'class' => TipTapHtmlSanitizer::class,
                 'shared' => true,
                 'autowire' => true,
             ],

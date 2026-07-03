@@ -7,6 +7,15 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Rich HTML sanitization**: `RichHtmlSanitizer` contract + TipTap-scoped
+  allowlist implementation over symfony/html-sanitizer (additive-only config,
+  explicit 1MB input limit, task-list `data-*` preserved, checkbox inputs
+  stripped, protocol-relative hrefs dropped by a custom attribute sanitizer).
+  Enforced at SAVE in `FieldValidator` for `format: rich` fields — including
+  rich fields inside blocks via the existing recursion — and at RENDER via the
+  new `safe_html` Twig filter (fail-closed: unbound or throwing sanitizer
+  escapes instead). `safe_html` joined the DB-template sandbox allowlist
+  (CACHE_VERSION → 3). Unblocks the `rich_text` starter block.
 - **Page/block builder**: a `blocks` content field type — ordered `{id, type, data}`
   lists inside entry JSON, so versions/publish/localization/delivery work unchanged —
   backed by a global admin-defined block-type registry (`lemma_block_types`:
