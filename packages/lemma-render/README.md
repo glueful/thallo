@@ -156,7 +156,7 @@ limit:** block templates that must be literal children of semantic containers
 are page/layout fragments, so no starter block is affected.
 
 In a canvas session the bridge also renders a small toolbar on the selected
-block (move up/down, duplicate, delete, add block after). The toolbar posts
+block (drag to reorder, move up/down, duplicate, delete, add block after). The toolbar posts
 intents to the admin canvas; the block tree is mutated there, and the canvas
 answers with mirror commands that update the preview DOM optimistically until
 the next Save & refresh re-renders the truth. All toolbar styling lives in the

@@ -18,6 +18,7 @@ interface BlocksFieldExposed {
   hasBlock: (id: string) => boolean
   selectBlock: (id: string) => void
   moveBlock: (id: string, delta: number) => { beforeId: string } | { afterId: string } | null
+  moveBlockTo: (id: string, neighbor: { beforeId: string } | { afterId: string }) => boolean
   duplicateBlock: (id: string) => { newId: string; idMap: Record<string, string> } | null
   deleteBlock: (id: string) => boolean
   insertAfter: (id: string, typeSlug: string) => string | null
@@ -60,6 +61,9 @@ defineExpose({
   // route to the owning field, return that field's result, safe empties otherwise.
   moveBlockById(id: string, delta: number) {
     return fieldOwning(id)?.moveBlock(id, delta) ?? null
+  },
+  moveBlockToById(id: string, neighbor: { beforeId: string } | { afterId: string }) {
+    return fieldOwning(id)?.moveBlockTo(id, neighbor) ?? false
   },
   duplicateBlockById(id: string) {
     return fieldOwning(id)?.duplicateBlock(id) ?? null

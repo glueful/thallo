@@ -60,3 +60,8 @@
 /* Empty editable regions (editable-string-fields spec §0): blank values the
    template still renders (e.g. hero.heading) need a click target. */
 .lemma-edit-region:empty { display: inline-block; min-width: 3ch; min-height: 1em; }
+
+/* Free drag (free-drag spec §1): grip affordance + dragging dim. The wrapper
+   is display:contents, so the dim styles its children. */
+.lemma-canvas-toolbar [data-action="drag"] { cursor: grab; touch-action: none; }
+[data-lemma-block].lemma-canvas-dragging > * { opacity: 0.55; }
