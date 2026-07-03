@@ -59,10 +59,13 @@ const bridge = vi.hoisted(() => {
     index?: (ids: string[]) => void
     move?: (id: string, d: 1 | -1) => void
     duplicate?: (id: string) => void
-    deleteRequest?: (id: string) => void
+    deleteRequest?: (id: string, anchor?: { x: number; y: number } | null) => void
     addAfter?: (id: string, anchor?: { x: number; y: number } | null) => void
     editRequest?: (id: string, field: string) => void
     textChanged?: (id: string, field: string, payload: { html?: string; text?: string }) => void
+    editStart?: (id: string) => void
+    editEnd?: (id: string) => void
+    scroll?: (y: number) => void
   } = {}
   return {
     callbacks,
@@ -74,7 +77,9 @@ const bridge = vi.hoisted(() => {
       onBlocksIndex: (cb: (ids: string[]) => void) => (callbacks.index = cb),
       onBlockMove: (cb: (id: string, d: 1 | -1) => void) => (callbacks.move = cb),
       onBlockDuplicate: (cb: (id: string) => void) => (callbacks.duplicate = cb),
-      onBlockDeleteRequest: (cb: (id: string) => void) => (callbacks.deleteRequest = cb),
+      onBlockDeleteRequest: (
+        cb: (id: string, anchor?: { x: number; y: number } | null) => void,
+      ) => (callbacks.deleteRequest = cb),
       onBlockAddAfter: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
         (callbacks.addAfter = cb),
       onEditRequest: (cb: (id: string, field: string) => void) => (callbacks.editRequest = cb),
@@ -83,6 +88,10 @@ const bridge = vi.hoisted(() => {
       ) => (callbacks.textChanged = cb),
       editGrant: vi.fn(),
       editFlush: vi.fn().mockResolvedValue(undefined),
+      onEditStart: (cb: (id: string) => void) => (callbacks.editStart = cb),
+      onEditEnd: (cb: (id: string) => void) => (callbacks.editEnd = cb),
+      onScroll: (cb: (y: number) => void) => (callbacks.scroll = cb),
+      restoreScroll: vi.fn(),
       highlight: vi.fn(),
       scrollTo: vi.fn(),
       mirrorMove: vi.fn(),
@@ -181,6 +190,9 @@ beforeEach(() => {
   bridge.instance.editGrant.mockClear()
   bridge.instance.editFlush.mockClear()
   bridge.instance.editFlush.mockResolvedValue(undefined)
+  bridge.instance.restoreScroll.mockClear()
+  notify.error.mockReset() // the suspension test counts error banners
+  localStorage.clear()
 })
 
 describe('canvas page', () => {
@@ -445,6 +457,27 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
+  it('an anchored delete request positions the confirm at the delete button', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    // jsdom rects are all zeros, so top = anchor.y + 8.
+    bridge.callbacks.deleteRequest?.('blockaaa0001', { x: 90, y: 30 })
+    await flushPromises()
+    const confirm = wrapper.find('[data-test="canvas-delete-confirm"]')
+    expect(confirm.exists()).toBe(true)
+    expect(confirm.attributes('style')).toContain('top: 38px')
+    expect(confirm.classes()).not.toContain('mx-auto')
+
+    // Without an anchor, the centered fallback still applies.
+    await confirm.find('[data-test="canvas-delete-cancel"]').trigger('click')
+    bridge.callbacks.deleteRequest?.('blockaaa0001')
+    await flushPromises()
+    expect(wrapper.find('[data-test="canvas-delete-confirm"]').classes()).toContain('mx-auto')
+    wrapper.unmount()
+  })
+
   it('an anchored add-after intent positions the picker at the + button', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     const wrapper = mountPage()
@@ -660,6 +693,166 @@ describe('editor page Design action', () => {
     const link = wrapper.find('[data-test="design-link"]')
     expect(link.exists()).toBe(true)
     expect(link.attributes('to')).toBe('/content/page/entry0000001/design/en')
+    wrapper.unmount()
+  })
+})
+
+describe('auto-apply', () => {
+  async function mountAuto() {
+    mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+    applyMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+    return wrapper
+  }
+
+  it('a tree change auto-applies ONCE after the debounce; a burst coalesces', async () => {
+    const wrapper = await mountAuto()
+    vi.useFakeTimers()
+    try {
+      bridge.callbacks.move?.('blockaaa0001', 1)
+      await vi.advanceTimersByTimeAsync(400)
+      bridge.callbacks.move?.('blockaaa0001', 1) // restarts the debounce
+      await vi.advanceTimersByTimeAsync(400)
+      expect(applyMock).not.toHaveBeenCalled() // still inside the window
+      await vi.advanceTimersByTimeAsync(500)
+      expect(applyMock).toHaveBeenCalledTimes(1)
+      expect(applyMock).toHaveBeenCalledWith('entry0000001', 'en', 'tok1', expect.anything())
+    } finally {
+      vi.useRealTimers()
+    }
+    wrapper.unmount()
+  })
+
+  it('no concurrent applies: a change during flight queues EXACTLY one follow-up', async () => {
+    const wrapper = await mountAuto()
+    let release!: () => void
+    applyMock.mockImplementationOnce(() => new Promise<void>((resolve) => (release = resolve)))
+    vi.useFakeTimers()
+    try {
+      bridge.callbacks.move?.('blockaaa0001', 1)
+      await vi.advanceTimersByTimeAsync(900) // first run: now in flight
+      expect(applyMock).toHaveBeenCalledTimes(1)
+
+      // Two NON-CANCELLING changes during flight (two cancelling moves would
+      // legitimately skip the follow-up: honest lastApplied bookkeeping means
+      // stageStale re-derives false when the tree returns to the sent state).
+      bridge.callbacks.move?.('blockaaa0001', 1)
+      bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>mid-flight</p>' })
+      await vi.advanceTimersByTimeAsync(900) // debounce fires -> queued, returns
+      expect(applyMock).toHaveBeenCalledTimes(1) // STILL one — no overlap
+
+      release()
+      await vi.advanceTimersByTimeAsync(100) // settle + follow-up
+      expect(applyMock).toHaveBeenCalledTimes(2) // exactly one follow-up
+      // The follow-up carries the LATEST tree (snapshot honesty, review P1).
+      const followUp = applyMock.mock.calls[1]![3] as {
+        body: { id: string; data: Record<string, unknown> }[]
+      }
+      expect(followUp.body.find((b) => b.id === 'prose0000003')!.data.body).toBe(
+        '<p>mid-flight</p>',
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+    wrapper.unmount()
+  })
+
+  it('edit sessions suppress auto-apply; edit-end re-arms it', async () => {
+    const wrapper = await mountAuto()
+    vi.useFakeTimers()
+    try {
+      bridge.callbacks.editStart?.('prose0000003')
+      bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>typing</p>' })
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(applyMock).not.toHaveBeenCalled() // suppressed while editing
+
+      bridge.callbacks.editEnd?.('prose0000003')
+      await vi.advanceTimersByTimeAsync(900) // edit-end re-armed the debounce
+      expect(applyMock).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+    wrapper.unmount()
+  })
+
+  it('final failure suspends (one banner, no further autos); manual success re-arms', async () => {
+    const wrapper = await mountAuto()
+    applyMock.mockRejectedValueOnce(new ApiError('validation failed', 422, {}, { success: false }))
+    vi.useFakeTimers()
+    try {
+      bridge.callbacks.move?.('blockaaa0001', 1)
+      await vi.advanceTimersByTimeAsync(900)
+      expect(applyMock).toHaveBeenCalledTimes(1)
+      expect(notify.error).toHaveBeenCalledTimes(1) // one banner
+
+      bridge.callbacks.move?.('blockaaa0001', -1) // suspended: nothing schedules
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(applyMock).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+
+    // Manual Apply succeeds -> auto re-arms.
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    expect(applyMock).toHaveBeenCalledTimes(2)
+    vi.useFakeTimers()
+    try {
+      bridge.callbacks.move?.('blockaaa0001', 1)
+      await vi.advanceTimersByTimeAsync(900)
+      expect(applyMock).toHaveBeenCalledTimes(3)
+    } finally {
+      vi.useRealTimers()
+    }
+    wrapper.unmount()
+  })
+
+  it('a dead-token retry that SUCCEEDS does not suspend', async () => {
+    const wrapper = await mountAuto()
+    mintMock.mockResolvedValue({ token: 'tok2', themeUrl: 'https://site.test/_preview/tok2' })
+    applyMock
+      .mockRejectedValueOnce(new ApiError('expired', 410, {}, { success: false }))
+      .mockResolvedValue(undefined)
+    vi.useFakeTimers()
+    try {
+      bridge.callbacks.move?.('blockaaa0001', 1)
+      await vi.advanceTimersByTimeAsync(900)
+      expect(applyMock).toHaveBeenCalledTimes(2) // attempt + retry (TTL churn)
+
+      bridge.callbacks.move?.('blockaaa0001', -1) // NOT suspended
+      await vi.advanceTimersByTimeAsync(900)
+      expect(applyMock).toHaveBeenCalledTimes(3)
+    } finally {
+      vi.useRealTimers()
+    }
+    wrapper.unmount()
+  })
+
+  it('the toggle disables auto, persists, and re-enables', async () => {
+    const wrapper = await mountAuto()
+    await wrapper.find('[data-test="canvas-auto-toggle"]').trigger('click')
+    expect(localStorage.getItem('lemma.canvas.auto_apply')).toBe('0')
+    vi.useFakeTimers()
+    try {
+      bridge.callbacks.move?.('blockaaa0001', 1)
+      await vi.advanceTimersByTimeAsync(2000)
+      expect(applyMock).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+    await wrapper.find('[data-test="canvas-auto-toggle"]').trigger('click')
+    expect(localStorage.getItem('lemma.canvas.auto_apply')).toBe('1')
+    wrapper.unmount()
+  })
+
+  it('scroll is remembered and restored after reloads', async () => {
+    const wrapper = await mountAuto()
+    bridge.callbacks.scroll?.(560)
+    // Any reload path re-fires @load -> onIframeLoad -> hello + restore.
+    const iframe = wrapper.find('[data-test="canvas-iframe"]')
+    await iframe.trigger('load')
+    expect(bridge.instance.restoreScroll).toHaveBeenCalledWith(560)
     wrapper.unmount()
   })
 })

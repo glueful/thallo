@@ -81,10 +81,21 @@
     return toolbar
   }
 
+  // Elements whose children never RENDER (void/replaced/foreign roots): the
+  // toolbar cannot live inside them — a bridge-owned shim sibling hosts it.
+  var NO_CHILD_HOSTS = {
+    HR: 1, IMG: 1, BR: 1, INPUT: 1, EMBED: 1, IFRAME: 1, OBJECT: 1,
+    CANVAS: 1, VIDEO: 1, AUDIO: 1, svg: 1, SVG: 1
+  }
+
   function detachToolbar() {
     if (toolbar && toolbar.parentNode) toolbar.parentNode.removeChild(toolbar)
     if (anchorEl) {
-      anchorEl.classList.remove('lemma-canvas-anchor')
+      if (anchorEl.classList.contains('lemma-canvas-shim') && anchorEl.parentNode) {
+        anchorEl.parentNode.removeChild(anchorEl) // bridge-owned — remove entirely
+      } else {
+        anchorEl.classList.remove('lemma-canvas-anchor')
+      }
       anchorEl = null
     }
   }
@@ -95,7 +106,14 @@
     w.classList.add('lemma-canvas-selected')
     selectedId = w.getAttribute('data-lemma-block')
     var host = w.firstElementChild
-    if (host) {
+    if (host && NO_CHILD_HOSTS[host.tagName]) {
+      // hr/img/… render no children: anchor a shim sibling instead.
+      var shim = document.createElement('span')
+      shim.className = 'lemma-canvas-anchor lemma-canvas-shim'
+      host.insertAdjacentElement('afterend', shim)
+      anchorEl = shim
+      shim.appendChild(ensureToolbar())
+    } else if (host) {
       // DOM placement, static CSS (spec §3): anchor gets position:relative from
       // its class; the toolbar is absolute against it with constant offsets.
       // Text-only renders (no element child) get selection but no toolbar.
@@ -201,12 +219,18 @@
         }
       }
     }
+    // Session lifecycle (auto-apply spec §1): posted ONLY when a session
+    // actually started — a failed grant must never wedge parent suppression.
+    post('edit-start', { id: id })
   }
 
   // ── Mirrors (stage-toolbar spec §1): DOM-only, parent-commanded ─────────────
   function stripCanvasState(root) {
     Array.prototype.forEach.call(root.querySelectorAll('.lemma-canvas-toolbar'), function (el) {
       el.parentNode.removeChild(el)
+    })
+    Array.prototype.forEach.call(root.querySelectorAll('.lemma-canvas-shim'), function (el) {
+      el.parentNode.removeChild(el) // bridge-owned anchor shims never survive cloning
     })
     var classes = [
       'lemma-canvas-anchor', 'lemma-canvas-selected', 'lemma-canvas-hover',
@@ -320,7 +344,11 @@
         if (action === 'move-up') post('block-move', { id: selectedId, delta: -1 })
         if (action === 'move-down') post('block-move', { id: selectedId, delta: 1 })
         if (action === 'duplicate') post('block-duplicate', { id: selectedId })
-        if (action === 'delete') post('block-delete-request', { id: selectedId })
+        if (action === 'delete') {
+          // Anchor for the parent's confirm (same mechanism as add-after).
+          var dr = btn.getBoundingClientRect()
+          post('block-delete-request', { id: selectedId, rect: { x: dr.left, y: dr.bottom } })
+        }
         if (action === 'add-after') {
           // Anchor for the parent's picker (iframe-viewport coordinates): the
           // parent translates through the iframe's own offset so the panel
@@ -337,6 +365,16 @@
       selectWrapper(w)
       post('block-select', { id: w.getAttribute('data-lemma-block') })
     }, true)
+    // Scroll preservation (auto-apply spec §3): trailing-throttled reports;
+    // the parent restores after every stage reload.
+    var scrollTimer = null
+    window.addEventListener('scroll', function () {
+      if (scrollTimer) return
+      scrollTimer = setTimeout(function () {
+        scrollTimer = null
+        post('scroll', { y: window.scrollY || 0 })
+      }, 250)
+    })
     post('blocks-index', { ids: idsIndex() })
   }
 
@@ -374,6 +412,9 @@
         endEditing()
       }
       post('edit-flushed') // ALWAYS ack (spec §3) — the parent awaits this
+    }
+    if (data.type === 'lemma:restore-scroll' && typeof data.y === 'number') {
+      window.scrollTo(0, data.y) // instant — a reload restore must not visibly travel
     }
     if (data.type === 'lemma:mirror-move') mirrorMove(data.id, data.beforeId, data.afterId)
     if (data.type === 'lemma:mirror-remove') mirrorRemove(data.id)

@@ -77,6 +77,30 @@ describe('preview bridge (direct eval)', () => {
     expect(actions).toEqual(['move-up', 'move-down', 'duplicate', 'delete', 'add-after'])
   })
 
+  it('void-element blocks (hr dividers) get the toolbar via a positioned shim', () => {
+    // Children of void elements (hr, img, …) never RENDER — inserting the
+    // toolbar inside them makes it invisible. The bridge attaches a
+    // bridge-owned shim sibling instead.
+    const w = wrapper('void-a-00001', '<hr class="lemma-block-divider">')
+    document.body.appendChild(w)
+    w.querySelector('hr')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(lastPost('lemma:block-select')).toMatchObject({ id: 'void-a-00001' })
+
+    const shim = w.querySelector('.lemma-canvas-shim')!
+    expect(shim).not.toBeNull()
+    expect(shim.previousElementSibling!.tagName).toBe('HR')
+    expect(shim.classList.contains('lemma-canvas-anchor')).toBe(true)
+    expect(shim.querySelector('.lemma-canvas-toolbar')).not.toBeNull()
+    // The hr itself carries NO children and no anchor class.
+    expect(w.querySelector('hr')!.childNodes).toHaveLength(0)
+
+    // Deselecting (selecting elsewhere) removes the shim entirely.
+    const other = wrapper('void-b-00001')
+    document.body.appendChild(other)
+    other.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(w.querySelector('.lemma-canvas-shim')).toBeNull()
+  })
+
   it('toolbar clicks post intents and never re-select', () => {
     const w = wrapper('blk-int-0001')
     document.body.appendChild(w)
@@ -96,7 +120,10 @@ describe('preview bridge (direct eval)', () => {
     click('duplicate')
     expect(lastPost('lemma:block-duplicate')).toMatchObject({ id: 'blk-int-0001' })
     click('delete')
-    expect(lastPost('lemma:block-delete-request')).toMatchObject({ id: 'blk-int-0001' })
+    const del = lastPost('lemma:block-delete-request')!
+    expect(del).toMatchObject({ id: 'blk-int-0001' })
+    // The delete button's rect rides along so the parent anchors its confirm.
+    expect(del.rect).toMatchObject({ x: expect.any(Number), y: expect.any(Number) })
     click('add-after')
     const addAfter = lastPost('lemma:block-add-after')!
     expect(addAfter).toMatchObject({ id: 'blk-int-0001' })
@@ -434,6 +461,20 @@ describe('edit-in-place session', () => {
     expect(region.getAttribute('contenteditable')).toBeNull()
   })
 
+  it('a session that actually starts posts edit-start; a failed grant posts nothing', () => {
+    const w = proseWrapper('sc-a-0000001')
+    document.body.appendChild(w)
+    posted.mockClear()
+    sendToBridge({ type: 'lemma:edit-grant', id: 'sc-a-0000001', field: 'body', kind: 'rich' })
+    expect(lastPost('lemma:edit-start')).toMatchObject({ id: 'sc-a-0000001' })
+    sendToBridge({ type: 'lemma:edit-flush' })
+
+    // Grant for a block with NO matching region: no session, no edit-start.
+    posted.mockClear()
+    sendToBridge({ type: 'lemma:edit-grant', id: 'sc-a-0000001', field: 'nope', kind: 'string' })
+    expect(lastPost('lemma:edit-start')).toBeUndefined()
+  })
+
   it('text kind: Enter does NOT exit; commit carries the text payload', () => {
     const w = stringWrapper('es-e-0000001', 'body_text', 'line')
     document.body.appendChild(w)
@@ -449,5 +490,40 @@ describe('edit-in-place session', () => {
       field: 'body_text',
       text: 'line',
     })
+  })
+})
+
+describe('scroll preservation', () => {
+  it('scroll posts are trailing-throttled with the LATEST position', () => {
+    vi.useFakeTimers()
+    try {
+      posted.mockClear()
+      Object.defineProperty(window, 'scrollY', { value: 100, configurable: true })
+      window.dispatchEvent(new Event('scroll'))
+      Object.defineProperty(window, 'scrollY', { value: 340, configurable: true })
+      window.dispatchEvent(new Event('scroll'))
+      // Nothing posted before the throttle window closes.
+      expect(lastPost('lemma:scroll')).toBeUndefined()
+      vi.advanceTimersByTime(300)
+      // ONE post, carrying the latest y.
+      const scrolls = posted.mock.calls
+        .map((c) => c[0] as { type: string; y?: number })
+        .filter((m) => m.type === 'lemma:scroll')
+      expect(scrolls).toHaveLength(1)
+      expect(scrolls[0]!.y).toBe(340)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('restore-scroll jumps instantly via window.scrollTo', () => {
+    const scrollTo = vi.fn()
+    window.scrollTo = scrollTo as unknown as typeof window.scrollTo
+    sendToBridge({ type: 'lemma:restore-scroll', y: 480 })
+    expect(scrollTo).toHaveBeenCalledWith(0, 480)
+    // Non-number y is dropped.
+    scrollTo.mockClear()
+    sendToBridge({ type: 'lemma:restore-scroll', y: 'x' })
+    expect(scrollTo).not.toHaveBeenCalled()
   })
 })

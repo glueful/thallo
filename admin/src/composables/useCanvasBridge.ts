@@ -20,6 +20,7 @@ interface BridgeMessage {
   field?: string
   html?: string
   text?: string
+  y?: number
   rect?: { x?: number; y?: number }
 }
 
@@ -42,9 +43,12 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let indexCb: ((ids: string[]) => void) | null = null
   let moveCb: ((id: string, delta: 1 | -1) => void) | null = null
   let duplicateCb: ((id: string) => void) | null = null
-  let deleteRequestCb: ((id: string) => void) | null = null
+  let deleteRequestCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
   let addAfterCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
   let editRequestCb: ((id: string, field: string) => void) | null = null
+  let editStartCb: ((id: string) => void) | null = null
+  let editEndCb: ((id: string) => void) | null = null
+  let scrollCb: ((y: number) => void) | null = null
   let textChangedCb:
     | ((id: string, field: string, payload: { html?: string; text?: string }) => void)
     | null = null
@@ -79,7 +83,11 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       duplicateCb?.(data.id)
     }
     if (data.type === 'lemma:block-delete-request' && typeof data.id === 'string') {
-      deleteRequestCb?.(data.id)
+      const deleteAnchor =
+        typeof data.rect?.x === 'number' && typeof data.rect?.y === 'number'
+          ? { x: data.rect.x, y: data.rect.y }
+          : null
+      deleteRequestCb?.(data.id, deleteAnchor)
     }
     if (data.type === 'lemma:block-add-after' && typeof data.id === 'string') {
       const anchor =
@@ -111,6 +119,16 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       flushResolve?.()
       flushResolve = null
     }
+    // Auto-apply lifecycle + scroll preservation (auto-apply spec §1/§3).
+    if (data.type === 'lemma:edit-start' && typeof data.id === 'string') {
+      editStartCb?.(data.id)
+    }
+    if (data.type === 'lemma:edit-end' && typeof data.id === 'string') {
+      editEndCb?.(data.id)
+    }
+    if (data.type === 'lemma:scroll' && typeof data.y === 'number') {
+      scrollCb?.(data.y)
+    }
   }
 
   window.addEventListener('message', onMessage)
@@ -141,7 +159,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     onBlockDuplicate(cb: (id: string) => void): void {
       duplicateCb = cb
     },
-    onBlockDeleteRequest(cb: (id: string) => void): void {
+    onBlockDeleteRequest(cb: (id: string, anchor: BridgeAnchor | null) => void): void {
       deleteRequestCb = cb
     },
     onBlockAddAfter(cb: (id: string, anchor: BridgeAnchor | null) => void): void {
@@ -164,6 +182,18 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       cb: (id: string, field: string, payload: { html?: string; text?: string }) => void,
     ): void {
       textChangedCb = cb
+    },
+    onEditStart(cb: (id: string) => void): void {
+      editStartCb = cb
+    },
+    onEditEnd(cb: (id: string) => void): void {
+      editEndCb = cb
+    },
+    onScroll(cb: (y: number) => void): void {
+      scrollCb = cb
+    },
+    restoreScroll(y: number): void {
+      post({ type: 'lemma:restore-scroll', y })
     },
     editGrant(id: string, field: string, kind: EditKind): void {
       post({ type: 'lemma:edit-grant', id, field, kind })

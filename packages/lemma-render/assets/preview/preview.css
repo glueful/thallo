@@ -13,6 +13,9 @@
    on the selected block's first element child; the toolbar sits absolute
    against it with constant offsets. */
 .lemma-canvas-anchor { position: relative; }
+/* Shim anchor for void-element hosts (hr dividers, images): zero-height,
+   full-width, so the toolbar's right-edge offset still aligns to the block. */
+.lemma-canvas-shim { display: inline-block; width: 100%; height: 0; }
 .lemma-canvas-toolbar {
   position: absolute;
   top: -14px;

@@ -119,6 +119,12 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   the admin's schema-derived kind matrix is the grant/patch authority. The
   starter theme adopts it across hero/section/quote/image/cta (never
   unwrapping conditional emissions; attribute values stay unfiltered).
+- Auto-apply (canvas v5): the Design view re-applies the working tree
+  automatically on an 800ms debounce — suppressed during in-place edit
+  sessions, coalesced to one in-flight request, suspended (with one banner)
+  on failure until a manual Apply succeeds, and toggleable per browser. The
+  stage's scroll position now survives every reload, including manual
+  Apply's.
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

@@ -176,6 +176,11 @@ blocks), and double-clicking one in the canvas turns it into a plain
 contenteditable whose text flows back to the admin's block tree. Typed HTML
 is sanitized at save and re-sanitized by `safe_html` at render.
 
+Applies are automatic by default: the admin re-applies the working tree on a
+short debounce after edits (suppressed while typing in-place) and restores
+the stage's scroll position across reloads. An Auto toggle beside Apply
+turns this off per browser; failures pause it until a manual Apply succeeds.
+
 Plain string/text fields join in via the opt-in `|editable_text` filter:
 `{{ data.heading|editable_text('heading') }}` marks the value's rendered
 location (annotated renders only; live output is byte-identical to the plain
