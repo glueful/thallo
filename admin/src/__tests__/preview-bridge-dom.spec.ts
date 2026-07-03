@@ -645,6 +645,63 @@ describe('free drag', () => {
     expect(lastPost('lemma:block-select')).toMatchObject({ id: 'fd-d-0000004' })
   })
 
+  it('swaps are direction-gated: an against-direction slot never triggers (no oscillation)', () => {
+    const { list, a } = dragList()
+    gripDown(a)
+    posted.mockClear()
+
+    pointerMove(160) // moving DOWN past b's midpoint -> swap
+    expect(order(list)).toEqual(['fd-b-0000002', 'fd-a-0000001', 'fd-c-0000003'])
+    // Same Y again: no direction -> no re-evaluation, order stable.
+    pointerMove(160)
+    expect(order(list)).toEqual(['fd-b-0000002', 'fd-a-0000001', 'fd-c-0000003'])
+    // Moving DOWN a hair more must never take an UP slot even if geometry
+    // momentarily suggests one (the oscillation case with unequal heights).
+    pointerMove(161)
+    expect(order(list)).toEqual(['fd-b-0000002', 'fd-a-0000001', 'fd-c-0000003'])
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  })
+
+  it('reorders FLIP-animate displaced blocks when element.animate exists', () => {
+    const { list, a, b, c } = dragList()
+    const animations: unknown[] = []
+    // POSITION-DEPENDENT rects (unlike stubRects' static bands): FLIP measures
+    // before/after the DOM move, so the rect must derive from the element's
+    // CURRENT index or the delta is always zero.
+    ;[a, b, c].forEach((w) => {
+      const host = w.firstElementChild as HTMLElement & { animate?: unknown }
+      Object.defineProperty(host, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => {
+          const idx = [...list.children].indexOf(w)
+          return {
+            top: idx * 100,
+            bottom: (idx + 1) * 100,
+            height: 100,
+            left: 0,
+            right: 500,
+            width: 500,
+            x: 0,
+            y: idx * 100,
+            toJSON: () => ({}),
+          }
+        },
+      })
+      Object.defineProperty(host, 'animate', {
+        configurable: true,
+        value: (...args: unknown[]) => {
+          animations.push(args)
+          return { finished: Promise.resolve() }
+        },
+      })
+    })
+    gripDown(a)
+    pointerMove(160) // a and b both displace -> both animate
+    expect(order(list)[0]).toBe('fd-b-0000002')
+    expect(animations.length).toBeGreaterThan(0)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  })
+
   it('the click after a completed drag is swallowed once', () => {
     const { a } = dragList()
     gripDown(a)

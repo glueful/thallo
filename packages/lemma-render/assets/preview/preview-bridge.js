@@ -14,7 +14,7 @@
   var anchorEl = null
   var editing = null // { id, field, kind, region, debounce }
   var lastPointer = null // { x, y } of the granting double-click (caret placement)
-  var drag = null // { wrapper, originalNext }
+  var drag = null // { wrapper, originalNext, lastY }
   var suppressClick = false // one-shot: the click after a completed drag
 
   function post(type, payload) {
@@ -244,7 +244,7 @@
     var w = findBlock(selectedId)
     if (!w || !w.parentNode) return
     e.preventDefault()
-    drag = { wrapper: w, originalNext: w.nextElementSibling }
+    drag = { wrapper: w, originalNext: w.nextElementSibling, lastY: e.clientY }
     w.classList.add('lemma-canvas-dragging')
     // currentTarget (review P3): the listener sits on the grip BUTTON, but
     // e.target is often the nested svg/path — capture must attach to the
@@ -259,10 +259,45 @@
     document.addEventListener('keydown', onDragKeydown, true)
   }
 
+  /**
+   * FLIP the given wrappers' first children through a reorder (drag-feel
+   * amendment): measure, mutate, animate the delta to zero via the Web
+   * Animations API — script-driven, so the CSP no-inline-styles pin holds.
+   * Engines without element.animate (jsdom) just get the instant move.
+   */
+  function flipReorder(kids, w, mutate) {
+    var before = []
+    for (var i = 0; i < kids.length; i++) {
+      var el = kids[i]
+      if (!(el.hasAttribute && el.hasAttribute('data-lemma-block'))) continue
+      var h = el.firstElementChild
+      if (h && h.animate) before.push({ host: h, top: h.getBoundingClientRect().top })
+    }
+    mutate()
+    for (var k = 0; k < before.length; k++) {
+      var entry = before[k]
+      var dy = entry.top - entry.host.getBoundingClientRect().top
+      if (dy !== 0) {
+        entry.host.animate(
+          [{ transform: 'translateY(' + dy + 'px)' }, { transform: 'none' }],
+          { duration: 150, easing: 'ease' }
+        )
+      }
+    }
+  }
+
   function onDragMove(e) {
     if (!drag) return
     var w = drag.wrapper
     if (!w.parentNode) return
+    // Direction gating (drag-feel amendment): live moves re-shift sibling
+    // midpoints under the pointer, so undirected swaps can oscillate near a
+    // boundary with unequal block heights. Only swap in the direction the
+    // pointer is actually travelling.
+    var dirDown = e.clientY > drag.lastY
+    var dirUp = e.clientY < drag.lastY
+    drag.lastY = e.clientY
+    if (!dirDown && !dirUp) return
     var kids = w.parentNode.children
     var target = null
     for (var i = 0; i < kids.length; i++) {
@@ -280,9 +315,15 @@
       }
     }
     if (target) {
-      if (w.nextElementSibling !== target) w.parentNode.insertBefore(w, target)
+      if (w.nextElementSibling === target) return
+      // The computed slot is above w's current position -> an UP move; only
+      // take it when the pointer travels up (and vice versa for down).
+      var movingUp = isBefore(target, w)
+      if ((movingUp && !dirUp) || (!movingUp && !dirDown)) return
+      flipReorder(kids, w, function () { w.parentNode.insertBefore(w, target) })
     } else {
       // Below every midpoint: move to the end of the sibling wrappers.
+      if (!dirDown) return
       var lastWrap = null
       for (var j = kids.length - 1; j >= 0; j--) {
         var cand = kids[j]
@@ -292,9 +333,14 @@
         }
       }
       if (lastWrap && lastWrap.nextSibling !== w) {
-        w.parentNode.insertBefore(w, lastWrap.nextSibling)
+        flipReorder(kids, w, function () { w.parentNode.insertBefore(w, lastWrap.nextSibling) })
       }
     }
+  }
+
+  /** True when a precedes b in document order (same parent assumed). */
+  function isBefore(a, b) {
+    return !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
   }
 
   function onDragUp() {
