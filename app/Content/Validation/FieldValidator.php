@@ -52,7 +52,11 @@ final class FieldValidator
      */
     public function validate(ContentTypeSchema $schema, array $payload, bool $strict = false): array
     {
-        return $this->validateAt($schema, $payload, $strict, 0);
+        // Entry-wide block-id set (visual-canvas spec §5): the canvas bridge keys
+        // rendered blocks by BARE id, so uniqueness spans every blocks field AND
+        // nesting level of one validated entry — not just each list.
+        $seenBlockIds = [];
+        return $this->validateAt($schema, $payload, $strict, 0, $seenBlockIds);
     }
 
     /**
@@ -62,11 +66,17 @@ final class FieldValidator
      * block data goes through HERE — never blindly through public validate().
      *
      * @param array<string,mixed> $payload
+     * @param array<string,bool> $seenBlockIds the ENTRY-WIDE block-id set
      * @return array<string,mixed>
      * @throws ValidationException
      */
-    private function validateAt(ContentTypeSchema $schema, array $payload, bool $strict, int $depth): array
-    {
+    private function validateAt(
+        ContentTypeSchema $schema,
+        array $payload,
+        bool $strict,
+        int $depth,
+        array &$seenBlockIds,
+    ): array {
         $errors = [];
         $clean = [];
 
@@ -92,7 +102,13 @@ final class FieldValidator
             // type's schema, dot-path errors `field.index[.blockField]`. The field's
             // block_types allowlist is PICKER-ONLY and deliberately not enforced here.
             if ($field->type === 'blocks') {
-                [$cleanBlocks, $blockErrors] = $this->validateBlocks($field->name, $value, $strict, $depth);
+                [$cleanBlocks, $blockErrors] = $this->validateBlocks(
+                    $field->name,
+                    $value,
+                    $strict,
+                    $depth,
+                    $seenBlockIds,
+                );
                 foreach ($blockErrors as $path => $message) {
                     $errors[$path] = $message;
                 }
@@ -209,17 +225,25 @@ final class FieldValidator
     /**
      * Per-block validation (block-builder spec §4): each block validates as
      * {id, type, data} — `type` a KNOWN block-type slug (active OR inactive; unknown
-     * rejects), `id` unique in the list (server-generated when missing), `data`
-     * structurally an OBJECT validated against the block type's schema via recursion
-     * (the SAME cleaned-payload semantics as top-level fields: known keys only, in
-     * schema order; `$strict` threads the publish gate — dangling references inside
-     * block data reject at publish). Errors carry dot paths: `field.index[.blockField]`.
+     * rejects), `id` unique ACROSS THE WHOLE ENTRY (visual-canvas spec §5 — the
+     * shared set spans every blocks field and nesting level; server-generated when
+     * missing), `data` structurally an OBJECT validated against the block type's
+     * schema via recursion (the SAME cleaned-payload semantics as top-level fields:
+     * known keys only, in schema order; `$strict` threads the publish gate —
+     * dangling references inside block data reject at publish). Errors carry dot
+     * paths: `field.index[.blockField]`.
      *
+     * @param array<string,bool> $seenBlockIds the ENTRY-WIDE block-id set
      * @return array{0: list<array{id: string, type: string, data: array<string,mixed>}>,
      *   1: array<string,string>}
      */
-    private function validateBlocks(string $fieldName, mixed $value, bool $strict, int $depth): array
-    {
+    private function validateBlocks(
+        string $fieldName,
+        mixed $value,
+        bool $strict,
+        int $depth,
+        array &$seenBlockIds,
+    ): array {
         if (!is_array($value) || !array_is_list($value)) {
             return [[], [$fieldName => 'must be an ordered list of blocks']];
         }
@@ -237,7 +261,6 @@ final class FieldValidator
         $schemas = $registry->schemasBySlug();
         $errors = [];
         $clean = [];
-        $seenIds = [];
         foreach ($value as $i => $block) {
             $path = "{$fieldName}.{$i}";
             if (!is_array($block)) {
@@ -252,11 +275,11 @@ final class FieldValidator
             $id = isset($block['id']) && is_string($block['id']) && $block['id'] !== ''
                 ? $block['id']
                 : Utils::generateNanoID();
-            if (isset($seenIds[$id])) {
+            if (isset($seenBlockIds[$id])) {
                 $errors[$path] = "duplicate block id '{$id}'";
                 continue;
             }
-            $seenIds[$id] = true;
+            $seenBlockIds[$id] = true;
             // `data` is structurally an OBJECT (spec §1): missing, scalar, or a
             // non-empty list is a shape error — never silently coerced to [] (that
             // would let {data:"oops"} pass whenever the schema has no required
@@ -267,7 +290,7 @@ final class FieldValidator
                 continue;
             }
             try {
-                $cleanData = $this->validateAt($schemas[$type], $data, $strict, $depth + 1);
+                $cleanData = $this->validateAt($schemas[$type], $data, $strict, $depth + 1, $seenBlockIds);
             } catch (ValidationException $e) {
                 foreach ($e->errors() as $blockField => $message) {
                     $errors["{$path}.{$blockField}"] = $message;

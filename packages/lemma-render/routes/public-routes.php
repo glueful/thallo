@@ -36,6 +36,12 @@ $router->get('/_preview/{token}', [RenderController::class, 'preview']);
 $router->get('/_preview-assets/{token}/{path}', [RenderController::class, 'previewAsset'])
     ->where('path', '.+');
 
+// Canvas bridge support (visual-canvas spec §3): token-free STATIC assets injected
+// into preview HTML — cacheable, and OpenAPI-excluded via the Default tag like the
+// other HTML-surface routes. Literal first segments win over the '*' catch-all.
+$router->get('/_preview.css', [RenderController::class, 'previewCss']);
+$router->get('/_preview-bridge.js', [RenderController::class, 'previewBridgeJs']);
+
 // Session detection runs BEFORE the page cache (preview-sessions spec §4): session
 // state is not cache state, and verified sessions bypass the cache wholesale.
 $router->get('/', [RenderController::class, 'home'])

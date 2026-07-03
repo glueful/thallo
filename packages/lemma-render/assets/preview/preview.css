@@ -1,0 +1,9 @@
+/* Preview/canvas support (visual-canvas spec §2–§3). The annotation wrapper is
+   layout-inert; rings are canvas-session visuals driven by the bridge.
+   display:contents elements paint no boxes, so rings go on the wrapper's
+   CHILDREN via > *; the -target classes are the first-child fallback. */
+.lemma-preview-block { display: contents; }
+[data-lemma-block].lemma-canvas-hover > *,
+.lemma-canvas-hover-target { outline: 2px dashed rgba(37, 99, 235, 0.6); outline-offset: 2px; }
+[data-lemma-block].lemma-canvas-selected > *,
+.lemma-canvas-selected-target { outline: 2px solid rgba(37, 99, 235, 0.9); outline-offset: 2px; }

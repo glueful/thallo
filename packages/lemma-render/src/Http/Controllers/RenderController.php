@@ -54,9 +54,19 @@ final class RenderController
     ) {
     }
 
+    /**
+     * Preview-only block annotation intent (visual-canvas spec §2): ASSIGNED at
+     * the top of every rendering entry point (home/page: session-present;
+     * preview(): always true) and applied to the extension in render()'s reset
+     * block — assignment-not-set means the shared singleton never leaks
+     * annotation across requests.
+     */
+    private bool $annotateBlocks = false;
+
     public function home(Request $request): Response
     {
         $session = $this->session($request);
+        $this->annotateBlocks = $session !== null;
         $homepageEntry = (string) config($this->context, 'lemma_render.homepage_entry', '');
         $locale = (string) config($this->context, 'i18n.default_locale', 'en');
         $entry = null;
@@ -91,6 +101,7 @@ final class RenderController
         }
 
         $session = $this->session($request);
+        $this->annotateBlocks = $session !== null;
         $extra = $this->sessionExtra($session);
         [$env, $assetBase] = $this->themedEnv($session);
         $result = $this->resolver->resolvePath('/' . ltrim($path, '/'), $session);
@@ -146,7 +157,9 @@ final class RenderController
         $response->headers->remove('Cache-Tag');
         $response->headers->set('Cache-Control', 'no-store');
         $response->headers->set('X-Robots-Tag', 'noindex');
-        return $response;
+        // Preview-session render, entry point TWO (visual-canvas spec §2 P1):
+        // cookie-backed session pages get the bridge like the direct token route.
+        return $this->withPreviewBridge($response);
     }
 
     /**
@@ -205,6 +218,11 @@ final class RenderController
     )]
     public function preview(Request $request, string $token): Response
     {
+        // Preview-session render, entry point ONE (visual-canvas spec §2 P1): this
+        // route does NOT pass PreviewSessionMiddleware — the canvas iframe's first
+        // load lands here, so annotation keys off controller knowledge, not the
+        // middleware attribute.
+        $this->annotateBlocks = true;
         // Verified up front: the session drives BOTH the cookie and the per-preview
         // theme (spec §5) — a themed token renders through a request-local environment.
         $session = $this->sessionVerifier?->verify($token);
@@ -251,6 +269,65 @@ final class RenderController
                 \Symfony\Component\HttpFoundation\Cookie::SAMESITE_LAX,
             ));
         }
+        return $this->withPreviewBridge($response);
+    }
+
+    /**
+     * Preview support stylesheet (visual-canvas spec §3): the layout-inert
+     * annotation wrapper rule + canvas ring styles. Token-free static content.
+     */
+    #[\Glueful\Routing\Attributes\ApiOperation(
+        summary: 'Preview support stylesheet (not an API endpoint)',
+        tags: ['Default'],
+    )]
+    public function previewCss(): Response
+    {
+        return $this->previewSupportAsset('preview.css', 'text/css; charset=UTF-8');
+    }
+
+    /**
+     * The canvas bridge script (visual-canvas spec §3): silent until a
+     * nonce-carrying canvas-hello; token-free static content.
+     */
+    #[\Glueful\Routing\Attributes\ApiOperation(
+        summary: 'Preview canvas bridge script (not an API endpoint)',
+        tags: ['Default'],
+    )]
+    public function previewBridgeJs(): Response
+    {
+        return $this->previewSupportAsset('preview-bridge.js', 'application/javascript; charset=UTF-8');
+    }
+
+    private function previewSupportAsset(string $file, string $contentType): Response
+    {
+        $path = dirname(__DIR__, 3) . '/assets/preview/' . $file;
+        $body = is_file($path) ? (string) file_get_contents($path) : '';
+        return new Response($body, 200, [
+            'Content-Type' => $contentType,
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
+    /**
+     * Inject the canvas bridge into preview HTML (visual-canvas spec §3): applied
+     * to BOTH preview response paths — the direct token entrypoint and cookie
+     * sessions. Non-HTML responses (redirects, assets) pass through untouched;
+     * missing </body> appends at end-of-document — NEVER fails the render.
+     */
+    private function withPreviewBridge(Response $response): Response
+    {
+        $type = (string) $response->headers->get('Content-Type', '');
+        if (!str_contains($type, 'text/html')) {
+            return $response;
+        }
+        $inject = '<link rel="stylesheet" href="/_preview.css">'
+            . '<script src="/_preview-bridge.js" defer></script>';
+        $html = (string) $response->getContent();
+        $response->setContent(
+            str_contains($html, '</body>')
+                ? (string) preg_replace('#</body>#', $inject . '</body>', $html, 1)
+                : $html . $inject
+        );
         return $response;
     }
 
@@ -468,6 +545,10 @@ final class RenderController
         $this->extension->resetTags();
         $this->extension->setAssetBase($assetBase);
         $this->extension->resetBlockDepth();
+        // Controller-scoped intent, applied per render: every entry point ASSIGNS
+        // $annotateBlocks (true only for preview renders), so the shared singleton
+        // can never leak annotation into a live response.
+        $this->extension->setBlockAnnotations($this->annotateBlocks);
         $this->extension->setLocale($locale);
         $context = [
             'site' => [

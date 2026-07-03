@@ -217,4 +217,49 @@ final class BlocksValidationTest extends LemmaTestCase
             self::assertArrayHasKey('body.0.heading', $e->errors());
         }
     }
+
+    public function testBlockIdsMustBeUniqueAcrossTheWholeEntry(): void
+    {
+        // Two blocks FIELDS carrying the same block id: the canvas bridge keys on
+        // bare ids, so uniqueness is entry-wide (visual-canvas spec §5), not
+        // per-list. Same error copy/path style as the within-list rejection.
+        $schema = ContentTypeSchema::fromArray([
+            ['name' => 'body', 'type' => 'blocks'],
+            ['name' => 'sidebar', 'type' => 'blocks'],
+        ]);
+        try {
+            $this->validator->validate($schema, [
+                'body' => [['id' => 'dupe00000001', 'type' => 'quote', 'data' => ['text' => 'a']]],
+                'sidebar' => [['id' => 'dupe00000001', 'type' => 'quote', 'data' => ['text' => 'b']]],
+            ]);
+            self::fail('expected ValidationException');
+        } catch (ValidationException $e) {
+            self::assertArrayHasKey('sidebar.0', $e->errors());
+            self::assertStringContainsString("duplicate block id 'dupe00000001'", $e->errors()['sidebar.0']);
+        }
+
+        // Distinct ids across fields validate.
+        $clean = $this->validator->validate($schema, [
+            'body' => [['id' => 'aaaaaaaaaaaa', 'type' => 'quote', 'data' => ['text' => 'a']]],
+            'sidebar' => [['id' => 'bbbbbbbbbbbb', 'type' => 'quote', 'data' => ['text' => 'b']]],
+        ]);
+        self::assertSame('aaaaaaaaaaaa', $clean['body'][0]['id']);
+
+        // NESTED lists share the entry-wide set too: a nested duplicate of a
+        // top-level id rejects at the nested path.
+        $nestedSchema = ContentTypeSchema::fromArray([['name' => 'body', 'type' => 'blocks']]);
+        try {
+            $this->validator->validate($nestedSchema, [
+                'body' => [
+                    ['id' => 'topid0000001', 'type' => 'quote', 'data' => ['text' => 'x']],
+                    ['id' => 'sec000000001', 'type' => 'section', 'data' => ['content' => [
+                        ['id' => 'topid0000001', 'type' => 'hero', 'data' => ['heading' => 'H']],
+                    ]]],
+                ],
+            ]);
+            self::fail('expected ValidationException');
+        } catch (ValidationException $e) {
+            self::assertArrayHasKey('body.1.content.0', $e->errors());
+        }
+    }
 }
