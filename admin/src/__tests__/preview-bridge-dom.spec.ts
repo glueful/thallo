@@ -434,6 +434,20 @@ describe('edit-in-place session', () => {
     expect(region.getAttribute('contenteditable')).toBeNull()
   })
 
+  it('a session that actually starts posts edit-start; a failed grant posts nothing', () => {
+    const w = proseWrapper('sc-a-0000001')
+    document.body.appendChild(w)
+    posted.mockClear()
+    sendToBridge({ type: 'lemma:edit-grant', id: 'sc-a-0000001', field: 'body', kind: 'rich' })
+    expect(lastPost('lemma:edit-start')).toMatchObject({ id: 'sc-a-0000001' })
+    sendToBridge({ type: 'lemma:edit-flush' })
+
+    // Grant for a block with NO matching region: no session, no edit-start.
+    posted.mockClear()
+    sendToBridge({ type: 'lemma:edit-grant', id: 'sc-a-0000001', field: 'nope', kind: 'string' })
+    expect(lastPost('lemma:edit-start')).toBeUndefined()
+  })
+
   it('text kind: Enter does NOT exit; commit carries the text payload', () => {
     const w = stringWrapper('es-e-0000001', 'body_text', 'line')
     document.body.appendChild(w)
@@ -449,5 +463,40 @@ describe('edit-in-place session', () => {
       field: 'body_text',
       text: 'line',
     })
+  })
+})
+
+describe('scroll preservation', () => {
+  it('scroll posts are trailing-throttled with the LATEST position', () => {
+    vi.useFakeTimers()
+    try {
+      posted.mockClear()
+      Object.defineProperty(window, 'scrollY', { value: 100, configurable: true })
+      window.dispatchEvent(new Event('scroll'))
+      Object.defineProperty(window, 'scrollY', { value: 340, configurable: true })
+      window.dispatchEvent(new Event('scroll'))
+      // Nothing posted before the throttle window closes.
+      expect(lastPost('lemma:scroll')).toBeUndefined()
+      vi.advanceTimersByTime(300)
+      // ONE post, carrying the latest y.
+      const scrolls = posted.mock.calls
+        .map((c) => c[0] as { type: string; y?: number })
+        .filter((m) => m.type === 'lemma:scroll')
+      expect(scrolls).toHaveLength(1)
+      expect(scrolls[0]!.y).toBe(340)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('restore-scroll jumps instantly via window.scrollTo', () => {
+    const scrollTo = vi.fn()
+    window.scrollTo = scrollTo as unknown as typeof window.scrollTo
+    sendToBridge({ type: 'lemma:restore-scroll', y: 480 })
+    expect(scrollTo).toHaveBeenCalledWith(0, 480)
+    // Non-number y is dropped.
+    scrollTo.mockClear()
+    sendToBridge({ type: 'lemma:restore-scroll', y: 'x' })
+    expect(scrollTo).not.toHaveBeenCalled()
   })
 })

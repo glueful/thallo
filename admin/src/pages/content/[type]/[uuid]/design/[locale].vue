@@ -75,7 +75,10 @@ const renderDisabled = ref(false)
 const mintFailed = ref(false)
 const iframeEl = ref<HTMLIFrameElement | null>(null)
 const bridge = useCanvasBridge(iframeEl)
-onBeforeUnmount(() => bridge.dispose())
+onBeforeUnmount(() => {
+  cancelAutoTimer()
+  bridge.dispose()
+})
 
 async function mintAndLoad(): Promise<void> {
   try {
@@ -99,6 +102,7 @@ void mintAndLoad()
 
 function onIframeLoad(): void {
   bridge.hello()
+  if (lastScrollY > 0) bridge.restoreScroll(lastScrollY)
 }
 
 // Outline panel visibility — same affordance shape as the inspector's
@@ -260,33 +264,121 @@ bridge.onTextChanged((id, field, payload) => {
   }
 })
 
+// Session suppression keys off ACTUAL session starts (a failed grant never
+// posts edit-start, so it can never wedge suppression); edit-end re-arms.
+bridge.onEditStart(() => {
+  editSessionActive.value = true
+  cancelAutoTimer()
+})
+bridge.onEditEnd(() => {
+  editSessionActive.value = false
+  if (autoEnabled.value && !autoSuspended.value && stageStale.value) scheduleAuto()
+})
+
+// Scroll preservation (auto-apply spec §3): remember the stage's last position,
+// restore after every reload's hello. Reset when the entry/locale changes.
+let lastScrollY = 0
+bridge.onScroll((y) => {
+  lastScrollY = y
+})
+watch([uuid, locale], () => {
+  lastScrollY = 0
+})
+
 // ── Apply loop (loop C spec §4): ephemeral render, nothing persisted ──────────
 const save = useSaveDraft(uuid.value, () => locale.value, type.value)
 const applying = ref(false)
 
-async function applyWorking(): Promise<void> {
+// ── Auto-apply (auto-apply spec §1): a SCHEDULER over the one runApply core ──
+const autoEnabled = ref(localStorage.getItem('lemma.canvas.auto_apply') !== '0')
+const autoSuspended = ref(false) // session-local; never persisted
+const editSessionActive = ref(false)
+const applyQueued = ref(false) // the coalescing boolean — never a counter
+let autoTimer: ReturnType<typeof setTimeout> | null = null
+
+function cancelAutoTimer(): void {
+  if (autoTimer) {
+    clearTimeout(autoTimer)
+    autoTimer = null
+  }
+}
+
+function scheduleAuto(): void {
+  cancelAutoTimer()
+  autoTimer = setTimeout(() => {
+    autoTimer = null
+    if (!autoEnabled.value || autoSuspended.value || editSessionActive.value) return
+    if (renderDisabled.value || mintFailed.value || previewToken.value === '') return
+    if (!stageStale.value) return
+    if (applying.value) {
+      // No concurrent applies (spec pin): queue ONE follow-up and return.
+      applyQueued.value = true
+      return
+    }
+    void runApply(true)
+  }, 800)
+}
+
+watch(
+  fields,
+  () => {
+    if (autoEnabled.value && !autoSuspended.value) scheduleAuto()
+  },
+  { deep: true },
+)
+
+function toggleAuto(): void {
+  if (autoSuspended.value) {
+    // Click-while-suspended clears suspension and keeps auto enabled.
+    autoSuspended.value = false
+    if (stageStale.value) scheduleAuto()
+    return
+  }
+  autoEnabled.value = !autoEnabled.value
+  localStorage.setItem('lemma.canvas.auto_apply', autoEnabled.value ? '1' : '0')
+  if (!autoEnabled.value) cancelAutoTimer()
+  else if (stageStale.value) scheduleAuto()
+}
+
+/**
+ * The ONE apply path (auto-apply spec §2): token retry, failure reset,
+ * banners, and stash bookkeeping live HERE — auto vs manual only differ in
+ * flush, suspension, and re-arm side effects.
+ */
+async function runApply(auto: boolean): Promise<void> {
+  applyQueued.value = false
   applying.value = true
+  let succeeded = false
+  // Immutable payload snapshot (spec pin): the request AND lastApplied must
+  // describe the SAME tree. Reading live fields after the await would stamp
+  // lastApplied with edits the server never saw — stageStale would read
+  // false and the coalesced follow-up would silently skip. Snapshot through
+  // JSON (not structuredClone: fields.value is a Vue reactive proxy, which
+  // structuredClone rejects with DataCloneError).
+  const appliedJson = JSON.stringify(fields.value)
+  const payload = JSON.parse(appliedJson) as Record<string, unknown>
   try {
-    await bridge.editFlush() // commit any in-stage typing before reading fields
     try {
-      await applyPreview(uuid.value, locale.value, previewToken.value, fields.value)
+      await applyPreview(uuid.value, locale.value, previewToken.value, payload)
     } catch (e: unknown) {
-      // Token died mid-session (expired/invalid): re-mint ONCE and retry (spec §4).
+      // Dead token: re-mint ONCE and retry — TTL churn, never a failure
+      // (suspension counts only the FINAL outcome, spec pin). The retry sends
+      // the SAME snapshot: one run applies one tree.
       if (e instanceof ApiError && (e.status === 410 || e.status === 403)) {
         await mintAndLoad()
-        await applyPreview(uuid.value, locale.value, previewToken.value, fields.value)
+        await applyPreview(uuid.value, locale.value, previewToken.value, payload)
       } else {
         throw e
       }
     }
-    lastApplied.value = JSON.stringify(fields.value)
+    lastApplied.value = appliedJson
     reloadStage() // same-URL reload — the stash is behind the SAME token URL
+    succeeded = true
+    if (!auto) autoSuspended.value = false // manual success re-arms auto
   } catch (e: unknown) {
-    // Apply-failure reset (review P1): the server rejected the working tree and
-    // wrote NO stash — optimistic mirror DOM (move/delete/duplicate) must not
-    // keep masquerading as applied. Reload the stage back to last-applied truth;
-    // local dirty fields are kept.
+    // Final failure: discard mirror-only DOM; keep dirty fields (v2/loop C pins).
     reloadStage()
+    if (auto) autoSuspended.value = true // one banner now, then quiet until re-armed
     if (e instanceof ApiError && apiErrorCode(e) === 'BLOCK_MIGRATION_IN_PROGRESS') {
       const blockType = String(apiErrorDetails(e)?.block_type ?? 'a block type')
       warning(
@@ -299,6 +391,19 @@ async function applyWorking(): Promise<void> {
   } finally {
     applying.value = false
   }
+  // Coalesced follow-up (spec §1): at most one, latest tree, success-path only.
+  if (succeeded && applyQueued.value && stageStale.value && !editSessionActive.value) {
+    void runApply(true)
+  } else {
+    applyQueued.value = false
+  }
+}
+
+async function applyWorking(): Promise<void> {
+  if (applying.value) return
+  cancelAutoTimer()
+  await bridge.editFlush() // commit any in-stage typing before reading fields
+  await runApply(false)
 }
 
 // Save persists ONLY (loop C spec §4): the stage already shows the applied
@@ -422,6 +527,18 @@ function reloadStage(): void {
             @click="refreshPreview()"
           >
             Refresh preview
+          </UButton>
+          <UButton
+            variant="outline"
+            :color="autoSuspended ? 'warning' : 'neutral'"
+            size="xs"
+            icon="i-lucide-zap"
+            :aria-label="autoSuspended ? 'Auto-apply paused after an error — click to resume' : 'Toggle auto-apply'"
+            data-test="canvas-auto-toggle"
+            :class="{ 'bg-elevated': autoEnabled && !autoSuspended }"
+            @click="toggleAuto()"
+          >
+            Auto
           </UButton>
           <UChip :show="stageStale" color="info" inset>
             <UButton :loading="applying" data-test="canvas-apply" @click="applyWorking()">

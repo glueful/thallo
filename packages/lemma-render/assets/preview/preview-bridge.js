@@ -201,6 +201,9 @@
         }
       }
     }
+    // Session lifecycle (auto-apply spec §1): posted ONLY when a session
+    // actually started — a failed grant must never wedge parent suppression.
+    post('edit-start', { id: id })
   }
 
   // ── Mirrors (stage-toolbar spec §1): DOM-only, parent-commanded ─────────────
@@ -337,6 +340,16 @@
       selectWrapper(w)
       post('block-select', { id: w.getAttribute('data-lemma-block') })
     }, true)
+    // Scroll preservation (auto-apply spec §3): trailing-throttled reports;
+    // the parent restores after every stage reload.
+    var scrollTimer = null
+    window.addEventListener('scroll', function () {
+      if (scrollTimer) return
+      scrollTimer = setTimeout(function () {
+        scrollTimer = null
+        post('scroll', { y: window.scrollY || 0 })
+      }, 250)
+    })
     post('blocks-index', { ids: idsIndex() })
   }
 
@@ -374,6 +387,9 @@
         endEditing()
       }
       post('edit-flushed') // ALWAYS ack (spec §3) — the parent awaits this
+    }
+    if (data.type === 'lemma:restore-scroll' && typeof data.y === 'number') {
+      window.scrollTo(0, data.y) // instant — a reload restore must not visibly travel
     }
     if (data.type === 'lemma:mirror-move') mirrorMove(data.id, data.beforeId, data.afterId)
     if (data.type === 'lemma:mirror-remove') mirrorRemove(data.id)
