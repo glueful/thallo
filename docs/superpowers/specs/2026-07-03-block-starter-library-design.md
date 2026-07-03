@@ -26,7 +26,7 @@ Created with `category` (Layout/Content/Media), a lucide `icon`, and a short `de
 | Layout | `divider` | `style` (enum `line/space`) |
 | Layout | `spacer` | `size` (enum `small/medium/large`) |
 | Content | `hero` | `heading` (string, required), `subheading` (string), `image` (asset), `alignment` (enum `left/center`), `cta_label` (string), `cta_url` (string) |
-| Content | `copy` | `body` (text, plain) — rendered ESCAPED + `nl2br`. A rich-HTML starter is deliberately absent: rich fields store editor HTML strings, and rendering them requires `\|raw`, which no starter template may use without a server-side sanitizer contract (see Out of scope). |
+| Content | `rich_text` | `body` (text, format rich) — rendered via `{{ data.body\|safe_html }}`. **Amended after the sanitizer shipped** (spec `2026-07-03-rich-html-sanitizer-design.md`): save-time sanitization + the fail-closed `safe_html` filter make this safe; it REPLACES the interim escaped `copy` block (10 starters, small and opinionated). Starter templates still never use `\|raw`. |
 | Content | `quote` | `text` (text, required), `attribution` (string) |
 | Content | `cta` | `heading` (string, required), `body` (text), `button_label` (string), `button_url` (string), `variant` (enum `primary/secondary`) |
 | Media | `image` | `image` (asset, required), `alt` (string), `caption` (string), `width` (enum `normal/wide/full`) |
@@ -75,7 +75,7 @@ Twig autoescape does not make `href="javascript:…"` safe. The render pack gain
 
 ## 5. Sandbox policy
 
-`media` joins `TemplatePolicy::FUNCTIONS` and `safe_url` joins `TemplatePolicy::FILTERS`; **one `CACHE_VERSION` bump to 3** covers both (new Twig surfaces DB templates may use — unlike the nesting change, these ARE policy changes).
+`media` joins `TemplatePolicy::FUNCTIONS` and `safe_url` joins `TemplatePolicy::FILTERS`; **one `CACHE_VERSION` bump to 4** covers both (the sanitizer shipped first and took 3 with `safe_html` — sequencing per its spec §5). `safe_url` APPENDS to the `getFilters()` the sanitizer created.
 
 ## 6. Templates + style conventions
 
@@ -100,7 +100,7 @@ Ten templates at `packages/lemma-render/themes/default/templates/blocks/{slug}.t
 ## 8. Testing
 
 - **Seeder:** first run creates 10 (counts asserted from `StarterBlockTypes::definitions()`, not a literal); second run creates 0 / skips 10; an admin-edited `hero` schema survives re-seed byte-identical; every definition passes `BlockTypeRepository::create()` (§2 rules).
-- **Helpers:** `media()` — public blob + anonymous access allowed (`upload_only`) → `/…/blobs/{uuid}` (via `api_prefix`); **`visibility=public` + each of `uploads.access` = `'private'`, `true`, `'true'`, `1` → null** (the route-middleware parity matrix; `'private'` is the default-install case); `uploads.enabled=false` → null; private → null; missing → null; unbound resolver → null; `safe_url` — the §4 allow/deny matrix; both lint clean in a DB template; `CACHE_VERSION === 3`.
+- **Helpers:** `media()` — public blob + anonymous access allowed (`upload_only`) → `/…/blobs/{uuid}` (via `api_prefix`); **`visibility=public` + each of `uploads.access` = `'private'`, `true`, `'true'`, `1` → null** (the route-middleware parity matrix; `'private'` is the default-install case); `uploads.enabled=false` → null; private → null; missing → null; unbound resolver → null; `safe_url` — the §4 allow/deny matrix; both lint clean in a DB template; `CACHE_VERSION === 4`. `rich_text` renders sanitized through `safe_html` (a `<script>` in fixture data never reaches output).
 - **Templates:** each starter renders its default-theme template with representative fixture data (no throw, non-empty, root classes + enum modifier present); `columns` 2 vs 3; `section`>`hero` composition; the §4 security matrix through the real `hero`/`cta` templates.
 - **CLI:** output shape (per-slug lines + summary).
 
@@ -109,5 +109,5 @@ Ten templates at `packages/lemma-render/themes/default/templates/blocks/{slug}.t
 - Batched media lookups; signed-URL support in rendered pages; purge-on-blob-visibility-change.
 - Reference-based starter blocks; sample CONTENT seeding (types only, no entries).
 - Setup-wizard integration (the CLI is the seam; a wizard checkbox can call it later).
-- **Rich-HTML rendering (pinned rejection):** starter templates never use `|raw`. The safe pipeline — editor stores HTML → backend sanitizes on save/publish via allowlist → templates render the SANITIZED value — is a dedicated follow-up ("rich HTML sanitization/rendering") with its own spec/plan and security review, because sanitizer behavior affects EVERY rich text field in Lemma, not just starter blocks. Agreed shape for that cycle (recorded so it isn't rediscovered): `RichHtmlSanitizer::sanitize(string $html): string` contract; allowlist implementation scoped to TipTap output (paragraphs, headings, lists, blockquote, code, bold/italic/strike, safe-scheme links; images only if deliberately allowed); enforcement on save/publish in `FieldValidator` for `text format:rich` INCLUDING rich fields inside blocks; render surface = a `safe_html` Twig filter or an explicit "format:rich values are pre-sanitized and may be rendered raw by trusted filesystem templates" rule; security tests covering `<script>`, event attributes, `javascript:` links, unsafe `style`, hostile SVG/data URLs, and malformed HTML. A `rich_text` starter block joins the library immediately after that contract is real.
+- ~~Rich-HTML rendering~~ **RESOLVED same day**: the sanitizer cycle shipped (`2026-07-03-rich-html-sanitizer-design.md` — `RichHtmlSanitizer` contract, TipTap allowlist, save-time enforcement incl. blocks, fail-closed `safe_html` at `CACHE_VERSION = 3`), and `rich_text` rejoined the starter set (§1, replacing `copy`). Starter templates still never use `|raw` — `safe_html` is the only rich render surface.
 - **Notion-like block editor UX** (slash/add menu, inline insertion between blocks, drag handles, keyboard movement, collapsed chrome): a separate SPA `BlocksField` sub-project, not a template concern.

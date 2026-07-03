@@ -4,14 +4,14 @@
 
 **Goal:** Ten seedable starter block types (Layout/Content/Media) with matching default-theme templates, a `media()` blob-URL helper mirroring the full blob-route access stack, and a `safe_url` link-safety filter.
 
-**Architecture:** Data + templates + two small Twig surfaces on finished machinery. `StarterBlockTypes::definitions()` is the one source of truth, seeded through `BlockTypeRepository::create()` by an idempotent opt-in CLI. `MediaUrlResolver` (new contract) mirrors `path()`'s architecture — core impl over the `blobs` table with the ROUTE-STACK access predicate, soft-bound into the render extension. Both new surfaces join `TemplatePolicy` with one `CACHE_VERSION` bump to 3.
+**Architecture:** Data + templates + two small Twig surfaces on finished machinery. `StarterBlockTypes::definitions()` is the one source of truth, seeded through `BlockTypeRepository::create()` by an idempotent opt-in CLI. `MediaUrlResolver` (new contract) mirrors `path()`'s architecture — core impl over the `blobs` table with the ROUTE-STACK access predicate, soft-bound into the render extension. Both new surfaces join `TemplatePolicy` with one `CACHE_VERSION` bump to 4 (the sanitizer shipped first at 3).
 
 **Tech Stack:** unchanged. **Spec:** `docs/superpowers/specs/2026-07-03-block-starter-library-design.md` — read it first.
 
 ## Global Constraints
 
 - **Commit gate:** STAGE at the end; commit only on explicit authorization. No attribution trailers. phpcs via `-q; echo $?`; `composer boundaries` after pack changes.
-- **Spec pins (verbatim):** seeding is CLI opt-in, idempotent by slug, existing slugs (any active state) SKIPPED, no `--force`; per-slug output lines + `Created N, skipped M.`; `media()` returns a URL only when blob exists+active+not-deleted AND `visibility === 'public'` AND `uploads.enabled` truthy AND the FULL-STACK anonymous predicate holds — `$access !== 'private' && $access !== true && $access !== 'true' && $access !== 1` (the route middleware attaches `auth` for truthy-true forms before the controller's looser check); null otherwise; host-relative via `api_prefix()`; `safe_url` allows only `/`-relative (not `//`), `https://`, `http://`, `mailto:` — else null; `media` joins `FUNCTIONS`, `safe_url` joins `FILTERS`, **`CACHE_VERSION = 3`** (one bump, both surfaces); template root class `lemma-block lemma-block-{slug}` + enum modifier classes; no `reference` fields in starters; ships after the nesting amendment (c13fe62 — already on dev).
+- **Spec pins (verbatim):** seeding is CLI opt-in, idempotent by slug, existing slugs (any active state) SKIPPED, no `--force`; per-slug output lines + `Created N, skipped M.`; `media()` returns a URL only when blob exists+active+not-deleted AND `visibility === 'public'` AND `uploads.enabled` truthy AND the FULL-STACK anonymous predicate holds — `$access !== 'private' && $access !== true && $access !== 'true' && $access !== 1` (the route middleware attaches `auth` for truthy-true forms before the controller's looser check); null otherwise; host-relative via `api_prefix()`; `safe_url` allows only `/`-relative (not `//`), `https://`, `http://`, `mailto:` — else null; `media` joins `FUNCTIONS`, `safe_url` joins `FILTERS`, **`CACHE_VERSION = 4`** (one bump, both surfaces; the sanitizer shipped first and took 3 with `safe_html`); template root class `lemma-block lemma-block-{slug}` + enum modifier classes; no `reference` fields in starters; ships after the nesting amendment (c13fe62 — already on dev).
 - **House patterns:** app command in `App\Content\Console`, `#[AsCommand]`, extends `Glueful\Console\BaseCommand` (`$this->context`, `getService()`, `info/warning/success` helpers); registered in BOTH `LemmaServiceProvider::consoleCommandServices()` AND the `commands([...])` list. Command NAME follows the repo's `lemma:` namespace: **`lemma:blocks:seed` with alias `blocks:seed`** (the spec's invocation keeps working). After adding a command, regenerate the console manifest if CLI boot acts stale (`php glueful commands:cache` — known manifest gotcha).
 
 ## File Map
@@ -21,7 +21,7 @@
 | `packages/lemma-contracts/src/Delivery/MediaUrlResolver.php` | contract |
 | `app/Content/Delivery/EngineMediaUrlResolver.php` | route-stack-parity URL resolution |
 | `packages/lemma-render/src/RenderContextExtension.php` (modify) | `media()` fn + `safe_url` filter |
-| `packages/lemma-render/src/Templates/TemplatePolicy.php` (modify) | FUNCTIONS/FILTERS + CACHE_VERSION=3 |
+| `packages/lemma-render/src/Templates/TemplatePolicy.php` (modify) | FUNCTIONS/FILTERS + CACHE_VERSION=4 |
 | `packages/lemma-render/src/LemmaRenderServiceProvider.php` (modify) | soft-bind resolver into the extension |
 | `app/Providers/LemmaServiceProvider.php` (modify) | resolver binding + command registration |
 | `app/Content/Blocks/StarterBlockTypes.php` | the ten definitions |
@@ -38,7 +38,7 @@
 - Modify: `packages/lemma-render/src/RenderContextExtension.php`, `packages/lemma-render/src/Templates/TemplatePolicy.php`, `packages/lemma-render/src/LemmaRenderServiceProvider.php`, `app/Providers/LemmaServiceProvider.php`
 
 **Interfaces:**
-- Produces: `MediaUrlResolver::url(string $uuid): ?string`; `EngineMediaUrlResolver::__construct(Connection $db, string $blobUrlBase, bool $uploadsEnabled, mixed $accessMode)` (**scalars injected by the factory — tests construct variants directly, no config reboots**); static `EngineMediaUrlResolver::anonymousRetrievalAllowed(mixed $access): bool` (the pure predicate, unit-matrix-testable); Twig `media(uuid)`; `TemplatePolicy::CACHE_VERSION = 3`.
+- Produces: `MediaUrlResolver::url(string $uuid): ?string`; `EngineMediaUrlResolver::__construct(Connection $db, string $blobUrlBase, bool $uploadsEnabled, mixed $accessMode)` (**scalars injected by the factory — tests construct variants directly, no config reboots**); static `EngineMediaUrlResolver::anonymousRetrievalAllowed(mixed $access): bool` (the pure predicate, unit-matrix-testable); Twig `media(uuid)`; `TemplatePolicy::CACHE_VERSION = 4`.
 
 - [ ] **Step 1: Failing tests**
 
@@ -290,10 +290,10 @@ and the method:
 `TemplatePolicy`: `'media',` joins `FUNCTIONS`; `CACHE_VERSION` becomes:
 
 ```php
-    public const CACHE_VERSION = 3; // bumped: 'media' + 'safe_url' joined the allowlists (starter-library spec §5)
+    public const CACHE_VERSION = 4; // bumped: 'media' + 'safe_url' joined the allowlists (starter-library spec §5)
 ```
 
-Extend `tests/Integration/Render/BlocksRenderingTest.php`'s policy test: the `CACHE_VERSION` assertion becomes `self::assertSame(3, TemplatePolicy::CACHE_VERSION);` and add `self::assertContains('media', TemplatePolicy::FUNCTIONS);` + a lint-clean check for `{{ media(data.image) }}`.
+Extend `tests/Integration/Render/BlocksRenderingTest.php`'s policy test: the `CACHE_VERSION` assertion becomes `self::assertSame(4, TemplatePolicy::CACHE_VERSION);` and add `self::assertContains('media', TemplatePolicy::FUNCTIONS);` + a lint-clean check for `{{ media(data.image) }}`.
 
 - [ ] **Step 5: Verify pass** — the two new test files + `tests/Integration/Render/BlocksRenderingTest.php` + full `tests/Integration/Render/`. Gates: phpcs, boundaries.
 
@@ -349,7 +349,7 @@ Extend `tests/Integration/Render/BlocksRenderingTest.php`'s policy test: the `CA
 
 - [ ] **Step 3: Implement**
 
-`RenderContextExtension` — add `getFilters()` (import `use Twig\TwigFilter;`):
+`RenderContextExtension` — APPEND to the existing `getFilters()` (the sanitizer created it with `safe_html`):
 
 ```php
     /** @return list<TwigFilter> */
@@ -525,10 +525,10 @@ final class StarterBlockTypes
                     ['name' => 'cta_label', 'type' => 'string'],
                     ['name' => 'cta_url', 'type' => 'string'],
                 ]],
-            ['slug' => 'copy', 'label' => 'Text', 'icon' => 'i-lucide-text',
-                'category' => 'Content', 'description' => 'A paragraph of plain text.',
+            ['slug' => 'rich_text', 'label' => 'Rich text', 'icon' => 'i-lucide-text',
+                'category' => 'Content', 'description' => 'Free-form formatted text.',
                 'schema' => [
-                    ['name' => 'body', 'type' => 'text'],
+                    ['name' => 'body', 'type' => 'text', 'format' => 'rich'],
                 ]],
             ['slug' => 'quote', 'label' => 'Quote', 'icon' => 'i-lucide-quote',
                 'category' => 'Content', 'description' => 'A pull quote with attribution.',
@@ -625,7 +625,7 @@ Provider: `SeedBlockTypesCommand::class` entry in `consoleCommandServices()` (mi
 ### Task 4: Templates + starter CSS + render smokes
 
 **Files:**
-- Create: `packages/lemma-render/themes/default/templates/blocks/{section,columns,divider,spacer,hero,copy,quote,cta,image,gallery}.twig`
+- Create: `packages/lemma-render/themes/default/templates/blocks/{section,columns,divider,spacer,hero,rich_text,quote,cta,image,gallery}.twig`
 - Modify: `packages/lemma-render/themes/default/assets/site.css` (append)
 - Test: `tests/Integration/Render/StarterTemplatesTest.php`
 
@@ -674,7 +674,7 @@ final class StarterTemplatesTest extends LemmaTestCase
             'spacer' => ['size' => 'large'],
             'hero' => ['heading' => 'Big', 'subheading' => 'Sub', 'image' => 'blob00000000',
                 'alignment' => 'center', 'cta_label' => 'Go', 'cta_url' => '/start'],
-            'copy' => ['body' => "Hello\nWorld <b>not html</b>"],
+            'rich_text' => ['body' => '<p>Hello <strong>world</strong></p><script>alert(1)</script>'],
             'quote' => ['text' => 'Wise words', 'attribution' => 'Someone'],
             'cta' => ['heading' => 'Act now', 'body' => 'Because.', 'button_label' => 'Do it',
                 'button_url' => 'https://example.com', 'variant' => 'primary'],
@@ -695,12 +695,12 @@ final class StarterTemplatesTest extends LemmaTestCase
             self::assertNotSame('', trim($out), "empty render for {$slug}");
             self::assertStringContainsString("lemma-block-{$slug}", $out, $slug);
         }
-        // The copy block renders ESCAPED text + nl2br — never HTML (the no-|raw pin).
-        $copy = $env->createTemplate("{{ blocks(l) }}")->render(['l' => [
-            ['id' => 'cp', 'type' => 'copy', 'data' => $this->fixture('copy')]]]);
-        self::assertStringContainsString('&lt;b&gt;not html&lt;/b&gt;', $copy);
-        self::assertStringNotContainsString('<b>', $copy);
-        self::assertStringContainsString('<br', $copy); // nl2br applied
+        // rich_text renders SANITIZED through safe_html — markup survives, attacks
+        // never reach output (the no-|raw pin, now with the sanitizer shipped).
+        $rich = $env->createTemplate("{{ blocks(l) }}")->render(['l' => [
+            ['id' => 'rt', 'type' => 'rich_text', 'data' => $this->fixture('rich_text')]]]);
+        self::assertStringContainsString('<strong>world</strong>', $rich);
+        self::assertStringNotContainsString('<script', $rich);
 
         // Spot-check modifier classes (the style-convention pin).
         $section = $env->createTemplate("{{ blocks(l) }}")->render(['l' => [
@@ -801,13 +801,12 @@ final class StarterTemplatesTest extends LemmaTestCase
 </header>
 ```
 
-`blocks/copy.twig` (NO `|raw` anywhere in starter templates — spec Out-of-scope pin):
+`blocks/rich_text.twig` (still NO `|raw` — `safe_html` is the ONLY rich render surface):
 ```twig
-{# Escaped on purpose (the entry.twig convention): rendering stored editor HTML
-   requires |raw, which starter templates may not use until the server-side
-   sanitizer contract exists (the "rich HTML sanitization/rendering" follow-up).
-   Plain text + nl2br keeps paragraphs readable with zero HTML commitment. #}
-<div class="lemma-block lemma-block-copy">{{ data.body|default('')|nl2br }}</div>
+{# Rendered through safe_html (sanitizer spec §4): the value was sanitized at
+   save, and the filter re-sanitizes at output (fail-closed to escaped text when
+   no sanitizer is bound). Starter templates never use |raw. #}
+<div class="lemma-block lemma-block-rich_text">{{ data.body|default('')|safe_html }}</div>
 ```
 
 `blocks/quote.twig`:
