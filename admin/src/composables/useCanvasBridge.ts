@@ -21,6 +21,8 @@ interface BridgeMessage {
   html?: string
   text?: string
   y?: number
+  beforeId?: string
+  afterId?: string
   rect?: { x?: number; y?: number }
 }
 
@@ -42,6 +44,9 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let hoverCb: ((id: string) => void) | null = null
   let indexCb: ((ids: string[]) => void) | null = null
   let moveCb: ((id: string, delta: 1 | -1) => void) | null = null
+  let moveToCb:
+    | ((id: string, neighbor: { beforeId: string } | { afterId: string }) => void)
+    | null = null
   let duplicateCb: ((id: string) => void) | null = null
   let deleteRequestCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
   let addAfterCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
@@ -78,6 +83,14 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     // Stage toolbar intents (stage-toolbar spec §1).
     if (data.type === 'lemma:block-move' && typeof data.id === 'string') {
       if (data.delta === 1 || data.delta === -1) moveCb?.(data.id, data.delta)
+    }
+    if (data.type === 'lemma:block-move-to' && typeof data.id === 'string') {
+      // XOR (review P2): exactly one neighbor key — both or neither is
+      // malformed and dropped, never a silent preference.
+      const hasBefore = typeof data.beforeId === 'string'
+      const hasAfter = typeof data.afterId === 'string'
+      if (hasBefore && !hasAfter) moveToCb?.(data.id, { beforeId: data.beforeId as string })
+      else if (hasAfter && !hasBefore) moveToCb?.(data.id, { afterId: data.afterId as string })
     }
     if (data.type === 'lemma:block-duplicate' && typeof data.id === 'string') {
       duplicateCb?.(data.id)
@@ -155,6 +168,11 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     },
     onBlockMove(cb: (id: string, delta: 1 | -1) => void): void {
       moveCb = cb
+    },
+    onBlockMoveTo(
+      cb: (id: string, neighbor: { beforeId: string } | { afterId: string }) => void,
+    ): void {
+      moveToCb = cb
     },
     onBlockDuplicate(cb: (id: string) => void): void {
       duplicateCb = cb

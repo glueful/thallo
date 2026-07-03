@@ -125,6 +125,11 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   on failure until a manual Apply succeeds, and toggleable per browser. The
   stage's scroll position now survives every reload, including manual
   Apply's.
+- Free drag (canvas v6): drag the stage toolbar's grip to reorder a block
+  within its list, sortable-style — the page reorders live under the
+  pointer, one move lands in the block tree on drop (validated same-list by
+  the inspector's ops), Escape cancels, and a rejected drop snaps the stage
+  back to truth. Cross-container moves stay in the inspector.
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

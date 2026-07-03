@@ -339,6 +339,48 @@ describe('BlocksField', () => {
     wrapper.unmount()
   })
 
+  it('moveBlockTo places a block next to a SAME-LIST reference; cross-list denied', async () => {
+    let model: { id: string; type: string; data: Record<string, unknown> }[] = [
+      { id: 'aaa000000001', type: 'quote', data: { text: 'A' } },
+      { id: 'bbb000000002', type: 'quote', data: { text: 'B' } },
+      {
+        id: 'sec00000001',
+        type: 'section',
+        data: { content: [{ id: 'inner0000001', type: 'quote', data: {} }] },
+      },
+    ]
+    const wrapper = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: model,
+        'onUpdate:modelValue': (v: typeof model) => (model = v),
+      },
+    })
+    await flushPromises()
+    const api = wrapper.vm as unknown as {
+      moveBlockTo: (id: string, n: { beforeId: string } | { afterId: string }) => boolean
+    }
+
+    // afterId at list end: aaa moves after sec.
+    expect(api.moveBlockTo('aaa000000001', { afterId: 'sec00000001' })).toBe(true)
+    expect(model.map((b) => b.id)).toEqual(['bbb000000002', 'sec00000001', 'aaa000000001'])
+    await wrapper.setProps({ modelValue: model })
+
+    // beforeId back to the front.
+    expect(api.moveBlockTo('aaa000000001', { beforeId: 'bbb000000002' })).toBe(true)
+    expect(model.map((b) => b.id)).toEqual(['aaa000000001', 'bbb000000002', 'sec00000001'])
+    await wrapper.setProps({ modelValue: model })
+
+    // Cross-list reference (nested block) -> denied, NO mutation.
+    const before = model.map((b) => b.id)
+    expect(api.moveBlockTo('aaa000000001', { beforeId: 'inner0000001' })).toBe(false)
+    expect(model.map((b) => b.id)).toEqual(before)
+    // Unknown ids -> denied.
+    expect(api.moveBlockTo('missing', { beforeId: 'bbb000000002' })).toBe(false)
+    expect(api.moveBlockTo('aaa000000001', { beforeId: 'missing' })).toBe(false)
+    wrapper.unmount()
+  })
+
   it('patchBlockData patches one field through the tree; blockTypeById resolves types', async () => {
     let model: { id: string; type: string; data: Record<string, unknown> }[] = [
       { id: 'aaa000000001', type: 'quote', data: { text: 'A' } },

@@ -245,6 +245,45 @@ describe('useCanvasBridge', () => {
     bridge.dispose()
   })
 
+  it('block-move-to dispatches with exactly one neighbor key; malformed dropped', () => {
+    const bridge = useCanvasBridge(ref(null))
+    const moveTo = vi.fn()
+    bridge.onBlockMoveTo(moveTo)
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-move-to', id: 'b1', beforeId: 'b2', nonce: bridge.nonce },
+      }),
+    )
+    expect(moveTo).toHaveBeenCalledWith('b1', { beforeId: 'b2' })
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-move-to', id: 'b1', afterId: 'b3', nonce: bridge.nonce },
+      }),
+    )
+    expect(moveTo).toHaveBeenCalledWith('b1', { afterId: 'b3' })
+    // Neither key -> dropped; BOTH keys -> dropped too (XOR, review P2 —
+    // never silently prefer one of two contradictory claims).
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-move-to', id: 'b1', nonce: bridge.nonce },
+      }),
+    )
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: 'lemma:block-move-to',
+          id: 'b1',
+          beforeId: 'b2',
+          afterId: 'b3',
+          nonce: bridge.nonce,
+        },
+      }),
+    )
+    expect(moveTo).toHaveBeenCalledTimes(2)
+    bridge.dispose()
+  })
+
   it('scroll + edit lifecycle messages dispatch and restoreScroll posts', () => {
     const postSpy = vi.fn()
     const iframe = ref({

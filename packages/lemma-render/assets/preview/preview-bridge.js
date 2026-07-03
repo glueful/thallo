@@ -14,6 +14,8 @@
   var anchorEl = null
   var editing = null // { id, field, kind, region, debounce }
   var lastPointer = null // { x, y } of the granting double-click (caret placement)
+  var drag = null // { wrapper, originalNext, lastY }
+  var suppressClick = false // one-shot: the click after a completed drag
 
   function post(type, payload) {
     if (!session) return
@@ -57,6 +59,7 @@
 
   // ── Toolbar (stage-toolbar spec §3) ─────────────────────────────────────────
   var ACTIONS = [
+    { action: 'drag', label: 'Drag to reorder', path: 'M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01' },
     { action: 'move-up', label: 'Move up', path: 'M18 15l-6-6-6 6' },
     { action: 'move-down', label: 'Move down', path: 'M6 9l6 6 6-6' },
     { action: 'duplicate', label: 'Duplicate', path: 'M8 8h12v12H8zM16 8V4H4v12h4' },
@@ -78,6 +81,7 @@
         'stroke-linecap="round" stroke-linejoin="round"><path d="' + a.path + '"/></svg>'
       toolbar.appendChild(btn)
     })
+    toolbar.querySelector('[data-action="drag"]').addEventListener('pointerdown', onGripDown)
     return toolbar
   }
 
@@ -224,6 +228,172 @@
     post('edit-start', { id: id })
   }
 
+  // ── Free drag (free-drag spec §1): live reorder, ONE intent on pointerup ────
+  function siblingWrapperFrom(el, dir) {
+    // Nearest sibling WRAPPER scanning outward — skips non-wrapper nodes and,
+    // by construction, the dragged wrapper itself (review caution).
+    var cur = dir > 0 ? el.nextElementSibling : el.previousElementSibling
+    while (cur && !(cur.hasAttribute && cur.hasAttribute('data-lemma-block'))) {
+      cur = dir > 0 ? cur.nextElementSibling : cur.previousElementSibling
+    }
+    return cur
+  }
+
+  function onGripDown(e) {
+    if (editing || drag || selectedId === null) return
+    var w = findBlock(selectedId)
+    if (!w || !w.parentNode) return
+    e.preventDefault()
+    drag = { wrapper: w, originalNext: w.nextElementSibling, lastY: e.clientY }
+    w.classList.add('lemma-canvas-dragging')
+    // currentTarget (review P3): the listener sits on the grip BUTTON, but
+    // e.target is often the nested svg/path — capture must attach to the
+    // element that owns the listener.
+    var captureEl = e.currentTarget
+    if (captureEl && captureEl.setPointerCapture && typeof e.pointerId === 'number') {
+      try { captureEl.setPointerCapture(e.pointerId) } catch (err) { /* jsdom / old engines */ }
+    }
+    document.addEventListener('pointermove', onDragMove)
+    document.addEventListener('pointerup', onDragUp)
+    document.addEventListener('pointercancel', onDragCancel)
+    document.addEventListener('keydown', onDragKeydown, true)
+  }
+
+  /**
+   * FLIP the given wrappers' first children through a reorder (drag-feel
+   * amendment): measure, mutate, animate the delta to zero via the Web
+   * Animations API — script-driven, so the CSP no-inline-styles pin holds.
+   * Engines without element.animate (jsdom) just get the instant move.
+   */
+  function flipReorder(kids, w, mutate) {
+    var before = []
+    for (var i = 0; i < kids.length; i++) {
+      var el = kids[i]
+      if (!(el.hasAttribute && el.hasAttribute('data-lemma-block'))) continue
+      var h = el.firstElementChild
+      if (h && h.animate) before.push({ host: h, top: h.getBoundingClientRect().top })
+    }
+    mutate()
+    for (var k = 0; k < before.length; k++) {
+      var entry = before[k]
+      var dy = entry.top - entry.host.getBoundingClientRect().top
+      if (dy !== 0) {
+        entry.host.animate(
+          [{ transform: 'translateY(' + dy + 'px)' }, { transform: 'none' }],
+          { duration: 150, easing: 'ease' }
+        )
+      }
+    }
+  }
+
+  function onDragMove(e) {
+    if (!drag) return
+    var w = drag.wrapper
+    if (!w.parentNode) return
+    // Direction gating (drag-feel amendment): live moves re-shift sibling
+    // midpoints under the pointer, so undirected swaps can oscillate near a
+    // boundary with unequal block heights. Only swap in the direction the
+    // pointer is actually travelling.
+    var dirDown = e.clientY > drag.lastY
+    var dirUp = e.clientY < drag.lastY
+    drag.lastY = e.clientY
+    if (!dirDown && !dirUp) return
+    var kids = w.parentNode.children
+    var target = null
+    for (var i = 0; i < kids.length; i++) {
+      var el = kids[i]
+      if (el === w) continue
+      if (!(el.hasAttribute && el.hasAttribute('data-lemma-block'))) continue
+      // Same-parent guard (review caution): mirror-move's rule on the live path.
+      if (el.parentNode !== w.parentNode) continue
+      var host = el.firstElementChild
+      if (!host) continue
+      var r = host.getBoundingClientRect()
+      if (e.clientY < r.top + r.height / 2) {
+        target = el
+        break
+      }
+    }
+    if (target) {
+      if (w.nextElementSibling === target) return
+      // The computed slot is above w's current position -> an UP move; only
+      // take it when the pointer travels up (and vice versa for down).
+      var movingUp = isBefore(target, w)
+      if ((movingUp && !dirUp) || (!movingUp && !dirDown)) return
+      flipReorder(kids, w, function () { w.parentNode.insertBefore(w, target) })
+    } else {
+      // Below every midpoint: move to the end of the sibling wrappers.
+      if (!dirDown) return
+      var lastWrap = null
+      for (var j = kids.length - 1; j >= 0; j--) {
+        var cand = kids[j]
+        if (cand !== w && cand.hasAttribute && cand.hasAttribute('data-lemma-block')) {
+          lastWrap = cand
+          break
+        }
+      }
+      if (lastWrap && lastWrap.nextSibling !== w) {
+        flipReorder(kids, w, function () { w.parentNode.insertBefore(w, lastWrap.nextSibling) })
+      }
+    }
+  }
+
+  /** True when a precedes b in document order (same parent assumed). */
+  function isBefore(a, b) {
+    return !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)
+  }
+
+  function onDragUp() {
+    if (!drag) return
+    var w = drag.wrapper
+    if (w.nextElementSibling !== drag.originalNext) {
+      var next = siblingWrapperFrom(w, 1)
+      var prev = siblingWrapperFrom(w, -1)
+      if (next) {
+        post('block-move-to', {
+          id: w.getAttribute('data-lemma-block'),
+          beforeId: next.getAttribute('data-lemma-block')
+        })
+      } else if (prev) {
+        post('block-move-to', {
+          id: w.getAttribute('data-lemma-block'),
+          afterId: prev.getAttribute('data-lemma-block')
+        })
+      }
+      suppressClick = true // the click that follows a completed drag
+    }
+    endDrag()
+  }
+
+  function onDragCancel() {
+    rollbackDrag()
+  }
+
+  function onDragKeydown(e) {
+    if (e.key === 'Escape' && drag) {
+      e.preventDefault()
+      rollbackDrag()
+    }
+  }
+
+  function rollbackDrag() {
+    // Full rollback (review caution): restore order, clear state, no suppressor.
+    if (!drag) return
+    var w = drag.wrapper
+    if (w.parentNode) w.parentNode.insertBefore(w, drag.originalNext) // null -> append
+    endDrag()
+  }
+
+  function endDrag() {
+    if (!drag) return
+    drag.wrapper.classList.remove('lemma-canvas-dragging')
+    document.removeEventListener('pointermove', onDragMove)
+    document.removeEventListener('pointerup', onDragUp)
+    document.removeEventListener('pointercancel', onDragCancel)
+    document.removeEventListener('keydown', onDragKeydown, true)
+    drag = null
+  }
+
   // ── Mirrors (stage-toolbar spec §1): DOM-only, parent-commanded ─────────────
   function stripCanvasState(root) {
     Array.prototype.forEach.call(root.querySelectorAll('.lemma-canvas-toolbar'), function (el) {
@@ -234,7 +404,7 @@
     })
     var classes = [
       'lemma-canvas-anchor', 'lemma-canvas-selected', 'lemma-canvas-hover',
-      'lemma-canvas-selected-target', 'lemma-canvas-hover-target'
+      'lemma-canvas-selected-target', 'lemma-canvas-hover-target', 'lemma-canvas-dragging'
     ]
     classes.forEach(function (cls) {
       root.classList.remove(cls)
@@ -295,6 +465,7 @@
 
   function activate() {
     document.addEventListener('mouseover', function (e) {
+      if (drag) return
       var w = wrapperFor(e.target)
       clearClass('lemma-canvas-hover')
       if (w) {
@@ -327,6 +498,13 @@
     // (spec §3) — editing must not navigate the stage. Toolbar clicks are the
     // ONE branch that dispatches an intent instead of (re)selecting.
     document.addEventListener('click', function (e) {
+      if (suppressClick) {
+        // One-shot: the click that follows a completed drag (free-drag spec §1).
+        suppressClick = false
+        e.preventDefault()
+        e.stopPropagation()
+        return
+      }
       if (editing) {
         // Caret placement inside the active region passes through untouched;
         // any click outside commits-and-exits, then v2 semantics resume.
@@ -341,6 +519,7 @@
         e.preventDefault()
         e.stopPropagation()
         var action = btn.getAttribute('data-action')
+        if (action === 'drag') return // drags are pointer-driven, never a click intent
         if (action === 'move-up') post('block-move', { id: selectedId, delta: -1 })
         if (action === 'move-down') post('block-move', { id: selectedId, delta: 1 })
         if (action === 'duplicate') post('block-duplicate', { id: selectedId })

@@ -125,6 +125,7 @@ const stageWidth = computed(
 interface FieldEditorExposed {
   selectBlockById: (id: string) => boolean
   moveBlockById: (id: string, delta: number) => { beforeId: string } | { afterId: string } | null
+  moveBlockToById: (id: string, neighbor: { beforeId: string } | { afterId: string }) => boolean
   duplicateBlockById: (id: string) => { newId: string; idMap: Record<string, string> } | null
   deleteBlockById: (id: string) => boolean
   insertAfterById: (id: string, typeSlug: string) => string | null
@@ -152,6 +153,15 @@ function onOutlineSelect(id: string): void {
 bridge.onBlockMove((id, delta) => {
   const neighbor = fieldEditorRef.value?.moveBlockById(id, delta) ?? null
   if (neighbor) bridge.mirrorMove(id, neighbor)
+})
+
+bridge.onBlockMoveTo((id, neighbor) => {
+  // The drag WAS the mirror: an accepted drop needs no message back — the
+  // tree change rides auto-apply. A rejection must snap the stage back to
+  // truth BEFORE anything else can run (honest-stage pin): fields were never
+  // mutated, so stageStale is untouched and no auto-apply schedules.
+  const ok = fieldEditorRef.value?.moveBlockToById(id, neighbor) ?? false
+  if (!ok) reloadStage()
 })
 
 bridge.onBlockDuplicate((id) => {

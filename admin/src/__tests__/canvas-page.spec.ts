@@ -58,6 +58,7 @@ const bridge = vi.hoisted(() => {
     hover?: (id: string) => void
     index?: (ids: string[]) => void
     move?: (id: string, d: 1 | -1) => void
+    moveTo?: (id: string, neighbor: { beforeId: string } | { afterId: string }) => void
     duplicate?: (id: string) => void
     deleteRequest?: (id: string, anchor?: { x: number; y: number } | null) => void
     addAfter?: (id: string, anchor?: { x: number; y: number } | null) => void
@@ -76,6 +77,9 @@ const bridge = vi.hoisted(() => {
       onBlockHover: (cb: (id: string) => void) => (callbacks.hover = cb),
       onBlocksIndex: (cb: (ids: string[]) => void) => (callbacks.index = cb),
       onBlockMove: (cb: (id: string, d: 1 | -1) => void) => (callbacks.move = cb),
+      onBlockMoveTo: (
+        cb: (id: string, neighbor: { beforeId: string } | { afterId: string }) => void,
+      ) => (callbacks.moveTo = cb),
       onBlockDuplicate: (cb: (id: string) => void) => (callbacks.duplicate = cb),
       onBlockDeleteRequest: (
         cb: (id: string, anchor?: { x: number; y: number } | null) => void,
@@ -454,6 +458,58 @@ describe('canvas page', () => {
     expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
     expect(bridge.instance.mirrorDuplicate).not.toHaveBeenCalled()
     expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('an accepted block-move-to patches the tree; NO mirror is posted back', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+    const before = wrapper.find('[data-test="canvas-iframe"]').element
+
+    bridge.callbacks.moveTo?.('blockaaa0001', { afterId: 'prose0000003' })
+    await flushPromises()
+    expect(bridge.instance.mirrorMove).not.toHaveBeenCalled() // the drag WAS the mirror
+    expect(wrapper.find('[data-test="canvas-iframe"]').element).toBe(before) // no reload
+
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+      fields: { body: { id: string }[] }
+    }
+    expect(saved.fields.body.map((b) => b.id)).toEqual([
+      'blockbbb0002',
+      'prose0000003',
+      'blockaaa0001',
+    ])
+    wrapper.unmount()
+  })
+
+  it('a REJECTED block-move-to reloads the stage and leaves fields untouched', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+    const before = wrapper.find('[data-test="canvas-iframe"]').element
+
+    bridge.callbacks.moveTo?.('blockaaa0001', { beforeId: 'missing' })
+    await flushPromises()
+    await flushPromises()
+    const iframe = wrapper.find('[data-test="canvas-iframe"]')
+    expect(iframe.element).not.toBe(before) // reloadStage snapped back to truth
+    expect(mintMock).toHaveBeenCalledTimes(1) // reload, not re-mint
+
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+      fields: { body: { id: string }[] }
+    }
+    expect(saved.fields.body.map((b) => b.id)).toEqual([
+      'blockaaa0001',
+      'blockbbb0002',
+      'prose0000003',
+    ])
     wrapper.unmount()
   })
 

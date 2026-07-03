@@ -160,6 +160,33 @@ function moveBlock(id: string, delta: number): { beforeId: string } | { afterId:
   return following ? { beforeId: following.id } : { afterId: after.list[after.index - 1]!.id }
 }
 
+/**
+ * Free-drag drop (free-drag spec §2): place `id` next to a SAME-LIST
+ * reference. The bridge's geometry is a request — this method is the
+ * authority: cross-list or unknown references are denied with NO mutation.
+ */
+function moveBlockTo(
+  id: string,
+  neighbor: { beforeId: string } | { afterId: string },
+): boolean {
+  const tree = model.value ?? []
+  const dragged = ops.locateById(tree, id)
+  const refId = 'beforeId' in neighbor ? neighbor.beforeId : neighbor.afterId
+  const ref = ops.locateById(tree, refId)
+  if (!dragged || !ref) return false
+  if (dragged.parentId !== ref.parentId || dragged.region !== ref.region) return false
+  // Target index against the list WITHOUT the dragged block (moveAcross
+  // removes before inserting).
+  const without = dragged.list.filter((b) => b.id !== id)
+  const refPos = without.findIndex((b) => b.id === refId)
+  if (refPos < 0) return false
+  const index = 'beforeId' in neighbor ? refPos : refPos + 1
+  apply((t) =>
+    ops.moveAcross(t, id, { parentId: dragged.parentId, region: dragged.region, index }),
+  )
+  return true
+}
+
 /** Duplicate in place. Returns the copy's id + the whole-subtree old->new id map. */
 function duplicateBlock(id: string): { newId: string; idMap: Record<string, string> } | null {
   const tree = model.value ?? []
@@ -220,6 +247,7 @@ defineExpose({
   selectBlock,
   hasBlock,
   moveBlock,
+  moveBlockTo,
   duplicateBlock,
   deleteBlock,
   insertAfter,

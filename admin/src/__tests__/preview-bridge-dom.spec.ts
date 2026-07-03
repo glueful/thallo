@@ -74,7 +74,7 @@ describe('preview bridge (direct eval)', () => {
     const actions = [...toolbar!.querySelectorAll('[data-action]')].map((b) =>
       b.getAttribute('data-action'),
     )
-    expect(actions).toEqual(['move-up', 'move-down', 'duplicate', 'delete', 'add-after'])
+    expect(actions).toEqual(['drag', 'move-up', 'move-down', 'duplicate', 'delete', 'add-after'])
   })
 
   it('void-element blocks (hr dividers) get the toolbar via a positioned shim', () => {
@@ -525,5 +525,194 @@ describe('scroll preservation', () => {
     scrollTo.mockClear()
     sendToBridge({ type: 'lemma:restore-scroll', y: 'x' })
     expect(scrollTo).not.toHaveBeenCalled()
+  })
+})
+
+describe('free drag', () => {
+  /** Give each wrapper's first element child a fixed vertical band. */
+  function stubRects(wrappers: HTMLElement[], height = 100): void {
+    wrappers.forEach((w, i) => {
+      const host = w.firstElementChild as HTMLElement
+      Object.defineProperty(host, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => ({
+          top: i * height,
+          bottom: (i + 1) * height,
+          height,
+          left: 0,
+          right: 500,
+          width: 500,
+          x: 0,
+          y: i * height,
+          toJSON: () => ({}),
+        }),
+      })
+    })
+  }
+
+  function dragList(): { list: HTMLElement; a: HTMLElement; b: HTMLElement; c: HTMLElement } {
+    const list = document.createElement('main')
+    const a = wrapper('fd-a-0000001')
+    const b = wrapper('fd-b-0000002')
+    const c = wrapper('fd-c-0000003')
+    list.append(a, b, c)
+    document.body.appendChild(list)
+    stubRects([a, b, c])
+    return { list, a, b, c }
+  }
+
+  function gripDown(w: HTMLElement): void {
+    // A COMPLETED drag in an earlier test arms the one-shot click suppressor
+    // (file-global bridge state under the one-eval-per-file constraint) —
+    // consume it with a throwaway non-wrapper click so the select below lands.
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    // Select first (the grip drags the SELECTED block), then press the grip —
+    // through its nested SVG (review P3): real pointerdowns target the icon,
+    // and the handler must work off currentTarget, not target.
+    w.querySelector('section')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    const gripSvg = w.querySelector('[data-action="drag"] svg')!
+    gripSvg.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true }))
+  }
+
+  function pointerMove(y: number): void {
+    document.dispatchEvent(
+      new MouseEvent('pointermove', { bubbles: true, clientY: y } as MouseEventInit),
+    )
+  }
+
+  function order(list: HTMLElement): (string | null)[] {
+    return [...list.children]
+      .filter((el) => el.hasAttribute('data-lemma-block'))
+      .map((el) => el.getAttribute('data-lemma-block'))
+  }
+
+  it('live-reorders on pointermove WITHOUT posting; pointerup posts ONE block-move-to', () => {
+    const { list, a } = dragList()
+    gripDown(a)
+    posted.mockClear()
+
+    pointerMove(160) // past b's midpoint (150) -> a moves after b
+    expect(order(list)).toEqual(['fd-b-0000002', 'fd-a-0000001', 'fd-c-0000003'])
+    expect(lastPost('lemma:block-move-to')).toBeUndefined() // visual only
+
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+    const moves = posted.mock.calls
+      .map((c) => c[0] as { type: string })
+      .filter((m) => m.type === 'lemma:block-move-to')
+    expect(moves).toHaveLength(1)
+    expect(moves[0]).toMatchObject({ id: 'fd-a-0000001', beforeId: 'fd-c-0000003' })
+  })
+
+  it('a drop at list end posts afterId; a returned-to-origin drop posts nothing', () => {
+    const { list, a } = dragList()
+    gripDown(a)
+    posted.mockClear()
+    pointerMove(500) // below every midpoint -> a moves to the end
+    expect(order(list)).toEqual(['fd-b-0000002', 'fd-c-0000003', 'fd-a-0000001'])
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+    expect(lastPost('lemma:block-move-to')).toMatchObject({
+      id: 'fd-a-0000001',
+      afterId: 'fd-c-0000003',
+    })
+
+    // Second drag: out and back -> unchanged position -> no post.
+    const b = list.children[0] as HTMLElement // now fd-b is first
+    stubRects([...list.children] as HTMLElement[])
+    gripDown(b)
+    posted.mockClear()
+    pointerMove(160)
+    pointerMove(10) // back above -> restored to first
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+    expect(lastPost('lemma:block-move-to')).toBeUndefined()
+  })
+
+  it('Escape rolls back the order, posts nothing, and does NOT swallow the next click', () => {
+    const { list, a } = dragList()
+    gripDown(a)
+    posted.mockClear()
+    pointerMove(160)
+    expect(order(list)[0]).toBe('fd-b-0000002')
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(order(list)).toEqual(['fd-a-0000001', 'fd-b-0000002', 'fd-c-0000003'])
+    expect(a.classList.contains('lemma-canvas-dragging')).toBe(false)
+    expect(lastPost('lemma:block-move-to')).toBeUndefined()
+
+    // Rollback must not arm the click suppressor: the next click still selects.
+    const other = wrapper('fd-d-0000004')
+    document.body.appendChild(other)
+    other.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(lastPost('lemma:block-select')).toMatchObject({ id: 'fd-d-0000004' })
+  })
+
+  it('swaps are direction-gated: an against-direction slot never triggers (no oscillation)', () => {
+    const { list, a } = dragList()
+    gripDown(a)
+    posted.mockClear()
+
+    pointerMove(160) // moving DOWN past b's midpoint -> swap
+    expect(order(list)).toEqual(['fd-b-0000002', 'fd-a-0000001', 'fd-c-0000003'])
+    // Same Y again: no direction -> no re-evaluation, order stable.
+    pointerMove(160)
+    expect(order(list)).toEqual(['fd-b-0000002', 'fd-a-0000001', 'fd-c-0000003'])
+    // Moving DOWN a hair more must never take an UP slot even if geometry
+    // momentarily suggests one (the oscillation case with unequal heights).
+    pointerMove(161)
+    expect(order(list)).toEqual(['fd-b-0000002', 'fd-a-0000001', 'fd-c-0000003'])
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  })
+
+  it('reorders FLIP-animate displaced blocks when element.animate exists', () => {
+    const { list, a, b, c } = dragList()
+    const animations: unknown[] = []
+    // POSITION-DEPENDENT rects (unlike stubRects' static bands): FLIP measures
+    // before/after the DOM move, so the rect must derive from the element's
+    // CURRENT index or the delta is always zero.
+    ;[a, b, c].forEach((w) => {
+      const host = w.firstElementChild as HTMLElement & { animate?: unknown }
+      Object.defineProperty(host, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => {
+          const idx = [...list.children].indexOf(w)
+          return {
+            top: idx * 100,
+            bottom: (idx + 1) * 100,
+            height: 100,
+            left: 0,
+            right: 500,
+            width: 500,
+            x: 0,
+            y: idx * 100,
+            toJSON: () => ({}),
+          }
+        },
+      })
+      Object.defineProperty(host, 'animate', {
+        configurable: true,
+        value: (...args: unknown[]) => {
+          animations.push(args)
+          return { finished: Promise.resolve() }
+        },
+      })
+    })
+    gripDown(a)
+    pointerMove(160) // a and b both displace -> both animate
+    expect(order(list)[0]).toBe('fd-b-0000002')
+    expect(animations.length).toBeGreaterThan(0)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  })
+
+  it('the click after a completed drag is swallowed once', () => {
+    const { a } = dragList()
+    gripDown(a)
+    pointerMove(160)
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+    posted.mockClear()
+
+    // The post-drag click: swallowed (no select), exactly once.
+    a.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(lastPost('lemma:block-select')).toBeUndefined()
+    a.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(lastPost('lemma:block-select')).toMatchObject({ id: 'fd-a-0000001' })
   })
 })
