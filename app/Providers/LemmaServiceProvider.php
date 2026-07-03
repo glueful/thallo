@@ -13,6 +13,7 @@ use App\Content\Delivery\ReferenceFilterResolver;
 use App\Content\Delivery\ReferenceResolver;
 use App\Content\Delivery\SortCompiler;
 use App\Content\Console\PruneVersionsCommand;
+use App\Content\Console\RunBlockBackfillCommand;
 use App\Content\Console\SeedBlockTypesCommand;
 use App\Content\Console\ResyncCommand;
 use App\Content\Console\RunBackfillCommand;
@@ -36,6 +37,7 @@ use App\Http\Controllers\UserAdminController;
 use App\Support\UserRoleAssignmentPolicy;
 use App\Settings\GeneralSettings;
 use App\Settings\SettingsStore;
+use App\Content\Http\Controllers\BlockMigrationController;
 use App\Content\Http\Controllers\BlockTypeController;
 use App\Content\Http\Controllers\ContentTypeController;
 use App\Http\Controllers\SetupController;
@@ -73,7 +75,14 @@ use App\Content\Pipeline\Listeners\ProjectPublishedReferencesListener;
 use App\Content\Pipeline\Listeners\PurgeCdnListener;
 use App\Content\Pipeline\Listeners\MediaUsageProjector;
 use App\Content\Pipeline\Listeners\ReindexSearchListener;
+use App\Content\Blocks\BlockMigrationGate;
+use App\Content\Blocks\BlockRestoreProjector;
 use App\Content\Blocks\BlockTypeRepository;
+use App\Content\Blocks\BlockUsageScanner;
+use App\Content\Blocks\Migration\BlockBackfillRunner;
+use App\Content\Blocks\Migration\BlockInstanceWalker;
+use App\Content\Blocks\Migration\BlockMigrationRepository;
+use App\Content\Blocks\Migration\BlockMigrationService;
 use App\Content\Pipeline\PublishEventEmitter;
 use App\Content\Preview\EnginePreviewSessionVerifier;
 use App\Content\Preview\PreviewMinter;
@@ -200,6 +209,31 @@ final class LemmaServiceProvider extends ServiceProvider
         return [
             BlockTypeRepository::class => [
                 'class' => BlockTypeRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            BlockMigrationRepository::class => [
+                'class' => BlockMigrationRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            BlockInstanceWalker::class => [
+                'class' => BlockInstanceWalker::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            BlockMigrationGate::class => [
+                'class' => BlockMigrationGate::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            BlockRestoreProjector::class => [
+                'class' => BlockRestoreProjector::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            BlockUsageScanner::class => [
+                'class' => BlockUsageScanner::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -341,6 +375,16 @@ final class LemmaServiceProvider extends ServiceProvider
             ],
             MigrationService::class => [
                 'class' => MigrationService::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            BlockMigrationService::class => [
+                'class' => BlockMigrationService::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            BlockBackfillRunner::class => [
+                'class' => BlockBackfillRunner::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -648,6 +692,11 @@ final class LemmaServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            BlockMigrationController::class => [
+                'class' => BlockMigrationController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             ContentTypeController::class => [
                 'class' => ContentTypeController::class,
                 'shared' => true,
@@ -804,6 +853,11 @@ final class LemmaServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            RunBlockBackfillCommand::class => [
+                'class' => RunBlockBackfillCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             RunBackfillCommand::class => [
                 'class' => RunBackfillCommand::class,
                 'shared' => true,
@@ -877,6 +931,8 @@ final class LemmaServiceProvider extends ServiceProvider
             $c->has(PublishEventEmitter::class) ? $c->get(PublishEventEmitter::class) : null,
             $c->has(SchemaProjector::class) ? $c->get(SchemaProjector::class) : null,
             array_values(array_filter((array) $gates, static fn($g): bool => $g instanceof PublishGate)),
+            $c->has(BlockMigrationGate::class) ? $c->get(BlockMigrationGate::class) : null,
+            $c->has(BlockRestoreProjector::class) ? $c->get(BlockRestoreProjector::class) : null,
         );
     }
 
@@ -948,6 +1004,7 @@ final class LemmaServiceProvider extends ServiceProvider
             ResyncCommand::class,
             PruneVersionsCommand::class,
             SeedBlockTypesCommand::class,
+            RunBlockBackfillCommand::class,
             RunBackfillCommand::class,
             RunDueSchedulesCommand::class,
             DoctorCommand::class,

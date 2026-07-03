@@ -48,7 +48,11 @@ final class VersionRepository
             'fields' => json_encode($fields, JSON_THROW_ON_ERROR),
             'schema_version' => $schemaVersion,
             'created_by' => $actor,
-            'created_at' => date('Y-m-d H:i:s'),
+            // MICROSECONDS (block-migrations spec §5): the restore suffix compares
+            // this against lemma_block_type_migrations.created_at with strict > —
+            // second precision would make same-second version/migration pairs
+            // ambiguous. Postgres timestamp columns store µs natively.
+            'created_at' => (new \DateTimeImmutable())->format('Y-m-d H:i:s.u'),
         ]);
         return $uuid;
     }
@@ -57,7 +61,11 @@ final class VersionRepository
     {
         $existing = $this->db->table('entry_publications')
             ->where('entry_uuid', '=', $entryUuid)->where('locale', '=', $locale)->first();
-        $data = ['version_uuid' => $versionUuid, 'published_by' => $actor, 'published_at' => date('Y-m-d H:i:s')];
+        $data = [
+            'version_uuid' => $versionUuid,
+            'published_by' => $actor,
+            'published_at' => (new \DateTimeImmutable())->format('Y-m-d H:i:s.u'),
+        ];
         if ($existing === null) {
             $this->db->table('entry_publications')->insert(array_merge(
                 ['entry_uuid' => $entryUuid, 'locale' => $locale],

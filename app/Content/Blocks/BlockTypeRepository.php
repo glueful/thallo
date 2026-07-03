@@ -100,6 +100,28 @@ final class BlockTypeRepository
         ?string $category = null,
     ): void {
         $this->assertBlockSchema($schema);
+        // Additive-only (block-migrations spec §1): removing a field (including the
+        // remove+add shape of a rename) orphans stored instance keys, which the
+        // cleaned payload then silently strips. Destructive edits go through the
+        // migration flow (applyMigratedSchema is its guard-exempt internal path).
+        $current = $this->findByUuid($uuid);
+        if ($current !== null) {
+            $newNames = [];
+            foreach ($schema as $field) {
+                if (isset($field['name']) && is_string($field['name'])) {
+                    $newNames[$field['name']] = true;
+                }
+            }
+            foreach ((array) $current['schema'] as $field) {
+                $name = (string) ($field['name'] ?? '');
+                if ($name !== '' && !isset($newNames[$name])) {
+                    throw new SchemaParseException(
+                        "cannot remove field '{$name}' from a block type schema — "
+                        . 'declare a block-type migration instead'
+                    );
+                }
+            }
+        }
         $this->db->table('lemma_block_types')->where('uuid', '=', $uuid)->update([
             'label' => $label,
             'icon' => $icon,
@@ -108,6 +130,33 @@ final class BlockTypeRepository
             'schema' => (string) json_encode(array_values($schema)),
             'updated_at' => gmdate('Y-m-d H:i:s'),
         ]);
+        $this->schemas = null;
+    }
+
+    /**
+     * Guard-exempt schema replacement for the MIGRATION flow only (spec §2): the
+     * computed post-op schema legitimately removes/renames fields. Never expose
+     * this through the public update endpoint.
+     *
+     * @param list<array<string,mixed>> $schema
+     */
+    public function applyMigratedSchema(string $uuid, array $schema): void
+    {
+        $this->assertBlockSchema($schema);
+        $this->db->table('lemma_block_types')->where('uuid', '=', $uuid)->update([
+            'schema' => (string) json_encode(array_values($schema)),
+            'updated_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+        $this->schemas = null;
+    }
+
+    /**
+     * HARD delete (spec §6) — callers gate on zero usage + no active migration.
+     * Deactivate remains the editorial soft path; there is no deleted_at here.
+     */
+    public function deleteBySlug(string $slug): void
+    {
+        $this->db->table('lemma_block_types')->where('slug', '=', $slug)->delete();
         $this->schemas = null;
     }
 

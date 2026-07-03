@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Content\Http\Controllers;
 
 use App\Content\Blocks\BlockTypeRepository;
+use App\Content\Blocks\BlockUsageScanner;
+use App\Content\Blocks\Migration\BlockMigrationRepository;
 use App\Content\Http\DTOs\BlockTypeData;
 use App\Content\Http\DTOs\FieldDefinitionData;
 use App\Content\Http\DTOs\Responses\BlockTypes\BlockTypeListData;
@@ -26,8 +28,11 @@ use Symfony\Component\HttpFoundation\Request;
  */
 final class BlockTypeController
 {
-    public function __construct(private readonly BlockTypeRepository $blockTypes)
-    {
+    public function __construct(
+        private readonly BlockTypeRepository $blockTypes,
+        private readonly BlockUsageScanner $usageScanner,
+        private readonly BlockMigrationRepository $blockMigrations,
+    ) {
     }
 
     #[ApiOperation(summary: 'List block types', tags: ['Lemma Admin'])]
@@ -150,5 +155,63 @@ final class BlockTypeController
             ['block_type' => $this->blockTypes->findBySlug($slug)],
             $active ? 'Block type activated.' : 'Block type deactivated.',
         );
+    }
+
+    #[ApiOperation(
+        summary: 'Block type usage across current content',
+        description: 'On-demand scan of current drafts + pinned publications (non-deleted entries, '
+            . 'archived included, nested blocks counted). Historical versions never count. '
+            . 'Content-type blockTypes picker allowlists are reported but never gate deletion.',
+        tags: ['Lemma Admin'],
+    )]
+    #[ApiResponse(200, description: 'Usage counts per content type, samples, and allowlist appearances.')]
+    #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'Unknown slug.')]
+    public function usage(Request $request, string $slug): Response
+    {
+        if ($this->blockTypes->findBySlug($slug) === null) {
+            return Response::notFound('Block type not found.');
+        }
+        return Response::success($this->usageScanner->usage($slug), 'Block type usage.');
+    }
+
+    #[ApiOperation(
+        summary: 'Hard-delete an UNUSED block type',
+        description: 'Destructive cleanup for unused/mistaken types only (block-migrations spec §6): '
+            . 'refuses while any current draft/publication uses the type (the usage scan re-runs '
+            . 'server-side) or while a migration is active. No force flag — deactivate is the '
+            . 'editorial path.',
+        tags: ['Lemma Admin'],
+    )]
+    #[ApiResponse(200, description: 'Block type deleted.')]
+    #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'Unknown slug.')]
+    #[ApiResponse(
+        409,
+        schema: ErrorResponse::class,
+        envelope: false,
+        description: 'In use by current content, or a migration is active.',
+    )]
+    public function destroy(Request $request, string $slug): Response
+    {
+        $row = $this->blockTypes->findBySlug($slug);
+        if ($row === null) {
+            return Response::notFound('Block type not found.');
+        }
+        if ($this->blockMigrations->activeForType((string) $row['uuid']) !== null) {
+            return Response::error(
+                'A migration is active for this block type.',
+                Response::HTTP_CONFLICT,
+                ['code' => 'BLOCK_MIGRATION_IN_PROGRESS'],
+            );
+        }
+        $usage = $this->usageScanner->usage($slug); // server-side re-scan (spec §6)
+        if ($usage['total'] > 0) {
+            return Response::error(
+                'Block type is in use by current content.',
+                Response::HTTP_CONFLICT,
+                ['code' => 'BLOCK_TYPE_IN_USE', 'usage' => $usage],
+            );
+        }
+        $this->blockTypes->deleteBySlug($slug);
+        return Response::success(['slug' => $slug], 'Block type deleted.');
     }
 }

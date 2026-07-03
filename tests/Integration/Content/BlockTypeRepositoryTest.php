@@ -37,10 +37,18 @@ final class BlockTypeRepositoryTest extends LemmaTestCase
         self::assertTrue((bool) $row['active']);
         self::assertSame('heading', $row['schema'][0]['name']);
 
-        $r->updateSchema($uuid, [['name' => 'heading', 'type' => 'string']], 'Hero v2', null, null, 'Content');
+        // Additive edit (block-migrations spec §1): appending a field is free.
+        $r->updateSchema(
+            $uuid,
+            [...$this->heroSchema(), ['name' => 'badge', 'type' => 'string']],
+            'Hero v2',
+            null,
+            null,
+            'Content'
+        );
         self::assertSame('Hero v2', $r->findByUuid($uuid)['label']);
         self::assertSame('Content', $r->findByUuid($uuid)['category']);
-        self::assertCount(1, $r->findByUuid($uuid)['schema']);
+        self::assertCount(4, $r->findByUuid($uuid)['schema']);
 
         // Deactivate over delete (spec §2): row survives, flagged inactive.
         $r->setActive($uuid, false);
@@ -93,5 +101,57 @@ final class BlockTypeRepositoryTest extends LemmaTestCase
                 $this->addToAssertionCount(1);
             }
         }
+    }
+
+    public function testUpdateSchemaIsAdditiveOnly(): void
+    {
+        $repo = $this->repo();
+        $uuid = $repo->create(['slug' => 'card', 'label' => 'Card', 'schema' => [
+            ['name' => 'title', 'type' => 'string'],
+            ['name' => 'body', 'type' => 'text'],
+        ]]);
+
+        // Additive: new field appended — allowed.
+        $repo->updateSchema($uuid, [
+            ['name' => 'title', 'type' => 'string'],
+            ['name' => 'body', 'type' => 'text'],
+            ['name' => 'icon', 'type' => 'string'],
+        ], 'Card', null, null, null);
+        self::assertCount(3, $repo->findBySlug('card')['schema']);
+
+        // Retype of an existing field — allowed (visible validation on next save,
+        // never silent loss; spec §1).
+        $repo->updateSchema($uuid, [
+            ['name' => 'title', 'type' => 'string'],
+            ['name' => 'body', 'type' => 'string'],
+            ['name' => 'icon', 'type' => 'string'],
+        ], 'Card', null, null, null);
+
+        // Removal (also the remove+add shape of a rename) — rejected.
+        try {
+            $repo->updateSchema($uuid, [
+                ['name' => 'title', 'type' => 'string'],
+                ['name' => 'heading', 'type' => 'text'], // body "renamed"
+                ['name' => 'icon', 'type' => 'string'],
+            ], 'Card', null, null, null);
+            self::fail('expected SchemaParseException');
+        } catch (SchemaParseException $e) {
+            self::assertStringContainsString("cannot remove field 'body'", $e->getMessage());
+        }
+    }
+
+    public function testApplyMigratedSchemaBypassesTheGuardAndDeleteRemovesTheRow(): void
+    {
+        $repo = $this->repo();
+        $uuid = $repo->create(['slug' => 'gone', 'label' => 'Gone', 'schema' => [
+            ['name' => 'a', 'type' => 'string'],
+        ]]);
+
+        // Internal path: removal allowed (the migration flow computed this schema).
+        $repo->applyMigratedSchema($uuid, [['name' => 'b', 'type' => 'string']]);
+        self::assertSame('b', $repo->findBySlug('gone')['schema'][0]['name']);
+
+        $repo->deleteBySlug('gone');
+        self::assertNull($repo->findBySlug('gone'));
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Content\Services;
 
+use App\Content\Blocks\BlockMigrationGate;
+use App\Content\Blocks\BlockRestoreProjector;
 use App\Content\Events\EntryPublished;
 use App\Content\Events\EntryUnpublished;
 use App\Content\Pipeline\PublishEventEmitter;
@@ -29,6 +31,10 @@ final class PublishService
         private readonly ?SchemaProjector $projector = null,
         /** @var list<PublishGate> Tag-discovered (`lemma.publish_gate`); empty = ungated. */
         private readonly array $publishGates = [],
+        /** Block-migration write gate (spec §3); null = ungated (tests, minimal wiring). */
+        private readonly ?BlockMigrationGate $blockGate = null,
+        /** Restore projection (spec §5); null = plain re-pin rollbacks (tests, minimal wiring). */
+        private readonly ?BlockRestoreProjector $blockRestore = null,
     ) {
     }
 
@@ -61,6 +67,12 @@ final class PublishService
 
         $typeUuid = (string) $entry['content_type_uuid'];
         $schema = $this->types->schemaFor($typeUuid);
+
+        // Block-migration write gate (spec §3): publish snapshots the stored draft —
+        // publishing an un-backfilled draft under a flipped block schema would strip
+        // the old keys. The backfill's own republish bypasses PublishService, so
+        // this can never deadlock a migration's convergence.
+        $this->blockGate?->assertWritable((array) $draft['fields'], $schema);
 
         // Project a draft still on an OLDER schema up to the current shape before validating, so a
         // draft behind a lagging/failed backfill (e.g. a renamed field) doesn't silently lose the
@@ -132,8 +144,18 @@ final class PublishService
         ));
     }
 
-    /** Re-pin an existing (older) version without writing a new one. */
-    public function rollback(string $entryUuid, string $locale, string $versionUuid, ?string $actor): void
+    /**
+     * Re-pin an existing (older) version — or, when block-migration projection
+     * changes its fields (block-migrations spec §5), MATERIALIZE a new projected
+     * version (validated strictly) and pin that: a plain re-pin would reintroduce
+     * pre-migration keys into current content. Returns the version ACTUALLY
+     * pinned — the requested one on the re-pin path, the appended one on the
+     * materialized path. Callers must report THIS, not their input; the emitted
+     * EntryPublished carries this version number.
+     *
+     * @return array{version_uuid: string, version: int}
+     */
+    public function rollback(string $entryUuid, string $locale, string $versionUuid, ?string $actor): array
     {
         $version = $this->versions->findVersionByUuid($versionUuid);
         if (
@@ -152,6 +174,25 @@ final class PublishService
         $schema = $entry === null
             ? null
             : $this->types->schemaFor((string) $entry['content_type_uuid']);
+
+        // Block restore projection (spec §5) — BEFORE any write. Unknown block
+        // type (hard-deleted) throws here and blocks the restore entirely; a
+        // changed projection is validated strictly (it becomes new published
+        // content); a no-op projection keeps today's plain re-pin, unvalidated.
+        $projectedFields = null;
+        if ($this->blockRestore !== null && $schema !== null) {
+            [$candidate, $blockChanged] = $this->blockRestore->project(
+                (array) $version['fields'],
+                $schema,
+                (string) $version['created_at'],
+            );
+            if ($blockChanged) {
+                $projectedFields = $this->validator->validate($schema, $candidate, true);
+            }
+        }
+
+        $pinnedUuid = $versionUuid;
+        $pinnedNumber = isset($version['version']) ? (int) $version['version'] : 0;
         db($this->context)->transaction(function () use (
             $entryUuid,
             $locale,
@@ -159,8 +200,34 @@ final class PublishService
             $actor,
             $schema,
             $version,
-            $entry
+            $entry,
+            $projectedFields,
+            &$pinnedUuid,
+            &$pinnedNumber
         ): void {
+            if ($projectedFields !== null && $entry !== null && $schema !== null) {
+                // Materialize: append-and-repin, the backfill's shape. The new
+                // version records the CURRENT content-type schema_version (the
+                // fields also passed the content-type projector below-the-fold via
+                // validation against the current schema).
+                $typeRow = $this->types->findByUuid((string) $entry['content_type_uuid']);
+                $currentSchemaVersion = $typeRow === null
+                    ? (int) ($version['schema_version'] ?? 0)
+                    : (int) $typeRow['schema_version'];
+                $pinnedNumber = $this->versions->reserveNextVersionNumber($entryUuid, $locale);
+                $pinnedUuid = $this->versions->appendVersion(
+                    $entryUuid,
+                    $locale,
+                    $pinnedNumber,
+                    $projectedFields,
+                    $currentSchemaVersion,
+                    $actor,
+                );
+                $this->versions->pin($entryUuid, $locale, $pinnedUuid, $actor);
+                $this->references->rebuildForEntry($entryUuid, $schema, $projectedFields, $locale);
+                return;
+            }
+
             $this->versions->pin($entryUuid, $locale, $versionUuid, $actor);
             if ($schema !== null) {
                 $fields = (array) $version['fields'];
@@ -175,12 +242,15 @@ final class PublishService
             }
         });
         // Re-publishing a prior version is a publish for downstream consumers (V1_DESIGN §5).
+        // The event carries the ACTUALLY pinned version (materialized or requested).
         $this->events?->emitAfterCommit(new EntryPublished(
             entry: $entryUuid,
             type: $entry === null ? '' : (string) $entry['content_type_uuid'],
             locale: $locale,
-            version: isset($version['version']) ? (int) $version['version'] : null,
+            version: $pinnedNumber,
             actor: $actor,
         ));
+
+        return ['version_uuid' => $pinnedUuid, 'version' => $pinnedNumber];
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Content\Http\Controllers;
 
+use App\Content\Blocks\BlockMigrationGate;
+use App\Content\Blocks\Migration\BlockMigrationInProgressException;
 use App\Content\Http\DTOs\CreateEntryData;
 use App\Content\Http\DTOs\AssignRouteData;
 use App\Content\Http\DTOs\Requests\EntryListQuery;
@@ -56,6 +58,8 @@ final class EntryController
         private readonly ReferenceProjectionRepository $references,
         private readonly ContentLocaleService $locales,
         private readonly ?SchemaProjector $schemaProjector = null,
+        /** Block-migration write gate (spec §3); null = ungated (tests, minimal wiring). */
+        private readonly ?BlockMigrationGate $gate = null,
     ) {
     }
 
@@ -245,6 +249,16 @@ final class EntryController
             return Response::notFound('Entry not found.');
         }
         $schema = $this->types->schemaFor((string) $entry['content_type_uuid']);
+        // Block-migration write gate (spec §3): saving a payload containing a
+        // migrating block type would strip its old keys against the flipped schema.
+        try {
+            $this->gate?->assertWritable($input->fields, $schema);
+        } catch (BlockMigrationInProgressException $e) {
+            return Response::error($e->getMessage(), Response::HTTP_CONFLICT, [
+                'code' => 'BLOCK_MIGRATION_IN_PROGRESS',
+                'block_type' => $e->slug,
+            ]);
+        }
         try {
             $clean = $this->validator->validate($schema, $input->fields);
         } catch (ValidationException $e) {

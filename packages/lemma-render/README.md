@@ -146,6 +146,17 @@ starter styling ships standalone as `assets/blocks.css`: block TEMPLATES fall ba
 to the pack default per-template, but assets don't — a custom theme adopts the
 starter blocks by copying (or rewriting) that one file.
 
+**Changing block schemas:** additive edits (new fields, retypes) are free via
+`PATCH /block-types/{slug}`; renaming or deleting a field is a declared migration
+(`POST /block-types/{slug}/migrations` with `{ops:[{op:"rename",from,to}|{op:"delete",name}]}`)
+— the schema flips immediately and a queued backfill rewrites every current draft
+and publication (saves/publishes of entries containing the type 409 until it
+completes; re-drive a failed run with `php glueful lemma:blocks:migration:backfill
+{uuid}`). Version rollback re-projects block data through migrations that postdate
+the version. An UNUSED type can be hard-deleted (`DELETE /block-types/{slug}`;
+usage via `GET /block-types/{slug}/usage`) — deactivation remains the everyday
+path.
+
 ## Rich HTML in templates
 
 `format: rich` text fields are sanitized SERVER-SIDE on save (TipTap-scoped

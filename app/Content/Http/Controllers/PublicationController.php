@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Content\Http\Controllers;
 
+use App\Content\Blocks\Migration\BlockMigrationInProgressException;
+use App\Content\Blocks\Migration\UnknownBlockTypeException;
 use App\Content\Http\DTOs\RollbackData;
+use App\Content\Http\DTOs\Responses\Publication\RollbackResultData;
 use App\Content\Http\DTOs\Responses\Publication\VersionResultData;
 use App\Content\Localization\ContentLocaleService;
 use App\Content\Repositories\EntryRepository;
@@ -89,6 +92,13 @@ final class PublicationController
             // shape: the message is the SPA-ready sentence; details.workflow_state drives the
             // editor badge without message parsing.
             return Response::error($e->reason, 409, ['workflow_state' => $e->state]);
+        } catch (BlockMigrationInProgressException $e) {
+            // Also precedes RuntimeException (same inheritance). Block-migrations
+            // spec §3: the stored draft contains a migrating block type.
+            return Response::error($e->getMessage(), 409, [
+                'code' => 'BLOCK_MIGRATION_IN_PROGRESS',
+                'block_type' => $e->slug,
+            ]);
         } catch (\RuntimeException $e) {
             return Response::notFound($e->getMessage());
         }
@@ -136,7 +146,12 @@ final class PublicationController
             . 'created.',
         tags: ['Lemma Admin'],
     )]
-    #[ApiResponse(200, schema: VersionResultData::class, description: 'Rolled back to the named version.')]
+    #[ApiResponse(
+        200,
+        schema: RollbackResultData::class,
+        description: 'Rolled back — names the version ACTUALLY pinned (a newly materialized '
+            . 'one when block migrations re-projected the fields).',
+    )]
     #[ApiResponse(
         422,
         schema: ErrorResponse::class,
@@ -152,11 +167,18 @@ final class PublicationController
         // Structural validation (version_uuid present + non-blank) is done by the hydrated DTO.
         // Whether the version belongs to this entry+locale is a domain rule and stays here.
         try {
-            $this->publisher->rollback($uuid, $locale, $input->version_uuid, $this->actor($request));
+            $pinned = $this->publisher->rollback($uuid, $locale, $input->version_uuid, $this->actor($request));
+        } catch (UnknownBlockTypeException $e) {
+            // Precedes the generic catch to document the contract (block-migrations
+            // spec §5): the version references a hard-deleted block type — blocked
+            // BEFORE any write, the message names the type.
+            return Response::validation(['version_uuid' => $e->getMessage()]);
         } catch (\RuntimeException $e) {
             return Response::validation(['version_uuid' => $e->getMessage()]);
         }
-        return Response::success(['version_uuid' => $input->version_uuid], 'Rolled back to version.');
+        // The ACTUAL pinned version: rollback MATERIALIZES a new projected version
+        // when block migrations changed the fields — echoing the input would lie.
+        return Response::success($pinned, 'Rolled back to version.');
     }
 
     /**
