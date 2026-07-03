@@ -341,6 +341,32 @@ describe('useCanvasBridge', () => {
     }
   })
 
+  it('block-deselect dispatches the id; missing id dropped', () => {
+    const bridge = useCanvasBridge(ref(null))
+    const deselect = vi.fn()
+    bridge.onBlockDeselect(deselect)
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-deselect', id: 'b1', nonce: bridge.nonce },
+      }),
+    )
+    expect(deselect).toHaveBeenCalledWith('b1')
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-deselect', nonce: bridge.nonce },
+      }),
+    )
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-deselect', id: 'b2', nonce: 'wrong' },
+      }),
+    )
+    expect(deselect).toHaveBeenCalledTimes(1)
+    bridge.dispose()
+  })
+
   it('blocks-index dispatch filters non-strings', () => {
     const bridge = useCanvasBridge(ref(null))
     let ids: string[] = []

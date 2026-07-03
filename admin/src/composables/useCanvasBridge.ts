@@ -41,6 +41,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     .join('')
 
   let selectCb: ((id: string) => void) | null = null
+  let deselectCb: ((id: string) => void) | null = null
   let hoverCb: ((id: string) => void) | null = null
   let indexCb: ((ids: string[]) => void) | null = null
   let moveCb: ((id: string, delta: 1 | -1) => void) | null = null
@@ -76,6 +77,9 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     const data = (event.data ?? {}) as BridgeMessage
     if (data.nonce !== nonce) return
     if (data.type === 'lemma:block-select' && typeof data.id === 'string') selectCb?.(data.id)
+    // Stage Escape (keyboard-shortcuts spec §3): notification-only — the
+    // bridge already cleared its own ring/toolbar.
+    if (data.type === 'lemma:block-deselect' && typeof data.id === 'string') deselectCb?.(data.id)
     if (data.type === 'lemma:block-hover' && typeof data.id === 'string') hoverCb?.(data.id)
     if (data.type === 'lemma:blocks-index' && Array.isArray(data.ids)) {
       indexCb?.(data.ids.filter((v): v is string => typeof v === 'string'))
@@ -153,6 +157,9 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     },
     onBlockSelect(cb: (id: string) => void): void {
       selectCb = cb
+    },
+    onBlockDeselect(cb: (id: string) => void): void {
+      deselectCb = cb
     },
     onBlockHover(cb: (id: string) => void): void {
       hoverCb = cb

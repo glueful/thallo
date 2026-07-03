@@ -130,6 +130,15 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   pointer, one move lands in the block tree on drop (validated same-list by
   the inspector's ops), Escape cancels, and a rejected drop snaps the stage
   back to truth. Cross-container moves stay in the inspector.
+- Stage keyboard shortcuts (canvas v7): with a block selected in the stage,
+  Alt/Option+Arrows move it, Backspace/Delete opens the delete confirm,
+  Cmd/Ctrl+D duplicates, Enter enters in-place editing (only when the block
+  OWNS exactly one editable region — keyboard Enter stays equivalent to the
+  wrapper double-click fallback, and both now share one owned-region rule,
+  fixing the pointer fallback adopting a container's CHILD region), and
+  Escape deselects (new `block-deselect` notification keeps outline/inspector
+  selection honest). Guarded against edit sessions, drags, the bridge
+  toolbar, and theme form controls.
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

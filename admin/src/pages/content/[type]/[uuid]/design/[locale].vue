@@ -141,6 +141,13 @@ bridge.onBlockSelect((id) => {
   fieldEditorRef.value?.selectBlockById(id)
 })
 
+// Stage Escape (keyboard-shortcuts spec §3): the bridge already cleared its
+// ring/toolbar — without this the parent's selection would go stale and the
+// outline/inspector would lie.
+bridge.onBlockDeselect(() => {
+  selected.value = null
+})
+
 function onOutlineSelect(id: string): void {
   selected.value = id
   fieldEditorRef.value?.selectBlockById(id)

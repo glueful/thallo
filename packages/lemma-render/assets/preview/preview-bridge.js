@@ -144,6 +144,20 @@
     return regions.length === 1 ? regions[0] : null // one region per (block, field)
   }
 
+  function singleRegionOf(id) {
+    // The block's OWN regions only (keyboard-shortcuts review P1): a container
+    // block's subtree includes nested child-block regions — counting those
+    // would start editing a CHILD while the parent is the selected or
+    // double-clicked block. Shared by keyboard Enter and the wrapper-level
+    // double-click fallback so the two paths stay aligned.
+    var w = findBlock(id)
+    if (!w) return null
+    var regions = w.querySelectorAll(
+      '.lemma-edit-region[data-lemma-edit-block="' + cssEscape(id) + '"]'
+    )
+    return regions.length === 1 ? regions[0] : null
+  }
+
   function commitEditing() {
     if (!editing) return
     if (editing.debounce) clearTimeout(editing.debounce)
@@ -394,6 +408,68 @@
     drag = null
   }
 
+  // ── Stage keyboard shortcuts (keyboard-shortcuts spec §1/§2) ────────────────
+  // Document-capture so theme markup can't shadow it — which is exactly why the
+  // guards must be airtight: never during an edit session or drag (their own
+  // handlers own Escape), never from the bridge toolbar (native button keyboard
+  // semantics stay intact), never from theme form controls. Guard paths return
+  // WITHOUT consuming the event — the drag's own capture handler (registered
+  // later, so it runs after this one) still needs to see Escape.
+  function keyTargetIsFormish(t) {
+    if (!t || !t.tagName) return false
+    var tag = t.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+    if (t.isContentEditable) return true
+    return !!(t.closest && t.closest('[contenteditable], input, textarea, select'))
+  }
+
+  function onCanvasKeydown(e) {
+    if (selectedId === null || editing || drag) return
+    var t = e.target
+    if (t && t.closest && t.closest('.lemma-canvas-toolbar')) return
+    if (keyTargetIsFormish(t)) return
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault()
+      e.stopPropagation()
+      post('block-move', { id: selectedId, delta: e.key === 'ArrowUp' ? -1 : 1 })
+      return
+    }
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault()
+      e.stopPropagation()
+      post('block-delete-request', { id: selectedId }) // rect-less -> centered confirm
+      return
+    }
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'd' || e.key === 'D')) {
+      e.preventDefault() // beat the browser bookmark shortcut
+      e.stopPropagation()
+      post('block-duplicate', { id: selectedId })
+      return
+    }
+    if (e.key === 'Enter') {
+      // Byte-equivalent to the wrapper-level double-click fallback (spec pin):
+      // ONLY the block's own single region — zero, 2+, or child-owned regions
+      // are not a target (review P1; same helper as the pointer path).
+      var region = singleRegionOf(selectedId)
+      if (!region) return
+      e.preventDefault()
+      e.stopPropagation()
+      lastPointer = null // keyboard entry: caret placement falls back to focus()
+      post('edit-request', {
+        id: region.getAttribute('data-lemma-edit-block'),
+        field: region.getAttribute('data-lemma-edit-field')
+      })
+      return
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      var deselectedId = selectedId
+      clearSelection()
+      post('block-deselect', { id: deselectedId })
+    }
+  }
+
   // ── Mirrors (stage-toolbar spec §1): DOM-only, parent-commanded ─────────────
   function stripCanvasState(root) {
     Array.prototype.forEach.call(root.querySelectorAll('.lemma-canvas-toolbar'), function (el) {
@@ -483,8 +559,9 @@
       // wrapper-level double-click falls back to the block's single region.
       var region = e.target && e.target.closest ? e.target.closest('.lemma-edit-region') : null
       if (!region || !w.contains(region)) {
-        var regions = w.querySelectorAll('.lemma-edit-region')
-        region = regions.length === 1 ? regions[0] : null
+        // Wrapper-level fallback: ONLY the block's own single region (review
+        // P1) — shared with keyboard Enter so the two paths stay aligned.
+        region = singleRegionOf(w.getAttribute('data-lemma-block'))
       }
       if (!region) return
       e.preventDefault()
@@ -544,6 +621,7 @@
       selectWrapper(w)
       post('block-select', { id: w.getAttribute('data-lemma-block') })
     }, true)
+    document.addEventListener('keydown', onCanvasKeydown, true)
     // Scroll preservation (auto-apply spec §3): trailing-throttled reports;
     // the parent restores after every stage reload.
     var scrollTimer = null

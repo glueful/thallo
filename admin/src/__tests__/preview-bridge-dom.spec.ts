@@ -645,6 +645,35 @@ describe('free drag', () => {
     expect(lastPost('lemma:block-select')).toMatchObject({ id: 'fd-d-0000004' })
   })
 
+  it('keyboard shortcuts are inert while dragging; Escape means rollback, never deselect', () => {
+    const { list, a } = dragList()
+    gripDown(a)
+    posted.mockClear()
+    pointerMove(160)
+    expect(order(list)[0]).toBe('fd-b-0000002')
+
+    // Mid-drag, the shortcut handler must bail on the drag guard.
+    const press = (init: KeyboardEventInit) =>
+      document.body.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }),
+      )
+    press({ key: 'ArrowDown', altKey: true })
+    press({ key: 'Backspace' })
+    press({ key: 'd', metaKey: true })
+    expect(lastPost('lemma:block-move')).toBeUndefined()
+    expect(lastPost('lemma:block-delete-request')).toBeUndefined()
+    expect(lastPost('lemma:block-duplicate')).toBeUndefined()
+
+    // Escape belongs to the DRAG while one is active: order rolls back, the
+    // block STAYS selected, and no block-deselect posts.
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    )
+    expect(order(list)).toEqual(['fd-a-0000001', 'fd-b-0000002', 'fd-c-0000003'])
+    expect(lastPost('lemma:block-deselect')).toBeUndefined()
+    expect(a.classList.contains('lemma-canvas-selected')).toBe(true)
+  })
+
   it('swaps are direction-gated: an against-direction slot never triggers (no oscillation)', () => {
     const { list, a } = dragList()
     gripDown(a)
@@ -714,5 +743,212 @@ describe('free drag', () => {
     expect(lastPost('lemma:block-select')).toBeUndefined()
     a.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
     expect(lastPost('lemma:block-select')).toMatchObject({ id: 'fd-a-0000001' })
+  })
+})
+
+describe('stage keyboard shortcuts', () => {
+  function pressKey(init: KeyboardEventInit, target: Element = document.body): KeyboardEvent {
+    const ev = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })
+    target.dispatchEvent(ev)
+    return ev
+  }
+
+  function selectByClick(w: HTMLElement): void {
+    w.querySelector('section, hr, p')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  }
+
+  it('does nothing while no block is selected', () => {
+    // One eval per file: an earlier describe may have leaked a selection —
+    // Escape establishes the deselected baseline this test asserts from.
+    pressKey({ key: 'Escape' })
+    posted.mockClear()
+    pressKey({ key: 'ArrowDown', altKey: true })
+    pressKey({ key: 'Backspace' })
+    pressKey({ key: 'd', metaKey: true })
+    pressKey({ key: 'Enter' })
+    expect(posted).not.toHaveBeenCalled()
+  })
+
+  it('Alt+Arrows post block-move; plain arrows pass through untouched', () => {
+    const w = wrapper('kb-mv-000001')
+    document.body.appendChild(w)
+    selectByClick(w)
+    posted.mockClear()
+
+    const up = pressKey({ key: 'ArrowUp', altKey: true })
+    expect(lastPost('lemma:block-move')).toMatchObject({ id: 'kb-mv-000001', delta: -1 })
+    expect(up.defaultPrevented).toBe(true)
+
+    pressKey({ key: 'ArrowDown', altKey: true })
+    expect(lastPost('lemma:block-move')).toMatchObject({ id: 'kb-mv-000001', delta: 1 })
+
+    posted.mockClear()
+    const plain = pressKey({ key: 'ArrowDown' }) // no Alt: scrolling stays native
+    expect(posted).not.toHaveBeenCalled()
+    expect(plain.defaultPrevented).toBe(false)
+  })
+
+  it('Backspace and Delete post a rect-less delete request (centered confirm)', () => {
+    const w = wrapper('kb-del-00001')
+    document.body.appendChild(w)
+    selectByClick(w)
+    posted.mockClear()
+
+    pressKey({ key: 'Backspace' })
+    const req = lastPost('lemma:block-delete-request')!
+    expect(req).toMatchObject({ id: 'kb-del-00001' })
+    expect(req.rect).toBeUndefined()
+
+    posted.mockClear()
+    pressKey({ key: 'Delete' })
+    expect(lastPost('lemma:block-delete-request')).toMatchObject({ id: 'kb-del-00001' })
+  })
+
+  it('Cmd/Ctrl+D posts block-duplicate and beats the browser bookmark', () => {
+    const w = wrapper('kb-dup-00001')
+    document.body.appendChild(w)
+    selectByClick(w)
+    posted.mockClear()
+
+    const meta = pressKey({ key: 'd', metaKey: true })
+    expect(lastPost('lemma:block-duplicate')).toMatchObject({ id: 'kb-dup-00001' })
+    expect(meta.defaultPrevented).toBe(true)
+
+    posted.mockClear()
+    pressKey({ key: 'D', ctrlKey: true })
+    expect(lastPost('lemma:block-duplicate')).toMatchObject({ id: 'kb-dup-00001' })
+
+    posted.mockClear()
+    pressKey({ key: 'd' }) // unmodified d: plain typing, no intent
+    expect(posted).not.toHaveBeenCalled()
+  })
+
+  it('Enter posts edit-request ONLY for a single-owned-region block (spec pin)', () => {
+    const one = proseWrapper('kb-ent-00001')
+    document.body.appendChild(one)
+    selectByClick(one)
+    posted.mockClear()
+    pressKey({ key: 'Enter' })
+    expect(lastPost('lemma:edit-request')).toMatchObject({ id: 'kb-ent-00001', field: 'body' })
+
+    // Zero regions: ignored.
+    const zero = wrapper('kb-ent-00002')
+    document.body.appendChild(zero)
+    selectByClick(zero)
+    posted.mockClear()
+    const zev = pressKey({ key: 'Enter' })
+    expect(posted).not.toHaveBeenCalled()
+    expect(zev.defaultPrevented).toBe(false)
+
+    // Two regions (CTA-style): ambiguous, ignored.
+    const two = wrapper(
+      'kb-ent-00003',
+      '<section>' +
+        '<span class="lemma-edit-region" data-lemma-edit-block="kb-ent-00003" data-lemma-edit-field="heading">H</span>' +
+        '<span class="lemma-edit-region" data-lemma-edit-block="kb-ent-00003" data-lemma-edit-field="label">L</span>' +
+        '</section>',
+    )
+    document.body.appendChild(two)
+    selectByClick(two)
+    posted.mockClear()
+    pressKey({ key: 'Enter' })
+    expect(lastPost('lemma:edit-request')).toBeUndefined()
+
+    // Container block (nested blocks()): the CHILD's region does not count as
+    // the parent's — Enter on the selected parent stays inert (review P1).
+    const parent = wrapper(
+      'kb-ent-00004',
+      '<section><div class="lemma-preview-block" data-lemma-block="kb-ent-child1">' +
+        '<section><div class="lemma-edit-region" data-lemma-edit-block="kb-ent-child1" ' +
+        'data-lemma-edit-field="body"><p>child</p></div></section></div></section>',
+    )
+    document.body.appendChild(parent)
+    selectByClick(parent) // querySelector('section') hits the OUTER section -> parent selected
+    posted.mockClear()
+    pressKey({ key: 'Enter' })
+    expect(lastPost('lemma:edit-request')).toBeUndefined()
+  })
+
+  it('wrapper-level double-click on a container no longer adopts a CHILD region', () => {
+    // The shared owned-region helper aligns the POINTER fallback with Enter
+    // (review P1): before it, a container double-click posted edit-request
+    // for the child block while the parent was the click target.
+    const parent = wrapper(
+      'kb-dbl-00001',
+      '<section><div class="lemma-preview-block" data-lemma-block="kb-dbl-child1">' +
+        '<section><div class="lemma-edit-region" data-lemma-edit-block="kb-dbl-child1" ' +
+        'data-lemma-edit-field="body"><p>child</p></div></section></div></section>',
+    )
+    document.body.appendChild(parent)
+    posted.mockClear()
+    parent.querySelector('section')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    expect(lastPost('lemma:edit-request')).toBeUndefined()
+
+    // Double-click INSIDE the child's region still addresses the child directly.
+    parent.querySelector('p')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    expect(lastPost('lemma:edit-request')).toMatchObject({
+      id: 'kb-dbl-child1',
+      field: 'body',
+    })
+  })
+
+  it('Escape clears the selection locally and posts block-deselect', () => {
+    const w = wrapper('kb-esc-00001')
+    document.body.appendChild(w)
+    selectByClick(w)
+    expect(w.querySelector('.lemma-canvas-toolbar')).not.toBeNull()
+    posted.mockClear()
+
+    pressKey({ key: 'Escape' })
+    expect(lastPost('lemma:block-deselect')).toMatchObject({ id: 'kb-esc-00001' })
+    expect(w.classList.contains('lemma-canvas-selected')).toBe(false)
+    expect(w.querySelector('.lemma-canvas-toolbar')).toBeNull()
+
+    // Deselected: further shortcuts are inert.
+    posted.mockClear()
+    pressKey({ key: 'ArrowDown', altKey: true })
+    expect(posted).not.toHaveBeenCalled()
+  })
+
+  it('guards: toolbar focus, theme form controls, and edit sessions swallow nothing', () => {
+    const w = proseWrapper('kb-grd-00001')
+    document.body.appendChild(w)
+    selectByClick(w)
+
+    // Toolbar guard (review pin): Enter on a focused toolbar button keeps its
+    // native activation — the handler must not intercept it as "edit block".
+    posted.mockClear()
+    const dupBtn = w.querySelector('.lemma-canvas-toolbar [data-action="duplicate"]')!
+    const tev = pressKey({ key: 'Enter' }, dupBtn)
+    expect(lastPost('lemma:edit-request')).toBeUndefined()
+    expect(tev.defaultPrevented).toBe(false)
+    pressKey({ key: 'Backspace' }, dupBtn)
+    expect(lastPost('lemma:block-delete-request')).toBeUndefined()
+
+    // Theme form control guard: Backspace in an input is typing, not delete.
+    const formW = wrapper('kb-grd-00002', '<section><input type="text"></section>')
+    document.body.appendChild(formW)
+    selectByClick(formW)
+    posted.mockClear()
+    pressKey({ key: 'Backspace' }, formW.querySelector('input')!)
+    expect(lastPost('lemma:block-delete-request')).toBeUndefined()
+
+    // Edit-session guard: typing must never move/delete blocks. Re-select the
+    // prose wrapper, grant an edit, then hammer the shortcuts.
+    selectByClick(w)
+    sendToBridge({ type: 'lemma:edit-grant', id: 'kb-grd-00001', field: 'body', kind: 'rich' })
+    const region = w.querySelector('.lemma-edit-region')!
+    expect(region.getAttribute('contenteditable')).toBe('true')
+    posted.mockClear()
+    pressKey({ key: 'ArrowUp', altKey: true }, region)
+    pressKey({ key: 'Backspace' }, region)
+    pressKey({ key: 'd', metaKey: true }, region)
+    expect(lastPost('lemma:block-move')).toBeUndefined()
+    expect(lastPost('lemma:block-delete-request')).toBeUndefined()
+    expect(lastPost('lemma:block-duplicate')).toBeUndefined()
+    // Escape during editing keeps its commit-and-exit meaning (region handler).
+    region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(lastPost('lemma:edit-end')).toMatchObject({ id: 'kb-grd-00001' })
+    expect(lastPost('lemma:block-deselect')).toBeUndefined()
   })
 })
