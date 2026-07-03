@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Content\Http\Controllers\BlockMigrationController;
 use App\Content\Http\Controllers\BlockTypeController;
 use App\Content\Http\Controllers\ContentTypeController;
 use App\Content\Http\Controllers\EntryController;
@@ -79,6 +80,24 @@ $router->group(['prefix' => '/v1/admin', 'middleware' => ['auth']], function (Ro
         ->middleware('lemma_permission:content.manage');
 
     $router->post('/block-types/{slug}/deactivate', [BlockTypeController::class, 'deactivate'])
+        ->middleware('lemma_permission:content.manage');
+
+    // Block-type schema migrations (block-migrations spec §2): declared rename/delete
+    // ops with an eager queued backfill; one active migration per type.
+    $router->post('/block-types/{slug}/migrations', [BlockMigrationController::class, 'store'])
+        ->middleware('lemma_permission:content.manage');
+
+    $router->get('/block-types/{slug}/migrations', [BlockMigrationController::class, 'index'])
+        ->middleware('lemma_permission:content.view');
+
+    $router->get('/block-types/{slug}/migrations/{migrationUuid}', [BlockMigrationController::class, 'show'])
+        ->middleware('lemma_permission:content.view');
+
+    // Usage scan + zero-usage hard delete (block-migrations spec §6).
+    $router->get('/block-types/{slug}/usage', [BlockTypeController::class, 'usage'])
+        ->middleware('lemma_permission:content.view');
+
+    $router->delete('/block-types/{slug}', [BlockTypeController::class, 'destroy'])
         ->middleware('lemma_permission:content.manage');
 
     // Entry authoring (identity, drafts, preview).

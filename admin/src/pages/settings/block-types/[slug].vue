@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useBlockTypes, useBlockTypeMutations } from '@/queries/blockTypes'
+import { useBlockTypes, useBlockTypeMutations, useBlockTypeMigrations } from '@/queries/blockTypes'
 import { validateContentTypeFields, type ContentTypeField } from '@/queries/contentTypes'
 import { useNotify } from '@/composables/useNotify'
+import BlockTypeLifecycle from './components/BlockTypeLifecycle.vue'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -16,6 +17,13 @@ const { data: blockTypes, status } = useBlockTypes()
 const blockType = computed(() => (blockTypes.value ?? []).find((t) => t.slug === slug.value))
 
 const { update, setActive } = useBlockTypeMutations()
+
+// While a migration is ACTIVE (running or failed), the schema is owned by the
+// migration: block the editor's save (block-migrations spec §7).
+const { data: migrations } = useBlockTypeMigrations(() => slug.value)
+const migrationActive = computed(() =>
+  (migrations.value ?? []).some((m) => m.status === 'running' || m.status === 'failed'),
+)
 
 const label = ref('')
 const icon = ref('')
@@ -98,6 +106,7 @@ async function onToggleActive() {
           </UButton>
           <UButton
             :loading="update.isLoading.value"
+            :disabled="migrationActive"
             data-test="block-type-save"
             @click="onSave"
           >
@@ -155,11 +164,20 @@ async function onToggleActive() {
         </UCard>
 
         <UCard>
-          <template #header><h2 class="font-semibold text-default">Fields</h2></template>
-          <!-- Block schemas reject nested blocks/localized/filterable (spec §2). Schema
-               edits are NON-MIGRATING (spec §3): existing content is never rewritten. -->
+          <template #header>
+            <div class="flex items-center gap-2">
+              <h2 class="flex-1 font-semibold text-default">Fields</h2>
+              <UBadge v-if="migrationActive" size="xs" color="warning" variant="subtle">
+                migration active — schema locked
+              </UBadge>
+            </div>
+          </template>
+          <!-- Schema edits are ADDITIVE-ONLY (block-migrations spec §1): removing or
+               renaming a field 422s here — declare a migration instead (below). -->
           <ContentTypeFields v-model="fields" context="block-type" />
         </UCard>
+
+        <BlockTypeLifecycle :slug="slug" :schema="fields" />
       </div>
     </template>
   </UDashboardPanel>

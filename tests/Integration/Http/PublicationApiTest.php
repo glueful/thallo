@@ -107,7 +107,12 @@ final class PublicationApiTest extends LemmaTestCase
         );
         self::assertSame(200, $resp->getStatusCode());
         $data = json_decode((string) $resp->getContent(), true)['data'];
-        self::assertDataMatchesDtoShape($data, \App\Content\Http\DTOs\Responses\Publication\VersionResultData::class);
+        // Rollback's OWN shape (block-migrations spec §5): the ACTUALLY pinned
+        // version_uuid + version number — not publish's bare {version_uuid}.
+        self::assertDataMatchesDtoShape(
+            $data,
+            \App\Content\Http\DTOs\Responses\Publication\RollbackResultData::class,
+        );
     }
 
     public function testRollbackRejectsMissingVersionAtHydration(): void

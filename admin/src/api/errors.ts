@@ -59,6 +59,28 @@ function messageFromBody(body: unknown, fallback: string): string {
 }
 
 /**
+ * The machine-readable detail code from a framework error body — Response::error()
+ * puts caller details under `error.details`, so a coded failure looks like
+ * `{ error: { details: { code: 'STALE_DRAFT' | 'BLOCK_MIGRATION_IN_PROGRESS', ... } } }`.
+ * Null when absent — callers branch on the code instead of parsing messages.
+ */
+export function apiErrorCode(e: unknown): string | null {
+  const details = apiErrorDetails(e)
+  const code = details?.code
+  return typeof code === 'string' ? code : null
+}
+
+/** The framework error body's `error.details` object, if any. */
+export function apiErrorDetails(e: unknown): Record<string, unknown> | null {
+  if (!(e instanceof ApiError)) return null
+  const body = e.body as { error?: { details?: unknown } } | null
+  const details = body?.error?.details
+  return typeof details === 'object' && details !== null
+    ? (details as Record<string, unknown>)
+    : null
+}
+
+/**
  * Normalize an openapi-fetch failure (its `error` body + `response`) — or any thrown value — into
  * an ApiError. Pass the destructured `response` so the resulting error carries the HTTP status.
  */

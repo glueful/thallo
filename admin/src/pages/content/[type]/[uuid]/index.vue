@@ -8,7 +8,7 @@ import { useLocales } from '@/queries/locales'
 import { runtimeConfig } from '@/runtime/config'
 import type { FieldDef } from '@/fields/types'
 import FieldEditor from '@/components/FieldEditor.vue'
-import { ApiError } from '@/api/errors'
+import { ApiError, apiErrorCode, apiErrorDetails } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
 import PublishPanel from './components/PublishPanel.vue'
 import SeoPanel from './components/SeoPanel.vue'
@@ -189,10 +189,18 @@ async function onSave() {
     success('Draft saved')
   } catch (e: unknown) {
     if (e instanceof ApiError && e.status === 409) {
-      warning(
-        'This draft changed elsewhere',
-        'Reload to get the latest version before saving again.',
-      )
+      if (apiErrorCode(e) === 'BLOCK_MIGRATION_IN_PROGRESS') {
+        const blockType = String(apiErrorDetails(e)?.block_type ?? 'a block type')
+        warning(
+          `Block type “${blockType}” is being migrated`,
+          'Saving is blocked until the migration completes — try again shortly.',
+        )
+      } else {
+        warning(
+          'This draft changed elsewhere',
+          'Reload to get the latest version before saving again.',
+        )
+      }
     } else {
       notifyError(e, 'Couldn’t save draft')
     }

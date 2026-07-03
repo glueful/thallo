@@ -52,6 +52,22 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   target republish). Unresolved targets contribute neither (surrogate-header
   privacy). Also fixes the dormant top-level bug where `asset` fields were passed to
   entry expansion (splicing them to null): asset values now always pass through raw.
+  Follow-up: **block-schema migrations + hard-delete** — block-type schema edits
+  are now additive-only; renames/deletes are declared migrations (rename/delete
+  ops, one active per type) with an eager queued backfill that rewrites every
+  current draft and republishes every pinned publication (non-deleted entries,
+  archived included, nested to the depth cap). While a migration is active
+  (running OR failed), saving/publishing entries containing that block type 409s
+  — closing the unstamped-instance data-loss window. Version rollback projects
+  block data once through the completed-migration timestamp suffix (microsecond
+  precision) and materializes a new version when anything changed (the rollback
+  response now reports the ACTUALLY pinned version); restoring a version that
+  references a hard-deleted block type is blocked with a clear error. New usage
+  endpoint (current drafts + publications, archived included, nested; historical
+  versions excluded; picker allowlists reported, not gating) and zero-usage-gated
+  hard delete (server-side re-scan, no force flag). `entry_versions.created_at`
+  now persists microseconds. CLI: `lemma:blocks:migration:backfill` re-drives a
+  failed backfill.
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

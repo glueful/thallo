@@ -21,6 +21,7 @@ abstract class LemmaTestCase extends TestCase
 
     // Truncate order is child -> parent (no FKs in v1, but keep it deterministic).
     private const TABLES = [
+        'lemma_block_type_migrations',
         'blobs',
         'lemma_block_types',
         'lemma_render_template_versions', 'lemma_render_templates',

@@ -45,11 +45,12 @@ final class SeedBlockTypesTest extends LemmaTestCase
     {
         $this->runSeed();
         $repo = new BlockTypeRepository($this->connection());
-        // Admin edits hero…
+        // Admin edits hero (ADDITIVELY — updateSchema is additive-only since the
+        // block-migrations spec §1; destructive edits go through migrations)…
         $hero = $repo->findBySlug('hero');
         $repo->updateSchema(
             (string) $hero['uuid'],
-            [['name' => 'headline', 'type' => 'string']],
+            [...$hero['schema'], ['name' => 'headline', 'type' => 'string']],
             'My Hero',
             null,
             null,
@@ -65,7 +66,7 @@ final class SeedBlockTypesTest extends LemmaTestCase
 
         $after = $repo->findBySlug('hero');
         self::assertSame('My Hero', $after['label']);                      // byte-identical edit survives
-        self::assertSame('headline', $after['schema'][0]['name']);
+        self::assertContains('headline', array_column($after['schema'], 'name'));
         self::assertSame(0, (int) $repo->findBySlug('quote')['active']);   // deactivation survives
     }
 }
