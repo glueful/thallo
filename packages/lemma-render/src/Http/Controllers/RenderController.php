@@ -6,13 +6,19 @@ namespace Glueful\Lemma\Render\Http\Controllers;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response as ApiResponse;
+use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
+use Glueful\Lemma\Contracts\Delivery\PreviewSession;
+use Glueful\Lemma\Contracts\Delivery\PreviewSessionVerifier;
 use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
 use Glueful\Lemma\Render\HomepageConfigError;
+use Glueful\Lemma\Render\Http\Middleware\PreviewSessionMiddleware;
 use Glueful\Lemma\Render\RenderContextExtension;
 use Glueful\Lemma\Render\RenderErrorCache;
 use Glueful\Lemma\Render\ReservedPaths;
+use Glueful\Lemma\Render\ThemeLocator;
 use Glueful\Lemma\Render\TwigFactory;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Twig\Environment;
@@ -37,11 +43,14 @@ final class RenderController
         private readonly ReservedPaths $reserved,
         private readonly RenderErrorCache $errors,
         private readonly LoggerInterface $logger,
+        private readonly ?FacetCountsReader $facetReader = null,
+        private readonly ?PreviewSessionVerifier $sessionVerifier = null,
     ) {
     }
 
     public function home(Request $request): Response
     {
+        $session = $this->session($request);
         $homepageEntry = (string) config($this->context, 'lemma_render.homepage_entry', '');
         $locale = (string) config($this->context, 'i18n.default_locale', 'en');
         $entry = null;
@@ -59,11 +68,12 @@ final class RenderController
 
         // Homepage ALWAYS renders index.twig (spec §4) — the entry, when configured,
         // arrives as context; routed pages use the entry hierarchy instead.
-        $response = $this->render('index.twig', $locale, $entry, 200);
+        [$env, $assetBase] = $this->themedEnv($session);
+        $response = $this->render('index.twig', $locale, $entry, 200, $this->sessionExtra($session), $env, $assetBase);
         if ($entry !== null) {
             $this->tagResponse($response, $entry, $typeSlug);
         }
-        return $response;
+        return $session !== null ? $this->sessionChrome($response) : $response;
     }
 
     public function page(Request $request, string $path): Response
@@ -74,21 +84,92 @@ final class RenderController
             return ApiResponse::error('Not Found', 404);
         }
 
-        $result = $this->resolver->resolvePath('/' . ltrim($path, '/'));
+        $session = $this->session($request);
+        $extra = $this->sessionExtra($session);
+        [$env, $assetBase] = $this->themedEnv($session);
+        $result = $this->resolver->resolvePath('/' . ltrim($path, '/'), $session);
 
-        return match ($result['kind']) {
+        $response = match ($result['kind']) {
             'redirect' => new Response('', $result['redirect']['status'], [
                 'Location' => $result['redirect']['location'],
             ]),
-            'gone' => $this->errors->themed410(
-                fn (): Response => $this->render('error.twig', $this->defaultLocale(), null, 410),
+            // In-session 404/410 render FRESH with the chrome (preview-sessions spec
+            // §3): session surfaces never read or fill the SHARED fixed bodies.
+            'gone' => $session !== null
+                ? $this->render('error.twig', $this->defaultLocale(), null, 410, $extra, $env, $assetBase)
+                : $this->errors->themed410(
+                    fn (): Response => $this->render('error.twig', $this->defaultLocale(), null, 410),
+                ),
+            'content' => $this->renderEntry($result, $extra, $env, $assetBase),
+            'listing', 'archive' => $this->renderCollection(
+                $result,
+                '/' . ltrim($path, '/'),
+                $extra,
+                $env,
+                $assetBase,
             ),
-            'content' => $this->renderEntry($result),
-            'listing', 'archive' => $this->renderCollection($result, '/' . ltrim($path, '/')),
-            default => $this->errors->themed404(
-                fn (): Response => $this->render('404.twig', $this->defaultLocale(), null, 404),
-            ),
+            'terms' => $this->renderTerms($result, $extra, $env, $assetBase),
+            default => $session !== null
+                ? $this->render('404.twig', $this->defaultLocale(), null, 404, $extra, $env, $assetBase)
+                : $this->errors->themed404(
+                    fn (): Response => $this->render('404.twig', $this->defaultLocale(), null, 404),
+                ),
         };
+
+        return $session !== null ? $this->sessionChrome($response) : $response;
+    }
+
+    /** The verified preview session from the detection middleware, if any. */
+    private function session(Request $request): ?PreviewSession
+    {
+        $session = $request->attributes->get(PreviewSessionMiddleware::ATTRIBUTE);
+        return $session instanceof PreviewSession ? $session : null;
+    }
+
+    /** @return array<string,mixed> banner context for in-session renders */
+    private function sessionExtra(?PreviewSession $session): array
+    {
+        return $session === null
+            ? []
+            : ['preview' => true, 'preview_exit' => '/_preview/exit'];
+    }
+
+    /** Session/preview chrome (preview-sessions spec §3): no-store, noindex, no tags. */
+    private function sessionChrome(Response $response): Response
+    {
+        $response->headers->remove('Cache-Tag');
+        $response->headers->set('Cache-Control', 'no-store');
+        $response->headers->set('X-Robots-Tag', 'noindex');
+        return $response;
+    }
+
+    /**
+     * Request-local Twig for a themed session (preview-sessions spec §5) — NEVER
+     * assigned to the memoized boot environment. Vanished/broken themes fall back to
+     * the boot theme (the content exists; a themed-preview 404 would be wrong) and log.
+     *
+     * @return array{0: ?Environment, 1: ?string} [env, assetBase] — [null, null] = boot
+     */
+    private function themedEnv(?PreviewSession $session): array
+    {
+        if ($session === null || $session->theme === null) {
+            return [null, null];
+        }
+        $base = $this->context->getBasePath();
+        try {
+            $factory = new TwigFactory(
+                new ThemeLocator($session->theme, $base . '/themes'),
+                $this->extension,
+                $base . '/storage/cache/twig',
+            );
+            return [$factory->environment(), '/_preview-assets/' . $session->token];
+        } catch (\Throwable $e) {
+            $this->logger->warning('lemma-render: preview theme unavailable, boot theme used', [
+                'theme' => $session->theme,
+                'error' => $e->getMessage(),
+            ]);
+            return [null, null];
+        }
     }
 
     /**
@@ -107,30 +188,119 @@ final class RenderController
     )]
     public function preview(Request $request, string $token): Response
     {
+        // Verified up front: the session drives BOTH the cookie and the per-preview
+        // theme (spec §5) — a themed token renders through a request-local environment.
+        $session = $this->sessionVerifier?->verify($token);
+        [$env, $assetBase] = $this->themedEnv($session);
         $result = $this->resolver->resolvePreview($token);
 
         if ($result['kind'] !== 'content') {
-            $response = $this->render('404.twig', $this->defaultLocale(), null, 404, ['preview' => true]);
+            $response = $this->render(
+                '404.twig',
+                $this->defaultLocale(),
+                null,
+                404,
+                ['preview' => true],
+                $env,
+                $assetBase,
+            );
         } else {
             $entry = $result['content'];
             $locale = (string) $result['locale'];
             $typeSlug = (string) ($result['type'] ?? '');
             $candidate = $typeSlug !== '' ? "entry/{$typeSlug}.twig" : '';
-            $template = $candidate !== '' && $this->twig()->getLoader()->exists($candidate)
+            $template = $candidate !== '' && ($env ?? $this->twig())->getLoader()->exists($candidate)
                 ? $candidate
                 : 'entry.twig';
-            $response = $this->render($template, $locale, $entry, 200, ['preview' => true]);
+            $response = $this->render($template, $locale, $entry, 200, ['preview' => true], $env, $assetBase);
         }
 
         $response->headers->remove('Cache-Tag'); // no-store pages carry no surrogate tags
         $response->headers->set('Cache-Control', 'no-store');
         $response->headers->set('X-Robots-Tag', 'noindex');
+
+        // Start the preview SESSION (preview-sessions spec §1) — only on a VERIFIED
+        // token: the cookie is the token itself, dies with its TTL, Secure iff HTTPS.
+        if ($session !== null && $result['kind'] === 'content') {
+            $response->headers->setCookie(new \Symfony\Component\HttpFoundation\Cookie(
+                'lemma_preview',
+                $token,
+                $session->expiresAt,
+                '/',
+                null,
+                $request->isSecure(),
+                true,
+                false,
+                \Symfony\Component\HttpFoundation\Cookie::SAMESITE_LAX,
+            ));
+        }
         return $response;
     }
 
-    /** @param array{locale: ?string, type: ?string, content: ?array} $result */
-    private function renderEntry(array $result): Response
+    /** Ends the preview session (preview-sessions spec §1): clear the cookie, go home. */
+    #[\Glueful\Routing\Attributes\ApiOperation(
+        summary: 'End the preview session (HTML redirect, not an API endpoint)',
+        // Tagged Default explicitly (like preview/previewAsset): the OpenAPI deny-list
+        // drops the render pack's HTML routes by that tag; the generator would
+        // otherwise path-derive an unexcludable tag from the /_preview segment.
+        tags: ['Default'],
+    )]
+    public function exit(): Response
     {
+        $response = new Response('', 302, ['Location' => '/']);
+        $response->headers->clearCookie('lemma_preview', '/');
+        return $response;
+    }
+
+    /**
+     * Token-scoped preview assets (preview-sessions spec §5): the token's SIGNED theme
+     * is the only theme served; asset() path rules apply; no-store. Tagged Default so
+     * the OpenAPI deny-list drops it like the other HTML-surface routes.
+     */
+    #[\Glueful\Routing\Attributes\ApiOperation(
+        summary: 'Preview theme assets (not an API endpoint)',
+        tags: ['Default'],
+    )]
+    public function previewAsset(Request $request, string $token, string $path): Response
+    {
+        $session = $this->sessionVerifier?->verify($token);
+        if ($session === null || $session->theme === null) {
+            return ApiResponse::error('Not Found', 404);
+        }
+        $bad = $path === ''
+            || str_starts_with($path, '/')
+            || str_contains($path, '\\')
+            || preg_match('#^[a-z][a-z0-9+.-]*://#i', $path) === 1
+            || in_array('..', explode('/', $path), true);
+        if ($bad) {
+            return ApiResponse::error('Not Found', 404);
+        }
+        try {
+            $assets = (new ThemeLocator($session->theme, $this->context->getBasePath() . '/themes'))
+                ->activePaths()['assets'];
+        } catch (\Throwable) {
+            return ApiResponse::error('Not Found', 404);
+        }
+        $file = $assets . '/' . $path;
+        if (!is_file($file)) {
+            return ApiResponse::error('Not Found', 404);
+        }
+        $response = new BinaryFileResponse($file);
+        $response->headers->set('Cache-Control', 'no-store');
+        return $response;
+    }
+
+    /**
+     * @param array{locale: ?string, type: ?string, content: ?array} $result
+     * @param array<string,mixed> $extra session banner context, when in a session
+     * @param Environment|null $env request-local themed environment (themed sessions)
+     */
+    private function renderEntry(
+        array $result,
+        array $extra = [],
+        ?Environment $env = null,
+        ?string $assetBase = null,
+    ): Response {
         $entry = $result['content'];
         $locale = (string) $result['locale'];
         // Template hierarchy: entry/{type-slug}.twig → entry.twig (the resolver's `type`
@@ -138,10 +308,10 @@ final class RenderController
         $typeSlug = (string) ($result['type'] ?? '');
         $candidate = $typeSlug !== '' ? "entry/{$typeSlug}.twig" : '';
 
-        $template = $candidate !== '' && $this->twig()->getLoader()->exists($candidate)
+        $template = $candidate !== '' && ($env ?? $this->twig())->getLoader()->exists($candidate)
             ? $candidate
             : 'entry.twig';
-        $response = $this->render($template, $locale, $entry, 200);
+        $response = $this->render($template, $locale, $entry, 200, $extra, $env, $assetBase);
         $this->tagResponse($response, $entry ?? [], $typeSlug);
         return $response;
     }
@@ -154,9 +324,16 @@ final class RenderController
      * one new entry publishes, so per-item tags alone cannot keep cached pages fresh.
      *
      * @param array<string,mixed> $result
+     * @param array<string,mixed> $sessionExtra session banner context, when in a session
+     * @param Environment|null $env request-local themed environment (themed sessions)
      */
-    private function renderCollection(array $result, string $path): Response
-    {
+    private function renderCollection(
+        array $result,
+        string $path,
+        array $sessionExtra = [],
+        ?Environment $env = null,
+        ?string $assetBase = null,
+    ): Response {
         $family = $result['kind'] === 'archive' ? 'archive' : 'listing';
         $typeSlug = (string) $result['type'];
         $locale = (string) $result['locale'];
@@ -164,7 +341,7 @@ final class RenderController
         $listing = $result['listing'];
 
         $candidate = "{$family}/{$typeSlug}.twig";
-        $template = $this->twig()->getLoader()->exists($candidate) ? $candidate : "{$family}.twig";
+        $template = ($env ?? $this->twig())->getLoader()->exists($candidate) ? $candidate : "{$family}.twig";
 
         $page = (int) $listing['page'];
         $totalPages = (int) $listing['total_pages'];
@@ -180,7 +357,7 @@ final class RenderController
             'next_path' => $page < $totalPages ? $base . '/page/' . ($page + 1) : null,
         ];
 
-        $extra = [
+        $extra = $sessionExtra + [
             'items' => $listing['items'],
             'pagination' => $pagination,
             'type' => $typeSlug,
@@ -190,7 +367,7 @@ final class RenderController
             $extra['field'] = $result['field'];
         }
 
-        $response = $this->render($template, $locale, null, 200, $extra);
+        $response = $this->render($template, $locale, null, 200, $extra, $env, $assetBase);
         $this->tagCollection($response, $result);
         return $response;
     }
@@ -243,6 +420,10 @@ final class RenderController
     /**
      * @param array<string,mixed>|null $entry
      * @param array<string,mixed> $extra additional template context (listing/archive pages)
+     * @param Environment|null $twig request-local themed environment (preview sessions);
+     *                               null = the memoized boot-theme environment
+     * @param string|null $assetBase per-render asset() base (/_preview-assets/{token});
+     *                               null = /theme-assets
      */
     private function render(
         string $template,
@@ -250,11 +431,15 @@ final class RenderController
         ?array $entry,
         int $status,
         array $extra = [],
+        ?Environment $twig = null,
+        ?string $assetBase = null,
     ): Response {
-        // Reset the facet-tag collector BEFORE every render (preview spec §5): the
-        // extension instance is process-shared, and reset-before-render is what stops a
-        // failed render's collected tags leaking into the next response.
+        // Reset the render-scoped extension state BEFORE every render (preview specs):
+        // the extension instance is process-shared, and reset-before-render is what
+        // stops a failed render's collected tags — or a themed preview's asset base —
+        // leaking into the next response.
         $this->extension->resetTags();
+        $this->extension->setAssetBase($assetBase);
         $this->extension->setLocale($locale);
         $context = [
             'site' => [
@@ -269,7 +454,7 @@ final class RenderController
         $context += $extra;
 
         try {
-            $html = $this->twig()->render($template, $context);
+            $html = ($twig ?? $this->twig())->render($template, $context);
         } catch (\Throwable $e) {
             $this->logger->error('lemma-render: template render failed', [
                 'template' => $template,
@@ -279,13 +464,79 @@ final class RenderController
             if ($template === 'error.twig') {
                 return new Response('Internal Server Error', 500, ['Content-Type' => 'text/plain; charset=UTF-8']);
             }
-            return $this->render('error.twig', $locale, null, 500);
+            return $this->render('error.twig', $locale, null, 500, [], $twig, $assetBase);
         }
 
         $response = new Response($html, $status, ['Content-Type' => 'text/html; charset=UTF-8']);
         // Drain on SUCCESS only: tags collected by facets() during this render join the
         // page's Cache-Tag, so facet sidebars purge event-driven like everything else.
         $this->mergeCacheTags($response, $this->extension->drainTags());
+        return $response;
+    }
+
+    /**
+     * Term index pages (term-index spec §2–§3): the resolver classified the path
+     * (thin kind); THIS side fetches counts and dispatches on the FacetCountsReader
+     * invariant — empty cache_tags means a gate failed (unknown/non-filterable field,
+     * non-visible type) and a VALID facet always carries tags, even with zero items.
+     * hrefs are built HERE (the reader stays counts + tags): the term's archive path
+     * with the same default-locale collapse the other rendered hrefs use.
+     *
+     * @param array<string,mixed> $result
+     * @param array<string,mixed> $sessionExtra session banner context, when in a session
+     * @param Environment|null $env request-local themed environment (themed sessions)
+     */
+    private function renderTerms(
+        array $result,
+        array $sessionExtra = [],
+        ?Environment $env = null,
+        ?string $assetBase = null,
+    ): Response {
+        // In-session gate failures render FRESH (spec §3) — never the shared fixed body.
+        $notFound = $sessionExtra !== []
+            ? fn (): Response => $this->render(
+                '404.twig',
+                $this->defaultLocale(),
+                null,
+                404,
+                $sessionExtra,
+                $env,
+                $assetBase,
+            )
+            : fn (): Response => $this->errors->themed404(
+                fn (): Response => $this->render('404.twig', $this->defaultLocale(), null, 404),
+            );
+        if ($this->facetReader === null) {
+            return $notFound();
+        }
+        $typeSlug = (string) $result['type'];
+        $field = (string) $result['field'];
+        $locale = (string) $result['locale'];
+
+        $counts = $this->facetReader->counts($typeSlug, $field, $locale, 500);
+        if ($counts['cache_tags'] === []) {
+            return $notFound(); // the pinned invariant: empty tags ⇔ gate failure
+        }
+
+        $prefix = $locale === $this->defaultLocale() ? '' : '/' . rawurlencode($locale);
+        $terms = [];
+        foreach ($counts['items'] as $item) {
+            $slug = $item['slug'];
+            $item['href'] = $slug === null
+                ? null
+                : $prefix . '/' . rawurlencode($typeSlug) . '/' . rawurlencode($field)
+                    . '/' . rawurlencode($slug);
+            $terms[] = $item;
+        }
+
+        $candidate = "terms/{$typeSlug}.twig";
+        $template = ($env ?? $this->twig())->getLoader()->exists($candidate) ? $candidate : 'terms.twig';
+        $response = $this->render($template, $locale, null, 200, $sessionExtra + [
+            'terms' => $terms,
+            'type' => $typeSlug,
+            'field' => $field,
+        ], $env, $assetBase);
+        $this->mergeCacheTags($response, $counts['cache_tags']);
         return $response;
     }
 

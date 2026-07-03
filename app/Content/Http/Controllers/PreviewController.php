@@ -16,6 +16,7 @@ use App\Http\DTOs\ErrorResponse;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
 use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
+use Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -52,6 +53,7 @@ final class PreviewController
         private readonly PreviewReader $reader,
         private readonly ContentLocaleService $locales,
         private readonly ApplicationContext $context,
+        private readonly ?PreviewThemeValidator $themeValidator = null,
     ) {
     }
 
@@ -73,9 +75,21 @@ final class PreviewController
         if (($errors = $this->locales->validate($locale)) !== []) {
             return Response::validation($errors);
         }
+        // Per-preview theme (preview-sessions spec §5): validated through the
+        // render-owned contract ONLY if bound — a theme with no validator (render
+        // pack absent) is as invalid as an unknown one.
+        $theme = $input->theme !== null && $input->theme !== '' ? $input->theme : null;
+        if ($theme !== null) {
+            if ($this->themeValidator === null || !$this->themeValidator->isValidTheme($theme)) {
+                return Response::validation([
+                    'theme' => 'Unknown theme (or rendered delivery is unavailable).',
+                ]);
+            }
+        }
+
         // version_uuid is optional: absent means "mint from the current draft". Existence /
         // ownership of a pinned version is validated by the reader at read time (domain rule).
-        $token = $this->minter->mint($uuid, $locale, $input->version_uuid);
+        $token = $this->minter->mint($uuid, $locale, $input->version_uuid, $theme);
         $ttl = $this->minter->ttlSeconds();
         $exp = time() + $ttl;
 

@@ -50,6 +50,28 @@ final class PreviewReader
     }
 
     /**
+     * Read the draft/pinned version for an ALREADY-VERIFIED session (preview-sessions
+     * spec §2) — same result shape as read(), no signature work. The token-based
+     * read() stays for the JSON door.
+     *
+     * @return array{entry_uuid:string,locale:string,version_uuid:?string,
+     *               version:?int,schema_version:int,fields:array<string,mixed>}
+     */
+    public function readVerified(\Glueful\Lemma\Contracts\Delivery\PreviewSession $session): array
+    {
+        $payload = PreviewToken::fromVerifiedClaims(
+            $session->entry,
+            $session->locale,
+            $session->version,
+            $session->expiresAt,
+            $session->theme,
+        );
+        return $payload->versionUuid !== null
+            ? $this->readVersion($payload)
+            : $this->readDraft($payload);
+    }
+
+    /**
      * @return array{entry_uuid:string,locale:string,version_uuid:string,
      *               version:int,schema_version:int,fields:array<string,mixed>}
      */

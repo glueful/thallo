@@ -39,6 +39,14 @@ final class RenderPageCache implements RouteMiddleware
 
     public function handle(Request $request, callable $next, ...$params): mixed
     {
+        // Verified preview sessions bypass the page cache wholesale (preview-sessions
+        // spec §4): no read, no store. Verification happened in
+        // PreviewSessionMiddleware — this layer only honors the attribute and never
+        // parses cookies itself.
+        if ($request->attributes->has(PreviewSessionMiddleware::ATTRIBUTE)) {
+            return $next($request);
+        }
+
         if (!$this->enabled) {
             return $next($request);
         }

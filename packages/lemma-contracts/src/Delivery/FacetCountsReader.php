@@ -10,6 +10,10 @@ namespace Glueful\Lemma\Contracts\Delivery;
  * from a bare counts list, and a VALID facet with zero counts must still tag the page
  * (it changes when the first matching entry publishes). Gate failures (unknown type,
  * non-filterable field, non-visible type on either side) return {[], []} — never throw.
+ *
+ * INVARIANT (consumers may dispatch on it): a VALID facet ALWAYS returns non-empty
+ * cache_tags — even with zero items — and cache_tags is empty ONLY on gate failure.
+ * The rendered term-index page's 404-vs-200 split relies on exactly this.
  */
 interface FacetCountsReader
 {

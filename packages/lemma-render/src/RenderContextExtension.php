@@ -34,6 +34,9 @@ final class RenderContextExtension extends AbstractExtension
     /** @var array<string,string> render-scoped surrogate tags (see resetTags/drainTags) */
     private array $collectedTags = [];
 
+    /** Render-scoped asset-base override (see setAssetBase). */
+    private ?string $assetBase = null;
+
     public function __construct(
         private readonly ?MenuReader $menus,
         private readonly EntryTargetResolver $targets,
@@ -91,6 +94,17 @@ final class RenderContextExtension extends AbstractExtension
         $this->collectedTags = [];
     }
 
+    /**
+     * Per-render asset-base override (preview-sessions spec §5): themed previews emit
+     * /_preview-assets/{token}/… so theme B's markup never loads theme A's assets.
+     * Same reset discipline as the tag collector — the controller nulls it BEFORE
+     * every render, so a mid-render exception cannot leak preview URLs onward.
+     */
+    public function setAssetBase(?string $base): void
+    {
+        $this->assetBase = $base;
+    }
+
     /** @return list<string> drained (and cleared) tags collected during the render */
     public function drainTags(): array
     {
@@ -123,6 +137,6 @@ final class RenderContextExtension extends AbstractExtension
                 $rel,
             ));
         }
-        return '/theme-assets/' . $rel;
+        return ($this->assetBase ?? '/theme-assets') . '/' . $rel;
     }
 }

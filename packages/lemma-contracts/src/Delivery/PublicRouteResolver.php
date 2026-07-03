@@ -15,21 +15,27 @@ namespace Glueful\Lemma\Contracts\Delivery;
 interface PublicRouteResolver
 {
     /**
-     * @return array{kind: 'content'|'listing'|'archive'|'redirect'|'gone'|'not_found',
+     * @return array{kind: 'content'|'listing'|'archive'|'terms'|'redirect'|'gone'|'not_found',
      *   locale: ?string, type: ?string, content: ?array,
      *   redirect: ?array{location: string, status: int},
      *   listing: ?array{items: list<array<string,mixed>>, page: int, per_page: int,
      *     total: int, total_pages: int},
      *   term: ?array, term_type: ?string, field: ?string, preview: bool}
-     *   `type` is the content-type slug (content/listing/archive kinds) — template
+     *   `type` is the content-type slug (content/listing/archive/terms kinds) — template
      *   hierarchies select on it. `listing` (listing + archive kinds) carries LIST-shaped
      *   items each with a ready `href` (?string; null = routeless) and
      *   total_pages = max(1, ceil(total / per_page)) — never 0. `term` (archive kind) is
      *   the SHOW-shaped term entry (seo included); `term_type` its content-type slug
-     *   (for surrogate cache tags); `field` the source reference field. `preview` is
-     *   true only on resolvePreview successes — preview is a content render, not a kind.
+     *   (for surrogate cache tags); `field` the source reference field. `terms` is the
+     *   THIN term-index kind: only `type`, `field`, `locale` are set (`preview: false`,
+     *   every other payload key null) — the renderer fetches counts via
+     *   FacetCountsReader and dispatches on its invariant. `preview` is true only on
+     *   resolvePreview successes — preview is a content render, not a kind.
+     *   `$previewSession` is an ALREADY-VERIFIED session (preview-sessions spec §2) —
+     *   when the path resolves to its {entry, locale}, the draft is returned
+     *   (`kind: content`, `preview: true`); the resolver never re-verifies.
      */
-    public function resolvePath(string $path): array;
+    public function resolvePath(string $path, ?PreviewSession $previewSession = null): array;
 
     /** Same result shape, for a known entry (homepage; previews later). */
     public function resolveEntry(string $entryUuid, ?string $locale = null): array;

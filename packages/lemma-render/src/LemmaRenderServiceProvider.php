@@ -12,10 +12,13 @@ use Glueful\Lemma\Contracts\Capability\Capability;
 use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
+use Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator;
 use Glueful\Lemma\Contracts\Navigation\MenuReader;
 use Glueful\Lemma\Contracts\Navigation\MenuUpdated;
 use Glueful\Lemma\Render\Console\ClearRenderCacheCommand;
+use Glueful\Lemma\Contracts\Delivery\PreviewSessionVerifier;
 use Glueful\Lemma\Render\Http\Controllers\RenderController;
+use Glueful\Lemma\Render\Http\Middleware\PreviewSessionMiddleware;
 use Glueful\Lemma\Render\Http\Middleware\RenderPageCache;
 use Glueful\Lemma\Render\Listeners\PurgeRenderCacheOnMenuUpdate;
 use Psr\Container\ContainerInterface;
@@ -64,7 +67,27 @@ final class LemmaRenderServiceProvider extends ServiceProvider
                 'shared' => true,
                 'factory' => [self::class, 'makeClearRenderCacheCommand'],
             ],
+            PreviewThemeValidator::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeRenderThemeValidator'],
+            ],
+            PreviewSessionMiddleware::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makePreviewSessionMiddleware'],
+            ],
         ];
+    }
+
+    public static function makePreviewSessionMiddleware(
+        ContainerInterface $container,
+    ): PreviewSessionMiddleware {
+        return new PreviewSessionMiddleware($container->get(PreviewSessionVerifier::class));
+    }
+
+    public static function makeRenderThemeValidator(ContainerInterface $container): RenderThemeValidator
+    {
+        $context = $container->get(ApplicationContext::class);
+        return new RenderThemeValidator($context->getBasePath() . '/themes');
     }
 
     public static function makeClearRenderCacheCommand(
@@ -113,6 +136,12 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             $container->get(ReservedPaths::class),
             $container->get(RenderErrorCache::class),
             $container->get(\Psr\Log\LoggerInterface::class),
+            $container->has(FacetCountsReader::class)
+                ? $container->get(FacetCountsReader::class)
+                : null,
+            $container->has(PreviewSessionVerifier::class)
+                ? $container->get(PreviewSessionVerifier::class)
+                : null,
         );
     }
 

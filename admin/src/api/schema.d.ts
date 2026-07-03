@@ -10367,12 +10367,15 @@ export interface operations {
             content: {
                 /**
                  * @example {
-                 *       "version_uuid": "example"
+                 *       "version_uuid": "example",
+                 *       "theme": "example"
                  *     }
                  */
                 "application/json": {
                     /** @description UUID of a historical version to pin instead of the current draft. */
                     version_uuid?: string | null;
+                    /** @description Per-preview theme name, signed into the token; validated via */
+                    theme?: string | null;
                 };
             };
         };

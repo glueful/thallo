@@ -9,7 +9,10 @@
 <body>
   <header>
     {% if preview|default(false) %}
-      <div class="preview-banner">Preview — unpublished content</div>
+      <div class="preview-banner">
+        Preview — unpublished content
+        {% if preview_exit|default(null) %}<a href="{{ preview_exit }}">Exit preview</a>{% endif %}
+      </div>
     {% endif %}
     <a href="/" class="site-name">{{ site.name }}</a>
     <nav>

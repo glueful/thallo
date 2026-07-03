@@ -71,6 +71,7 @@ use App\Content\Pipeline\Listeners\PurgeCdnListener;
 use App\Content\Pipeline\Listeners\MediaUsageProjector;
 use App\Content\Pipeline\Listeners\ReindexSearchListener;
 use App\Content\Pipeline\PublishEventEmitter;
+use App\Content\Preview\EnginePreviewSessionVerifier;
 use App\Content\Preview\PreviewMinter;
 use App\Content\Preview\PreviewReader;
 use App\Content\Repositories\ContentTypeRepository;
@@ -109,6 +110,8 @@ use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
 use Glueful\Lemma\Contracts\Context\LemmaContext;
 use Glueful\Lemma\Contracts\Delivery\ContentDeliveryReader;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
+use Glueful\Lemma\Contracts\Delivery\PreviewSessionVerifier;
+use Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator;
 use Glueful\Lemma\Contracts\Delivery\ReferenceTargetResolver;
 use Glueful\Lemma\Contracts\Search\IndexableContentReader;
 use Glueful\Lemma\Contracts\Schema\FieldTypeRegistry;
@@ -516,12 +519,31 @@ final class LemmaServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
-            PreviewController::class => [
-                'class' => PreviewController::class,
+            PreviewSessionVerifier::class => [
+                'class' => EnginePreviewSessionVerifier::class,
                 'shared' => true,
                 'autowire' => true,
             ],
+            // Factory (not autowire): the theme validator is a SOFT render-pack
+            // binding — passed only when present, so core stays removability-clean.
+            PreviewController::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makePreviewController'],
+            ],
         ];
+    }
+
+    public static function makePreviewController(ContainerInterface $container): PreviewController
+    {
+        return new PreviewController(
+            $container->get(PreviewMinter::class),
+            $container->get(PreviewReader::class),
+            $container->get(ContentLocaleService::class),
+            $container->get(ApplicationContext::class),
+            $container->has(PreviewThemeValidator::class)
+                ? $container->get(PreviewThemeValidator::class)
+                : null,
+        );
     }
 
     /**

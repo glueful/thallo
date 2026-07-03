@@ -76,6 +76,13 @@ word as an archive field segment. Templates: `listing/{type}.twig` →
 Cached pages carry the broad `lemma:type:{type}` surrogate tag, so ANY publish
 of the type purges every listing page immediately.
 
+Term INDEX pages live at `/{type}/terms/{field}` — every term of the field with its
+count, each linking to its archive page (500-term cap, no pagination). `terms` is a
+reserved word alongside `page`: an archive field literally named `terms` cannot have
+rendered archive pages (entries slugged `terms` are unaffected — the reservation only
+applies at three segments). A valid field with zero terms renders an empty index;
+unknown/non-filterable fields render the themed 404.
+
 | Key (env) | Default |
 |---|---|
 | `lemma_render.listing_types` (`RENDER_LISTING_TYPES`, comma-separated) | `''` — feature dormant |
@@ -90,6 +97,15 @@ Responses are `Cache-Control: no-store` + `X-Robots-Tag: noindex`, never enter t
 page cache, and carry a `preview` flag templates can read (the default theme shows a
 banner). Preview content has NO `entry.seo` object. All token failures render the
 themed 404.
+
+Opening a preview also starts a short-lived **preview session** (a signed cookie that
+expires with the token): navigation stays in preview chrome (banner with an Exit
+link, `no-store`, `noindex`, never cached), your draft appears at its own URL, and
+every other page shows published content. `GET /_preview/exit` ends the session.
+Minting accepts an optional `theme` (validated against installed themes, signed into
+the token): the whole session renders through that theme, with assets served from the
+token-scoped `/_preview-assets/{token}/…` route. Sessions work with the page cache
+disabled; junk cookies never bypass the cache.
 
 ## Facet counts in templates
 

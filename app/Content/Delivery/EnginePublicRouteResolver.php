@@ -16,6 +16,7 @@ use App\Content\Seo\RouteResolver;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
+use Glueful\Lemma\Contracts\Delivery\PreviewSession;
 use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
 use Glueful\Lemma\Contracts\Delivery\ReferenceTargetResolver;
 use Glueful\Support\FieldSelection\FieldSelector;
@@ -52,7 +53,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
     ) {
     }
 
-    public function resolvePath(string $path): array
+    public function resolvePath(string $path, ?PreviewSession $previewSession = null): array
     {
         $raw = $path === '' ? '/' : $path;
         $normalized = $this->normalize($raw);
@@ -91,10 +92,29 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
                         fn(int $n): array => $this->resolveListing($decoded[0], $locale, $n),
                     );
                 }
+                // `terms` is RESERVED like `page` (term-index spec §1): parses before
+                // archive lookup, so an archive FIELD named `terms` is shadowed
+                // (documented cost); 2-segment entry paths are untouched.
+                if ($decoded[1] === 'terms') {
+                    return $this->resolveTerms($decoded[0], $decoded[2], $locale);
+                }
                 // /{type}/{field}/{term} → archive page 1
                 return $this->resolveArchive($decoded[0], $decoded[1], $decoded[2], $locale, 1);
             case 5:
                 if ($decoded[3] === 'page') {
+                    // The `terms` reservation holds at 5 segments too: term indexes
+                    // have no pagination, and an archive FIELD named `terms` must not
+                    // leak its paged form. page/1 keeps the shared canonical 301
+                    // (redirects to the 3-segment path, which parses as the index).
+                    if ($decoded[1] === 'terms') {
+                        if (ctype_digit($decoded[4]) && (int) $decoded[4] === 1) {
+                            return $this->redirect(
+                                $prefix . '/' . implode('/', array_slice($segments, 0, 3)),
+                                301,
+                            );
+                        }
+                        return $this->notFound();
+                    }
                     return $this->pagedOrCanonical(
                         $decoded[4],
                         $prefix . '/' . implode('/', array_slice($segments, 0, 3)),
@@ -135,6 +155,21 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         }
 
         $row = $result->content();
+
+        // Single-draft overlay (preview-sessions spec §3): the session's OWN entry
+        // shows its draft at its canonical URL; everything else stays published.
+        if (
+            $previewSession !== null
+            && $previewSession->entry === (string) $row['entry_uuid']
+            && $previewSession->locale === (string) $row['locale']
+        ) {
+            try {
+                return $this->previewContent($this->preview->readVerified($previewSession));
+            } catch (PreviewNotFoundException) {
+                // Draft vanished mid-session: fall through to the published render.
+            }
+        }
+
         return [
             'kind' => 'content',
             'locale' => (string) $row['locale'],
@@ -209,6 +244,19 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
             return $this->notFound();
         }
 
+        return $this->previewContent($read);
+    }
+
+    /**
+     * Draft/pinned-version content from a READER RESULT — the shared shaping between
+     * resolvePreview() (token path) and the session overlay (verified-VO path).
+     *
+     * @param array{entry_uuid:string,locale:string,version_uuid:?string,
+     *               version:?int,schema_version:int,fields:array<string,mixed>} $read
+     * @return array<string,mixed>
+     */
+    private function previewContent(array $read): array
+    {
         $entry = $this->entries->findEntry($read['entry_uuid']);
         if ($entry === null || ($entry['status'] ?? null) === 'deleted') {
             return $this->notFound();
@@ -373,6 +421,27 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
             'term' => $this->shaper->shapePublic($termRow, $targetUuid, $targetSlug),
             'term_type' => $targetSlug,
             'field' => $field,
+            'preview' => false,
+        ];
+    }
+
+    /**
+     * /{type}/terms/{field} → term index (term-index spec §2): a THIN kind — the
+     * render controller fetches counts itself via FacetCountsReader and dispatches on
+     * its invariant (empty cache_tags = gate failure). Only the listing allowlist is
+     * resolver-side (grammar gate); field/visibility gates live in the reader.
+     *
+     * @return array<string,mixed>
+     */
+    private function resolveTerms(string $typeSlug, string $field, string $locale): array
+    {
+        if (!in_array($typeSlug, $this->listingTypes(), true)) {
+            return $this->notFound();
+        }
+        return [
+            'kind' => 'terms', 'locale' => $locale, 'type' => $typeSlug,
+            'content' => null, 'redirect' => null,
+            'listing' => null, 'term' => null, 'term_type' => null, 'field' => $field,
             'preview' => false,
         ];
     }
