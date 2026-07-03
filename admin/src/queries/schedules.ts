@@ -57,7 +57,11 @@ export async function cancelSchedule(uuid: string, scheduleUuid: string) {
 
 export function useScheduleMutations(uuid: string, locale: string) {
   const cache = useQueryCache()
-  const invalidate = () => cache.invalidateQueries({ key: qk.schedules(uuid) })
+  // Schedules feed the per-locale 'scheduled' status (PublishPanel badge, LocaleSwitcher).
+  const invalidate = () => {
+    cache.invalidateQueries({ key: qk.schedules(uuid) })
+    cache.invalidateQueries({ key: qk.entryLocales(uuid) })
+  }
 
   const create = useMutation({
     mutation: (body: { action: string; run_at: string }) => createSchedule(uuid, locale, body),

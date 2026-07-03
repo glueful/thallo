@@ -11,7 +11,7 @@ const ROBOTS_OPTIONS = ['index', 'noindex', 'noindex,nofollow']
 // normalizes back to null on save (an empty-string SelectItem value throws).
 const TWITTER_NONE = 'none'
 const TWITTER_OPTIONS = [
-  { label: '— none —', value: TWITTER_NONE },
+  { label: 'Not set', value: TWITTER_NONE },
   { label: 'Summary', value: 'summary' },
   { label: 'Summary large image', value: 'summary_large_image' },
 ]
@@ -77,92 +77,76 @@ async function onSave() {
 </script>
 
 <template>
-  <UCard :ui="{ body: 'p-0' }" data-test="seo-panel">
-    <UCollapsible class="w-full">
-      <UButton
-        class="w-full justify-between p-0"
-        color="neutral"
-        variant="link"
-        label="SEO"
-        trailing-icon="i-lucide-chevron-down"
-        :ui="{ trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform' }"
-      />
-      <template #content>
-        <USeparator  class="mt-4"/>
-        <div class="space-y-4 pt-4">
-          <UFormField label="Title">
-            <UInput v-model="form.title" data-test="seo-title" class="w-full" />
-          </UFormField>
+  <!-- A tab SECTION, not a card: the editor sidebar's tabbed card provides the chrome
+       and the SEO tab replaces the old collapsible header. -->
+  <div data-test="seo-panel">
+    <div class="space-y-4">
+      <UFormField label="Title" :hint="`${form.title.length}/60`">
+        <UInput v-model="form.title" data-test="seo-title" class="w-full" />
+      </UFormField>
 
-          <UFormField label="Description">
-            <UTextarea
-              v-model="form.description"
-              :rows="2"
-              data-test="seo-description"
-              class="w-full"
-            />
-          </UFormField>
+      <UFormField label="Description" :hint="`${form.description.length}/160`">
+        <UTextarea
+          v-model="form.description"
+          :rows="2"
+          data-test="seo-description"
+          class="w-full"
+        />
+      </UFormField>
 
-          <UFormField label="Robots">
-            <USelect
-              v-model="form.robots"
-              :items="ROBOTS_OPTIONS"
-              data-test="seo-robots"
-              class="w-full"
-            />
-          </UFormField>
+      <UFormField label="Robots">
+        <USelect
+          v-model="form.robots"
+          :items="ROBOTS_OPTIONS"
+          data-test="seo-robots"
+          class="w-full"
+        />
+      </UFormField>
 
-          <UFormField label="Twitter card">
-            <USelect
-              v-model="form.twitter_card"
-              :items="TWITTER_OPTIONS"
-              data-test="seo-twitter-card"
-              class="w-full"
-            />
-          </UFormField>
+      <UFormField label="Twitter card">
+        <USelect
+          v-model="form.twitter_card"
+          :items="TWITTER_OPTIONS"
+          data-test="seo-twitter-card"
+          class="w-full"
+        />
+      </UFormField>
 
-          <UCollapsible :default-open="false">
-            <UButton
-              class="w-full justify-between"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              label="Open Graph"
-              trailing-icon="i-lucide-chevron-down"
-              :ui="{ trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform' }"
-            />
-            <template #content>
-              <div class="space-y-3 pt-3">
-                <UFormField label="OG title">
-                  <UInput v-model="form.og_title" data-test="seo-og-title" class="w-full" />
-                </UFormField>
-                <UFormField label="OG description">
-                  <UTextarea
-                    v-model="form.og_description"
-                    :rows="2"
-                    data-test="seo-og-description"
-                    class="w-full"
-                  />
-                </UFormField>
-                <UFormField label="OG image URL">
-                  <UInput
-                    v-model="form.og_image"
-                    type="url"
-                    data-test="seo-og-image"
-                    class="w-full"
-                  />
-                </UFormField>
-              </div>
-            </template>
-          </UCollapsible>
-
-          <div class="flex justify-end">
-            <UButton :loading="save.isLoading.value" data-test="seo-save" @click="onSave">
-              Save
-            </UButton>
+      <UCollapsible :default-open="false">
+        <UButton
+          class="w-full justify-between"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          label="Open Graph"
+          trailing-icon="i-lucide-chevron-down"
+          :ui="{ trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform' }"
+        />
+        <template #content>
+          <div class="space-y-3 pt-3">
+            <UFormField label="OG title">
+              <UInput v-model="form.og_title" data-test="seo-og-title" class="w-full" />
+            </UFormField>
+            <UFormField label="OG description">
+              <UTextarea
+                v-model="form.og_description"
+                :rows="2"
+                data-test="seo-og-description"
+                class="w-full"
+              />
+            </UFormField>
+            <UFormField label="OG image URL">
+              <UInput v-model="form.og_image" type="url" data-test="seo-og-image" class="w-full" />
+            </UFormField>
           </div>
-        </div>
-      </template>
-    </UCollapsible>
-  </UCard>
+        </template>
+      </UCollapsible>
+
+      <div class="flex justify-end">
+        <UButton :loading="save.isLoading.value" data-test="seo-save" @click="onSave">
+          Save SEO
+        </UButton>
+      </div>
+    </div>
+  </div>
 </template>

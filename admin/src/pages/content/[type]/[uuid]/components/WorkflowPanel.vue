@@ -66,7 +66,9 @@ async function confirmRequestChanges() {
 </script>
 
 <template>
-  <UCard v-if="enabled" data-test="workflow-panel">
+  <!-- A SECTION, not a card: the parent slots this into the Publishing card so review
+       state and publish state share one editorial box. -->
+  <div v-if="enabled" data-test="workflow-panel">
     <div class="flex items-center justify-between">
       <span class="text-sm font-medium">Review</span>
       <UBadge :color="STATE_COLOR[state]" variant="subtle" data-test="workflow-state">
@@ -144,5 +146,5 @@ async function confirmRequestChanges() {
         Send feedback
       </UButton>
     </div>
-  </UCard>
+  </div>
 </template>

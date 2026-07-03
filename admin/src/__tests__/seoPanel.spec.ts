@@ -24,11 +24,9 @@ import SeoPanel from '@/pages/content/[type]/[uuid]/components/SeoPanel.vue'
 const val = (wrapper: ReturnType<typeof mount>, hook: string) =>
   (wrapper.find(`[data-test="${hook}"]`).element as HTMLInputElement).value
 
-// The form lives inside a default-closed UCollapsible (#content, unmountOnHide), so the
-// fields are absent from the DOM until the panel is expanded. When closed, the only button
-// is the collapsible trigger — click it to mount the content, then flush the render.
-const openPanel = async (wrapper: ReturnType<typeof mount>) => {
-  await wrapper.get('button').trigger('click')
+// The panel is now a flat tab section (the sidebar tab replaced the old collapsible
+// header), so fields mount immediately — just settle the initial render.
+const openPanel = async (_wrapper: ReturnType<typeof mount>) => {
   await flushPromises()
 }
 
