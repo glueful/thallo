@@ -19,6 +19,7 @@ interface BridgeMessage {
   delta?: number
   field?: string
   html?: string
+  text?: string
   rect?: { x?: number; y?: number }
 }
 
@@ -27,6 +28,9 @@ export interface BridgeAnchor {
   x: number
   y: number
 }
+
+/** Grant kinds (editable-string-fields spec §4) — decided by the parent's matrix. */
+export type EditKind = 'rich' | 'string' | 'text'
 
 export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)))
@@ -40,8 +44,10 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let duplicateCb: ((id: string) => void) | null = null
   let deleteRequestCb: ((id: string) => void) | null = null
   let addAfterCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
-  let editRequestCb: ((id: string) => void) | null = null
-  let textChangedCb: ((id: string, field: string, html: string) => void) | null = null
+  let editRequestCb: ((id: string, field: string) => void) | null = null
+  let textChangedCb:
+    | ((id: string, field: string, payload: { html?: string; text?: string }) => void)
+    | null = null
   let flushResolve: (() => void) | null = null
 
   function targetOrigin(): string {
@@ -82,17 +88,24 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
           : null
       addAfterCb?.(data.id, anchor)
     }
-    // Edit-in-place (edit-in-place spec §3/§4).
-    if (data.type === 'lemma:edit-request' && typeof data.id === 'string') {
-      editRequestCb?.(data.id)
+    // Edit-in-place (edit-in-place spec §3/§4; v4 field-addressed shapes).
+    if (
+      data.type === 'lemma:edit-request' &&
+      typeof data.id === 'string' &&
+      typeof data.field === 'string'
+    ) {
+      editRequestCb?.(data.id, data.field)
     }
     if (
       data.type === 'lemma:text-changed' &&
       typeof data.id === 'string' &&
-      typeof data.field === 'string' &&
-      typeof data.html === 'string'
+      typeof data.field === 'string'
     ) {
-      textChangedCb?.(data.id, data.field, data.html)
+      if (typeof data.html === 'string') {
+        textChangedCb?.(data.id, data.field, { html: data.html })
+      } else if (typeof data.text === 'string') {
+        textChangedCb?.(data.id, data.field, { text: data.text })
+      }
     }
     if (data.type === 'lemma:edit-flushed') {
       flushResolve?.()
@@ -144,14 +157,16 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     mirrorDuplicate(sourceId: string, idMap: Record<string, string>): void {
       post({ type: 'lemma:mirror-duplicate', sourceId, idMap })
     },
-    onEditRequest(cb: (id: string) => void): void {
+    onEditRequest(cb: (id: string, field: string) => void): void {
       editRequestCb = cb
     },
-    onTextChanged(cb: (id: string, field: string, html: string) => void): void {
+    onTextChanged(
+      cb: (id: string, field: string, payload: { html?: string; text?: string }) => void,
+    ): void {
       textChangedCb = cb
     },
-    editGrant(id: string, field: string): void {
-      post({ type: 'lemma:edit-grant', id, field })
+    editGrant(id: string, field: string, kind: EditKind): void {
+      post({ type: 'lemma:edit-grant', id, field, kind })
     },
     /**
      * Flush any in-stage editing session before Apply (spec §4): resolves on

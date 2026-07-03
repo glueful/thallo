@@ -8,6 +8,7 @@ import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
 import { applyPreview, mintPreviewData } from '@/queries/preview'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
+import type { EditKind } from '@/composables/useCanvasBridge'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError, apiErrorCode, apiErrorDetails } from '@/api/errors'
 import { toFieldDef } from '@/fields/normalize'
@@ -221,24 +222,42 @@ function chooseAddType(slug: string): void {
 // text patches the tree — no mirrors, the contenteditable IS the stage DOM.
 const { data: allBlockTypes } = useBlockTypes()
 
-/** The prose rich field of block `id`, or null — the ONE validation both paths use. */
-function proseFieldOf(id: string): string | null {
+/**
+ * The grant/patch matrix (editable-string-fields spec §4) — the ONE authority
+ * both paths use: prose rich field -> 'rich'; schema string -> 'string';
+ * schema plain text -> 'text'; everything else -> null (deny).
+ */
+function editableKindOf(id: string, field: string): EditKind | null {
   const slug = fieldEditorRef.value?.blockTypeOfBlock(id)
   const blockType = slug ? allBlockTypes.value?.find((t) => t.slug === slug) : undefined
-  return blockType ? proseRichFieldName(blockType) : null
+  if (!blockType) return null
+  const schemaField = (blockType.schema ?? []).find((f) => f.name === field)
+  if (!schemaField) return null
+  const type = schemaField.type
+  const format = (schemaField as { format?: string }).format
+  if (type === 'text' && format === 'rich') {
+    return proseRichFieldName(blockType) === field ? 'rich' : null
+  }
+  if (type === 'string') return 'string'
+  if (type === 'text') return 'text'
+  return null
 }
 
-bridge.onEditRequest((id) => {
-  const richField = proseFieldOf(id)
-  if (richField !== null) bridge.editGrant(id, richField)
+bridge.onEditRequest((id, field) => {
+  const kind = editableKindOf(id, field)
+  if (kind !== null) bridge.editGrant(id, field, kind)
 })
 
-bridge.onTextChanged((id, field, html) => {
-  // Re-validate (review P1): iframe scripts can see the nonce after hello, so
-  // edit messages are REQUESTS, not authority. Patch only when the claimed
-  // field IS the block's prose rich field — anything else is ignored.
-  if (proseFieldOf(id) !== field) return
-  fieldEditorRef.value?.patchBlockDataById(id, field, html)
+bridge.onTextChanged((id, field, payload) => {
+  // Re-validate (v3 pin, matrix-shaped): edit messages are requests, not
+  // authority — the payload key must match the re-derived kind.
+  const kind = editableKindOf(id, field)
+  if (kind === null) return
+  if (kind === 'rich' && typeof payload.html === 'string') {
+    fieldEditorRef.value?.patchBlockDataById(id, field, payload.html)
+  } else if (kind !== 'rich' && typeof payload.text === 'string') {
+    fieldEditorRef.value?.patchBlockDataById(id, field, payload.text)
+  }
 })
 
 // ── Apply loop (loop C spec §4): ephemeral render, nothing persisted ──────────

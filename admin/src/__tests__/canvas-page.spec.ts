@@ -61,8 +61,8 @@ const bridge = vi.hoisted(() => {
     duplicate?: (id: string) => void
     deleteRequest?: (id: string) => void
     addAfter?: (id: string, anchor?: { x: number; y: number } | null) => void
-    editRequest?: (id: string) => void
-    textChanged?: (id: string, field: string, html: string) => void
+    editRequest?: (id: string, field: string) => void
+    textChanged?: (id: string, field: string, payload: { html?: string; text?: string }) => void
   } = {}
   return {
     callbacks,
@@ -77,9 +77,10 @@ const bridge = vi.hoisted(() => {
       onBlockDeleteRequest: (cb: (id: string) => void) => (callbacks.deleteRequest = cb),
       onBlockAddAfter: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
         (callbacks.addAfter = cb),
-      onEditRequest: (cb: (id: string) => void) => (callbacks.editRequest = cb),
-      onTextChanged: (cb: (id: string, field: string, html: string) => void) =>
-        (callbacks.textChanged = cb),
+      onEditRequest: (cb: (id: string, field: string) => void) => (callbacks.editRequest = cb),
+      onTextChanged: (
+        cb: (id: string, field: string, payload: { html?: string; text?: string }) => void,
+      ) => (callbacks.textChanged = cb),
       editGrant: vi.fn(),
       editFlush: vi.fn().mockResolvedValue(undefined),
       highlight: vi.fn(),
@@ -481,18 +482,22 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
-  it('edit-request grants ONLY for prose blocks, with the rich field name', async () => {
+  it('edit-request grants per the kind matrix; everything else is denied', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     const wrapper = mountPage()
     await flushPromises()
 
-    bridge.callbacks.editRequest?.('prose0000003')
+    // Prose rich field -> rich; plain string field -> string.
+    bridge.callbacks.editRequest?.('prose0000003', 'body')
+    bridge.callbacks.editRequest?.('blockaaa0001', 'title')
     await flushPromises()
-    expect(bridge.instance.editGrant).toHaveBeenCalledWith('prose0000003', 'body')
+    expect(bridge.instance.editGrant).toHaveBeenCalledWith('prose0000003', 'body', 'rich')
+    expect(bridge.instance.editGrant).toHaveBeenCalledWith('blockaaa0001', 'title', 'string')
 
     bridge.instance.editGrant.mockClear()
-    bridge.callbacks.editRequest?.('blockaaa0001') // card: NOT prose
-    bridge.callbacks.editRequest?.('missing')
+    bridge.callbacks.editRequest?.('blockaaa0001', 'nope') // unknown field
+    bridge.callbacks.editRequest?.('missing', 'title') // unknown block
+    bridge.callbacks.editRequest?.('prose0000003', 'title') // field not on prose type
     await flushPromises()
     expect(bridge.instance.editGrant).not.toHaveBeenCalled()
     wrapper.unmount()
@@ -504,9 +509,11 @@ describe('canvas page', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    // Wrong field on a prose block; any field on a non-prose block: no patch.
-    bridge.callbacks.textChanged?.('prose0000003', 'title', '<p>evil</p>')
-    bridge.callbacks.textChanged?.('blockaaa0001', 'title', '<p>evil</p>')
+    // Wrong field on a prose block; unknown field; kind-mismatched payload
+    // (rich payload for a string field): all denied, no patch.
+    bridge.callbacks.textChanged?.('prose0000003', 'title', { html: '<p>evil</p>' })
+    bridge.callbacks.textChanged?.('blockaaa0001', 'nope', { text: 'evil' })
+    bridge.callbacks.textChanged?.('blockaaa0001', 'title', { html: '<b>evil</b>' })
     await flushPromises()
     await wrapper.find('[data-test="canvas-save"]').trigger('click')
     await flushPromises()
@@ -524,7 +531,7 @@ describe('canvas page', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    bridge.callbacks.textChanged?.('prose0000003', 'body', '<p>typed in stage</p>')
+    bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>typed in stage</p>' })
     await flushPromises()
     await wrapper.find('[data-test="canvas-save"]').trigger('click')
     await flushPromises()
@@ -543,6 +550,23 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
+  it('a string text-changed patches the plain value into the tree', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+
+    bridge.callbacks.textChanged?.('blockaaa0001', 'title', { text: 'Retitled' })
+    await flushPromises()
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    const saved = saveMock.mock.calls[saveMock.mock.calls.length - 1]![0] as {
+      fields: { body: { id: string; data: Record<string, unknown> }[] }
+    }
+    expect(saved.fields.body.find((b) => b.id === 'blockaaa0001')!.data.title).toBe('Retitled')
+    wrapper.unmount()
+  })
+
   it('Apply awaits the flush and the FINAL flushed text reaches the apply payload', async () => {
     // Review P2: order alone is not the risk — the last sub-debounce keystroke
     // is. The mocked flush delivers a final text-changed BEFORE resolving, the
@@ -551,7 +575,7 @@ describe('canvas page', () => {
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
     applyMock.mockResolvedValue(undefined)
     bridge.instance.editFlush.mockImplementationOnce(async () => {
-      bridge.callbacks.textChanged?.('prose0000003', 'body', '<p>final keystroke</p>')
+      bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>final keystroke</p>' })
     })
     const wrapper = mountPage()
     await flushPromises()

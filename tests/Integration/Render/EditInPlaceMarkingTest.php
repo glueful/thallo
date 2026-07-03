@@ -164,6 +164,114 @@ final class EditInPlaceMarkingTest extends LemmaTestCase
             $token,
         )->getContent();
         self::assertStringContainsString('data-lemma-edit-block="nestedpr0001"', $html);
-        self::assertStringNotContainsString('data-lemma-edit-block="sectionb0001"', $html);
+        // The section's own prose marking never appears (safe_html, non-prose)
+        // — but with editable_text adoption its TITLE region legitimately may;
+        // assert the absence of a safe_html-style rich region specifically by
+        // checking no marker carries the section id with the rich field name.
+        self::assertStringNotContainsString('data-lemma-edit-block="sectionb0001" data-lemma-edit-field="body"', $html);
+    }
+
+    /** Seed a page whose body holds one `hero` block with the given data. */
+    private function seedHeroPage(string $slug, array $heroData): string
+    {
+        (new BlockTypeRepository($this->connection()))->create([
+            'slug' => 'hero',
+            'label' => 'Hero',
+            'schema' => [
+                ['name' => 'heading', 'type' => 'string'],
+                ['name' => 'subheading', 'type' => 'string'],
+                ['name' => 'cta_label', 'type' => 'string'],
+                ['name' => 'cta_url', 'type' => 'string'],
+                ['name' => 'image', 'type' => 'asset'], // Lemma schema type is asset, not media
+                ['name' => 'alignment', 'type' => 'string'],
+            ],
+        ]);
+        $types = new ContentTypeRepository($this->connection());
+        $this->type = $types->create([
+            'slug' => 'page',
+            'name' => 'Page',
+            'public_delivery' => true,
+            'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
+        $entry = $entries->createEntry($this->type, 'en', 1, 'user00000001');
+        $entries->saveDraft($entry, 'en', ['title' => 'S', 'body' => [
+            ['id' => 'heroblok0001', 'type' => 'hero', 'data' => $heroData],
+        ]], 1, 0, 'user00000001');
+        (new RouteRepository($this->connection()))->assign($entry, $this->type, 'en', $slug);
+        return $entry;
+    }
+
+    public function testEditableTextMarksAnnotatedRendersAndEscapesTheValue(): void
+    {
+        $entry = $this->seedHeroPage('et-page', [
+            'heading' => 'Big <b>launch</b> "day"',
+            'cta_label' => 'Go',
+            'cta_url' => '/x',
+        ]);
+        $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
+        $html = (string) $this->container()->get(RenderController::class)->preview(
+            Request::create("/_preview/{$token}", 'GET'),
+            $token,
+        )->getContent();
+
+        // Marked span with BOTH attributes; the VALUE is filter-escaped.
+        self::assertStringContainsString(
+            '<span class="lemma-edit-region" data-lemma-edit-block="heroblok0001"'
+                . ' data-lemma-edit-field="heading">Big &lt;b&gt;launch&lt;/b&gt; &quot;day&quot;</span>',
+            $html,
+        );
+        // The CTA label inside the <a> is marked too (interactive-element pin).
+        self::assertStringContainsString('data-lemma-edit-field="cta_label">Go</span>', $html);
+    }
+
+    public function testEditableTextLiveRendersAreByteIdenticalToPlainOutput(): void
+    {
+        $entry = $this->seedHeroPage('et-live', ['heading' => 'A & B', 'cta_url' => '']);
+        // Publish so the live route serves it.
+        $types = new ContentTypeRepository($this->connection());
+        $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
+        (new \App\Content\Services\PublishService(
+            $this->appContext(),
+            $entries,
+            new \App\Content\Repositories\VersionRepository($this->connection()),
+            $types,
+            new \App\Content\Validation\FieldValidator(
+                $this->connection(),
+                $this->appContext(),
+                new BlockTypeRepository($this->connection()),
+            ),
+            new \App\Content\Repositories\ReferenceProjectionRepository($this->connection()),
+        ))->publish($entry, 'en', 'user00000001');
+
+        $live = (string) $this->handle(Request::create('/page/et-live', 'GET'))->getContent();
+        self::assertStringContainsString('A &amp; B', $live);
+        self::assertStringNotContainsString('lemma-edit-region', $live);
+        self::assertStringNotContainsString('data-lemma-edit-field', $live);
+    }
+
+    public function testEditableTextEmptyAndNonStringValues(): void
+    {
+        // heading '' -> EMPTY span in annotated renders (clickable blank, spec §0).
+        $entry = $this->seedHeroPage('et-empty', ['heading' => '', 'cta_url' => '']);
+        $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
+        $html = (string) $this->container()->get(RenderController::class)->preview(
+            Request::create("/_preview/{$token}", 'GET'),
+            $token,
+        )->getContent();
+        self::assertStringContainsString('data-lemma-edit-field="heading"></span>', $html);
+
+        // Direct filter calls: non-string -> '', and NO frame -> escaped value only
+        // even with annotations on.
+        $ext = $this->container()->get(\Glueful\Lemma\Render\RenderContextExtension::class);
+        $ext->setBlockAnnotations(true);
+        $ext->resetBlockFrames();
+        self::assertSame('x &lt;y&gt;', $ext->editableText('x <y>', 'f'));
+        self::assertSame('', $ext->editableText(['array'], 'f'));
+        self::assertSame('', $ext->editableText(null, 'f'));
+        $ext->setBlockAnnotations(false);
     }
 }

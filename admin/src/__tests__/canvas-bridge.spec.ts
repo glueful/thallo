@@ -176,17 +176,36 @@ describe('useCanvasBridge', () => {
 
     window.dispatchEvent(
       new MessageEvent('message', {
+        data: { type: 'lemma:edit-request', id: 'b1', field: 'heading', nonce: bridge.nonce },
+      }),
+    )
+    expect(req).toHaveBeenCalledWith('b1', 'heading')
+    // A request WITHOUT a field never dispatches (v4 shape is required).
+    window.dispatchEvent(
+      new MessageEvent('message', {
         data: { type: 'lemma:edit-request', id: 'b1', nonce: bridge.nonce },
       }),
     )
-    expect(req).toHaveBeenCalledWith('b1')
+    expect(req).toHaveBeenCalledTimes(1)
 
-    bridge.editGrant('b1', 'body')
+    bridge.editGrant('b1', 'heading', 'string')
     expect(postSpy).toHaveBeenCalledWith(
-      { type: 'lemma:edit-grant', id: 'b1', field: 'body', nonce: bridge.nonce },
+      { type: 'lemma:edit-grant', id: 'b1', field: 'heading', kind: 'string', nonce: bridge.nonce },
       'https://site.test',
     )
 
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: 'lemma:text-changed',
+          id: 'b1',
+          field: 'heading',
+          text: 'plain',
+          nonce: bridge.nonce,
+        },
+      }),
+    )
+    expect(text).toHaveBeenCalledWith('b1', 'heading', { text: 'plain' })
     window.dispatchEvent(
       new MessageEvent('message', {
         data: {
@@ -198,7 +217,7 @@ describe('useCanvasBridge', () => {
         },
       }),
     )
-    expect(text).toHaveBeenCalledWith('b1', 'body', '<p>x</p>')
+    expect(text).toHaveBeenCalledWith('b1', 'body', { html: '<p>x</p>' })
 
     // Flush resolves on the ack (no timers needed).
     const flushed = bridge.editFlush()

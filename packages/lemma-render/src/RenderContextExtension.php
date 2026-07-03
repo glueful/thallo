@@ -131,6 +131,10 @@ final class RenderContextExtension extends AbstractExtension
             // is_safe is justified ONLY because every path out of safeHtml() is
             // already safe: sanitized markup or pre-escaped text (sanitizer spec §4).
             new TwigFilter('safe_html', $this->safeHtml(...), ['is_safe' => ['html']]),
+            // Theme-declared editable text (editable-string-fields spec §1):
+            // is_safe html because annotated mode emits a marker span — so the
+            // filter ESCAPES the value itself in BOTH modes (never autoescape).
+            new TwigFilter('editable_text', $this->editableText(...), ['is_safe' => ['html']]),
             new TwigFilter('safe_url', $this->safeUrl(...)),
         ];
     }
@@ -174,6 +178,33 @@ final class RenderContextExtension extends AbstractExtension
             }
         }
         return $this->markEditable(htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+    }
+
+    /**
+     * Opt-in edit-in-place marking for plain string/text fields
+     * (editable-string-fields spec §1): annotated renders wrap the ESCAPED
+     * value in a span region; live renders emit exactly the escaped value.
+     * The field name is the TEMPLATE's claim — the admin's grant matrix is
+     * the validator, so a bogus name yields a region that is never granted.
+     * Non-string values render as ''.
+     */
+    public function editableText(mixed $value, string $field): string
+    {
+        $escaped = is_string($value)
+            ? htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+            : '';
+        if (!$this->annotateBlocks || $this->blockFrames === []) {
+            return $escaped;
+        }
+        $frame = $this->blockFrames[count($this->blockFrames) - 1];
+        if (!is_string($frame['id'])) {
+            return $escaped;
+        }
+        return '<span class="lemma-edit-region" data-lemma-edit-block="'
+            . htmlspecialchars($frame['id'], ENT_QUOTES)
+            . '" data-lemma-edit-field="'
+            . htmlspecialchars($field, ENT_QUOTES)
+            . '">' . $escaped . '</span>';
     }
 
     /**
