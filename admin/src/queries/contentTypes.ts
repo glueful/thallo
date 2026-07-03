@@ -15,6 +15,7 @@ export const FIELD_TYPES = [
   'reference',
   'asset',
   'json',
+  'blocks',
 ] as const
 export type FieldType = (typeof FIELD_TYPES)[number]
 
@@ -38,6 +39,8 @@ export interface ContentTypeField {
   max_items?: number | null
   /** Target field used to resolve slug filter values for a reference field (default `slug`). */
   reference_slug_field?: string | null
+  /** Picker-only block-type allowlist for a `blocks` field ([] / absent = all active). */
+  block_types?: string[]
 }
 
 /** A content type with its full field schema. */

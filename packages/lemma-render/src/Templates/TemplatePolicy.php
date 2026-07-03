@@ -28,7 +28,7 @@ final class TemplatePolicy
      * allowlist or enforcement change (tags/filters/functions/tests/node classes/
      * linter rules); the next render then recompiles — and re-lints — everything.
      */
-    public const CACHE_VERSION = 1;
+    public const CACHE_VERSION = 2; // bumped: 'blocks' joined FUNCTIONS (block-builder spec §6)
 
     public const TAGS = ['if', 'for', 'set', 'block', 'extends', 'include', 'verbatim'];
 
@@ -41,7 +41,7 @@ final class TemplatePolicy
     ];
 
     public const FUNCTIONS = [
-        'menu', 'path', 'asset', 'facets',
+        'menu', 'path', 'asset', 'facets', 'blocks',
         'include', 'parent', 'block', 'cycle', 'date', 'min', 'max', 'range',
     ];
 

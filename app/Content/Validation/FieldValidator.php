@@ -4,17 +4,28 @@ declare(strict_types=1);
 
 namespace App\Content\Validation;
 
+use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Schema\FieldDefinition;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
+use Glueful\Helpers\Utils;
 
 final class FieldValidator
 {
     public function __construct(
         private readonly ?Connection $db = null,
         private readonly ?ApplicationContext $context = null,
+        private ?BlockTypeRepository $blockTypes = null,
     ) {
+    }
+
+    private function blockTypes(): ?BlockTypeRepository
+    {
+        if ($this->blockTypes === null && $this->db !== null) {
+            $this->blockTypes = new BlockTypeRepository($this->db);
+        }
+        return $this->blockTypes;
     }
 
     /**
@@ -50,6 +61,20 @@ final class FieldValidator
             // (Permissive mode keeps the historical behaviour where empties passed, so drafts save.)
             if ($strict && $field->required && ($value === '' || $value === [])) {
                 $errors[$field->name] = 'is required';
+                continue;
+            }
+
+            // Blocks (block-builder spec §4): per-block validation against the block
+            // type's schema, dot-path errors `field.index[.blockField]`. The field's
+            // block_types allowlist is PICKER-ONLY and deliberately not enforced here.
+            if ($field->type === 'blocks') {
+                [$cleanBlocks, $blockErrors] = $this->validateBlocks($field->name, $value, $strict);
+                foreach ($blockErrors as $path => $message) {
+                    $errors[$path] = $message;
+                }
+                if ($blockErrors === []) {
+                    $clean[$field->name] = $cleanBlocks;
+                }
                 continue;
             }
 
@@ -145,8 +170,75 @@ final class FieldValidator
                 : 'must be one of: ' . implode(', ', $field->enumValues),
             'reference', 'asset' => (is_string($value) && $value !== '') ? null : 'must be a uuid',
             'json' => (is_array($value)) ? null : 'must be an object/array',
+            'blocks' => 'must be an ordered list of blocks', // handled by validateBlocks(); guard only
             default => 'unknown field type',
         };
+    }
+
+    /**
+     * Per-block validation (block-builder spec §4): each block validates as
+     * {id, type, data} — `type` a KNOWN block-type slug (active OR inactive; unknown
+     * rejects), `id` unique in the list (server-generated when missing), `data`
+     * structurally an OBJECT validated against the block type's schema via recursion
+     * (the SAME cleaned-payload semantics as top-level fields: known keys only, in
+     * schema order; `$strict` threads the publish gate — dangling references inside
+     * block data reject at publish). Errors carry dot paths: `field.index[.blockField]`.
+     *
+     * @return array{0: list<array{id: string, type: string, data: array<string,mixed>}>,
+     *   1: array<string,string>}
+     */
+    private function validateBlocks(string $fieldName, mixed $value, bool $strict): array
+    {
+        if (!is_array($value) || !array_is_list($value)) {
+            return [[], [$fieldName => 'must be an ordered list of blocks']];
+        }
+        $registry = $this->blockTypes();
+        if ($registry === null) {
+            return [[], [$fieldName => 'block types are unavailable']];
+        }
+        $schemas = $registry->schemasBySlug();
+        $errors = [];
+        $clean = [];
+        $seenIds = [];
+        foreach ($value as $i => $block) {
+            $path = "{$fieldName}.{$i}";
+            if (!is_array($block)) {
+                $errors[$path] = 'must be a block object {id, type, data}';
+                continue;
+            }
+            $type = $block['type'] ?? null;
+            if (!is_string($type) || !isset($schemas[$type])) {
+                $errors[$path] = 'unknown block type' . (is_string($type) ? " '{$type}'" : '');
+                continue;
+            }
+            $id = isset($block['id']) && is_string($block['id']) && $block['id'] !== ''
+                ? $block['id']
+                : Utils::generateNanoID();
+            if (isset($seenIds[$id])) {
+                $errors[$path] = "duplicate block id '{$id}'";
+                continue;
+            }
+            $seenIds[$id] = true;
+            // `data` is structurally an OBJECT (spec §1): missing, scalar, or a
+            // non-empty list is a shape error — never silently coerced to [] (that
+            // would let {data:"oops"} pass whenever the schema has no required
+            // fields). PHP can't distinguish decoded '{}' from '[]'; empty is allowed.
+            $data = $block['data'] ?? null;
+            if (!is_array($data) || ($data !== [] && array_is_list($data))) {
+                $errors["{$path}.data"] = 'must be an object';
+                continue;
+            }
+            try {
+                $cleanData = $this->validate($schemas[$type], $data, $strict);
+            } catch (ValidationException $e) {
+                foreach ($e->errors() as $blockField => $message) {
+                    $errors["{$path}.{$blockField}"] = $message;
+                }
+                continue;
+            }
+            $clean[] = ['id' => $id, 'type' => $type, 'data' => $cleanData];
+        }
+        return [$clean, $errors];
     }
 
     /**

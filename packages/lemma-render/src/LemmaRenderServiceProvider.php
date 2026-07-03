@@ -238,6 +238,10 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             $container->get(EntryTargetResolver::class),
             (string) config($context, 'i18n.default_locale', 'en'),
             $facets instanceof FacetCountsReader ? $facets : null,
+            // blocks() diagnostics (block-builder spec §6): provider-injected, never
+            // read from Twig context.
+            $container->get(\Psr\Log\LoggerInterface::class),
+            (bool) config($context, 'app.debug', false),
         );
     }
 

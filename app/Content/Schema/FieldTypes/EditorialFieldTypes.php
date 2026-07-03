@@ -91,6 +91,13 @@ final class EditorialFieldTypes
                 'multi'      => false,
                 'localized'  => false,
             ]),
+            self::make('content.blocks', 'Blocks', 'json', 'blocks-editor', [
+                'filterable' => false,
+                'sortable'   => false,
+                'indexable'  => false,
+                'multi'      => true,
+                'localized'  => true,
+            ]),
         ];
     }
 

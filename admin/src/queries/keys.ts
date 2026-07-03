@@ -5,6 +5,7 @@ export const qk = {
   home: () => ['home-overview'] as const,
   contentTypes: () => ['content-types'] as const,
   contentType: (slug: string) => ['content-type', slug] as const,
+  blockTypes: () => ['block-types'] as const,
   entries: (type: string) => ['entries', type] as const,
   entry: (uuid: string) => ['entry', uuid] as const,
   entryLocales: (uuid: string) => ['entry-locales', uuid] as const,

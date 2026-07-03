@@ -7,6 +7,19 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Page/block builder**: a `blocks` content field type — ordered `{id, type, data}`
+  lists inside entry JSON, so versions/publish/localization/delivery work unchanged —
+  backed by a global admin-defined block-type registry (`lemma_block_types`:
+  slug-immutable, deactivate-over-delete, free-form `category` grouping the block
+  picker — presentation-only, nothing branches on it — and schemas reusing the
+  content field vocabulary minus nesting/localization/filterable). Per-block validation with
+  dot-path errors and publish-time dangling-reference checks; `block_types`
+  field allowlists are picker-only by design. Structured block-list editor in the
+  entry editor (picker, reorder, duplicate, collapse; nested fields reuse the
+  existing widgets) + a Block Types settings screen. Rendering via a new `blocks()`
+  Twig function through `blocks/{type}.twig` (theme or DB-edited templates), added
+  to the DB-template sandbox allowlist with a policy cache-version bump. References
+  inside blocks stay raw uuids (no auto-expansion in v1).
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

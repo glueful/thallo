@@ -49,7 +49,7 @@
 
 `lemma_block_types` (in-app — this is content-schema machinery, `App\Content`, NOT a render-pack concern):
 
-- `uuid`, `slug` (unique), `label`, `icon` (nullable — a lucide icon name for the picker), `description` (nullable), `schema` (JSON: the same field-definition shape content types use), `active` (bool, default true), timestamps.
+- `uuid`, `slug` (unique), `label`, `icon` (nullable — a lucide icon name for the picker), `category` (nullable free-form string — **presentation-only picker grouping** ("Layout", "Content", …); nothing branches on the value; null groups under "Other", named categories sort alphabetically with Other last; added post-review at the user's request), `description` (nullable), `schema` (JSON: the same field-definition shape content types use), `active` (bool, default true), timestamps.
 
 Admin CRUD at `/v1/admin/block-types`, authorized exactly like content-type schema management (`routes/lemma_admin.php` precedent — no new permission is invented): **read routes carry `lemma_permission:content.view`, mutating routes carry `lemma_permission:content.manage`**, behind the standard `auth` group. Slugs are immutable after creation (they're the template-file contract: `blocks/{slug}.twig`).
 

@@ -88,6 +88,11 @@ const main: NavigationMenuItem[] = [
         to: '/settings/content-types',
       },
       {
+        label: 'Block Types',
+        icon: 'i-lucide-blocks',
+        to: '/settings/block-types',
+      },
+      {
         label: 'General',
         icon: 'i-lucide-sliders-horizontal',
         to: '/settings/general',

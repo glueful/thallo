@@ -7,6 +7,8 @@ namespace Glueful\Lemma\Render;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
 use Glueful\Lemma\Contracts\Navigation\MenuReader;
+use Psr\Log\LoggerInterface;
+use Twig\Environment;
 use Twig\Error\RuntimeError;
 use Twig\Extension\AbstractExtension;
 use Twig\TwigFunction;
@@ -37,11 +39,17 @@ final class RenderContextExtension extends AbstractExtension
     /** Render-scoped asset-base override (see setAssetBase). */
     private ?string $assetBase = null;
 
+    /** @var array<string,bool> block types already logged this process (log ONCE per type) */
+    private array $loggedBlockMisses = [];
+
     public function __construct(
         private readonly ?MenuReader $menus,
         private readonly EntryTargetResolver $targets,
         string $defaultLocale = 'en',
         private readonly ?FacetCountsReader $facetReader = null,
+        // Provider-injected (block-builder spec §6) — NEVER read from Twig context.
+        private readonly ?LoggerInterface $logger = null,
+        private readonly bool $debug = false,
     ) {
         $this->locale = $defaultLocale;
     }
@@ -59,7 +67,65 @@ final class RenderContextExtension extends AbstractExtension
             new TwigFunction('path', $this->path(...)),
             new TwigFunction('asset', $this->asset(...)),
             new TwigFunction('facets', $this->facets(...)),
+            new TwigFunction('blocks', $this->blocks(...), [
+                'needs_environment' => true,
+                'needs_context' => true,
+                'is_safe' => ['html'],
+            ]),
         ];
+    }
+
+    /**
+     * Render an ordered blocks list through blocks/{type}.twig (block-builder spec §6).
+     * Context per block: {block, data, entry, index} — `entry` is the CALLER's entry
+     * (needs_context), read-only ambient state. Missing templates: prod = HTML comment,
+     * debug = visible placeholder; logged once per type per process. Malformed items
+     * and path-unsafe type slugs are skipped with the same once-per-type logging — a
+     * template never explodes over data. The block-type REGISTRY is never consulted
+     * here: rendering is a pure template convention.
+     *
+     * @param array<string,mixed> $context
+     */
+    public function blocks(Environment $env, array $context, mixed $list): string
+    {
+        if (!is_array($list) || !array_is_list($list)) {
+            return '';
+        }
+        $entry = $context['entry'] ?? null;
+        $html = [];
+        foreach ($list as $index => $item) {
+            $type = is_array($item) && is_string($item['type'] ?? null) ? $item['type'] : null;
+            if ($type === null || preg_match('/\A[a-z][a-z0-9_-]*\z/', $type) !== 1) {
+                $this->logBlockMiss($type ?? '(malformed)', 'malformed block instance');
+                continue;
+            }
+            $template = "blocks/{$type}.twig";
+            if (!$env->getLoader()->exists($template)) {
+                $this->logBlockMiss($type, "no template at {$template}");
+                $html[] = $this->debug
+                    ? '<div style="border:1px dashed red;padding:.5rem">Missing block template: '
+                        . htmlspecialchars($template, ENT_QUOTES) . '</div>'
+                    : '<!-- lemma: no template for block "' . htmlspecialchars($type, ENT_QUOTES) . '" -->';
+                continue;
+            }
+            $data = is_array($item['data'] ?? null) ? $item['data'] : [];
+            $html[] = $env->render($template, [
+                'block' => ['id' => $item['id'] ?? null, 'type' => $type, 'data' => $data],
+                'data' => $data,
+                'entry' => $entry,
+                'index' => $index,
+            ]);
+        }
+        return implode('', $html);
+    }
+
+    private function logBlockMiss(string $type, string $reason): void
+    {
+        if (isset($this->loggedBlockMisses[$type])) {
+            return;
+        }
+        $this->loggedBlockMisses[$type] = true;
+        $this->logger?->warning("lemma-render: blocks(): {$reason}", ['type' => $type]);
     }
 
     /**
