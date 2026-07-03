@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Content;
 
 use App\Content\Delivery\DeliveryRepository;
+use App\Content\Delivery\ExpandedTargets;
 use App\Content\Delivery\ReferenceResolver;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
@@ -35,6 +36,7 @@ final class ReferenceResolverTest extends LemmaTestCase
                 ['name' => 'title', 'type' => 'string', 'required' => true],
                 ['name' => 'author', 'type' => 'reference'],
                 ['name' => 'tags', 'type' => 'reference'],
+                ['name' => 'cover', 'type' => 'asset'],
             ],
         ]);
     }
@@ -269,5 +271,39 @@ final class ReferenceResolverTest extends LemmaTestCase
 
         self::assertIsArray($expanded[0]['fields']['author']);
         self::assertSame([$t1], $expanded[0]['fields']['tags']);
+    }
+
+    public function testAssetFieldsNeverExpandAndPassThroughRaw(): void
+    {
+        // The dormant-bug pin (spec §5): asset values are BLOB uuids;
+        // publishedByEntryUuids() can never match them, so pre-fix they spliced
+        // to null. Post-fix: raw blob uuid passes through untouched.
+        $a = $this->createPublished(['title' => 'A', 'cover' => 'blobcover001'], 'a');
+        $rows = $this->resolver()->expand(
+            [$this->repo()->findPublishedByUuid($this->type, 'en', $a)],
+            $this->schema(),
+            null,
+            'en',
+        );
+        self::assertSame('blobcover001', $rows[0]['fields']['cover']);
+    }
+
+    public function testCollectorRecordsOnlyActuallySplicedTargets(): void
+    {
+        $target = $this->createPublished(['title' => 'Target'], 'target');
+        $draft = $this->createDraftOnly(['title' => 'Hidden']);
+        // List-valued `tags` built directly (same reason as the selector/list tests:
+        // a single-valued reference field can't publish an array value).
+        $rootA = ['fields' => ['title' => 'Source', 'author' => $target, 'tags' => [$draft]]];
+
+        $expanded = new ExpandedTargets();
+        $this->resolver()->expand([$rootA], $this->schema(), null, 'en', 2, null, $expanded);
+
+        // The published target is recorded WITH its version identity; the
+        // unresolved draft contributes nothing (spec §4 privacy pin).
+        self::assertSame([$target], $expanded->entryUuids());
+        self::assertCount(1, $expanded->versionIdentities());
+        self::assertStringStartsWith($target . ':', $expanded->versionIdentities()[0]);
+        self::assertStringNotContainsString($draft, implode('|', $expanded->versionIdentities()));
     }
 }

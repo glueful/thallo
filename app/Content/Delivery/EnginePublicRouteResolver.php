@@ -170,14 +170,16 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
             }
         }
 
+        $expanded = new ExpandedTargets();
         return [
             'kind' => 'content',
             'locale' => (string) $row['locale'],
             'type' => $typeSlug,
-            'content' => $this->shaper->shapePublic($row, $typeUuid, $typeSlug),
+            'content' => $this->shaper->shapePublic($row, $typeUuid, $typeSlug, $expanded),
             'redirect' => null,
             'listing' => null, 'term' => null, 'term_type' => null, 'field' => null,
             'preview' => false,
+            'cache_tags' => $this->expansionTags($expanded),
         ];
     }
 
@@ -213,14 +215,16 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         }
 
         $row = $result->content();
+        $expanded = new ExpandedTargets();
         return [
             'kind' => 'content',
             'locale' => (string) $row['locale'],
             'type' => $typeSlug,
-            'content' => $this->shaper->shapePublic($row, $typeUuid, $typeSlug),
+            'content' => $this->shaper->shapePublic($row, $typeUuid, $typeSlug, $expanded),
             'redirect' => null,
             'listing' => null, 'term' => null, 'term_type' => null, 'field' => null,
             'preview' => false,
+            'cache_tags' => $this->expansionTags($expanded),
         ];
     }
 
@@ -341,13 +345,15 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
             return $this->notFound();
         }
         [$listing, $rows] = $result;
-        $listing['items'] = $this->listItems($rows, $typeRow, $locale);
+        $expanded = new ExpandedTargets();
+        $listing['items'] = $this->listItems($rows, $typeRow, $locale, $expanded);
 
         return [
             'kind' => 'listing', 'locale' => $locale, 'type' => $typeSlug,
             'content' => null, 'redirect' => null,
             'listing' => $listing, 'term' => null, 'term_type' => null, 'field' => null,
             'preview' => false,
+            'cache_tags' => $this->expansionTags($expanded),
         ];
     }
 
@@ -412,16 +418,19 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
             return $this->notFound();
         }
         [$listing, $rows] = $result;
-        $listing['items'] = $this->listItems($rows, $typeRow, $locale);
+        // One collector spans the term AND the member items (spec §4).
+        $expanded = new ExpandedTargets();
+        $listing['items'] = $this->listItems($rows, $typeRow, $locale, $expanded);
 
         return [
             'kind' => 'archive', 'locale' => $locale, 'type' => $typeSlug,
             'content' => null, 'redirect' => null,
             'listing' => $listing,
-            'term' => $this->shaper->shapePublic($termRow, $targetUuid, $targetSlug),
+            'term' => $this->shaper->shapePublic($termRow, $targetUuid, $targetSlug, $expanded),
             'term_type' => $targetSlug,
             'field' => $field,
             'preview' => false,
+            'cache_tags' => $this->expansionTags($expanded),
         ];
     }
 
@@ -484,7 +493,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
      * @param array<string,mixed> $typeRow
      * @return list<array<string,mixed>>
      */
-    private function listItems(array $rows, array $typeRow, string $locale): array
+    private function listItems(array $rows, array $typeRow, string $locale, ?ExpandedTargets $expanded = null): array
     {
         if ($rows === []) {
             return [];
@@ -494,7 +503,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         $schema = ContentTypeSchema::fromArray((array) ($typeRow['schema'] ?? []));
         $selector = FieldSelector::fromRequest(Request::create('/')); // empty = full item
 
-        $shaped = $this->shaper->shape($rows, $schema, $selector, $locale, $typeUuid, null);
+        $shaped = $this->shaper->shape($rows, $schema, $selector, $locale, $typeUuid, null, $expanded);
 
         $uuids = array_values(array_filter(array_map(
             static fn(array $r): string => (string) ($r['entry_uuid'] ?? ''),
@@ -525,6 +534,21 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
             $items[] = $item;
         }
         return $items;
+    }
+
+    /**
+     * Full surrogate tag strings for the collected expansion targets (spec §4) —
+     * carried on the resolver result as `cache_tags` for the render controller to
+     * merge; NEVER placed inside the content payload.
+     *
+     * @return list<string>
+     */
+    private function expansionTags(ExpandedTargets $expanded): array
+    {
+        return array_map(
+            static fn(string $uuid): string => 'lemma:entry:' . $uuid,
+            $expanded->entryUuids(),
+        );
     }
 
     /** Default locale collapses (no /en/ prefix) — the CanonicalProjector rule. */

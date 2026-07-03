@@ -27,21 +27,33 @@ use Symfony\Component\HttpFoundation\Request;
 final class DeliveryEtag
 {
     /**
-     * Build the ETag for a single published row.
+     * Build the ETag for a single published row. $expanded: the sorted
+     * entry:version identities of expansion targets (spec §4 P1) — a republished
+     * target must change the validator, or conditionals false-304. Empty input
+     * yields a validator byte-identical to the pre-expansion formula.
+     *
+     * @param list<string> $expanded
      */
-    public function forItem(string $versionUuid, string $selectionKey): string
+    public function forItem(string $versionUuid, string $selectionKey, array $expanded = []): string
     {
-        return '"' . sha1($versionUuid . '|' . $selectionKey) . '"';
+        return '"' . sha1($versionUuid . $this->expandedKey($expanded) . '|' . $selectionKey) . '"';
     }
 
     /**
      * Build the ETag for a list response from its members' version uuids.
      *
      * @param list<string> $versionUuids in result order
+     * @param list<string> $expanded sorted expansion-target identities
      */
-    public function forList(array $versionUuids, string $selectionKey): string
+    public function forList(array $versionUuids, string $selectionKey, array $expanded = []): string
     {
-        return '"' . sha1(implode('|', $versionUuids) . '|' . $selectionKey) . '"';
+        return '"' . sha1(implode('|', $versionUuids) . $this->expandedKey($expanded) . '|' . $selectionKey) . '"';
+    }
+
+    /** @param list<string> $expanded */
+    private function expandedKey(array $expanded): string
+    {
+        return $expanded === [] ? '' : '|x:' . implode('|', $expanded);
     }
 
     /**
@@ -100,17 +112,22 @@ final class DeliveryEtag
     }
 
     /**
-     * Build the `Cache-Tag` header value: a per-entry tag for each member plus the type tag.
+     * Build the `Cache-Tag` header value: a per-entry tag for each member, each
+     * expansion target (spec §4 — purge must reach embedding pages), plus the type
+     * tag. Deduped, order preserved.
      *
      * @param list<string> $entryUuids
+     * @param list<string> $expandedEntryUuids
      */
-    public function cacheTag(array $entryUuids, string $typeSlug): string
+    public function cacheTag(array $entryUuids, string $typeSlug, array $expandedEntryUuids = []): string
     {
         $tags = [];
-        foreach ($entryUuids as $uuid) {
-            $tags[] = 'lemma:entry:' . $uuid;
+        foreach ([...$entryUuids, ...$expandedEntryUuids] as $uuid) {
+            if ($uuid !== '') {
+                $tags['lemma:entry:' . $uuid] = true;
+            }
         }
-        $tags[] = 'lemma:type:' . $typeSlug;
-        return implode(', ', $tags);
+        $tags['lemma:type:' . $typeSlug] = true;
+        return implode(', ', array_keys($tags));
     }
 }

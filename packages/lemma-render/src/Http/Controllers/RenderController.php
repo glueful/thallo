@@ -308,7 +308,9 @@ final class RenderController
     }
 
     /**
-     * @param array{locale: ?string, type: ?string, content: ?array} $result
+     * @param array{locale: ?string, type: ?string, content: ?array} $result may also
+     *        carry `cache_tags` (expansion-target surrogate tags) — merged into the
+     *        response header, never into template context
      * @param array<string,mixed> $extra session banner context, when in a session
      * @param Environment|null $env request-local themed environment (themed sessions)
      */
@@ -330,6 +332,7 @@ final class RenderController
             : 'entry.twig';
         $response = $this->render($template, $locale, $entry, 200, $extra, $env, $assetBase);
         $this->tagResponse($response, $entry ?? [], $typeSlug);
+        $this->mergeCacheTags($response, array_values(array_map('strval', (array) ($result['cache_tags'] ?? []))));
         return $response;
     }
 
@@ -386,6 +389,7 @@ final class RenderController
 
         $response = $this->render($template, $locale, null, 200, $extra, $env, $assetBase);
         $this->tagCollection($response, $result);
+        $this->mergeCacheTags($response, array_values(array_map('strval', (array) ($result['cache_tags'] ?? []))));
         return $response;
     }
 

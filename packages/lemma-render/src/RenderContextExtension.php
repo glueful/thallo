@@ -163,6 +163,11 @@ final class RenderContextExtension extends AbstractExtension
      * template never explodes over data. The block-type REGISTRY is never consulted
      * here: rendering is a pure template convention.
      *
+     * Reference values inside `data` arrive EXPANDED (the target's published item —
+     * fields under `.fields`, entry uuid under `.entry_uuid`; null when unpublished
+     * or gated; raw uuid only at the expansion-depth cap). Link via
+     * path(data.post.entry_uuid). Asset values stay raw blob uuids for media().
+     *
      * @param array<string,mixed> $context
      */
     public function blocks(Environment $env, array $context, mixed $list): string

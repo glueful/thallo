@@ -157,4 +157,63 @@ final class RenderPipelineTest extends LemmaTestCase
         self::assertSame(410, $res->getStatusCode());
         self::assertStringContainsString('Something went wrong', (string) $res->getContent());
     }
+
+    public function testRenderedPageCarriesExpansionTargetTag(): void
+    {
+        // A `page` source embedding a block reference to a target: the rendered
+        // page's Cache-Tag must carry the TARGET's entry tag, byte-identical to
+        // InvalidateCacheTagsListener's purge string, so a republish of the target
+        // reaches this cached page (spec §4).
+        (new \App\Content\Blocks\BlockTypeRepository($this->connection()))->create([
+            'slug' => 'related',
+            'label' => 'Related',
+            'schema' => [['name' => 'post', 'type' => 'reference']],
+        ]);
+        $types = $this->container()->get(\App\Content\Repositories\ContentTypeRepository::class);
+        $type = $types->create([
+            'slug' => 'page',
+            'name' => 'Page',
+            'public_delivery' => true,
+            'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'sections', 'type' => 'blocks'],
+            ],
+        ]);
+        $entries = new \App\Content\Repositories\EntryRepository($this->connection(), $this->appContext(), $types);
+        $publish = new \App\Content\Services\PublishService(
+            $this->appContext(),
+            $entries,
+            new \App\Content\Repositories\VersionRepository($this->connection()),
+            $types,
+            new \App\Content\Validation\FieldValidator(
+                $this->connection(),
+                $this->appContext(),
+                new \App\Content\Blocks\BlockTypeRepository($this->connection()),
+            ),
+            new \App\Content\Repositories\ReferenceProjectionRepository($this->connection()),
+        );
+        $routes = new \App\Content\Repositories\RouteRepository($this->connection());
+
+        // The blocks field is named `sections`, NOT `body`: the reference theme's
+        // entry.twig echoes fields.body as text, and echoing an array 500s.
+        $target = $entries->createEntry($type, 'en', 1, 'user00000001');
+        $entries->saveDraft($target, 'en', ['title' => 'T', 'sections' => []], 1, 0, 'user00000001');
+        $routes->assign($target, $type, 'en', 'target');
+        $publish->publish($target, 'en', 'user00000001');
+
+        $source = $entries->createEntry($type, 'en', 1, 'user00000001');
+        $entries->saveDraft($source, 'en', ['title' => 'S', 'sections' => [
+            ['id' => 'b1', 'type' => 'related', 'data' => ['post' => $target]],
+        ]], 1, 0, 'user00000001');
+        $routes->assign($source, $type, 'en', 'source');
+        $publish->publish($source, 'en', 'user00000001');
+
+        $response = $this->handle(Request::create('/page/source', 'GET'));
+        self::assertSame(200, $response->getStatusCode());
+        self::assertStringContainsString(
+            'lemma:entry:' . $target,
+            (string) $response->headers->get('Cache-Tag'),
+        );
+        self::assertStringNotContainsString('cache_tags', (string) $response->getContent());
+    }
 }

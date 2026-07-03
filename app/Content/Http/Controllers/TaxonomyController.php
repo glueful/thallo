@@ -8,6 +8,7 @@ use App\Content\Delivery\Cursor;
 use App\Content\Delivery\DeliveryItemShaper;
 use App\Content\Delivery\DeliveryRepository;
 use App\Content\Delivery\DeliveryVisibility;
+use App\Content\Delivery\ExpandedTargets;
 use App\Content\Delivery\FilterCompiler;
 use App\Content\Delivery\InvalidFilterException;
 use App\Content\Delivery\ReferenceResolver;
@@ -211,7 +212,9 @@ final class TaxonomyController
         if ($termRow === null) {
             return Response::notFound('Term not found.');
         }
-        $shapedTerm = $this->itemShaper()->shapePublic($termRow, (string) $targetRow['uuid'], $targetSlug);
+        // One collector spans the term and the member rows (spec §4).
+        $expanded = new ExpandedTargets();
+        $shapedTerm = $this->itemShaper()->shapePublic($termRow, (string) $targetRow['uuid'], $targetSlug, $expanded);
 
         try {
             $filter = $query->filter === [] ? null : $this->filters->compile($schema, $query->filter, $locale);
@@ -229,7 +232,15 @@ final class TaxonomyController
         if ($query->wantsPagination()) {
             [$page, $perPage] = $this->pageParams($query);
             $result = $this->delivery->paginatePublished($typeUuid, $locale, $page, $perPage, $filter, $order);
-            $rows = $this->itemShaper()->shape($result['data'], $schema, $selector, $locale, $typeUuid, $scopes);
+            $rows = $this->itemShaper()->shape(
+                $result['data'],
+                $schema,
+                $selector,
+                $locale,
+                $typeUuid,
+                $scopes,
+                $expanded,
+            );
             $totalPages = (int) ceil($result['total'] / max(1, $result['per_page']));
             // The list endpoint's flattened paginated envelope + ONE additive top-level
             // `term` (that envelope has no data object to nest into — spec §3).
@@ -245,13 +256,13 @@ final class TaxonomyController
                 'has_next_page' => $result['current_page'] < $totalPages,
                 'has_previous_page' => $result['current_page'] > 1,
             ]);
-            return $this->archiveCacheHeaders($request, $response, $rows, $typeRow, $termRow, $targetSlug);
+            return $this->archiveCacheHeaders($request, $response, $rows, $typeRow, $termRow, $targetSlug, $expanded);
         }
 
         $limit = $this->limit($query);
         $cursor = Cursor::decode($query->cursor ?? '');
         $rows = $this->delivery->listPublished($typeUuid, $locale, $limit, $filter, $order, $cursor);
-        $shaped = $this->itemShaper()->shape($rows, $schema, $selector, $locale, $typeUuid, $scopes);
+        $shaped = $this->itemShaper()->shape($rows, $schema, $selector, $locale, $typeUuid, $scopes, $expanded);
         $nextCursor = null;
         if (count($rows) === $limit && $rows !== []) {
             $nextCursor = Cursor::encode($this->delivery->cursorFor($rows[count($rows) - 1], $order));
@@ -261,7 +272,7 @@ final class TaxonomyController
             'items' => array_map(fn(array $r): array => $this->itemShaper()->item($r), $shaped),
             'next_cursor' => $nextCursor,
         ], 'Content retrieved.');
-        return $this->archiveCacheHeaders($request, $response, $shaped, $typeRow, $termRow, $targetSlug);
+        return $this->archiveCacheHeaders($request, $response, $shaped, $typeRow, $termRow, $targetSlug, $expanded);
     }
 
     /**
@@ -296,13 +307,14 @@ final class TaxonomyController
         array $typeRow,
         array $termRow,
         string $targetSlug,
+        ExpandedTargets $expanded,
     ): Response {
         $versionUuids = array_map(static fn(array $r): string => (string) ($r['version_uuid'] ?? ''), $rows);
         $versionUuids[] = (string) ($termRow['version_uuid'] ?? '');
         $entryUuids = array_map(static fn(array $r): string => (string) ($r['entry_uuid'] ?? ''), $rows);
         $entryUuids[] = (string) ($termRow['entry_uuid'] ?? '');
-        $etag = $this->etags->forList($versionUuids, $this->selectionKey($request));
-        $cacheTag = $this->etags->cacheTag($entryUuids, (string) $typeRow['slug']);
+        $etag = $this->etags->forList($versionUuids, $this->selectionKey($request), $expanded->versionIdentities());
+        $cacheTag = $this->etags->cacheTag($entryUuids, (string) $typeRow['slug'], $expanded->entryUuids());
         if ($targetSlug !== (string) $typeRow['slug']) {
             $cacheTag .= ', lemma:type:' . $targetSlug; // self-referencing taxonomies dedupe
         }

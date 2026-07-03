@@ -37,6 +37,8 @@ final class DeliveryItemShaper
      *
      * @param list<array<string,mixed>> $rows
      * @param list<string>|null $grantedScopes null = anonymous
+     * @param ExpandedTargets|null $expanded records expansion targets for the
+     *        caller's Cache-Tag/ETag (spec §4); never serialized into the rows
      * @return list<array<string,mixed>>
      */
     public function shape(
@@ -46,6 +48,7 @@ final class DeliveryItemShaper
         string $locale,
         string $typeUuid,
         ?array $grantedScopes,
+        ?ExpandedTargets $expanded = null,
     ): array {
         if ($rows === []) {
             return [];
@@ -68,6 +71,7 @@ final class DeliveryItemShaper
             $locale,
             2,
             $grantedScopes,
+            $expanded,
         );
 
         if ($selector->empty()) {
@@ -110,14 +114,18 @@ final class DeliveryItemShaper
      * @param array<string,mixed> $row
      * @return array<string,mixed>
      */
-    public function shapePublic(array $row, string $typeUuid, string $typeSlug): array
-    {
+    public function shapePublic(
+        array $row,
+        string $typeUuid,
+        string $typeSlug,
+        ?ExpandedTargets $expanded = null,
+    ): array {
         $typeRow = $this->types->findByUuid($typeUuid);
         $schema = ContentTypeSchema::fromArray((array) ($typeRow['schema'] ?? []));
         // A bare request yields the empty selector (no ?fields/?expand) — full item.
         $selector = FieldSelector::fromRequest(Request::create('/'));
 
-        $shaped = $this->shape([$row], $schema, $selector, (string) $row['locale'], $typeUuid, null);
+        $shaped = $this->shape([$row], $schema, $selector, (string) $row['locale'], $typeUuid, null, $expanded);
         $item = $this->item($shaped[0]);
         $item['seo'] = $this->canonical->project(
             (string) $row['entry_uuid'],

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Content\Delivery;
 
+use App\Content\Blocks\BlockDepth;
+use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Schema\ContentTypeSchema;
 use Glueful\Support\FieldSelection\FieldSelector;
 
@@ -14,20 +16,24 @@ use Glueful\Support\FieldSelection\FieldSelector;
  * V1_DESIGN §4: references point at *entries*; the delivery API resolves them to the
  * target's published version. An unpublished (or archived) target resolves to `null`
  * — never to a draft. Expansion uses batch loading: for each level of `$rootRows`,
- * all reference/asset target uuids are collected and resolved with **one** query
+ * all reference target uuids are collected and resolved with **one** query
  * (per locale set) via {@see DeliveryRepository::publishedByEntryUuids()}, not a
  * per-entry fetch. Circular references (A → A) are bounded by `$depth`; at the limit,
- * the reference value is left as the raw uuid (not expanded further).
+ * the reference value is left as the raw uuid (not expanded further). Asset fields
+ * NEVER expand (spec §5): their values are blob uuids, raw at every level.
  *
  * Field selection: when a non-empty {@see FieldSelector} is provided, only reference
  * fields whose top-level path was requested are expanded. When `$selector` is `null`
- * or empty, ALL reference/asset fields are expanded up to `$depth` — the controller
+ * or empty, ALL reference fields are expanded up to `$depth` — the controller
  * (Task 7) passes the real selector; this keeps the resolver usable standalone.
  */
 final class ReferenceResolver
 {
-    public function __construct(private readonly DeliveryRepository $repo)
-    {
+    public function __construct(
+        private readonly DeliveryRepository $repo,
+        /** null = no blocks descent (block refs stay raw); the container wires it. */
+        private readonly ?BlockTypeRepository $blockTypes = null,
+    ) {
     }
 
     /**
@@ -44,6 +50,8 @@ final class ReferenceResolver
      * @param list<string>|null $grantedScopes the caller's API-key scopes (null = anonymous);
      *        targets whose type the caller cannot read resolve to null. Threaded through the
      *        recursion so nested references are gated too.
+     * @param ExpandedTargets|null $expanded records every target actually spliced (any depth)
+     *        for Cache-Tag/ETag correctness (spec §4); null = no collection
      * @return list<array<string,mixed>> the rows with references spliced in
      */
     public function expand(
@@ -53,18 +61,20 @@ final class ReferenceResolver
         string $locale,
         int $depth = 2,
         ?array $grantedScopes = null,
+        ?ExpandedTargets $expanded = null,
     ): array {
         if ($rootRows === [] || $depth <= 0) {
             return $rootRows;
         }
 
         $referenceFields = $this->referenceFieldNames($schema, $selector);
-        if ($referenceFields === []) {
+        $blocksFields = $this->blocksFieldNames($schema, $selector);
+        if ($referenceFields === [] && $blocksFields === []) {
             return $rootRows;
         }
 
-        // 1) Collect every target uuid across all rows for the reference fields (one set).
-        $targetUuids = $this->collectTargets($rootRows, $referenceFields);
+        // 1) Collect every target uuid across all rows (one set, one query per level).
+        $targetUuids = $this->collectTargets($rootRows, $referenceFields, $blocksFields);
         if ($targetUuids === []) {
             return $rootRows;
         }
@@ -79,7 +89,15 @@ final class ReferenceResolver
         //    and bounded we recurse with the same schema. Depth bounds the recursion.
         if ($depth - 1 > 0 && $resolved !== []) {
             $resolved = $this->indexExpanded(
-                $this->expand(array_values($resolved), $schema, $selector, $locale, $depth - 1, $grantedScopes),
+                $this->expand(
+                    array_values($resolved),
+                    $schema,
+                    $selector,
+                    $locale,
+                    $depth - 1,
+                    $grantedScopes,
+                    $expanded,
+                ),
                 array_keys($resolved)
             );
         }
@@ -92,7 +110,13 @@ final class ReferenceResolver
                 if (!array_key_exists($field, $fields)) {
                     continue;
                 }
-                $fields[$field] = $this->splice($fields[$field], $resolved);
+                $fields[$field] = $this->splice($fields[$field], $resolved, $expanded);
+            }
+            foreach ($blocksFields as $field) {
+                if (!array_key_exists($field, $fields)) {
+                    continue;
+                }
+                $fields[$field] = $this->spliceBlocks($fields[$field], $resolved, 1, $expanded);
             }
             $rootRows[$i]['fields'] = $fields;
         }
@@ -121,26 +145,41 @@ final class ReferenceResolver
     /**
      * Replace a reference field value (a uuid string, or a list of uuid strings) with
      * the resolved row(s). A scalar uuid → the resolved row or `null`. A list → each
-     * element resolved independently (unpublished elements become `null`).
+     * element resolved independently (unpublished elements become `null`). Every row
+     * actually spliced is recorded on the collector (spec §4); unresolved values
+     * record nothing (surrogate-header privacy).
      *
      * @param array<string,array<string,mixed>> $resolved
      */
-    private function splice(mixed $value, array $resolved): mixed
+    private function splice(mixed $value, array $resolved, ?ExpandedTargets $expanded = null): mixed
     {
         if (is_string($value)) {
-            return $resolved[$value] ?? null;
+            return $this->resolveOne($value, $resolved, $expanded);
         }
         if (is_array($value)) {
             return array_map(
-                static fn(mixed $v): mixed => is_string($v) ? ($resolved[$v] ?? null) : $v,
+                fn(mixed $v): mixed => is_string($v) ? $this->resolveOne($v, $resolved, $expanded) : $v,
                 array_values($value)
             );
         }
         return $value;
     }
 
+    /** @param array<string,array<string,mixed>> $resolved */
+    private function resolveOne(string $uuid, array $resolved, ?ExpandedTargets $expanded): mixed
+    {
+        $row = $resolved[$uuid] ?? null;
+        if ($row !== null) {
+            $expanded?->add((string) ($row['entry_uuid'] ?? ''), (string) ($row['version_uuid'] ?? ''));
+        }
+        return $row;
+    }
+
     /**
-     * The reference/asset field names to expand, honouring the selector.
+     * The reference field names to expand, honouring the selector. Asset fields are
+     * DELIBERATELY absent (spec §5): asset values are blob uuids — resolving them
+     * against the published-entry spine is a category error (pre-fix it nulled
+     * them). Assets stay raw at every level; media() consumes them at render.
      *
      * @return list<string>
      */
@@ -149,7 +188,7 @@ final class ReferenceResolver
         $scoped = $selector !== null && !$selector->empty();
         $names = [];
         foreach ($schema->fields() as $field) {
-            if ($field->type !== 'reference' && $field->type !== 'asset') {
+            if ($field->type !== 'reference') {
                 continue;
             }
             if ($scoped && !$selector->requested($field->name)) {
@@ -161,13 +200,41 @@ final class ReferenceResolver
     }
 
     /**
-     * Collect the distinct target uuids referenced across all rows for the given fields.
+     * Entry-schema `blocks` fields — descent roots for block-ref expansion (spec §2),
+     * under the SAME top-level selector rule as reference fields (spec §3: no
+     * inner-block selectors). Empty when no registry is wired.
+     *
+     * @return list<string>
+     */
+    private function blocksFieldNames(ContentTypeSchema $schema, ?FieldSelector $selector): array
+    {
+        if ($this->blockTypes === null) {
+            return [];
+        }
+        $scoped = $selector !== null && !$selector->empty();
+        $names = [];
+        foreach ($schema->fields() as $field) {
+            if ($field->type !== 'blocks') {
+                continue;
+            }
+            if ($scoped && !$selector->requested($field->name)) {
+                continue;
+            }
+            $names[] = $field->name;
+        }
+        return $names;
+    }
+
+    /**
+     * Collect the distinct target uuids referenced across all rows — top-level
+     * reference fields plus reference fields inside blocks (any structural depth).
      *
      * @param list<array<string,mixed>> $rows
      * @param list<string> $fields
+     * @param list<string> $blocksFields
      * @return list<string>
      */
-    private function collectTargets(array $rows, array $fields): array
+    private function collectTargets(array $rows, array $fields, array $blocksFields): array
     {
         $uuids = [];
         foreach ($rows as $row) {
@@ -178,8 +245,100 @@ final class ReferenceResolver
                     $uuids[$uuid] = true;
                 }
             }
+            foreach ($blocksFields as $field) {
+                $this->collectFromBlocks($rowFields[$field] ?? null, 1, $uuids);
+            }
         }
         return array_keys($uuids);
+    }
+
+    /**
+     * Walk a blocks value collecting reference-target uuids. Structural recursion is
+     * bounded by BlockDepth::MAX (data written around the API must not unbound the
+     * walk); malformed items and unknown slugs are skipped — delivery never explodes
+     * over data (spec §2). Asset fields are never collected (spec §1).
+     *
+     * @param array<string,bool> $uuids
+     */
+    private function collectFromBlocks(mixed $value, int $structDepth, array &$uuids): void
+    {
+        if (!is_array($value) || !array_is_list($value) || $structDepth > BlockDepth::MAX) {
+            return;
+        }
+        foreach ($value as $item) {
+            [$blockSchema, $data] = $this->blockItem($item);
+            if ($blockSchema === null) {
+                continue;
+            }
+            foreach ($blockSchema->fields() as $field) {
+                if ($field->type === 'reference') {
+                    foreach ($this->uuidsIn($data[$field->name] ?? null) as $uuid) {
+                        $uuids[$uuid] = true;
+                    }
+                } elseif ($field->type === 'blocks') {
+                    $this->collectFromBlocks($data[$field->name] ?? null, $structDepth + 1, $uuids);
+                }
+            }
+        }
+    }
+
+    /**
+     * Mirror of collectFromBlocks: splice resolved targets back into block data,
+     * same walk, same guards, same structural cap.
+     *
+     * @param array<string,array<string,mixed>> $resolved
+     */
+    private function spliceBlocks(
+        mixed $value,
+        array $resolved,
+        int $structDepth,
+        ?ExpandedTargets $expanded,
+    ): mixed {
+        if (!is_array($value) || !array_is_list($value) || $structDepth > BlockDepth::MAX) {
+            return $value;
+        }
+        foreach ($value as $i => $item) {
+            [$blockSchema, $data] = $this->blockItem($item);
+            if ($blockSchema === null) {
+                continue;
+            }
+            foreach ($blockSchema->fields() as $field) {
+                if (!array_key_exists($field->name, $data)) {
+                    continue;
+                }
+                if ($field->type === 'reference') {
+                    $data[$field->name] = $this->splice($data[$field->name], $resolved, $expanded);
+                } elseif ($field->type === 'blocks') {
+                    $data[$field->name] = $this->spliceBlocks(
+                        $data[$field->name],
+                        $resolved,
+                        $structDepth + 1,
+                        $expanded,
+                    );
+                }
+            }
+            $value[$i]['data'] = $data;
+        }
+        return $value;
+    }
+
+    /**
+     * A block item's registry schema + data, or [null, []] for anything malformed:
+     * non-array item, non-string type, unknown slug (registry includes deactivated
+     * types — stored content referencing one still expands), non-array data.
+     *
+     * @return array{0: ?ContentTypeSchema, 1: array<string,mixed>}
+     */
+    private function blockItem(mixed $item): array
+    {
+        if (!is_array($item) || !is_string($item['type'] ?? null)) {
+            return [null, []];
+        }
+        $schema = ($this->blockTypes?->schemasBySlug() ?? [])[$item['type']] ?? null;
+        if ($schema === null || !is_array($item['data'] ?? null)) {
+            return [null, []];
+        }
+        return [$schema, $item['data']];
     }
 
     /**

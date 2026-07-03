@@ -42,6 +42,16 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   contract — public + anonymously-retrievable blobs only, full blob-route-stack
   parity) and `safe_url` filter (scheme-allowlisted hrefs); both joined the
   DB-template sandbox allowlists (CACHE_VERSION → 4).
+  Follow-up: **block reference auto-expansion** — references inside block data now
+  expand in place (same batch loading, depth-2 reference-hop budget, and scope gates
+  as top-level references; block structure never consumes expansion depth; asset
+  fields never expand). Expansion targets now feed cache correctness everywhere:
+  `Cache-Tag` carries `lemma:entry:{target}` for every expanded target (delivery API
+  and rendered pages purge when an embedded target republishes) and the delivery
+  ETag folds in sorted target `entry:version` identities (no more false 304 after a
+  target republish). Unresolved targets contribute neither (surrogate-header
+  privacy). Also fixes the dormant top-level bug where `asset` fields were passed to
+  entry expansion (splicing them to null): asset values now always pass through raw.
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /
