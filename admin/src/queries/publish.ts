@@ -24,10 +24,12 @@ export function usePublish(uuid: string, locale: string, type: string) {
   return useMutation({
     mutation: (action: 'publish' | 'unpublish') =>
       action === 'publish' ? publishEntry(uuid, locale) : unpublishEntry(uuid, locale),
-    // Publication state changes the entry's status badge in the list.
+    // Publication state changes the entry's status badge in the list AND the
+    // editor's per-locale summaries (PublishPanel status line, LocaleSwitcher).
     onSettled() {
       cache.invalidateQueries({ key: qk.entry(uuid) })
       cache.invalidateQueries({ key: qk.entries(type) })
+      cache.invalidateQueries({ key: qk.entryLocales(uuid) })
     },
   })
 }

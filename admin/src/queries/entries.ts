@@ -135,7 +135,7 @@ export async function fetchEntryLocales(uuid: string): Promise<EntryLocaleSummar
 
 export function useEntryLocales(uuid: MaybeRefOrGetter<string>) {
   return useQuery({
-    key: () => ['entry-locales', toValue(uuid)],
+    key: () => qk.entryLocales(toValue(uuid)),
     query: () => fetchEntryLocales(toValue(uuid)),
   })
 }

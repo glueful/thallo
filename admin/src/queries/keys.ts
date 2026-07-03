@@ -7,6 +7,7 @@ export const qk = {
   contentType: (slug: string) => ['content-type', slug] as const,
   entries: (type: string) => ['entries', type] as const,
   entry: (uuid: string) => ['entry', uuid] as const,
+  entryLocales: (uuid: string) => ['entry-locales', uuid] as const,
   draft: (uuid: string, locale: string) => ['draft', uuid, locale] as const,
   routes: (uuid: string) => ['routes', uuid] as const,
   seoMeta: (uuid: string, locale: string) => ['seo-meta', uuid, locale] as const,

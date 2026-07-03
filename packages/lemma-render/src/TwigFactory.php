@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Glueful\Lemma\Render;
 
+use Glueful\Lemma\Render\Templates\DatabaseTemplateLoader;
+use Glueful\Lemma\Render\Templates\RenderTemplateLoader;
 use Twig\Environment;
 use Twig\Loader\FilesystemLoader;
 
@@ -18,18 +20,25 @@ final class TwigFactory
         private readonly ThemeLocator $themes,
         private readonly RenderContextExtension $extension,
         private readonly string $cacheDir,
+        // DB-edited templates (spec §3): when present, overrides load DB-first through
+        // the pack composite. Null = pure filesystem, byte-identical to pre-feature.
+        private readonly ?DatabaseTemplateLoader $dbTemplates = null,
     ) {
     }
 
     public function environment(): Environment
     {
         $paths = $this->themes->activePaths();
-        $twig = new Environment(new FilesystemLoader($paths['templates']), [
-            'autoescape' => 'html',
-            'cache' => rtrim($this->cacheDir, '/') . '/' . $paths['name'],
-            'auto_reload' => true,
-            'strict_variables' => false,
-        ]);
+        $fs = new FilesystemLoader($paths['templates']);
+        $twig = new Environment(
+            $this->dbTemplates === null ? $fs : new RenderTemplateLoader($this->dbTemplates, $fs),
+            [
+                'autoescape' => 'html',
+                'cache' => rtrim($this->cacheDir, '/') . '/' . $paths['name'],
+                'auto_reload' => true,
+                'strict_variables' => false,
+            ],
+        );
         $twig->addExtension($this->extension);
         return $twig;
     }

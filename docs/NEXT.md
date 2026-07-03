@@ -150,6 +150,9 @@ Shape" as post‑V1 and have **no** design doc yet:
    ✅ **Term index pages** also shipped (2026‑07‑02): `/{type}/terms/{field}` with
    counts and archive links. Spec:
    `docs/superpowers/specs/2026-07-02-term-index-pages-design.md`.
+   ✅ **DB-edited templates** also shipped (2026-07-03): admin-editable overrides with
+   history + static policy scan. Spec:
+   `docs/superpowers/specs/2026-07-03-db-edited-templates-design.md`.
 3. Everything else (importer depth — incl. now‑unblocked WordPress categories/tags, tenancy, the
    per‑feature follow‑ups) is pull‑based: pick one,
    run the proven loop — brainstorm → spec → plan → implement — starting from the linked home

@@ -127,6 +127,11 @@ $manager->addMigrationPath(
     'lemma-navigation'
 );
 $manager->addMigrationPath(
+    $root . '/packages/lemma-render/migrations',
+    MigrationPriority::DEPENDENT,
+    'lemma-render'
+);
+$manager->addMigrationPath(
     $root . '/database/dependent-migrations',
     MigrationPriority::DEPENDENT,
     'app:dependent'

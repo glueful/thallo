@@ -12,6 +12,7 @@ import { ApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
 import PublishPanel from './components/PublishPanel.vue'
 import SeoPanel from './components/SeoPanel.vue'
+import VersionsPanel from './components/VersionsPanel.vue'
 import WorkflowPanel from './components/WorkflowPanel.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import LocaleSwitcher from './components/LocaleSwitcher.vue'
@@ -27,6 +28,15 @@ const uuid = computed(() => String(route.params.uuid))
 const caps = useCapabilitiesStore()
 const seoEnabled = computed(() => caps.isEnabled('lemma.seo'))
 const workflowEnabled = computed(() => caps.isEnabled('lemma.workflow'))
+
+// Sidebar tabs: Publishing is home; SEO joins when its pack is enabled. v-show keeps
+// panel state (dirty slug, open schedule) alive across tab switches.
+const sideTab = ref('publishing')
+const sideTabItems = computed(() => [
+  { label: 'Publishing', value: 'publishing' },
+  ...(seoEnabled.value ? [{ label: 'SEO', value: 'seo' }] : []),
+  { label: 'Versions', value: 'versions' },
+])
 
 const { success, warning, error: notifyError } = useNotify()
 
@@ -234,20 +244,16 @@ async function onSave() {
             />
           </UDropdownMenu>
           <UButton
-            variant="ghost"
-            color="neutral"
-            icon="i-lucide-history"
-            :to="`/content/${type}/${uuid}/versions?locale=${locale}`"
-          >
-            Versions
-          </UButton>
-          <UButton
             v-if="multiLocale"
             variant="ghost"
             color="neutral"
             icon="i-lucide-signpost"
             aria-label="Manage routes by locale"
-            @click="() => { showRoutes = true }"
+            @click="
+              () => {
+                showRoutes = true
+              }
+            "
           />
           <BulkLocaleMenu
             v-if="multiLocale"
@@ -290,23 +296,48 @@ async function onSave() {
              makes overflow-x compute to auto, and the top/bottom edges clip at the scroll extremes).
              Keyed by locale so the panel re-seeds its slug/publish state on a locale switch. -->
         <div class="lg:min-h-0 lg:w-96 lg:shrink-0 lg:overflow-y-auto lg:p-1">
-          <PublishPanel :key="`${uuid}-${locale}`" :uuid="uuid" :locale="locale" :type="type" />
-          <WorkflowPanel
-            v-if="workflowEnabled"
-            :key="`wf-${uuid}-${locale}`"
-            class="mt-6"
-            :uuid="uuid"
-            :locale="locale"
-            :enabled="workflowEnabled"
-          />
-          <SeoPanel
-            v-if="seoEnabled"
-            :key="`seo-${uuid}-${locale}`"
-            class="mt-6"
-            :uuid="uuid"
-            :locale="locale"
-            :enabled="seoEnabled"
-          />
+          <UCard>
+            <UTabs
+              v-model="sideTab"
+              variant="link"
+              :items="sideTabItems"
+              :content="false"
+              class="mb-4"
+              data-test="editor-side-tabs"
+            />
+            <PublishPanel
+              v-show="sideTab === 'publishing'"
+              :key="`${uuid}-${locale}`"
+              :uuid="uuid"
+              :locale="locale"
+              :type="type"
+            >
+              <!-- Review state shares the Publishing tab — one editorial surface. -->
+              <WorkflowPanel
+                v-if="workflowEnabled"
+                :key="`wf-${uuid}-${locale}`"
+                :uuid="uuid"
+                :locale="locale"
+                :enabled="workflowEnabled"
+              />
+            </PublishPanel>
+            <template v-if="seoEnabled">
+              <SeoPanel
+                v-show="sideTab === 'seo'"
+                :key="`seo-${uuid}-${locale}`"
+                :uuid="uuid"
+                :locale="locale"
+                :enabled="seoEnabled"
+              />
+            </template>
+            <VersionsPanel
+              v-show="sideTab === 'versions'"
+              :key="`versions-${uuid}-${locale}`"
+              :uuid="uuid"
+              :locale="locale"
+              :type="type"
+            />
+          </UCard>
         </div>
       </div>
     </template>
@@ -344,7 +375,11 @@ async function onSave() {
           variant="ghost"
           label="Cancel"
           :disabled="createLocale.isLoading.value"
-          @click="() => { pendingLocale = '' }"
+          @click="
+            () => {
+              pendingLocale = ''
+            }
+          "
         />
         <UButton
           icon="i-lucide-plus"
@@ -380,7 +415,11 @@ async function onSave() {
           variant="ghost"
           label="Cancel"
           :disabled="createLocale.isLoading.value"
-          @click="() => { copySource = '' }"
+          @click="
+            () => {
+              copySource = ''
+            }
+          "
         />
         <UButton
           icon="i-lucide-copy"

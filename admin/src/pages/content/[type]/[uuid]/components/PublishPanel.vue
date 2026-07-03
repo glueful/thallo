@@ -4,33 +4,52 @@ import { useRoutes, useSaveRoute } from '@/queries/routes'
 import { usePublish } from '@/queries/publish'
 import { usePreview, useThemePreview, buildPreviewUrl } from '@/queries/preview'
 import { useSchedules, useScheduleMutations } from '@/queries/schedules'
+import { useEntryLocales } from '@/queries/entries'
 import { useNotify } from '@/composables/useNotify'
+import { localeStatus } from './localeStatus'
 
 const props = defineProps<{ uuid: string; locale: string; type: string }>()
 const { success, warning, error: notifyError } = useNotify()
 
+// ── Publication status (the panel's headline state) ─────────────────────────
+// Same query key the LocaleSwitcher uses — Pinia Colada dedupes, no extra request.
+const { data: entryLocales } = useEntryLocales(() => props.uuid)
+const status = computed(() => {
+  const summary = (entryLocales.value ?? []).find((s) => s.locale === props.locale)
+  return summary ? localeStatus(summary) : null
+})
+const isPublished = computed(() => status.value?.key === 'published')
+
 // ── Route / slug ──────────────────────────────────────────────────────────
 const { data: routes } = useRoutes(() => props.uuid)
 const slug = ref('')
+const savedSlug = ref('')
 watch(
   routes,
   (r) => {
     const match = r?.find((x) => x.locale === props.locale)
-    if (match) slug.value = match.slug
+    if (match) {
+      slug.value = match.slug
+      savedSlug.value = match.slug
+    }
   },
   { immediate: true },
 )
+// The save affordance only appears when the slug is actually dirty — routes are
+// otherwise not a separate "workflow" competing with Publish.
+const slugDirty = computed(() => slug.value !== savedSlug.value)
 const saveRoute = useSaveRoute(props.uuid, props.locale)
 async function onSaveRoute() {
   try {
     await saveRoute.mutateAsync(slug.value)
+    savedSlug.value = slug.value
     success('Route saved')
   } catch (e) {
     notifyError(e, 'Couldn’t save route')
   }
 }
 
-// ── Publish / unpublish ─────────────────────────────────────────────────────
+// ── Publish / unpublish (state-aware: one primary action at a time) ────────
 const publish = usePublish(props.uuid, props.locale, props.type)
 async function onPublish(action: 'publish' | 'unpublish') {
   try {
@@ -67,8 +86,9 @@ async function onThemePreview() {
   }
 }
 
-// ── Schedule ─────────────────────────────────────────────────────────────────
+// ── Schedule (behind a disclosure — it's the rare path) ─────────────────────
 const { data: schedules } = useSchedules(() => props.uuid)
+const scheduleOpen = ref(false)
 const runAt = ref('')
 const { create: createSchedule, cancel: cancelSchedule } = useScheduleMutations(
   props.uuid,
@@ -82,6 +102,7 @@ async function onSchedule() {
       run_at: new Date(runAt.value).toISOString(),
     })
     runAt.value = ''
+    scheduleOpen.value = false
     success('Scheduled')
   } catch (e) {
     notifyError(e, 'Couldn’t schedule')
@@ -101,26 +122,74 @@ const localeSchedules = computed(() =>
 </script>
 
 <template>
-  <UCard>
-    <template #header>
-      <h2 class="font-semibold text-default">Publishing</h2>
-    </template>
-
-    <div class="space-y-5">
-      <div class="flex items-end gap-2">
-        <UFormField label="Slug" class="flex-1">
-          <UInput v-model="slug" placeholder="my-page" class="w-full" />
-        </UFormField>
-        <UButton variant="subtle" :loading="saveRoute.isLoading.value" @click="onSaveRoute">
-          Save route
-        </UButton>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <UButton :loading="publish.isLoading.value" @click="onPublish('publish')">Publish</UButton>
+  <!-- A tab SECTION, not a card: the editor sidebar's tabbed card provides the chrome;
+       the tab label provides the "Publishing" title. -->
+  <div data-test="publish-panel">
+    <div class="mb-5 flex items-center gap-2">
+      <UBadge
+        v-if="status"
+        :color="status.color"
+        :icon="status.icon"
+        variant="subtle"
+        data-test="publish-status"
+      >
+        {{ status.label }}
+      </UBadge>
+      <span class="flex-1" />
+      <UTooltip text="Preview draft">
         <UButton
           color="neutral"
+          variant="ghost"
+          icon="i-lucide-eye"
+          aria-label="Preview draft"
+          data-test="preview"
+          :loading="preview.isLoading.value"
+          @click="onPreview"
+        />
+      </UTooltip>
+      <UTooltip text="Preview in theme">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-panels-top-left"
+          aria-label="Preview in theme"
+          data-testid="theme-preview"
+          :loading="themePreview.isLoading.value"
+          @click="onThemePreview"
+        />
+      </UTooltip>
+    </div>
+
+    <div class="space-y-5">
+      <UFormField label="Slug">
+        <div class="flex items-center gap-2">
+          <UInput v-model="slug" placeholder="my-page" class="flex-1" />
+          <UButton
+            v-if="slugDirty"
+            variant="subtle"
+            data-test="save-route"
+            :loading="saveRoute.isLoading.value"
+            @click="onSaveRoute"
+          >
+            Save route
+          </UButton>
+        </div>
+      </UFormField>
+
+      <div class="flex items-center gap-2">
+        <UButton
+          v-if="!isPublished"
+          data-test="publish"
+          :loading="publish.isLoading.value"
+          @click="onPublish('publish')"
+        >
+          Publish
+        </UButton>
+        <UButton
+          v-else
+          color="neutral"
           variant="subtle"
+          data-test="unpublish"
           :loading="publish.isLoading.value"
           @click="onPublish('unpublish')"
         >
@@ -129,31 +198,22 @@ const localeSchedules = computed(() =>
         <UButton
           color="neutral"
           variant="ghost"
-          icon="i-lucide-eye"
-          :loading="preview.isLoading.value"
-          @click="onPreview"
+          icon="i-lucide-clock"
+          data-test="schedule-toggle"
+          @click="scheduleOpen = !scheduleOpen"
         >
-          Preview
-        </UButton>
-        <UButton
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-panels-top-left"
-          :loading="themePreview.isLoading.value"
-          data-testid="theme-preview"
-          @click="onThemePreview"
-        >
-          Preview in theme
+          Schedule…
         </UButton>
       </div>
 
-      <div class="space-y-2">
-        <div class="flex items-end gap-2">
-          <UFormField label="Schedule publish" class="flex-1">
+      <div v-if="scheduleOpen || localeSchedules.length" class="space-y-2">
+        <div v-if="scheduleOpen" class="flex items-end gap-2">
+          <UFormField label="Publish at" class="flex-1">
             <UInput v-model="runAt" type="datetime-local" class="w-full" />
           </UFormField>
           <UButton
             variant="subtle"
+            data-test="schedule-confirm"
             :disabled="!runAt"
             :loading="createSchedule.isLoading.value"
             @click="onSchedule"
@@ -181,6 +241,14 @@ const localeSchedules = computed(() =>
           </li>
         </ul>
       </div>
+
+      <!-- Review/workflow lives INSIDE the publishing tab (one editorial surface, not
+           two) but stays its own component — the parent slots it in when the pack is
+           enabled. -->
+      <template v-if="$slots.default">
+        <USeparator />
+        <slot />
+      </template>
     </div>
-  </UCard>
+  </div>
 </template>

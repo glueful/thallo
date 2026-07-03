@@ -7,6 +7,17 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **DB-edited templates**: theme templates editable from the admin (new Templates
+  screen with CodeMirror editor, per-template version history, restore, delete-with-
+  fallback). Storage is per-theme + append-only (`lemma_render_templates` /
+  `_versions`); a pack-owned DB-first loader (deliberately not Twig's `ChainLoader`,
+  whose persistent exists-cache breaks DB-only templates) with per-render reset and
+  version+policy-keyed compile-cache keys (no compiled-cache purging). Enforcement is
+  a static AST policy scan (`TemplateLinter`) at save (422 with line numbers), at
+  compile, and on restore — no runtime sandbox; `raw`, macros, arrow-function filters,
+  dynamic include/extends targets, and method calls are denied. Active-theme mutations
+  purge the render page + error caches; themed preview sessions render that theme's
+  overrides. Kill-switch: `RENDER_DB_TEMPLATES`. New permission: `templates.manage`.
 - **Preview sessions (preview v2)**: `/_preview/{token}` now starts a signed-cookie
   session (Secure on HTTPS; dies with the token) — full-site navigation in preview
   chrome with an Exit link, the tokened draft overlaid at its canonical URL
