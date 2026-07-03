@@ -7,6 +7,7 @@ namespace App\Content\Http\Controllers;
 use App\Content\Delivery\Cursor;
 use App\Content\Delivery\DeliveryItemShaper;
 use App\Content\Delivery\DeliveryRepository;
+use App\Content\Delivery\ExpandedTargets;
 use App\Content\Delivery\FilterCompiler;
 use App\Content\Delivery\ReferenceResolver;
 use App\Content\Delivery\SortCompiler;
@@ -135,26 +136,27 @@ final class DeliveryController
 
         $selector = FieldSelector::fromRequest($request);
         $scopes = $this->grantedScopes($request);
+        $expanded = new ExpandedTargets();
 
         // Pagination branch: explicit ?page/?perPage uses the framework offset envelope.
         if ($query->wantsPagination()) {
             [$page, $perPage] = $this->pageParams($query);
             $result = $this->delivery->paginatePublished($typeUuid, $locale, $page, $perPage, $filter, $order);
-            $rows = $this->shape($result['data'], $schema, $selector, $locale, $typeUuid, $scopes);
+            $rows = $this->shape($result['data'], $schema, $selector, $locale, $typeUuid, $scopes, $expanded);
             $response = Response::paginated(
                 array_map(fn(array $r): array => $this->item($r), $rows),
                 $result['total'],
                 $result['current_page'],
                 $result['per_page'],
             );
-            return $this->withCacheHeaders($request, $response, $rows, $typeRow);
+            return $this->withCacheHeaders($request, $response, $rows, $typeRow, $expanded);
         }
 
         // Default: cursor/keyset list.
         $limit = $this->limit($query);
         $cursor = Cursor::decode($query->cursor ?? '');
         $rows = $this->delivery->listPublished($typeUuid, $locale, $limit, $filter, $order, $cursor);
-        $shaped = $this->shape($rows, $schema, $selector, $locale, $typeUuid, $scopes);
+        $shaped = $this->shape($rows, $schema, $selector, $locale, $typeUuid, $scopes, $expanded);
 
         $nextCursor = null;
         if (count($rows) === $limit && $rows !== []) {
@@ -166,7 +168,7 @@ final class DeliveryController
             'next_cursor' => $nextCursor,
         ], 'Content retrieved.');
 
-        return $this->withCacheHeaders($request, $response, $shaped, $typeRow);
+        return $this->withCacheHeaders($request, $response, $shaped, $typeRow, $expanded);
     }
 
     /**
@@ -217,6 +219,10 @@ final class DeliveryController
         $row = $result->content();
 
         $selector = FieldSelector::fromRequest($request);
+        // shape() runs BEFORE the conditional check, so the collector is populated
+        // on the 304 path too — the validator must fold in expansion identities
+        // even when no body is built (spec §4 P1).
+        $expanded = new ExpandedTargets();
         $shaped = $this->shape(
             [$row],
             $schema,
@@ -224,6 +230,7 @@ final class DeliveryController
             (string) $row['locale'],
             $typeUuid,
             $this->grantedScopes($request),
+            $expanded,
         );
         $item = $this->item($shaped[0]);
         $item['seo'] = $this->canonical->project(
@@ -234,12 +241,16 @@ final class DeliveryController
         );
 
         $private = $this->isScoped($request);
-        $etag = $this->etags->forItem((string) $row['version_uuid'], $this->selectionKey($request));
+        $etag = $this->etags->forItem(
+            (string) $row['version_uuid'],
+            $this->selectionKey($request),
+            $expanded->versionIdentities(),
+        );
         if ($this->etags->matches($request, $etag)) {
             return $this->etags->notModified(
                 $etag,
                 $this->ttl($typeRow),
-                $this->etags->cacheTag([(string) $row['entry_uuid']], $type),
+                $this->etags->cacheTag([(string) $row['entry_uuid']], $type, $expanded->entryUuids()),
                 $private,
             );
         }
@@ -249,7 +260,7 @@ final class DeliveryController
             $response,
             $etag,
             $this->ttl($typeRow),
-            $this->etags->cacheTag([(string) $row['entry_uuid']], $type),
+            $this->etags->cacheTag([(string) $row['entry_uuid']], $type, $expanded->entryUuids()),
             $private,
         );
     }
@@ -314,8 +325,9 @@ final class DeliveryController
         string $locale,
         string $typeUuid,
         ?array $grantedScopes,
+        ?ExpandedTargets $expanded = null,
     ): array {
-        return $this->itemShaper()->shape($rows, $schema, $selector, $locale, $typeUuid, $grantedScopes);
+        return $this->itemShaper()->shape($rows, $schema, $selector, $locale, $typeUuid, $grantedScopes, $expanded);
     }
 
     /**
@@ -337,17 +349,18 @@ final class DeliveryController
         Response $response,
         array $rows,
         array $typeRow,
+        ExpandedTargets $expanded,
     ): Response {
         $versionUuids = array_map(static fn(array $r): string => (string) ($r['version_uuid'] ?? ''), $rows);
         $entryUuids = array_map(static fn(array $r): string => (string) ($r['entry_uuid'] ?? ''), $rows);
-        $etag = $this->etags->forList($versionUuids, $this->selectionKey($request));
+        $etag = $this->etags->forList($versionUuids, $this->selectionKey($request), $expanded->versionIdentities());
         $typeSlug = (string) $typeRow['slug'];
 
         return $this->etags->applyHeaders(
             $response,
             $etag,
             $this->ttl($typeRow),
-            $this->etags->cacheTag($entryUuids, $typeSlug),
+            $this->etags->cacheTag($entryUuids, $typeSlug, $expanded->entryUuids()),
             $this->isScoped($request),
         );
     }

@@ -129,7 +129,11 @@ hierarchy `blocks/{type}.twig` (theme file or DB-edited template — both work).
 block template receives `{ block, data, entry, index }`. Missing templates render an
 HTML comment in production and a visible placeholder in debug, logged once per type.
 Containers nest via `{{ blocks(data.region) }}` up to 3 levels; deeper data renders
-nothing. Reference values inside `data` are raw uuids — use `path(uuid)` for links.
+nothing. Reference values inside `data` arrive expanded (published item:
+`data.post.fields.title`, `path(data.post.entry_uuid)`; `null` when the target is
+unpublished or gated; raw uuid only at the expansion-depth cap). Asset values stay
+raw blob uuids for `media()`. Pages embedding expanded targets carry the target's
+`lemma:entry:{uuid}` cache tag, so they purge when the target republishes.
 
 `php glueful lemma:blocks:seed` (alias `blocks:seed`) seeds ten starter block types
 (Layout/Content/Media) with matching default-theme templates — idempotent, skips any

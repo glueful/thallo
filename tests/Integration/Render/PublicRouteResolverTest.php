@@ -276,4 +276,69 @@ final class PublicRouteResolverTest extends LemmaTestCase
                 ->assign($entryUuid, $typeUuid, 'en', $slug);
         }
     }
+
+    /**
+     * Seed a `page` type with a blocks `body` + a `related` block type, publish a
+     * target and a source embedding it, and return the target uuid. The publish
+     * path REQUIRES the full validator (blocks fields reject without the registry).
+     *
+     * @return string the TARGET entry uuid
+     */
+    private function seedBlockPagePair(): string
+    {
+        (new \App\Content\Blocks\BlockTypeRepository($this->connection()))->create([
+            'slug' => 'related',
+            'label' => 'Related',
+            'schema' => [['name' => 'post', 'type' => 'reference']],
+        ]);
+        $types = new ContentTypeRepository($this->connection());
+        $type = $types->create([
+            'slug' => 'page',
+            'name' => 'Page',
+            'public_delivery' => true,
+            'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
+        $publish = new \App\Content\Services\PublishService(
+            $this->appContext(),
+            $entries,
+            new \App\Content\Repositories\VersionRepository($this->connection()),
+            $types,
+            new \App\Content\Validation\FieldValidator(
+                $this->connection(),
+                $this->appContext(),
+                new \App\Content\Blocks\BlockTypeRepository($this->connection()),
+            ),
+            new \App\Content\Repositories\ReferenceProjectionRepository($this->connection()),
+        );
+        $routes = new \App\Content\Repositories\RouteRepository($this->connection());
+
+        $target = $entries->createEntry($type, 'en', 1, 'user00000001');
+        $entries->saveDraft($target, 'en', ['title' => 'T', 'body' => []], 1, 0, 'user00000001');
+        $routes->assign($target, $type, 'en', 'target');
+        $publish->publish($target, 'en', 'user00000001');
+
+        $source = $entries->createEntry($type, 'en', 1, 'user00000001');
+        $entries->saveDraft($source, 'en', ['title' => 'S', 'body' => [
+            ['id' => 'b1', 'type' => 'related', 'data' => ['post' => $target]],
+        ]], 1, 0, 'user00000001');
+        $routes->assign($source, $type, 'en', 'source');
+        $publish->publish($source, 'en', 'user00000001');
+
+        return $target;
+    }
+
+    public function testContentResultCarriesExpansionTargetCacheTags(): void
+    {
+        $target = $this->seedBlockPagePair();
+
+        $result = $this->resolver()->resolvePath('/page/source');
+        self::assertSame('content', $result['kind']);
+        self::assertContains('lemma:entry:' . $target, $result['cache_tags']);
+        // Privacy: the tags never ride inside the content payload.
+        self::assertArrayNotHasKey('cache_tags', $result['content']);
+    }
 }
