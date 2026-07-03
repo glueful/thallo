@@ -8,6 +8,9 @@ import type { ContentTypeField } from './contentTypes'
 // `blocks` field type composes. Slugs are immutable (the blocks/{slug}.twig template
 // contract); removal is deactivation only.
 
+/** Mirrors the backend App\Content\Blocks\BlockDepth::MAX (nesting amendment §A2). */
+export const MAX_BLOCK_DEPTH = 3
+
 export interface BlockType {
   uuid: string
   slug: string

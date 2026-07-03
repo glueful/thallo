@@ -128,7 +128,8 @@ that theme's overrides, so you can author against an inactive theme and preview 
 hierarchy `blocks/{type}.twig` (theme file or DB-edited template — both work). Each
 block template receives `{ block, data, entry, index }`. Missing templates render an
 HTML comment in production and a visible placeholder in debug, logged once per type.
-Reference values inside `data` are raw uuids — use `path(uuid)` for links.
+Containers nest via `{{ blocks(data.region) }}` up to 3 levels; deeper data renders
+nothing. Reference values inside `data` are raw uuids — use `path(uuid)` for links.
 
 ## Facet counts in templates
 

@@ -20,6 +20,12 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   Twig function through `blocks/{type}.twig` (theme or DB-edited templates), added
   to the DB-template sandbox allowlist with a policy cache-version bump. References
   inside blocks stay raw uuids (no auto-expansion in v1).
+  Follow-up (same day): **container blocks** — block schemas may nest `blocks`
+  fields (sections, columns) up to a centralized depth of 3 (`BlockDepth::MAX`,
+  mirrored and test-asserted in the render pack and SPA); depth-aware validation
+  via an explicit internal depth parameter; recursive block editor with a
+  max-depth notice and a cycle-free async registry entry; render-scoped depth
+  counter in the reset family. No sandbox-policy change.
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

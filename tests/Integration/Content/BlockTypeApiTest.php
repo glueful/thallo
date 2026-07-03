@@ -51,13 +51,14 @@ final class BlockTypeApiTest extends LemmaTestCase
         ), $this->req());
         self::assertSame(422, $dup->getStatusCode());
 
-        // §2 schema rules surface as 422.
+        // §2 schema rules surface as 422 (localized — nested `blocks` fields are
+        // ALLOWED since the nesting amendment; see BlockTypeRepositoryTest).
         $bad = $this->api()->store(new BlockTypeData(
             slug: 'bad',
             label: 'Bad',
             icon: null,
             description: null,
-            schema: [new FieldDefinitionData(name: 's', type: 'blocks')],
+            schema: [new FieldDefinitionData(name: 's', type: 'string', localized: true)],
         ), $this->req());
         self::assertSame(422, $bad->getStatusCode());
 

@@ -140,8 +140,9 @@ final class BlockTypeRepository
 
     /**
      * §2 rules on TOP of normal field-schema parsing: parsing itself (via
-     * ContentTypeSchema) rejects invalid types/enums/etc.; these three are the
-     * blocks-specific prohibitions.
+     * ContentTypeSchema) rejects invalid types/enums/etc.; these two are the
+     * blocks-specific prohibitions. `blocks` fields ARE allowed since the nesting
+     * amendment (§A1) — the BlockDepth::MAX data cap replaced the schema-level ban.
      *
      * @param list<array<string,mixed>> $schema
      */
@@ -149,11 +150,6 @@ final class BlockTypeRepository
     {
         foreach ($schema as $field) {
             $name = is_string($field['name'] ?? null) ? $field['name'] : '?';
-            if (($field['type'] ?? null) === 'blocks') {
-                throw new SchemaParseException(
-                    "block field '{$name}': blocks inside block schemas are not allowed (no nesting in v1)"
-                );
-            }
             if ((bool) ($field['localized'] ?? false)) {
                 throw new SchemaParseException(
                     "block field '{$name}': localization belongs to the outer blocks field"

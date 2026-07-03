@@ -18,9 +18,9 @@ const props = withDefaults(defineProps<{ context?: 'content-type' | 'block-type'
 
 const model = defineModel<ContentTypeField[]>({ required: true })
 
-const typeItems = computed(() =>
-  props.context === 'block-type' ? FIELD_TYPES.filter((t) => t !== 'blocks') : [...FIELD_TYPES],
-)
+// Nesting amendment §A4: block schemas may use `blocks` fields too (the v1 exclusion
+// is lifted); localized/filterable stay hidden in the block-type context below.
+const typeItems = computed(() => [...FIELD_TYPES])
 
 // Block-type allowlist options for `blocks` fields — ACTIVE types only (picker-only rule).
 const { data: allBlockTypes } = useBlockTypes()

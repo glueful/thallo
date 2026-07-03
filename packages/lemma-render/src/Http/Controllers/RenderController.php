@@ -463,6 +463,7 @@ final class RenderController
         }
         $this->extension->resetTags();
         $this->extension->setAssetBase($assetBase);
+        $this->extension->resetBlockDepth();
         $this->extension->setLocale($locale);
         $context = [
             'site' => [

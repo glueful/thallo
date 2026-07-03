@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import type { FieldDef } from '../types'
 import { fieldComponent } from '../registry'
 import { toFieldDef } from '../normalize'
-import { useBlockTypes, type BlockType } from '@/queries/blockTypes'
+import { useBlockTypes, MAX_BLOCK_DEPTH, type BlockType } from '@/queries/blockTypes'
 
 interface BlockInstance {
   id: string
@@ -11,7 +11,11 @@ interface BlockInstance {
   data: Record<string, unknown>
 }
 
-const props = defineProps<{ field: FieldDef }>()
+// `depth` (nesting amendment §A4): 1 = the entry's blocks field; nested instances
+// receive depth + 1. At MAX_BLOCK_DEPTH, nested blocks fields render a notice
+// instead of an editor — the UI cannot author what validation rejects.
+const props = defineProps<{ field: FieldDef; depth?: number }>()
+const depth = computed(() => props.depth ?? 1)
 const model = defineModel<BlockInstance[]>({ default: () => [] })
 
 const { data: allTypes } = useBlockTypes()
@@ -80,6 +84,20 @@ function duplicate(id: string) {
 function remove(id: string) {
   model.value = (model.value ?? []).filter((b) => b.id !== id)
   pendingDelete.value = null
+}
+
+// Void handlers for UButton's typed onClick ((e) => void | Promise<void>) — inline
+// assignment/toggle expressions return values and fail the Nuxt UI prop type.
+function askDelete(id: string): void {
+  pendingDelete.value = id
+}
+
+function cancelDelete(): void {
+  pendingDelete.value = null
+}
+
+function togglePicker(): void {
+  pickerOpen.value = !pickerOpen.value
 }
 
 function patchData(id: string, name: string, value: unknown) {
@@ -160,7 +178,7 @@ function summary(block: BlockInstance, type: BlockType | undefined): string {
             icon="i-lucide-trash-2"
             :data-test="`block-delete-${block.id}`"
             aria-label="Delete"
-            @click="pendingDelete = block.id"
+            @click="askDelete(block.id)"
           />
         </div>
         <div
@@ -171,21 +189,31 @@ function summary(block: BlockInstance, type: BlockType | undefined): string {
           <UButton size="xs" color="error" data-test="block-delete-confirm" @click="remove(block.id)">
             Delete
           </UButton>
-          <UButton size="xs" variant="ghost" color="neutral" @click="pendingDelete = null">
+          <UButton size="xs" variant="ghost" color="neutral" @click="cancelDelete()">
             Cancel
           </UButton>
         </div>
         <div v-if="expanded[block.id]" class="space-y-3 border-t border-default p-3">
           <!-- toFieldDef: block schemas arrive snake_case; widgets consume camelCase
-               FieldDef (ReferenceField reads field.referenceType). -->
-          <component
-            :is="fieldComponent(toFieldDef(f).type)"
-            v-for="f in bySlug.get(block.type)?.schema ?? []"
-            :key="f.name"
-            :field="toFieldDef(f)"
-            :model-value="block.data[f.name]"
-            @update:model-value="(v: unknown) => patchData(block.id, f.name, v)"
-          />
+               FieldDef (ReferenceField reads field.referenceType). Nested blocks
+               fields recurse with depth + 1, or show the max-depth notice. -->
+          <template v-for="f in bySlug.get(block.type)?.schema ?? []" :key="f.name">
+            <p
+              v-if="toFieldDef(f).type === 'blocks' && depth >= MAX_BLOCK_DEPTH"
+              class="rounded border border-dashed border-default px-2 py-1.5 text-xs text-muted"
+              data-test="max-depth-notice"
+            >
+              “{{ f.name }}”: maximum nesting depth ({{ MAX_BLOCK_DEPTH }}) reached.
+            </p>
+            <component
+              :is="fieldComponent(toFieldDef(f).type)"
+              v-else
+              :field="toFieldDef(f)"
+              :depth="toFieldDef(f).type === 'blocks' ? depth + 1 : undefined"
+              :model-value="block.data[f.name]"
+              @update:model-value="(v: unknown) => patchData(block.id, f.name, v)"
+            />
+          </template>
         </div>
       </div>
 
@@ -195,7 +223,7 @@ function summary(block: BlockInstance, type: BlockType | undefined): string {
           color="neutral"
           icon="i-lucide-plus"
           data-test="add-block"
-          @click="pickerOpen = !pickerOpen"
+          @click="togglePicker()"
         >
           Add block
         </UButton>
