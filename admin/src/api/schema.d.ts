@@ -144,6 +144,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/block-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List block types */
+        get: operations["getV1AdminBlocktypes"];
+        put?: never;
+        /**
+         * Create a block type
+         * @description `slug` is a unique lowercase identifier and IMMUTABLE after creation — it is the blocks/{slug}.twig template contract.
+         */
+        post: operations["postV1AdminBlocktypes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/entries": {
         parameters: {
             query?: never;
@@ -772,6 +793,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/block-types/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One block type */
+        get: operations["getV1AdminBlocktypesBySlug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a block type (slug is immutable) */
+        patch: operations["patchV1AdminBlocktypesBySlug"];
+        trace?: never;
+    };
     "/entries/{uuid}": {
         parameters: {
             query?: never;
@@ -1362,6 +1401,40 @@ export interface paths {
         put?: never;
         /** Withdraw a submission */
         post: operations["postV1AdminWorkflowEntriesByUuidByLocaleWithdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/block-types/{slug}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reactivate a block type */
+        post: operations["postV1AdminBlocktypesBySlugActivate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/block-types/{slug}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Deactivate a block type (existing content keeps rendering/editing) */
+        post: operations["postV1AdminBlocktypesBySlugDeactivate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2719,7 +2792,7 @@ export interface operations {
                                 schema?: {
                                     name?: string;
                                     /** @enum {string} */
-                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json";
+                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json" | "blocks";
                                     required?: boolean | null;
                                     localized?: boolean | null;
                                     filterable?: boolean | null;
@@ -2730,6 +2803,7 @@ export interface operations {
                                     multiple?: boolean | null;
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
+                                    block_types?: string[];
                                 }[];
                                 schema_version?: number;
                                 created_by?: string | null;
@@ -2838,6 +2912,8 @@ export interface operations {
                         multiple?: boolean | null;
                         max_items?: number | null;
                         reference_slug_field?: string | null;
+                        /** @description Picker-only block-type allowlist for a `blocks` field. */
+                        block_types?: string[];
                     }[];
                 };
             };
@@ -2872,7 +2948,7 @@ export interface operations {
                                 schema?: {
                                     name?: string;
                                     /** @enum {string} */
-                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json";
+                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json" | "blocks";
                                     required?: boolean | null;
                                     localized?: boolean | null;
                                     filterable?: boolean | null;
@@ -2883,6 +2959,7 @@ export interface operations {
                                     multiple?: boolean | null;
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
+                                    block_types?: string[];
                                 }[];
                                 schema_version?: number;
                                 created_by?: string | null;
@@ -2930,6 +3007,271 @@ export interface operations {
                 };
             };
             /** @description Invalid slug/name, duplicate slug, or invalid field schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminBlocktypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All block types, active first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            block_types?: {
+                                uuid?: string;
+                                slug?: string;
+                                label?: string;
+                                icon?: string | null;
+                                category?: string | null;
+                                description?: string | null;
+                                active?: boolean;
+                                schema?: {
+                                    name?: string;
+                                    /** @enum {string} */
+                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json" | "blocks";
+                                    required?: boolean | null;
+                                    localized?: boolean | null;
+                                    filterable?: boolean | null;
+                                    filter_type?: string | null;
+                                    enum?: string[];
+                                    format?: string | null;
+                                    reference_type?: string | null;
+                                    multiple?: boolean | null;
+                                    max_items?: number | null;
+                                    reference_slug_field?: string | null;
+                                    block_types?: string[];
+                                }[];
+                            }[];
+                        };
+                    };
+                };
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AdminBlocktypes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "slug": "example-slug",
+                 *       "label": "example",
+                 *       "icon": "example",
+                 *       "category": "example",
+                 *       "description": "A short description.",
+                 *       "schema": "example"
+                 *     }
+                 */
+                "application/json": {
+                    /** @description Unique lowercase block-type slug (also the template name). */
+                    slug: string;
+                    label: string;
+                    /** @description Lucide icon name shown in the block picker. */
+                    icon?: string | null;
+                    /** @description Free-form picker grouping ("Layout", "Content", …); presentation only. */
+                    category?: string | null;
+                    description?: string | null;
+                    schema?: {
+                        name?: string;
+                        type?: string;
+                        required?: boolean | null;
+                        localized?: boolean | null;
+                        filterable?: boolean | null;
+                        filter_type?: string | null;
+                        enum?: string[];
+                        format?: string | null;
+                        reference_type?: string | null;
+                        multiple?: boolean | null;
+                        max_items?: number | null;
+                        reference_slug_field?: string | null;
+                        /** @description Picker-only block-type allowlist for a `blocks` field. */
+                        block_types?: string[];
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Block type created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            block_type?: {
+                                uuid?: string;
+                                slug?: string;
+                                label?: string;
+                                icon?: string | null;
+                                category?: string | null;
+                                description?: string | null;
+                                active?: boolean;
+                                schema?: {
+                                    name?: string;
+                                    /** @enum {string} */
+                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json" | "blocks";
+                                    required?: boolean | null;
+                                    localized?: boolean | null;
+                                    filterable?: boolean | null;
+                                    filter_type?: string | null;
+                                    enum?: string[];
+                                    format?: string | null;
+                                    reference_type?: string | null;
+                                    multiple?: boolean | null;
+                                    max_items?: number | null;
+                                    reference_slug_field?: string | null;
+                                    block_types?: string[];
+                                }[];
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Duplicate slug or invalid block schema (no nested blocks/localized/filterable fields). */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -6594,7 +6936,7 @@ export interface operations {
                                 schema?: {
                                     name?: string;
                                     /** @enum {string} */
-                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json";
+                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json" | "blocks";
                                     required?: boolean | null;
                                     localized?: boolean | null;
                                     filterable?: boolean | null;
@@ -6605,6 +6947,7 @@ export interface operations {
                                     multiple?: boolean | null;
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
+                                    block_types?: string[];
                                 }[];
                                 schema_version?: number;
                                 created_by?: string | null;
@@ -7058,6 +7401,299 @@ export interface operations {
             };
             /** @description No such migration. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminBlocktypesBySlug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The block type with its schema. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            block_type?: {
+                                uuid?: string;
+                                slug?: string;
+                                label?: string;
+                                icon?: string | null;
+                                category?: string | null;
+                                description?: string | null;
+                                active?: boolean;
+                                schema?: {
+                                    name?: string;
+                                    /** @enum {string} */
+                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json" | "blocks";
+                                    required?: boolean | null;
+                                    localized?: boolean | null;
+                                    filterable?: boolean | null;
+                                    filter_type?: string | null;
+                                    enum?: string[];
+                                    format?: string | null;
+                                    reference_type?: string | null;
+                                    multiple?: boolean | null;
+                                    max_items?: number | null;
+                                    reference_slug_field?: string | null;
+                                    block_types?: string[];
+                                }[];
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown slug. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    patchV1AdminBlocktypesBySlug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "label": "example",
+                 *       "icon": "example",
+                 *       "category": "example",
+                 *       "description": "A short description.",
+                 *       "schema": "example"
+                 *     }
+                 */
+                "application/json": {
+                    label: string;
+                    /** @description Lucide icon name shown in the block picker. */
+                    icon?: string | null;
+                    /** @description Free-form picker grouping ("Layout", "Content", …); presentation only. */
+                    category?: string | null;
+                    description?: string | null;
+                    schema?: {
+                        name?: string;
+                        type?: string;
+                        required?: boolean | null;
+                        localized?: boolean | null;
+                        filterable?: boolean | null;
+                        filter_type?: string | null;
+                        enum?: string[];
+                        format?: string | null;
+                        reference_type?: string | null;
+                        multiple?: boolean | null;
+                        max_items?: number | null;
+                        reference_slug_field?: string | null;
+                        /** @description Picker-only block-type allowlist for a `blocks` field. */
+                        block_types?: string[];
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            block_type?: {
+                                uuid?: string;
+                                slug?: string;
+                                label?: string;
+                                icon?: string | null;
+                                category?: string | null;
+                                description?: string | null;
+                                active?: boolean;
+                                schema?: {
+                                    name?: string;
+                                    /** @enum {string} */
+                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json" | "blocks";
+                                    required?: boolean | null;
+                                    localized?: boolean | null;
+                                    filterable?: boolean | null;
+                                    filter_type?: string | null;
+                                    enum?: string[];
+                                    format?: string | null;
+                                    reference_type?: string | null;
+                                    multiple?: boolean | null;
+                                    max_items?: number | null;
+                                    reference_slug_field?: string | null;
+                                    block_types?: string[];
+                                }[];
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown slug. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Invalid block schema (no nested blocks/localized/filterable fields). */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10839,6 +11475,246 @@ export interface operations {
             };
         };
     };
+    postV1AdminBlocktypesBySlugActivate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Active — back in the block picker. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            block_type?: {
+                                uuid?: string;
+                                slug?: string;
+                                label?: string;
+                                icon?: string | null;
+                                category?: string | null;
+                                description?: string | null;
+                                active?: boolean;
+                                schema?: {
+                                    name?: string;
+                                    /** @enum {string} */
+                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json" | "blocks";
+                                    required?: boolean | null;
+                                    localized?: boolean | null;
+                                    filterable?: boolean | null;
+                                    filter_type?: string | null;
+                                    enum?: string[];
+                                    format?: string | null;
+                                    reference_type?: string | null;
+                                    multiple?: boolean | null;
+                                    max_items?: number | null;
+                                    reference_slug_field?: string | null;
+                                    block_types?: string[];
+                                }[];
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown slug. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AdminBlocktypesBySlugDeactivate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Inactive — hidden from the picker. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            block_type?: {
+                                uuid?: string;
+                                slug?: string;
+                                label?: string;
+                                icon?: string | null;
+                                category?: string | null;
+                                description?: string | null;
+                                active?: boolean;
+                                schema?: {
+                                    name?: string;
+                                    /** @enum {string} */
+                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json" | "blocks";
+                                    required?: boolean | null;
+                                    localized?: boolean | null;
+                                    filterable?: boolean | null;
+                                    filter_type?: string | null;
+                                    enum?: string[];
+                                    format?: string | null;
+                                    reference_type?: string | null;
+                                    multiple?: boolean | null;
+                                    max_items?: number | null;
+                                    reference_slug_field?: string | null;
+                                    block_types?: string[];
+                                }[];
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown slug. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     postV1AdminEntriesByUuidLocalesByLocale: {
         parameters: {
             query?: never;
@@ -12385,6 +13261,8 @@ export interface operations {
                         multiple?: boolean | null;
                         max_items?: number | null;
                         reference_slug_field?: string | null;
+                        /** @description Picker-only block-type allowlist for a `blocks` field. */
+                        block_types?: string[];
                     }[];
                 };
             };
@@ -12412,7 +13290,7 @@ export interface operations {
                                 schema?: {
                                     name?: string;
                                     /** @enum {string} */
-                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json";
+                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json" | "blocks";
                                     required?: boolean | null;
                                     localized?: boolean | null;
                                     filterable?: boolean | null;
@@ -12423,6 +13301,7 @@ export interface operations {
                                     multiple?: boolean | null;
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
+                                    block_types?: string[];
                                 }[];
                                 schema_version?: number;
                                 created_by?: string | null;

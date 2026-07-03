@@ -1,6 +1,8 @@
 <script setup lang="ts">
 // Builder for a content type's field schema. v-models a ContentTypeField[]; the parent owns the
 // array and persists it (create → POST /content-types, edit → PATCH /content-types/{slug}/schema).
+// Also reused by the BLOCK-TYPE builder (context="block-type"): block schemas reject nested
+// blocks/localized/filterable fields (block-builder spec §2), so those options disappear there.
 import { computed } from 'vue'
 import {
   FIELD_TYPES,
@@ -8,10 +10,25 @@ import {
   type ContentTypeField,
   type FieldType,
 } from '@/queries/contentTypes'
+import { useBlockTypes } from '@/queries/blockTypes'
+
+const props = withDefaults(defineProps<{ context?: 'content-type' | 'block-type' }>(), {
+  context: 'content-type',
+})
 
 const model = defineModel<ContentTypeField[]>({ required: true })
 
-const typeItems = [...FIELD_TYPES]
+const typeItems = computed(() =>
+  props.context === 'block-type' ? FIELD_TYPES.filter((t) => t !== 'blocks') : [...FIELD_TYPES],
+)
+
+// Block-type allowlist options for `blocks` fields — ACTIVE types only (picker-only rule).
+const { data: allBlockTypes } = useBlockTypes()
+const blockTypeItems = computed(() =>
+  (allBlockTypes.value ?? [])
+    .filter((t) => t.active)
+    .map((t) => ({ label: t.label, value: t.slug })),
+)
 
 // Target options for `reference` fields — the content types an entry can point at.
 const { data: contentTypes } = useContentTypes()
@@ -51,6 +68,8 @@ function onTypeChange(index: number, type: FieldType) {
     ...(type === 'reference' ? {} : { reference_type: undefined, reference_slug_field: undefined }),
     // Multiple/max_items only apply to reference and asset fields; clear them otherwise.
     ...(type === 'reference' || type === 'asset' ? {} : { multiple: false, max_items: null }),
+    // The block-type allowlist only applies to blocks fields; blocks are never filterable.
+    ...(type === 'blocks' ? { filterable: false } : { block_types: undefined }),
   })
 }
 
@@ -180,18 +199,38 @@ function setEnum(index: number, text: string) {
         />
       </UFormField>
 
+      <UFormField
+        v-if="field.type === 'blocks'"
+        label="Allowed block types"
+        hint="Which block types the editor's picker offers; empty = all active types"
+      >
+        <USelect
+          :model-value="field.block_types ?? []"
+          :items="blockTypeItems"
+          multiple
+          placeholder="All active block types"
+          class="w-full"
+          data-test="field-block-types"
+          @update:model-value="patch(index, { block_types: ($event as string[]) ?? [] })"
+        />
+      </UFormField>
+
       <div class="flex flex-wrap gap-4">
         <USwitch
           :model-value="field.required"
           label="Required"
           @update:model-value="patch(index, { required: $event })"
         />
+        <!-- Block schemas: localized/filterable are rejected server-side (spec §2);
+             blocks fields themselves are never filterable. -->
         <USwitch
+          v-if="context === 'content-type'"
           :model-value="field.localized"
           label="Localized"
           @update:model-value="patch(index, { localized: $event })"
         />
         <USwitch
+          v-if="context === 'content-type' && field.type !== 'blocks'"
           :model-value="field.filterable"
           label="Filterable"
           @update:model-value="patch(index, { filterable: $event })"

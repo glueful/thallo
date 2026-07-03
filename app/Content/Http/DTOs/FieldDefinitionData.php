@@ -49,6 +49,10 @@ final class FieldDefinitionData implements RequestData
         public readonly ?int $max_items = null,
         #[Rule('string')]
         public readonly ?string $reference_slug_field = null,
+        /** @var list<string> Picker-only block-type allowlist for a `blocks` field. */
+        #[ArrayOf('string')]
+        #[Rule('array')]
+        public readonly array $block_types = [],
     ) {
     }
 
@@ -72,6 +76,7 @@ final class FieldDefinitionData implements RequestData
             'multiple' => $this->multiple ?? false,
             'max_items' => $this->max_items,
             'reference_slug_field' => $this->reference_slug_field,
+            'block_types' => $this->block_types,
         ];
     }
 }

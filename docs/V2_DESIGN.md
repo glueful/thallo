@@ -174,7 +174,8 @@ published content using a filesystem theme."**
   (`docs/superpowers/specs/2026-07-02-term-index-pages-design.md`)
 - ✅ DB-edited templates — **shipped 2026-07-03**
   (`docs/superpowers/specs/2026-07-03-db-edited-templates-design.md`)
-- page/block builder
+- ✅ page/block builder — **shipped 2026-07-03**
+  (`docs/superpowers/specs/2026-07-03-page-block-builder-design.md`)
 
 ## 7. Sub-project sequence
 

@@ -12,6 +12,7 @@ export interface FieldDef {
     | 'reference'
     | 'asset'
     | 'json'
+    | 'blocks'
   required?: boolean
   enum?: string[]
   /** Presentation widget for `text` fields: 'plain' (textarea) or 'rich' (editor). */
@@ -24,4 +25,6 @@ export interface FieldDef {
   maxItems?: number
   /** Target field used to resolve reference slug filters (default `slug`). */
   referenceSlugField?: string
+  /** Picker-only block-type allowlist for a `blocks` field ([] / absent = all active). */
+  blockTypes?: string[]
 }

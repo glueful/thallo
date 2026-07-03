@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Content\Http\Controllers\BlockTypeController;
 use App\Content\Http\Controllers\ContentTypeController;
 use App\Content\Http\Controllers\EntryController;
 use App\Content\Http\Controllers\LocaleAdminController;
@@ -58,6 +59,26 @@ $router->group(['prefix' => '/v1/admin', 'middleware' => ['auth']], function (Ro
         ->middleware('lemma_permission:content.view');
 
     $router->delete('/content-types/{slug}', [ContentTypeController::class, 'destroy'])
+        ->middleware('lemma_permission:content.manage');
+
+    // Block-type registry (block-builder spec §1): the reusable block schemas that
+    // `blocks` fields compose. Same permissions as content-type schema management.
+    $router->get('/block-types', [BlockTypeController::class, 'index'])
+        ->middleware('lemma_permission:content.view');
+
+    $router->post('/block-types', [BlockTypeController::class, 'store'])
+        ->middleware('lemma_permission:content.manage');
+
+    $router->get('/block-types/{slug}', [BlockTypeController::class, 'show'])
+        ->middleware('lemma_permission:content.view');
+
+    $router->patch('/block-types/{slug}', [BlockTypeController::class, 'update'])
+        ->middleware('lemma_permission:content.manage');
+
+    $router->post('/block-types/{slug}/activate', [BlockTypeController::class, 'activate'])
+        ->middleware('lemma_permission:content.manage');
+
+    $router->post('/block-types/{slug}/deactivate', [BlockTypeController::class, 'deactivate'])
         ->middleware('lemma_permission:content.manage');
 
     // Entry authoring (identity, drafts, preview).

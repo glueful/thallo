@@ -8,7 +8,9 @@ use Glueful\Lemma\Contracts\Schema\FieldDescriptor;
 
 final class FieldDefinition implements FieldDescriptor
 {
-    public const TYPES = ['string', 'text', 'number', 'boolean', 'datetime', 'enum', 'reference', 'asset', 'json'];
+    public const TYPES = [
+        'string', 'text', 'number', 'boolean', 'datetime', 'enum', 'reference', 'asset', 'json', 'blocks',
+    ];
     public const FILTER_TYPES = ['string', 'number', 'boolean', 'datetime', 'enum'];
     /** Presentation widget for a `text` field — both store a string; only the editor differs. */
     public const TEXT_FORMATS = ['plain', 'rich'];
@@ -32,6 +34,13 @@ final class FieldDefinition implements FieldDescriptor
         public readonly ?int $maxItems = null,
         /** Field name on the referenced entry used as its slug identifier; reference fields only. */
         public readonly ?string $referenceSlugField = null,
+        /**
+         * Picker-only allowlist of block-type slugs for a `blocks` field ([] = all
+         * active). NEVER a server-side validation constraint (block-builder spec §1).
+         *
+         * @var list<string>
+         */
+        public readonly array $blockTypes = [],
     ) {
     }
 
@@ -143,6 +152,20 @@ final class FieldDefinition implements FieldDescriptor
             }
         }
 
+        // `blocks` (block-builder spec §1): block_types is a PICKER-ONLY allowlist —
+        // FieldValidator deliberately does not enforce it (tightening it must never
+        // strand existing content). Blocks fields are never filterable.
+        $blockTypes = [];
+        if ($type === 'blocks') {
+            if ($filterable) {
+                throw new SchemaParseException("blocks field '{$name}' cannot be filterable");
+            }
+            $blockTypes = array_values(array_filter(
+                array_map('strval', (array) ($raw['block_types'] ?? [])),
+                static fn(string $v): bool => $v !== ''
+            ));
+        }
+
         return new self(
             name: $name,
             type: $type,
@@ -156,6 +179,7 @@ final class FieldDefinition implements FieldDescriptor
             multiple: $multiple,
             maxItems: $maxItems,
             referenceSlugField: $referenceSlugField,
+            blockTypes: $blockTypes,
         );
     }
 }

@@ -34,6 +34,7 @@ use App\Http\Controllers\UserAdminController;
 use App\Support\UserRoleAssignmentPolicy;
 use App\Settings\GeneralSettings;
 use App\Settings\SettingsStore;
+use App\Content\Http\Controllers\BlockTypeController;
 use App\Content\Http\Controllers\ContentTypeController;
 use App\Http\Controllers\SetupController;
 use App\Content\Http\Controllers\DeliveryController;
@@ -70,6 +71,7 @@ use App\Content\Pipeline\Listeners\ProjectPublishedReferencesListener;
 use App\Content\Pipeline\Listeners\PurgeCdnListener;
 use App\Content\Pipeline\Listeners\MediaUsageProjector;
 use App\Content\Pipeline\Listeners\ReindexSearchListener;
+use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Pipeline\PublishEventEmitter;
 use App\Content\Preview\EnginePreviewSessionVerifier;
 use App\Content\Preview\PreviewMinter;
@@ -192,6 +194,11 @@ final class LemmaServiceProvider extends ServiceProvider
     private static function repositoryServices(): array
     {
         return [
+            BlockTypeRepository::class => [
+                'class' => BlockTypeRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             ContentTypeRepository::class => [
                 'class' => ContentTypeRepository::class,
                 'shared' => true,
@@ -612,6 +619,11 @@ final class LemmaServiceProvider extends ServiceProvider
     private static function contentControllerServices(): array
     {
         return [
+            BlockTypeController::class => [
+                'class' => BlockTypeController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             ContentTypeController::class => [
                 'class' => ContentTypeController::class,
                 'shared' => true,

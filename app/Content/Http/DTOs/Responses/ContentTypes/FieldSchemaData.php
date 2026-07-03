@@ -43,6 +43,9 @@ final class FieldSchemaData implements ResponseData
         public readonly ?int $max_items = null,
         /** Target field used to resolve slug filter values for a reference field (default `slug`). */
         public readonly ?string $reference_slug_field = null,
+        /** Picker-only allowlist of block-type slugs for a `blocks` field; absent = all active. */
+        #[ArrayOf('string')]
+        public readonly array $block_types = [],
     ) {
     }
 }

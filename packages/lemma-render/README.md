@@ -122,6 +122,14 @@ no runtime sandbox — enforcement is the AST scan plus the arrays-only render c
 routes off). Active-theme saves purge the page cache; per-preview themed sessions see
 that theme's overrides, so you can author against an inactive theme and preview it.
 
+## Blocks in templates
+
+`blocks(entry.fields.body)` renders an ordered blocks-field value through the template
+hierarchy `blocks/{type}.twig` (theme file or DB-edited template — both work). Each
+block template receives `{ block, data, entry, index }`. Missing templates render an
+HTML comment in production and a visible placeholder in debug, logged once per type.
+Reference values inside `data` are raw uuids — use `path(uuid)` for links.
+
 ## Facet counts in templates
 
 `facets('post', 'category', limit = 100)` returns `[{uuid, slug, count}, …]` (count
