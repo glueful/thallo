@@ -11,7 +11,7 @@
 | Authoring UX | **Structured block-list editor** (Sanity/Strapi style) in the entry editor — no visual canvas; real appearance checking goes through preview sessions. |
 | Block definitions | **Global block-type registry** (`lemma_block_types`): admin-defined mini-schemas reusing `FieldDefinition`, shared across content types, one theme template per block type. |
 | Storage | Blocks are a **normal content field**: an ordered JSON list inside entry `fields` — drafts, versions, rollback, publish, localization, preview, and delivery are untouched. |
-| Nesting | **None in v1** — enforced at block-type save (see §2). |
+| Nesting | **None in v1** — enforced at block-type save (see §2). **Lifted by the same-day nesting amendment** (containers via nested `blocks` fields, depth-capped — see the Amendment section). |
 | Localization | **Outer field only** — a localized `blocks` field means one ordered block list per locale. |
 | References in blocks | **Validated, never auto-expanded** in v1 (see §5). |
 | Schema evolution | **Non-migrating** (see §3). |
@@ -56,9 +56,9 @@ Admin CRUD at `/v1/admin/block-types`, authorized exactly like content-type sche
 ## 2. Block-type schema rules (validated at block-type save)
 
 - Fields reuse the full `FieldDefinition` vocabulary **except**:
-  - `type: 'blocks'` is **rejected** — no blocks inside block schemas in v1 (the no-nesting pin is a validation rule, not a convention).
-  - `localized: true` is **rejected** — localization belongs to the outer field (pin).
-  - `filterable: true` is **rejected** — block data is never a filter surface.
+  - `type: 'blocks'` is **allowed since the same-day nesting amendment** (§A1 below; the v1 release rejected it — the no-nesting pin was a validation rule, now lifted with the §A2 depth cap replacing it).
+  - `localized: true` is **rejected** — localization belongs to the outer field (pin; unchanged by the amendment).
+  - `filterable: true` is **rejected** — block data is never a filter surface (unchanged by the amendment).
 - **Deactivate over delete (pin):** block types carry `active`. Deactivating removes the type from the add-picker; existing entries containing it keep validating, editing, and rendering. There is **no hard delete in v1** (usage counting inside versioned JSON is expensive and driver-specific; hard delete can be an admin-only cleanup later).
 - Reactivation is allowed; slug immutability makes it safe.
 
@@ -147,8 +147,103 @@ A `blocks(list)` function on `RenderContextExtension`:
 
 ## Out of scope (v1)
 
-- Nested blocks; per-field localization inside blocks.
+- ~~Nested blocks~~ (superseded by the **Nesting amendment** below, same date); per-field localization inside blocks.
 - Automatic reference/asset expansion inside block data (deferred with selector syntax + access checks).
 - Block-schema migrations (rename/retype); hard-deleting block types.
 - Visual canvas editing; per-block style controls; shipped block template library.
 - Purging pages on edits to entries referenced inside blocks.
+
+---
+
+# Amendment: Container blocks / nesting (2026-07-03, post-v1)
+
+Approved follow-up relaxing exactly one v1 pin. **The data model is nearly free; the
+depth discipline and the recursive editor/render paths are not — they are the work,
+and every pin below exists to keep the three enforcement surfaces in lockstep.**
+
+## A1. Child model
+
+Block-type schemas MAY contain `blocks`-type fields (the v1 §2 "no nesting" rule is
+lifted; **`localized` and `filterable` rejections stay**). Children live in `data`:
+a section is `{type: 'section', data: {content: [blocks…]}}`; a two-column block has
+`left`/`right` blocks fields; variable column counts are modeled as fixed region
+fields plus an enum the template reads. Stored entry JSON stays `{id, type, data}`
+at every level — versions/publish/localization (outer field only, unchanged)/
+delivery pass-through/preview all hold by construction. Block `id`s stay unique
+**per list**. Nested blocks fields keep identical semantics to top-level ones
+(`block_types` picker-only, `required` = present, strict-publish non-empty).
+Schema-level cycles (type A containing a blocks field that allows A) need no special
+handling — the data depth cap contains them. The `category` "Layout" value is the
+CONVENTION for marking containers; nothing branches on it.
+
+## A2. Depth cap — centralized, one value, three surfaces (pinned)
+
+`MAX = 3`: the entry's blocks field is depth 1, children 2, grandchildren 3
+(section → columns → elements). The value is NAMED once per surface and the test
+suites assert the surfaces agree:
+
+- **Backend (authoritative):** `App\Content\Blocks\BlockDepth::MAX = 3`.
+- **Render pack:** `RenderContextExtension::MAX_BLOCK_DEPTH = 3` — its own constant
+  (the pack cannot import `App\`), with an app-side test asserting
+  `RenderContextExtension::MAX_BLOCK_DEPTH === BlockDepth::MAX`.
+- **SPA:** `MAX_BLOCK_DEPTH = 3` in `admin/src/queries/blockTypes.ts`, with a spec
+  test asserting the value is 3 (mirroring the backend).
+
+Without this, the editor can author what publish rejects or render can show what
+validation forbids — the cap is ONE rule expressed three times, kept honest by tests.
+
+## A3. Validation — explicit depth parameter (pinned)
+
+Recursion is NOT through public `FieldValidator::validate()` blindly. An internal
+`validateAt(ContentTypeSchema $schema, array $payload, bool $strict, int $depth)`
+carries the depth; public `validate()` delegates at depth 0. A blocks field's items
+sit at `$depth + 1`; when `$depth + 1 > BlockDepth::MAX`, the FIELD gets a dot-path
+error (`body.0.content.1.inner => exceeds maximum block nesting depth (3)`) and no
+deeper validation runs. Nested errors keep composing paths:
+`body.0.content.1.heading`.
+
+## A4. Editor — recursive widget WITHOUT an import cycle (pinned)
+
+The v1 registry↔BlocksField static import cycle must not deepen: the registry maps
+`blocks` to `defineAsyncComponent(() => import('./components/BlocksField.vue'))`,
+removing the static edge; `BlocksField` keeps importing `fieldComponent()` — the
+recursion is now explicit and cycle-free. `BlocksField` gains a `depth` prop
+(default 1); at `depth ≥ MAX_BLOCK_DEPTH`, a nested blocks field renders a
+"maximum nesting depth reached" notice (`data-test="max-depth-notice"`) instead of
+an add-picker, so the editor cannot author what validation rejects. v1 interaction
+scope holds per level (up/down, duplicate, delete); **drag-between-containers is
+deferred**.
+
+**Block-type schema editor:** `ContentTypeFields context="block-type"` STOPS
+excluding `blocks` from the type list (it was v1's enforcement of the lifted rule)
+and keeps hiding `localized`/`filterable`; the `block_types` allowlist multi-select
+already renders for blocks fields in both contexts.
+
+## A5. Rendering — render-scoped depth counter (pinned)
+
+`blocks()` tracks depth in a render-scoped counter, incremented/decremented with
+try/finally around each list render, and RESET in the same before-every-render
+family as `resetTags()`/`setAssetBase()` (an exception mid-render must not leak
+depth into the next response). Beyond `MAX_BLOCK_DEPTH` (data written around the
+API): production renders `''`, debug renders a visible placeholder, logged once per
+process (the §6 miss-logging pattern). Container templates compose with the
+EXISTING function — `{{ blocks(data.left) }}` — so there is **no new Twig surface:
+no `TemplatePolicy` change and no `CACHE_VERSION` bump** (changing `blocks()`'s
+recursive behavior is not a DB-template policy change).
+
+## A6. Testing
+
+- Backend: depth-2/3 nested payloads validate with composed dot-paths; depth-4
+  errors at the exact path; nested allowlist stays picker-only; required nested
+  blocks fields follow strict-publish semantics; block-type save now ACCEPTS blocks
+  fields and still rejects `localized`/`filterable`; the `BlockDepth::MAX` ===
+  render-constant assertion.
+- Render: nested composition order; over-deep data renders ''/placeholder + log-once;
+  the depth counter resets after a mid-render exception (the asset-base test shape).
+- SPA: add-child-inside-section flow, nested reorder, max-depth notice at depth 3,
+  async-component registry resolution, MAX_BLOCK_DEPTH === 3 assertion.
+
+## Still out of scope after this amendment
+
+Drag-between-containers; the shipped container/template library (next sub-project);
+reference expansion inside blocks; per-field localization inside blocks.

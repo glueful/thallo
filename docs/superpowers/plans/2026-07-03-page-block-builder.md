@@ -19,6 +19,23 @@
 - **Route auth (spec §1):** reads `lemma_permission:content.view`, mutations `lemma_permission:content.manage`, in `routes/lemma_admin.php` (auto-discovered — the provider must NOT `loadRoutesFrom()` it).
 - Working directories: `/Users/michaeltawiahsowah/Sites/glueful/lemma` (backend), `…/lemma/admin` (SPA).
 
+> **Addendum (shipped 2026-07-03, folded in pre-commit):** block types carry a
+> nullable free-form **`category`** (spec §1 — presentation-only picker grouping;
+> nothing branches on it). It threads through EVERY surface below: the migration
+> column (after `icon`), `BlockTypeRepository::create/updateSchema/hydrate`, the
+> `BlockTypeData`/`UpdateBlockTypeData`/`BlockTypeItemData` DTOs, the controller,
+> the SPA `BlockType`/`BlockTypePayload` interfaces, the Category input on the
+> block-type forms + a badge in the settings list, and `BlocksField`'s picker,
+> which groups by category (named categories alphabetical, uncategorized under
+> "Other" last, headings only when >1 group). The snippets below carry it where
+> they define those surfaces.
+
+> **Addendum 2 — nesting amendment (spec "Amendment: Container blocks"):** the
+> Global-Constraints pin "no `blocks` fields inside block schemas" was LIFTED by
+> the follow-up plan `docs/superpowers/plans/2026-07-03-block-nesting.md`
+> (`localized`/`filterable` rejections stay). This plan documents the v1 build;
+> the nesting plan patches it.
+
 ## File Map
 
 | File | Responsibility |
@@ -55,7 +72,7 @@
 **Interfaces:**
 - Consumes: `Connection`, `Utils::generateNanoID()`, `ContentTypeSchema::fromArray(array): ContentTypeSchema` (verified — that is the real static-constructor name).
 - Produces (later tasks rely on these exact signatures):
-  - `create(array{slug: string, label: string, icon?: ?string, description?: ?string, schema: list<array<string,mixed>>}): string` (uuid; throws `SchemaParseException` on §2 violations; duplicate slug → caller checks `findBySlug` first)
+  - `create(array{slug: string, label: string, icon?: ?string, category?: ?string, description?: ?string, schema: list<array<string,mixed>>}): string` (uuid; throws `SchemaParseException` on §2 violations; duplicate slug → caller checks `findBySlug` first)
   - `findBySlug(string $slug): ?array` — hydrated row (`schema` decoded to array)
   - `findByUuid(string $uuid): ?array`
   - `all(): list<array>` — every row, active first then label order
@@ -194,6 +211,9 @@ final class CreateLemmaBlockTypesTable implements MigrationInterface
             $table->string('slug', 64);
             $table->string('label', 120);
             $table->string('icon', 64)->nullable();
+            // Free-form picker grouping ("Layout", "Content", …) — presentation-level
+            // metadata only; NOTHING branches on the value. Null groups under "Other".
+            $table->string('category', 64)->nullable();
             $table->string('description', 500)->nullable();
             // Field-definition list, same JSON shape as content_types.schema.
             $table->text('schema');
@@ -257,8 +277,8 @@ final class BlockTypeRepository
     }
 
     /**
-     * @param array{slug: string, label: string, icon?: ?string, description?: ?string,
-     *   schema: list<array<string,mixed>>} $data
+     * @param array{slug: string, label: string, icon?: ?string, category?: ?string,
+     *   description?: ?string, schema: list<array<string,mixed>>} $data
      * @return string the new uuid
      */
     public function create(array $data): string
@@ -279,6 +299,7 @@ final class BlockTypeRepository
             'slug' => $data['slug'],
             'label' => $data['label'],
             'icon' => $data['icon'] ?? null,
+            'category' => $data['category'] ?? null,
             'description' => $data['description'] ?? null,
             'schema' => (string) json_encode(array_values($data['schema'])),
             'active' => 1,
@@ -325,11 +346,13 @@ final class BlockTypeRepository
         string $label,
         ?string $icon,
         ?string $description,
+        ?string $category = null,
     ): void {
         $this->assertBlockSchema($schema);
         $this->db->table('lemma_block_types')->where('uuid', '=', $uuid)->update([
             'label' => $label,
             'icon' => $icon,
+            'category' => $category,
             'description' => $description,
             'schema' => (string) json_encode(array_values($schema)),
             'updated_at' => gmdate('Y-m-d H:i:s'),
@@ -1042,6 +1065,9 @@ final class BlockTypeData implements RequestData
         /** @var string|null Lucide icon name shown in the block picker. */
         #[Rule('string')]
         public readonly ?string $icon = null,
+        /** @var string|null Free-form picker grouping ("Layout", "Content", …); presentation only. */
+        #[Rule('string')]
+        public readonly ?string $category = null,
         #[Rule('string')]
         public readonly ?string $description = null,
         #[ArrayOf(FieldDefinitionData::class)]
@@ -1052,7 +1078,7 @@ final class BlockTypeData implements RequestData
 }
 ```
 
-`app/Content/Http/DTOs/UpdateBlockTypeData.php` — same minus `slug` (label required; icon/description nullable; schema array).
+`app/Content/Http/DTOs/UpdateBlockTypeData.php` — same minus `slug` (label required; icon/category/description nullable; schema array).
 
 `app/Content/Http/DTOs/Responses/BlockTypes/BlockTypeItemData.php` (doc-only, `ResponseData`):
 
@@ -1076,6 +1102,8 @@ final class BlockTypeItemData implements ResponseData
         public readonly string $slug,
         public readonly string $label,
         public readonly ?string $icon,
+        /** Free-form picker grouping ("Layout", "Content", …); null groups under "Other". */
+        public readonly ?string $category,
         public readonly ?string $description,
         public readonly bool $active,
         #[ArrayOf(FieldSchemaData::class)]
@@ -1692,6 +1720,8 @@ export interface BlockType {
   slug: string
   label: string
   icon: string | null
+  /** Free-form picker grouping ("Layout", "Content", …); null groups under "Other". */
+  category: string | null
   description: string | null
   active: boolean
   schema: ContentTypeField[]
@@ -1713,7 +1743,7 @@ export function useBlockTypeMutations() {
   const invalidate = () => cache.invalidateQueries({ key: qk.blockTypes() })
   const create = useMutation({
     mutation: (body: { slug: string; label: string; icon?: string | null;
-      description?: string | null; schema: ContentTypeField[] }) =>
+      category?: string | null; description?: string | null; schema: ContentTypeField[] }) =>
       client.POST('/block-types', { body }).then(({ error, response }) => {
         if (error) throw toApiError(error, response)
       }),
@@ -1721,7 +1751,7 @@ export function useBlockTypeMutations() {
   })
   const update = useMutation({
     mutation: ({ slug, ...body }: { slug: string; label: string; icon?: string | null;
-      description?: string | null; schema: ContentTypeField[] }) =>
+      category?: string | null; description?: string | null; schema: ContentTypeField[] }) =>
       client.PATCH('/block-types/{slug}', { params: { path: { slug } }, body }).then(({ error, response }) => {
         if (error) throw toApiError(error, response)
       }),
