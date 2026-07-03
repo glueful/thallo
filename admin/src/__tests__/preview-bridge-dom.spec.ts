@@ -77,6 +77,30 @@ describe('preview bridge (direct eval)', () => {
     expect(actions).toEqual(['move-up', 'move-down', 'duplicate', 'delete', 'add-after'])
   })
 
+  it('void-element blocks (hr dividers) get the toolbar via a positioned shim', () => {
+    // Children of void elements (hr, img, …) never RENDER — inserting the
+    // toolbar inside them makes it invisible. The bridge attaches a
+    // bridge-owned shim sibling instead.
+    const w = wrapper('void-a-00001', '<hr class="lemma-block-divider">')
+    document.body.appendChild(w)
+    w.querySelector('hr')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(lastPost('lemma:block-select')).toMatchObject({ id: 'void-a-00001' })
+
+    const shim = w.querySelector('.lemma-canvas-shim')!
+    expect(shim).not.toBeNull()
+    expect(shim.previousElementSibling!.tagName).toBe('HR')
+    expect(shim.classList.contains('lemma-canvas-anchor')).toBe(true)
+    expect(shim.querySelector('.lemma-canvas-toolbar')).not.toBeNull()
+    // The hr itself carries NO children and no anchor class.
+    expect(w.querySelector('hr')!.childNodes).toHaveLength(0)
+
+    // Deselecting (selecting elsewhere) removes the shim entirely.
+    const other = wrapper('void-b-00001')
+    document.body.appendChild(other)
+    other.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(w.querySelector('.lemma-canvas-shim')).toBeNull()
+  })
+
   it('toolbar clicks post intents and never re-select', () => {
     const w = wrapper('blk-int-0001')
     document.body.appendChild(w)
@@ -96,7 +120,10 @@ describe('preview bridge (direct eval)', () => {
     click('duplicate')
     expect(lastPost('lemma:block-duplicate')).toMatchObject({ id: 'blk-int-0001' })
     click('delete')
-    expect(lastPost('lemma:block-delete-request')).toMatchObject({ id: 'blk-int-0001' })
+    const del = lastPost('lemma:block-delete-request')!
+    expect(del).toMatchObject({ id: 'blk-int-0001' })
+    // The delete button's rect rides along so the parent anchors its confirm.
+    expect(del.rect).toMatchObject({ x: expect.any(Number), y: expect.any(Number) })
     click('add-after')
     const addAfter = lastPost('lemma:block-add-after')!
     expect(addAfter).toMatchObject({ id: 'blk-int-0001' })

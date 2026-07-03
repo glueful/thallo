@@ -163,9 +163,32 @@ bridge.onBlockDuplicate((id) => {
   }
 })
 
+/**
+ * Translate an iframe-viewport anchor into stage-container content
+ * coordinates (the container is the positioning context and scrolls); clamp
+ * the panel inside the container. Null when the geometry isn't available.
+ */
+function anchoredPos(
+  anchor: { x: number; y: number } | null | undefined,
+  panelWidth: number,
+): { top: string; left: string } | null {
+  if (!anchor || !stageEl.value || !iframeEl.value) return null
+  const stageRect = stageEl.value.getBoundingClientRect()
+  const iframeRect = iframeEl.value.getBoundingClientRect()
+  const rawLeft = iframeRect.left - stageRect.left + stageEl.value.scrollLeft + anchor.x
+  const top = iframeRect.top - stageRect.top + stageEl.value.scrollTop + anchor.y + 8
+  const maxLeft = Math.max(8, stageEl.value.clientWidth - (panelWidth + 8))
+  return {
+    top: `${Math.max(8, top)}px`,
+    left: `${Math.max(8, Math.min(rawLeft, maxLeft))}px`,
+  }
+}
+
 // Delete is parent-confirmed (review pin): the bridge only ever REQUESTS.
 const deleteRequest = ref<string | null>(null)
-bridge.onBlockDeleteRequest((id) => {
+const deletePos = ref<{ top: string; left: string } | null>(null)
+bridge.onBlockDeleteRequest((id, anchor) => {
+  deletePos.value = anchoredPos(anchor, 200)
   deleteRequest.value = id
 })
 
@@ -193,21 +216,7 @@ const addAfterPos = ref<{ top: string; left: string } | null>(null)
 
 bridge.onBlockAddAfter((id, anchor) => {
   addAfterTypes.value = fieldEditorRef.value?.pickerTypesForBlock(id) ?? []
-  addAfterPos.value = null
-  if (anchor && stageEl.value && iframeEl.value) {
-    // Translate the iframe-viewport anchor into stage-container content
-    // coordinates (the container is the positioning context and scrolls).
-    const stageRect = stageEl.value.getBoundingClientRect()
-    const iframeRect = iframeEl.value.getBoundingClientRect()
-    const rawLeft = iframeRect.left - stageRect.left + stageEl.value.scrollLeft + anchor.x
-    const top = iframeRect.top - stageRect.top + stageEl.value.scrollTop + anchor.y + 8
-    // Keep the 16rem (256px) panel inside the container.
-    const maxLeft = Math.max(8, stageEl.value.clientWidth - 264)
-    addAfterPos.value = {
-      top: `${Math.max(8, top)}px`,
-      left: `${Math.max(8, Math.min(rawLeft, maxLeft))}px`,
-    }
-  }
+  addAfterPos.value = anchoredPos(anchor, 256) // the w-64 panel
   addAfterId.value = id
 })
 
@@ -597,10 +606,13 @@ function reloadStage(): void {
             <p v-else class="py-16 text-center text-sm text-muted">Starting preview…</p>
           </div>
 
-          <!-- Parent-side delete confirm (stage-toolbar spec §4): the bridge only requests. -->
+          <!-- Parent-side delete confirm (stage-toolbar spec §4): the bridge only
+               requests; anchored to the toolbar's delete button when its rect rode along. -->
           <div
             v-if="deleteRequest"
-            class="absolute inset-x-0 top-3 z-10 mx-auto w-fit rounded-lg border border-default bg-default p-3 shadow-lg"
+            class="absolute z-10 w-fit rounded-lg border border-default bg-default p-3 shadow-lg"
+            :class="deletePos ? '' : 'inset-x-0 top-3 mx-auto'"
+            :style="deletePos ?? undefined"
             data-test="canvas-delete-confirm"
           >
             <p class="mb-2 text-sm font-medium">Delete this block?</p>

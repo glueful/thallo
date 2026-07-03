@@ -59,7 +59,7 @@ const bridge = vi.hoisted(() => {
     index?: (ids: string[]) => void
     move?: (id: string, d: 1 | -1) => void
     duplicate?: (id: string) => void
-    deleteRequest?: (id: string) => void
+    deleteRequest?: (id: string, anchor?: { x: number; y: number } | null) => void
     addAfter?: (id: string, anchor?: { x: number; y: number } | null) => void
     editRequest?: (id: string, field: string) => void
     textChanged?: (id: string, field: string, payload: { html?: string; text?: string }) => void
@@ -77,7 +77,9 @@ const bridge = vi.hoisted(() => {
       onBlocksIndex: (cb: (ids: string[]) => void) => (callbacks.index = cb),
       onBlockMove: (cb: (id: string, d: 1 | -1) => void) => (callbacks.move = cb),
       onBlockDuplicate: (cb: (id: string) => void) => (callbacks.duplicate = cb),
-      onBlockDeleteRequest: (cb: (id: string) => void) => (callbacks.deleteRequest = cb),
+      onBlockDeleteRequest: (
+        cb: (id: string, anchor?: { x: number; y: number } | null) => void,
+      ) => (callbacks.deleteRequest = cb),
       onBlockAddAfter: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
         (callbacks.addAfter = cb),
       onEditRequest: (cb: (id: string, field: string) => void) => (callbacks.editRequest = cb),
@@ -452,6 +454,27 @@ describe('canvas page', () => {
     expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
     expect(bridge.instance.mirrorDuplicate).not.toHaveBeenCalled()
     expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('an anchored delete request positions the confirm at the delete button', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    // jsdom rects are all zeros, so top = anchor.y + 8.
+    bridge.callbacks.deleteRequest?.('blockaaa0001', { x: 90, y: 30 })
+    await flushPromises()
+    const confirm = wrapper.find('[data-test="canvas-delete-confirm"]')
+    expect(confirm.exists()).toBe(true)
+    expect(confirm.attributes('style')).toContain('top: 38px')
+    expect(confirm.classes()).not.toContain('mx-auto')
+
+    // Without an anchor, the centered fallback still applies.
+    await confirm.find('[data-test="canvas-delete-cancel"]').trigger('click')
+    bridge.callbacks.deleteRequest?.('blockaaa0001')
+    await flushPromises()
+    expect(wrapper.find('[data-test="canvas-delete-confirm"]').classes()).toContain('mx-auto')
     wrapper.unmount()
   })
 

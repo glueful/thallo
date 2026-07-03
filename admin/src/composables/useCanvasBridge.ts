@@ -43,7 +43,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let indexCb: ((ids: string[]) => void) | null = null
   let moveCb: ((id: string, delta: 1 | -1) => void) | null = null
   let duplicateCb: ((id: string) => void) | null = null
-  let deleteRequestCb: ((id: string) => void) | null = null
+  let deleteRequestCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
   let addAfterCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
   let editRequestCb: ((id: string, field: string) => void) | null = null
   let editStartCb: ((id: string) => void) | null = null
@@ -83,7 +83,11 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       duplicateCb?.(data.id)
     }
     if (data.type === 'lemma:block-delete-request' && typeof data.id === 'string') {
-      deleteRequestCb?.(data.id)
+      const deleteAnchor =
+        typeof data.rect?.x === 'number' && typeof data.rect?.y === 'number'
+          ? { x: data.rect.x, y: data.rect.y }
+          : null
+      deleteRequestCb?.(data.id, deleteAnchor)
     }
     if (data.type === 'lemma:block-add-after' && typeof data.id === 'string') {
       const anchor =
@@ -155,7 +159,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     onBlockDuplicate(cb: (id: string) => void): void {
       duplicateCb = cb
     },
-    onBlockDeleteRequest(cb: (id: string) => void): void {
+    onBlockDeleteRequest(cb: (id: string, anchor: BridgeAnchor | null) => void): void {
       deleteRequestCb = cb
     },
     onBlockAddAfter(cb: (id: string, anchor: BridgeAnchor | null) => void): void {

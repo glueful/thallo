@@ -103,15 +103,32 @@ describe('useCanvasBridge', () => {
     )
     expect(move).toHaveBeenCalledTimes(1)
 
-    for (const [type, cb] of [
-      ['lemma:block-duplicate', dup],
-      ['lemma:block-delete-request', del],
-    ] as const) {
-      window.dispatchEvent(
-        new MessageEvent('message', { data: { type, id: 'b2', nonce: bridge.nonce } }),
-      )
-      expect(cb).toHaveBeenCalledWith('b2')
-    }
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-duplicate', id: 'b2', nonce: bridge.nonce },
+      }),
+    )
+    expect(dup).toHaveBeenCalledWith('b2')
+
+    // delete-request carries an optional ANCHOR (the delete button's rect),
+    // same shape as add-after: null when absent, {x, y} when present.
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-delete-request', id: 'b2', nonce: bridge.nonce },
+      }),
+    )
+    expect(del).toHaveBeenCalledWith('b2', null)
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: 'lemma:block-delete-request',
+          id: 'b3',
+          rect: { x: 5, y: 6 },
+          nonce: bridge.nonce,
+        },
+      }),
+    )
+    expect(del).toHaveBeenCalledWith('b3', { x: 5, y: 6 })
 
     // add-after carries an optional ANCHOR (the + button's rect) — null when
     // absent/malformed, {x, y} when both numbers are present.
