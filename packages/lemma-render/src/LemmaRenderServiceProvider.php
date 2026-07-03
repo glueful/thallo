@@ -6,8 +6,12 @@ namespace Glueful\Lemma\Render;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Cache\CacheStore;
+use Glueful\Database\Connection;
 use Glueful\Events\EventService;
 use Glueful\Extensions\ServiceProvider;
+use Glueful\Lemma\Render\Templates\DatabaseTemplateLoader;
+use Glueful\Lemma\Render\Templates\TemplateLinter;
+use Glueful\Lemma\Render\Templates\TemplateRepository;
 use Glueful\Lemma\Contracts\Capability\Capability;
 use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
@@ -18,9 +22,13 @@ use Glueful\Lemma\Contracts\Navigation\MenuUpdated;
 use Glueful\Lemma\Render\Console\ClearRenderCacheCommand;
 use Glueful\Lemma\Contracts\Delivery\PreviewSessionVerifier;
 use Glueful\Lemma\Render\Http\Controllers\RenderController;
+use Glueful\Lemma\Render\Http\Controllers\TemplatesAdminController;
+use Glueful\Lemma\Render\Templates\TemplateCatalog;
 use Glueful\Lemma\Render\Http\Middleware\PreviewSessionMiddleware;
 use Glueful\Lemma\Render\Http\Middleware\RenderPageCache;
 use Glueful\Lemma\Render\Listeners\PurgeRenderCacheOnMenuUpdate;
+use Glueful\Lemma\Render\Listeners\PurgeRenderCacheOnTemplateUpdate;
+use Glueful\Lemma\Render\Templates\TemplateUpdated;
 use Psr\Container\ContainerInterface;
 
 use function config;
@@ -75,7 +83,65 @@ final class LemmaRenderServiceProvider extends ServiceProvider
                 'shared' => true,
                 'factory' => [self::class, 'makePreviewSessionMiddleware'],
             ],
+            TemplateRepository::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeTemplateRepository'],
+            ],
+            TemplateLinter::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeTemplateLinter'],
+            ],
+            PurgeRenderCacheOnTemplateUpdate::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makePurgeRenderCacheOnTemplateUpdate'],
+            ],
+            TemplateCatalog::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeTemplateCatalog'],
+            ],
+            TemplatesAdminController::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeTemplatesAdminController'],
+            ],
         ];
+    }
+
+    public static function makeTemplateCatalog(ContainerInterface $container): TemplateCatalog
+    {
+        $context = $container->get(ApplicationContext::class);
+        return new TemplateCatalog(
+            $container->get(TemplateRepository::class),
+            $context->getBasePath() . '/themes',
+            dirname(__DIR__) . '/themes',
+        );
+    }
+
+    public static function makeTemplatesAdminController(ContainerInterface $container): TemplatesAdminController
+    {
+        return new TemplatesAdminController(
+            $container->get(TemplateRepository::class),
+            $container->get(TemplateLinter::class),
+            $container->get(TemplateCatalog::class),
+            $container->get(PreviewThemeValidator::class),
+            $container->get(ThemeLocator::class),
+            $container->get(EventService::class),
+        );
+    }
+
+    public static function makePurgeRenderCacheOnTemplateUpdate(
+        ContainerInterface $container,
+    ): PurgeRenderCacheOnTemplateUpdate {
+        return new PurgeRenderCacheOnTemplateUpdate($container);
+    }
+
+    public static function makeTemplateRepository(ContainerInterface $container): TemplateRepository
+    {
+        return new TemplateRepository($container->get(Connection::class));
+    }
+
+    public static function makeTemplateLinter(ContainerInterface $container): TemplateLinter
+    {
+        return new TemplateLinter($container->get(RenderContextExtension::class));
     }
 
     public static function makePreviewSessionMiddleware(
@@ -128,8 +194,10 @@ final class LemmaRenderServiceProvider extends ServiceProvider
 
     public static function makeRenderController(ContainerInterface $container): RenderController
     {
+        $context = $container->get(ApplicationContext::class);
+        $dbTemplates = (bool) config($context, 'lemma_render.db_templates', true);
         return new RenderController(
-            $container->get(ApplicationContext::class),
+            $context,
             $container->get(\Glueful\Lemma\Contracts\Delivery\PublicRouteResolver::class),
             $container->get(TwigFactory::class),
             $container->get(RenderContextExtension::class),
@@ -142,6 +210,8 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             $container->has(PreviewSessionVerifier::class)
                 ? $container->get(PreviewSessionVerifier::class)
                 : null,
+            $dbTemplates ? $container->get(TemplateRepository::class) : null,
+            $dbTemplates ? $container->get(TemplateLinter::class) : null,
         );
     }
 
@@ -174,10 +244,22 @@ final class LemmaRenderServiceProvider extends ServiceProvider
     public static function makeTwigFactory(ContainerInterface $container): TwigFactory
     {
         $context = $container->get(ApplicationContext::class);
+        $db = null;
+        if ((bool) config($context, 'lemma_render.db_templates', true)) {
+            $db = new DatabaseTemplateLoader(
+                $container->get(TemplateRepository::class),
+                $container->get(TemplateLinter::class),
+                // The RESOLVED active theme (activePaths()['name']) — matches the page
+                // cache's theme keying; a fallen-back locator must not apply another
+                // theme's overrides.
+                $container->get(ThemeLocator::class)->activePaths()['name'],
+            );
+        }
         return new TwigFactory(
             $container->get(ThemeLocator::class),
             $container->get(RenderContextExtension::class),
             $context->getBasePath() . '/storage/cache/twig',
+            $db,
         );
     }
 
@@ -198,6 +280,10 @@ final class LemmaRenderServiceProvider extends ServiceProvider
 
     public function boot(ApplicationContext $context): void
     {
+        // OUTSIDE the capability gate (pack convention): schema must exist regardless
+        // of whether rendered delivery is currently enabled.
+        $this->loadMigrationsFrom(__DIR__ . '/../migrations');
+
         $registry = app($context, CapabilityRegistry::class);
 
         $registry->register(new Capability(
@@ -224,6 +310,17 @@ final class LemmaRenderServiceProvider extends ServiceProvider
                 MenuUpdated::class,
                 [app($context, PurgeRenderCacheOnMenuUpdate::class), 'onMenuUpdated'],
             );
+
+            // DB-edited templates (spec §5/§7): admin routes + purge listener only
+            // when the feature is on — the kill-switch removes every
+            // template-mutation pathway.
+            if ((bool) config($context, 'lemma_render.db_templates', true)) {
+                $this->loadRoutesFrom(__DIR__ . '/../routes/admin-routes.php');
+                $events->addListener(
+                    TemplateUpdated::class,
+                    [app($context, PurgeRenderCacheOnTemplateUpdate::class), 'onTemplateUpdated'],
+                );
+            }
         }
 
         // OUTSIDE the capability gate (analytics-pack precedent): an operator may need

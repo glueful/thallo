@@ -15,6 +15,10 @@ use Glueful\Lemma\Render\Http\Middleware\PreviewSessionMiddleware;
 use Glueful\Lemma\Render\RenderContextExtension;
 use Glueful\Lemma\Render\RenderErrorCache;
 use Glueful\Lemma\Render\ReservedPaths;
+use Glueful\Lemma\Render\Templates\DatabaseTemplateLoader;
+use Glueful\Lemma\Render\Templates\RenderTemplateLoader;
+use Glueful\Lemma\Render\Templates\TemplateLinter;
+use Glueful\Lemma\Render\Templates\TemplateRepository;
 use Glueful\Lemma\Render\ThemeLocator;
 use Glueful\Lemma\Render\TwigFactory;
 use Psr\Log\LoggerInterface;
@@ -45,6 +49,8 @@ final class RenderController
         private readonly LoggerInterface $logger,
         private readonly ?FacetCountsReader $facetReader = null,
         private readonly ?PreviewSessionVerifier $sessionVerifier = null,
+        private readonly ?TemplateRepository $templates = null,
+        private readonly ?TemplateLinter $templateLinter = null,
     ) {
     }
 
@@ -157,10 +163,21 @@ final class RenderController
         }
         $base = $this->context->getBasePath();
         try {
+            $locator = new ThemeLocator($session->theme, $base . '/themes');
+            // DB overrides for the LOCATOR-RESOLVED theme (spec §3): a vanished theme
+            // that fell back to `default` must not carry the vanished theme's overrides.
+            $db = $this->templates !== null && $this->templateLinter !== null
+                ? new DatabaseTemplateLoader(
+                    $this->templates,
+                    $this->templateLinter,
+                    $locator->activePaths()['name'],
+                )
+                : null;
             $factory = new TwigFactory(
-                new ThemeLocator($session->theme, $base . '/themes'),
+                $locator,
                 $this->extension,
                 $base . '/storage/cache/twig',
+                $db,
             );
             return [$factory->environment(), '/_preview-assets/' . $session->token];
         } catch (\Throwable $e) {
@@ -434,10 +451,16 @@ final class RenderController
         ?Environment $twig = null,
         ?string $assetBase = null,
     ): Response {
-        // Reset the render-scoped extension state BEFORE every render (preview specs):
-        // the extension instance is process-shared, and reset-before-render is what
-        // stops a failed render's collected tags — or a themed preview's asset base —
-        // leaking into the next response.
+        // Reset the render-scoped state BEFORE every render (preview + DB-template
+        // specs): the extension instance — and the boot environment's loader — are
+        // process-shared; reset-before-render is what stops a failed render's
+        // collected tags, a themed preview's asset base, or a stale template override
+        // map leaking into the next response.
+        $env = $twig ?? $this->twig();
+        $loader = $env->getLoader();
+        if ($loader instanceof RenderTemplateLoader) {
+            $loader->resetForRender(); // reload the override map once per render (spec §3)
+        }
         $this->extension->resetTags();
         $this->extension->setAssetBase($assetBase);
         $this->extension->setLocale($locale);
@@ -454,7 +477,7 @@ final class RenderController
         $context += $extra;
 
         try {
-            $html = ($twig ?? $this->twig())->render($template, $context);
+            $html = $env->render($template, $context);
         } catch (\Throwable $e) {
             $this->logger->error('lemma-render: template render failed', [
                 'template' => $template,

@@ -6,6 +6,7 @@ import { registerCollectionsModule } from '@/registry/collectionsModule'
 import { registerAnalyticsModule } from '@/registry/analyticsModule'
 import { registerWorkflowModule } from '@/registry/workflowModule'
 import { registerNavigationModule } from '@/registry/navigationModule'
+import { registerTemplatesModule } from '@/registry/templatesModule'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useContentTypes } from '@/queries/contentTypes'
 
@@ -14,6 +15,7 @@ registerCollectionsModule()
 registerAnalyticsModule()
 registerWorkflowModule()
 registerNavigationModule()
+registerTemplatesModule()
 const caps = useCapabilitiesStore()
 caps.ensureLoaded() // post-auth: this layout only renders for authenticated users
 

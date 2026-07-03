@@ -107,6 +107,21 @@ the token): the whole session renders through that theme, with assets served fro
 token-scoped `/_preview-assets/{token}/…` route. Sessions work with the page cache
 disabled; junk cookies never bypass the cache.
 
+## DB-edited templates
+
+Admins with `templates.manage` can override any template the active theme resolves —
+or create new hierarchy templates (`entry/interview.twig`) that don't exist on disk —
+from the admin Templates screen. Overrides are stored per theme with **append-only
+version history** (restore any version; deleting an override falls back to the
+filesystem and keeps history). Saves go live immediately: every save is
+**statically policy-checked** (allowlisted tags/filters/functions/tests, constant
+include/extends targets, no method calls, no `raw`) with line-numbered errors, and
+checked again at compile time, so rows written around the API never execute. There is
+no runtime sandbox — enforcement is the AST scan plus the arrays-only render context.
+`RENDER_DB_TEMPLATES=false` is the ops kill-switch (pure filesystem rendering, admin
+routes off). Active-theme saves purge the page cache; per-preview themed sessions see
+that theme's overrides, so you can author against an inactive theme and preview it.
+
 ## Facet counts in templates
 
 `facets('post', 'category', limit = 100)` returns `[{uuid, slug, count}, …]` (count

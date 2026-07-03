@@ -43,4 +43,9 @@ return [
 
     // Items per rendered listing/archive page (path-based pagination: /{type}/page/2).
     'listing_per_page' => (int) env('RENDER_LISTING_PER_PAGE', 10),
+
+    // DB-edited templates (spec 2026-07-03 §7): admin-authored overrides layered over
+    // the filesystem theme. false = ops kill-switch — pure filesystem loading
+    // (pre-feature behavior) and the template admin routes are not registered.
+    'db_templates' => env('RENDER_DB_TEMPLATES', true),
 ];

@@ -172,7 +172,8 @@ published content using a filesystem theme."**
   (`docs/superpowers/specs/2026-07-02-preview-sessions-design.md`)
 - ✅ taxonomy term INDEX pages — **shipped 2026-07-02**
   (`docs/superpowers/specs/2026-07-02-term-index-pages-design.md`)
-- DB-edited templates / Twig-sandbox admin overrides
+- ✅ DB-edited templates — **shipped 2026-07-03**
+  (`docs/superpowers/specs/2026-07-03-db-edited-templates-design.md`)
 - page/block builder
 
 ## 7. Sub-project sequence
