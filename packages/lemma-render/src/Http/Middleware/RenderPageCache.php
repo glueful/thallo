@@ -90,17 +90,21 @@ final class RenderPageCache implements RouteMiddleware
     }
 
     /**
-     * render:{theme}:{normalizedPath} — duplicate slashes collapsed, trailing slash
-     * trimmed (root stays '/'), mirroring the resolver's canonical rules. Normalized
-     * paths always start with '/', so per-path keys can never collide with the fixed
-     * render:{theme}:404 / render:{theme}:410 keys.
+     * render:{theme}:{rawurlencode(normalizedPath)} — duplicate slashes collapsed,
+     * trailing slash trimmed (root stays '/'), mirroring the resolver's canonical
+     * rules. The path is rawurlencoded because the framework's Redis driver rejects
+     * PSR-16-reserved characters ({}()/\@) in keys — a raw '/' 500s every live
+     * render on Redis. The encoded alphabet (alnum, -_.~, %XX) contains none of
+     * them and is reversible, so keys stay collision-free; every per-path key
+     * starts "render:{theme}:%2F", disjoint from the fixed render:{theme}:404 /
+     * render:{theme}:410 error keys by construction.
      */
     private function key(string $path): string
     {
         $collapsed = (string) preg_replace('#/{2,}#', '/', '/' . trim($path, " \t"));
         $trimmed = rtrim($collapsed, '/');
         $normalized = $trimmed === '' ? '/' : $trimmed;
-        return "render:{$this->theme}:{$normalized}";
+        return "render:{$this->theme}:" . rawurlencode($normalized);
     }
 
     /** @param array{body: string, status: int, contentType: string, cacheTag: string, etag: string} $entry */

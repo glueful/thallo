@@ -68,7 +68,7 @@ final class RenderPageCacheTest extends LemmaTestCase
 
         // Overwrite the stored body: if the second request serves the sentinel, it came
         // from the cache — the resolver/Twig pipeline provably did not run.
-        $key = 'render:default:/blog/hello';
+        $key = 'render:default:%2Fblog%2Fhello';
         $entry = $this->cache()->get($key);
         self::assertIsArray($entry);
         $entry['body'] = 'SENTINEL-FROM-CACHE';
@@ -119,7 +119,7 @@ final class RenderPageCacheTest extends LemmaTestCase
 
         $this->handle(Request::create('/blog/hello', 'GET'));
         $keys = $this->cache()->getKeys('render:*');
-        self::assertSame(['render:default:/blog/hello'], $keys);
+        self::assertSame(['render:default:%2Fblog%2Fhello'], $keys);
         foreach ($keys as $key) {
             self::assertStringNotContainsString('//', $key);
         }
@@ -128,7 +128,23 @@ final class RenderPageCacheTest extends LemmaTestCase
     public function testHomepageIsCachedUnderRootKey(): void
     {
         $this->handle(Request::create('/', 'GET'));
-        self::assertIsArray($this->cache()->get('render:default:/'));
+        self::assertIsArray($this->cache()->get('render:default:%2F'));
+    }
+
+    public function testKeysAreValidForEveryCacheDriver(): void
+    {
+        // The framework's Redis driver rejects PSR-16-reserved characters
+        // ({}()/\@) in keys — a raw path in the key 500s EVERY live render on
+        // Redis (the test harness driver doesn't validate, which is how the
+        // literal-path keys slipped through). Pin the invariant here.
+        $this->seedBilingualPublishedEntry();
+        $this->handle(Request::create('/blog/hello', 'GET'));
+        $this->handle(Request::create('/', 'GET'));
+        $keys = $this->cache()->getKeys('render:*');
+        self::assertNotSame([], $keys);
+        foreach ($keys as $key) {
+            self::assertFalse(strpbrk($key, '{}()/\\@'), "driver-invalid cache key: {$key}");
+        }
     }
 
     public function testDisabledMiddlewareIsAPurePassthrough(): void
@@ -261,8 +277,8 @@ final class RenderPageCacheTest extends LemmaTestCase
         $entry = $this->seedBilingualPublishedEntry();
         $this->handle(Request::create('/blog/hello', 'GET'));
         $this->handle(Request::create('/', 'GET'));
-        self::assertIsArray($this->cache()->get('render:default:/blog/hello'));
-        $root = $this->cache()->get('render:default:/');
+        self::assertIsArray($this->cache()->get('render:default:%2Fblog%2Fhello'));
+        $root = $this->cache()->get('render:default:%2F');
         self::assertIsArray($root);
         // Precondition, asserted rather than assumed: the test env runs the STANDALONE
         // homepage (lemma_render.homepage_entry unset), so the root entry carries no
@@ -274,8 +290,8 @@ final class RenderPageCacheTest extends LemmaTestCase
         $this->container()->get(EventService::class)
             ->dispatch(new EntryPublished($entry, $this->typeUuid()));
 
-        self::assertNull($this->cache()->get('render:default:/blog/hello')); // A purged
-        self::assertIsArray($this->cache()->get('render:default:/'));        // B still hit
+        self::assertNull($this->cache()->get('render:default:%2Fblog%2Fhello')); // A purged
+        self::assertIsArray($this->cache()->get('render:default:%2F'));        // B still hit
     }
 
     public function testRenderPageTagInvalidationDropsEverything(): void

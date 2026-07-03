@@ -10,6 +10,7 @@ use App\Content\Http\DTOs\CreateEntryData;
 use App\Content\Http\DTOs\AssignRouteData;
 use App\Content\Http\DTOs\Requests\EntryListQuery;
 use App\Content\Http\DTOs\Responses\Entries\EntryListData;
+use App\Content\Http\DTOs\ApplyPreviewData;
 use App\Content\Http\DTOs\CopyLocaleData;
 use App\Content\Http\DTOs\SaveDraftData;
 use App\Content\Http\DTOs\Responses\Entries\DraftResultData;
@@ -17,6 +18,10 @@ use App\Content\Http\DTOs\Responses\Entries\EntryCreateResultData;
 use App\Content\Http\DTOs\Responses\Entries\EntryLocalesResultData;
 use App\Content\Http\DTOs\Responses\Entries\EntryResultData;
 use App\Content\Localization\ContentLocaleService;
+use App\Content\Preview\PreviewToken;
+use App\Content\Preview\PreviewTokenException;
+use App\Content\Preview\PreviewWorkingCopyStore;
+use App\Content\Preview\ResolvesPreviewKey;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\ReferenceProjectionRepository;
@@ -49,6 +54,8 @@ use Symfony\Component\HttpFoundation\Request;
  */
 final class EntryController
 {
+    use ResolvesPreviewKey;
+
     public function __construct(
         private readonly ApplicationContext $context,
         private readonly EntryRepository $entries,
@@ -60,6 +67,8 @@ final class EntryController
         private readonly ?SchemaProjector $schemaProjector = null,
         /** Block-migration write gate (spec §3); null = ungated (tests, minimal wiring). */
         private readonly ?BlockMigrationGate $gate = null,
+        /** Loop C working-copy stash; null = apply unavailable (minimal wiring). */
+        private readonly ?PreviewWorkingCopyStore $workingCopies = null,
     ) {
     }
 
@@ -280,7 +289,96 @@ final class EntryController
                 'current' => $this->entries->findDraft($uuid, $locale),
             ]);
         }
+        // Clear-on-save (loop C spec §3): the DB draft now matches the working
+        // tree — a stale stash must not shadow later preview refreshes.
+        $this->workingCopies?->clear($uuid, $locale);
         return Response::success(['draft' => $this->entries->findDraft($uuid, $locale)], 'Draft saved.');
+    }
+
+    /**
+     * Apply the CURRENT working fields as an ephemeral preview (loop C spec §2):
+     * validate with the exact saveDraft guard set, stash the CLEANED fields in
+     * cache keyed by {entry, locale}, persist nothing. /_preview/{token} then
+     * overlays the stash over the DB draft until Save, the next Apply, or TTL.
+     */
+    #[ApiOperation(
+        summary: 'Apply working fields as an ephemeral preview',
+        description: 'Validates the submitted fields with the same guards as a draft save and stashes the '
+            . 'cleaned result so the preview session renders unsaved work. Nothing is persisted; a successful '
+            . 'draft save clears the stash.',
+        tags: ['Lemma Admin'],
+    )]
+    #[ApiResponse(200, description: 'Working copy applied to the preview session.')]
+    #[ApiResponse(403, schema: ErrorResponse::class, envelope: false, description: 'Invalid or re-pointed token.')]
+    #[ApiResponse(
+        409,
+        schema: ErrorResponse::class,
+        envelope: false,
+        description: 'Version-pinned token (PREVIEW_VERSION_PINNED) or active block migration '
+            . '(BLOCK_MIGRATION_IN_PROGRESS).',
+    )]
+    #[ApiResponse(410, schema: ErrorResponse::class, envelope: false, description: 'The preview token has expired.')]
+    #[ApiResponse(422, schema: ErrorResponse::class, envelope: false, description: 'Field validation failed.')]
+    // 401/403(permission)/429/500 inferred from middleware + documentation.errors config.
+    public function applyPreview(ApplyPreviewData $input, Request $request, string $uuid, string $locale): Response
+    {
+        if ($this->workingCopies === null) {
+            return Response::error('Preview apply is unavailable.', 503);
+        }
+        // 1. Verify the token — same fail-closed mapping as PreviewController::show().
+        try {
+            $token = PreviewToken::verify($input->token, $this->previewKey($this->context), time());
+        } catch (PreviewTokenException $e) {
+            return $e->isExpired()
+                ? Response::error('Preview link expired', 410)
+                : Response::forbidden('Invalid preview token');
+        }
+        // 2. Bind to the route: a token can never be pointed at another entry+locale.
+        if ($token->entryUuid !== $uuid || $token->locale !== $locale) {
+            return Response::forbidden('Invalid preview token');
+        }
+        // Version-pinned tokens conflict with immutable-version semantics (hard pin):
+        // the token is VALID, the operation is not — 409, not 422. Never stash.
+        if ($token->versionUuid !== null) {
+            return Response::error(
+                'A version-pinned preview cannot apply a working copy.',
+                Response::HTTP_CONFLICT,
+                ['code' => 'PREVIEW_VERSION_PINNED'],
+            );
+        }
+        // 3. Locale + entry resolution (mirror saveDraft).
+        if (($errors = $this->locales->validate($locale)) !== []) {
+            return Response::validation($errors);
+        }
+        $entry = $this->entries->findEntry($uuid);
+        if ($entry === null) {
+            return Response::notFound('Entry not found.');
+        }
+        // 4. Payload cap: the stash is a cache row — never a cache-pressure primitive.
+        $encoded = json_encode($input->fields);
+        if ($encoded === false || strlen($encoded) > 1048576) {
+            return Response::error('Preview payload too large.', 413);
+        }
+        $schema = $this->types->schemaFor((string) $entry['content_type_uuid']);
+        // 5.–6. The exact saveDraft guard order (loop C spec §2, load-bearing):
+        // migration gate FIRST, then the validator; identical response shapes.
+        try {
+            $this->gate?->assertWritable($input->fields, $schema);
+        } catch (BlockMigrationInProgressException $e) {
+            return Response::error($e->getMessage(), Response::HTTP_CONFLICT, [
+                'code' => 'BLOCK_MIGRATION_IN_PROGRESS',
+                'block_type' => $e->slug,
+            ]);
+        }
+        try {
+            $clean = $this->validator->validate($schema, $input->fields);
+        } catch (ValidationException $e) {
+            return Response::validation($e->errors());
+        }
+        // 7. Stash the CLEANED fields only, TTL capped to the token's remaining life.
+        $ttl = min(max($token->expiresAt - time(), 1), 300);
+        $this->workingCopies->put($uuid, $locale, $clean, $ttl);
+        return Response::success(['applied_at' => date('c')], 'Preview applied.');
     }
 
     /**

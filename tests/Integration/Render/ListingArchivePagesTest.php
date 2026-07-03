@@ -243,8 +243,8 @@ final class ListingArchivePagesTest extends LemmaTestCase
         self::assertSame(200, $two->getStatusCode());
         self::assertNotSame((string) $one->getContent(), (string) $two->getContent());
         // Distinct cache entries (path-based pagination pin).
-        self::assertIsArray($this->cache()->get('render:default:/post'));
-        self::assertIsArray($this->cache()->get('render:default:/post/page/2'));
+        self::assertIsArray($this->cache()->get('render:default:%2Fpost'));
+        self::assertIsArray($this->cache()->get('render:default:%2Fpost%2Fpage%2F2'));
         // Page 2's prev is the BARE path (canonical), rendered by the pagination partial.
         self::assertStringContainsString('href="/post"', (string) $two->getContent());
         // /page/1 through the kernel → 301 to the bare path.
@@ -265,7 +265,7 @@ final class ListingArchivePagesTest extends LemmaTestCase
         $this->seedMemberPost('kpost0000008', 'vkpost000008', 'three', [], 'Three');
         $two = $this->handle(Request::create('/post/page/2', 'GET'));
         self::assertSame(200, $two->getStatusCode());
-        self::assertIsArray($this->cache()->get('render:default:/post/page/2'));
+        self::assertIsArray($this->cache()->get('render:default:%2Fpost%2Fpage%2F2'));
         self::assertStringNotContainsString(
             'kpostnew0001',
             (string) $two->headers->get('Cache-Tag'),
@@ -277,7 +277,7 @@ final class ListingArchivePagesTest extends LemmaTestCase
             ->dispatch(new EntryPublished('kpostnew0001', $this->postType, 'en'));
 
         self::assertNull(
-            $this->cache()->get('render:default:/post/page/2'),
+            $this->cache()->get('render:default:%2Fpost%2Fpage%2F2'),
             'page 2 must purge via lemma:type:post — no per-entry tag links it to the new entry',
         );
     }

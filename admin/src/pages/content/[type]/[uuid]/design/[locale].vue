@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
 import type { BlockType } from '@/queries/blockTypes'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
-import { mintPreviewData } from '@/queries/preview'
+import { applyPreview, mintPreviewData } from '@/queries/preview'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError, apiErrorCode, apiErrorDetails } from '@/api/errors'
@@ -40,6 +40,9 @@ const schema = computed<FieldDef[]>(() =>
 const { data: draft } = useDraft(uuid, () => locale.value)
 const fields = ref<Record<string, unknown>>({})
 const lockVersion = ref(0)
+// What the stage currently shows (loop C §4): set at first hydration (the
+// initial render is the draft) and after every successful Apply.
+const lastApplied = ref('')
 let hydratedLock = -1
 watch(
   draft,
@@ -50,6 +53,8 @@ watch(
       fields.value = { ...d.fields }
       lockVersion.value = d.lock_version
       hydratedLock = d.lock_version
+      // First hydration: the stage's initial render shows the draft (loop C §4).
+      if (lastApplied.value === '') lastApplied.value = JSON.stringify(d.fields)
     }
   },
   { immediate: true },
@@ -62,6 +67,7 @@ const dirty = computed(() => {
 
 // ── Preview stage (spec §6) ────────────────────────────────────────────────────
 const iframeSrc = ref('')
+const previewToken = ref('')
 const renderDisabled = ref(false)
 const mintFailed = ref(false)
 const iframeEl = ref<HTMLIFrameElement | null>(null)
@@ -79,6 +85,7 @@ async function mintAndLoad(): Promise<void> {
     }
     renderDisabled.value = false
     mintFailed.value = false
+    previewToken.value = mint.token
     iframeSrc.value = mint.themeUrl
   } catch (e) {
     mintFailed.value = true
@@ -146,6 +153,10 @@ bridge.onBlockDeleteRequest((id) => {
   deleteRequest.value = id
 })
 
+function cancelDelete(): void {
+  deleteRequest.value = null
+}
+
 function confirmDelete(): void {
   const id = deleteRequest.value
   deleteRequest.value = null
@@ -164,6 +175,10 @@ bridge.onBlockAddAfter((id) => {
   addAfterId.value = id
 })
 
+function cancelAddAfter(): void {
+  addAfterId.value = null
+}
+
 function chooseAddType(slug: string): void {
   const id = addAfterId.value
   addAfterId.value = null
@@ -171,16 +186,55 @@ function chooseAddType(slug: string): void {
   if (newId !== null) selected.value = newId
 }
 
-// ── Apply loop (spec §6): explicit save -> re-mint -> reload ──────────────────
+// ── Apply loop (loop C spec §4): ephemeral render, nothing persisted ──────────
 const save = useSaveDraft(uuid.value, () => locale.value, type.value)
 const applying = ref(false)
 
-async function saveAndRefresh(): Promise<void> {
+async function applyWorking(): Promise<void> {
   applying.value = true
+  try {
+    try {
+      await applyPreview(uuid.value, locale.value, previewToken.value, fields.value)
+    } catch (e: unknown) {
+      // Token died mid-session (expired/invalid): re-mint ONCE and retry (spec §4).
+      if (e instanceof ApiError && (e.status === 410 || e.status === 403)) {
+        await mintAndLoad()
+        await applyPreview(uuid.value, locale.value, previewToken.value, fields.value)
+      } else {
+        throw e
+      }
+    }
+    lastApplied.value = JSON.stringify(fields.value)
+    reloadStage() // same-URL reload — the stash is behind the SAME token URL
+  } catch (e: unknown) {
+    // Apply-failure reset (review P1): the server rejected the working tree and
+    // wrote NO stash — optimistic mirror DOM (move/delete/duplicate) must not
+    // keep masquerading as applied. Reload the stage back to last-applied truth;
+    // local dirty fields are kept.
+    reloadStage()
+    if (e instanceof ApiError && apiErrorCode(e) === 'BLOCK_MIGRATION_IN_PROGRESS') {
+      const blockType = String(apiErrorDetails(e)?.block_type ?? 'a block type')
+      warning(
+        `Block type “${blockType}” is being migrated`,
+        'Apply is blocked until the migration completes — try again shortly.',
+      )
+    } else {
+      notifyError(e, 'Couldn’t apply the preview')
+    }
+  } finally {
+    applying.value = false
+  }
+}
+
+// Save persists ONLY (loop C spec §4): the stage already shows the applied
+// tree, and the server clears the stash — no re-mint, no reload on success.
+const saving = ref(false)
+
+async function saveDraftOnly(): Promise<void> {
+  saving.value = true
   try {
     await save.mutateAsync({ fields: fields.value, lock_version: lockVersion.value })
     success('Draft saved')
-    await mintAndLoad() // fresh session per apply — never stretch a 10-minute token
   } catch (e: unknown) {
     reloadStage() // discard optimistic mirrors — the stage falls back to last-applied truth
     // BYTE-MIRROR of the editor's onSave 409 branches.
@@ -201,9 +255,11 @@ async function saveAndRefresh(): Promise<void> {
       notifyError(e, 'Couldn’t save draft')
     }
   } finally {
-    applying.value = false
+    saving.value = false
   }
 }
+
+const stageStale = computed(() => JSON.stringify(fields.value) !== lastApplied.value)
 
 /** Re-mint WITHOUT saving — the expired-token affordance (spec §6). */
 function refreshPreview(): void {
@@ -283,9 +339,20 @@ function reloadStage(): void {
           >
             Refresh preview
           </UButton>
+          <UChip :show="stageStale" color="info" inset>
+            <UButton :loading="applying" data-test="canvas-apply" @click="applyWorking()">
+              Apply
+            </UButton>
+          </UChip>
           <UChip :show="dirty" color="warning" inset>
-            <UButton :loading="applying" data-test="canvas-save" @click="saveAndRefresh()">
-              Save &amp; refresh
+            <UButton
+              variant="outline"
+              color="neutral"
+              :loading="saving"
+              data-test="canvas-save"
+              @click="saveDraftOnly()"
+            >
+              Save draft
             </UButton>
           </UChip>
         </template>
@@ -310,13 +377,9 @@ function reloadStage(): void {
       </div>
 
       <div v-else class="flex h-full min-h-0 gap-4">
-        <aside class="w-56 shrink-0 overflow-y-auto">
-          <CanvasOutline
-            :fields="fields"
-            :schema="schema"
-            :selected="selected"
-            @select="onOutlineSelect"
-          />
+       
+        <aside class="w-96 shrink-0 overflow-y-auto" data-test="canvas-inspector">
+          <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" />
         </aside>
 
         <div class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3" data-test="canvas-stage">
@@ -346,7 +409,7 @@ function reloadStage(): void {
                 variant="ghost"
                 color="neutral"
                 data-test="canvas-delete-cancel"
-                @click="deleteRequest = null"
+                @click="cancelDelete()"
               >
                 Cancel
               </UButton>
@@ -362,7 +425,9 @@ function reloadStage(): void {
             class="absolute inset-x-0 top-3 z-10 mx-auto w-64 rounded-lg border border-default bg-default p-2 shadow-lg"
             data-test="canvas-add-picker"
           >
-            <p class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide text-muted">Add block after</p>
+            <p class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+              Add block after (visible on next Apply)
+            </p>
             <button
               v-for="t in addAfterTypes"
               :key="t.slug"
@@ -378,16 +443,21 @@ function reloadStage(): void {
               No block types available here.
             </p>
             <div class="mt-1 flex justify-end">
-              <UButton size="xs" variant="ghost" color="neutral" data-test="canvas-add-cancel" @click="addAfterId = null">
+              <UButton size="xs" variant="ghost" color="neutral" data-test="canvas-add-cancel" @click="cancelAddAfter()">
                 Cancel
               </UButton>
             </div>
           </div>
         </div>
-
-        <aside class="w-96 shrink-0 overflow-y-auto" data-test="canvas-inspector">
-          <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" />
+         <aside class="w-56 shrink-0 overflow-y-auto">
+          <CanvasOutline
+            :fields="fields"
+            :schema="schema"
+            :selected="selected"
+            @select="onOutlineSelect"
+          />
         </aside>
+        
       </div>
     </template>
   </UDashboardPanel>

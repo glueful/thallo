@@ -98,6 +98,15 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   until the next Save & refresh; save failures reload the stage to the
   last-applied render. The inspector's insert menus (and the prose `/` menu)
   now respect a nested container region's own `block_types` allowlist.
+- Ephemeral preview render (loop C): the Design view's primary action is now
+  Apply — the working block tree is validated with the exact draft-save guard
+  set (block-migration gate included) and stashed in cache, and the stage
+  reloads its same preview URL to render unsaved work instantly. Save draft
+  persists as before and clears the stash; version-pinned preview tokens can
+  neither write nor read a working copy (409 `PREVIEW_VERSION_PINNED`).
+- Fixed: the render page cache built per-path keys containing raw `/`, which
+  the framework's Redis cache driver rejects — every live render 500'd on
+  Redis. Keys now rawurlencode the path segment.
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

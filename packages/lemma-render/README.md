@@ -164,6 +164,11 @@ static `/_preview.css` (never inline styles); the toolbar is positioned by DOM
 placement inside the selected block's first element, so blocks whose templates
 render no element (text-only output) get selection but no toolbar.
 
+With the admin's Apply action, the preview session can also render the
+editor's *unsaved* working tree: the app validates and stashes it (cache-only,
+TTL-bounded) and the same `/_preview/{token}` URL overlays it over the draft —
+version-pinned previews are never overlaid.
+
 **Changing block schemas:** additive edits (new fields, retypes) are free via
 `PATCH /block-types/{slug}`; renaming or deleting a field is a declared migration
 (`POST /block-types/{slug}/migrations` with `{ops:[{op:"rename",from,to}|{op:"delete",name}]}`)

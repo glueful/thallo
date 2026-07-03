@@ -12,8 +12,8 @@ vi.mock('@/queries/blockTypes', async (importOriginal) => ({
   useBlockTypes: () => ({ data: blockTypes }),
 }))
 
-const { mintMock } = vi.hoisted(() => ({ mintMock: vi.fn() }))
-vi.mock('@/queries/preview', () => ({ mintPreviewData: mintMock }))
+const { mintMock, applyMock } = vi.hoisted(() => ({ mintMock: vi.fn(), applyMock: vi.fn() }))
+vi.mock('@/queries/preview', () => ({ mintPreviewData: mintMock, applyPreview: applyMock }))
 
 const draft = ref<{ fields: Record<string, unknown>; lock_version: number } | null>(null)
 const { saveMock } = vi.hoisted(() => ({ saveMock: vi.fn() }))
@@ -135,6 +135,7 @@ beforeEach(() => {
     lock_version: 3,
   }
   mintMock.mockReset()
+  applyMock.mockReset()
   saveMock.mockReset()
   notify.warning.mockReset()
   notify.success.mockReset()
@@ -167,22 +168,119 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
-  it('Save & refresh saves with lock_version then RE-MINTS and reloads the stage', async () => {
-    mintMock
-      .mockResolvedValueOnce({ token: 't1', themeUrl: 'https://site.test/_preview/tok1' })
-      .mockResolvedValueOnce({ token: 't2', themeUrl: 'https://site.test/_preview/tok2' })
+  it('Save draft saves with lock_version and does NOT re-mint or reload the stage', async () => {
+    mintMock.mockResolvedValue({ token: 't1', themeUrl: 'https://site.test/_preview/tok1' })
     saveMock.mockResolvedValue(undefined)
     const wrapper = mountPage()
     await flushPromises()
+    const before = wrapper.find('[data-test="canvas-iframe"]').element
 
     await wrapper.find('[data-test="canvas-save"]').trigger('click')
     await flushPromises()
-    expect(saveMock).toHaveBeenCalledWith(
-      expect.objectContaining({ lock_version: 3 }),
+    expect(saveMock).toHaveBeenCalledWith(expect.objectContaining({ lock_version: 3 }))
+    expect(mintMock).toHaveBeenCalledTimes(1) // mount only — save never re-mints
+    expect(wrapper.find('[data-test="canvas-iframe"]').element).toBe(before) // no reload
+    wrapper.unmount()
+  })
+
+  it('Apply posts token+fields, reloads the SAME stage URL, no re-mint', async () => {
+    mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+    applyMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+    const before = wrapper.find('[data-test="canvas-iframe"]').element
+
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+    expect(applyMock).toHaveBeenCalledWith(
+      'entry0000001',
+      'en',
+      'tok1',
+      expect.objectContaining({ title: 'T' }),
     )
-    expect(mintMock).toHaveBeenCalledTimes(2) // mount + apply re-mint (spec §6)
-    expect(wrapper.find('[data-test="canvas-iframe"]').attributes('src')).toBe(
-      'https://site.test/_preview/tok2',
+    const iframe = wrapper.find('[data-test="canvas-iframe"]')
+    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1') // SAME URL
+    expect(iframe.element).not.toBe(before) // remounted -> reloaded
+    expect(mintMock).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('Apply on a dead token re-mints ONCE and retries', async () => {
+    mintMock
+      .mockResolvedValueOnce({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+      .mockResolvedValueOnce({ token: 'tok2', themeUrl: 'https://site.test/_preview/tok2' })
+    applyMock
+      .mockRejectedValueOnce(new ApiError('expired', 410, {}, { success: false }))
+      .mockResolvedValueOnce(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+    expect(mintMock).toHaveBeenCalledTimes(2)
+    expect(applyMock).toHaveBeenCalledTimes(2)
+    expect(applyMock).toHaveBeenLastCalledWith('entry0000001', 'en', 'tok2', expect.anything())
+    wrapper.unmount()
+  })
+
+  it('Apply surfaces the migration 409 with the editor-mirror banner', async () => {
+    mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+    applyMock.mockRejectedValueOnce(
+      new ApiError("block type 'card' has a migration in progress", 409, {}, {
+        success: false,
+        error: { code: 409, details: { code: 'BLOCK_MIGRATION_IN_PROGRESS', block_type: 'card' } },
+      }),
+    )
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    expect(notify.warning).toHaveBeenCalledWith(
+      'Block type “card” is being migrated',
+      expect.any(String),
+    )
+    wrapper.unmount()
+  })
+
+  it('Apply failure resets the stage (mirror DOM discarded) and keeps dirty fields', async () => {
+    // Review P1: a rejected Apply wrote NO stash — optimistic mirrors from the
+    // stage toolbar must not survive as if they were applied.
+    mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+    applyMock.mockRejectedValueOnce(
+      new ApiError('validation failed', 422, {}, { success: false }),
+    )
+    const wrapper = mountPage()
+    await flushPromises()
+    const before = wrapper.find('[data-test="canvas-iframe"]').element
+
+    // Structural op first (the mirror-then-reject scenario).
+    bridge.callbacks.move?.('blockaaa0001', 1)
+    await flushPromises()
+
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    const iframe = wrapper.find('[data-test="canvas-iframe"]')
+    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1') // SAME URL
+    expect(iframe.element).not.toBe(before) // remounted -> mirror DOM discarded
+    expect(mintMock).toHaveBeenCalledTimes(1) // no re-mint on failure
+    // Dirty local fields survive: a retry save still submits the MOVED order.
+    saveMock.mockResolvedValue(undefined)
+    await wrapper.find('[data-test="canvas-save"]').trigger('click')
+    await flushPromises()
+    expect(saveMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        fields: expect.objectContaining({
+          body: [
+            expect.objectContaining({ id: 'blockbbb0002' }),
+            expect.objectContaining({ id: 'blockaaa0001' }),
+          ],
+        }),
+      }),
     )
     wrapper.unmount()
   })
