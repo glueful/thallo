@@ -645,6 +645,35 @@ describe('free drag', () => {
     expect(lastPost('lemma:block-select')).toMatchObject({ id: 'fd-d-0000004' })
   })
 
+  it('keyboard shortcuts are inert while dragging; Escape means rollback, never deselect', () => {
+    const { list, a } = dragList()
+    gripDown(a)
+    posted.mockClear()
+    pointerMove(160)
+    expect(order(list)[0]).toBe('fd-b-0000002')
+
+    // Mid-drag, the shortcut handler must bail on the drag guard.
+    const press = (init: KeyboardEventInit) =>
+      document.body.dispatchEvent(
+        new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }),
+      )
+    press({ key: 'ArrowDown', altKey: true })
+    press({ key: 'Backspace' })
+    press({ key: 'd', metaKey: true })
+    expect(lastPost('lemma:block-move')).toBeUndefined()
+    expect(lastPost('lemma:block-delete-request')).toBeUndefined()
+    expect(lastPost('lemma:block-duplicate')).toBeUndefined()
+
+    // Escape belongs to the DRAG while one is active: order rolls back, the
+    // block STAYS selected, and no block-deselect posts.
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    )
+    expect(order(list)).toEqual(['fd-a-0000001', 'fd-b-0000002', 'fd-c-0000003'])
+    expect(lastPost('lemma:block-deselect')).toBeUndefined()
+    expect(a.classList.contains('lemma-canvas-selected')).toBe(true)
+  })
+
   it('swaps are direction-gated: an against-direction slot never triggers (no oscillation)', () => {
     const { list, a } = dragList()
     gripDown(a)
@@ -714,5 +743,809 @@ describe('free drag', () => {
     expect(lastPost('lemma:block-select')).toBeUndefined()
     a.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
     expect(lastPost('lemma:block-select')).toMatchObject({ id: 'fd-a-0000001' })
+  })
+})
+
+describe('stage keyboard shortcuts', () => {
+  function pressKey(init: KeyboardEventInit, target: Element = document.body): KeyboardEvent {
+    const ev = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init })
+    target.dispatchEvent(ev)
+    return ev
+  }
+
+  function selectByClick(w: HTMLElement): void {
+    w.querySelector('section, hr, p')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  }
+
+  it('does nothing while no block is selected', () => {
+    // One eval per file: an earlier describe may have leaked a selection —
+    // Escape establishes the deselected baseline this test asserts from.
+    pressKey({ key: 'Escape' })
+    posted.mockClear()
+    pressKey({ key: 'ArrowDown', altKey: true })
+    pressKey({ key: 'Backspace' })
+    pressKey({ key: 'd', metaKey: true })
+    pressKey({ key: 'Enter' })
+    expect(posted).not.toHaveBeenCalled()
+  })
+
+  it('Alt+Arrows post block-move; plain arrows pass through untouched', () => {
+    const w = wrapper('kb-mv-000001')
+    document.body.appendChild(w)
+    selectByClick(w)
+    posted.mockClear()
+
+    const up = pressKey({ key: 'ArrowUp', altKey: true })
+    expect(lastPost('lemma:block-move')).toMatchObject({ id: 'kb-mv-000001', delta: -1 })
+    expect(up.defaultPrevented).toBe(true)
+
+    pressKey({ key: 'ArrowDown', altKey: true })
+    expect(lastPost('lemma:block-move')).toMatchObject({ id: 'kb-mv-000001', delta: 1 })
+
+    posted.mockClear()
+    const plain = pressKey({ key: 'ArrowDown' }) // no Alt: scrolling stays native
+    expect(posted).not.toHaveBeenCalled()
+    expect(plain.defaultPrevented).toBe(false)
+  })
+
+  it('Backspace and Delete post a rect-less delete request (centered confirm)', () => {
+    const w = wrapper('kb-del-00001')
+    document.body.appendChild(w)
+    selectByClick(w)
+    posted.mockClear()
+
+    pressKey({ key: 'Backspace' })
+    const req = lastPost('lemma:block-delete-request')!
+    expect(req).toMatchObject({ id: 'kb-del-00001' })
+    expect(req.rect).toBeUndefined()
+
+    posted.mockClear()
+    pressKey({ key: 'Delete' })
+    expect(lastPost('lemma:block-delete-request')).toMatchObject({ id: 'kb-del-00001' })
+  })
+
+  it('Cmd/Ctrl+D posts block-duplicate and beats the browser bookmark', () => {
+    const w = wrapper('kb-dup-00001')
+    document.body.appendChild(w)
+    selectByClick(w)
+    posted.mockClear()
+
+    const meta = pressKey({ key: 'd', metaKey: true })
+    expect(lastPost('lemma:block-duplicate')).toMatchObject({ id: 'kb-dup-00001' })
+    expect(meta.defaultPrevented).toBe(true)
+
+    posted.mockClear()
+    pressKey({ key: 'D', ctrlKey: true })
+    expect(lastPost('lemma:block-duplicate')).toMatchObject({ id: 'kb-dup-00001' })
+
+    posted.mockClear()
+    pressKey({ key: 'd' }) // unmodified d: plain typing, no intent
+    expect(posted).not.toHaveBeenCalled()
+  })
+
+  it('Enter posts edit-request ONLY for a single-owned-region block (spec pin)', () => {
+    const one = proseWrapper('kb-ent-00001')
+    document.body.appendChild(one)
+    selectByClick(one)
+    posted.mockClear()
+    pressKey({ key: 'Enter' })
+    expect(lastPost('lemma:edit-request')).toMatchObject({ id: 'kb-ent-00001', field: 'body' })
+
+    // Zero regions: ignored.
+    const zero = wrapper('kb-ent-00002')
+    document.body.appendChild(zero)
+    selectByClick(zero)
+    posted.mockClear()
+    const zev = pressKey({ key: 'Enter' })
+    expect(posted).not.toHaveBeenCalled()
+    expect(zev.defaultPrevented).toBe(false)
+
+    // Two regions (CTA-style): ambiguous, ignored.
+    const two = wrapper(
+      'kb-ent-00003',
+      '<section>' +
+        '<span class="lemma-edit-region" data-lemma-edit-block="kb-ent-00003" data-lemma-edit-field="heading">H</span>' +
+        '<span class="lemma-edit-region" data-lemma-edit-block="kb-ent-00003" data-lemma-edit-field="label">L</span>' +
+        '</section>',
+    )
+    document.body.appendChild(two)
+    selectByClick(two)
+    posted.mockClear()
+    pressKey({ key: 'Enter' })
+    expect(lastPost('lemma:edit-request')).toBeUndefined()
+
+    // Container block (nested blocks()): the CHILD's region does not count as
+    // the parent's — Enter on the selected parent stays inert (review P1).
+    const parent = wrapper(
+      'kb-ent-00004',
+      '<section><div class="lemma-preview-block" data-lemma-block="kb-ent-child1">' +
+        '<section><div class="lemma-edit-region" data-lemma-edit-block="kb-ent-child1" ' +
+        'data-lemma-edit-field="body"><p>child</p></div></section></div></section>',
+    )
+    document.body.appendChild(parent)
+    selectByClick(parent) // querySelector('section') hits the OUTER section -> parent selected
+    posted.mockClear()
+    pressKey({ key: 'Enter' })
+    expect(lastPost('lemma:edit-request')).toBeUndefined()
+  })
+
+  it('wrapper-level double-click on a container no longer adopts a CHILD region', () => {
+    // The shared owned-region helper aligns the POINTER fallback with Enter
+    // (review P1): before it, a container double-click posted edit-request
+    // for the child block while the parent was the click target.
+    const parent = wrapper(
+      'kb-dbl-00001',
+      '<section><div class="lemma-preview-block" data-lemma-block="kb-dbl-child1">' +
+        '<section><div class="lemma-edit-region" data-lemma-edit-block="kb-dbl-child1" ' +
+        'data-lemma-edit-field="body"><p>child</p></div></section></div></section>',
+    )
+    document.body.appendChild(parent)
+    posted.mockClear()
+    parent.querySelector('section')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    expect(lastPost('lemma:edit-request')).toBeUndefined()
+
+    // Double-click INSIDE the child's region still addresses the child directly.
+    parent.querySelector('p')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    expect(lastPost('lemma:edit-request')).toMatchObject({
+      id: 'kb-dbl-child1',
+      field: 'body',
+    })
+  })
+
+  it('Escape clears the selection locally and posts block-deselect', () => {
+    const w = wrapper('kb-esc-00001')
+    document.body.appendChild(w)
+    selectByClick(w)
+    expect(w.querySelector('.lemma-canvas-toolbar')).not.toBeNull()
+    posted.mockClear()
+
+    pressKey({ key: 'Escape' })
+    expect(lastPost('lemma:block-deselect')).toMatchObject({ id: 'kb-esc-00001' })
+    expect(w.classList.contains('lemma-canvas-selected')).toBe(false)
+    expect(w.querySelector('.lemma-canvas-toolbar')).toBeNull()
+
+    // Deselected: further shortcuts are inert.
+    posted.mockClear()
+    pressKey({ key: 'ArrowDown', altKey: true })
+    expect(posted).not.toHaveBeenCalled()
+  })
+
+  it('guards: toolbar focus, theme form controls, and edit sessions swallow nothing', () => {
+    const w = proseWrapper('kb-grd-00001')
+    document.body.appendChild(w)
+    selectByClick(w)
+
+    // Toolbar guard (review pin): Enter on a focused toolbar button keeps its
+    // native activation — the handler must not intercept it as "edit block".
+    posted.mockClear()
+    const dupBtn = w.querySelector('.lemma-canvas-toolbar [data-action="duplicate"]')!
+    const tev = pressKey({ key: 'Enter' }, dupBtn)
+    expect(lastPost('lemma:edit-request')).toBeUndefined()
+    expect(tev.defaultPrevented).toBe(false)
+    pressKey({ key: 'Backspace' }, dupBtn)
+    expect(lastPost('lemma:block-delete-request')).toBeUndefined()
+
+    // Theme form control guard: Backspace in an input is typing, not delete.
+    const formW = wrapper('kb-grd-00002', '<section><input type="text"></section>')
+    document.body.appendChild(formW)
+    selectByClick(formW)
+    posted.mockClear()
+    pressKey({ key: 'Backspace' }, formW.querySelector('input')!)
+    expect(lastPost('lemma:block-delete-request')).toBeUndefined()
+
+    // Edit-session guard: typing must never move/delete blocks. Re-select the
+    // prose wrapper, grant an edit, then hammer the shortcuts.
+    selectByClick(w)
+    sendToBridge({ type: 'lemma:edit-grant', id: 'kb-grd-00001', field: 'body', kind: 'rich' })
+    const region = w.querySelector('.lemma-edit-region')!
+    expect(region.getAttribute('contenteditable')).toBe('true')
+    posted.mockClear()
+    pressKey({ key: 'ArrowUp', altKey: true }, region)
+    pressKey({ key: 'Backspace' }, region)
+    pressKey({ key: 'd', metaKey: true }, region)
+    expect(lastPost('lemma:block-move')).toBeUndefined()
+    expect(lastPost('lemma:block-delete-request')).toBeUndefined()
+    expect(lastPost('lemma:block-duplicate')).toBeUndefined()
+    // Escape during editing keeps its commit-and-exit meaning (region handler).
+    region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(lastPost('lemma:edit-end')).toMatchObject({ id: 'kb-grd-00001' })
+    expect(lastPost('lemma:block-deselect')).toBeUndefined()
+  })
+})
+
+describe('rich-region normalization (format-bar spec §2)', () => {
+  it('commit normalizes native-shortcut output: <b>/<i> become <strong>/<em>', () => {
+    // The latent v3 bug (review pin): native Cmd+B produces <b>, which the
+    // save/render sanitizer drops WITH CHILDREN — bolded text vanishes at the
+    // next apply. The commit-time pass must fix this with NO bar interaction.
+    const w = proseWrapper('nm-a-000001')
+    document.body.appendChild(w)
+    sendToBridge({ type: 'lemma:edit-grant', id: 'nm-a-000001', field: 'body', kind: 'rich' })
+    const region = w.querySelector('.lemma-edit-region')!
+    expect(region.getAttribute('contenteditable')).toBe('true')
+
+    region.innerHTML = '<p><b>Bold</b> and <i>Italic</i></p>'
+    posted.mockClear()
+    region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(lastPost('lemma:text-changed')).toMatchObject({
+      id: 'nm-a-000001',
+      field: 'body',
+      html: '<p><strong>Bold</strong> and <em>Italic</em></p>',
+    })
+  })
+
+  it('commit unwraps styled spans and handles nesting; the LIVE region is untouched', () => {
+    const w = proseWrapper('nm-b-000001')
+    document.body.appendChild(w)
+    sendToBridge({ type: 'lemma:edit-grant', id: 'nm-b-000001', field: 'body', kind: 'rich' })
+    const region = w.querySelector('.lemma-edit-region')!
+
+    const dirty = '<p><span style="font-weight:700">kept text</span> <b>outer <i>inner</i></b></p>'
+    region.innerHTML = dirty
+    posted.mockClear()
+    region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(lastPost('lemma:text-changed')).toMatchObject({
+      html: '<p>kept text <strong>outer <em>inner</em></strong></p>',
+    })
+    // Commit normalizes a DETACHED CLONE (no live-DOM caret risk): the live
+    // region kept its original markup. (The session has ended by now, so
+    // inspecting it is safe.)
+    expect(region.innerHTML).toBe(dirty)
+  })
+
+  it('normalization never leaves the region: theme <b>/<i>/<span style> elsewhere survive', () => {
+    // Scope pin: theme markup may legitimately use b/i/styled spans OUTSIDE
+    // editable content — the bridge must never walk the wrapper or document.
+    const w = wrapper(
+      'nm-c-000001',
+      '<section><b class="theme-bold">theme</b><span style="color:red">styled</span>' +
+        '<div class="lemma-edit-region" data-lemma-edit-block="nm-c-000001" ' +
+        'data-lemma-edit-field="body"><p><b>mine</b></p></div></section>',
+    )
+    document.body.appendChild(w)
+    sendToBridge({ type: 'lemma:edit-grant', id: 'nm-c-000001', field: 'body', kind: 'rich' })
+    const region = w.querySelector('.lemma-edit-region')!
+    posted.mockClear()
+    region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+
+    expect(lastPost('lemma:text-changed')).toMatchObject({ html: '<p><strong>mine</strong></p>' })
+    expect(w.querySelector('b.theme-bold')).not.toBeNull()
+    expect(w.querySelector('span[style]')).not.toBeNull()
+  })
+})
+
+describe('selection-following format bubble (format-bubble spec §1/§2)', () => {
+  function grantRich(id: string): HTMLElement {
+    const w = proseWrapper(id)
+    document.body.appendChild(w)
+    sendToBridge({ type: 'lemma:edit-grant', id, field: 'body', kind: 'rich' })
+    return w
+  }
+
+  function endSession(w: HTMLElement): void {
+    const region = w.querySelector('.lemma-edit-region')
+    region?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  }
+
+  const realGetSelection = window.getSelection
+
+  function stubSelection(opts: {
+    collapsed: boolean
+    container: Node
+    rect?: { left: number; top: number; width: number; height: number; bottom: number }
+  }): void {
+    const rect = opts.rect ?? { left: 100, top: 200, width: 50, height: 20, bottom: 220 }
+    window.getSelection = vi.fn().mockReturnValue({
+      isCollapsed: opts.collapsed,
+      rangeCount: 1,
+      getRangeAt: () => ({
+        commonAncestorContainer: opts.container,
+        getBoundingClientRect: () => ({
+          ...rect,
+          right: rect.left + rect.width,
+          x: rect.left,
+          y: rect.top,
+        }),
+      }),
+    }) as unknown as typeof window.getSelection
+  }
+
+  function fireSelectionChange(): void {
+    document.dispatchEvent(new Event('selectionchange'))
+  }
+
+  function bubble(): HTMLElement | null {
+    return document.querySelector('body > .lemma-canvas-format-bar')
+  }
+
+  it('a rich grant creates a hidden bubble on body; plain kinds get none; end removes it', () => {
+    const w = grantRich('fb-a-000001')
+    const bar = bubble()!
+    expect(bar).not.toBeNull()
+    expect(bar.classList.contains('lemma-canvas-format-visible')).toBe(false)
+    const formats = [...bar.querySelectorAll('[data-format]')].map((b) =>
+      b.getAttribute('data-format'),
+    )
+    expect(formats).toEqual(['bold', 'italic', 'underline', 'strikethrough', 'link', 'unlink'])
+
+    endSession(w)
+    expect(bubble()).toBeNull()
+
+    const s = wrapper(
+      'fb-b-000001',
+      '<section><h2><span class="lemma-edit-region" data-lemma-edit-block="fb-b-000001" ' +
+        'data-lemma-edit-field="heading">Hello</span></h2></section>',
+    )
+    document.body.appendChild(s)
+    sendToBridge({ type: 'lemma:edit-grant', id: 'fb-b-000001', field: 'heading', kind: 'string' })
+    expect(s.querySelector('[contenteditable]')).not.toBeNull()
+    expect(bubble()).toBeNull()
+    endSession(s)
+  })
+
+  it('shows over a non-collapsed in-region selection, positioned off the selection rect', () => {
+    try {
+      const w = grantRich('fb-c-000001')
+      const region = w.querySelector('.lemma-edit-region')!
+      const bar = bubble()!
+
+      // In-region, non-collapsed: visible, centered above the rect (jsdom
+      // bubble rect is all zeros, so x = left + width/2, y = top - 8).
+      stubSelection({ collapsed: false, container: region.querySelector('p')! })
+      fireSelectionChange()
+      expect(bar.classList.contains('lemma-canvas-format-visible')).toBe(true)
+      expect(bar.style.transform).toBe('translate(125px, 192px)')
+
+      // Collapsed: hidden.
+      stubSelection({ collapsed: true, container: region.querySelector('p')! })
+      fireSelectionChange()
+      expect(bar.classList.contains('lemma-canvas-format-visible')).toBe(false)
+
+      // Non-collapsed but OUTSIDE the region (strict containment — review
+      // caution: a partially-outside selection resolves its common ancestor
+      // above the region and must hide).
+      stubSelection({ collapsed: false, container: document.body })
+      fireSelectionChange()
+      expect(bar.classList.contains('lemma-canvas-format-visible')).toBe(false)
+
+      endSession(w)
+      // Listeners removed with the session: a later selectionchange is inert.
+      fireSelectionChange()
+      expect(bubble()).toBeNull()
+    } finally {
+      window.getSelection = realGetSelection
+    }
+  })
+
+  it('flips below when there is no headroom and clamps to the viewport edge', () => {
+    try {
+      const w = grantRich('fb-d-000001')
+      const region = w.querySelector('.lemma-edit-region')!
+      const bar = bubble()!
+
+      // top=4 -> above would be y=-4 (<4) -> flip below: bottom + 8 = 32.
+      stubSelection({
+        collapsed: false,
+        container: region.querySelector('p')!,
+        rect: { left: 0, top: 4, width: 2, height: 20, bottom: 24 },
+      })
+      fireSelectionChange()
+      // x = 0 + 1 = 1 -> clamps to the 4px margin.
+      expect(bar.style.transform).toBe('translate(4px, 32px)')
+      endSession(w)
+    } finally {
+      window.getSelection = realGetSelection
+    }
+  })
+
+  it('bold/italic clicks run execCommand, normalize the live region, and re-anchor in-session', () => {
+    try {
+      let region: Element // assigned after grant; the stub only runs at click time
+      const exec = vi.fn((cmd: string) => {
+        // jsdom has no execCommand: emulate the engine's b/i output so the
+        // post-action normalization has something real to rewrite.
+        if (cmd === 'bold') region.innerHTML = '<p><b>sel</b> rest</p>'
+        if (cmd === 'italic') region.innerHTML = '<p><i>sel</i> rest</p>'
+        if (cmd === 'underline') region.innerHTML = '<p><u>sel</u> rest</p>'
+        if (cmd === 'strikeThrough') region.innerHTML = '<p><strike>sel</strike> rest</p>'
+        return true
+      })
+      document.execCommand = exec as unknown as typeof document.execCommand
+      const w = grantRich('fb-e-000001')
+      region = w.querySelector('.lemma-edit-region')!
+      stubSelection({ collapsed: false, container: region })
+
+      const bar = bubble()!
+      bar
+        .querySelector('[data-format="bold"]')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      expect(exec).toHaveBeenCalledWith('bold')
+      expect(region.innerHTML).toBe('<p><strong>sel</strong> rest</p>')
+      // Post-action re-anchor (review caution): the bubble repositioned from
+      // the stubbed selection WITHOUT a selectionchange event.
+      expect(bar.classList.contains('lemma-canvas-format-visible')).toBe(true)
+      expect(bar.style.transform).toBe('translate(125px, 192px)')
+
+      bar
+        .querySelector('[data-format="italic"]')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      expect(region.innerHTML).toBe('<p><em>sel</em> rest</p>')
+
+      // <u> is allowlisted as-is; <strike> is NOT — it must normalize to <s>.
+      bar
+        .querySelector('[data-format="underline"]')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      expect(exec).toHaveBeenCalledWith('underline')
+      expect(region.innerHTML).toBe('<p><u>sel</u> rest</p>')
+      bar
+        .querySelector('[data-format="strikethrough"]')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      expect(exec).toHaveBeenCalledWith('strikeThrough')
+      expect(region.innerHTML).toBe('<p><s>sel</s> rest</p>')
+
+      // The click landed on the bubble (outside the region) but the session
+      // survives: no edit-end, contenteditable intact.
+      expect(lastPost('lemma:edit-end')).toBeUndefined()
+      expect(region.getAttribute('contenteditable')).toBe('true')
+      endSession(w)
+    } finally {
+      window.getSelection = realGetSelection
+    }
+  })
+
+  it('bubble pointerdown AND mousedown are both default-prevented (focus never leaves)', () => {
+    const w = grantRich('fb-f-000001')
+    const bar = bubble()!
+    const pd = new MouseEvent('pointerdown', { bubbles: true, cancelable: true })
+    bar.dispatchEvent(pd)
+    expect(pd.defaultPrevented).toBe(true)
+    const md = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+    bar.dispatchEvent(md)
+    expect(md.defaultPrevented).toBe(true)
+    endSession(w)
+  })
+
+  it('a bubble click posts text-changed WITHOUT any input event (deterministic commit)', () => {
+    vi.useFakeTimers()
+    try {
+      document.execCommand = vi.fn(() => true) as unknown as typeof document.execCommand
+      const w = grantRich('fb-g-000001')
+      const region = w.querySelector('.lemma-edit-region')!
+      region.innerHTML = '<p><b>x</b></p>' // pretend the engine mutated on execCommand
+      posted.mockClear()
+
+      bubble()!
+        .querySelector('[data-format="bold"]')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      expect(lastPost('lemma:text-changed')).toBeUndefined() // debounced, not instant
+      vi.advanceTimersByTime(450)
+      expect(lastPost('lemma:text-changed')).toMatchObject({
+        id: 'fb-g-000001',
+        field: 'body',
+        html: '<p><strong>x</strong></p>',
+      })
+      endSession(w)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('link click never prompts (panel flow — see the link-panel describe)', () => {
+    const promptSpy = vi.fn()
+    window.prompt = promptSpy as unknown as typeof window.prompt
+    const w = grantRich('fb-h-000001')
+    bubble()!
+      .querySelector('[data-format="link"]')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    expect(promptSpy).not.toHaveBeenCalled()
+    endSession(w)
+  })
+
+  it('the bubble never reaches committed HTML or duplicate clones', () => {
+    document.execCommand = vi.fn(() => true) as unknown as typeof document.execCommand
+    const w = grantRich('fb-i-000001')
+    posted.mockClear()
+    endSession(w) // commit + end
+    const committed = lastPost('lemma:text-changed')!
+    expect(String(committed.html)).not.toContain('lemma-canvas-format')
+
+    // The bubble lives on document.body — structurally outside every wrapper —
+    // so a duplicate clone can never carry it.
+    sendToBridge({ type: 'lemma:edit-grant', id: 'fb-i-000001', field: 'body', kind: 'rich' })
+    expect(bubble()).not.toBeNull()
+    sendToBridge({
+      type: 'lemma:mirror-duplicate',
+      sourceId: 'fb-i-000001',
+      idMap: { 'fb-i-000001': 'fb-i-000002' },
+    })
+    const clone = document.querySelector('[data-lemma-block="fb-i-000002"]')!
+    expect(clone.querySelector('.lemma-canvas-format-bar')).toBeNull()
+    endSession(w)
+  })
+})
+
+describe('inline link panel (link-panel spec §1–§4)', () => {
+  const realGetSelection = window.getSelection
+
+  function grantRich(id: string, inner?: string): HTMLElement {
+    const w = inner ? wrapper(id, inner) : proseWrapper(id)
+    document.body.appendChild(w)
+    sendToBridge({ type: 'lemma:edit-grant', id, field: 'body', kind: 'rich' })
+    return w
+  }
+
+  function endSession(w: HTMLElement): void {
+    const region = w.querySelector('.lemma-edit-region')
+    region?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  }
+
+  function bubble(): HTMLElement {
+    return document.querySelector('body > .lemma-canvas-format-bar') as HTMLElement
+  }
+
+  function panelEl(): Element {
+    return bubble().querySelector('.lemma-canvas-link-panel')!
+  }
+
+  interface SelectionSpies {
+    removeAllRanges: ReturnType<typeof vi.fn>
+    addRange: ReturnType<typeof vi.fn>
+    range: object
+    collapse: (collapsed: boolean) => void
+  }
+
+  function stubRichSelection(container: Node): SelectionSpies {
+    const range = {
+      commonAncestorContainer: container,
+      cloneRange(): object {
+        return this
+      },
+      getBoundingClientRect: () => ({
+        left: 100,
+        top: 200,
+        width: 50,
+        height: 20,
+        bottom: 220,
+        right: 150,
+        x: 100,
+        y: 200,
+      }),
+    }
+    const removeAllRanges = vi.fn()
+    const addRange = vi.fn()
+    const state = { isCollapsed: false }
+    window.getSelection = vi.fn().mockImplementation(() => ({
+      isCollapsed: state.isCollapsed,
+      rangeCount: 1,
+      getRangeAt: () => range,
+      removeAllRanges,
+      addRange,
+    })) as unknown as typeof window.getSelection
+    return {
+      removeAllRanges,
+      addRange,
+      range,
+      collapse: (collapsed: boolean) => {
+        state.isCollapsed = collapsed
+      },
+    }
+  }
+
+  function openPanel(): HTMLInputElement {
+    bubble()
+      .querySelector('[data-format="link"]')!
+      .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    return bubble().querySelector('.lemma-canvas-link-panel input') as HTMLInputElement
+  }
+
+  it('opens on link click, prefills from a REGION-contained <a> only, and freezes visibility', () => {
+    try {
+      // Region wrapped by a theme-level <a> OUTSIDE it: prefill must ignore it.
+      const wOutside = grantRich(
+        'lp-a-000001',
+        '<section><a href="https://theme.test/outer"><div class="lemma-edit-region" ' +
+          'data-lemma-edit-block="lp-a-000001" data-lemma-edit-field="body">' +
+          '<p>text</p></div></a></section>',
+      )
+      const regionA = wOutside.querySelector('.lemma-edit-region')!
+      const spiesA = stubRichSelection(regionA.querySelector('p')!)
+      // Make the bubble visible the way a real selection does, THEN open.
+      document.dispatchEvent(new Event('selectionchange'))
+      expect(bubble().classList.contains('lemma-canvas-format-visible')).toBe(true)
+      const inputA = openPanel()
+      expect(inputA).not.toBeNull()
+      expect(inputA.value).toBe('') // outside link ignored (spec pin)
+      expect(panelEl().classList.contains('lemma-canvas-link-open')).toBe(true)
+
+      // Freeze (spec §4): a COLLAPSED selectionchange while the panel is open
+      // must neither hide the bubble nor close the panel — that is exactly
+      // what happens when focus enters the input.
+      spiesA.collapse(true)
+      document.dispatchEvent(new Event('selectionchange'))
+      expect(bubble().classList.contains('lemma-canvas-format-visible')).toBe(true)
+      expect(panelEl().classList.contains('lemma-canvas-link-open')).toBe(true)
+
+      // After close, the same collapsed selection hides the bubble.
+      inputA.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      )
+      document.dispatchEvent(new Event('selectionchange'))
+      expect(bubble().classList.contains('lemma-canvas-format-visible')).toBe(false)
+      endSession(wOutside)
+
+      // Region-contained <a>: prefill picks up its href.
+      const wInside = grantRich(
+        'lp-b-000001',
+        '<section><div class="lemma-edit-region" data-lemma-edit-block="lp-b-000001" ' +
+          'data-lemma-edit-field="body"><p><a href="https://x.test/old">old</a></p></div></section>',
+      )
+      const anchor = wInside.querySelector('.lemma-edit-region a')!
+      stubRichSelection(anchor.firstChild!)
+      const inputB = openPanel()
+      expect(inputB.value).toBe('https://x.test/old')
+      endSession(wInside)
+    } finally {
+      window.getSelection = realGetSelection
+    }
+  })
+
+  it('input mousedown is allowed to focus; format-button mousedown is still cancelled', () => {
+    try {
+      const w = grantRich('lp-c-000001')
+      stubRichSelection(w.querySelector('.lemma-edit-region p')!)
+      const input = openPanel()
+
+      const onInput = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+      input.dispatchEvent(onInput)
+      expect(onInput.defaultPrevented).toBe(false)
+
+      const onButton = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
+      bubble().querySelector('[data-format="bold"]')!.dispatchEvent(onButton)
+      expect(onButton.defaultPrevented).toBe(true)
+      endSession(w)
+    } finally {
+      window.getSelection = realGetSelection
+    }
+  })
+
+  it('region blur with relatedTarget in the bubble keeps the session; null relatedTarget ends it', () => {
+    try {
+      const w = grantRich('lp-d-000001')
+      const region = w.querySelector('.lemma-edit-region')!
+      stubRichSelection(region.querySelector('p')!)
+      const input = openPanel()
+      posted.mockClear()
+
+      region.dispatchEvent(new FocusEvent('blur', { relatedTarget: input }))
+      expect(lastPost('lemma:edit-end')).toBeUndefined()
+      expect(region.getAttribute('contenteditable')).toBe('true')
+
+      // Null relatedTarget = REAL outside blur (review caution): commit-and-exit.
+      region.dispatchEvent(new FocusEvent('blur'))
+      expect(lastPost('lemma:edit-end')).toMatchObject({ id: 'lp-d-000001' })
+    } finally {
+      window.getSelection = realGetSelection
+    }
+  })
+
+  it('Enter applies: saved range active BEFORE createLink, panel closes, commit fires', () => {
+    vi.useFakeTimers()
+    try {
+      const exec = vi.fn(() => true)
+      document.execCommand = exec as unknown as typeof document.execCommand
+      const w = grantRich('lp-e-000001')
+      const region = w.querySelector('.lemma-edit-region')!
+      const spies = stubRichSelection(region.querySelector('p')!)
+      const input = openPanel()
+
+      input.value = '  https://x.test/new  '
+      posted.mockClear()
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      )
+
+      expect(spies.addRange).toHaveBeenCalledWith(spies.range)
+      expect(exec).toHaveBeenCalledWith('createLink', false, 'https://x.test/new')
+      // Observable order pin: range restored BEFORE createLink ran.
+      expect(spies.addRange.mock.invocationCallOrder[0]).toBeLessThan(
+        exec.mock.invocationCallOrder[0],
+      )
+      // Success closes the panel AFTER command/normalize/commit scheduling.
+      expect(panelEl().classList.contains('lemma-canvas-link-open')).toBe(false)
+      vi.advanceTimersByTime(450)
+      expect(lastPost('lemma:text-changed')).toMatchObject({ id: 'lp-e-000001' })
+      endSession(w)
+    } finally {
+      vi.useRealTimers()
+      window.getSelection = realGetSelection
+    }
+  })
+
+  it('invalid URLs (empty included) keep the panel open+focused with value preserved', () => {
+    try {
+      const exec = vi.fn(() => true)
+      document.execCommand = exec as unknown as typeof document.execCommand
+      const w = grantRich('lp-f-000001')
+      stubRichSelection(w.querySelector('.lemma-edit-region p')!)
+      const input = openPanel()
+
+      for (const value of ['', '   ', '//evil.test/x', 'javascript:alert(1)', 'data:text/html,x']) {
+        input.value = value
+        input.dispatchEvent(
+          new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+        )
+        expect(panelEl().classList.contains('lemma-canvas-link-open')).toBe(true)
+        expect(panelEl().classList.contains('lemma-canvas-link-invalid')).toBe(true)
+        expect(input.value).toBe(value) // preserved (review caution)
+      }
+      expect(exec).not.toHaveBeenCalled()
+
+      // The next keystroke clears the invalid mark.
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      expect(panelEl().classList.contains('lemma-canvas-link-invalid')).toBe(false)
+      endSession(w)
+    } finally {
+      window.getSelection = realGetSelection
+    }
+  })
+
+  it('Escape closes the panel, refocuses the region, and the session survives', () => {
+    try {
+      const w = grantRich('lp-g-000001')
+      const region = w.querySelector('.lemma-edit-region') as HTMLElement
+      stubRichSelection(region.querySelector('p')!)
+      const input = openPanel()
+
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      )
+      expect(panelEl().classList.contains('lemma-canvas-link-open')).toBe(false)
+      expect(document.activeElement).toBe(region)
+      expect(region.getAttribute('contenteditable')).toBe('true') // session alive
+      endSession(w)
+    } finally {
+      window.getSelection = realGetSelection
+    }
+  })
+
+  it('a NEW session applies with its OWN saved range (no stale reuse)', () => {
+    try {
+      const exec = vi.fn(() => true)
+      document.execCommand = exec as unknown as typeof document.execCommand
+
+      const w1 = grantRich('lp-h-000001')
+      const spies1 = stubRichSelection(w1.querySelector('.lemma-edit-region p')!)
+      openPanel()
+      endSession(w1) // closes panel via endEditing -> closeLinkPanel
+
+      const w2 = grantRich('lp-i-000001')
+      const spies2 = stubRichSelection(w2.querySelector('.lemma-edit-region p')!)
+      const input2 = openPanel()
+      input2.value = 'https://x.test/two'
+      input2.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      )
+      expect(spies2.addRange).toHaveBeenCalledWith(spies2.range)
+      expect(spies1.addRange).not.toHaveBeenCalled()
+      endSession(w2)
+    } finally {
+      window.getSelection = realGetSelection
+    }
+  })
+
+  it('typing in the input never triggers stage shortcuts', () => {
+    try {
+      const w = grantRich('lp-j-000001')
+      stubRichSelection(w.querySelector('.lemma-edit-region p')!)
+      const input = openPanel()
+      posted.mockClear()
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true }),
+      )
+      expect(lastPost('lemma:block-delete-request')).toBeUndefined()
+      endSession(w)
+    } finally {
+      window.getSelection = realGetSelection
+    }
   })
 })

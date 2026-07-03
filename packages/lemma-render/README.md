@@ -163,6 +163,13 @@ the next Save & refresh re-renders the truth. All toolbar styling lives in the
 static `/_preview.css` (never inline styles); the toolbar is positioned by DOM
 placement inside the selected block's first element, so blocks whose templates
 render no element (text-only output) get selection but no toolbar.
+The selected block also answers the keyboard: Alt/Option+Arrow moves it,
+Backspace/Delete asks the admin's delete confirm, Cmd/Ctrl+D duplicates,
+Enter opens in-place editing when the block has exactly one editable region
+of its own (a container's child-block regions don't count — the same rule
+the wrapper-level double-click uses), and Escape deselects. Shortcuts stay
+inert while editing in-place, while dragging, and while focus sits in the
+toolbar or the theme's own form fields.
 
 With the admin's Apply action, the preview session can also render the
 editor's *unsaved* working tree: the app validates and stashes it (cache-only,
@@ -175,6 +182,15 @@ in-place: annotated renders wrap the sanitized rich-field output in a
 blocks), and double-clicking one in the canvas turns it into a plain
 contenteditable whose text flows back to the admin's block tree. Typed HTML
 is sanitized at save and re-sanitized by `safe_html` at render.
+While a rich session is active, selecting text shows a small formatting
+bubble over the selection (bold, italic, underline, strikethrough,
+link/unlink); the bridge normalizes ALL rich-region output (bar actions,
+native Cmd+B/Cmd+I, paste) into the sanitizer's allowlist shape
+(`strong`/`em`/`u`/`s`, no styled spans) before it
+flows back, so formatting survives save and re-render. Links are added
+through an inline panel in the bubble (TipTap-style, no browser prompt);
+URLs are validated against the safe_url posture before they're applied,
+and the edit session survives focus moving into the panel.
 
 Applies are automatic by default: the admin re-applies the working tree on a
 short debounce after edits (suppressed while typing in-place) and restores

@@ -2,10 +2,12 @@
 // SILENT until a canvas parent says hello; a plain preview tab never messages
 // anyone. The nonce is a correlation token, not auth — it stops stale frames/
 // same-window noise from impersonating the active canvas session. Token-free
-// and static on purpose (cacheable). CSP pin: NO inline styles anywhere — all
-// appearance lives in preview.css classes; the toolbar is positioned by DOM
-// placement inside the selected block's anchor element. Mirrors are DOM-only
-// and applied ONLY on parent command, after the tree mutation committed.
+// and static on purpose (cacheable). CSP pin (reworded, format-bubble spec):
+// no style ATTRIBUTES ever appear in emitted or serialized markup and ALL
+// appearance lives in preview.css classes; bridge-owned UI may be positioned
+// via CSSOM property assignment (el.style.transform — geometry only), which
+// strict style-src does not restrict. Block toolbars stay DOM-placed. Mirrors
+// are DOM-only and applied ONLY on parent command, after the tree committed.
 (function () {
   'use strict'
   var session = null // { origin, nonce }
@@ -16,6 +18,9 @@
   var lastPointer = null // { x, y } of the granting double-click (caret placement)
   var drag = null // { wrapper, originalNext, lastY }
   var suppressClick = false // one-shot: the click after a completed drag
+  var linkPanel = null // { root, input } — child of the current bubble
+  var savedLinkRange = null // session-scoped (link-panel spec); cleared by closeLinkPanel
+  var linkPanelOpen = false // freeze flag (link-panel spec §4)
 
   function post(type, payload) {
     if (!session) return
@@ -144,11 +149,294 @@
     return regions.length === 1 ? regions[0] : null // one region per (block, field)
   }
 
+  function singleRegionOf(id) {
+    // The block's OWN regions only (keyboard-shortcuts review P1): a container
+    // block's subtree includes nested child-block regions — counting those
+    // would start editing a CHILD while the parent is the selected or
+    // double-clicked block. Shared by keyboard Enter and the wrapper-level
+    // double-click fallback so the two paths stay aligned.
+    var w = findBlock(id)
+    if (!w) return null
+    var regions = w.querySelectorAll(
+      '.lemma-edit-region[data-lemma-edit-block="' + cssEscape(id) + '"]'
+    )
+    return regions.length === 1 ? regions[0] : null
+  }
+
+  /**
+   * Rewrite rich-region HTML into the save/render sanitizer's allowlist shape
+   * (format-bar spec §2): b -> strong, i -> em, span[style] unwrapped. The
+   * sanitizer drops disallowed elements WITH CHILDREN, so unnormalized native
+   * Cmd+B output makes the bolded text itself vanish at the next apply.
+   * ONLY ever called with the active edit region or its detached clone (spec
+   * pin): theme markup may legitimately use b/i/styled spans elsewhere.
+   * Children are MOVED (not cloned), so live selections anchored in text
+   * nodes survive when this runs against the live region.
+   */
+  function normalizeRichRegion(root) {
+    // STRIKE: execCommand('strikeThrough') emits <strike> in most engines —
+    // not allowlisted either, so it joins the rename map (-> <s>). <u> and
+    // <s> are allowlisted as-is.
+    var rename = { B: 'strong', I: 'em', STRIKE: 's' }
+    var el
+    while ((el = root.querySelector('b, i, strike'))) {
+      var next = document.createElement(rename[el.tagName])
+      while (el.firstChild) next.appendChild(el.firstChild)
+      el.parentNode.replaceChild(next, el)
+    }
+    while ((el = root.querySelector('span[style]'))) {
+      while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el)
+      el.parentNode.removeChild(el)
+    }
+  }
+
+  // ── In-stage formatting bar (format-bar spec §1/§3) ─────────────────────────
+  var FORMAT_ACTIONS = [
+    { format: 'bold', label: 'Bold', path: 'M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z' },
+    { format: 'italic', label: 'Italic', path: 'M19 5h-8M13 19H5M15 5L9 19' },
+    { format: 'underline', label: 'Underline', path: 'M6 4v6a6 6 0 0 0 12 0V4M4 20h16' },
+    { format: 'strikethrough', label: 'Strikethrough', path: 'M16 4H9a3 3 0 0 0-2.83 4M14 12a4 4 0 0 1 0 8H6M4 12h16' },
+    { format: 'link', label: 'Add link', path: 'M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1 1M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1-1' },
+    { format: 'unlink', label: 'Remove link', path: 'M15 7h2a5 5 0 0 1 0 10h-2M9 17H7A5 5 0 0 1 7 7h2M4 4l16 16' }
+  ]
+
+  function preventFocusSteal(e) {
+    // Both pointerdown AND mousedown (spec pin): focus changes are
+    // pointer-driven first on modern engines — cancelling only mousedown can
+    // let the region blur (commit-and-exit) before the format action runs.
+    // The link panel's INPUT is the one exemption: it must be focusable.
+    if (e.target && e.target.tagName === 'INPUT') return
+    e.preventDefault()
+  }
+
+  function showFormatBar() {
+    // Body-mounted (format-bubble spec §1): structurally outside every
+    // wrapper, so commits and duplicate clones can never carry it.
+    var bar = document.createElement('div')
+    bar.className = 'lemma-canvas-format-bar'
+    // Two explicit rows (column layout): the bubble shrink-wraps the widest
+    // row instead of stretching when the link panel opens.
+    var row = document.createElement('div')
+    row.className = 'lemma-canvas-format-row'
+    FORMAT_ACTIONS.forEach(function (a) {
+      var btn = document.createElement('button')
+      btn.type = 'button'
+      btn.setAttribute('data-format', a.format)
+      btn.setAttribute('aria-label', a.label)
+      btn.innerHTML =
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+        'stroke-linecap="round" stroke-linejoin="round"><path d="' + a.path + '"/></svg>'
+      row.appendChild(btn)
+    })
+    bar.appendChild(row)
+    bar.addEventListener('pointerdown', preventFocusSteal)
+    bar.addEventListener('mousedown', preventFocusSteal)
+    document.body.appendChild(bar)
+    return bar
+  }
+
+  /**
+   * Show the bubble over the current selection, or hide it. Visible ONLY when
+   * the selection is non-collapsed AND its common ancestor is contained by
+   * the active region (strict containment — a partially-outside selection
+   * resolves its ancestor above the region and hides). Geometry via CSSOM
+   * transform only (reworded CSP pin); appearance stays in preview.css.
+   */
+  function positionFormatBubble() {
+    if (!editing || !editing.formatBar) return
+    if (linkPanelOpen) return // freeze (link-panel spec §4): focusing the input collapses the selection
+    var bar = editing.formatBar
+    var sel = window.getSelection ? window.getSelection() : null
+    var placed = false
+    if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+      var range = sel.getRangeAt(0)
+      if (editing.region.contains(range.commonAncestorContainer)) {
+        var rect = range.getBoundingClientRect()
+        var size = bar.getBoundingClientRect()
+        var x = rect.left + rect.width / 2 - size.width / 2
+        var maxX = (window.innerWidth || 0) - size.width - 4
+        if (maxX > 4 && x > maxX) x = maxX
+        if (x < 4) x = 4
+        var y = rect.top - size.height - 8
+        if (y < 4) y = rect.bottom + 8
+        bar.style.transform = 'translate(' + x + 'px, ' + y + 'px)'
+        placed = true
+      }
+    }
+    if (placed) bar.classList.add('lemma-canvas-format-visible')
+    else bar.classList.remove('lemma-canvas-format-visible')
+  }
+
+  function isSafeLinkUrl(url) {
+    // Mirror of the safe_url/sanitizer posture (spec pin): the sanitizer
+    // stays the authority — this check is UX honesty, a link that would be
+    // stripped at save must never appear in the stage.
+    if (typeof url !== 'string') return false
+    var trimmed = url.replace(/^\s+|\s+$/g, '')
+    if (trimmed === '') return false
+    if (trimmed.slice(0, 2) === '//') return false // protocol-relative
+    var m = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(trimmed)
+    if (!m) return true // relative: /path, #anchor, ?q, bare path
+    var scheme = m[1].toLowerCase()
+    return scheme === 'http' || scheme === 'https' || scheme === 'mailto'
+  }
+
+  function runCommand(cmd, value) {
+    // Real-command-path discipline (plan-review caution): normalization and
+    // the commit schedule run ONLY when the engine actually executed the
+    // command — a missing or throwing execCommand is a complete no-op.
+    if (!document.execCommand) return false
+    try {
+      if (typeof value === 'string') document.execCommand(cmd, false, value)
+      else document.execCommand(cmd)
+      return true
+    } catch (err) {
+      return false
+    }
+  }
+
+  function applyFormat(action) {
+    if (!editing || editing.kind !== 'rich') return
+    if (action === 'link') {
+      toggleLinkPanel() // inline panel, never a browser prompt (link-panel spec §1)
+      return
+    }
+    var ran = false
+    if (action === 'unlink') {
+      ran = runCommand('unlink')
+    } else if (action === 'bold' || action === 'italic' || action === 'underline') {
+      ran = runCommand(action)
+    } else if (action === 'strikethrough') {
+      ran = runCommand('strikeThrough') // the command's camelCase legacy name
+    }
+    if (!ran) return
+    normalizeRichRegion(editing.region) // live pass: selection survives node MOVES
+    onEditInput() // deterministic commit (spec §4): never rely on engines firing input
+    positionFormatBubble() // re-anchor now: normalization reshapes the DOM (review caution)
+  }
+
+  // ── Inline link panel (link-panel spec §1–§4) ───────────────────────────────
+  function ensureLinkPanel() {
+    if (linkPanel && editing && linkPanel.root.parentNode === editing.formatBar) return linkPanel
+    var root = document.createElement('div')
+    root.className = 'lemma-canvas-link-panel'
+    var input = document.createElement('input')
+    input.type = 'text'
+    input.placeholder = 'Paste a link…'
+    input.setAttribute('aria-label', 'Link URL')
+    var apply = document.createElement('button')
+    apply.type = 'button'
+    apply.setAttribute('data-link-apply', '')
+    apply.setAttribute('aria-label', 'Apply link')
+    apply.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round"><path d="M9 10l-5 5 5 5M4 15h11a4 4 0 0 0 0-8h-1"/></svg>'
+    root.appendChild(input)
+    root.appendChild(apply)
+    input.addEventListener('keydown', onLinkInputKeydown)
+    input.addEventListener('input', function () {
+      root.classList.remove('lemma-canvas-link-invalid')
+    })
+    apply.addEventListener('click', function (e) {
+      e.preventDefault()
+      applyLink()
+    })
+    editing.formatBar.appendChild(root)
+    linkPanel = { root: root, input: input }
+    return linkPanel
+  }
+
+  function toggleLinkPanel() {
+    if (linkPanelOpen) {
+      closeLinkPanel()
+      return
+    }
+    var sel = window.getSelection ? window.getSelection() : null
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return
+    var range = sel.getRangeAt(0)
+    if (!editing.region.contains(range.commonAncestorContainer)) return
+    savedLinkRange = range.cloneRange()
+    var panel = ensureLinkPanel()
+    // Prefill from the closest <a> ONLY when it lives inside the region
+    // (spec pin): a link-like theme wrapper outside the region is ignored.
+    var node = range.commonAncestorContainer
+    var el = node.nodeType === 1 ? node : node.parentNode
+    var a = el && el.closest ? el.closest('a') : null
+    panel.input.value = a && editing.region.contains(a) ? a.getAttribute('href') || '' : ''
+    panel.root.classList.remove('lemma-canvas-link-invalid')
+    panel.root.classList.add('lemma-canvas-link-open')
+    linkPanelOpen = true // freeze positioning BEFORE focus collapses the selection
+    panel.input.focus()
+  }
+
+  /**
+   * Idempotent single owner of the panel's lifecycle state (review caution):
+   * saved range, invalid mark, open/freeze flag. Called from the link
+   * toggle, Escape, apply success, and endEditing — edit-flush ends the
+   * session, so it funnels through endEditing too. A range is never reused
+   * across sessions (spec pin).
+   */
+  function closeLinkPanel() {
+    savedLinkRange = null
+    linkPanelOpen = false
+    if (linkPanel) {
+      linkPanel.root.classList.remove('lemma-canvas-link-open')
+      linkPanel.root.classList.remove('lemma-canvas-link-invalid')
+    }
+  }
+
+  function onLinkInputKeydown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      applyLink()
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      closeLinkPanel()
+      if (editing) editing.region.focus()
+      positionFormatBubble()
+    }
+  }
+
+  function applyLink() {
+    if (!editing || !linkPanel || !linkPanelOpen) return
+    var url = linkPanel.input.value.replace(/^\s+|\s+$/g, '')
+    if (!isSafeLinkUrl(url)) {
+      // Invalid (empty included — spec pin: empty is NOT unlink): keep the
+      // panel open with the VALUE preserved and focus in the input.
+      linkPanel.root.classList.add('lemma-canvas-link-invalid')
+      linkPanel.input.focus()
+      return
+    }
+    if (!savedLinkRange) {
+      closeLinkPanel()
+      return
+    }
+    editing.region.focus()
+    var sel = window.getSelection ? window.getSelection() : null
+    if (sel && sel.removeAllRanges && sel.addRange) {
+      sel.removeAllRanges()
+      sel.addRange(savedLinkRange) // order pin: range ACTIVE before createLink
+    }
+    if (!runCommand('createLink', url)) return // v8 discipline: no side effects
+    normalizeRichRegion(editing.region)
+    onEditInput()
+    closeLinkPanel() // success: AFTER command/normalize/commit scheduling
+    positionFormatBubble()
+  }
+
   function commitEditing() {
     if (!editing) return
     if (editing.debounce) clearTimeout(editing.debounce)
     if (editing.kind === 'rich') {
-      post('text-changed', { id: editing.id, field: editing.field, html: editing.region.innerHTML })
+      // Normalize a DETACHED CLONE (format-bar spec §2): commit must be
+      // allowlist-shaped even for HTML the bar never produced (native
+      // Cmd+B/Cmd+I, rich paste) — and rewriting the live DOM mid-typing
+      // would move the caret.
+      var clone = editing.region.cloneNode(true)
+      normalizeRichRegion(clone)
+      post('text-changed', { id: editing.id, field: editing.field, html: clone.innerHTML })
     } else {
       var text = editing.region.innerText
       if (typeof text !== 'string') text = editing.region.textContent || ''
@@ -164,6 +452,20 @@
     editing.region.removeEventListener('input', onEditInput)
     editing.region.removeEventListener('blur', onEditBlur)
     editing.region.removeEventListener('keydown', onEditKeydown)
+    if (editing.formatBar) {
+      // Cleanup BEFORE editing = null (review caution): the listeners and the
+      // bubble element both hang off the session. closeLinkPanel clears the
+      // saved range + freeze state (idempotent single owner); the panel
+      // element itself is removed with the bubble below.
+      closeLinkPanel()
+      linkPanel = null
+      document.removeEventListener('selectionchange', positionFormatBubble)
+      window.removeEventListener('scroll', positionFormatBubble, true)
+      window.removeEventListener('resize', positionFormatBubble)
+      if (editing.formatBar.parentNode) {
+        editing.formatBar.parentNode.removeChild(editing.formatBar)
+      }
+    }
     var id = editing.id
     editing = null
     post('edit-end', { id: id })
@@ -175,7 +477,16 @@
     editing.debounce = setTimeout(commitEditing, 400)
   }
 
-  function onEditBlur() {
+  function onEditBlur(e) {
+    // Focus visiting the bubble (link panel) keeps the session alive
+    // (link-panel spec §2). A null relatedTarget is treated as a REAL
+    // outside blur (review caution): commit-and-exit as before.
+    if (
+      e && e.relatedTarget && editing && editing.formatBar
+      && editing.formatBar.contains(e.relatedTarget)
+    ) {
+      return
+    }
     commitEditing()
     endEditing()
   }
@@ -198,7 +509,7 @@
     var region = regionFor(id, field)
     if (!region) return
     detachToolbar()
-    editing = { id: id, field: field, kind: kind, region: region, debounce: null }
+    editing = { id: id, field: field, kind: kind, region: region, debounce: null, formatBar: null }
     region.setAttribute('contenteditable', kind === 'rich' ? 'true' : 'plaintext-only')
     // Best-effort (spec pin): engines without plaintext-only support reflect a
     // different IDL value — fall back to 'true'. Commits read innerText for
@@ -207,6 +518,12 @@
       region.setAttribute('contenteditable', 'true')
     }
     region.classList.add('lemma-canvas-editing')
+    if (kind === 'rich') {
+      editing.formatBar = showFormatBar()
+      document.addEventListener('selectionchange', positionFormatBubble)
+      window.addEventListener('scroll', positionFormatBubble, true)
+      window.addEventListener('resize', positionFormatBubble)
+    }
     region.addEventListener('input', onEditInput)
     region.addEventListener('blur', onEditBlur)
     region.addEventListener('keydown', onEditKeydown)
@@ -394,6 +711,68 @@
     drag = null
   }
 
+  // ── Stage keyboard shortcuts (keyboard-shortcuts spec §1/§2) ────────────────
+  // Document-capture so theme markup can't shadow it — which is exactly why the
+  // guards must be airtight: never during an edit session or drag (their own
+  // handlers own Escape), never from the bridge toolbar (native button keyboard
+  // semantics stay intact), never from theme form controls. Guard paths return
+  // WITHOUT consuming the event — the drag's own capture handler (registered
+  // later, so it runs after this one) still needs to see Escape.
+  function keyTargetIsFormish(t) {
+    if (!t || !t.tagName) return false
+    var tag = t.tagName
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true
+    if (t.isContentEditable) return true
+    return !!(t.closest && t.closest('[contenteditable], input, textarea, select'))
+  }
+
+  function onCanvasKeydown(e) {
+    if (selectedId === null || editing || drag) return
+    var t = e.target
+    if (t && t.closest && t.closest('.lemma-canvas-toolbar')) return
+    if (keyTargetIsFormish(t)) return
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault()
+      e.stopPropagation()
+      post('block-move', { id: selectedId, delta: e.key === 'ArrowUp' ? -1 : 1 })
+      return
+    }
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      e.preventDefault()
+      e.stopPropagation()
+      post('block-delete-request', { id: selectedId }) // rect-less -> centered confirm
+      return
+    }
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'd' || e.key === 'D')) {
+      e.preventDefault() // beat the browser bookmark shortcut
+      e.stopPropagation()
+      post('block-duplicate', { id: selectedId })
+      return
+    }
+    if (e.key === 'Enter') {
+      // Byte-equivalent to the wrapper-level double-click fallback (spec pin):
+      // ONLY the block's own single region — zero, 2+, or child-owned regions
+      // are not a target (review P1; same helper as the pointer path).
+      var region = singleRegionOf(selectedId)
+      if (!region) return
+      e.preventDefault()
+      e.stopPropagation()
+      lastPointer = null // keyboard entry: caret placement falls back to focus()
+      post('edit-request', {
+        id: region.getAttribute('data-lemma-edit-block'),
+        field: region.getAttribute('data-lemma-edit-field')
+      })
+      return
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
+      var deselectedId = selectedId
+      clearSelection()
+      post('block-deselect', { id: deselectedId })
+    }
+  }
+
   // ── Mirrors (stage-toolbar spec §1): DOM-only, parent-commanded ─────────────
   function stripCanvasState(root) {
     Array.prototype.forEach.call(root.querySelectorAll('.lemma-canvas-toolbar'), function (el) {
@@ -483,8 +862,9 @@
       // wrapper-level double-click falls back to the block's single region.
       var region = e.target && e.target.closest ? e.target.closest('.lemma-edit-region') : null
       if (!region || !w.contains(region)) {
-        var regions = w.querySelectorAll('.lemma-edit-region')
-        region = regions.length === 1 ? regions[0] : null
+        // Wrapper-level fallback: ONLY the block's own single region (review
+        // P1) — shared with keyboard Enter so the two paths stay aligned.
+        region = singleRegionOf(w.getAttribute('data-lemma-block'))
       }
       if (!region) return
       e.preventDefault()
@@ -506,6 +886,23 @@
         return
       }
       if (editing) {
+        // The formatting bubble is the ONE outside-the-region click zone that
+        // acts instead of ending the session (format-bar spec §3). Only
+        // [data-format] clicks dispatch actions; panel-internal clicks
+        // (input, apply) are handled by the panel's own listeners and must
+        // never commit-and-exit (link-panel spec §2).
+        var inBar = e.target && e.target.closest
+          ? e.target.closest('.lemma-canvas-format-bar')
+          : null
+        if (inBar) {
+          var fmtBtn = e.target.closest('.lemma-canvas-format-bar [data-format]')
+          if (fmtBtn) {
+            e.preventDefault()
+            e.stopPropagation()
+            applyFormat(fmtBtn.getAttribute('data-format'))
+          }
+          return
+        }
         // Caret placement inside the active region passes through untouched;
         // any click outside commits-and-exits, then v2 semantics resume.
         if (editing.region.contains(e.target)) return
@@ -544,6 +941,7 @@
       selectWrapper(w)
       post('block-select', { id: w.getAttribute('data-lemma-block') })
     }, true)
+    document.addEventListener('keydown', onCanvasKeydown, true)
     // Scroll preservation (auto-apply spec §3): trailing-throttled reports;
     // the parent restores after every stage reload.
     var scrollTimer = null

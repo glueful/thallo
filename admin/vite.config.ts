@@ -73,7 +73,7 @@ export default defineConfig(({ mode }) => {
           },
           button: {
             slots: {
-              base: 'cursor-pointer rounded-xl',
+              base: 'cursor-pointer rounded-lg',
             },
           },
           // App-wide modal look: no header/footer dividers, larger corner radius.

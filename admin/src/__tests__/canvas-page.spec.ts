@@ -57,6 +57,7 @@ const bridge = vi.hoisted(() => {
     select?: (id: string) => void
     hover?: (id: string) => void
     index?: (ids: string[]) => void
+    deselect?: (id: string) => void
     move?: (id: string, d: 1 | -1) => void
     moveTo?: (id: string, neighbor: { beforeId: string } | { afterId: string }) => void
     duplicate?: (id: string) => void
@@ -74,6 +75,7 @@ const bridge = vi.hoisted(() => {
       nonce: 'n',
       hello: vi.fn(),
       onBlockSelect: (cb: (id: string) => void) => (callbacks.select = cb),
+      onBlockDeselect: (cb: (id: string) => void) => (callbacks.deselect = cb),
       onBlockHover: (cb: (id: string) => void) => (callbacks.hover = cb),
       onBlocksIndex: (cb: (ids: string[]) => void) => (callbacks.index = cb),
       onBlockMove: (cb: (id: string, d: 1 | -1) => void) => (callbacks.move = cb),
@@ -380,6 +382,26 @@ describe('canvas page', () => {
     await flushPromises()
     // Inspector selection landed (header focused via selectBlockById).
     expect(document.activeElement?.getAttribute('data-test')).toBe('block-toggle-blockaaa0001')
+    wrapper.unmount()
+  })
+
+  it('stage Escape deselect clears the parent selection (outline highlight)', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.find('[data-test="canvas-outline-toggle"]').trigger('click')
+    bridge.callbacks.select?.('blockaaa0001')
+    await flushPromises()
+    expect(wrapper.find('[data-test="canvas-outline-item-blockaaa0001"]').classes()).toContain(
+      'bg-elevated',
+    )
+
+    bridge.callbacks.deselect?.('blockaaa0001')
+    await flushPromises()
+    expect(wrapper.find('[data-test="canvas-outline-item-blockaaa0001"]').classes()).not.toContain(
+      'bg-elevated',
+    )
     wrapper.unmount()
   })
 
