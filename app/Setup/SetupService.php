@@ -103,7 +103,7 @@ final class SetupService
                 'description' => 'Generic static pages (e.g. About, Contact).',
                 'schema'      => [
                     ['name' => 'title', 'type' => 'string', 'required' => true],
-                    ['name' => 'body',  'type' => 'text'],
+                    ['name' => 'body',  'type' => 'blocks', 'required' => true],
                 ],
                 'created_by'  => $userUuid,
             ]);

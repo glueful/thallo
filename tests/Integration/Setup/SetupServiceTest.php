@@ -100,14 +100,17 @@ final class SetupServiceTest extends LemmaTestCase
         $fieldNames = array_map(static fn(array $f): string => (string) $f['name'], $type['schema']);
         self::assertSame(['title', 'body'], $fieldNames);
 
-        // The title field is required (it drives the entry display title) and body is long text.
+        // The title field is required (it drives the entry display title) and body is
+        // a BLOCKS field — seeded pages are block-built (the block builder is the
+        // page-composition surface, not a plain text column).
         $byName = [];
         foreach ($type['schema'] as $field) {
             $byName[$field['name']] = $field;
         }
         self::assertSame('string', $byName['title']['type']);
         self::assertTrue((bool) ($byName['title']['required'] ?? false));
-        self::assertSame('text', $byName['body']['type']);
+        self::assertSame('blocks', $byName['body']['type']);
+        self::assertTrue((bool) ($byName['body']['required'] ?? false));
     }
 
     public function testInstallIsPermanentLock(): void

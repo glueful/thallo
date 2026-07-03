@@ -3,9 +3,13 @@
 {% block content %}
   <article>
     <h1>{{ entry.fields.title }}</h1>
-    {# ESCAPED on purpose: the reference theme cannot know that a field named "body"
-       is sanitized rich text rather than arbitrary text. Theme authors who know their
-       schema opt into |raw knowingly for their rich-text fields. #}
-    {% if entry.fields.body is defined %}<div class="body">{{ entry.fields.body }}</div>{% endif %}
+    {# A blocks-typed body (the seeded Pages type) renders through blocks(); a text
+       body stays ESCAPED on purpose: the reference theme cannot know that a field
+       named "body" is sanitized rich text rather than arbitrary text. Theme authors
+       who know their schema opt into safe_html/|raw knowingly. #}
+    {% if entry.fields.body is defined %}
+      {% if entry.fields.body is iterable %}{{ blocks(entry.fields.body) }}
+      {% else %}<div class="body">{{ entry.fields.body }}</div>{% endif %}
+    {% endif %}
   </article>
 {% endblock %}
