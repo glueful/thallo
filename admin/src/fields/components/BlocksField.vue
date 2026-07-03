@@ -199,6 +199,18 @@ function pickerTypesFor(id: string): BlockType[] {
   return pickerTypesForList(loc.parentId, loc.region)
 }
 
+/** Edit-in-place (spec §4): patch ONE data field of a block, id-addressed. */
+function patchBlockData(id: string, fieldName: string, value: unknown): boolean {
+  if (!ops.findById(model.value ?? [], id)) return false
+  apply((t) => ops.patchDataById(t, id, fieldName, value))
+  return true
+}
+
+/** The type slug of `id`, for the parent's prose-convention grant check. */
+function blockTypeById(id: string): string | null {
+  return ops.findById(model.value ?? [], id)?.type ?? null
+}
+
 // Exposed API: onDragEnd is the direct-handler testing seam (jsdom cannot
 // simulate sortable); selectBlock/hasBlock let the visual canvas route a
 // stage selection to this field; the structural methods are the canvas
@@ -212,6 +224,8 @@ defineExpose({
   deleteBlock,
   insertAfter,
   pickerTypesFor,
+  patchBlockData,
+  blockTypeById,
 })
 
 // ── Tail prose (spec §3) ──────────────────────────────────────────────────────

@@ -106,13 +106,27 @@ describe('useCanvasBridge', () => {
     for (const [type, cb] of [
       ['lemma:block-duplicate', dup],
       ['lemma:block-delete-request', del],
-      ['lemma:block-add-after', add],
     ] as const) {
       window.dispatchEvent(
         new MessageEvent('message', { data: { type, id: 'b2', nonce: bridge.nonce } }),
       )
       expect(cb).toHaveBeenCalledWith('b2')
     }
+
+    // add-after carries an optional ANCHOR (the + button's rect) — null when
+    // absent/malformed, {x, y} when both numbers are present.
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-add-after', id: 'b2', nonce: bridge.nonce },
+      }),
+    )
+    expect(add).toHaveBeenCalledWith('b2', null)
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-add-after', id: 'b3', rect: { x: 12, y: 34 }, nonce: bridge.nonce },
+      }),
+    )
+    expect(add).toHaveBeenCalledWith('b3', { x: 12, y: 34 })
     bridge.dispose()
   })
 
@@ -146,6 +160,66 @@ describe('useCanvasBridge', () => {
       'https://site.test',
     )
     bridge.dispose()
+  })
+
+  it('edit messages: grant posts, request/text-changed dispatch, flush resolves on ack', async () => {
+    const postSpy = vi.fn()
+    const iframe = ref({
+      src: 'https://site.test/_preview/tok123',
+      contentWindow: { postMessage: postSpy },
+    } as unknown as HTMLIFrameElement)
+    const bridge = useCanvasBridge(iframe as Ref<HTMLIFrameElement | null>)
+    const req = vi.fn()
+    const text = vi.fn()
+    bridge.onEditRequest(req)
+    bridge.onTextChanged(text)
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:edit-request', id: 'b1', nonce: bridge.nonce },
+      }),
+    )
+    expect(req).toHaveBeenCalledWith('b1')
+
+    bridge.editGrant('b1', 'body')
+    expect(postSpy).toHaveBeenCalledWith(
+      { type: 'lemma:edit-grant', id: 'b1', field: 'body', nonce: bridge.nonce },
+      'https://site.test',
+    )
+
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: {
+          type: 'lemma:text-changed',
+          id: 'b1',
+          field: 'body',
+          html: '<p>x</p>',
+          nonce: bridge.nonce,
+        },
+      }),
+    )
+    expect(text).toHaveBeenCalledWith('b1', 'body', '<p>x</p>')
+
+    // Flush resolves on the ack (no timers needed).
+    const flushed = bridge.editFlush()
+    window.dispatchEvent(
+      new MessageEvent('message', { data: { type: 'lemma:edit-flushed', nonce: bridge.nonce } }),
+    )
+    await expect(flushed).resolves.toBeUndefined()
+    bridge.dispose()
+  })
+
+  it('editFlush falls back to the 200ms timeout when no bridge answers', async () => {
+    vi.useFakeTimers()
+    try {
+      const bridge = useCanvasBridge(ref(null))
+      const flushed = bridge.editFlush()
+      vi.advanceTimersByTime(250)
+      await expect(flushed).resolves.toBeUndefined()
+      bridge.dispose()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('blocks-index dispatch filters non-strings', () => {
@@ -262,6 +336,21 @@ describe('FieldEditor.selectBlockById', () => {
     expect(dup!.idMap['inside000001']).toBe(dup!.newId)
     // pickerTypesForBlock resolves through the owning field's per-list rules.
     expect(api.pickerTypesForBlock('inbody000001').map((t) => t.slug)).toEqual(['card'])
+    wrapper.unmount()
+  })
+
+  it('routes patchBlockDataById and blockTypeOfBlock to the owning field', async () => {
+    await warmBlocksField()
+    const wrapper = mountEditor()
+    await flushPromises()
+    const api = wrapper.vm as unknown as {
+      patchBlockDataById: (id: string, f: string, v: unknown) => boolean
+      blockTypeOfBlock: (id: string) => string | null
+    }
+    expect(api.patchBlockDataById('missing', 'x', 1)).toBe(false)
+    expect(api.blockTypeOfBlock('missing')).toBeNull()
+    expect(api.blockTypeOfBlock('inside000001')).toBe('card')
+    expect(api.patchBlockDataById('inside000001', 'title', 'patched')).toBe(true)
     wrapper.unmount()
   })
 })

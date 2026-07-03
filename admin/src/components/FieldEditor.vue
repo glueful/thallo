@@ -22,6 +22,8 @@ interface BlocksFieldExposed {
   deleteBlock: (id: string) => boolean
   insertAfter: (id: string, typeSlug: string) => string | null
   pickerTypesFor: (id: string) => BlockType[]
+  patchBlockData: (id: string, field: string, value: unknown) => boolean
+  blockTypeById: (id: string) => string | null
 }
 
 const blocksFields = new Map<string, BlocksFieldExposed>()
@@ -70,6 +72,12 @@ defineExpose({
   },
   pickerTypesForBlock(id: string): BlockType[] {
     return fieldOwning(id)?.pickerTypesFor(id) ?? []
+  },
+  patchBlockDataById(id: string, field: string, value: unknown) {
+    return fieldOwning(id)?.patchBlockData(id, field, value) ?? false
+  },
+  blockTypeOfBlock(id: string): string | null {
+    return fieldOwning(id)?.blockTypeById(id) ?? null
   },
 })
 </script>

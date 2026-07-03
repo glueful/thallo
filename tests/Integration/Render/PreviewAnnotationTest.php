@@ -112,10 +112,16 @@ final class PreviewAnnotationTest extends LemmaTestCase
             $token,
         );
         $html = (string) $preview->getContent();
-        self::assertSame(1, substr_count($html, '<link rel="stylesheet" href="/_preview.css">'));
-        self::assertSame(1, substr_count($html, '<script src="/_preview-bridge.js" defer></script>'));
+        // Exactly one stylesheet link + one bridge script, each with the mtime
+        // cache-buster (the assets serve max-age=86400 — without ?v=, bridge
+        // changes would ship a day late to any browser that already previewed).
+        self::assertSame(1, (int) preg_match_all('#<link rel="stylesheet" href="/_preview\.css\?v=\d+">#', $html));
+        self::assertSame(
+            1,
+            (int) preg_match_all('#<script src="/_preview-bridge\.js\?v=\d+" defer></script>#', $html),
+        );
         // Injected BEFORE </body>, not appended after the document.
-        self::assertStringContainsString('/_preview-bridge.js" defer></script></body>', $html);
+        self::assertSame(1, (int) preg_match_all('#defer></script></body>#', $html));
 
         // Live HTML: neither.
         $live = $this->handle(Request::create('/page/inject', 'GET'));

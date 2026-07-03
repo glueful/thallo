@@ -56,6 +56,11 @@ const enabledCodes = computed(
   () => new Set((allLocales.value ?? []).filter((l) => l.enabled).map((l) => l.code)),
 )
 const enabledCount = computed(() => enabledCodes.value.size)
+// The design route is locale-addressed; from the list, open the DEFAULT locale
+// (the same one the editor lands on) — 'en' until locales load.
+const defaultLocale = computed(
+  () => (allLocales.value ?? []).find((l) => l.is_default)?.code ?? 'en',
+)
 function translatedCount(locales: string[]): number {
   return locales.filter((c) => enabledCodes.value.has(c)).length
 }
@@ -150,6 +155,15 @@ function statusColor(s: string): 'success' | 'warning' | 'neutral' {
               icon="i-lucide-pencil"
               aria-label="Edit"
               :to="`/content/${type}/${row.original.uuid}`"
+            />
+            <UButton
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              icon="i-lucide-layout-template"
+              aria-label="Design"
+              data-test="row-design-link"
+              :to="`/content/${type}/${row.original.uuid}/design/${defaultLocale}`"
             />
             <UButton
               color="error"

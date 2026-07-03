@@ -12,6 +12,8 @@
   var selectedId = null
   var toolbar = null
   var anchorEl = null
+  var editing = null // { id, field, region, debounce }
+  var lastPointer = null // { x, y } of the granting double-click (caret placement)
 
   function post(type, payload) {
     if (!session) return
@@ -109,6 +111,79 @@
     selectedId = null
   }
 
+  // ── Edit-in-place session (edit-in-place spec §3) ───────────────────────────
+  function regionFor(id) {
+    var w = findBlock(id)
+    if (!w) return null
+    var regions = w.querySelectorAll('.lemma-edit-region[data-lemma-edit-block="' + cssEscape(id) + '"]')
+    return regions.length === 1 ? regions[0] : null // one-region rule (fail-safe)
+  }
+
+  function commitEditing() {
+    if (!editing) return
+    if (editing.debounce) clearTimeout(editing.debounce)
+    post('text-changed', { id: editing.id, field: editing.field, html: editing.region.innerHTML })
+  }
+
+  function endEditing() {
+    if (!editing) return
+    if (editing.debounce) clearTimeout(editing.debounce)
+    editing.region.removeAttribute('contenteditable')
+    editing.region.classList.remove('lemma-canvas-editing')
+    editing.region.removeEventListener('input', onEditInput)
+    editing.region.removeEventListener('blur', onEditBlur)
+    editing.region.removeEventListener('keydown', onEditKeydown)
+    var id = editing.id
+    editing = null
+    post('edit-end', { id: id })
+  }
+
+  function onEditInput() {
+    if (!editing) return
+    if (editing.debounce) clearTimeout(editing.debounce)
+    editing.debounce = setTimeout(commitEditing, 400)
+  }
+
+  function onEditBlur() {
+    commitEditing()
+    endEditing()
+  }
+
+  function onEditKeydown(e) {
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      commitEditing()
+      endEditing()
+    }
+  }
+
+  function startEditing(id, field) {
+    if (editing) return
+    var region = regionFor(id)
+    // Field sanity check (spec §3): defense in depth against a stale grant.
+    if (!region || region.getAttribute('data-lemma-edit-field') !== field) return
+    detachToolbar()
+    editing = { id: id, field: field, region: region, debounce: null }
+    region.setAttribute('contenteditable', 'true')
+    region.classList.add('lemma-canvas-editing')
+    region.addEventListener('input', onEditInput)
+    region.addEventListener('blur', onEditBlur)
+    region.addEventListener('keydown', onEditKeydown)
+    region.focus()
+    // Caret at the double-click point (spec pin) — best-effort: jsdom and old
+    // engines lack caretRangeFromPoint; focus() alone is the fallback.
+    if (lastPointer && document.caretRangeFromPoint) {
+      var range = document.caretRangeFromPoint(lastPointer.x, lastPointer.y)
+      if (range && region.contains(range.startContainer)) {
+        var sel = window.getSelection()
+        if (sel) {
+          sel.removeAllRanges()
+          sel.addRange(range)
+        }
+      }
+    }
+  }
+
   // ── Mirrors (stage-toolbar spec §1): DOM-only, parent-commanded ─────────────
   function stripCanvasState(root) {
     Array.prototype.forEach.call(root.querySelectorAll('.lemma-canvas-toolbar'), function (el) {
@@ -123,6 +198,12 @@
       Array.prototype.forEach.call(root.querySelectorAll('.' + cls), function (el) {
         el.classList.remove(cls)
       })
+    })
+    Array.prototype.forEach.call(root.querySelectorAll('[contenteditable]'), function (el) {
+      el.removeAttribute('contenteditable')
+    })
+    Array.prototype.forEach.call(root.querySelectorAll('.lemma-canvas-editing'), function (el) {
+      el.classList.remove('lemma-canvas-editing')
     })
   }
 
@@ -159,6 +240,13 @@
       var next = idMap[el.getAttribute('data-lemma-block')]
       if (next) el.setAttribute('data-lemma-block', next)
     })
+    // Edit regions carry their block id too (review P1): without the rewrite a
+    // duplicated prose block's region keeps the SOURCE id and edit-grant for
+    // the new id can never find it until the next Apply re-renders truth.
+    Array.prototype.forEach.call(clone.querySelectorAll('[data-lemma-edit-block]'), function (el) {
+      var mappedEdit = idMap[el.getAttribute('data-lemma-edit-block')]
+      if (mappedEdit) el.setAttribute('data-lemma-edit-block', mappedEdit)
+    })
     src.parentNode.insertBefore(clone, src.nextSibling)
   }
 
@@ -171,10 +259,27 @@
         post('block-hover', { id: w.getAttribute('data-lemma-block') })
       }
     })
+    // Double-click on a prose block asks the parent for an edit grant
+    // (edit-in-place spec §3) — the bridge never decides editability itself.
+    document.addEventListener('dblclick', function (e) {
+      if (editing) return
+      var w = wrapperFor(e.target)
+      if (!w) return
+      e.preventDefault()
+      lastPointer = { x: e.clientX, y: e.clientY }
+      post('edit-request', { id: w.getAttribute('data-lemma-block') })
+    }, true)
     // Capture phase: block-internal links/buttons are INERT while active
     // (spec §3) — editing must not navigate the stage. Toolbar clicks are the
     // ONE branch that dispatches an intent instead of (re)selecting.
     document.addEventListener('click', function (e) {
+      if (editing) {
+        // Caret placement inside the active region passes through untouched;
+        // any click outside commits-and-exits, then v2 semantics resume.
+        if (editing.region.contains(e.target)) return
+        commitEditing()
+        endEditing()
+      }
       var btn = e.target && e.target.closest
         ? e.target.closest('.lemma-canvas-toolbar [data-action]')
         : null
@@ -186,7 +291,13 @@
         if (action === 'move-down') post('block-move', { id: selectedId, delta: 1 })
         if (action === 'duplicate') post('block-duplicate', { id: selectedId })
         if (action === 'delete') post('block-delete-request', { id: selectedId })
-        if (action === 'add-after') post('block-add-after', { id: selectedId })
+        if (action === 'add-after') {
+          // Anchor for the parent's picker (iframe-viewport coordinates): the
+          // parent translates through the iframe's own offset so the panel
+          // opens AT the + button instead of floating top-center.
+          var r = btn.getBoundingClientRect()
+          post('block-add-after', { id: selectedId, rect: { x: r.left, y: r.bottom } })
+        }
         return
       }
       var w = wrapperFor(e.target)
@@ -220,6 +331,16 @@
       if (t && t.firstElementChild) {
         t.firstElementChild.scrollIntoView({ block: 'center', behavior: 'smooth' })
       }
+    }
+    if (data.type === 'lemma:edit-grant' && typeof data.id === 'string' && typeof data.field === 'string') {
+      startEditing(data.id, data.field)
+    }
+    if (data.type === 'lemma:edit-flush') {
+      if (editing) {
+        commitEditing()
+        endEditing()
+      }
+      post('edit-flushed') // ALWAYS ack (spec §3) — the parent awaits this
     }
     if (data.type === 'lemma:mirror-move') mirrorMove(data.id, data.beforeId, data.afterId)
     if (data.type === 'lemma:mirror-remove') mirrorRemove(data.id)

@@ -40,3 +40,12 @@
 }
 .lemma-canvas-toolbar button:hover { background: #3f3f46; }
 .lemma-canvas-toolbar svg { width: 14px; height: 14px; }
+
+/* Edit-in-place (edit-in-place spec §3): the active region swaps the selection
+   ring for an editing style. Static rules only (CSP pin). */
+.lemma-canvas-editing {
+  outline: 2px solid rgba(16, 185, 129, 0.9);
+  outline-offset: 2px;
+  cursor: text;
+}
+.lemma-canvas-editing:focus { outline-color: rgba(16, 185, 129, 1); }

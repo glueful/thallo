@@ -2,7 +2,9 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
+import { useBlockTypes } from '@/queries/blockTypes'
 import type { BlockType } from '@/queries/blockTypes'
+import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
 import { applyPreview, mintPreviewData } from '@/queries/preview'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
@@ -98,6 +100,13 @@ function onIframeLoad(): void {
   bridge.hello()
 }
 
+// Outline panel visibility — same affordance shape as the inspector's
+// per-field outline rail toggle. Collapsed by default: the stage is the star.
+const outlineOpen = ref(false)
+function toggleOutline(): void {
+  outlineOpen.value = !outlineOpen.value
+}
+
 // Viewport presets (spec §6): stage width only.
 const viewport = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
 function setViewport(v: 'desktop' | 'tablet' | 'mobile'): void {
@@ -115,6 +124,8 @@ interface FieldEditorExposed {
   deleteBlockById: (id: string) => boolean
   insertAfterById: (id: string, typeSlug: string) => string | null
   pickerTypesForBlock: (id: string) => BlockType[]
+  patchBlockDataById: (id: string, field: string, value: unknown) => boolean
+  blockTypeOfBlock: (id: string) => string | null
 }
 const fieldEditorRef = ref<FieldEditorExposed | null>(null)
 const selected = ref<string | null>(null)
@@ -167,11 +178,31 @@ function confirmDelete(): void {
 }
 
 // Add-after: parent-side picker over the CONTAINING list's rules (spec §5).
-// No mirror — the new block appears in the stage on the next Save & refresh.
+// No mirror — the new block appears in the stage on the next Apply.
 const addAfterId = ref<string | null>(null)
 const addAfterTypes = ref<BlockType[]>([])
-bridge.onBlockAddAfter((id) => {
+const stageEl = ref<HTMLElement | null>(null)
+// Inline top/left when the intent carried the + button's rect (anchored to the
+// toolbar button); null = the centered fallback classes.
+const addAfterPos = ref<{ top: string; left: string } | null>(null)
+
+bridge.onBlockAddAfter((id, anchor) => {
   addAfterTypes.value = fieldEditorRef.value?.pickerTypesForBlock(id) ?? []
+  addAfterPos.value = null
+  if (anchor && stageEl.value && iframeEl.value) {
+    // Translate the iframe-viewport anchor into stage-container content
+    // coordinates (the container is the positioning context and scrolls).
+    const stageRect = stageEl.value.getBoundingClientRect()
+    const iframeRect = iframeEl.value.getBoundingClientRect()
+    const rawLeft = iframeRect.left - stageRect.left + stageEl.value.scrollLeft + anchor.x
+    const top = iframeRect.top - stageRect.top + stageEl.value.scrollTop + anchor.y + 8
+    // Keep the 16rem (256px) panel inside the container.
+    const maxLeft = Math.max(8, stageEl.value.clientWidth - 264)
+    addAfterPos.value = {
+      top: `${Math.max(8, top)}px`,
+      left: `${Math.max(8, Math.min(rawLeft, maxLeft))}px`,
+    }
+  }
   addAfterId.value = id
 })
 
@@ -186,6 +217,30 @@ function chooseAddType(slug: string): void {
   if (newId !== null) selected.value = newId
 }
 
+// ── Edit-in-place (edit-in-place spec §4): grant prose blocks only; typed
+// text patches the tree — no mirrors, the contenteditable IS the stage DOM.
+const { data: allBlockTypes } = useBlockTypes()
+
+/** The prose rich field of block `id`, or null — the ONE validation both paths use. */
+function proseFieldOf(id: string): string | null {
+  const slug = fieldEditorRef.value?.blockTypeOfBlock(id)
+  const blockType = slug ? allBlockTypes.value?.find((t) => t.slug === slug) : undefined
+  return blockType ? proseRichFieldName(blockType) : null
+}
+
+bridge.onEditRequest((id) => {
+  const richField = proseFieldOf(id)
+  if (richField !== null) bridge.editGrant(id, richField)
+})
+
+bridge.onTextChanged((id, field, html) => {
+  // Re-validate (review P1): iframe scripts can see the nonce after hello, so
+  // edit messages are REQUESTS, not authority. Patch only when the claimed
+  // field IS the block's prose rich field — anything else is ignored.
+  if (proseFieldOf(id) !== field) return
+  fieldEditorRef.value?.patchBlockDataById(id, field, html)
+})
+
 // ── Apply loop (loop C spec §4): ephemeral render, nothing persisted ──────────
 const save = useSaveDraft(uuid.value, () => locale.value, type.value)
 const applying = ref(false)
@@ -193,6 +248,7 @@ const applying = ref(false)
 async function applyWorking(): Promise<void> {
   applying.value = true
   try {
+    await bridge.editFlush() // commit any in-stage typing before reading fields
     try {
       await applyPreview(uuid.value, locale.value, previewToken.value, fields.value)
     } catch (e: unknown) {
@@ -300,7 +356,7 @@ function reloadStage(): void {
           <UBadge size="xs" color="neutral" variant="subtle" class="ml-2">Design · {{ locale }}</UBadge>
         </template>
         <template #right>
-          <UButtonGroup size="xs">
+          <UFieldGroup size="xs">
             <UButton
               variant="outline"
               color="neutral"
@@ -328,7 +384,16 @@ function reloadStage(): void {
               :class="{ 'bg-elevated': viewport === 'mobile' }"
               @click="setViewport('mobile')"
             />
-          </UButtonGroup>
+          </UFieldGroup>
+          <UButton
+            variant="ghost"
+            color="neutral"
+            icon="i-lucide-list-tree"
+            aria-label="Toggle outline"
+            data-test="canvas-outline-toggle"
+            :class="{ 'bg-elevated': outlineOpen }"
+            @click="toggleOutline()"
+          />
           <UButton
             v-if="mintFailed || (!renderDisabled && iframeSrc)"
             variant="ghost"
@@ -382,7 +447,7 @@ function reloadStage(): void {
           <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" />
         </aside>
 
-        <div class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3" data-test="canvas-stage">
+        <div ref="stageEl" class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3" data-test="canvas-stage">
           <div class="mx-auto h-full transition-[width]" :style="{ width: stageWidth }">
             <iframe
               v-if="iframeSrc"
@@ -419,10 +484,13 @@ function reloadStage(): void {
             </div>
           </div>
 
-          <!-- Add-after picker (stage-toolbar spec §5): the containing list's types. -->
+          <!-- Add-after picker (stage-toolbar spec §5): the containing list's types,
+               anchored to the toolbar's + button when its rect rode the intent. -->
           <div
             v-if="addAfterId"
-            class="absolute inset-x-0 top-3 z-10 mx-auto w-64 rounded-lg border border-default bg-default p-2 shadow-lg"
+            class="absolute z-10 w-64 rounded-lg border border-default bg-default p-2 shadow-lg"
+            :class="addAfterPos ? '' : 'inset-x-0 top-3 mx-auto'"
+            :style="addAfterPos ?? undefined"
             data-test="canvas-add-picker"
           >
             <p class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -449,7 +517,7 @@ function reloadStage(): void {
             </div>
           </div>
         </div>
-         <aside class="w-56 shrink-0 overflow-y-auto">
+         <aside v-if="outlineOpen" class="w-56 shrink-0 overflow-y-auto">
           <CanvasOutline
             :fields="fields"
             :schema="schema"
