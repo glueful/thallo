@@ -28,7 +28,8 @@
   background: #18181b;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
 }
-.lemma-canvas-toolbar button {
+.lemma-canvas-toolbar button,
+.lemma-canvas-format-bar button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -41,8 +42,10 @@
   color: #e4e4e7;
   cursor: pointer;
 }
-.lemma-canvas-toolbar button:hover { background: #3f3f46; }
-.lemma-canvas-toolbar svg { width: 14px; height: 14px; }
+.lemma-canvas-toolbar button:hover,
+.lemma-canvas-format-bar button:hover { background: #3f3f46; }
+.lemma-canvas-toolbar svg,
+.lemma-canvas-format-bar svg { width: 14px; height: 14px; }
 
 /* Edit-in-place (edit-in-place spec §3): the active region swaps the selection
    ring for an editing style. Static rules only (CSP pin). inline-block while
@@ -65,3 +68,46 @@
    is display:contents, so the dim styles its children. */
 .lemma-canvas-toolbar [data-action="drag"] { cursor: grab; touch-action: none; }
 [data-lemma-block].lemma-canvas-dragging > * { opacity: 0.55; }
+
+/* Selection-following format bubble (format-bubble spec §2): appearance and
+   the static base live HERE; the bridge sets ONLY transform via CSSOM
+   (reworded CSP pin — strict style-src does not restrict CSSOM geometry).
+   Fixed positioning matches the selection rect's viewport coordinates. */
+.lemma-canvas-format-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 6px;
+  background: #18181b;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.lemma-canvas-format-bar.lemma-canvas-format-visible { visibility: visible; }
+.lemma-canvas-format-row { display: flex; gap: 2px; }
+
+/* Inline link panel (link-panel spec §1): a second row inside the bubble —
+   the column layout shrink-wraps the bubble to the widest row. The apply
+   button inherits the shared bubble-button rules above. */
+.lemma-canvas-link-panel {
+  display: none;
+  gap: 2px;
+  align-items: center;
+}
+.lemma-canvas-link-panel.lemma-canvas-link-open { display: flex; }
+.lemma-canvas-link-panel input {
+  width: 220px;
+  border: 0;
+  border-radius: 4px;
+  padding: 4px 6px;
+  background: #27272a;
+  color: #e4e4e7;
+  font-size: 12px;
+  outline: none;
+}
+.lemma-canvas-link-panel input::placeholder { color: #a1a1aa; }
+.lemma-canvas-link-panel.lemma-canvas-link-invalid input { box-shadow: 0 0 0 1px #ef4444 inset; }

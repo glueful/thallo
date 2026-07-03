@@ -182,6 +182,15 @@ in-place: annotated renders wrap the sanitized rich-field output in a
 blocks), and double-clicking one in the canvas turns it into a plain
 contenteditable whose text flows back to the admin's block tree. Typed HTML
 is sanitized at save and re-sanitized by `safe_html` at render.
+While a rich session is active, selecting text shows a small formatting
+bubble over the selection (bold, italic, underline, strikethrough,
+link/unlink); the bridge normalizes ALL rich-region output (bar actions,
+native Cmd+B/Cmd+I, paste) into the sanitizer's allowlist shape
+(`strong`/`em`/`u`/`s`, no styled spans) before it
+flows back, so formatting survives save and re-render. Links are added
+through an inline panel in the bubble (TipTap-style, no browser prompt);
+URLs are validated against the safe_url posture before they're applied,
+and the edit session survives focus moving into the panel.
 
 Applies are automatic by default: the admin re-applies the working tree on a
 short debounce after edits (suppressed while typing in-place) and restores

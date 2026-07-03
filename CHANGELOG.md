@@ -139,6 +139,25 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   Escape deselects (new `block-deselect` notification keeps outline/inspector
   selection honest). Guarded against edit sessions, drags, the bridge
   toolbar, and theme form controls.
+- In-stage formatting bubble (canvas v8): rich edit sessions show a
+  selection-following formatting bubble (TipTap-style, positioned off the
+  selection rect) — bold, italic, underline, strikethrough, link, unlink —
+  applied in place and normalized into the sanitizer's allowlist shape
+  (`b/i/strike` → `strong/em/s`, styled spans unwrapped) both after each
+  action and at commit. The
+  commit-time pass also fixes a latent v3 bug: native Cmd+B output
+  (`<b>`) was dropped WITH its text by the save/render sanitizer, so
+  bolded text vanished at the next apply. Links are added through an
+  inline input panel inside the bubble (no browser prompt): the edit
+  session survives focus moving into the panel, the text selection is
+  saved and restored around the command, URLs validate against the
+  safe_url posture before execCommand runs, and invalid input keeps the
+  panel open marked invalid.
+  The bubble cancels pointerdown/mousedown (the edit session never blurs)
+  and every action schedules the debounced commit explicitly.
+  The bridge's CSP pin is reworded: appearance stays in preview.css and no
+  style attributes are ever emitted, but bridge-owned UI may be positioned
+  via CSSOM transform (which strict style-src does not restrict).
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /
