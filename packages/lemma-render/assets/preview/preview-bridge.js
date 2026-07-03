@@ -291,7 +291,13 @@
         if (action === 'move-down') post('block-move', { id: selectedId, delta: 1 })
         if (action === 'duplicate') post('block-duplicate', { id: selectedId })
         if (action === 'delete') post('block-delete-request', { id: selectedId })
-        if (action === 'add-after') post('block-add-after', { id: selectedId })
+        if (action === 'add-after') {
+          // Anchor for the parent's picker (iframe-viewport coordinates): the
+          // parent translates through the iframe's own offset so the panel
+          // opens AT the + button instead of floating top-center.
+          var r = btn.getBoundingClientRect()
+          post('block-add-after', { id: selectedId, rect: { x: r.left, y: r.bottom } })
+        }
         return
       }
       var w = wrapperFor(e.target)

@@ -320,8 +320,14 @@ final class RenderController
         if (!str_contains($type, 'text/html')) {
             return $response;
         }
-        $inject = '<link rel="stylesheet" href="/_preview.css">'
-            . '<script src="/_preview-bridge.js" defer></script>';
+        // Version by mtime: the assets are served with max-age=86400, so without
+        // a cache-busting query every bridge/CSS change ships a DAY late to any
+        // browser that already previewed. Query strings don't affect routing.
+        $assetDir = dirname(__DIR__, 3) . '/assets/preview/';
+        $cssV = (int) @filemtime($assetDir . 'preview.css');
+        $jsV = (int) @filemtime($assetDir . 'preview-bridge.js');
+        $inject = '<link rel="stylesheet" href="/_preview.css?v=' . $cssV . '">'
+            . '<script src="/_preview-bridge.js?v=' . $jsV . '" defer></script>';
         $html = (string) $response->getContent();
         $response->setContent(
             str_contains($html, '</body>')

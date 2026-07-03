@@ -60,7 +60,7 @@ const bridge = vi.hoisted(() => {
     move?: (id: string, d: 1 | -1) => void
     duplicate?: (id: string) => void
     deleteRequest?: (id: string) => void
-    addAfter?: (id: string) => void
+    addAfter?: (id: string, anchor?: { x: number; y: number } | null) => void
     editRequest?: (id: string) => void
     textChanged?: (id: string, field: string, html: string) => void
   } = {}
@@ -75,7 +75,8 @@ const bridge = vi.hoisted(() => {
       onBlockMove: (cb: (id: string, d: 1 | -1) => void) => (callbacks.move = cb),
       onBlockDuplicate: (cb: (id: string) => void) => (callbacks.duplicate = cb),
       onBlockDeleteRequest: (cb: (id: string) => void) => (callbacks.deleteRequest = cb),
-      onBlockAddAfter: (cb: (id: string) => void) => (callbacks.addAfter = cb),
+      onBlockAddAfter: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
+        (callbacks.addAfter = cb),
       onEditRequest: (cb: (id: string) => void) => (callbacks.editRequest = cb),
       onTextChanged: (cb: (id: string, field: string, html: string) => void) =>
         (callbacks.textChanged = cb),
@@ -440,6 +441,29 @@ describe('canvas page', () => {
     expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
     expect(bridge.instance.mirrorDuplicate).not.toHaveBeenCalled()
     expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('an anchored add-after intent positions the picker at the + button', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    // jsdom rects are all zeros, so top = 0 - 0 + 0 + anchor.y + 8.
+    bridge.callbacks.addAfter?.('blockaaa0001', { x: 120, y: 42 })
+    await flushPromises()
+    const picker = wrapper.find('[data-test="canvas-add-picker"]')
+    expect(picker.exists()).toBe(true)
+    expect(picker.attributes('style')).toContain('top: 50px')
+    // Anchored mode drops the centered-fallback classes.
+    expect(picker.classes()).not.toContain('mx-auto')
+
+    // Without an anchor, the centered fallback still applies.
+    await picker.find('[data-test="canvas-add-cancel"]').trigger('click')
+    bridge.callbacks.addAfter?.('blockaaa0001')
+    await flushPromises()
+    const centered = wrapper.find('[data-test="canvas-add-picker"]')
+    expect(centered.classes()).toContain('mx-auto')
     wrapper.unmount()
   })
 

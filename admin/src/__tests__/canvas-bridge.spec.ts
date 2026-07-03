@@ -106,13 +106,27 @@ describe('useCanvasBridge', () => {
     for (const [type, cb] of [
       ['lemma:block-duplicate', dup],
       ['lemma:block-delete-request', del],
-      ['lemma:block-add-after', add],
     ] as const) {
       window.dispatchEvent(
         new MessageEvent('message', { data: { type, id: 'b2', nonce: bridge.nonce } }),
       )
       expect(cb).toHaveBeenCalledWith('b2')
     }
+
+    // add-after carries an optional ANCHOR (the + button's rect) — null when
+    // absent/malformed, {x, y} when both numbers are present.
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-add-after', id: 'b2', nonce: bridge.nonce },
+      }),
+    )
+    expect(add).toHaveBeenCalledWith('b2', null)
+    window.dispatchEvent(
+      new MessageEvent('message', {
+        data: { type: 'lemma:block-add-after', id: 'b3', rect: { x: 12, y: 34 }, nonce: bridge.nonce },
+      }),
+    )
+    expect(add).toHaveBeenCalledWith('b3', { x: 12, y: 34 })
     bridge.dispose()
   })
 

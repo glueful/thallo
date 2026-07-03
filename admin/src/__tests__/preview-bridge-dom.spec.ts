@@ -98,7 +98,10 @@ describe('preview bridge (direct eval)', () => {
     click('delete')
     expect(lastPost('lemma:block-delete-request')).toMatchObject({ id: 'blk-int-0001' })
     click('add-after')
-    expect(lastPost('lemma:block-add-after')).toMatchObject({ id: 'blk-int-0001' })
+    const addAfter = lastPost('lemma:block-add-after')!
+    expect(addAfter).toMatchObject({ id: 'blk-int-0001' })
+    // The + button's rect rides along so the parent can anchor its picker.
+    expect(addAfter.rect).toMatchObject({ x: expect.any(Number), y: expect.any(Number) })
     expect(lastPost('lemma:block-select')).toBeUndefined()
   })
 

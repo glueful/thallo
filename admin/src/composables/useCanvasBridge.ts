@@ -19,6 +19,13 @@ interface BridgeMessage {
   delta?: number
   field?: string
   html?: string
+  rect?: { x?: number; y?: number }
+}
+
+/** Iframe-viewport anchor point forwarded with stage intents (add-after picker). */
+export interface BridgeAnchor {
+  x: number
+  y: number
 }
 
 export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
@@ -32,7 +39,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   let moveCb: ((id: string, delta: 1 | -1) => void) | null = null
   let duplicateCb: ((id: string) => void) | null = null
   let deleteRequestCb: ((id: string) => void) | null = null
-  let addAfterCb: ((id: string) => void) | null = null
+  let addAfterCb: ((id: string, anchor: BridgeAnchor | null) => void) | null = null
   let editRequestCb: ((id: string) => void) | null = null
   let textChangedCb: ((id: string, field: string, html: string) => void) | null = null
   let flushResolve: (() => void) | null = null
@@ -69,7 +76,11 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       deleteRequestCb?.(data.id)
     }
     if (data.type === 'lemma:block-add-after' && typeof data.id === 'string') {
-      addAfterCb?.(data.id)
+      const anchor =
+        typeof data.rect?.x === 'number' && typeof data.rect?.y === 'number'
+          ? { x: data.rect.x, y: data.rect.y }
+          : null
+      addAfterCb?.(data.id, anchor)
     }
     // Edit-in-place (edit-in-place spec §3/§4).
     if (data.type === 'lemma:edit-request' && typeof data.id === 'string') {
@@ -120,7 +131,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     onBlockDeleteRequest(cb: (id: string) => void): void {
       deleteRequestCb = cb
     },
-    onBlockAddAfter(cb: (id: string) => void): void {
+    onBlockAddAfter(cb: (id: string, anchor: BridgeAnchor | null) => void): void {
       addAfterCb = cb
     },
     // Mirrors (stage-toolbar spec §1): posted ONLY after the tree committed.

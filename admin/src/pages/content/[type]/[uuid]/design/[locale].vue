@@ -178,11 +178,31 @@ function confirmDelete(): void {
 }
 
 // Add-after: parent-side picker over the CONTAINING list's rules (spec §5).
-// No mirror — the new block appears in the stage on the next Save & refresh.
+// No mirror — the new block appears in the stage on the next Apply.
 const addAfterId = ref<string | null>(null)
 const addAfterTypes = ref<BlockType[]>([])
-bridge.onBlockAddAfter((id) => {
+const stageEl = ref<HTMLElement | null>(null)
+// Inline top/left when the intent carried the + button's rect (anchored to the
+// toolbar button); null = the centered fallback classes.
+const addAfterPos = ref<{ top: string; left: string } | null>(null)
+
+bridge.onBlockAddAfter((id, anchor) => {
   addAfterTypes.value = fieldEditorRef.value?.pickerTypesForBlock(id) ?? []
+  addAfterPos.value = null
+  if (anchor && stageEl.value && iframeEl.value) {
+    // Translate the iframe-viewport anchor into stage-container content
+    // coordinates (the container is the positioning context and scrolls).
+    const stageRect = stageEl.value.getBoundingClientRect()
+    const iframeRect = iframeEl.value.getBoundingClientRect()
+    const rawLeft = iframeRect.left - stageRect.left + stageEl.value.scrollLeft + anchor.x
+    const top = iframeRect.top - stageRect.top + stageEl.value.scrollTop + anchor.y + 8
+    // Keep the 16rem (256px) panel inside the container.
+    const maxLeft = Math.max(8, stageEl.value.clientWidth - 264)
+    addAfterPos.value = {
+      top: `${Math.max(8, top)}px`,
+      left: `${Math.max(8, Math.min(rawLeft, maxLeft))}px`,
+    }
+  }
   addAfterId.value = id
 })
 
@@ -427,7 +447,7 @@ function reloadStage(): void {
           <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" />
         </aside>
 
-        <div class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3" data-test="canvas-stage">
+        <div ref="stageEl" class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3" data-test="canvas-stage">
           <div class="mx-auto h-full transition-[width]" :style="{ width: stageWidth }">
             <iframe
               v-if="iframeSrc"
@@ -464,10 +484,13 @@ function reloadStage(): void {
             </div>
           </div>
 
-          <!-- Add-after picker (stage-toolbar spec §5): the containing list's types. -->
+          <!-- Add-after picker (stage-toolbar spec §5): the containing list's types,
+               anchored to the toolbar's + button when its rect rode the intent. -->
           <div
             v-if="addAfterId"
-            class="absolute inset-x-0 top-3 z-10 mx-auto w-64 rounded-lg border border-default bg-default p-2 shadow-lg"
+            class="absolute z-10 w-64 rounded-lg border border-default bg-default p-2 shadow-lg"
+            :class="addAfterPos ? '' : 'inset-x-0 top-3 mx-auto'"
+            :style="addAfterPos ?? undefined"
             data-test="canvas-add-picker"
           >
             <p class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
