@@ -236,9 +236,9 @@ describe('edit-in-place session', () => {
     const w = proseWrapper('eip-a-000001')
     document.body.appendChild(w)
     w.querySelector('p')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
-    expect(lastPost('lemma:edit-request')).toMatchObject({ id: 'eip-a-000001' })
+    expect(lastPost('lemma:edit-request')).toMatchObject({ id: 'eip-a-000001', field: 'body' })
 
-    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-a-000001', field: 'body' })
+    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-a-000001', field: 'body', kind: 'rich' })
     const region = w.querySelector('.lemma-edit-region')!
     expect(region.getAttribute('contenteditable')).toBe('true')
     expect(region.classList.contains('lemma-canvas-editing')).toBe(true)
@@ -258,7 +258,7 @@ describe('edit-in-place session', () => {
   it('grant field mismatch or multiple regions -> no editing (fail-safe)', () => {
     const w = proseWrapper('eip-b-000001')
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-b-000001', field: 'other' })
+    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-b-000001', field: 'other', kind: 'rich' })
     expect(w.querySelector('[contenteditable]')).toBeNull()
 
     const two = wrapper(
@@ -269,7 +269,7 @@ describe('edit-in-place session', () => {
         '</section>',
     )
     document.body.appendChild(two)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-c-000001', field: 'body' })
+    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-c-000001', field: 'body', kind: 'rich' })
     expect(two.querySelector('[contenteditable]')).toBeNull()
   })
 
@@ -278,7 +278,7 @@ describe('edit-in-place session', () => {
     try {
       const w = proseWrapper('eip-d-000001')
       document.body.appendChild(w)
-      sendToBridge({ type: 'lemma:edit-grant', id: 'eip-d-000001', field: 'body' })
+      sendToBridge({ type: 'lemma:edit-grant', id: 'eip-d-000001', field: 'body', kind: 'rich' })
       const region = w.querySelector('.lemma-edit-region')!
       region.innerHTML = '<p>typed</p>'
       region.dispatchEvent(new Event('input', { bubbles: true }))
@@ -315,7 +315,7 @@ describe('edit-in-place session', () => {
     // Active session: final text-changed + edit-end BEFORE the ack.
     const w = proseWrapper('eip-f-000001')
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-f-000001', field: 'body' })
+    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-f-000001', field: 'body', kind: 'rich' })
     const region = w.querySelector('.lemma-edit-region')!
     region.innerHTML = '<p>flush me</p>'
     posted.mockClear()
@@ -328,7 +328,7 @@ describe('edit-in-place session', () => {
   it('mirror-duplicate clones never carry contenteditable or the editing class', () => {
     const w = proseWrapper('eip-g-000001')
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-g-000001', field: 'body' })
+    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-g-000001', field: 'body', kind: 'rich' })
     sendToBridge({
       type: 'lemma:mirror-duplicate',
       sourceId: 'eip-g-000001',
@@ -354,8 +354,100 @@ describe('edit-in-place session', () => {
     // next Apply re-renders truth.
     const region = copy.querySelector('.lemma-edit-region')!
     expect(region.getAttribute('data-lemma-edit-block')).toBe('eip-j-000002')
-    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-j-000002', field: 'body' })
+    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-j-000002', field: 'body', kind: 'rich' })
     expect(region.getAttribute('contenteditable')).toBe('true')
     sendToBridge({ type: 'lemma:edit-flush' }) // clean up the session for later tests
+
+    // v4: the field-addressed request from the CLONE emits the NEW id.
+    posted.mockClear()
+    region.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    expect(lastPost('lemma:edit-request')).toMatchObject({ id: 'eip-j-000002', field: 'body' })
+  })
+
+  function stringWrapper(id: string, field = 'heading', value = 'Hello'): HTMLElement {
+    return wrapper(
+      id,
+      `<section><h1><span class="lemma-edit-region" data-lemma-edit-block="${id}" ` +
+        `data-lemma-edit-field="${field}">${value}</span></h1></section>`,
+    )
+  }
+
+  it('request field comes from the region under the double-click; two fields coexist', () => {
+    const w = wrapper(
+      'es-a-0000001',
+      '<section>' +
+        '<h1><span class="lemma-edit-region" data-lemma-edit-block="es-a-0000001" data-lemma-edit-field="heading">H</span></h1>' +
+        '<p><span class="lemma-edit-region" data-lemma-edit-block="es-a-0000001" data-lemma-edit-field="body_text">B</span></p>' +
+        '</section>',
+    )
+    document.body.appendChild(w)
+    w.querySelector('p .lemma-edit-region')!.dispatchEvent(
+      new MouseEvent('dblclick', { bubbles: true }),
+    )
+    expect(lastPost('lemma:edit-request')).toMatchObject({ id: 'es-a-0000001', field: 'body_text' })
+
+    // Grant for ONE of two same-block regions edits exactly that region.
+    sendToBridge({ type: 'lemma:edit-grant', id: 'es-a-0000001', field: 'body_text', kind: 'text' })
+    const region = w.querySelector('[data-lemma-edit-field="body_text"]')!
+    expect(region.getAttribute('contenteditable')).not.toBeNull()
+    expect(
+      w.querySelector('[data-lemma-edit-field="heading"]')!.getAttribute('contenteditable'),
+    ).toBeNull()
+    sendToBridge({ type: 'lemma:edit-flush' })
+  })
+
+  it('wrapper-level double-click falls back to the SINGLE region; none with two', () => {
+    const single = stringWrapper('es-b-0000001')
+    document.body.appendChild(single)
+    posted.mockClear()
+    single.querySelector('section')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    expect(lastPost('lemma:edit-request')).toMatchObject({ id: 'es-b-0000001', field: 'heading' })
+
+    const two = wrapper(
+      'es-c-0000001',
+      '<section>' +
+        '<span class="lemma-edit-region" data-lemma-edit-block="es-c-0000001" data-lemma-edit-field="a">1</span>' +
+        '<span class="lemma-edit-region" data-lemma-edit-block="es-c-0000001" data-lemma-edit-field="b">2</span>' +
+        '</section>',
+    )
+    document.body.appendChild(two)
+    posted.mockClear()
+    two.querySelector('section')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+    expect(lastPost('lemma:edit-request')).toBeUndefined()
+  })
+
+  it('string kind: Enter commits-and-exits with the TEXT payload (markup never persists)', () => {
+    const w = stringWrapper('es-d-0000001')
+    document.body.appendChild(w)
+    sendToBridge({ type: 'lemma:edit-grant', id: 'es-d-0000001', field: 'heading', kind: 'string' })
+    const region = w.querySelector('.lemma-edit-region')!
+    expect(['plaintext-only', 'true']).toContain(region.getAttribute('contenteditable'))
+
+    region.innerHTML = 'New <b>title</b>'
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    region.dispatchEvent(enter)
+    expect(enter.defaultPrevented).toBe(true) // single-line convention
+    const commit = lastPost('lemma:text-changed')!
+    expect(commit).toMatchObject({ id: 'es-d-0000001', field: 'heading', text: 'New title' })
+    expect(commit.html).toBeUndefined()
+    expect(lastPost('lemma:edit-end')).toMatchObject({ id: 'es-d-0000001' })
+    expect(region.getAttribute('contenteditable')).toBeNull()
+  })
+
+  it('text kind: Enter does NOT exit; commit carries the text payload', () => {
+    const w = stringWrapper('es-e-0000001', 'body_text', 'line')
+    document.body.appendChild(w)
+    sendToBridge({ type: 'lemma:edit-grant', id: 'es-e-0000001', field: 'body_text', kind: 'text' })
+    const region = w.querySelector('.lemma-edit-region')!
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    region.dispatchEvent(enter)
+    expect(enter.defaultPrevented).toBe(false)
+    expect(region.getAttribute('contenteditable')).not.toBeNull() // still editing
+    region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(lastPost('lemma:text-changed')).toMatchObject({
+      id: 'es-e-0000001',
+      field: 'body_text',
+      text: 'line',
+    })
   })
 })

@@ -12,7 +12,7 @@
   var selectedId = null
   var toolbar = null
   var anchorEl = null
-  var editing = null // { id, field, region, debounce }
+  var editing = null // { id, field, kind, region, debounce }
   var lastPointer = null // { x, y } of the granting double-click (caret placement)
 
   function post(type, payload) {
@@ -112,17 +112,26 @@
   }
 
   // ── Edit-in-place session (edit-in-place spec §3) ───────────────────────────
-  function regionFor(id) {
+  function regionFor(id, field) {
     var w = findBlock(id)
     if (!w) return null
-    var regions = w.querySelectorAll('.lemma-edit-region[data-lemma-edit-block="' + cssEscape(id) + '"]')
-    return regions.length === 1 ? regions[0] : null // one-region rule (fail-safe)
+    var regions = w.querySelectorAll(
+      '.lemma-edit-region[data-lemma-edit-block="' + cssEscape(id) + '"]'
+        + '[data-lemma-edit-field="' + cssEscape(field) + '"]'
+    )
+    return regions.length === 1 ? regions[0] : null // one region per (block, field)
   }
 
   function commitEditing() {
     if (!editing) return
     if (editing.debounce) clearTimeout(editing.debounce)
-    post('text-changed', { id: editing.id, field: editing.field, html: editing.region.innerHTML })
+    if (editing.kind === 'rich') {
+      post('text-changed', { id: editing.id, field: editing.field, html: editing.region.innerHTML })
+    } else {
+      var text = editing.region.innerText
+      if (typeof text !== 'string') text = editing.region.textContent || ''
+      post('text-changed', { id: editing.id, field: editing.field, text: text })
+    }
   }
 
   function endEditing() {
@@ -155,16 +164,26 @@
       commitEditing()
       endEditing()
     }
+    if (e.key === 'Enter' && editing && editing.kind === 'string') {
+      e.preventDefault() // single-line: Enter commits-and-exits
+      commitEditing()
+      endEditing()
+    }
   }
 
-  function startEditing(id, field) {
+  function startEditing(id, field, kind) {
     if (editing) return
-    var region = regionFor(id)
-    // Field sanity check (spec §3): defense in depth against a stale grant.
-    if (!region || region.getAttribute('data-lemma-edit-field') !== field) return
+    var region = regionFor(id, field)
+    if (!region) return
     detachToolbar()
-    editing = { id: id, field: field, region: region, debounce: null }
-    region.setAttribute('contenteditable', 'true')
+    editing = { id: id, field: field, kind: kind, region: region, debounce: null }
+    region.setAttribute('contenteditable', kind === 'rich' ? 'true' : 'plaintext-only')
+    // Best-effort (spec pin): engines without plaintext-only support reflect a
+    // different IDL value — fall back to 'true'. Commits read innerText for
+    // plain kinds, so markup can never persist either way.
+    if (kind !== 'rich' && String(region.contentEditable).toLowerCase() !== 'plaintext-only') {
+      region.setAttribute('contenteditable', 'true')
+    }
     region.classList.add('lemma-canvas-editing')
     region.addEventListener('input', onEditInput)
     region.addEventListener('blur', onEditBlur)
@@ -265,9 +284,20 @@
       if (editing) return
       var w = wrapperFor(e.target)
       if (!w) return
+      // The REGION under the double-click names the field (spec §2); a
+      // wrapper-level double-click falls back to the block's single region.
+      var region = e.target && e.target.closest ? e.target.closest('.lemma-edit-region') : null
+      if (!region || !w.contains(region)) {
+        var regions = w.querySelectorAll('.lemma-edit-region')
+        region = regions.length === 1 ? regions[0] : null
+      }
+      if (!region) return
       e.preventDefault()
       lastPointer = { x: e.clientX, y: e.clientY }
-      post('edit-request', { id: w.getAttribute('data-lemma-block') })
+      post('edit-request', {
+        id: region.getAttribute('data-lemma-edit-block'),
+        field: region.getAttribute('data-lemma-edit-field')
+      })
     }, true)
     // Capture phase: block-internal links/buttons are INERT while active
     // (spec §3) — editing must not navigate the stage. Toolbar clicks are the
@@ -332,8 +362,11 @@
         t.firstElementChild.scrollIntoView({ block: 'center', behavior: 'smooth' })
       }
     }
-    if (data.type === 'lemma:edit-grant' && typeof data.id === 'string' && typeof data.field === 'string') {
-      startEditing(data.id, data.field)
+    if (
+      data.type === 'lemma:edit-grant' && typeof data.id === 'string'
+      && typeof data.field === 'string' && typeof data.kind === 'string'
+    ) {
+      startEditing(data.id, data.field, data.kind)
     }
     if (data.type === 'lemma:edit-flush') {
       if (editing) {

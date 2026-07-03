@@ -113,6 +113,12 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   only at Apply/Save (existing sanitizer chain). Renderer marks prose
   rich-field output via a new soft-bound `BlockEditableFieldResolver`
   contract; non-prose blocks are never marked.
+- Editable string fields (canvas v4): themes opt plain string/text fields
+  into edit-in-place with `{{ data.heading|editable_text('heading') }}` —
+  single-line strings commit on Enter, multiline text keeps newlines, and
+  the admin's schema-derived kind matrix is the grant/patch authority. The
+  starter theme adopts it across hero/section/quote/image/cta (never
+  unwrapping conditional emissions; attribute values stay unfiltered).
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

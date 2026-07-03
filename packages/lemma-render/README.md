@@ -176,6 +176,15 @@ blocks), and double-clicking one in the canvas turns it into a plain
 contenteditable whose text flows back to the admin's block tree. Typed HTML
 is sanitized at save and re-sanitized by `safe_html` at render.
 
+Plain string/text fields join in via the opt-in `|editable_text` filter:
+`{{ data.heading|editable_text('heading') }}` marks the value's rendered
+location (annotated renders only; live output is byte-identical to the plain
+emission). Apply it ONLY to whole-element text emissions — never inside HTML
+attributes (`alt`, `href`), where it would emit broken markup in preview —
+and keep existing `{% if %}` guards: a conditionally omitted field stays
+inspector-first. The admin validates every edit against the block schema, so
+a mistyped field name simply never becomes editable.
+
 **Changing block schemas:** additive edits (new fields, retypes) are free via
 `PATCH /block-types/{slug}`; renaming or deleting a field is a declared migration
 (`POST /block-types/{slug}/migrations` with `{ops:[{op:"rename",from,to}|{op:"delete",name}]}`)

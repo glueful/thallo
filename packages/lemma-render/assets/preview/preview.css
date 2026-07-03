@@ -42,10 +42,18 @@
 .lemma-canvas-toolbar svg { width: 14px; height: 14px; }
 
 /* Edit-in-place (edit-in-place spec §3): the active region swaps the selection
-   ring for an editing style. Static rules only (CSP pin). */
+   ring for an editing style. Static rules only (CSP pin). inline-block while
+   editing: an outline on an INLINE box draws around each wrapped line fragment
+   (a staircase on multiline text) — one box gives one rectangle, and the
+   layout shift is confined to the active editing session. */
 .lemma-canvas-editing {
+  display: inline-block;
   outline: 2px solid rgba(16, 185, 129, 0.9);
   outline-offset: 2px;
   cursor: text;
 }
 .lemma-canvas-editing:focus { outline-color: rgba(16, 185, 129, 1); }
+
+/* Empty editable regions (editable-string-fields spec §0): blank values the
+   template still renders (e.g. hero.heading) need a click target. */
+.lemma-edit-region:empty { display: inline-block; min-width: 3ch; min-height: 1em; }

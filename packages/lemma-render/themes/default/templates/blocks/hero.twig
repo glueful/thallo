@@ -2,10 +2,10 @@
 {% set url = data.cta_url|default('')|safe_url %}
 <header class="lemma-block lemma-block-hero lemma-block-hero--{{ data.alignment|default('left') }}">
   {% if img %}<img class="lemma-block-hero__image" src="{{ img }}" alt="">{% endif %}
-  <h1 class="lemma-block-hero__heading">{{ data.heading }}</h1>
-  {% if data.subheading %}<p class="lemma-block-hero__subheading">{{ data.subheading }}</p>{% endif %}
+  <h1 class="lemma-block-hero__heading">{{ data.heading|editable_text('heading') }}</h1>
+  {% if data.subheading %}<p class="lemma-block-hero__subheading">{{ data.subheading|editable_text('subheading') }}</p>{% endif %}
   {% if data.cta_label %}
-    {% if url %}<a class="lemma-block-hero__cta" href="{{ url }}">{{ data.cta_label }}</a>
-    {% else %}<span class="lemma-block-hero__cta">{{ data.cta_label }}</span>{% endif %}
+    {% if url %}<a class="lemma-block-hero__cta" href="{{ url }}">{{ data.cta_label|editable_text('cta_label') }}</a>
+    {% else %}<span class="lemma-block-hero__cta">{{ data.cta_label|editable_text('cta_label') }}</span>{% endif %}
   {% endif %}
 </header>
