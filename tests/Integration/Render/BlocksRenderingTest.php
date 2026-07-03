@@ -152,11 +152,13 @@ final class BlocksRenderingTest extends LemmaTestCase
     public function testBlocksJoinsTheSandboxAllowlistWithACacheVersionBump(): void
     {
         self::assertContains('blocks', TemplatePolicy::FUNCTIONS);
-        self::assertSame(3, TemplatePolicy::CACHE_VERSION); // 3 = safe_html joined FILTERS
+        self::assertContains('media', TemplatePolicy::FUNCTIONS);
+        self::assertSame(4, TemplatePolicy::CACHE_VERSION); // 4 = media + safe_url joined
 
-        // A DB template calling blocks() lints clean.
+        // DB templates calling blocks()/media() lint clean.
         $linter = $this->container()->get(TemplateLinter::class);
         self::assertSame([], $linter->lint('{{ blocks(entry.fields.body) }}'));
+        self::assertSame([], $linter->lint('{{ media(data.image) }}'));
     }
 
     public function testSafeHtmlSanitizesAndFailsClosed(): void
@@ -204,6 +206,39 @@ final class BlocksRenderingTest extends LemmaTestCase
         self::assertSame(
             [],
             $this->container()->get(TemplateLinter::class)->lint('{{ data.body|safe_html }}'),
+        );
+    }
+
+    public function testSafeUrlAllowsOnlyApprovedSchemes(): void
+    {
+        $ext = $this->container()->get(RenderContextExtension::class);
+        // Allow (spec §4).
+        self::assertSame('/about', $ext->safeUrl('/about'));
+        self::assertSame('https://example.com/x', $ext->safeUrl('https://example.com/x'));
+        self::assertSame('http://example.com', $ext->safeUrl(' http://example.com '));
+        self::assertSame('mailto:x@y.z', $ext->safeUrl('mailto:x@y.z'));
+        // Deny (spec §4 security matrix).
+        foreach (
+            [
+                'javascript:alert(1)',
+                'JAVASCRIPT:alert(1)',
+                '//evil.com',
+                'data:text/html,x',
+                'ftp://example.com',
+                '',
+                '   ',
+                123,
+                null,
+            ] as $bad
+        ) {
+            self::assertNull($ext->safeUrl($bad), var_export($bad, true));
+        }
+
+        self::assertContains('safe_url', TemplatePolicy::FILTERS);
+        // A DB template using the filter lints clean.
+        self::assertSame(
+            [],
+            $this->container()->get(TemplateLinter::class)->lint('{{ data.cta_url|safe_url }}'),
         );
     }
 }

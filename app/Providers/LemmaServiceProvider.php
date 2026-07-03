@@ -7,11 +7,13 @@ namespace App\Providers;
 use App\Capabilities\DefaultCapabilityRegistry;
 use App\Setup\SetupService;
 use App\Content\Delivery\DeliveryRepository;
+use App\Content\Delivery\EngineMediaUrlResolver;
 use App\Content\Delivery\FilterCompiler;
 use App\Content\Delivery\ReferenceFilterResolver;
 use App\Content\Delivery\ReferenceResolver;
 use App\Content\Delivery\SortCompiler;
 use App\Content\Console\PruneVersionsCommand;
+use App\Content\Console\SeedBlockTypesCommand;
 use App\Content\Console\ResyncCommand;
 use App\Content\Console\RunBackfillCommand;
 use App\Content\Console\RunDueSchedulesCommand;
@@ -538,6 +540,10 @@ final class LemmaServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            MediaUrlResolver::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeMediaUrlResolver'],
+            ],
             // Factory (not autowire): the theme validator is a SOFT render-pack
             // binding — passed only when present, so core stays removability-clean.
             PreviewController::class => [
@@ -557,6 +563,17 @@ final class LemmaServiceProvider extends ServiceProvider
             $container->has(PreviewThemeValidator::class)
                 ? $container->get(PreviewThemeValidator::class)
                 : null,
+        );
+    }
+
+    public static function makeMediaUrlResolver(ContainerInterface $container): EngineMediaUrlResolver
+    {
+        $context = $container->get(ApplicationContext::class);
+        return new EngineMediaUrlResolver(
+            $container->get(Connection::class),
+            api_prefix($context) . '/blobs',
+            (bool) config($context, 'uploads.enabled', true),
+            config($context, 'uploads.access', 'private'),
         );
     }
 
@@ -782,6 +799,11 @@ final class LemmaServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            SeedBlockTypesCommand::class => [
+                'class' => SeedBlockTypesCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             RunBackfillCommand::class => [
                 'class' => RunBackfillCommand::class,
                 'shared' => true,
@@ -925,6 +947,7 @@ final class LemmaServiceProvider extends ServiceProvider
         $this->commands([
             ResyncCommand::class,
             PruneVersionsCommand::class,
+            SeedBlockTypesCommand::class,
             RunBackfillCommand::class,
             RunDueSchedulesCommand::class,
             DoctorCommand::class,

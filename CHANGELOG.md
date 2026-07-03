@@ -35,6 +35,13 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   via an explicit internal depth parameter; recursive block editor with a
   max-depth notice and a cycle-free async registry entry; render-scoped depth
   counter in the reset family. No sandbox-policy change.
+  Follow-up (same day): **starter block library** — `lemma:blocks:seed` (idempotent,
+  opt-in, never overwrites) seeds 10 starter types with default-theme templates and
+  style-convention modifier classes (styling ships standalone as `blocks.css` so
+  custom themes adopt it by copying one file); new `media(uuid)` helper (MediaUrlResolver
+  contract — public + anonymously-retrievable blobs only, full blob-route-stack
+  parity) and `safe_url` filter (scheme-allowlisted hrefs); both joined the
+  DB-template sandbox allowlists (CACHE_VERSION → 4).
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

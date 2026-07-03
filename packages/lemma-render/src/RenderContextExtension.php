@@ -7,6 +7,7 @@ namespace Glueful\Lemma\Render;
 use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
+use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
 use Glueful\Lemma\Contracts\Navigation\MenuReader;
 use Psr\Log\LoggerInterface;
 use Twig\Environment;
@@ -63,6 +64,8 @@ final class RenderContextExtension extends AbstractExtension
         private readonly bool $debug = false,
         /** Soft-bound (sanitizer spec §4): null → safe_html fails CLOSED (escapes). */
         private readonly ?RichHtmlSanitizer $htmlSanitizer = null,
+        /** Soft-bound (starter-library spec §3): null → media() always returns null. */
+        private readonly ?MediaUrlResolver $mediaUrls = null,
     ) {
         $this->locale = $defaultLocale;
     }
@@ -85,7 +88,18 @@ final class RenderContextExtension extends AbstractExtension
                 'needs_context' => true,
                 'is_safe' => ['html'],
             ]),
+            new TwigFunction('media', $this->media(...)),
         ];
+    }
+
+    /**
+     * Uploaded-media URL for templates (starter-library spec §3): public +
+     * anonymously retrievable blobs only (cached pages must never embed expiring
+     * signed URLs). Null-safe on every failure — templates skip the element.
+     */
+    public function media(string $uuid): ?string
+    {
+        return $this->mediaUrls?->url($uuid);
     }
 
     /** @return list<TwigFilter> */
@@ -95,7 +109,29 @@ final class RenderContextExtension extends AbstractExtension
             // is_safe is justified ONLY because every path out of safeHtml() is
             // already safe: sanitized markup or pre-escaped text (sanitizer spec §4).
             new TwigFilter('safe_html', $this->safeHtml(...), ['is_safe' => ['html']]),
+            new TwigFilter('safe_url', $this->safeUrl(...)),
         ];
+    }
+
+    /**
+     * Scheme-allowlisted link value (starter-library spec §4): Twig autoescape does
+     * NOT make href="javascript:…" safe. Allows site-relative paths (never //
+     * protocol-relative — they smuggle a host), https, http, and mailto; everything
+     * else nulls and templates render the label as plain text instead of a link.
+     */
+    public function safeUrl(mixed $value): ?string
+    {
+        if (!is_string($value)) {
+            return null;
+        }
+        $url = trim($value);
+        if ($url === '') {
+            return null;
+        }
+        if (str_starts_with($url, '/') && !str_starts_with($url, '//')) {
+            return $url;
+        }
+        return preg_match('#\A(?:https://|http://|mailto:)#i', $url) === 1 ? $url : null;
     }
 
     /**

@@ -131,6 +131,17 @@ HTML comment in production and a visible placeholder in debug, logged once per t
 Containers nest via `{{ blocks(data.region) }}` up to 3 levels; deeper data renders
 nothing. Reference values inside `data` are raw uuids — use `path(uuid)` for links.
 
+`php glueful lemma:blocks:seed` (alias `blocks:seed`) seeds ten starter block types
+(Layout/Content/Media) with matching default-theme templates — idempotent, skips any
+existing slug, never overwrites admin edits. Media blocks render through `media(uuid)`
+(public, anonymously retrievable blobs only — set `UPLOADS_ACCESS=upload_only` or
+`public`; private/gated blobs render nothing). Link fields render through the
+`safe_url` filter (relative, https, http, mailto only). Style enums map to
+`lemma-block-{slug}--{value}` modifier classes — restyle by targeting them. The
+starter styling ships standalone as `assets/blocks.css`: block TEMPLATES fall back
+to the pack default per-template, but assets don't — a custom theme adopts the
+starter blocks by copying (or rewriting) that one file.
+
 ## Rich HTML in templates
 
 `format: rich` text fields are sanitized SERVER-SIDE on save (TipTap-scoped

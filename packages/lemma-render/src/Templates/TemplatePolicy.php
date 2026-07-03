@@ -28,7 +28,7 @@ final class TemplatePolicy
      * allowlist or enforcement change (tags/filters/functions/tests/node classes/
      * linter rules); the next render then recompiles — and re-lints — everything.
      */
-    public const CACHE_VERSION = 3; // bumped: 'safe_html' joined FILTERS (sanitizer spec §4)
+    public const CACHE_VERSION = 4; // bumped: 'media' + 'safe_url' joined the allowlists (starter-library spec §5)
 
     public const TAGS = ['if', 'for', 'set', 'block', 'extends', 'include', 'verbatim'];
 
@@ -36,12 +36,12 @@ final class TemplatePolicy
         'abs', 'batch', 'capitalize', 'column', 'date', 'date_modify', 'default',
         'escape', 'e', 'first', 'format', 'join', 'json_encode', 'keys', 'last',
         'length', 'lower', 'merge', 'nl2br', 'number_format', 'replace', 'reverse',
-        'round', 'safe_html', 'slice', 'sort', 'split', 'striptags', 'title', 'trim',
+        'round', 'safe_html', 'safe_url', 'slice', 'sort', 'split', 'striptags', 'title', 'trim',
         'upper', 'url_encode',
     ];
 
     public const FUNCTIONS = [
-        'menu', 'path', 'asset', 'facets', 'blocks',
+        'menu', 'path', 'asset', 'facets', 'blocks', 'media',
         'include', 'parent', 'block', 'cycle', 'date', 'min', 'max', 'range',
     ];
 
