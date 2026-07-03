@@ -68,6 +68,18 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   hard delete (server-side re-scan, no force flag). `entry_versions.created_at`
   now persists microseconds. CLI: `lemma:blocks:migration:backfill` re-drives a
   failed backfill.
+  Follow-up: **Notion-like block editor UX** — inline insert dividers with a
+  searchable block picker, `/` quick-insert, drag handles with cross-container
+  drag (subtree-aware depth guard: a drop that would exceed the nesting cap is
+  rejected in place, never a post-hoc validation error), keyboard movement
+  (⌘/Alt+↑↓ move, ⌘D duplicate, Enter expand, Delete confirm), an outline rail,
+  deep-copy duplicate (fixes nested-list aliasing), and the prose seam: block
+  types shaped as a single rich-text field render chromeless as flowing prose,
+  an empty tail offers "Type here…", and `/` inside prose can insert a widget
+  block mid-text by splitting the prose block (original id kept for the before
+  half; one structured-tree operation). TipTap/UEditor remains bounded to text
+  editing — the Vue block tree stays canonical. SPA-only; stored model,
+  validation, and render contracts unchanged.
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

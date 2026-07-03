@@ -9,6 +9,9 @@ import { useTemplateRef } from 'vue'
 import type { EditorToolbarItem, EditorCustomHandlers } from '@nuxt/ui'
 import { TaskList, TaskItem } from '@tiptap/extension-list'
 import RichTextLink from '@/components/RichTextLink.vue'
+// "Turn into" + bubble toolbar items live in richTextToolbar.ts — ONE source
+// shared with the chromeless ProseBlockEditor (blocks prose seam).
+import { turnInto, bubbleItems } from '@/components/richTextToolbar'
 import { useUploadMedia, blobDisplayUrl } from '@/queries/media'
 import { useNotify } from '@/composables/useNotify'
 
@@ -67,28 +70,6 @@ async function onImageSelected(event: Event) {
   }
 }
 
-// "Turn into" block-type menu, shared by the fixed and bubble toolbars. `satisfies` keeps the string
-// literals (color/variant/kind/…) narrow so it stays assignable to EditorToolbarItem when reused.
-const turnInto = {
-  label: 'Turn into',
-  trailingIcon: 'i-lucide-chevron-down',
-  color: 'neutral',
-  variant: 'ghost',
-  content: { align: 'start' },
-  ui: { label: 'text-xs' },
-  items: [
-    { type: 'label', label: 'Turn into' },
-    { kind: 'paragraph', label: 'Paragraph', icon: 'i-lucide-type' },
-    { kind: 'heading', level: 1, label: 'Heading 1', icon: 'i-lucide-heading-1' },
-    { kind: 'heading', level: 2, label: 'Heading 2', icon: 'i-lucide-heading-2' },
-    { kind: 'heading', level: 3, label: 'Heading 3', icon: 'i-lucide-heading-3' },
-    { kind: 'bulletList', label: 'Bullet list', icon: 'i-lucide-list' },
-    { kind: 'orderedList', label: 'Ordered list', icon: 'i-lucide-list-ordered' },
-    { kind: 'taskList', label: 'Task list', icon: 'i-lucide-list-checks' },
-    { kind: 'blockquote', label: 'Blockquote', icon: 'i-lucide-text-quote' },
-    { kind: 'codeBlock', label: 'Code block', icon: 'i-lucide-square-code' },
-  ],
-} satisfies EditorToolbarItem
 
 // Fixed toolbar — always visible at the top of the editor.
 const toolbarItems = [
@@ -117,18 +98,6 @@ const toolbarItems = [
   ],
 ] satisfies EditorToolbarItem[][]
 
-// Bubble toolbar — appears over a non-empty text selection (Nuxt UI's default shouldShow).
-const bubbleItems = [
-  [turnInto],
-  [
-    { kind: 'mark', mark: 'bold', icon: 'i-lucide-bold' },
-    { kind: 'mark', mark: 'italic', icon: 'i-lucide-italic' },
-    { kind: 'mark', mark: 'underline', icon: 'i-lucide-underline' },
-    { kind: 'mark', mark: 'strike', icon: 'i-lucide-strikethrough' },
-    { kind: 'mark', mark: 'code', icon: 'i-lucide-code' },
-  ],
-  [{ slot: 'link', icon: 'i-lucide-link' }],
-] satisfies EditorToolbarItem[][]
 </script>
 
 <template>
