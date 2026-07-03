@@ -32,6 +32,7 @@ Wraps `Symfony\Component\HtmlSanitizer\HtmlSanitizer` with an **explicitly built
 Allowlisted vocabulary (what `RichText.vue`'s TipTap setup can emit):
 
 - **Elements:** `p`, `h1`–`h6`, `ul`, `ol`, `li`, `blockquote`, `pre`, `code`, `strong`, `em`, `s`, `u`, `a`, `br`, `hr`.
+- **Protocol-relative links (pinned):** `allowRelativeLinks(true)` treats network-path URLs (`//evil.com`) as relative and would PRESERVE them — the `safe_url` posture forbids exactly this. A small custom attribute sanitizer (`AttributeSanitizerInterface` for `a[href]`, registered after the default URL sanitizer) returns null for any href starting `//`, dropping the attribute; all other values pass through unchanged. Tested: `//evil.com` drops `href`; `/local`, `https://…`, `http://…`, `mailto:…` survive.
 - **Attributes:** `href` on `a` (scheme/relative rules above); the TipTap task-list shape — `data-type` on `ul`, `data-checked` on `li`. Checkbox `input`s are STRIPPED (CSS renders task state from `data-checked`).
 - **Everything else stripped:** `img` (media flows through asset fields + `media()`), tables, `span`, `style`/`class`, all `on*` event attributes, SVG/MathML, `data:` URLs. Stripping is silent — authors never see 422s for paste artifacts.
 - **Engine gotcha (pinned):** the Symfony sanitizer has a **default max input length that silently truncates** long documents — set it explicitly (`withMaxInputLength(1_000_000)`, 1MB) and test a long-document round-trip.
