@@ -73,7 +73,11 @@ final class RenderController
         $typeSlug = '';
 
         if ($homepageEntry !== '') {
-            $result = $this->resolver->resolveEntry($homepageEntry);
+            // Locale stays null (working-copy-overlay P1 note): today's call
+            // passes none, and the controller's $locale above is only the
+            // no-entry template fallback — forwarding the config default would
+            // change resolution for entries routed in a non-default locale.
+            $result = $this->resolver->resolveEntry($homepageEntry, null, $session);
             if ($result['kind'] !== 'content') {
                 return $this->homepageConfigFailure($homepageEntry);
             }

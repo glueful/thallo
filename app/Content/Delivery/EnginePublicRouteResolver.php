@@ -167,7 +167,9 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
             && $previewSession->locale === (string) $row['locale']
         ) {
             try {
-                return $this->previewContent($this->preview->readVerified($previewSession));
+                return $this->previewContent(
+                    $this->overlayWorkingCopy($this->preview->readVerified($previewSession))
+                );
             } catch (PreviewNotFoundException) {
                 // Draft vanished mid-session: fall through to the published render.
             }
@@ -186,8 +188,11 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         ];
     }
 
-    public function resolveEntry(string $entryUuid, ?string $locale = null): array
-    {
+    public function resolveEntry(
+        string $entryUuid,
+        ?string $locale = null,
+        ?PreviewSession $previewSession = null,
+    ): array {
         $locale = $locale !== null && $locale !== '' ? $locale : $this->locales->default();
 
         $entry = $this->db->table('entries')->select(['content_type_uuid', 'status'])
@@ -218,6 +223,25 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         }
 
         $row = $result->content();
+
+        // Single-draft overlay at '/' (working-copy-overlay spec §2): the
+        // session's OWN entry shows its draft — or the canvas's stashed
+        // working copy — as the homepage; any other session leaves the
+        // homepage fully published.
+        if (
+            $previewSession !== null
+            && $previewSession->entry === (string) $row['entry_uuid']
+            && $previewSession->locale === (string) $row['locale']
+        ) {
+            try {
+                return $this->previewContent(
+                    $this->overlayWorkingCopy($this->preview->readVerified($previewSession))
+                );
+            } catch (PreviewNotFoundException) {
+                // Draft vanished mid-session: fall through to the published render.
+            }
+        }
+
         $expanded = new ExpandedTargets();
         return [
             'kind' => 'content',
@@ -251,16 +275,33 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
             return $this->notFound();
         }
 
-        // Loop C overlay (spec §3): DRAFT-MODE tokens only — a version-pinned
-        // token renders its immutable version, never the working copy (hard pin).
-        if ($read['version_uuid'] === null && $this->workingCopies !== null) {
-            $working = $this->workingCopies->get($read['entry_uuid'], $read['locale']);
-            if ($working !== null) {
-                $read['fields'] = $working;
-            }
-        }
+        return $this->previewContent($this->overlayWorkingCopy($read));
+    }
 
-        return $this->previewContent($read);
+    /**
+     * Loop C overlay, session-wide (working-copy-overlay spec): an existing
+     * working copy wins over the draft for DRAFT-MODE reads only — a
+     * version-pinned token or session renders its immutable version, never
+     * the working copy (hard pin). Keyed off the read result's OWN
+     * entry/locale (spec pin) — the read is the thing being shaped, so it
+     * decides which stash can apply; never route params or separately-copied
+     * session payload.
+     *
+     * @param array{entry_uuid:string,locale:string,version_uuid:?string,
+     *               version:?int,schema_version:int,fields:array<string,mixed>} $read
+     * @return array{entry_uuid:string,locale:string,version_uuid:?string,
+     *               version:?int,schema_version:int,fields:array<string,mixed>}
+     */
+    private function overlayWorkingCopy(array $read): array
+    {
+        if ($read['version_uuid'] !== null || $this->workingCopies === null) {
+            return $read;
+        }
+        $working = $this->workingCopies->get($read['entry_uuid'], $read['locale']);
+        if ($working !== null) {
+            $read['fields'] = $working;
+        }
+        return $read;
     }
 
     /**

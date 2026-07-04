@@ -100,8 +100,10 @@ themed 404.
 
 Opening a preview also starts a short-lived **preview session** (a signed cookie that
 expires with the token): navigation stays in preview chrome (banner with an Exit
-link, `no-store`, `noindex`, never cached), your draft appears at its own URL, and
-every other page shows published content. `GET /_preview/exit` ends the session.
+link, `no-store`, `noindex`, never cached), your draft — or, when the canvas has
+applied unsaved work, its working copy — appears at its own URL and at `/` when
+the entry is the configured homepage, and every other page shows published
+content. `GET /_preview/exit` ends the session.
 Minting accepts an optional `theme` (validated against installed themes, signed into
 the token): the whole session renders through that theme, with assets served from the
 token-scoped `/_preview-assets/{token}/…` route. Sessions work with the page cache
@@ -175,8 +177,10 @@ toolbar or the theme's own form fields.
 
 With the admin's Apply action, the preview session can also render the
 editor's *unsaved* working tree: the app validates and stashes it (cache-only,
-TTL-bounded) and the same `/_preview/{token}` URL overlays it over the draft —
-version-pinned previews are never overlaid.
+TTL-bounded) and the whole session overlays it over the draft — the
+`/_preview/{token}` stage, the entry's canonical URL, and the homepage when
+the entry is the configured homepage entry. Version-pinned previews are never
+overlaid.
 
 Prose blocks (the exactly-one-rich-text convention) are also editable
 in-place: annotated renders wrap the sanitized rich-field output in a
