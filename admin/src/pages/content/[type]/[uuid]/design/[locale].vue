@@ -390,9 +390,6 @@ const applying = ref(false)
 
 // ── Auto-apply (auto-apply spec §1): a SCHEDULER over the one runApply core ──
 const autoEnabled = ref(localStorage.getItem('lemma.canvas.auto_apply') !== '0')
-// Diagnostic breadcrumb: the persisted toggle is invisible in the UI when you
-// don't know to look — say it once per page load.
-console.info('[canvas] auto-apply enabled at load:', autoEnabled.value)
 const autoSuspended = ref(false) // session-local; never persisted
 const editSessionActive = ref(false)
 const applyQueued = ref(false) // the coalescing boolean — never a counter
@@ -420,28 +417,12 @@ function scheduleAuto(): void {
   const delay = Math.min(AUTO_DEBOUNCE_MS, Math.max(50, autoFirstScheduledAt + AUTO_MAX_WAIT_MS - now))
   autoTimer = setTimeout(() => {
     autoTimer = null
-    // Diagnostic breadcrumb: WHY an auto-apply did (not) fire — every veto
-    // here is otherwise silent, which makes "auto didn't run" undebuggable.
-    const veto = !autoEnabled.value
-      ? 'auto-off'
-      : autoSuspended.value
-        ? 'suspended (a failed apply pauses auto until a manual Apply succeeds)'
-        : editSessionActive.value
-          ? 'edit-session-active'
-          : renderDisabled.value
-            ? 'render-disabled'
-            : mintFailed.value
-              ? 'mint-failed'
-              : previewToken.value === ''
-                ? 'no-token'
-                : !stageStale.value
-                  ? 'not-stale'
-                  : applying.value
-                    ? 'in-flight (queued a follow-up)'
-                    : null
-    console.info('[canvas] auto-apply timer:', veto ?? 'running')
-    if (veto !== null) {
-      if (veto.startsWith('in-flight')) applyQueued.value = true // spec pin: ONE follow-up
+    if (!autoEnabled.value || autoSuspended.value || editSessionActive.value) return
+    if (renderDisabled.value || mintFailed.value || previewToken.value === '') return
+    if (!stageStale.value) return
+    if (applying.value) {
+      // No concurrent applies (spec pin): queue ONE follow-up and return.
+      applyQueued.value = true
       return
     }
     void runApply(true)
@@ -508,7 +489,6 @@ async function runApply(auto: boolean): Promise<void> {
     if (!auto) autoSuspended.value = false // manual success re-arms auto
   } catch (e: unknown) {
     // Final failure: discard mirror-only DOM; keep dirty fields (v2/loop C pins).
-    console.info('[canvas] apply FAILED', auto ? '(auto — suspending until a manual Apply succeeds)' : '(manual)', e)
     reloadStage()
     if (auto) autoSuspended.value = true // one banner now, then quiet until re-armed
     if (e instanceof ApiError && apiErrorCode(e) === 'BLOCK_MIGRATION_IN_PROGRESS') {

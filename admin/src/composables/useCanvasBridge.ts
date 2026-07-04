@@ -149,8 +149,6 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
         const { resolve } = pendingRefresh
         pendingRefresh = null
         const mode = ack.mode
-        // Diagnostic breadcrumb (dom-patching): what the bridge's gate decided.
-        console.info('[canvas] stage refresh answered:', mode, ack.detail ?? '')
         resolve(mode === 'patched' || mode === 'busy' ? mode : 'reload')
       }
     }
@@ -263,7 +261,6 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
      */
     stageRefresh(): Promise<StageRefreshMode> {
       const refreshId = `r${++refreshSeq}-${nonce}`
-      console.info('[canvas] stage refresh requested', refreshId)
       post({ type: 'lemma:stage-refresh', refresh_id: refreshId })
       return new Promise((resolve) => {
         pendingRefresh = { id: refreshId, resolve }
@@ -272,7 +269,6 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
             // Clear BEFORE resolving (plan-review note): a late ack must
             // meet no stale resolver state.
             pendingRefresh = null
-            console.info('[canvas] stage refresh TIMED OUT (no answer from the stage) — falling back to reload')
             resolve('reload')
           }
         }, 4000)

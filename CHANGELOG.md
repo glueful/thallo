@@ -164,14 +164,13 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   the session could outlive stage focus and pin the parent's edit-session
   suppression, silently blocking every inspector-driven auto-apply until
   a stage click or manual Apply (whose flush ends the session) healed it.
-  Stage-refresh acks now carry a diagnostic detail (swap counts / reload
-  reason) logged in the admin console.
+  Stage-refresh acks carry a diagnostic detail (swap counts / reload
+  reason) for debugging.
 - Fixed: the auto-apply debounce gained a max-wait (~2.5s) — anything
   touching the tree more often than the 800ms window (a browser extension
   like Grammarly re-emitting editor updates, a theme timer) restarted the
   trailing timer forever, silently starving auto-apply for inspector
-  edits. A change stream may now DELAY an apply, never prevent it. The
-  timer also logs its fire/veto reason to the admin console.
+  edits. A change stream may now DELAY an apply, never prevent it.
 - Fixed: opening the canvas now reconciles the working-copy stash — the
   stash outlives sessions (keyed by entry+locale, cleared only by save),
   so an abandoned session's stash silently overlaid the draft on the next
