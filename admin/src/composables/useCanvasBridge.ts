@@ -35,6 +35,9 @@ export interface BridgeAnchor {
 /** Grant kinds (editable-string-fields spec §4) — decided by the parent's matrix. */
 export type EditKind = 'rich' | 'string' | 'text'
 
+/** stage-refresh outcomes (dom-patching spec §1). */
+export type StageRefreshMode = 'patched' | 'reload' | 'busy'
+
 export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   const nonce = Array.from(crypto.getRandomValues(new Uint8Array(16)))
     .map((b) => b.toString(16).padStart(2, '0'))
@@ -59,6 +62,8 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     | ((id: string, field: string, payload: { html?: string; text?: string }) => void)
     | null = null
   let flushResolve: (() => void) | null = null
+  let pendingRefresh: { id: string; resolve: (mode: StageRefreshMode) => void } | null = null
+  let refreshSeq = 0
 
   function targetOrigin(): string {
     const src = iframeRef.value?.src ?? ''
@@ -135,6 +140,17 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     if (data.type === 'lemma:edit-flushed') {
       flushResolve?.()
       flushResolve = null
+    }
+    // Partial DOM patching (dom-patching spec §1): id-correlated ack — a slow
+    // fetch or timeout can never resolve a LATER refresh's promise.
+    if (data.type === 'lemma:stage-refreshed') {
+      const ack = data as BridgeMessage & { refresh_id?: string; mode?: string; detail?: string }
+      if (pendingRefresh !== null && ack.refresh_id === pendingRefresh.id) {
+        const { resolve } = pendingRefresh
+        pendingRefresh = null
+        const mode = ack.mode
+        resolve(mode === 'patched' || mode === 'busy' ? mode : 'reload')
+      }
     }
     // Auto-apply lifecycle + scroll preservation (auto-apply spec §1/§3).
     if (data.type === 'lemma:edit-start' && typeof data.id === 'string') {
@@ -236,6 +252,26 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
           flushResolve = null
           resolve()
         }, 200)
+      })
+    },
+    /**
+     * Ask the stage to patch itself in place from a fresh render of the
+     * working copy (dom-patching spec §1/§4). Resolves the MATCHING ack's
+     * mode, or 'reload' after 4s (mid-reload stage, stale cached bridge).
+     */
+    stageRefresh(): Promise<StageRefreshMode> {
+      const refreshId = `r${++refreshSeq}-${nonce}`
+      post({ type: 'lemma:stage-refresh', refresh_id: refreshId })
+      return new Promise((resolve) => {
+        pendingRefresh = { id: refreshId, resolve }
+        setTimeout(() => {
+          if (pendingRefresh?.id === refreshId) {
+            // Clear BEFORE resolving (plan-review note): a late ack must
+            // meet no stale resolver state.
+            pendingRefresh = null
+            resolve('reload')
+          }
+        }, 4000)
       })
     },
     dispose(): void {

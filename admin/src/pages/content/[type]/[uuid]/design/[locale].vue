@@ -47,6 +47,10 @@ const lockVersion = ref(0)
 // initial render is the draft) and after every successful Apply.
 const lastApplied = ref('')
 let hydratedLock = -1
+// Stash-reconciliation state (declared BEFORE the immediate hydration watcher
+// below — it calls maybeReconcileStash at setup time).
+let stageLoaded = false
+let stageSynced = false
 watch(
   draft,
   (d) => {
@@ -56,8 +60,13 @@ watch(
       fields.value = { ...d.fields }
       lockVersion.value = d.lock_version
       hydratedLock = d.lock_version
-      // First hydration: the stage's initial render shows the draft (loop C §4).
-      if (lastApplied.value === '') lastApplied.value = JSON.stringify(d.fields)
+      // First hydration: the stage's initial render shows the draft (loop C §4)
+      // — unless a stale stash overlays it, which the reconciliation apply
+      // corrects once the stage has loaded.
+      if (lastApplied.value === '') {
+        lastApplied.value = JSON.stringify(d.fields)
+        maybeReconcileStash()
+      }
     }
   },
   { immediate: true },
@@ -103,6 +112,22 @@ void mintAndLoad()
 function onIframeLoad(): void {
   bridge.hello()
   if (lastScrollY > 0) bridge.restoreScroll(lastScrollY)
+  stageLoaded = true
+  maybeReconcileStash()
+}
+
+// ── Stash reconciliation (stale-stash fix) ────────────────────────────────────
+// The working-copy stash outlives canvas sessions: keyed by entry+locale (not
+// token), cleared only by saveDraft, TTL-bounded. An abandoned session's stash
+// overlays the DRAFT on the next open, so the stage's initial render can show
+// state the tree doesn't have — and stageStale (fields vs lastApplied) can't
+// see it. One initial apply of the hydrated tree overwrites the stash with
+// truth. Runs regardless of the Auto toggle: this is honesty, not an edit.
+function maybeReconcileStash(): void {
+  if (stageSynced || !stageLoaded) return
+  if (lastApplied.value === '' || previewToken.value === '') return // hydration/mint pending
+  stageSynced = true
+  void runApply(true)
 }
 
 // Outline panel visibility — same affordance shape as the inspector's
@@ -344,7 +369,7 @@ bridge.onEditStart(() => {
 })
 bridge.onEditEnd(() => {
   editSessionActive.value = false
-  if (autoEnabled.value && !autoSuspended.value && stageStale.value) scheduleAuto()
+  scheduleAuto() // all vetoes (auto-off/suspended/not-stale/…) live in the timer
 })
 
 // Scroll preservation (auto-apply spec §3): remember the stage's last position,
@@ -355,6 +380,8 @@ bridge.onScroll((y) => {
 })
 watch([uuid, locale], () => {
   lastScrollY = 0
+  stageLoaded = false
+  stageSynced = false // a new entry/locale gets its own reconciliation
 })
 
 // ── Apply loop (loop C spec §4): ephemeral render, nothing persisted ──────────
@@ -375,8 +402,19 @@ function cancelAutoTimer(): void {
   }
 }
 
+// Trailing debounce with a MAX-WAIT: a change stream may DELAY the apply,
+// never starve it. Anything touching fields more often than the debounce
+// window (a browser extension re-emitting editor updates, a theme timer)
+// would otherwise restart the timer forever — silently.
+const AUTO_DEBOUNCE_MS = 800
+const AUTO_MAX_WAIT_MS = 2500
+let autoFirstScheduledAt = 0
+
 function scheduleAuto(): void {
+  const now = Date.now()
+  if (autoTimer === null) autoFirstScheduledAt = now // a fresh burst starts the max-wait clock
   cancelAutoTimer()
+  const delay = Math.min(AUTO_DEBOUNCE_MS, Math.max(50, autoFirstScheduledAt + AUTO_MAX_WAIT_MS - now))
   autoTimer = setTimeout(() => {
     autoTimer = null
     if (!autoEnabled.value || autoSuspended.value || editSessionActive.value) return
@@ -388,13 +426,15 @@ function scheduleAuto(): void {
       return
     }
     void runApply(true)
-  }, 800)
+  }, delay)
 }
 
 watch(
   fields,
   () => {
-    if (autoEnabled.value && !autoSuspended.value) scheduleAuto()
+    // No pre-guard here: EVERY veto lives (and logs) in the timer callback —
+    // a silent skip at this level made "auto didn't run" undiagnosable.
+    scheduleAuto()
   },
   { deep: true },
 )
@@ -444,7 +484,7 @@ async function runApply(auto: boolean): Promise<void> {
       }
     }
     lastApplied.value = appliedJson
-    reloadStage() // same-URL reload — the stash is behind the SAME token URL
+    await refreshStage() // in-place patch when provable; reload fallback (dom-patching spec §4)
     succeeded = true
     if (!auto) autoSuspended.value = false // manual success re-arms auto
   } catch (e: unknown) {
@@ -469,6 +509,19 @@ async function runApply(auto: boolean): Promise<void> {
   } else {
     applyQueued.value = false
   }
+}
+
+/**
+ * Post-apply stage refresh (dom-patching spec §4): try the in-place patch —
+ * the bridge fetches a REAL render of the working copy and swaps only
+ * changed block wrappers. Only an explicit 'reload' answer (or the
+ * composable's 4s timeout, which resolves 'reload') falls back to the full
+ * iframe reload. 'busy' does nothing: the edit-end re-arm re-applies
+ * whatever the stage missed.
+ */
+async function refreshStage(): Promise<void> {
+  const mode = await bridge.stageRefresh()
+  if (mode === 'reload') reloadStage()
 }
 
 async function applyWorking(): Promise<void> {
@@ -601,16 +654,15 @@ function reloadStage(): void {
             Refresh preview
           </UButton>
           <UButton
-            variant="outline"
-            :color="autoSuspended ? 'warning' : 'neutral'"
+            :variant="autoEnabled && !autoSuspended ? 'soft' : 'outline'"
+            :color="autoSuspended ? 'warning' : autoEnabled ? 'primary' : 'neutral'"
             size="xs"
-            icon="i-lucide-zap"
+            :icon="autoEnabled && !autoSuspended ? 'i-lucide-zap' : 'i-lucide-zap-off'"
             :aria-label="autoSuspended ? 'Auto-apply paused after an error — click to resume' : 'Toggle auto-apply'"
             data-test="canvas-auto-toggle"
-            :class="{ 'bg-elevated': autoEnabled && !autoSuspended }"
             @click="toggleAuto()"
           >
-            Auto
+            {{ autoSuspended ? 'Auto paused' : autoEnabled ? 'Auto' : 'Auto off' }}
           </UButton>
           <UChip :show="stageStale" color="info" inset>
             <UButton :loading="applying" data-test="canvas-apply" @click="applyWorking()">

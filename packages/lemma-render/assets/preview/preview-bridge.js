@@ -500,6 +500,7 @@
     editing.region.removeEventListener('input', onEditInput)
     editing.region.removeEventListener('blur', onEditBlur)
     editing.region.removeEventListener('keydown', onEditKeydown)
+    window.removeEventListener('blur', onWindowBlur)
     if (editing.formatBar) {
       // Cleanup BEFORE editing = null (review caution): the listeners and the
       // bubble element both hang off the session. closeLinkPanel clears the
@@ -523,6 +524,17 @@
     if (!editing) return
     if (editing.debounce) clearTimeout(editing.debounce)
     editing.debounce = setTimeout(commitEditing, 400)
+  }
+
+  function onWindowBlur() {
+    // Focus left the stage WINDOW entirely (a click into the admin inspector,
+    // a tab switch): commit-and-end. Cross-frame focus moves don't reliably
+    // fire the region's own blur, and a session that outlives stage focus
+    // wedges the parent's auto-apply suppression — editSessionActive never
+    // clears, so inspector edits stop auto-applying until something else
+    // (a stage click, the Apply button's flush) ends the session.
+    commitEditing()
+    endEditing()
   }
 
   function onEditBlur(e) {
@@ -575,6 +587,7 @@
     region.addEventListener('input', onEditInput)
     region.addEventListener('blur', onEditBlur)
     region.addEventListener('keydown', onEditKeydown)
+    window.addEventListener('blur', onWindowBlur)
     region.focus()
     // Caret at the double-click point (spec pin) — best-effort: jsdom and old
     // engines lack caretRangeFromPoint; focus() alone is the fallback.
@@ -902,6 +915,125 @@
     })
   }
 
+  // ── Partial DOM patching (dom-patching spec §2) ─────────────────────────────
+  function topLevelWrappers(root) {
+    // Spec pin: data-lemma-block with NO data-lemma-block ancestor.
+    return Array.prototype.filter.call(
+      root.querySelectorAll('[data-lemma-block]'),
+      function (el) {
+        return !(el.parentElement && el.parentElement.closest('[data-lemma-block]'))
+      }
+    )
+  }
+
+  function wrapperIds(tops) {
+    return tops.map(function (el) { return el.getAttribute('data-lemma-block') })
+  }
+
+  function hasDuplicates(ids) {
+    var seen = {}
+    for (var i = 0; i < ids.length; i++) {
+      if (seen[ids[i]]) return true
+      seen[ids[i]] = true
+    }
+    return false
+  }
+
+  function cleanedLiveBody() {
+    var clone = document.body.cloneNode(true)
+    stripCanvasState(clone)
+    // Body-mounted bridge UI never participates in comparisons.
+    Array.prototype.forEach.call(
+      clone.querySelectorAll('.lemma-canvas-format-bar, .lemma-canvas-drag-ghost'),
+      function (el) { el.parentNode.removeChild(el) }
+    )
+    return clone
+  }
+
+  function shellSkeleton(body) {
+    var clone = body.cloneNode(true)
+    topLevelWrappers(clone).forEach(function (el) { el.innerHTML = '' })
+    return clone.innerHTML
+  }
+
+  function applyStagePatch(newBody, refreshId) {
+    var liveClean = cleanedLiveBody()
+    var liveTops = topLevelWrappers(liveClean)
+    var newTops = topLevelWrappers(newBody)
+    var liveIds = wrapperIds(liveTops)
+    var newIds = wrapperIds(newTops)
+    // Gate (spec pins): identical, duplicate-free id sequences. The LIVE side
+    // already carries structural mirrors, so a mirror-matched order patches
+    // (review P2); only unmirrored drift (add-after, disagreements) reloads.
+    if (
+      hasDuplicates(liveIds) || hasDuplicates(newIds)
+      || liveIds.join(' ') !== newIds.join(' ')
+      || (liveIds.length > 0 && newIds.length === 0)
+    ) {
+      post('stage-refreshed', { refresh_id: refreshId, mode: 'reload', detail: 'id-drift' })
+      return
+    }
+    if (shellSkeleton(liveClean) !== shellSkeleton(newBody)) {
+      post('stage-refreshed', { refresh_id: refreshId, mode: 'reload', detail: 'shell-drift' })
+      return
+    }
+    var swapped = 0
+    for (var i = 0; i < liveIds.length; i++) {
+      if (liveTops[i].outerHTML === newTops[i].outerHTML) continue
+      var liveEl = findBlock(liveIds[i]) // the REAL wrapper (ids are entry-unique)
+      if (!liveEl || !liveEl.parentNode) continue
+      liveEl.parentNode.replaceChild(document.importNode(newTops[i], true), liveEl)
+      swapped++
+    }
+    // Selection survives a swap (spec §2.6): re-anchor, or clear honestly —
+    // a selected NESTED block can vanish when its swapped parent dropped it.
+    if (selectedId !== null) {
+      var sel = findBlock(selectedId)
+      if (!sel) {
+        var goneId = selectedId
+        clearSelection()
+        post('block-deselect', { id: goneId })
+      } else if (!sel.classList.contains('lemma-canvas-selected')) {
+        selectWrapper(sel)
+      }
+    }
+    post('stage-refreshed', {
+      refresh_id: refreshId,
+      mode: 'patched',
+      detail: 'swapped:' + swapped + '/' + liveIds.length
+    })
+  }
+
+  function onStageRefresh(refreshId) {
+    if (editing || drag) {
+      // Never fight the user's hands (spec §3) — the parent's edit-end
+      // re-arm re-applies whatever the stage missed.
+      post('stage-refreshed', { refresh_id: refreshId, mode: 'busy' })
+      return
+    }
+    if (!window.fetch || !window.DOMParser) {
+      post('stage-refreshed', { refresh_id: refreshId, mode: 'reload' })
+      return
+    }
+    // Same-origin fetch of our OWN url: the session cookie rides along and
+    // the stash is behind the same token URL — a REAL render of the working
+    // copy, never a client-side guess (honest-stage rule).
+    window.fetch(window.location.href)
+      .then(function (res) {
+        // Fetch-failure rules (spec pin): non-2xx or redirected -> reload.
+        if (!res || !res.ok || res.redirected) throw new Error('bad response')
+        return res.text()
+      })
+      .then(function (html) {
+        var doc = new DOMParser().parseFromString(String(html), 'text/html')
+        if (!doc || !doc.body) throw new Error('unparseable')
+        applyStagePatch(doc.body, refreshId)
+      })
+      .catch(function () {
+        post('stage-refreshed', { refresh_id: refreshId, mode: 'reload' })
+      })
+  }
+
   function mirrorMove(id, beforeId, afterId) {
     var w = findBlock(id)
     if (!w || !w.parentNode) return
@@ -1095,6 +1227,9 @@
     }
     if (data.type === 'lemma:restore-scroll' && typeof data.y === 'number') {
       window.scrollTo(0, data.y) // instant — a reload restore must not visibly travel
+    }
+    if (data.type === 'lemma:stage-refresh') {
+      onStageRefresh(typeof data.refresh_id === 'string' ? data.refresh_id : '')
     }
     if (data.type === 'lemma:mirror-move') mirrorMove(data.id, data.beforeId, data.afterId)
     if (data.type === 'lemma:mirror-remove') mirrorRemove(data.id)
