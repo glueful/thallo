@@ -134,11 +134,11 @@ function insertType(type: BlockType): void {
         variant="subtle"
         color="neutral"
         icon="i-lucide-plus"
+        square
+        aria-label="Add block"
         data-test="add-block"
         @click="openMenuAt(blocks.length)"
-      >
-        Add block
-      </UButton>
+      />
       <BlockInsertMenu
         v-if="menuIndex === blocks.length"
         open

@@ -405,6 +405,62 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
+  it('outline keyboard shortcuts drive the shared handlers (polish batch §4)', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.find('[data-test="canvas-outline-toggle"]').trigger('click')
+    const row = () => wrapper.find('[data-test="canvas-outline-item-blockaaa0001"]')
+
+    // No selection: keys are inert.
+    await row().trigger('keydown', { key: 'ArrowDown', altKey: true })
+    expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
+
+    await row().trigger('click') // select via the outline
+    await flushPromises()
+
+    // Plain arrow (no Alt): nothing.
+    await row().trigger('keydown', { key: 'ArrowDown' })
+    expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
+
+    // Alt+ArrowDown: same tree move + mirror as the stage path.
+    await row().trigger('keydown', { key: 'ArrowDown', altKey: true })
+    expect(bridge.instance.mirrorMove).toHaveBeenCalledWith('blockaaa0001', {
+      beforeId: 'prose0000003',
+    })
+
+    // Backspace: parent-confirmed delete, centered variant (null anchor).
+    await row().trigger('keydown', { key: 'Backspace' })
+    expect(wrapper.find('[data-test="canvas-delete-confirm"]').exists()).toBe(true)
+    await wrapper.find('[data-test="canvas-delete-cancel"]').trigger('click')
+
+    // Cmd+D: duplicate through the shared handler; selection follows the clone.
+    await row().trigger('keydown', { key: 'd', metaKey: true })
+    await flushPromises()
+    expect(bridge.instance.mirrorDuplicate).toHaveBeenCalledWith(
+      'blockaaa0001',
+      expect.any(Object),
+    )
+    const idMap = (bridge.instance.mirrorDuplicate as ReturnType<typeof vi.fn>).mock
+      .calls[0][1] as Record<string, string>
+    const newId = idMap['blockaaa0001']
+    expect(
+      wrapper.find(`[data-test="canvas-outline-item-${newId}"]`).classes(),
+    ).toContain('bg-elevated')
+
+    // Escape: parent state clears AND the stage ring clears via highlight('').
+    ;(bridge.instance.highlight as ReturnType<typeof vi.fn>).mockClear()
+    await wrapper.find(`[data-test="canvas-outline-item-${newId}"]`).trigger('keydown', {
+      key: 'Escape',
+    })
+    expect(bridge.instance.highlight).toHaveBeenCalledWith('')
+    expect(
+      wrapper.find(`[data-test="canvas-outline-item-${newId}"]`).classes(),
+    ).not.toContain('bg-elevated')
+    wrapper.unmount()
+  })
+
   it('move intent mutates the tree and posts mirror-move; boundary posts nothing', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     const wrapper = mountPage()
@@ -479,6 +535,36 @@ describe('canvas page', () => {
     await flushPromises()
     expect(bridge.instance.mirrorMove).not.toHaveBeenCalled()
     expect(bridge.instance.mirrorDuplicate).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('the add-after picker filters by search and Enter picks the first match', async () => {
+    mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    bridge.callbacks.addAfter?.('blockaaa0001')
+    await flushPromises()
+    const picker = wrapper.find('[data-test="canvas-add-picker"]')
+    const filter = picker.find('[data-test="canvas-add-filter"]')
+    expect(filter.exists()).toBe(true)
+
+    await filter.setValue('rich')
+    expect(picker.find('[data-test="canvas-add-type-rich_text"]').exists()).toBe(true)
+    expect(picker.find('[data-test="canvas-add-type-card"]').exists()).toBe(false)
+
+    // Enter picks the first (only) match and closes the picker.
+    await filter.trigger('keydown', { key: 'Enter' })
+    await flushPromises()
+    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
+
+    // Reopening resets the filter (card visible again); Escape cancels.
+    bridge.callbacks.addAfter?.('blockaaa0001')
+    await flushPromises()
+    const reopened = wrapper.find('[data-test="canvas-add-picker"]')
+    expect(reopened.find('[data-test="canvas-add-type-card"]').exists()).toBe(true)
+    await reopened.find('[data-test="canvas-add-filter"]').trigger('keydown', { key: 'Escape' })
     expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
     wrapper.unmount()
   })

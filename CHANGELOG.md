@@ -158,6 +158,17 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   The bridge's CSP pin is reworded: appearance stays in preview.css and no
   style attributes are ever emitted, but bridge-owned UI may be positioned
   via CSSOM transform (which strict style-src does not restrict).
+- Canvas polish batch (v9): bubble buttons show active-state (via
+  `queryCommandState`, treated as untrusted — missing/throwing = inactive;
+  link state via region-contained-`<a>`; classes cleared whenever the
+  bubble hides so stale marks can never flash); drags get a
+  cursor-following ghost (stripped compact clone, built on first move,
+  torn down on drop/cancel/Escape) and edge auto-scroll (48px zones, one
+  interval, direction follows the zone); the outline answers the same
+  keyboard scheme as the stage (Alt+Arrows move, Backspace/Delete opens
+  the centered confirm, Cmd/Ctrl+D duplicates, Escape deselects both
+  parent state and the stage ring) through the page's existing intent
+  handlers — no new mutation paths.
 - **DB-edited templates**: theme templates editable from the admin (new Templates
   screen with CodeMirror editor, per-template version history, restore, delete-with-
   fallback). Storage is per-theme + append-only (`lemma_render_templates` /

@@ -76,18 +76,22 @@ function onFilterKeydown(event: KeyboardEvent): void {
       >
         {{ category }}
       </p>
-      <button
-        v-for="t in types"
-        :key="t.slug"
-        class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-elevated"
-        type="button"
-        :data-test="`picker-item-${t.slug}`"
-        @click="emit('select', t)"
-      >
-        <UIcon :name="t.icon || 'i-lucide-box'" />
-        <span class="font-medium">{{ t.label }}</span>
-        <span v-if="t.description" class="truncate text-muted">{{ t.description }}</span>
-      </button>
+      <!-- Grid tiles (same treatment as the canvas add-after picker); the
+           description moves into the tooltip. -->
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-1">
+        <button
+          v-for="t in types"
+          :key="t.slug"
+          class="flex flex-col items-center gap-1 rounded px-2 py-1.5 text-center text-xs hover:bg-elevated"
+          type="button"
+          :title="t.description ?? undefined"
+          :data-test="`picker-item-${t.slug}`"
+          @click="emit('select', t)"
+        >
+          <UIcon :name="t.icon || 'i-lucide-box'" class="size-4 text-muted" />
+          <span class="w-full truncate font-medium">{{ t.label }}</span>
+        </button>
+      </div>
     </template>
     <p v-if="!filtered.length" class="px-2 py-1.5 text-sm text-muted">No block types available.</p>
   </div>
