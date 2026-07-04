@@ -174,16 +174,27 @@ final class EditInPlaceMarkingTest extends LemmaTestCase
     /** Seed a page whose body holds one `hero` block with the given data. */
     private function seedHeroPage(string $slug, array $heroData): string
     {
-        (new BlockTypeRepository($this->connection()))->create([
+        $blockTypes = new BlockTypeRepository($this->connection());
+        // The §2b hero shape — the shared theme template reads these fields.
+        $blockTypes->create([
             'slug' => 'hero',
             'label' => 'Hero',
             'schema' => [
-                ['name' => 'heading', 'type' => 'string'],
-                ['name' => 'subheading', 'type' => 'string'],
-                ['name' => 'cta_label', 'type' => 'string'],
-                ['name' => 'cta_url', 'type' => 'string'],
+                ['name' => 'headline', 'type' => 'string'],
+                ['name' => 'title', 'type' => 'string'],
+                ['name' => 'description', 'type' => 'text'],
+                ['name' => 'links', 'type' => 'blocks'],
                 ['name' => 'image', 'type' => 'asset'], // Lemma schema type is asset, not media
-                ['name' => 'alignment', 'type' => 'string'],
+                ['name' => 'orientation', 'type' => 'enum', 'enum' => ['vertical', 'horizontal']],
+                ['name' => 'reverse', 'type' => 'boolean'],
+            ],
+        ]);
+        $blockTypes->create([
+            'slug' => 'button',
+            'label' => 'Button',
+            'schema' => [
+                ['name' => 'label', 'type' => 'string'],
+                ['name' => 'url', 'type' => 'string'],
             ],
         ]);
         $types = new ContentTypeRepository($this->connection());
@@ -208,9 +219,9 @@ final class EditInPlaceMarkingTest extends LemmaTestCase
     public function testEditableTextMarksAnnotatedRendersAndEscapesTheValue(): void
     {
         $entry = $this->seedHeroPage('et-page', [
-            'heading' => 'Big <b>launch</b> "day"',
-            'cta_label' => 'Go',
-            'cta_url' => '/x',
+            'title' => 'Big <b>launch</b> "day"',
+            'links' => [['id' => 'herobtn00001', 'type' => 'button',
+                'data' => ['label' => 'Go', 'url' => '/x']]],
         ]);
         $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
         $html = (string) $this->container()->get(RenderController::class)->preview(
@@ -221,16 +232,20 @@ final class EditInPlaceMarkingTest extends LemmaTestCase
         // Marked span with BOTH attributes; the VALUE is filter-escaped.
         self::assertStringContainsString(
             '<span class="lemma-edit-region" data-lemma-edit-block="heroblok0001"'
-                . ' data-lemma-edit-field="heading">Big &lt;b&gt;launch&lt;/b&gt; &quot;day&quot;</span>',
+                . ' data-lemma-edit-field="title">Big &lt;b&gt;launch&lt;/b&gt; &quot;day&quot;</span>',
             $html,
         );
-        // The CTA label inside the <a> is marked too (interactive-element pin).
-        self::assertStringContainsString('data-lemma-edit-field="cta_label">Go</span>', $html);
+        // The button label inside the <a> is marked too (interactive-element
+        // pin), against the BUTTON child block's own id.
+        self::assertStringContainsString(
+            'data-lemma-edit-block="herobtn00001" data-lemma-edit-field="label">Go</span>',
+            $html,
+        );
     }
 
     public function testEditableTextLiveRendersAreByteIdenticalToPlainOutput(): void
     {
-        $entry = $this->seedHeroPage('et-live', ['heading' => 'A & B', 'cta_url' => '']);
+        $entry = $this->seedHeroPage('et-live', ['title' => 'A & B']);
         // Publish so the live route serves it.
         $types = new ContentTypeRepository($this->connection());
         $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
@@ -255,14 +270,14 @@ final class EditInPlaceMarkingTest extends LemmaTestCase
 
     public function testEditableTextEmptyAndNonStringValues(): void
     {
-        // heading '' -> EMPTY span in annotated renders (clickable blank, spec §0).
-        $entry = $this->seedHeroPage('et-empty', ['heading' => '', 'cta_url' => '']);
+        // title '' -> EMPTY span in annotated renders (clickable blank, spec §0).
+        $entry = $this->seedHeroPage('et-empty', ['title' => '']);
         $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
         $html = (string) $this->container()->get(RenderController::class)->preview(
             Request::create("/_preview/{$token}", 'GET'),
             $token,
         )->getContent();
-        self::assertStringContainsString('data-lemma-edit-field="heading"></span>', $html);
+        self::assertStringContainsString('data-lemma-edit-field="title"></span>', $html);
 
         // Direct filter calls: non-string -> '', and NO frame -> escaped value only
         // even with annotations on.

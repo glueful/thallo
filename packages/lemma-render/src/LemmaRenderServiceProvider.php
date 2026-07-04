@@ -17,6 +17,7 @@ use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
 use Glueful\Lemma\Contracts\Content\BlockEditableFieldResolver;
 use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
+use Glueful\Lemma\Contracts\Settings\SiteLogoProvider;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
 use Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator;
@@ -260,6 +261,10 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             // Edit-in-place marking (spec §2): soft-bound; null = never marks.
             $container->has(BlockEditableFieldResolver::class)
                 ? $container->get(BlockEditableFieldResolver::class)
+                : null,
+            // site_logo() (block-library spec §2): soft-bound; null = no logo.
+            $container->has(SiteLogoProvider::class)
+                ? $container->get(SiteLogoProvider::class)
                 : null,
         );
     }

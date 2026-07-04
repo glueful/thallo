@@ -7,6 +7,7 @@ import {
 } from '@/queries/generalSettings'
 import { useLocales } from '@/queries/locales'
 import { useContentTypes } from '@/queries/contentTypes'
+import AssetField from '@/fields/components/AssetField.vue'
 import ReferencePicker from '@/fields/components/ReferencePicker.vue'
 import { useNotify } from '@/composables/useNotify'
 
@@ -27,7 +28,12 @@ const form = reactive<GeneralSettings>({
   scheduler_enabled: true,
   webhooks_enabled: true,
   homepage_entry: '',
+  site_logo: '',
+  listing_types: [],
 })
+
+// AssetField drives the same picker the block editor uses; single asset.
+const logoField = { name: 'site_logo', type: 'asset' } as const
 
 // Homepage picker (homepage-setting spec §1): the entries query is
 // type-scoped, so picking = choose a type, then search its entries.
@@ -42,6 +48,16 @@ const homepageTypeOptions = computed(() =>
     disabled: !t.public_delivery,
   })),
 )
+// Listing-types multi-select: every type is selectable (a listed non-public
+// type is dormant until its flag flips — the server only rejects unknown
+// slugs); non-public ones carry the reason as a hint.
+const listingTypeOptions = computed(() =>
+  (contentTypes.value ?? []).map((t) => ({
+    label: (t.name ?? t.slug ?? '') + (t.public_delivery ? '' : ' — not publicly delivered'),
+    value: t.slug ?? '',
+  })),
+)
+
 function clearHomepage(): void {
   form.homepage_entry = '' // saved as '' -> the server DELETES the override row
 }
@@ -111,6 +127,36 @@ async function onSave() {
                   type="url"
                   placeholder="https://example.com"
                   class="w-full"
+                />
+              </UFormField>
+              <UFormField
+                label="Site logo"
+                hint="Used by the Logo block (and themes). When unset, the site name renders instead."
+              >
+                <div data-test="site-logo-picker">
+                  <AssetField v-model="form.site_logo" :field="logoField" />
+                </div>
+              </UFormField>
+            </div>
+          </UCard>
+
+          <UCard>
+            <template #header><h2 class="font-semibold text-default">Public listings</h2></template>
+            <div class="space-y-4">
+              <p class="text-sm text-muted">
+                Content types that expose index pages (<code>/post</code>) and
+                taxonomy archives (<code>/post/categories/news</code>) on the
+                live site. Types not listed here only serve their entry pages.
+              </p>
+              <UFormField label="Listing types">
+                <USelectMenu
+                  v-model="form.listing_types"
+                  :items="listingTypeOptions"
+                  value-key="value"
+                  multiple
+                  placeholder="No listings"
+                  class="w-full"
+                  data-test="listing-types-select"
                 />
               </UFormField>
             </div>

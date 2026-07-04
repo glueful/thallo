@@ -6327,6 +6327,24 @@
                                                                             "items": {
                                                                                 "type": "string"
                                                                             }
+                                                                        },
+                                                                        "pattern": {
+                                                                            "type": [
+                                                                                "string",
+                                                                                "null"
+                                                                            ]
+                                                                        },
+                                                                        "min": {
+                                                                            "type": [
+                                                                                "number",
+                                                                                "null"
+                                                                            ]
+                                                                        },
+                                                                        "max": {
+                                                                            "type": [
+                                                                                "number",
+                                                                                "null"
+                                                                            ]
                                                                         }
                                                                     }
                                                                 }
@@ -6590,6 +6608,27 @@
                                                         "type": "string"
                                                     },
                                                     "description": "Picker-only block-type allowlist for a `blocks` field."
+                                                },
+                                                "pattern": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "Anchored regex body a string\/text value must fully match."
+                                                },
+                                                "min": {
+                                                    "type": [
+                                                        "number",
+                                                        "null"
+                                                    ],
+                                                    "description": "Inclusive lower bound for a `number` field (ints coerce)."
+                                                },
+                                                "max": {
+                                                    "type": [
+                                                        "number",
+                                                        "null"
+                                                    ],
+                                                    "description": "Inclusive upper bound for a `number` field (ints coerce)."
                                                 }
                                             }
                                         }
@@ -6884,6 +6923,24 @@
                                                                         "items": {
                                                                             "type": "string"
                                                                         }
+                                                                    },
+                                                                    "pattern": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "min": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "max": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
                                                                     }
                                                                 }
                                                             }
@@ -7077,6 +7134,24 @@
                                                                             "items": {
                                                                                 "type": "string"
                                                                             }
+                                                                        },
+                                                                        "pattern": {
+                                                                            "type": [
+                                                                                "string",
+                                                                                "null"
+                                                                            ]
+                                                                        },
+                                                                        "min": {
+                                                                            "type": [
+                                                                                "number",
+                                                                                "null"
+                                                                            ]
+                                                                        },
+                                                                        "max": {
+                                                                            "type": [
+                                                                                "number",
+                                                                                "null"
+                                                                            ]
                                                                         }
                                                                     }
                                                                 }
@@ -7317,6 +7392,27 @@
                                                         "type": "string"
                                                     },
                                                     "description": "Picker-only block-type allowlist for a `blocks` field."
+                                                },
+                                                "pattern": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "Anchored regex body a string\/text value must fully match."
+                                                },
+                                                "min": {
+                                                    "type": [
+                                                        "number",
+                                                        "null"
+                                                    ],
+                                                    "description": "Inclusive lower bound for a `number` field (ints coerce)."
+                                                },
+                                                "max": {
+                                                    "type": [
+                                                        "number",
+                                                        "null"
+                                                    ],
+                                                    "description": "Inclusive upper bound for a `number` field (ints coerce)."
                                                 }
                                             }
                                         }
@@ -7607,6 +7703,24 @@
                                                                         "items": {
                                                                             "type": "string"
                                                                         }
+                                                                    },
+                                                                    "pattern": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "min": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "max": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
                                                                     }
                                                                 }
                                                             }
@@ -8571,6 +8685,16 @@
                                                         },
                                                         "homepage_entry": {
                                                             "type": "string"
+                                                        },
+                                                        "site_logo": {
+                                                            "type": "string"
+                                                        },
+                                                        "listing_types": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            },
+                                                            "description": "Content types with public listings\/archives."
                                                         }
                                                     }
                                                 }
@@ -8756,6 +8880,23 @@
                                             "string",
                                             "null"
                                         ]
+                                    },
+                                    "site_logo": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Asset uuid of the site logo; '' clears (site name shows instead)."
+                                    },
+                                    "listing_types": {
+                                        "type": [
+                                            "array",
+                                            "null"
+                                        ],
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "description": "Content types with public listings\/archives;"
                                     }
                                 }
                             },
@@ -8768,7 +8909,9 @@
                                 "cache_ttl": "example",
                                 "scheduler_enabled": true,
                                 "webhooks_enabled": true,
-                                "homepage_entry": "example"
+                                "homepage_entry": "example",
+                                "site_logo": "example",
+                                "listing_types": "example"
                             }
                         }
                     }
@@ -8819,6 +8962,16 @@
                                                         },
                                                         "homepage_entry": {
                                                             "type": "string"
+                                                        },
+                                                        "site_logo": {
+                                                            "type": "string"
+                                                        },
+                                                        "listing_types": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            },
+                                                            "description": "Content types with public listings\/archives."
                                                         }
                                                     }
                                                 }
@@ -19320,6 +19473,24 @@
                                                                         "items": {
                                                                             "type": "string"
                                                                         }
+                                                                    },
+                                                                    "pattern": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "min": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "max": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
                                                                     }
                                                                 }
                                                             }
@@ -19859,6 +20030,24 @@
                                                                         "items": {
                                                                             "type": "string"
                                                                         }
+                                                                    },
+                                                                    "pattern": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "min": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "max": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
                                                                     }
                                                                 }
                                                             }
@@ -20792,6 +20981,24 @@
                                                                         "items": {
                                                                             "type": "string"
                                                                         }
+                                                                    },
+                                                                    "pattern": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "min": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "max": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
                                                                     }
                                                                 }
                                                             }
@@ -21258,6 +21465,27 @@
                                                         "type": "string"
                                                     },
                                                     "description": "Picker-only block-type allowlist for a `blocks` field."
+                                                },
+                                                "pattern": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "Anchored regex body a string\/text value must fully match."
+                                                },
+                                                "min": {
+                                                    "type": [
+                                                        "number",
+                                                        "null"
+                                                    ],
+                                                    "description": "Inclusive lower bound for a `number` field (ints coerce)."
+                                                },
+                                                "max": {
+                                                    "type": [
+                                                        "number",
+                                                        "null"
+                                                    ],
+                                                    "description": "Inclusive upper bound for a `number` field (ints coerce)."
                                                 }
                                             }
                                         }
@@ -21415,6 +21643,24 @@
                                                                         "items": {
                                                                             "type": "string"
                                                                         }
+                                                                    },
+                                                                    "pattern": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "min": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "max": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
                                                                     }
                                                                 }
                                                             }
@@ -32971,6 +33217,24 @@
                                                                         "items": {
                                                                             "type": "string"
                                                                         }
+                                                                    },
+                                                                    "pattern": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "min": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "max": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
                                                                     }
                                                                 }
                                                             }
@@ -33281,6 +33545,24 @@
                                                                         "items": {
                                                                             "type": "string"
                                                                         }
+                                                                    },
+                                                                    "pattern": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "min": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "max": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
                                                                     }
                                                                 }
                                                             }
@@ -37018,6 +37300,27 @@
                                                         "type": "string"
                                                     },
                                                     "description": "Picker-only block-type allowlist for a `blocks` field."
+                                                },
+                                                "pattern": {
+                                                    "type": [
+                                                        "string",
+                                                        "null"
+                                                    ],
+                                                    "description": "Anchored regex body a string\/text value must fully match."
+                                                },
+                                                "min": {
+                                                    "type": [
+                                                        "number",
+                                                        "null"
+                                                    ],
+                                                    "description": "Inclusive lower bound for a `number` field (ints coerce)."
+                                                },
+                                                "max": {
+                                                    "type": [
+                                                        "number",
+                                                        "null"
+                                                    ],
+                                                    "description": "Inclusive upper bound for a `number` field (ints coerce)."
                                                 }
                                             }
                                         }
@@ -37174,6 +37477,24 @@
                                                                         "items": {
                                                                             "type": "string"
                                                                         }
+                                                                    },
+                                                                    "pattern": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "min": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "max": {
+                                                                        "type": [
+                                                                            "number",
+                                                                            "null"
+                                                                        ]
                                                                     }
                                                                 }
                                                             }

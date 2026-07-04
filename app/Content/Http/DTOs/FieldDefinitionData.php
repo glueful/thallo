@@ -53,6 +53,15 @@ final class FieldDefinitionData implements RequestData
         #[ArrayOf('string')]
         #[Rule('array')]
         public readonly array $block_types = [],
+        /** @var string|null Anchored regex body a string/text value must fully match. */
+        #[Rule('string')]
+        public readonly ?string $pattern = null,
+        /** @var float|null Inclusive lower bound for a `number` field (ints coerce). */
+        #[Rule('numeric')]
+        public readonly ?float $min = null,
+        /** @var float|null Inclusive upper bound for a `number` field (ints coerce). */
+        #[Rule('numeric')]
+        public readonly ?float $max = null,
     ) {
     }
 
@@ -77,6 +86,9 @@ final class FieldDefinitionData implements RequestData
             'max_items' => $this->max_items,
             'reference_slug_field' => $this->reference_slug_field,
             'block_types' => $this->block_types,
+            'pattern' => $this->pattern,
+            'min' => $this->min,
+            'max' => $this->max,
         ];
     }
 }

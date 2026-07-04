@@ -177,6 +177,57 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   open, starting the stage and the tree OUT OF SYNC in a way stageStale
   cannot detect. One initial apply of the hydrated tree (after the stage
   loads, regardless of the Auto toggle) overwrites the stash with truth.
+- **Starter block library expansion (10 → 30)**: 15 new page-level blocks —
+  `container` (free-form styled wrapper: validated hex background/overlay
+  colors + asset background image emitted as CSS custom properties in ONE
+  style attribute, width/padding/min-height enums, holds child blocks),
+  `grid` (wrapping grid or CSS-columns masonry of any blocks), `features`,
+  `testimonials`, `faq` (native `<details>` accordion, per-instance
+  exclusive-open groups), `tabs` (CSS-only radio tabs, per-instance ids),
+  `steps` (CSS-counter stepper), `button` (solid/outline/soft/ghost ×
+  sm/md/lg), `carousel` (scroll-snap base with zero JS; arrows/dots/autoplay
+  via a new deferred `blocks.js` theme asset that no-ops in the canvas stage
+  and honors prefers-reduced-motion), `logo` (renders the new `site_logo`
+  site setting, falls back to the site name), `logo_cloud` (pure-CSS
+  marquee option), `video` (uploads via native `<video>`; YouTube/Vimeo by
+  URL with iframes built server-side from a parsed id — raw user iframes
+  never render), `audio`, `html` (verbatim raw output; seeds DEACTIVATED —
+  an admin explicitly activates it), `shortcode` (renders
+  `shortcodes/{name}.twig` through the theme/DB template hierarchy;
+  missing → nothing live, dashed placeholder in preview) — plus 5 `Items`
+  child blocks (`feature`, `testimonial`, `faq_item`, `tab`, `step`)
+  reusing nested blocks as repeaters. **`hero` and `cta` redefined** to the
+  Nuxt UI PageHero/PageCTA shapes (headline/title/description/links +
+  orientation/reverse; cta gains solid/outline/soft/subtle/naked variants);
+  button links-rows collapse into flex rows with context-forced sizes.
+  Every user URL field renders through `safe_url`. `blocks()` now passes
+  the caller's `site` context to block templates. Reference doc:
+  `docs/NUXT_UI_PAGE_COMPONENTS.md`.
+- **Schema-declared value constraints**: field definitions accept `pattern`
+  (anchored regex for string/text, compilability checked at schema save)
+  and `min`/`max` (number bounds) — enforced by FieldValidator with
+  dot-path errors and threaded through EVERY schema surface (domain parse +
+  serialize, request/response DTOs, OpenAPI, admin types; the admin
+  normalizer also stopped dropping `reference_type`/`block_types` on read).
+- First-run setup now seeds a renderable site: "Pages" (publicly delivered,
+  mounted at root — /about), "Posts" (publicly delivered, prefixed —
+  /post/hello; title/excerpt/body/categories) and "Categories" — the
+  taxonomy worked-example (taxonomies are ordinary content types +
+  filterable reference fields; posts carry a multi `categories` reference,
+  so /post/categories/{slug} archives, /post/terms/categories indexes and
+  facets work out of the box). Deliberately ONE seeded taxonomy — a `tag`
+  type is a two-minute copy of the same recipe. Previously the single
+  seeded type was neither public nor root-mounted, so a fresh install
+  rendered nothing until flags were flipped by hand.
+- The render listing/archive allowlist is now a **General setting**
+  (`listing_types`, Settings → General multi-select): the DB row wins
+  ('' = explicitly none) with the deploy config (`RENDER_LISTING_TYPES`)
+  as the pre-first-save fallback; unknown type slugs 422 at write time;
+  setup seeds it with `post`. Closes the half-working-default trap where a
+  seeded filterable field 404'd its archives until an env edit + restart.
+- `site_logo` general setting (Settings → General asset picker) + sandbox
+  functions `site_logo()` and `video_embed()` (TemplatePolicy
+  CACHE_VERSION 4 → 5).
 - **Root-mounted content types**: a per-type `mount_at_root` flag serves
   entries at `/{locale?}/{slug}` (`/about`, `/fr/a-propos`) instead of the
   type-prefixed `/{type}/{slug}` — the marketing-site URL shape. The root

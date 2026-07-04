@@ -6,6 +6,9 @@
   <title>{% block title %}{{ site.name }}{% endblock %}</title>
   <link rel="stylesheet" href="{{ asset('site.css') }}">
   <link rel="stylesheet" href="{{ asset('blocks.css') }}">
+  {# Progressive enhancement (block-library spec §2): carousel controls only;
+     loaded ONCE here, never from block templates; no-ops in the canvas stage. #}
+  <script defer src="{{ asset('blocks.js') }}"></script>
 </head>
 <body>
   {% if preview|default(false) %}

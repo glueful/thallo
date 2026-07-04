@@ -93,4 +93,43 @@ final class RenderContextTest extends LemmaTestCase
         $ext->setLocale('fr');
         self::assertStringContainsString('/fr/blog/bonjour', (string) $ext->path($entry));
     }
+
+    public function testVideoEmbedParsesKnownProvidersOnly(): void
+    {
+        $ext = $this->extensionWithoutReader();
+
+        self::assertSame(
+            ['provider' => 'youtube', 'id' => 'dQw4w9WgXcQ'],
+            $ext->videoEmbed('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),
+        );
+        self::assertSame(
+            ['provider' => 'youtube', 'id' => 'dQw4w9WgXcQ'],
+            $ext->videoEmbed('https://youtu.be/dQw4w9WgXcQ'),
+        );
+        self::assertSame(
+            ['provider' => 'youtube', 'id' => 'dQw4w9WgXcQ'],
+            $ext->videoEmbed('https://www.youtube.com/shorts/dQw4w9WgXcQ'),
+        );
+        self::assertSame(
+            ['provider' => 'vimeo', 'id' => '123456789'],
+            $ext->videoEmbed('https://vimeo.com/123456789'),
+        );
+        self::assertSame(
+            ['provider' => 'vimeo', 'id' => '123456789'],
+            $ext->videoEmbed('https://player.vimeo.com/video/123456789'),
+        );
+
+        // Everything else is null — templates render NOTHING (never a raw iframe).
+        self::assertNull($ext->videoEmbed('https://evil.test/watch?v=dQw4w9WgXcQ'));
+        self::assertNull($ext->videoEmbed('https://www.youtube.com/watch?v=<script>'));
+        self::assertNull($ext->videoEmbed('javascript:alert(1)'));
+        self::assertNull($ext->videoEmbed('not a url'));
+        self::assertNull($ext->videoEmbed('https://vimeo.com/not-digits'));
+    }
+
+    public function testSiteLogoIsNullWhenUnbound(): void
+    {
+        // Soft-bound seam: minimal wiring (no SiteLogoProvider) must not fail.
+        self::assertNull($this->extensionWithoutReader()->siteLogo());
+    }
 }

@@ -39,6 +39,26 @@ final class SeedBlockTypesTest extends LemmaTestCase
         $section = $repo->findBySlug('section');
         self::assertSame('Layout', $section['category']);
         self::assertContains('blocks', array_column($section['schema'], 'type'));
+
+        // Block-library expansion (spec §3): 30 types; html seeds DEACTIVATED;
+        // hero/cta carry the Nuxt UI shapes; container declares value constraints.
+        self::assertSame(30, $expected);
+        self::assertSame(0, (int) $repo->findBySlug('html')['active']);
+        self::assertSame('Items', $repo->findBySlug('testimonial')['category']);
+        $heroFields = array_column($repo->findBySlug('hero')['schema'], 'name');
+        self::assertSame(
+            ['headline', 'title', 'description', 'links', 'image', 'orientation', 'reverse'],
+            $heroFields,
+        );
+        $ctaFields = array_column($repo->findBySlug('cta')['schema'], 'name');
+        self::assertSame(
+            ['title', 'description', 'variant', 'orientation', 'reverse', 'links'],
+            $ctaFields,
+        );
+        $container = array_column($repo->findBySlug('container')['schema'], null, 'name');
+        self::assertSame('#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?', $container['background_color']['pattern']);
+        self::assertSame(0, $container['overlay_opacity']['min']);
+        self::assertSame(100, $container['overlay_opacity']['max']);
     }
 
     public function testRerunSkipsEverythingAndPreservesAdminEdits(): void
@@ -50,7 +70,7 @@ final class SeedBlockTypesTest extends LemmaTestCase
         $hero = $repo->findBySlug('hero');
         $repo->updateSchema(
             (string) $hero['uuid'],
-            [...$hero['schema'], ['name' => 'headline', 'type' => 'string']],
+            [...$hero['schema'], ['name' => 'badge_text', 'type' => 'string']],
             'My Hero',
             null,
             null,
@@ -66,7 +86,7 @@ final class SeedBlockTypesTest extends LemmaTestCase
 
         $after = $repo->findBySlug('hero');
         self::assertSame('My Hero', $after['label']);                      // byte-identical edit survives
-        self::assertContains('headline', array_column($after['schema'], 'name'));
+        self::assertContains('badge_text', array_column($after['schema'], 'name'));
         self::assertSame(0, (int) $repo->findBySlug('quote')['active']);   // deactivation survives
     }
 }

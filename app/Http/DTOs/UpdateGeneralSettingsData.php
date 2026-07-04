@@ -36,6 +36,16 @@ final class UpdateGeneralSettingsData implements RequestData
         /** Entry uuid rendered at `/`; EXPLICIT '' clears to the env fallback. */
         #[Rule('string')]
         public readonly ?string $homepage_entry = null,
+        /** @var string|null Asset uuid of the site logo; '' clears (site name shows instead). */
+        #[Rule('string')]
+        public readonly ?string $site_logo = null,
+        /**
+         * @var list<string>|null Content types with public listings/archives;
+         *      [] = explicitly none; null = unchanged.
+         */
+        #[\Glueful\Validation\Attributes\ArrayOf('string')]
+        #[Rule('array')]
+        public readonly ?array $listing_types = null,
     ) {
     }
 }

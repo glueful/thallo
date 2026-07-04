@@ -147,6 +147,29 @@ final class PublicRouteResolverTest extends LemmaTestCase
 
     // ---- listing grammar + resolution (listing spec §1–§3) ---------------------------
 
+    public function testListingAllowlistIsADbSettingWithConfigFallback(): void
+    {
+        // Taxonomy-defaults direction: the allowlist is a General setting —
+        // a DB row wins ('' = explicitly none) over the deploy config the
+        // suite env provides (RENDER_LISTING_TYPES=blog).
+        $this->seedBilingualPublishedEntry();
+        $settings = $this->container()->get(\App\Settings\GeneralSettings::class);
+        $store = $this->container()->get(\App\Settings\SettingsStore::class);
+        try {
+            // Explicit NONE shuts listings off despite the env fallback.
+            $settings->save(['listing_types' => []]);
+            self::assertSame('not_found', $this->resolver()->resolvePath('/blog')['kind']);
+
+            // A stored list is authoritative.
+            $settings->save(['listing_types' => ['blog']]);
+            self::assertSame('listing', $this->resolver()->resolvePath('/blog')['kind']);
+        } finally {
+            // Row removed -> the config/.env fallback shows through again.
+            $store->forget('listing_types');
+        }
+        self::assertSame('listing', $this->resolver()->resolvePath('/blog')['kind']);
+    }
+
     public function testBareTypePathResolvesListingPageOne(): void
     {
         $this->seedBilingualPublishedEntry();

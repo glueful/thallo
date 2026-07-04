@@ -135,3 +135,26 @@
   color: #18181b;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
 }
+
+/* Shortcode placeholder (block-library spec §6): PREVIEW-ONLY UI — the live
+   render shows the resolved template or nothing. An empty shortcode wrapper
+   in the canvas gets a visible dashed box carrying the shortcode name so the
+   block stays clickable/selectable. */
+.lemma-preview-block > .lemma-block-shortcode:empty,
+.lemma-preview-block > .lemma-block-shortcode:not(:has(*)) {
+  display: block;
+  min-height: 2.5rem;
+  border: 1.5px dashed rgba(100, 116, 139, 0.6);
+  border-radius: 6px;
+  position: relative;
+}
+.lemma-preview-block > .lemma-block-shortcode:not(:has(*))::after {
+  content: "shortcode: " attr(data-shortcode);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 500 0.85rem/1 system-ui, sans-serif;
+  color: rgba(100, 116, 139, 0.9);
+}

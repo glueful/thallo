@@ -9,6 +9,7 @@ use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
 use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
+use Glueful\Lemma\Contracts\Settings\SiteLogoProvider;
 use Glueful\Lemma\Contracts\Navigation\MenuReader;
 use Psr\Log\LoggerInterface;
 use Twig\Environment;
@@ -88,6 +89,8 @@ final class RenderContextExtension extends AbstractExtension
         private readonly ?MediaUrlResolver $mediaUrls = null,
         /** Soft-bound (edit-in-place spec §2): null → safe_html never marks. */
         private readonly ?BlockEditableFieldResolver $editableFields = null,
+        /** Soft-bound (block-library spec §2): null → site_logo() returns null. */
+        private readonly ?SiteLogoProvider $siteLogo = null,
     ) {
         $this->locale = $defaultLocale;
     }
@@ -111,7 +114,62 @@ final class RenderContextExtension extends AbstractExtension
                 'is_safe' => ['html'],
             ]),
             new TwigFunction('media', $this->media(...)),
+            new TwigFunction('site_logo', $this->siteLogo(...)),
+            new TwigFunction('video_embed', $this->videoEmbed(...)),
         ];
+    }
+
+    /**
+     * The configured site logo as a public media URL (block-library spec §2):
+     * provider-injected settings read resolved through media() — null when
+     * unset or unresolvable, so the logo block falls back to the site name.
+     */
+    public function siteLogo(): ?string
+    {
+        $uuid = $this->siteLogo?->siteLogoUuid();
+        return $uuid === null ? null : $this->media($uuid);
+    }
+
+    /**
+     * Server-parsed video embed descriptor (block-library spec §2): strict
+     * YouTube/Vimeo URL shapes only — templates build the iframe themselves
+     * from a fixed pattern, so raw user iframes are never emitted. Anything
+     * unparseable returns null and the video block renders nothing.
+     *
+     * @return array{provider: string, id: string}|null
+     */
+    public function videoEmbed(string $url): ?array
+    {
+        $parts = parse_url(trim($url));
+        if (!is_array($parts)) {
+            return null;
+        }
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        $host = str_starts_with($host, 'www.') ? substr($host, 4) : $host;
+        $path = (string) ($parts['path'] ?? '');
+
+        if ($host === 'youtube.com' || $host === 'youtube-nocookie.com' || $host === 'm.youtube.com') {
+            $id = null;
+            if ($path === '/watch') {
+                parse_str((string) ($parts['query'] ?? ''), $query);
+                $id = is_string($query['v'] ?? null) ? $query['v'] : null;
+            } elseif (preg_match('#\\A/(?:shorts|embed)/([A-Za-z0-9_-]{6,20})\\z#', $path, $m) === 1) {
+                $id = $m[1];
+            }
+            return is_string($id) && preg_match('/\\A[A-Za-z0-9_-]{6,20}\\z/', $id) === 1
+                ? ['provider' => 'youtube', 'id' => $id]
+                : null;
+        }
+        if ($host === 'youtu.be' && preg_match('#\\A/([A-Za-z0-9_-]{6,20})\\z#', $path, $m) === 1) {
+            return ['provider' => 'youtube', 'id' => $m[1]];
+        }
+        if (
+            ($host === 'vimeo.com' || $host === 'player.vimeo.com')
+            && preg_match('#\\A/(?:video/)?(\\d{6,12})\\z#', $path, $m) === 1
+        ) {
+            return ['provider' => 'vimeo', 'id' => $m[1]];
+        }
+        return null;
     }
 
     /**
@@ -231,8 +289,9 @@ final class RenderContextExtension extends AbstractExtension
 
     /**
      * Render an ordered blocks list through blocks/{type}.twig (block-builder spec §6).
-     * Context per block: {block, data, entry, index} — `entry` is the CALLER's entry
-     * (needs_context), read-only ambient state. Missing templates: prod = HTML comment,
+     * Context per block: {block, data, entry, index, site} — `entry` and `site` are
+     * the CALLER's (needs_context), read-only ambient state (`site` so identity
+     * blocks like `logo` can fall back to the site name). Missing templates: prod = HTML comment,
      * debug = visible placeholder; logged once per type per process. Malformed items
      * and path-unsafe type slugs are skipped with the same once-per-type logging — a
      * template never explodes over data. The block-type REGISTRY is never consulted
@@ -293,6 +352,7 @@ final class RenderContextExtension extends AbstractExtension
                         'block' => ['id' => $item['id'] ?? null, 'type' => $type, 'data' => $data],
                         'data' => $data,
                         'entry' => $entry,
+                        'site' => $context['site'] ?? [],
                         'index' => $index,
                     ]);
                 } finally {

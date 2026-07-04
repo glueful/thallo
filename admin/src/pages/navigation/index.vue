@@ -206,7 +206,11 @@ async function save(): Promise<void> {
               size="xs"
               :variant="locale === code ? 'solid' : 'ghost'"
               data-test="nav-locale-tab"
-              @click="locale = code"
+              @click="
+                () => {
+                  locale = code
+                }
+              "
             >
               {{ code }}
             </UButton>
@@ -234,7 +238,11 @@ async function save(): Promise<void> {
             variant="outline"
             icon="i-lucide-file-text"
             data-test="tree-add-page"
-            @click="addPageOpen = !addPageOpen"
+            @click="
+              () => {
+                addPageOpen = !addPageOpen
+              }
+            "
           >
             Add page
           </UButton>

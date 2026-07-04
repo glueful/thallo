@@ -27,6 +27,7 @@ final class GeneralSettingsController
     public function __construct(
         private readonly GeneralSettings $settings,
         private readonly ?\Glueful\Lemma\Contracts\Delivery\PublicRouteResolver $resolver = null,
+        private readonly ?\App\Content\Repositories\ContentTypeRepository $contentTypes = null,
     ) {
     }
 
@@ -70,6 +71,8 @@ final class GeneralSettingsController
             'scheduler_enabled' => $input->scheduler_enabled,
             'webhooks_enabled' => $input->webhooks_enabled,
             'homepage_entry' => $input->homepage_entry,
+            'site_logo' => $input->site_logo,
+            'listing_types' => $input->listing_types,
         ]);
 
         return Response::success(
@@ -117,6 +120,18 @@ final class GeneralSettingsController
         ) {
             $errors['homepage_entry'] =
                 'must be a published entry of a publicly delivered content type';
+        }
+
+        // Listing types must NAME REAL content types (typo protection); the
+        // public/non-public state stays a render-time gate, not a write gate —
+        // a listed non-public type is dormant until its flag flips.
+        if ($input->listing_types !== null && $this->contentTypes !== null) {
+            foreach ($input->listing_types as $slug) {
+                if ($this->contentTypes->findBySlug((string) $slug) === null) {
+                    $errors['listing_types'] = "unknown content type '{$slug}'";
+                    break;
+                }
+            }
         }
 
         return $errors;

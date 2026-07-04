@@ -29,7 +29,7 @@ final class BlockTypeRepository
 
     /**
      * @param array{slug: string, label: string, icon?: ?string, category?: ?string,
-     *   description?: ?string, schema: list<array<string,mixed>>} $data
+     *   description?: ?string, schema: list<array<string,mixed>>, active?: bool} $data
      * @return string the new uuid
      */
     public function create(array $data): string
@@ -53,7 +53,9 @@ final class BlockTypeRepository
             'category' => $data['category'] ?? null,
             'description' => $data['description'] ?? null,
             'schema' => (string) json_encode(array_values($data['schema'])),
-            'active' => 1,
+            // Seeded-inactive is a real state (block-library spec §2: `html`
+            // ships deactivated until an admin opts in). Default stays active.
+            'active' => (bool) ($data['active'] ?? true) ? 1 : 0,
             'created_at' => $now,
             'updated_at' => $now,
         ]);

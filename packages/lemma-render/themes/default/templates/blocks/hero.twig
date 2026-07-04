@@ -1,13 +1,13 @@
 {% set img = data.image ? media(data.image) : null %}
-{% set url = data.cta_url|default('')|safe_url %}
-<header class="lemma-block lemma-block-hero lemma-block-hero--{{ data.alignment|default('left') }}">
+{% set orientation = data.orientation|default('vertical') %}
+<header class="lemma-block lemma-block-hero lemma-block-hero--{{ orientation }}{% if data.reverse|default(false) %} lemma-block-hero--reverse{% endif %}">
   <div class="lemma-block-hero__inner">
-    {% if img %}<img class="lemma-block-hero__image" src="{{ img }}" alt="">{% endif %}
-    <h1 class="lemma-block-hero__heading">{{ data.heading|editable_text('heading') }}</h1>
-    {% if data.subheading %}<p class="lemma-block-hero__subheading">{{ data.subheading|editable_text('subheading') }}</p>{% endif %}
-    {% if data.cta_label %}
-      {% if url %}<a class="lemma-block-hero__cta" href="{{ url }}">{{ data.cta_label|editable_text('cta_label') }}</a>
-      {% else %}<span class="lemma-block-hero__cta">{{ data.cta_label|editable_text('cta_label') }}</span>{% endif %}
-    {% endif %}
+    <div class="lemma-block-hero__wrapper">
+      {% if data.headline %}<p class="lemma-block-hero__headline">{{ data.headline|editable_text('headline') }}</p>{% endif %}
+      <h1 class="lemma-block-hero__title">{{ data.title|editable_text('title') }}</h1>
+      {% if data.description %}<p class="lemma-block-hero__description">{{ data.description|editable_text('description') }}</p>{% endif %}
+      {% if data.links|default([]) is not empty %}<div class="lemma-block-hero__links">{{ blocks(data.links) }}</div>{% endif %}
+    </div>
+    {% if img %}<div class="lemma-block-hero__media"><img src="{{ img }}" alt=""></div>{% endif %}
   </div>
 </header>

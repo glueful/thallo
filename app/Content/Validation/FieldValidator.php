@@ -195,7 +195,7 @@ final class FieldValidator
                 continue;
             }
 
-            $error = $this->checkType($field, $value);
+            $error = $this->checkType($field, $value) ?? $this->checkConstraints($field, $value);
             if ($error !== null) {
                 $errors[$field->name] = $error;
                 continue;
@@ -254,6 +254,30 @@ final class FieldValidator
             return $value; // unparseable; checkType() reports the error separately
         }
         return $dt->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\TH:i:s\Z');
+    }
+
+    /**
+     * Schema-declared value constraints (block-library spec §5): `pattern`
+     * fully matches string/text values; `min`/`max` bound numbers. Runs only
+     * after checkType() passed, so the value shape is already right.
+     */
+    private function checkConstraints(FieldDefinition $field, mixed $value): ?string
+    {
+        if ($field->pattern !== null && is_string($value) && $value !== '') {
+            $regex = '/\\A(?:' . str_replace('/', '\\/', $field->pattern) . ')\\z/u';
+            if (preg_match($regex, $value) !== 1) {
+                return 'does not match the required format';
+            }
+        }
+        if ($field->type === 'number' && (is_int($value) || is_float($value))) {
+            if ($field->min !== null && $value < $field->min) {
+                return "must be at least {$field->min}";
+            }
+            if ($field->max !== null && $value > $field->max) {
+                return "must be at most {$field->max}";
+            }
+        }
+        return null;
     }
 
     private function checkType(FieldDefinition $field, mixed $value): ?string
