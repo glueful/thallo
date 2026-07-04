@@ -28,6 +28,9 @@ final class GeneralSettings
         'webhooks_enabled'  => ['lemma.pipeline.webhooks_enabled', 'bool', true],
         'homepage_entry'    => ['lemma_render.homepage_entry', 'string', ''],
         'site_logo'         => ['lemma.site_logo', 'string', ''],
+        // Admin SPA base URL — powers the preview bar's Edit/Design deep links.
+        // Auto-populated at web setup (the SPA sends its own origin).
+        'admin_url'         => ['lemma_render.admin_url', 'string', ''],
         // Which content types expose /{type} listings + /{type}/{field}/{term}
         // archives. DB row wins (CSV; '' = explicitly none); config/.env is the
         // pre-first-save deploy default.
@@ -43,6 +46,12 @@ final class GeneralSettings
     public function siteName(): string
     {
         return (string) $this->value('site_name');
+    }
+
+    /** Admin SPA base URL; '' hides the preview bar's Edit/Design links. */
+    public function adminUrl(): string
+    {
+        return (string) $this->value('admin_url');
     }
 
     /** The effective listing-types allowlist (render grammar gate). @return list<string> */

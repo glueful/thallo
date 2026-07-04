@@ -94,7 +94,9 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     const res = await fetch('/admin/setup', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(event.data),
+      // admin_url: the SPA's own origin — powers the preview bar's
+      // Edit/Design deep links with zero configuration.
+      body: JSON.stringify({ ...event.data, admin_url: window.location.origin }),
     })
     const body = (await res.json().catch(() => null)) as ApiErrorBody | null
 

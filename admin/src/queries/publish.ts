@@ -19,11 +19,14 @@ export async function unpublishEntry(uuid: string, locale: string) {
   return data
 }
 
-export function usePublish(uuid: string, locale: string, type: string) {
+export function usePublish(uuid: string, locale: string | (() => string), type: string) {
   const cache = useQueryCache()
+  const currentLocale = () => (typeof locale === 'function' ? locale() : locale)
   return useMutation({
     mutation: (action: 'publish' | 'unpublish') =>
-      action === 'publish' ? publishEntry(uuid, locale) : unpublishEntry(uuid, locale),
+      action === 'publish'
+        ? publishEntry(uuid, currentLocale())
+        : unpublishEntry(uuid, currentLocale()),
     // Publication state changes the entry's status badge in the list AND the
     // editor's per-locale summaries (PublishPanel status line, LocaleSwitcher).
     onSettled() {

@@ -37,5 +37,6 @@
         <env name="QUERY_CACHE_STORE" value="array"/>
         <env name="LEMMA_ADMIN_BUNDLE_PATH" value="tests/fixtures/admin"/>
         <env name="LEMMA_PUBLIC_URL_BASE" value="https://site.test"/>
+        <env name="RENDER_ADMIN_URL" value="https://admin.test"/>
     </php>
 </phpunit>

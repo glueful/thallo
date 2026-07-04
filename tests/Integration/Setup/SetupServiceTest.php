@@ -91,9 +91,9 @@ final class SetupServiceTest extends LemmaTestCase
         // works on day one. It is an ordinary content-type row (status active, not a
         // system type), with the generic title + body schema.
         $type = (new \App\Content\Repositories\ContentTypeRepository($this->connection()))
-            ->findBySlug('page');
+            ->findBySlug('pages');
 
-        self::assertNotNull($type, 'fresh install must seed the "page" content type');
+        self::assertNotNull($type, 'fresh install must seed the "pages" content type');
         self::assertSame('Pages', $type['name']);
         self::assertSame('active', $type['status']);
 
@@ -159,6 +159,26 @@ final class SetupServiceTest extends LemmaTestCase
         $row = $this->connection()->table('lemma_settings')
             ->where(['key' => 'listing_types'])->first();
         self::assertSame('post', $row['value'] ?? null);
+
+        // No admin_url was passed (CLI-style install) -> no row written.
+        self::assertNull(
+            $this->connection()->table('lemma_settings')->where(['key' => 'admin_url'])->first(),
+        );
+    }
+
+    public function testInstallRecordsTheAdminOriginWhenSupplied(): void
+    {
+        // The web setup form sends the SPA's own origin — persisted so the
+        // preview bar's Edit/Design links work with zero configuration.
+        $this->service()->install(
+            siteName: 'S',
+            adminEmail: 'admin@example.com',
+            adminPassword: 'S3cur3P@ssw0rd!',
+            locale: 'en',
+            adminUrl: 'https://admin.example.com/',
+        );
+        $row = $this->connection()->table('lemma_settings')->where(['key' => 'admin_url'])->first();
+        self::assertSame('https://admin.example.com', $row['value'] ?? null); // trailing / trimmed
     }
 
     public function testInstallIsPermanentLock(): void

@@ -15,6 +15,12 @@ import { toFieldDef } from '@/fields/normalize'
 import type { ContentTypeField } from '@/queries/contentTypes'
 import type { FieldDef } from '@/fields/types'
 import FieldEditor from '@/components/FieldEditor.vue'
+import SeoPanel from '../components/SeoPanel.vue'
+import VersionsPanel from '../components/VersionsPanel.vue'
+import { useCapabilitiesStore } from '@/stores/capabilities'
+import { usePublish } from '@/queries/publish'
+import { useEntryLocales } from '@/queries/entries'
+import { localeStatus } from '../components/localeStatus'
 import CanvasOutline from './components/CanvasOutline.vue'
 
 // The visual canvas (visual-canvas spec §1): a FULL-SCREEN sibling of the entry
@@ -136,10 +142,15 @@ function maybeReconcileStash(): void {
 // change, and save/publish/version it with the draft. "Theme default" DELETES
 // the key so the theme.json chain shows through.
 const inspectorTab = ref('content')
-const inspectorTabs = [
+const caps = useCapabilitiesStore()
+const seoEnabled = computed(() => caps.isEnabled('lemma.seo'))
+const inspectorTabs = computed(() => [
   { label: 'Content', value: 'content', slot: 'content' as const },
+  { label: 'Outline', value: 'outline', slot: 'outline' as const },
   { label: 'Page', value: 'page', slot: 'page' as const },
-]
+  ...(seoEnabled.value ? [{ label: 'SEO', value: 'seo', slot: 'seo' as const }] : []),
+  { label: 'Versions', value: 'versions', slot: 'versions' as const },
+])
 
 const presentationOverride = computed<Record<string, unknown>>(() => {
   const p = fields.value._presentation
@@ -172,12 +183,6 @@ function setPresLayout(v: string): void {
   patchPresentation('layout', v === 'default' ? undefined : v)
 }
 
-// Outline panel visibility — same affordance shape as the inspector's
-// per-field outline rail toggle. Collapsed by default: the stage is the star.
-const outlineOpen = ref(false)
-function toggleOutline(): void {
-  outlineOpen.value = !outlineOpen.value
-}
 
 // Viewport presets (spec §6): stage width only.
 const viewport = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
@@ -310,9 +315,22 @@ function confirmDelete(): void {
 const addAfterId = ref<string | null>(null)
 const addAfterTypes = ref<BlockType[]>([])
 const stageEl = ref<HTMLElement | null>(null)
-// Inline top/left when the intent carried the + button's rect (anchored to the
-// toolbar button); null = the centered fallback classes.
-const addAfterPos = ref<{ top: string; left: string } | null>(null)
+// The + button's rect from the bridge intent (iframe-viewport coordinates);
+// null = no rect rode along (the popover anchors to the stage top instead).
+const addAfterAnchor = ref<{ x: number; y: number } | null>(null)
+// Virtual reference element for UPopover (Reka/floating-ui accepts anything
+// with getBoundingClientRect): translates the in-iframe anchor to PARENT
+// viewport coordinates live, so collision flipping/shifting is floating-ui's
+// job — no hand-rolled clamping.
+const addAfterReference = computed(() => ({
+  getBoundingClientRect: (): DOMRect => {
+    const ifr = iframeEl.value?.getBoundingClientRect()
+    const a = addAfterAnchor.value
+    if (ifr && a) return new DOMRect(ifr.left + a.x, ifr.top + a.y, 0, 0)
+    if (ifr) return new DOMRect(ifr.left + ifr.width / 2, ifr.top + 12, 0, 0)
+    return new DOMRect(window.innerWidth / 2, 64, 0, 0)
+  },
+}))
 
 // Type-to-filter (same semantics as the editor's BlockInsertMenu): matches
 // label/slug/description, Enter picks the first match, Escape cancels.
@@ -346,7 +364,7 @@ const vFocus = { mounted: (el: HTMLElement) => el.focus() }
 bridge.onBlockAddAfter((id, anchor) => {
   addAfterTypes.value = fieldEditorRef.value?.pickerTypesForBlock(id) ?? []
   addAfterFilter.value = '' // fresh search per open
-  addAfterPos.value = anchoredPos(anchor, 256) // the w-64 panel
+  addAfterAnchor.value = anchor ? { x: anchor.x, y: anchor.y } : null
   addAfterId.value = id
 })
 
@@ -577,11 +595,12 @@ async function applyWorking(): Promise<void> {
 // tree, and the server clears the stash — no re-mint, no reload on success.
 const saving = ref(false)
 
-async function saveDraftOnly(): Promise<void> {
+async function saveDraftOnly(): Promise<boolean> {
   saving.value = true
   try {
     await save.mutateAsync({ fields: fields.value, lock_version: lockVersion.value })
     success('Draft saved')
+    return true
   } catch (e: unknown) {
     reloadStage() // discard optimistic mirrors — the stage falls back to last-applied truth
     // BYTE-MIRROR of the editor's onSave 409 branches.
@@ -601,8 +620,27 @@ async function saveDraftOnly(): Promise<void> {
     } else {
       notifyError(e, 'Couldn’t save draft')
     }
+    return false
   } finally {
     saving.value = false
+  }
+}
+
+// Navbar publish (parity with the editor): publishing pins the SAVED draft,
+// so a dirty canvas saves first and a failed save blocks the publish.
+const publish = usePublish(uuid.value, locale.value, type.value)
+const { data: entryLocaleSummaries } = useEntryLocales(uuid)
+const isPublished = computed(() => {
+  const summary = (entryLocaleSummaries.value ?? []).find((s) => s.locale === locale.value)
+  return summary ? localeStatus(summary).key === 'published' : false
+})
+async function onPublish(): Promise<void> {
+  if (dirty.value && !(await saveDraftOnly())) return
+  try {
+    await publish.mutateAsync('publish')
+    success(isPublished.value ? 'Updated' : 'Published')
+  } catch (e) {
+    notifyError(e, 'Couldn’t publish')
   }
 }
 
@@ -664,8 +702,8 @@ function reloadStage(): void {
           <span class="capitalize">{{ type }}</span>
           <UBadge size="xs" color="neutral" variant="subtle" class="ml-2">Design · {{ locale }}</UBadge>
         </template>
-        <template #right>
-          <UFieldGroup size="xs">
+        <template #default>
+          <UFieldGroup size="sm">
             <UButton
               variant="outline"
               color="neutral"
@@ -674,6 +712,9 @@ function reloadStage(): void {
               data-test="canvas-viewport-desktop"
               :class="{ 'bg-elevated': viewport === 'desktop' }"
               @click="setViewport('desktop')"
+              :ui="{
+                base: 'rounded-s'
+              }"
             />
             <UButton
               variant="outline"
@@ -683,6 +724,9 @@ function reloadStage(): void {
               data-test="canvas-viewport-tablet"
               :class="{ 'bg-elevated': viewport === 'tablet' }"
               @click="setViewport('tablet')"
+              :ui="{
+                base: 'rounded-none'
+              }"
             />
             <UButton
               variant="outline"
@@ -692,20 +736,47 @@ function reloadStage(): void {
               data-test="canvas-viewport-mobile"
               :class="{ 'bg-elevated': viewport === 'mobile' }"
               @click="setViewport('mobile')"
+              :ui="{
+                base: 'rounded-none'
+              }"
             />
           </UFieldGroup>
-          <UButton
-            variant="ghost"
-            color="neutral"
-            icon="i-lucide-list-tree"
-            aria-label="Toggle outline"
-            data-test="canvas-outline-toggle"
-            :class="{ 'bg-elevated': outlineOpen }"
-            @click="toggleOutline()"
-          />
+          <!-- Preview actions, fused like the viewport group: refresh · Auto ·
+               Apply. The stale chip rides the whole group. -->
+          <UChip :show="stageStale" color="info" inset>
+            <UFieldGroup size="sm">
+              <UButton
+                v-if="mintFailed || (!renderDisabled && iframeSrc)"
+                variant="outline"
+                color="neutral"
+                icon="i-lucide-refresh-cw"
+                aria-label="Refresh preview"
+                title="Refresh preview"
+                data-test="canvas-refresh-preview"
+                :ui="{ base: 'rounded-none' }"
+                @click="refreshPreview()"
+              />
+              <UButton
+                :variant="autoEnabled && !autoSuspended ? 'soft' : 'outline'"
+                :color="autoSuspended ? 'warning' : autoEnabled ? 'primary' : 'neutral'"
+                :icon="autoEnabled && !autoSuspended ? 'i-lucide-zap' : 'i-lucide-zap-off'"
+                :aria-label="autoSuspended ? 'Auto-apply paused after an error — click to resume' : 'Toggle auto-apply'"
+                data-test="canvas-auto-toggle"
+                :ui="{ base: 'rounded-none' }"
+                @click="toggleAuto()"
+              >
+                {{ autoSuspended ? 'Auto paused' : autoEnabled ? 'Auto' : 'Auto off' }}
+              </UButton>
+              <UButton :loading="applying" data-test="canvas-apply" :ui="{ base: 'rounded-ee' }" @click="applyWorking()">
+                Apply
+              </UButton>
+            </UFieldGroup>
+          </UChip>
+        </template>
+        <template #right>
           <UButton
             v-if="!renderDisabled && iframeSrc"
-            variant="ghost"
+            variant="outline"
             color="neutral"
             icon="i-lucide-eye"
             square
@@ -715,44 +786,30 @@ function reloadStage(): void {
             data-test="canvas-open-preview"
             @click="openThemePreview()"
           />
-          <UButton
-            v-if="mintFailed || (!renderDisabled && iframeSrc)"
-            variant="ghost"
-            color="neutral"
-            icon="i-lucide-refresh-cw"
-            square
-            aria-label="Refresh preview"
-            title="Refresh preview"
-            data-test="canvas-refresh-preview"
-            @click="refreshPreview()"
-          />
-          <UButton
-            :variant="autoEnabled && !autoSuspended ? 'soft' : 'outline'"
-            :color="autoSuspended ? 'warning' : autoEnabled ? 'primary' : 'neutral'"
-            size="xs"
-            :icon="autoEnabled && !autoSuspended ? 'i-lucide-zap' : 'i-lucide-zap-off'"
-            :aria-label="autoSuspended ? 'Auto-apply paused after an error — click to resume' : 'Toggle auto-apply'"
-            data-test="canvas-auto-toggle"
-            @click="toggleAuto()"
-          >
-            {{ autoSuspended ? 'Auto paused' : autoEnabled ? 'Auto' : 'Auto off' }}
-          </UButton>
-          <UChip :show="stageStale" color="info" inset>
-            <UButton :loading="applying" data-test="canvas-apply" @click="applyWorking()">
-              Apply
-            </UButton>
-          </UChip>
           <UChip :show="dirty" color="warning" inset>
             <UButton
               variant="outline"
               color="neutral"
+              icon="i-lucide-save"
+              square
+              aria-label="Save draft"
+              title="Save draft"
               :loading="saving"
               data-test="canvas-save"
-              @click="saveDraftOnly()"
-            >
-              Save draft
-            </UButton>
+              @click="
+                () => {
+                  void saveDraftOnly()
+                }
+              "
+            />
           </UChip>
+          <UButton
+            :loading="publish.isLoading.value || saving"
+            data-test="canvas-publish"
+            @click="onPublish()"
+          >
+            {{ isPublished ? 'Update' : 'Publish' }}
+          </UButton>
         </template>
       </UDashboardNavbar>
     </template>
@@ -790,6 +847,30 @@ function reloadStage(): void {
           >
             <template #content>
               <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" />
+            </template>
+            <template #outline>
+              <div class="pt-2" data-test="outline-tab">
+                <CanvasOutline
+                  :fields="fields"
+                  :schema="schema"
+                  :selected="selected"
+                  @select="onOutlineSelect"
+                  @move="moveBlockAndMirror"
+                  @delete-request="(id: string) => openDeleteConfirm(id, null)"
+                  @duplicate="duplicateAndMirror"
+                  @deselect="onOutlineDeselect"
+                />
+              </div>
+            </template>
+            <template v-if="seoEnabled" #seo>
+              <div class="pt-2">
+                <SeoPanel :key="`seo-${uuid}-${locale}`" :uuid="uuid" :locale="locale" :enabled="seoEnabled" />
+              </div>
+            </template>
+            <template #versions>
+              <div class="pt-2">
+                <VersionsPanel :key="`versions-${uuid}-${locale}`" :uuid="uuid" :locale="locale" :type="type" />
+              </div>
             </template>
             <template #page>
               <div class="space-y-5 pt-2" data-test="page-settings">
@@ -886,63 +967,61 @@ function reloadStage(): void {
             </div>
           </div>
 
-          <!-- Add-after picker (stage-toolbar spec §5): the containing list's types,
-               anchored to the toolbar's + button when its rect rode the intent. -->
-          <div
-            v-if="addAfterId"
-            class="absolute z-10 w-64 rounded-lg border border-default bg-default p-2 shadow-lg"
-            :class="addAfterPos ? '' : 'inset-x-0 top-3 mx-auto'"
-            :style="addAfterPos ?? undefined"
-            data-test="canvas-add-picker"
-          >
-            <p class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
-              Add block after
-            </p>
-            <input
-              v-focus
-              v-model="addAfterFilter"
-              type="text"
-              placeholder="Filter blocks…"
-              class="mb-1 w-full rounded border border-default bg-transparent px-2 py-1 text-sm outline-none"
-              data-test="canvas-add-filter"
-              @keydown="onAddFilterKeydown"
-            />
-            <div class="grid grid-cols-2 gap-1">
-              <button
-                v-for="t in filteredAddTypes"
-                :key="t.slug"
-                class="flex flex-col items-center gap-1 rounded px-2 py-1.5 text-center text-xs hover:bg-elevated"
-                type="button"
-                :data-test="`canvas-add-type-${t.slug}`"
-                @click="chooseAddType(t.slug)"
-              >
-                <UIcon :name="t.icon || 'i-lucide-box'" class="size-4 text-muted" />
-                <span class="truncate font-medium">{{ t.label }}</span>
-              </button>
-            </div>
-            <p v-if="!filteredAddTypes.length" class="px-2 py-1.5 text-sm text-muted">
-              No block types available here.
-            </p>
-            <div class="mt-1 flex justify-end">
-              <UButton size="xs" variant="ghost" color="neutral" data-test="canvas-add-cancel" @click="cancelAddAfter()">
-                Cancel
-              </UButton>
-            </div>
-          </div>
         </div>
-         <aside v-if="outlineOpen" class="w-56 shrink-0 overflow-y-auto">
-          <CanvasOutline
-            :fields="fields"
-            :schema="schema"
-            :selected="selected"
-            @select="onOutlineSelect"
-            @move="moveBlockAndMirror"
-            @delete-request="(id: string) => openDeleteConfirm(id, null)"
-            @duplicate="duplicateAndMirror"
-            @deselect="onOutlineDeselect"
-          />
-        </aside>
-        
+
+        <!-- Add-after picker (stage-toolbar spec §5): a UPopover anchored to a
+             VIRTUAL reference built from the bridge's + button rect (iframe →
+             parent viewport translation) — floating-ui owns collision
+             flipping/shifting. Lives OUTSIDE the stage's overflow container;
+             portal=false keeps the content findable in jsdom specs. -->
+        <UPopover
+          :open="!!addAfterId"
+          :reference="addAfterReference"
+          :portal="false"
+          :content="{ side: 'bottom', align: 'start', sideOffset: 8 }"
+          @update:open="(v: boolean) => { if (!v) cancelAddAfter() }"
+        >
+          <template #content>
+            <div class="w-64 p-2" data-test="canvas-add-picker">
+              <p class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                Add block after
+              </p>
+              <input
+                v-focus
+                v-model="addAfterFilter"
+                type="text"
+                placeholder="Filter blocks…"
+                class="mb-1 w-full rounded border border-default bg-transparent px-2 py-1 text-sm outline-none"
+                data-test="canvas-add-filter"
+                @keydown="onAddFilterKeydown"
+              />
+              <!-- Internal scroll (30 seeded types); filter + Cancel stay pinned. -->
+              <div class="max-h-64 overflow-y-auto overscroll-contain" data-test="canvas-add-scroll">
+                <div class="grid grid-cols-2 gap-1">
+                  <button
+                    v-for="t in filteredAddTypes"
+                    :key="t.slug"
+                    class="flex flex-col items-center gap-1 rounded px-2 py-1.5 text-center text-xs hover:bg-elevated"
+                    type="button"
+                    :data-test="`canvas-add-type-${t.slug}`"
+                    @click="chooseAddType(t.slug)"
+                  >
+                    <UIcon :name="t.icon || 'i-lucide-box'" class="size-4 text-muted" />
+                    <span class="truncate font-medium">{{ t.label }}</span>
+                  </button>
+                </div>
+                <p v-if="!filteredAddTypes.length" class="px-2 py-1.5 text-sm text-muted">
+                  No block types available here.
+                </p>
+              </div>
+              <div class="mt-1 flex justify-end">
+                <UButton size="xs" variant="ghost" color="neutral" data-test="canvas-add-cancel" @click="cancelAddAfter()">
+                  Cancel
+                </UButton>
+              </div>
+            </div>
+          </template>
+        </UPopover>
       </div>
     </template>
   </UDashboardPanel>

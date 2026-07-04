@@ -6,10 +6,18 @@ import { usePreview, useThemePreview, buildPreviewUrl } from '@/queries/preview'
 import { useGeneralSettings, useGeneralSettingsMutations } from '@/queries/generalSettings'
 import { useSchedules, useScheduleMutations } from '@/queries/schedules'
 import { useEntryLocales } from '@/queries/entries'
+import { useCapabilitiesStore } from '@/stores/capabilities'
+import { runtimeConfig } from '@/runtime/config'
 import { useNotify } from '@/composables/useNotify'
 import { localeStatus } from './localeStatus'
 
-const props = defineProps<{ uuid: string; locale: string; type: string }>()
+const props = defineProps<{
+  uuid: string
+  locale: string
+  type: string
+  /** Slugified entry title — seeds the route input until a route exists or the user edits it. */
+  suggestedSlug?: string
+}>()
 const { success, warning, error: notifyError } = useNotify()
 
 // ── Publication status (the panel's headline state) ─────────────────────────
@@ -25,6 +33,7 @@ const isPublished = computed(() => status.value?.key === 'published')
 const { data: routes } = useRoutes(() => props.uuid)
 const slug = ref('')
 const savedSlug = ref('')
+const slugTouched = ref(false)
 watch(
   routes,
   (r) => {
@@ -33,6 +42,15 @@ watch(
       slug.value = match.slug
       savedSlug.value = match.slug
     }
+  },
+  { immediate: true },
+)
+// No saved route and the user hasn't typed -> the input follows the entry
+// title (slugified); one manual keystroke or a real route stops the sync.
+watch(
+  () => props.suggestedSlug,
+  (suggested) => {
+    if (!slugTouched.value && savedSlug.value === '' && suggested) slug.value = suggested
   },
   { immediate: true },
 )
@@ -62,6 +80,15 @@ async function onPublish(action: 'publish' | 'unpublish') {
 }
 
 // ── Preview ─────────────────────────────────────────────────────────────────
+// Two preview paths for two deployment models — each button renders ONLY when
+// its prerequisite exists (both visible = a genuine hybrid deployment):
+// - external preview needs a configured Site preview URL (headless frontend);
+// - theme preview needs the render pack (rendered delivery).
+const caps = useCapabilitiesStore()
+const hasExternalPreview = computed(
+  () => Boolean(generalSettings.value?.site_preview_url || runtimeConfig.sitePreviewUrl),
+)
+const hasThemePreview = computed(() => caps.isEnabled('lemma.render'))
 const preview = usePreview(props.uuid, props.locale)
 async function onPreview() {
   try {
@@ -167,7 +194,7 @@ function toggleSchedule(): void {
         Home
       </UBadge>
       <span class="flex-1" />
-      <UTooltip text="Preview draft">
+      <UTooltip v-if="hasExternalPreview" text="Preview draft">
         <UButton
           color="neutral"
           variant="ghost"
@@ -178,7 +205,7 @@ function toggleSchedule(): void {
           @click="onPreview"
         />
       </UTooltip>
-      <UTooltip text="Preview in theme">
+      <UTooltip v-if="hasThemePreview" text="Preview in theme">
         <UButton
           color="neutral"
           variant="ghost"
@@ -209,7 +236,12 @@ function toggleSchedule(): void {
     <div class="space-y-5">
       <UFormField label="Slug">
         <div class="flex items-center gap-2">
-          <UInput v-model="slug" placeholder="my-page" class="flex-1" />
+          <UInput
+            v-model="slug"
+            placeholder="my-page"
+            class="flex-1"
+            @update:model-value="slugTouched = true"
+          />
           <UButton
             v-if="slugDirty"
             variant="subtle"
@@ -223,16 +255,10 @@ function toggleSchedule(): void {
       </UFormField>
 
       <div class="flex items-center gap-2">
+        <!-- The primary Publish/Update action lives in the NAVBAR (next to
+             Save draft); the panel keeps the destructive/secondary controls. -->
         <UButton
-          v-if="!isPublished"
-          data-test="publish"
-          :loading="publish.isLoading.value"
-          @click="onPublish('publish')"
-        >
-          Publish
-        </UButton>
-        <UButton
-          v-else
+          v-if="isPublished"
           color="neutral"
           variant="subtle"
           data-test="unpublish"
@@ -245,11 +271,11 @@ function toggleSchedule(): void {
           color="neutral"
           variant="ghost"
           icon="i-lucide-clock"
+          square
+          aria-label="Schedule publish"
           data-test="schedule-toggle"
           @click="toggleSchedule()"
-        >
-          Schedule…
-        </UButton>
+        />
       </div>
 
       <div v-if="scheduleOpen || localeSchedules.length" class="space-y-2">

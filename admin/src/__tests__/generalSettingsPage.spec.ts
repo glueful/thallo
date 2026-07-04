@@ -56,6 +56,7 @@ const settings = (): GeneralSettings => ({
   webhooks_enabled: true,
   homepage_entry: '',
   site_logo: '',
+  admin_url: '',
   listing_types: ['post'],
 })
 

@@ -2,7 +2,9 @@
 import { computed, ref, watch } from 'vue'
 import type { BlockType } from '@/queries/blockTypes'
 
-// The searchable block picker (spec §2): category-grouped, TYPE-TO-FILTER list.
+// The searchable block picker (spec §2): a FLAT, type-to-filter tile grid
+// (no category headings — Gutenberg-style); categories only order the tiles
+// so related blocks stay adjacent.
 // One component serves the per-list "Add block" button, the hover "+" dividers,
 // and the `/` keyboard shortcut — anchored wherever its parent renders it.
 // `types` is the CONTAINING LIST's options (stage-toolbar spec §5): the parent
@@ -30,19 +32,12 @@ const filtered = computed(() => {
   )
 })
 
-// Grouped by the free-form category (presentation only): named categories
-// alphabetical, uncategorized under "Other" last. Headings render only when
-// there's more than one group.
-const groups = computed(() => {
-  const map = new Map<string, BlockType[]>()
-  for (const t of filtered.value) {
-    const key = t.category?.trim() || 'Other'
-    if (!map.has(key)) map.set(key, [])
-    map.get(key)!.push(t)
-  }
-  return [...map.entries()].sort(([a], [b]) =>
-    a === 'Other' ? 1 : b === 'Other' ? -1 : a.localeCompare(b),
-  )
+// Ordered by the free-form category (presentation only): named categories
+// alphabetical, uncategorized last — the tiles CLUSTER by category but no
+// headings render.
+const ordered = computed(() => {
+  const rank = (t: BlockType): string => t.category?.trim() || '\uffff'
+  return [...filtered.value].sort((a, b) => rank(a).localeCompare(rank(b)))
 })
 
 function onFilterKeydown(event: KeyboardEvent): void {
@@ -50,7 +45,8 @@ function onFilterKeydown(event: KeyboardEvent): void {
     emit('close')
   }
   if (event.key === 'Enter') {
-    const first = filtered.value[0]
+    // The first VISIBLE tile (category-ordered), matching what the eye sees.
+    const first = ordered.value[0]
     if (first) emit('select', first)
     event.preventDefault()
   }
@@ -58,7 +54,9 @@ function onFilterKeydown(event: KeyboardEvent): void {
 </script>
 
 <template>
-  <div v-if="open" class="mt-2 rounded-lg border border-default p-1" data-test="block-picker">
+  <!-- Rendered inside a UPopover (BlockList): the popover theme owns the
+       ring/shadow/rounded chrome; this panel only sizes and pads itself. -->
+  <div v-if="open" class="w-72 p-1" data-test="block-picker">
     <input
       v-focus
       v-model="filter"
@@ -68,32 +66,27 @@ function onFilterKeydown(event: KeyboardEvent): void {
       data-test="block-picker-filter"
       @keydown="onFilterKeydown"
     />
-    <template v-for="[category, types] in groups" :key="category">
-      <p
-        v-if="groups.length > 1"
-        class="px-2 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted"
-        :data-test="`picker-group-${category}`"
+    <!-- Internal scroll: 30 seeded types would otherwise grow the menu past
+         the viewport; the filter input stays pinned above. -->
+    <div class="max-h-72 overflow-y-auto overscroll-contain" data-test="block-picker-scroll">
+    <!-- One flat tile grid (no category headings); category still orders the
+         tiles and the description moves into the tooltip. -->
+    <div class="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-1">
+      <button
+        v-for="t in ordered"
+        :key="t.slug"
+        class="flex flex-col items-center gap-1 rounded px-2 py-1.5 text-center text-xs hover:bg-elevated"
+        type="button"
+        :title="t.description ?? undefined"
+        :data-test="`picker-item-${t.slug}`"
+        @click="emit('select', t)"
       >
-        {{ category }}
-      </p>
-      <!-- Grid tiles (same treatment as the canvas add-after picker); the
-           description moves into the tooltip. -->
-      <div class="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-1">
-        <button
-          v-for="t in types"
-          :key="t.slug"
-          class="flex flex-col items-center gap-1 rounded px-2 py-1.5 text-center text-xs hover:bg-elevated"
-          type="button"
-          :title="t.description ?? undefined"
-          :data-test="`picker-item-${t.slug}`"
-          @click="emit('select', t)"
-        >
-          <UIcon :name="t.icon || 'i-lucide-box'" class="size-4 text-muted" />
-          <span class="w-full truncate font-medium">{{ t.label }}</span>
-        </button>
-      </div>
-    </template>
+        <UIcon :name="t.icon || 'i-lucide-box'" class="size-4 text-muted" />
+        <span class="w-full truncate font-medium">{{ t.label }}</span>
+      </button>
+    </div>
     <p v-if="!filtered.length" class="px-2 py-1.5 text-sm text-muted">No block types available.</p>
+    </div>
   </div>
 </template>
 

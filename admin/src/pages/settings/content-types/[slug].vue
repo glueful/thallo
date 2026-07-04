@@ -101,6 +101,8 @@ async function onToggleMountAtRoot(value: boolean) {
   }
 }
 
+const previewOpen = ref(false)
+
 const showDeleteConfirm = ref(false)
 async function confirmDelete() {
   try {
@@ -148,11 +150,13 @@ async function confirmDelete() {
           </template>
         </UEmpty>
 
-        <div v-else-if="data" class="grid gap-6 lg:grid-cols-5">
-          <div class="space-y-6 lg:col-span-3">
+        <!-- Details = the slim left rail (sticky); Fields = the wide working
+             column that grows with the schema. -->
+        <div v-else-if="data" class="grid gap-6 lg:grid-cols-3">
+          <div class="space-y-6 lg:sticky lg:top-6 lg:self-start">
             <UCard>
               <template #header><h2 class="font-semibold text-default">Details</h2></template>
-              <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+              <dl class="grid grid-cols-2 gap-x-4 gap-y-3 text-sm lg:grid-cols-1">
                 <div>
                   <dt class="text-muted">Slug</dt>
                   <dd class="text-default">
@@ -167,7 +171,7 @@ async function confirmDelete() {
                   <dt class="text-muted">Schema version</dt>
                   <dd class="text-default">{{ data.schema_version ?? '—' }}</dd>
                 </div>
-                <div>
+                <div class="col-span-2 flex items-center justify-between gap-3 lg:col-span-1">
                   <dt class="text-muted">Public delivery</dt>
                   <dd class="text-default">
                     <USwitch
@@ -179,7 +183,7 @@ async function confirmDelete() {
                     />
                   </dd>
                 </div>
-                <div>
+                <div class="col-span-2 flex items-center justify-between gap-3 lg:col-span-1">
                   <dt class="text-muted">Mount at root</dt>
                   <dd class="text-default">
                     <USwitch
@@ -197,7 +201,7 @@ async function confirmDelete() {
                     {{ data.cache_ttl !== null ? `${data.cache_ttl}s` : '—' }}
                   </dd>
                 </div>
-                <div class="col-span-2">
+                <div class="col-span-2 lg:col-span-1">
                   <dt class="text-muted">Description</dt>
                   <dd class="text-default">{{ data.description || '—' }}</dd>
                 </div>
@@ -205,35 +209,8 @@ async function confirmDelete() {
             </UCard>
 
             <UCard>
-              <template #header>
-                <div class="flex items-center justify-between gap-2">
-                  <h2 class="font-semibold text-default">Fields</h2>
-                  <UButton
-                    size="sm"
-                    icon="i-lucide-save"
-                    :loading="updateSchema.isLoading.value"
-                    @click="onSaveSchema"
-                  >
-                    Save schema
-                  </UButton>
-                </div>
-              </template>
-
-              <UAlert
-                class="mb-4"
-                color="warning"
-                variant="subtle"
-                icon="i-lucide-info"
-                title="Renaming or removing a field is destructive"
-                description="Saving replaces the schema wholesale. Removing or renaming a field may require a data migration on existing entries."
-              />
-
-              <ContentTypeFields v-model="localSchema" />
-            </UCard>
-
-            <UCard>
               <template #header><h2 class="font-semibold text-error">Danger zone</h2></template>
-              <div class="flex items-center justify-between gap-4">
+              <div class="space-y-3">
                 <p class="text-sm text-muted">
                   Delete this content type. Existing entries stay in storage but are hidden from
                   listing and delivery.
@@ -251,14 +228,60 @@ async function confirmDelete() {
           </div>
 
           <div class="lg:col-span-2">
-            <div class="lg:sticky lg:top-6">
-              <ContentTypePreview :name="data.name" :fields="localSchema" />
-            </div>
+            <UCard>
+              <template #header>
+                <div class="flex items-center justify-between gap-2">
+                  <h2 class="font-semibold text-default">Fields</h2>
+                  <div class="flex items-center gap-1.5">
+                    <UButton
+                      size="sm"
+                      variant="subtle"
+                      color="neutral"
+                      icon="i-lucide-eye"
+                      square
+                      aria-label="Preview the entry form"
+                      data-test="open-preview"
+                      @click="() => { previewOpen = true }"
+                    />
+                    <UButton
+                      size="sm"
+                      icon="i-lucide-save"
+                      :loading="updateSchema.isLoading.value"
+                      @click="onSaveSchema"
+                    >
+                      Save schema
+                    </UButton>
+                  </div>
+                </div>
+              </template>
+
+              <UAlert
+                class="mb-4"
+                color="warning"
+                variant="subtle"
+                icon="i-lucide-info"
+                title="Renaming or removing a field is destructive"
+                description="Saving replaces the schema wholesale. Removing or renaming a field may require a data migration on existing entries."
+              />
+
+              <ContentTypeFields v-model="localSchema" />
+            </UCard>
           </div>
         </div>
       </div>
     </template>
   </UDashboardPanel>
+
+  <USlideover
+    v-model:open="previewOpen"
+    :title="data?.name ?? slug"
+    :ui="{ content: 'sm:max-w-2xl' }"
+    description="Entry form preview — inputs are throwaway."
+  >
+    <template #body>
+      <ContentTypePreview v-if="data" :fields="localSchema" />
+    </template>
+  </USlideover>
 
   <UModal v-model:open="showDeleteConfirm" title="Delete content type">
     <template #body>

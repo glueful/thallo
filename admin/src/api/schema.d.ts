@@ -3590,6 +3590,8 @@ export interface operations {
                                 id?: number;
                                 uuid?: string;
                                 content_type_uuid?: string;
+                                content_type?: string | null;
+                                display_title?: string;
                                 /** @enum {string} */
                                 status?: "active" | "archived" | "deleted";
                                 created_by?: string | null;
@@ -3934,6 +3936,7 @@ export interface operations {
                                 webhooks_enabled?: boolean;
                                 homepage_entry?: string;
                                 site_logo?: string;
+                                admin_url?: string;
                                 /** @description Content types with public listings/archives. */
                                 listing_types?: string[];
                             };
@@ -4015,6 +4018,7 @@ export interface operations {
                  *       "webhooks_enabled": true,
                  *       "homepage_entry": "example",
                  *       "site_logo": "example",
+                 *       "admin_url": "example",
                  *       "listing_types": "example"
                  *     }
                  */
@@ -4030,6 +4034,8 @@ export interface operations {
                     homepage_entry?: string | null;
                     /** @description Asset uuid of the site logo; '' clears (site name shows instead). */
                     site_logo?: string | null;
+                    /** @description Admin SPA base URL for preview-bar deep links; '' clears. */
+                    admin_url?: string | null;
                     /** @description Content types with public listings/archives; */
                     listing_types?: string[] | null;
                 };
@@ -4057,6 +4063,7 @@ export interface operations {
                                 webhooks_enabled?: boolean;
                                 homepage_entry?: string;
                                 site_logo?: string;
+                                admin_url?: string;
                                 /** @description Content types with public listings/archives. */
                                 listing_types?: string[];
                             };
@@ -8578,6 +8585,8 @@ export interface operations {
                                 id?: number;
                                 uuid?: string;
                                 content_type_uuid?: string;
+                                content_type?: string | null;
+                                display_title?: string;
                                 /** @enum {string} */
                                 status?: "active" | "archived" | "deleted";
                                 created_by?: string | null;

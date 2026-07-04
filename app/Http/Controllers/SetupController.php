@@ -65,6 +65,7 @@ final class SetupController
                 $input->admin_email,
                 $input->admin_password,
                 $input->locale,
+                $input->admin_url,
             );
         } catch (\RuntimeException) {
             return Response::error('Setup has already been completed.', 409);

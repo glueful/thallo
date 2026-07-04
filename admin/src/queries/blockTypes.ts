@@ -29,8 +29,11 @@ export interface BlockType {
 export async function fetchBlockTypes(): Promise<BlockType[]> {
   const { data, error, response } = await client.GET('/block-types')
   if (error) throw toApiError(error, response)
-  return ((data as unknown as { data?: { block_types?: BlockType[] } })?.data?.block_types ??
-    []) as BlockType[]
+  const rows = ((data as unknown as { data?: { block_types?: BlockType[] } })?.data?.block_types ??
+    []) as Array<BlockType & { active: boolean | number }>
+  // Normalize at the boundary: the API hydrates `active` as an int (1/0),
+  // and Reka's USwitch does a STRICT boolean check — `1` renders unchecked.
+  return rows.map((t) => ({ ...t, active: Boolean(t.active) }))
 }
 
 export function useBlockTypes() {

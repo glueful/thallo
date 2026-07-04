@@ -116,3 +116,21 @@ main { min-height: 60vh; padding-block: var(--space-5) var(--space-7); }
   margin-inline: auto;
   padding: var(--space-5) var(--space-4);
 }
+
+/* Preview admin bar (admin-bar feature): status dot + edit/design/exit links. */
+.preview-banner__status { display: inline-flex; align-items: center; gap: 0.5rem; }
+.preview-banner__dot { width: 0.55rem; height: 0.55rem; border-radius: 999px; flex-shrink: 0; }
+.preview-banner__dot--live { background: #16a34a; }
+.preview-banner__dot--draft { background: #d97706; }
+.preview-banner__dot--warn { background: #dc2626; }
+.preview-banner__actions { display: inline-flex; align-items: center; gap: var(--space-4); }
+.preview-banner__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 500;
+}
+.preview-banner__action:hover { color: var(--ink); }
+.preview-banner__action svg { width: 0.9rem; height: 0.9rem; }

@@ -4,6 +4,8 @@ import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
 import { useEntryLocales, useCreateLocaleDraft } from '@/queries/entries'
+import { usePublish } from '@/queries/publish'
+import { localeStatus } from './components/localeStatus'
 import { useLocales } from '@/queries/locales'
 import { runtimeConfig } from '@/runtime/config'
 import type { FieldDef } from '@/fields/types'
@@ -15,6 +17,7 @@ import SeoPanel from './components/SeoPanel.vue'
 import VersionsPanel from './components/VersionsPanel.vue'
 import WorkflowPanel from './components/WorkflowPanel.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
+import { slugify } from '@/utils/slugify'
 import LocaleSwitcher from './components/LocaleSwitcher.vue'
 import LocaleRoutesModal from './components/LocaleRoutesModal.vue'
 import BulkLocaleMenu from './components/BulkLocaleMenu.vue'
@@ -183,10 +186,28 @@ const showRoutes = ref(false)
 
 const save = useSaveDraft(uuid.value, () => locale.value, type.value)
 
-async function onSave() {
+// Navbar publish (moved from the panel — the panel keeps unpublish/schedule):
+// publishing PINS THE SAVED DRAFT, so a dirty form saves first.
+const publish = usePublish(uuid.value, () => locale.value, type.value)
+const isPublished = computed(() => {
+  const summary = (entryLocales.value ?? []).find((s) => s.locale === locale.value)
+  return summary ? localeStatus(summary).key === 'published' : false
+})
+async function onPublish() {
+  if (!(await onSave())) return // never publish past a failed save
+  try {
+    await publish.mutateAsync('publish')
+    success(isPublished.value ? 'Updated' : 'Published')
+  } catch (e) {
+    notifyError(e, 'Couldn’t publish')
+  }
+}
+
+async function onSave(): Promise<boolean> {
   try {
     await save.mutateAsync({ fields: fields.value, lock_version: lockVersion.value })
     success('Draft saved')
+    return true
   } catch (e: unknown) {
     if (e instanceof ApiError && e.status === 409) {
       if (apiErrorCode(e) === 'BLOCK_MIGRATION_IN_PROGRESS') {
@@ -204,6 +225,7 @@ async function onSave() {
     } else {
       notifyError(e, 'Couldn’t save draft')
     }
+    return false
   }
 }
 </script>
@@ -280,7 +302,28 @@ async function onSave() {
           >
             Design
           </UButton>
-          <UButton :loading="save.isLoading.value" @click="onSave">Save draft</UButton>
+          <UButton
+            variant="outline"
+            color="neutral"
+            icon="i-lucide-save"
+            square
+            aria-label="Save draft"
+            title="Save draft"
+            :loading="save.isLoading.value"
+            data-test="save-draft"
+            @click="
+              () => {
+                void onSave()
+              }
+            "
+          />
+          <UButton
+            :loading="publish.isLoading.value"
+            data-test="navbar-publish"
+            @click="onPublish"
+          >
+            {{ isPublished ? 'Update' : 'Publish' }}
+          </UButton>
         </template>
       </UDashboardNavbar>
     </template>
@@ -328,6 +371,7 @@ async function onSave() {
               :uuid="uuid"
               :locale="locale"
               :type="type"
+              :suggested-slug="typeof fields.title === 'string' ? slugify(fields.title) : ''"
             >
               <!-- Review state shares the Publishing tab — one editorial surface. -->
               <WorkflowPanel

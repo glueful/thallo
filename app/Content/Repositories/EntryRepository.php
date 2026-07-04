@@ -197,6 +197,27 @@ final class EntryRepository
     }
 
     /** @return array<string,mixed>|null */
+    /**
+     * The entry LIST's display-title rule for ONE entry (admin surfaces that
+     * hold only a uuid — e.g. the homepage setting card): default-locale
+     * draft title, else the entry's first route slug, else the uuid.
+     */
+    public function displayTitle(string $uuid, string $defaultLocale): string
+    {
+        $draft = $this->db->table('entry_drafts')->select(['fields'])
+            ->where('entry_uuid', '=', $uuid)->where('locale', '=', $defaultLocale)->first();
+        $fields = is_string($draft['fields'] ?? null)
+            ? (json_decode((string) $draft['fields'], true) ?? [])
+            : (array) ($draft['fields'] ?? []);
+        $title = $fields['title'] ?? null;
+        if (is_string($title) && trim($title) !== '') {
+            return $title;
+        }
+        $route = $this->db->table('entry_routes')->select(['slug'])
+            ->where('entry_uuid', '=', $uuid)->orderBy('locale', 'ASC')->first();
+        return (string) (($route['slug'] ?? '') ?: $uuid);
+    }
+
     public function findEntry(string $uuid): ?array
     {
         return $this->db->table('entries')->where('uuid', '=', $uuid)->first() ?: null;

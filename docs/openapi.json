@@ -5815,6 +5815,52 @@
                 }
             }
         },
+        "\/_preview\/exit": {
+            "get": {
+                "operationId": "getPreviewExit",
+                "summary": "GET \/_preview\/exit",
+                "tags": [
+                    " Preview"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "\/v1\/admin\/render\/templates": {
             "get": {
                 "operationId": "getV1AdminRenderTemplates",
@@ -8199,6 +8245,15 @@
                                                         "content_type_uuid": {
                                                             "type": "string"
                                                         },
+                                                        "content_type": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "display_title": {
+                                                            "type": "string"
+                                                        },
                                                         "status": {
                                                             "type": "string",
                                                             "enum": [
@@ -8689,6 +8744,9 @@
                                                         "site_logo": {
                                                             "type": "string"
                                                         },
+                                                        "admin_url": {
+                                                            "type": "string"
+                                                        },
                                                         "listing_types": {
                                                             "type": "array",
                                                             "items": {
@@ -8888,6 +8946,13 @@
                                         ],
                                         "description": "Asset uuid of the site logo; '' clears (site name shows instead)."
                                     },
+                                    "admin_url": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Admin SPA base URL for preview-bar deep links; '' clears."
+                                    },
                                     "listing_types": {
                                         "type": [
                                             "array",
@@ -8911,6 +8976,7 @@
                                 "webhooks_enabled": true,
                                 "homepage_entry": "example",
                                 "site_logo": "example",
+                                "admin_url": "example",
                                 "listing_types": "example"
                             }
                         }
@@ -8964,6 +9030,9 @@
                                                             "type": "string"
                                                         },
                                                         "site_logo": {
+                                                            "type": "string"
+                                                        },
+                                                        "admin_url": {
                                                             "type": "string"
                                                         },
                                                         "listing_types": {
@@ -11907,6 +11976,14 @@
                                     "locale": {
                                         "type": "string",
                                         "maxLength": 20
+                                    },
+                                    "admin_url": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "The admin SPA's own origin \u2014 sent by the web setup form.",
+                                        "maxLength": 300
                                     }
                                 },
                                 "required": [
@@ -11920,7 +11997,8 @@
                                 "site_name": "example",
                                 "admin_email": "user@example.com",
                                 "admin_password": "example",
-                                "locale": "example"
+                                "locale": "example",
+                                "admin_url": "example"
                             }
                         }
                     }
@@ -22623,6 +22701,15 @@
                                                             "type": "string"
                                                         },
                                                         "content_type_uuid": {
+                                                            "type": "string"
+                                                        },
+                                                        "content_type": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "display_title": {
                                                             "type": "string"
                                                         },
                                                         "status": {
@@ -37989,6 +38076,10 @@
         }
     },
     "tags": [
+        {
+            "name": " Preview",
+            "description": "Operations related to  Preview"
+        },
         {
             "name": "Analytics",
             "description": "Operations related to Analytics"
