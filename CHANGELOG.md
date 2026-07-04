@@ -158,6 +158,16 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   The bridge's CSP pin is reworded: appearance stays in preview.css and no
   style attributes are ever emitted, but bridge-owned UI may be positioned
   via CSSOM transform (which strict style-src does not restrict).
+- Session-wide working-copy overlay: the canvas's applied-but-unsaved
+  working copy now wins over the draft EVERYWHERE the preview session
+  overlays the draft — canonical URLs and (new) the homepage, which
+  previously never overlaid even the draft. One resolver-side overlay
+  helper keyed off the verified read's own entry+locale; version-pinned
+  sessions keep ignoring working copies; listings/archives/terms keep
+  their published-only posture; session renders keep bypassing the page
+  cache (regression-asserted with a cache sentinel). `PublicRouteResolver::
+  resolveEntry` gains an optional trailing `?PreviewSession` parameter
+  (additive).
 - Canvas polish batch (v9): bubble buttons show active-state (via
   `queryCommandState`, treated as untrusted — missing/throwing = inactive;
   link state via region-contained-`<a>`; classes cleared whenever the

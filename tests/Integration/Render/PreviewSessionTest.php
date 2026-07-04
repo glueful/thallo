@@ -9,6 +9,7 @@ use App\Content\Http\DTOs\MintPreviewData;
 use App\Content\Localization\ContentLocaleService;
 use App\Content\Preview\PreviewMinter;
 use App\Content\Preview\PreviewReader;
+use App\Content\Preview\PreviewWorkingCopyStore;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
@@ -289,6 +290,146 @@ final class PreviewSessionTest extends LemmaTestCase
         self::assertStringContainsString('no-store', (string) $listing->headers->get('Cache-Control'));
         // And nothing entered the page cache.
         self::assertNull($this->container()->get(CacheStore::class)->get('render:default:%2Fblog'));
+    }
+
+    public function testSessionCanonicalUrlRendersTheWorkingCopyOverTheDraft(): void
+    {
+        [$entry, $token] = $this->seedRoutedEntryWithDraft();
+
+        // No stash: the draft (existing behavior).
+        $draft = $this->handle($this->sessionRequest('/blog/hello', $token));
+        self::assertStringContainsString('Draft override', (string) $draft->getContent());
+
+        // Stash a working copy: it must WIN over the draft at the canonical URL.
+        $this->container()->get(PreviewWorkingCopyStore::class)
+            ->put($entry, 'en', ['title' => 'Working copy wins'], 300);
+        $res = $this->handle($this->sessionRequest('/blog/hello', $token));
+        self::assertSame(200, $res->getStatusCode());
+        $html = (string) $res->getContent();
+        self::assertStringContainsString('Working copy wins', $html);
+        self::assertStringNotContainsString('Draft override', $html);
+        // Session chrome + no-store posture unchanged.
+        self::assertStringContainsString('preview-banner', $html);
+        self::assertStringContainsString('no-store', (string) $res->headers->get('Cache-Control'));
+    }
+
+    public function testVersionPinnedSessionNeverRendersTheWorkingCopy(): void
+    {
+        [$entry] = $this->seedRoutedEntryWithDraft(); // draft: 'Draft override'
+        // Publish the draft to a NEW version and pin the session to it.
+        $version = $this->publishSvc()->publish($entry, 'en', 'user00000001');
+        $pinned = $this->container()->get(PreviewMinter::class)->mint($entry, 'en', $version);
+
+        $this->container()->get(PreviewWorkingCopyStore::class)
+            ->put($entry, 'en', ['title' => 'Working copy wins'], 300);
+
+        $res = $this->handle($this->sessionRequest('/blog/hello', $pinned));
+        self::assertSame(200, $res->getStatusCode());
+        $html = (string) $res->getContent();
+        self::assertStringNotContainsString('Working copy wins', $html); // hard pin
+        self::assertStringContainsString('Draft override', $html);       // the pinned version
+    }
+
+    public function testAnotherEntrysStashNeverLeaksIntoTheSession(): void
+    {
+        // Single-draft scope over an entry-keyed store: another entry's stash
+        // must not affect its canonical URL inside THIS session.
+        [, $token] = $this->seedRoutedEntryWithDraft();
+        $other = $this->seedPublishedEntryInType('promo', true, 'en', 'other', 'Other page');
+        $this->container()->get(PreviewWorkingCopyStore::class)
+            ->put($other, 'en', ['title' => 'Leaked stash'], 300);
+
+        $res = $this->handle($this->sessionRequest('/promo/other', $token));
+        self::assertSame(200, $res->getStatusCode());
+        $html = (string) $res->getContent();
+        self::assertStringContainsString('Other page', $html); // published
+        self::assertStringNotContainsString('Leaked stash', $html);
+    }
+
+    public function testSessionRenderWithStashNeitherReadsNorWritesTheRenderCache(): void
+    {
+        // Sentinel shape (review P2, mirroring the valid-cookie bypass test):
+        // an assertNull after the render only proves NO WRITE. Pre-seeding a
+        // sentinel proves NO READ (the sentinel is not served) AND no write
+        // (the sentinel survives unchanged).
+        [$entry, $token] = $this->seedRoutedEntryWithDraft();
+        $cache = $this->container()->get(CacheStore::class);
+        $key = 'render:default:%2Fblog%2Fhello';
+
+        // Prime the real cache entry, then plant the sentinel.
+        $this->handle(Request::create('/blog/hello', 'GET'));
+        $cached = $cache->get($key);
+        self::assertIsArray($cached);
+        $cached['body'] = 'SENTINEL-CACHED';
+        $cache->set($key, $cached, 3600);
+
+        $this->container()->get(PreviewWorkingCopyStore::class)
+            ->put($entry, 'en', ['title' => 'Working copy wins'], 300);
+
+        $res = $this->handle($this->sessionRequest('/blog/hello', $token));
+        $html = (string) $res->getContent();
+        self::assertStringContainsString('Working copy wins', $html);   // overlaid, live
+        self::assertStringNotContainsString('SENTINEL-CACHED', $html);  // no READ
+        self::assertSame('SENTINEL-CACHED', $cache->get($key)['body']); // no WRITE
+    }
+
+    public function testHomepageSessionForTheHomepageEntryRendersDraftThenWorkingCopy(): void
+    {
+        // Everything through the OVERRIDE app's container (review P1):
+        // config-override boots are separate contexts, and RenderPipelineTest
+        // drives their RenderController directly (extension routes are lost to
+        // the process-global loadRoutesFrom latch). Writing the stash through
+        // the shared kernel could miss the override resolver's wiring.
+        [$entry, $token] = $this->seedRoutedEntryWithDraft();
+        $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $entry]);
+        $controller = $app->getContainer()
+            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+
+        // Session at '/': the DRAFT (closes the pre-existing homepage gap).
+        $draft = $controller->home($this->homeSessionRequest($app, $token));
+        self::assertSame(200, $draft->getStatusCode());
+        self::assertStringContainsString('Draft override', (string) $draft->getContent());
+
+        // With a stash — written through the OVERRIDE container: the WORKING COPY.
+        $app->getContainer()->get(PreviewWorkingCopyStore::class)
+            ->put($entry, 'en', ['title' => 'Working copy wins'], 300);
+        $res = $controller->home($this->homeSessionRequest($app, $token));
+        self::assertStringContainsString('Working copy wins', (string) $res->getContent());
+    }
+
+    /**
+     * Direct-controller session request: driving home() skips the HTTP kernel,
+     * so PreviewSessionMiddleware never runs — verify the token through the
+     * OVERRIDE container (review P1) and set the attribute the way the
+     * middleware would.
+     */
+    private function homeSessionRequest(
+        \Glueful\Bootstrap\ApplicationContext $app,
+        string $token,
+    ): Request {
+        $request = $this->sessionRequest('/', $token);
+        $vo = $app->getContainer()->get(PreviewSessionVerifier::class)->verify($token);
+        self::assertNotNull($vo); // the override container must accept the token
+        $request->attributes->set(
+            \Glueful\Lemma\Render\Http\Middleware\PreviewSessionMiddleware::ATTRIBUTE,
+            $vo,
+        );
+        return $request;
+    }
+
+    public function testHomepageSessionForAnotherEntryStaysPublished(): void
+    {
+        $home = $this->seedPublishedEntryInType('landing', true, 'en', 'home', 'Published home');
+        [, $token] = $this->seedRoutedEntryWithDraft(); // session for the BLOG entry
+        $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $home]);
+        $controller = $app->getContainer()
+            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+
+        $res = $controller->home($this->homeSessionRequest($app, $token));
+        self::assertSame(200, $res->getStatusCode());
+        $html = (string) $res->getContent();
+        self::assertStringContainsString('Published home', $html); // single-draft scope
+        self::assertStringNotContainsString('Draft override', $html);
     }
 
     public function testInSessionNotFoundRendersFreshWithChrome(): void

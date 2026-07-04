@@ -37,8 +37,18 @@ interface PublicRouteResolver
      */
     public function resolvePath(string $path, ?PreviewSession $previewSession = null): array;
 
-    /** Same result shape, for a known entry (homepage; previews later). */
-    public function resolveEntry(string $entryUuid, ?string $locale = null): array;
+    /**
+     * Same result shape, for a known entry (homepage). `$previewSession` is an
+     * ALREADY-VERIFIED session (never re-verified here): when its {entry, locale}
+     * matches the resolved entry, the draft — or the canvas's stashed working
+     * copy — is returned instead of the published fields (single-draft scope;
+     * additive param, working-copy-overlay spec §2).
+     */
+    public function resolveEntry(
+        string $entryUuid,
+        ?string $locale = null,
+        ?PreviewSession $previewSession = null,
+    ): array;
 
     /**
      * Resolve a signed preview token to its draft/pinned-version content, rendered-side.
