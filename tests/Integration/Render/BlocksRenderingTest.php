@@ -155,13 +155,15 @@ final class BlocksRenderingTest extends LemmaTestCase
         self::assertContains('media', TemplatePolicy::FUNCTIONS);
         self::assertContains('site_logo', TemplatePolicy::FUNCTIONS);
         self::assertContains('video_embed', TemplatePolicy::FUNCTIONS);
-        self::assertSame(5, TemplatePolicy::CACHE_VERSION); // 5 = site_logo + video_embed joined
+        self::assertContains('icon', TemplatePolicy::FUNCTIONS);
+        self::assertSame(6, TemplatePolicy::CACHE_VERSION); // 6 = 'icon' joined (icon-library spec)
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);
         self::assertSame([], $linter->lint('{{ blocks(entry.fields.body) }}'));
         self::assertSame([], $linter->lint('{{ media(data.image) }}'));
         self::assertSame([], $linter->lint('{{ site_logo() }}'));
+        self::assertSame([], $linter->lint('{{ icon(data.icon) ?? data.icon }}'));
     }
 
     public function testSafeHtmlSanitizesAndFailsClosed(): void

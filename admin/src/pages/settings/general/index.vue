@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import {
   useGeneralSettings,
   useGeneralSettingsMutations,
@@ -88,12 +88,30 @@ function clearHomepage(): void {
   form.homepage_entry = '' // saved as '' -> the server DELETES the override row
 }
 
+// Server → form sync, but NEVER over unsaved edits: the query refetches on
+// window refocus once stale, and an unconditional Object.assign would wipe
+// in-progress changes (e.g. a freshly uploaded logo uuid) before Save.
+const dirty = ref(false)
+let syncing = false
 watch(
   data,
   (s) => {
-    if (s) Object.assign(form, s)
+    if (s && !dirty.value) {
+      syncing = true
+      Object.assign(form, s)
+      void nextTick(() => {
+        syncing = false
+      })
+    }
   },
   { immediate: true },
+)
+watch(
+  form,
+  () => {
+    if (!syncing) dirty.value = true
+  },
+  { deep: true },
 )
 
 // Enabled locales for the default-locale select; keep the current value selectable even if disabled.
@@ -110,6 +128,8 @@ const localeOptions = computed(() => {
 async function onSave() {
   try {
     await save.mutateAsync({ ...form })
+    // Saved: the form matches the server again, so the post-save refetch may sync.
+    dirty.value = false
     success('General settings saved', 'Changes apply on the next request.')
   } catch (e) {
     notifyError(e, 'Couldn’t save general settings')
@@ -122,9 +142,11 @@ async function onSave() {
     <template #header>
       <UDashboardNavbar title="General">
         <template #right>
-          <UButton icon="i-lucide-save" :loading="save.isLoading.value" @click="onSave">
-            Save
-          </UButton>
+          <UChip :show="dirty" color="warning" size="sm">
+            <UButton icon="i-lucide-save" :loading="save.isLoading.value" @click="onSave">
+              Save
+            </UButton>
+          </UChip>
         </template>
       </UDashboardNavbar>
     </template>
@@ -177,7 +199,7 @@ async function onSave() {
                     description="Used by the Logo block (and themes). When unset, the site name renders instead."
                   >
                     <div data-test="site-logo-picker">
-                      <AssetField v-model="form.site_logo" :field="logoField" />
+                      <AssetField v-model="form.site_logo" :field="logoField" :library-button="false" />
                     </div>
                   </UFormField>
                 </div>

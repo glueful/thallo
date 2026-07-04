@@ -11,6 +11,7 @@ use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
 use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
 use Glueful\Lemma\Contracts\Settings\SiteLogoProvider;
 use Glueful\Lemma\Contracts\Navigation\MenuReader;
+use Glueful\Lemma\Render\Templates\IconSet;
 use Psr\Log\LoggerInterface;
 use Twig\Environment;
 use Twig\Error\RuntimeError;
@@ -91,6 +92,8 @@ final class RenderContextExtension extends AbstractExtension
         private readonly ?BlockEditableFieldResolver $editableFields = null,
         /** Soft-bound (block-library spec §2): null → site_logo() returns null. */
         private readonly ?SiteLogoProvider $siteLogo = null,
+        /** Pack-internal (icon-library spec): null → icon() returns null. */
+        private readonly ?IconSet $icons = null,
     ) {
         $this->locale = $defaultLocale;
     }
@@ -116,7 +119,21 @@ final class RenderContextExtension extends AbstractExtension
             new TwigFunction('media', $this->media(...)),
             new TwigFunction('site_logo', $this->siteLogo(...)),
             new TwigFunction('video_embed', $this->videoEmbed(...)),
+            new TwigFunction('icon', $this->icon(...)), // NO is_safe — safety travels in the Markup value
         ];
+    }
+
+    /**
+     * Vendored inline icon (icon-library spec): Lucide by default,
+     * `brand:{name}` for the curated Simple Icons set. Returns Markup — NOT an
+     * is_safe string — so `{{ icon(x) ?? x }}` renders the trusted SVG raw
+     * while the untrusted string fallback stays auto-escaped. Null for any
+     * invalid or unknown name so templates can fall back to text.
+     */
+    public function icon(?string $name): ?\Twig\Markup
+    {
+        $svg = $name === null || $name === '' ? null : $this->icons?->svg($name);
+        return $svg === null ? null : new \Twig\Markup($svg, 'UTF-8');
     }
 
     /**

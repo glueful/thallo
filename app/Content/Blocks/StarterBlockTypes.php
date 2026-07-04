@@ -197,6 +197,17 @@ final class StarterBlockTypes
                     ['name' => 'size', 'type' => 'enum', 'enum' => ['small', 'medium', 'large']],
                     ['name' => 'link_home', 'type' => 'boolean'],
                 ]],
+            ['slug' => 'icon', 'label' => 'Icon', 'icon' => 'i-lucide-shapes',
+                'category' => 'Media',
+                'description' => 'A single decorative icon from the Lucide set, optionally linked.',
+                'schema' => [
+                    ['name' => 'icon', 'type' => 'string', 'required' => true,
+                        'pattern' => '[a-z0-9]+(-[a-z0-9]+)*'],
+                    ['name' => 'size', 'type' => 'enum', 'enum' => ['small', 'medium', 'large']],
+                    ['name' => 'align', 'type' => 'enum', 'enum' => ['start', 'center', 'end']],
+                    ['name' => 'url', 'type' => 'string'],
+                    ['name' => 'label', 'type' => 'string'],
+                ]],
             ['slug' => 'logo_cloud', 'label' => 'Logo cloud', 'icon' => 'i-lucide-building-2',
                 'category' => 'Media', 'description' => 'A “trusted by” strip of brand logos.',
                 'schema' => [
@@ -244,7 +255,7 @@ final class StarterBlockTypes
             ['slug' => 'feature', 'label' => 'Feature', 'icon' => 'i-lucide-check',
                 'category' => 'Items', 'description' => 'One feature: icon, title, description, link.',
                 'schema' => [
-                    ['name' => 'icon', 'type' => 'string'],
+                    ['name' => 'icon', 'type' => 'string', 'pattern' => '[a-z0-9]+(-[a-z0-9]+)*'],
                     ['name' => 'title', 'type' => 'string', 'required' => true],
                     ['name' => 'description', 'type' => 'text'],
                     ['name' => 'url', 'type' => 'string'],

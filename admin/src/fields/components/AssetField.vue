@@ -3,8 +3,17 @@ import { computed, ref, watch } from 'vue'
 import type { FieldDef } from '../types'
 import { useUploadMedia, blobDisplayUrl } from '@/queries/media'
 import { useNotify } from '@/composables/useNotify'
+import MediaPickerModal from './MediaPickerModal.vue'
 
-const props = defineProps<{ field: FieldDef }>()
+const props = withDefaults(
+  defineProps<{
+    field: FieldDef
+    /** The dropzone already opens the picker (with a Library tab); hosts that
+        find the extra button redundant can hide it. Defaults to shown. */
+    libraryButton?: boolean
+  }>(),
+  { libraryButton: true },
+)
 // Stores blob uuid(s) — the backend FieldValidator::assetExistsOnMediaDisk validates by uuid.
 // Single: string | undefined. Multiple: string[].
 const model = defineModel<string | string[]>()
@@ -35,7 +44,10 @@ watch(file, async (f) => {
     }
   }
   try {
-    const asset = await upload.mutateAsync({ file: f })
+    // Content assets must be public: the admin preview (/blobs/{uuid}) and the
+    // live-site MediaUrlResolver both serve public blobs only — a private
+    // upload would render as a broken image in both places.
+    const asset = await upload.mutateAsync({ file: f, visibility: 'public' })
     if (!asset.blob_uuid) return // guard: skip if uuid absent (should not happen)
     if (isMultiple.value) {
       multiUuids.value = [...multiUuids.value, asset.blob_uuid]
@@ -51,6 +63,26 @@ watch(file, async (f) => {
 
 function removeUuid(uuid: string) {
   multiUuids.value = multiUuids.value.filter((u) => u !== uuid)
+}
+
+// Choose-or-upload: the picker modal (tabbed: upload / library) emits a blob
+// uuid either way. Clicking the dropzone opens it on Upload; the library
+// button opens it on Library. Dropping files on the dropzone still uploads
+// directly (the click is intercepted, the drop is not).
+const libraryOpen = ref(false)
+const pickerTab = ref<'upload' | 'library'>('upload')
+function openPicker(tab: 'upload' | 'library') {
+  pickerTab.value = tab
+  libraryOpen.value = true
+}
+function onLibraryPick(uuid: string) {
+  if (isMultiple.value) {
+    const cap = props.field.maxItems
+    if (cap != null && multiUuids.value.length >= cap) return
+    if (!multiUuids.value.includes(uuid)) multiUuids.value = [...multiUuids.value, uuid]
+  } else {
+    singleUuid.value = uuid
+  }
 }
 </script>
 
@@ -77,17 +109,54 @@ function removeUuid(uuid: string) {
           />
         </UBadge>
       </div>
-      <UFileUpload v-model="file" />
-      <p v-if="upload.isLoading.value" class="mt-1 text-xs text-muted">Uploading…</p>
+      <div data-test="asset-dropzone-open" @click.capture.prevent.stop="openPicker('upload')">
+        <UFileUpload v-model="file" />
+      </div>
+      <div class="flex items-center justify-between">
+        <UButton
+          v-if="libraryButton"
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          icon="i-lucide-library"
+          data-test="asset-library-open"
+          @click="openPicker('library')"
+        >
+          Choose from library
+        </UButton>
+        <p v-if="upload.isLoading.value" class="text-xs text-muted">Uploading…</p>
+      </div>
     </div>
     <!-- Single asset -->
     <template v-else>
-      <UFileUpload v-model="file" />
-      <p v-if="upload.isLoading.value" class="mt-1 text-xs text-muted">Uploading…</p>
-      <div v-else-if="singleUuid" class="mt-1 flex items-center gap-2">
-        <img :src="blobDisplayUrl(singleUuid)" alt="" class="h-10 w-10 rounded object-cover" />
-        <span class="text-xs text-muted">{{ singleUuid }}</span>
+      <div data-test="asset-dropzone-open" @click.capture.prevent.stop="openPicker('upload')">
+        <UFileUpload v-model="file" />
+      </div>
+      <div class="mt-1 flex items-center justify-between gap-2">
+        <UButton
+          v-if="libraryButton"
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          icon="i-lucide-library"
+          data-test="asset-library-open"
+          @click="openPicker('library')"
+        >
+          Choose from library
+        </UButton>
+        <p v-if="upload.isLoading.value" class="text-xs text-muted">Uploading…</p>
+        <div v-else-if="singleUuid" class="flex min-w-0 items-center gap-2">
+          <img :src="blobDisplayUrl(singleUuid)" alt="" class="h-10 w-10 shrink-0 rounded object-cover" />
+          <span class="truncate text-xs text-muted">{{ singleUuid }}</span>
+        </div>
       </div>
     </template>
+
+    <MediaPickerModal
+      v-model:open="libraryOpen"
+      :multiple="isMultiple"
+      :initial-tab="pickerTab"
+      @select="onLibraryPick"
+    />
   </UFormField>
 </template>

@@ -238,4 +238,56 @@ final class BlockLibraryRenderTest extends LemmaTestCase
         $row = $repo->findBySlug('html');
         self::assertSame(0, (int) $row['active']);
     }
+
+    public function testIconBlockRendersSvgWithSizeAlignAndAccessibleLink(): void
+    {
+        $out = $this->render([[
+            'id' => 'ic1', 'type' => 'icon',
+            'data' => ['icon' => 'star', 'size' => 'large', 'align' => 'center',
+                'url' => '/pricing', 'label' => 'See pricing'],
+        ]]);
+        self::assertStringContainsString('lemma-block-icon--large', $out);
+        self::assertStringContainsString('lemma-block-icon--center', $out);
+        self::assertStringContainsString('<svg', $out);
+        self::assertStringContainsString('aria-label="See pricing"', $out);
+        self::assertStringContainsString('href="/pricing"', $out);
+
+        // Unlinked + unknown name: no anchor, name falls back to escaped text.
+        $plain = $this->render([[
+            'id' => 'ic2', 'type' => 'icon', 'data' => ['icon' => 'no-such-glyph'],
+        ]]);
+        self::assertStringNotContainsString('<a ', $plain);
+        self::assertStringNotContainsString('<svg', $plain);
+        self::assertStringContainsString('no-such-glyph', $plain);
+    }
+
+    public function testFeatureIconRendersInlineSvgForLucideNames(): void
+    {
+        $out = $this->render([[
+            'id' => 'f1', 'type' => 'feature',
+            'data' => ['icon' => 'activity', 'title' => 'Fast'],
+        ]]);
+        self::assertStringContainsString('<svg', $out);
+        self::assertStringContainsString('lemma-icon', $out);
+        self::assertStringNotContainsString('&lt;svg', $out); // not escaped text
+    }
+
+    public function testFeatureIconFallsBackToEscapedTextForNonNames(): void
+    {
+        // Legacy free-text icons (emoji) keep rendering as text…
+        $emoji = $this->render([[
+            'id' => 'f2', 'type' => 'feature',
+            'data' => ['icon' => '✓', 'title' => 'Legacy'],
+        ]]);
+        self::assertStringContainsString('✓', $emoji);
+        self::assertStringNotContainsString('<svg', $emoji);
+
+        // …and a hostile legacy value is ESCAPED, never markup (Markup discipline).
+        $hostile = $this->render([[
+            'id' => 'f3', 'type' => 'feature',
+            'data' => ['icon' => '<img src=x onerror=alert(1)>', 'title' => 'Hostile'],
+        ]]);
+        self::assertStringNotContainsString('<img', $hostile);
+        self::assertStringContainsString('&lt;img', $hostile);
+    }
 }

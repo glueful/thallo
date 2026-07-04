@@ -129,6 +129,7 @@ use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Authoring\DraftSummaryReader;
 use Glueful\Lemma\Contracts\Authoring\PublishGate;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
+use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
 use Glueful\Lemma\Contracts\Settings\AdminUrlProvider;
 use Glueful\Lemma\Contracts\Settings\SiteLogoProvider;
 use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;

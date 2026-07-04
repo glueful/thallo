@@ -10,6 +10,10 @@
    layout classes on <main>. */
 .lemma-block { margin-block: var(--space-5); }
 
+/* icon() inline SVGs (icon-library spec): size tracks font-size and color
+   tracks currentColor — CSS wins over the SVGs' width/height attributes. */
+.lemma-icon { width: 1em; height: 1em; display: inline-block; vertical-align: -0.125em; }
+
 /* hero — full-bleed gradient band (PageHero anatomy: wrapper + media,
    vertical = centered stack, horizontal = two columns, --reverse swaps) */
 .lemma-block-hero {
@@ -374,7 +378,7 @@
   .lemma-block-features--cols-4 .lemma-block-features__grid { grid-template-columns: repeat(4, 1fr); }
 }
 .lemma-block-feature { display: flex; align-items: flex-start; gap: var(--space-3); margin-block: 0; }
-.lemma-block-feature__icon { font-size: 1.4rem; line-height: 1.3; }
+.lemma-block-feature__icon { font-size: 1.4rem; line-height: 1.3; display: inline-block; }
 .lemma-block-feature__title { margin: 0; font-size: 1.05rem; }
 .lemma-block-feature__title a { color: inherit; text-decoration: none; }
 .lemma-block-feature__title a:hover { color: var(--accent); }
@@ -586,6 +590,17 @@ details[open] > .lemma-block-faq_item__question::after { transform: rotate(225de
 .lemma-block-logo--medium .lemma-block-logo__image { height: 2.5rem; }
 .lemma-block-logo--large .lemma-block-logo__image { height: 3.5rem; }
 .lemma-block-logo__name { font-weight: 700; font-size: 1.25rem; letter-spacing: -0.02em; }
+
+/* icon — a single decorative Lucide glyph, optionally linked; sizes scale
+   font-size (the .lemma-icon svg is 1em) and color rides currentColor */
+.lemma-block-icon { max-width: var(--container); margin-inline: auto; padding-inline: var(--space-4); color: var(--accent); }
+.lemma-block-icon--small { font-size: 1.5rem; }
+.lemma-block-icon--medium { font-size: 2.5rem; }
+.lemma-block-icon--large { font-size: 4rem; }
+.lemma-block-icon--start { text-align: start; }
+.lemma-block-icon--center { text-align: center; }
+.lemma-block-icon--end { text-align: end; }
+.lemma-block-icon__link { color: inherit; display: inline-flex; }
 
 /* logo_cloud — trusted-by strip; --scroll = pure-CSS marquee */
 .lemma-block-logo_cloud { padding-block: var(--space-6); }

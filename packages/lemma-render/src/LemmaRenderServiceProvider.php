@@ -10,6 +10,7 @@ use Glueful\Database\Connection;
 use Glueful\Events\EventService;
 use Glueful\Extensions\ServiceProvider;
 use Glueful\Lemma\Render\Templates\DatabaseTemplateLoader;
+use Glueful\Lemma\Render\Templates\IconSet;
 use Glueful\Lemma\Render\Templates\TemplateLinter;
 use Glueful\Lemma\Render\Templates\TemplateRepository;
 use Glueful\Lemma\Contracts\Capability\Capability;
@@ -272,6 +273,9 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             $container->has(SiteLogoProvider::class)
                 ? $container->get(SiteLogoProvider::class)
                 : null,
+            // icon() (icon-library spec): pack-internal furniture — fixed
+            // resources root, no app-side contract to soft-bind.
+            new IconSet(dirname(__DIR__) . '/resources/icons'),
         );
     }
 
