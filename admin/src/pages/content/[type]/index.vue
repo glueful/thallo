@@ -6,6 +6,7 @@ import type { TableColumn } from '@nuxt/ui'
 import { useEntries, useCreateEntry, useDeleteEntry, type EntryListRow } from '@/queries/entries'
 import { useLocales } from '@/queries/locales'
 import { useNotify } from '@/composables/useNotify'
+import { useGeneralSettings } from '@/queries/generalSettings'
 import TablePagination from '@/components/TablePagination.vue'
 
 definePage({ meta: { requiresAuth: true } })
@@ -65,6 +66,10 @@ function translatedCount(locales: string[]): number {
   return locales.filter((c) => enabledCodes.value.has(c)).length
 }
 
+// Home badge (homepage-setting spec §1): mark the entry currently set as
+// the site homepage wherever it appears.
+const { data: generalSettings } = useGeneralSettings()
+
 const columns: TableColumn<EntryListRow>[] = [
   { accessorKey: 'display_title', header: 'Title' },
   { accessorKey: 'status', header: 'Status' },
@@ -110,6 +115,17 @@ function statusColor(s: string): 'success' | 'warning' | 'neutral' {
           <ULink :to="`/content/${type}/${row.original.uuid}`" class="font-medium text-default">
             {{ row.original.display_title }}
           </ULink>
+          <UBadge
+            v-if="generalSettings?.homepage_entry === row.original.uuid"
+            color="primary"
+            variant="subtle"
+            icon="i-lucide-house"
+            size="sm"
+            class="ml-2"
+            :data-test="`home-badge-${row.original.uuid}`"
+          >
+            Home
+          </UBadge>
         </template>
 
         <template #status-cell="{ row }">

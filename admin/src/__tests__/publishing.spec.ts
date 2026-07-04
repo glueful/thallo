@@ -13,6 +13,7 @@ import { fetchRoutes, saveRoute } from '@/queries/routes'
 import { publishEntry, unpublishEntry } from '@/queries/publish'
 import { fetchSchedules, createSchedule, cancelSchedule } from '@/queries/schedules'
 import { mintPreview, buildPreviewUrl } from '@/queries/preview'
+import { updateGeneralSettings } from '@/queries/generalSettings'
 
 describe('F4 publishing queries', () => {
   beforeEach(() => {
@@ -49,6 +50,17 @@ describe('F4 publishing queries', () => {
     expect(POST).toHaveBeenCalledWith('/entries/{uuid}/unpublish/{locale}', {
       params: { path: { uuid: 'e1', locale: 'en' } },
     })
+  })
+
+  it('set-as-homepage PUTs homepage_entry; explicit empty string clears', async () => {
+    // homepage-setting spec §1: both admin surfaces drive this one mutation.
+    PUT.mockResolvedValue({ data: { data: { settings: { homepage_entry: 'e1' } } }, error: undefined })
+    await updateGeneralSettings({ homepage_entry: 'e1' })
+    expect(PUT).toHaveBeenCalledWith('/settings/general', { body: { homepage_entry: 'e1' } })
+
+    PUT.mockResolvedValue({ data: { data: { settings: { homepage_entry: '' } } }, error: undefined })
+    await updateGeneralSettings({ homepage_entry: '' })
+    expect(PUT).toHaveBeenLastCalledWith('/settings/general', { body: { homepage_entry: '' } })
   })
 
   it('createSchedule POSTs action + run_at; cancelSchedule DELETEs', async () => {

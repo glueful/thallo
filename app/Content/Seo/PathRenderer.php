@@ -24,6 +24,23 @@ final class PathRenderer
         return $this->withBase($this->renderTemplate($template, $contentTypeSlug, $this->defaultLocale, $slug));
     }
 
+    /**
+     * Root-mounted grammar (root-mounted-types spec §5): FIXED /{locale}/{slug} —
+     * defined by the resolver, never derived from the configured route template
+     * (parser and renderer must stay exact inverses). Honors only the public
+     * URL base; use {@see renderRootDefaultLocale} for the collapsed form.
+     */
+    public function renderRoot(string $locale, string $slug): string
+    {
+        return $this->withBase('/' . rawurlencode($locale) . '/' . rawurlencode($slug));
+    }
+
+    /** Root-mounted grammar with the default locale collapsed: /{slug}. */
+    public function renderRootDefaultLocale(string $slug): string
+    {
+        return $this->withBase('/' . rawurlencode($slug));
+    }
+
     private function renderTemplate(string $template, string $contentTypeSlug, string $locale, string $slug): string
     {
         $path = strtr($template, [

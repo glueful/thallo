@@ -243,6 +243,83 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
+  it('the preview button mints fresh and opens the theme preview in a new tab', async () => {
+    mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    const wrapper = mountPage()
+    await flushPromises()
+
+    mintMock.mockResolvedValueOnce({ token: 'tok2', themeUrl: 'https://site.test/_preview/tok2' })
+    await wrapper.find('[data-test="canvas-open-preview"]').trigger('click')
+    await flushPromises()
+    expect(openSpy).toHaveBeenCalledWith('https://site.test/_preview/tok2', '_blank', 'noopener')
+    // The stage itself is untouched: same iframe src, no remount.
+    expect(wrapper.find('[data-test="canvas-iframe"]').attributes('src')).toBe(
+      'https://site.test/_preview/tok1',
+    )
+    openSpy.mockRestore()
+    wrapper.unmount()
+  })
+
+  it('the Page tab edits _presentation and auto-applies; Theme default clears the key', async () => {
+    mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+    applyMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+    vi.useFakeTimers()
+    try {
+      // Switch to the Page tab via the UTabs trigger.
+      const pageTab = wrapper
+        .findAll('button')
+        .find((b) => b.text() === 'Page' && b.attributes('role') === 'tab')
+      expect(pageTab).toBeDefined()
+      // Reka tabs activate on mousedown (WAI pattern), not click.
+      await pageTab!.trigger('mousedown', { button: 0 })
+      await pageTab!.trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-test="page-settings"]').isVisible()).toBe(true)
+
+      // Set an override: the tree gains the reserved key and auto-apply
+      // carries it (the SAME chain as any content edit).
+      await wrapper.find('[data-test="pres-layout-full"]').trigger('click')
+      await vi.advanceTimersByTimeAsync(900)
+      expect(applyMock).toHaveBeenCalledWith(
+        'entry0000001',
+        'en',
+        'tok1',
+        expect.objectContaining({ _presentation: { layout: 'full' } }),
+      )
+
+      await wrapper.find('[data-test="pres-title-hide"]').trigger('click')
+      await vi.advanceTimersByTimeAsync(900)
+      expect(applyMock).toHaveBeenLastCalledWith(
+        'entry0000001',
+        'en',
+        'tok1',
+        expect.objectContaining({ _presentation: { layout: 'full', show_title: false } }),
+      )
+
+      // Theme default DELETES the keys — an empty override removes _presentation.
+      await wrapper.find('[data-test="pres-layout-default"]').trigger('click')
+      await wrapper.find('[data-test="pres-title-default"]').trigger('click')
+      await vi.advanceTimersByTimeAsync(900)
+      const lastPayload = applyMock.mock.calls[applyMock.mock.calls.length - 1][3] as Record<
+        string,
+        unknown
+      >
+      expect('_presentation' in lastPayload).toBe(false)
+
+      // unmount-on-hide=false: the FieldEditor stays MOUNTED while the Page
+      // tab shows — stage intents still route through fieldEditorRef.
+      bridge.callbacks.move?.('blockaaa0001', 1)
+      await flushPromises()
+      expect(bridge.instance.mirrorMove).toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+    wrapper.unmount()
+  })
+
   it('opening the canvas reconciles the stash ONCE: one apply of the hydrated tree', async () => {
     // The stash outlives sessions (keyed entry+locale, cleared only by save):
     // an abandoned session's stash overlays the draft on the next open, so the

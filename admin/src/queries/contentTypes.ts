@@ -52,6 +52,7 @@ export interface ContentType {
   description: string | null
   cache_ttl: number | null
   public_delivery: boolean
+  mount_at_root: boolean
   status?: string
   schema: ContentTypeField[]
   schema_version?: number
@@ -66,6 +67,7 @@ export interface ContentTypeInput {
   description?: string | null
   cache_ttl?: number | null
   public_delivery?: boolean
+  mount_at_root?: boolean
   schema?: ContentTypeField[]
 }
 
@@ -101,6 +103,7 @@ function normalizeContentType(ct: Record<string, unknown>): ContentType {
     description: raw.description ?? null,
     cache_ttl: raw.cache_ttl ?? null,
     public_delivery: raw.public_delivery ?? false,
+    mount_at_root: raw.mount_at_root ?? false,
     status: raw.status,
     schema: (raw.schema ?? []).map(normalizeField),
     schema_version: raw.schema_version,
@@ -149,6 +152,27 @@ export async function createContentType(input: ContentTypeInput) {
   return data?.data?.content_type
 }
 
+/** PATCH non-schema metadata (slug immutable) — the path that unlocks public_delivery post-creation. */
+export async function updateContentTypeMeta(
+  slug: string,
+  meta: {
+    name?: string
+    description?: string
+    cache_ttl?: number
+    public_delivery?: boolean
+    mount_at_root?: boolean
+  },
+) {
+  const { data, error, response } = await client.PATCH('/content-types/{slug}', {
+    params: { path: { slug } },
+    body: meta,
+  })
+  if (error) throw toApiError(error, response)
+  return normalizeContentType(
+    (data?.data?.content_type ?? {}) as Record<string, unknown>,
+  )
+}
+
 export async function updateContentTypeSchema(slug: string, schema: ContentTypeField[]) {
   const { data, error, response } = await client.PATCH('/content-types/{slug}/schema', {
     params: { path: { slug } },
@@ -191,6 +215,15 @@ export function useContentTypeMutations() {
     },
   })
 
+  const updateMeta = useMutation({
+    mutation: (vars: { slug: string; meta: Parameters<typeof updateContentTypeMeta>[1] }) =>
+      updateContentTypeMeta(vars.slug, vars.meta),
+    onSettled(_data, _error, vars) {
+      cache.invalidateQueries({ key: qk.contentType(vars.slug) })
+      cache.invalidateQueries({ key: qk.contentTypes() })
+    },
+  })
+
   const updateSchema = useMutation({
     mutation: (vars: { slug: string; schema: ContentTypeField[] }) =>
       updateContentTypeSchema(vars.slug, vars.schema),
@@ -207,5 +240,5 @@ export function useContentTypeMutations() {
     },
   })
 
-  return { create, updateSchema, remove }
+  return { create, updateMeta, updateSchema, remove }
 }

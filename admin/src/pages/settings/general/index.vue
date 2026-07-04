@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, reactive, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import {
   useGeneralSettings,
   useGeneralSettingsMutations,
   type GeneralSettings,
 } from '@/queries/generalSettings'
 import { useLocales } from '@/queries/locales'
+import { useContentTypes } from '@/queries/contentTypes'
+import ReferencePicker from '@/fields/components/ReferencePicker.vue'
 import { useNotify } from '@/composables/useNotify'
 
 definePage({ meta: { requiresAuth: true } })
@@ -24,7 +26,25 @@ const form = reactive<GeneralSettings>({
   cache_ttl: 60,
   scheduler_enabled: true,
   webhooks_enabled: true,
+  homepage_entry: '',
 })
+
+// Homepage picker (homepage-setting spec §1): the entries query is
+// type-scoped, so picking = choose a type, then search its entries.
+const { data: contentTypes } = useContentTypes()
+const homepageType = ref('')
+const homepageTypeOptions = computed(() =>
+  // Non-public types stay VISIBLE but disabled with the reason — the server
+  // 422s them at write time; an empty dropdown would just look broken.
+  (contentTypes.value ?? []).map((t) => ({
+    label: (t.name ?? t.slug ?? '') + (t.public_delivery ? '' : ' — not publicly delivered'),
+    value: t.slug ?? '',
+    disabled: !t.public_delivery,
+  })),
+)
+function clearHomepage(): void {
+  form.homepage_entry = '' // saved as '' -> the server DELETES the override row
+}
 
 watch(
   data,
@@ -93,6 +113,50 @@ async function onSave() {
                   class="w-full"
                 />
               </UFormField>
+            </div>
+          </UCard>
+
+          <UCard>
+            <template #header><h2 class="font-semibold text-default">Homepage</h2></template>
+            <div class="space-y-4">
+              <p class="text-sm text-muted">
+                The entry rendered at <code>/</code>. Cleared = the deploy default
+                (<code>RENDER_HOMEPAGE_ENTRY</code>), or the standalone index when
+                that is empty too. Must be a published entry of a publicly
+                delivered type.
+              </p>
+              <div v-if="form.homepage_entry" class="flex items-center gap-2" data-test="homepage-current">
+                <UBadge color="primary" variant="subtle" icon="i-lucide-house">Home</UBadge>
+                <code class="text-xs">{{ form.homepage_entry }}</code>
+                <UButton
+                  size="xs"
+                  variant="ghost"
+                  color="neutral"
+                  icon="i-lucide-x"
+                  aria-label="Clear homepage"
+                  data-test="homepage-clear"
+                  @click="clearHomepage()"
+                />
+              </div>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <UFormField label="Content type">
+                  <USelect
+                    v-model="homepageType"
+                    :items="homepageTypeOptions"
+                    placeholder="Pick a type…"
+                    class="w-full"
+                    data-test="homepage-type"
+                  />
+                </UFormField>
+                <UFormField label="Entry">
+                  <ReferencePicker
+                    v-if="homepageType"
+                    v-model="form.homepage_entry"
+                    :target="homepageType"
+                  />
+                  <p v-else class="pt-1.5 text-sm text-muted">Pick a type first.</p>
+                </UFormField>
+              </div>
             </div>
           </UCard>
 

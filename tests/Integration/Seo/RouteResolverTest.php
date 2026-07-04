@@ -156,7 +156,10 @@ final class RouteResolverTest extends LemmaTestCase
             $this->redirects,
             $this->routes,
             $this->types,
-            new PathRenderer('/{locale}/{type}/{slug}')
+            new \App\Content\Seo\CanonicalPathBuilder(
+                new PathRenderer('/{locale}/{type}/{slug}'),
+                $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
+            )
         );
     }
 

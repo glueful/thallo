@@ -14,7 +14,7 @@ final class CanonicalProjector
         private readonly DeliveryRepository $delivery,
         private readonly RouteRepository $routes,
         private readonly ContentTypeRepository $types,
-        private readonly PathRenderer $paths,
+        private readonly CanonicalPathBuilder $pathBuilder,
         private readonly string $defaultLocale = 'en'
     ) {
     }
@@ -30,17 +30,23 @@ final class CanonicalProjector
         foreach ($this->delivery->publishedPinsForEntry($entryUuid) as $pin) {
             $pinTypeUuid = (string) $pin['type'];
             $pinLocale = (string) $pin['locale'];
-            $typeSlug = $pinTypeUuid === $contentTypeUuid
-                ? $contentTypeSlug
-                : $this->typeSlug($pinTypeUuid);
+            // PER-PIN type lookup: each alternate/x-default href must use its
+            // own pin type's mount_at_root — a single caller-supplied flag
+            // would mislabel mixed-type alternates (spec review P2).
+            $pinType = $this->types->findByUuid($pinTypeUuid);
             $slug = $this->slugFor($routes, $pinTypeUuid, $pinLocale);
-            if ($typeSlug === null || $slug === null) {
+            if ($pinType === null || $slug === null) {
                 continue;
             }
+            $typeSlug = (string) $pinType['slug'];
+            $mountAtRoot = (bool) ($pinType['mount_at_root'] ?? false);
 
             $alternate = [
                 'locale' => $pinLocale,
-                'href' => $this->paths->render($typeSlug, $pinLocale, $slug),
+                // Canonical per variant: default locale collapses, root types
+                // collapse to /{slug} (the raw locale-prefixed form was the
+                // off-canonical pre-builder behavior).
+                'href' => $this->pathBuilder->pathFor($typeSlug, $mountAtRoot, $pinLocale, $slug),
                 'content_type' => $typeSlug,
                 'slug' => $slug,
             ];
@@ -51,7 +57,7 @@ final class CanonicalProjector
             if ($pinLocale === $this->defaultLocale) {
                 $xDefault = [
                     'locale' => $pinLocale,
-                    'href' => $this->paths->renderDefaultLocale($typeSlug, $slug),
+                    'href' => $this->pathBuilder->pathFor($typeSlug, $mountAtRoot, $this->defaultLocale, $slug),
                     'content_type' => $typeSlug,
                     'slug' => $slug,
                 ];
@@ -83,11 +89,5 @@ final class CanonicalProjector
         }
 
         return null;
-    }
-
-    private function typeSlug(string $contentTypeUuid): ?string
-    {
-        $type = $this->types->findByUuid($contentTypeUuid);
-        return $type === null ? null : (string) $type['slug'];
     }
 }

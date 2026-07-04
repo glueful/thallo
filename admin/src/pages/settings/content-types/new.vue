@@ -33,6 +33,7 @@ const state = reactive({
   description: '',
   cache_ttl: '',
   public_delivery: false,
+  mount_at_root: false,
 })
 const fields = ref<ContentTypeField[]>([])
 const createForm = useTemplateRef<Form<Schema>>('createForm')
@@ -66,6 +67,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       description: event.data.description?.trim() || null,
       cache_ttl: state.cache_ttl.trim() === '' ? null : Number(state.cache_ttl),
       public_delivery: state.public_delivery,
+      mount_at_root: state.mount_at_root,
       schema: fields.value.map((f) => ({ ...f, name: f.name.trim() })),
     })
     success('Content type created', `“${event.data.name}” is ready.`)
@@ -157,6 +159,16 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                     />
                   </UFormField>
                   <USwitch v-model="state.public_delivery" label="Public delivery" class="pb-2" />
+                  <UFormField
+                    class="pb-2"
+                    help="Entries serve at /slug instead of /type/slug. Slugs must not collide with type names or reserved paths."
+                  >
+                    <USwitch
+                      v-model="state.mount_at_root"
+                      label="Mount at root"
+                      data-test="mount-at-root-create"
+                    />
+                  </UFormField>
                 </div>
               </div>
             </UCard>

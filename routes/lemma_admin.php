@@ -45,6 +45,9 @@ $router->group(['prefix' => '/v1/admin', 'middleware' => ['auth']], function (Ro
     $router->get('/content-types/{slug}', [ContentTypeController::class, 'show'])
         ->middleware('lemma_permission:content.view');
 
+    $router->patch('/content-types/{slug}', [ContentTypeController::class, 'update'])
+        ->middleware('lemma_permission:content.manage');
+
     $router->patch('/content-types/{slug}/schema', [ContentTypeController::class, 'updateSchema'])
         ->middleware('lemma_permission:content.manage');
 

@@ -69,7 +69,8 @@ final class NavigationAdminController
 
     #[ApiOperation(
         summary: 'Menu editor payload: full unfiltered tree for a locale',
-        description: 'Per entry item: target_status (published|unpublished|deleted|missing|routeless) '
+        description: 'Per entry item: target_status (published|unpublished|deleted|missing|routeless), '
+            . 'target_title (the localized page title an empty label inherits) '
             . 'and target_url resolved FOR ?locale= (status is locale-sensitive). Includes lock_version.',
         tags: ['Lemma Navigation'],
     )]
@@ -179,6 +180,9 @@ final class NavigationAdminController
                 $node['entry_uuid'] = (string) $row['entry_uuid'];
                 $node['target_status'] = $target['status'];
                 $node['target_url'] = $target['path'];
+                // The inherited menu label (nav-entry-items design): the SPA
+                // shows this as the label placeholder — never guesses titles.
+                $node['target_title'] = $target['title'] ?? null;
             } else {
                 $node['url'] = (string) $row['url'];
             }

@@ -52,11 +52,61 @@ final class FieldValidator
      */
     public function validate(ContentTypeSchema $schema, array $payload, bool $strict = false): array
     {
+        // Reserved system key (modern-default-theme spec §5a): _presentation is
+        // draft/version PRESENTATION state — validated against a fixed
+        // vocabulary regardless of the content type's schema, re-attached to
+        // the cleaned payload (so it versions/publishes/previews with the
+        // draft), and stripped from public payloads by the delivery shaper's
+        // schema allowlist. Schema field names can never collide: leading
+        // underscores are rejected by FieldDefinition's name pattern.
+        $presentation = null;
+        if (array_key_exists('_presentation', $payload)) {
+            $presentation = $this->validatePresentation($payload['_presentation']);
+            unset($payload['_presentation']);
+        }
+
         // Entry-wide block-id set (visual-canvas spec §5): the canvas bridge keys
         // rendered blocks by BARE id, so uniqueness spans every blocks field AND
         // nesting level of one validated entry — not just each list.
         $seenBlockIds = [];
-        return $this->validateAt($schema, $payload, $strict, 0, $seenBlockIds);
+        $clean = $this->validateAt($schema, $payload, $strict, 0, $seenBlockIds);
+        if ($presentation !== null) {
+            $clean['_presentation'] = $presentation;
+        }
+        return $clean;
+    }
+
+    /**
+     * The fixed _presentation vocabulary: show_title (bool), layout
+     * ('full'|'centered'). Anything else fails loudly — presentation is a
+     * system contract, not a free-form bag. An empty array is allowed and
+     * normalized away (treated as "no override").
+     *
+     * @return array<string,mixed>|null
+     * @throws ValidationException
+     */
+    private function validatePresentation(mixed $value): ?array
+    {
+        if (!is_array($value)) {
+            throw new ValidationException(['_presentation' => 'must be an object']);
+        }
+        $clean = [];
+        foreach ($value as $key => $subValue) {
+            if ($key === 'show_title') {
+                if (!is_bool($subValue)) {
+                    throw new ValidationException(['_presentation.show_title' => 'must be a boolean']);
+                }
+                $clean['show_title'] = $subValue;
+            } elseif ($key === 'layout') {
+                if (!in_array($subValue, ['full', 'centered'], true)) {
+                    throw new ValidationException(['_presentation.layout' => "must be 'full' or 'centered'"]);
+                }
+                $clean['layout'] = $subValue;
+            } else {
+                throw new ValidationException(['_presentation' => "unknown setting '{$key}'"]);
+            }
+        }
+        return $clean === [] ? null : $clean;
     }
 
     /**

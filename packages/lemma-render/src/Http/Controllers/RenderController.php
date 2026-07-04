@@ -7,6 +7,7 @@ namespace Glueful\Lemma\Render\Http\Controllers;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response as ApiResponse;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
+use Glueful\Lemma\Contracts\Delivery\HomepageEntryProvider;
 use Glueful\Lemma\Contracts\Delivery\PreviewSession;
 use Glueful\Lemma\Contracts\Delivery\PreviewSessionVerifier;
 use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
@@ -51,6 +52,8 @@ final class RenderController
         private readonly ?PreviewSessionVerifier $sessionVerifier = null,
         private readonly ?TemplateRepository $templates = null,
         private readonly ?TemplateLinter $templateLinter = null,
+        private readonly ?ThemeLocator $themes = null,
+        private readonly ?HomepageEntryProvider $homepage = null,
     ) {
     }
 
@@ -67,11 +70,18 @@ final class RenderController
     {
         $session = $this->session($request);
         $this->annotateBlocks = $session !== null;
-        $homepageEntry = (string) config($this->context, 'lemma_render.homepage_entry', '');
+        // Source-aware provider (homepage-setting spec §0): the DB site setting
+        // wins while resolvable; otherwise the provider already fell back to
+        // env — whatever arrives here keeps deploy-config semantics (an
+        // unresolvable value is the LOUD 500 below).
+        $homepageEntry = $this->homepage !== null
+            ? $this->homepage->homepageEntry()
+            : (string) config($this->context, 'lemma_render.homepage_entry', '');
         $locale = (string) config($this->context, 'i18n.default_locale', 'en');
         $entry = null;
         $typeSlug = '';
 
+        $extra = $this->sessionExtra($session);
         if ($homepageEntry !== '') {
             // Locale stays null (working-copy-overlay P1 note): today's call
             // passes none, and the controller's $locale above is only the
@@ -84,12 +94,16 @@ final class RenderController
             $entry = $result['content'];
             $locale = (string) $result['locale'];
             $typeSlug = (string) ($result['type'] ?? '');
+            $extra['presentation'] = $this->presentationContext(
+                $typeSlug !== '' ? $typeSlug : null,
+                $result['presentation'] ?? null,
+            );
         }
 
         // Homepage ALWAYS renders index.twig (spec §4) — the entry, when configured,
         // arrives as context; routed pages use the entry hierarchy instead.
         [$env, $assetBase] = $this->themedEnv($session);
-        $response = $this->render('index.twig', $locale, $entry, 200, $this->sessionExtra($session), $env, $assetBase);
+        $response = $this->render('index.twig', $locale, $entry, 200, $extra, $env, $assetBase);
         if ($entry !== null) {
             $this->tagResponse($response, $entry, $typeSlug);
         }
@@ -251,7 +265,13 @@ final class RenderController
             $template = $candidate !== '' && ($env ?? $this->twig())->getLoader()->exists($candidate)
                 ? $candidate
                 : 'entry.twig';
-            $response = $this->render($template, $locale, $entry, 200, ['preview' => true], $env, $assetBase);
+            $response = $this->render($template, $locale, $entry, 200, [
+                'preview' => true,
+                'presentation' => $this->presentationContext(
+                    $typeSlug !== '' ? $typeSlug : null,
+                    $result['presentation'] ?? null,
+                ),
+            ], $env, $assetBase);
         }
 
         $response->headers->remove('Cache-Tag'); // no-store pages carry no surrogate tags
@@ -417,6 +437,10 @@ final class RenderController
         $template = $candidate !== '' && ($env ?? $this->twig())->getLoader()->exists($candidate)
             ? $candidate
             : 'entry.twig';
+        $extra['presentation'] = $this->presentationContext(
+            $typeSlug !== '' ? $typeSlug : null,
+            $result['presentation'] ?? null,
+        );
         $response = $this->render($template, $locale, $entry, 200, $extra, $env, $assetBase);
         $this->tagResponse($response, $entry ?? [], $typeSlug);
         $this->mergeCacheTags($response, array_values(array_map('strval', (array) ($result['cache_tags'] ?? []))));
@@ -533,6 +557,31 @@ final class RenderController
      * @param string|null $assetBase per-render asset() base (/_preview-assets/{token});
      *                               null = /theme-assets
      */
+    /**
+     * The composed presentation context (modern-default-theme spec §5a):
+     * page override -> theme.json per-type setting -> theme.json default ->
+     * built-ins (show_title: true, layout: centered). Templates consume ONLY
+     * this variable — _presentation itself never reaches template context
+     * (the shaper's schema allowlist already stripped it from entry.fields).
+     * v1 note: settings come from the boot-active theme; themed preview
+     * sessions inherit them.
+     *
+     * @param array<string,mixed>|null $override the raw per-page _presentation
+     * @return array{show_title: bool, layout: string}
+     */
+    private function presentationContext(?string $typeSlug, ?array $override): array
+    {
+        $settings = $this->themes?->settings() ?? [];
+        $type = $typeSlug !== null && is_array($settings['types'][$typeSlug] ?? null)
+            ? $settings['types'][$typeSlug]
+            : [];
+        $layout = $override['layout'] ?? $type['layout'] ?? $settings['layout'] ?? 'centered';
+        return [
+            'show_title' => (bool) ($override['show_title'] ?? $type['show_title'] ?? $settings['show_title'] ?? true),
+            'layout' => $layout === 'full' ? 'full' : 'centered',
+        ];
+    }
+
     private function render(
         string $template,
         string $locale,
@@ -572,6 +621,9 @@ final class RenderController
             $context['entry'] = $entry;
         }
         $context += $extra;
+        // Every render carries a presentation context (spec §5a): entry-less
+        // pages (listings, terms, errors) compose with no override.
+        $context['presentation'] ??= $this->presentationContext(null, null);
 
         try {
             $html = $env->render($template, $context);

@@ -74,6 +74,24 @@ final class DeliveryItemShaper
             $expanded,
         );
 
+        // Reserved system keys (modern-default-theme spec §5a): `_`-prefixed
+        // fields (_presentation) are draft/version state, NEVER public content.
+        // Stripped HERE unconditionally — the empty-selector fast path below
+        // returns rows without the allowlist projection, so relying on the
+        // projection alone would leak them on bare requests.
+        foreach ($rows as $i => $row) {
+            $fields = $row['fields'] ?? null;
+            if (!is_array($fields)) {
+                continue;
+            }
+            foreach (array_keys($fields) as $key) {
+                if (is_string($key) && str_starts_with($key, '_')) {
+                    unset($fields[$key]);
+                }
+            }
+            $rows[$i]['fields'] = $fields;
+        }
+
         if ($selector->empty()) {
             return $rows;
         }

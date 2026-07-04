@@ -3,89 +3,262 @@
    the block templates emit. Standalone on purpose: a custom theme adopts the
    starter blocks by copying THIS ONE FILE (templates already fall back to the
    pack default per-template; assets do not). Uses only the variables site.css
-   defines (--ink, --muted, --line, --accent). */
-.lemma-block { margin: 1.25rem 0; }
+   defines (--bg, --surface, --ink, --muted, --line, --accent, --accent-ink,
+   spacing/radius/shadow tokens). Band blocks (hero, section, cta) are
+   full-bleed by default and carry their OWN inner containers; the dormant
+   .layout--centered rules at the end apply only in themes that emit the
+   layout classes on <main>. */
+.lemma-block { margin-block: var(--space-5); }
 
-/* section */
-.lemma-block-section { padding: 1.5rem; border-radius: 8px; }
-.lemma-block-section--none { padding: 0; }
-.lemma-block-section--subtle { background: #f6f6f6; }
-.lemma-block-section--emphasis { background: var(--accent); color: #fff; }
-.lemma-block-section--emphasis a { color: #fff; }
-.lemma-block-section__title { margin-top: 0; }
+/* hero — full-bleed gradient band */
+.lemma-block-hero {
+  margin-block: 0 var(--space-5);
+  padding-block: var(--space-7);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 9%, var(--bg)),
+    var(--bg)
+  );
+  border-bottom: 0;
+}
+.lemma-block-hero__inner {
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}
+.lemma-block-hero--center .lemma-block-hero__inner { text-align: center; }
+.lemma-block-hero--center .lemma-block-hero__subheading,
+.lemma-block-hero--center .lemma-block-hero__image { margin-inline: auto; }
+.lemma-block-hero__image {
+  max-width: min(100%, 40rem);
+  max-height: 22rem;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  margin-bottom: var(--space-4);
+}
+.lemma-block-hero__heading {
+  margin: 0;
+  font-size: clamp(2.25rem, 1.6rem + 3vw, 3.5rem);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+.lemma-block-hero__subheading {
+  max-width: var(--content);
+  margin: var(--space-3) 0 0;
+  color: var(--muted);
+  font-size: clamp(1.05rem, 1rem + 0.4vw, 1.3rem);
+  line-height: 1.55;
+}
+.lemma-block-hero__cta {
+  display: inline-block;
+  margin-top: var(--space-4);
+  padding: 0.7rem 1.6rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.lemma-block-hero__cta:hover { transform: translateY(-1px); }
 
-/* columns */
-.lemma-block-columns { display: grid; gap: 1.25rem; }
+/* section — full-bleed band with contained content */
+.lemma-block-section { padding-block: var(--space-6); }
+.lemma-block-section__inner {
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}
+.lemma-block-section--none { padding-block: 0; }
+.lemma-block-section--subtle { background: var(--surface); }
+.lemma-block-section--emphasis {
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+}
+.lemma-block-section--emphasis .lemma-block-section__title { color: var(--accent); }
+.lemma-block-section__title { margin: 0 0 var(--space-4); }
+
+/* columns — cards with hover lift */
+.lemma-block-columns {
+  display: grid;
+  gap: var(--space-4);
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}
 .lemma-block-columns--2 { grid-template-columns: repeat(2, 1fr); }
 .lemma-block-columns--3 { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 40rem) {
   .lemma-block-columns--2, .lemma-block-columns--3 { grid-template-columns: 1fr; }
 }
+.lemma-block-columns__col {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: var(--space-4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.lemma-block-columns__col:hover { transform: translateY(-2px); }
+/* Nested blocks inside a card breathe less than page-level blocks. */
+.lemma-block-columns__col .lemma-block { margin-block: var(--space-3); }
+.lemma-block-columns__col .lemma-block:first-child { margin-top: 0; }
+.lemma-block-columns__col .lemma-block:last-child { margin-bottom: 0; }
 
 /* divider */
-.lemma-block-divider--line { border: 0; border-top: 1px solid var(--line); }
-.lemma-block-divider--space { height: 1.5rem; margin: 0; }
+.lemma-block-divider--line {
+  max-width: var(--content);
+  margin-inline: auto;
+  border: 0;
+  border-top: 1px solid var(--line);
+}
+.lemma-block-divider--space { height: var(--space-4); margin: 0; }
 
 /* spacer */
 .lemma-block-spacer { margin: 0; }
-.lemma-block-spacer--small { height: 1rem; }
-.lemma-block-spacer--medium { height: 2rem; }
-.lemma-block-spacer--large { height: 4rem; }
+.lemma-block-spacer--small { height: var(--space-3); }
+.lemma-block-spacer--medium { height: var(--space-5); }
+.lemma-block-spacer--large { height: var(--space-6); }
 
-/* hero */
-.lemma-block-hero { display: block; border-bottom: 0; padding: 2rem 0; }
-.lemma-block-hero--center { text-align: center; }
-.lemma-block-hero__image { max-width: 100%; border-radius: 8px; }
-.lemma-block-hero__heading { margin: 0.5rem 0 0; font-size: 2rem; }
-.lemma-block-hero__subheading { color: var(--muted); margin: 0.5rem 0 0; }
-.lemma-block-hero__cta {
-  display: inline-block;
-  margin-top: 1rem;
-  padding: 0.5rem 1.25rem;
-  border-radius: 6px;
-  background: var(--accent);
-  color: #fff;
-  text-decoration: none;
-}
-
-/* quote */
+/* quote — centered pull quote */
 .lemma-block-quote {
-  margin-left: 0;
-  margin-right: 0;
-  padding-left: 1rem;
-  border-left: 3px solid var(--accent);
+  position: relative;
+  max-width: var(--content);
+  margin-inline: auto;
+  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
+}
+.lemma-block-quote::before {
+  content: "\201C";
+  position: absolute;
+  left: 0;
+  top: -0.35em;
+  font-size: 4.5rem;
+  line-height: 1;
+  color: var(--accent);
+  opacity: 0.35;
+}
+.lemma-block-quote p {
+  margin: 0;
+  font-size: clamp(1.25rem, 1.1rem + 0.8vw, 1.6rem);
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+}
+.lemma-block-quote cite {
+  display: block;
+  margin-top: var(--space-3);
+  font-style: normal;
+  font-size: 0.95rem;
   color: var(--muted);
 }
-.lemma-block-quote cite { display: block; margin-top: 0.5rem; font-style: normal; font-size: 0.9em; }
+.lemma-block-quote cite::before { content: "— "; }
 
-/* cta */
-.lemma-block-cta { padding: 1.5rem; border-radius: 8px; border: 1px solid var(--line); }
-.lemma-block-cta--primary { background: var(--accent); color: #fff; border: 0; }
-.lemma-block-cta--primary a { color: #fff; }
-.lemma-block-cta__heading { margin-top: 0; }
+/* cta — contained panel (accent gradient on --primary) */
+.lemma-block-cta__inner {
+  max-width: var(--container);
+  margin-inline: auto;
+  padding: var(--space-6) var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.lemma-block-cta { padding-inline: var(--space-4); }
+.lemma-block-cta--primary .lemma-block-cta__inner {
+  background: linear-gradient(
+    135deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 70%, #7c3aed)
+  );
+  border: 0;
+  color: var(--accent-ink);
+}
+.lemma-block-cta--primary a { color: var(--accent-ink); }
+.lemma-block-cta__heading { margin: 0; }
+.lemma-block-cta__body { margin: var(--space-3) 0 0; max-width: var(--content); }
+.lemma-block-cta--primary .lemma-block-cta__body { opacity: 0.9; }
 .lemma-block-cta__button {
   display: inline-block;
-  margin-top: 0.75rem;
-  padding: 0.5rem 1.25rem;
-  border-radius: 6px;
-  background: #fff;
-  color: var(--accent);
-  border: 1px solid currentColor;
+  margin-top: var(--space-4);
+  padding: 0.65rem 1.5rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
   text-decoration: none;
+  transition: transform 0.15s ease;
 }
-.lemma-block-cta--secondary .lemma-block-cta__button { background: var(--accent); color: #fff; border: 0; }
+.lemma-block-cta__button:hover { transform: translateY(-1px); }
+.lemma-block-cta--primary .lemma-block-cta__button {
+  background: var(--accent-ink);
+  color: var(--accent);
+}
 
 /* image */
-.lemma-block-image { margin-left: 0; margin-right: 0; }
-.lemma-block-image img { max-width: 100%; border-radius: 8px; }
+.lemma-block-image {
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}
+.lemma-block-image img {
+  max-width: 100%;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
 .lemma-block-image--wide img { width: 100%; }
-.lemma-block-image--full { margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); }
-.lemma-block-image--full img { width: 100%; border-radius: 0; }
-.lemma-block-image figcaption { color: var(--muted); font-size: 0.9em; margin-top: 0.5rem; }
+.lemma-block-image--full { max-width: none; padding-inline: 0; }
+.lemma-block-image--full img { width: 100%; border-radius: 0; box-shadow: none; }
+.lemma-block-image figcaption {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: var(--space-2);
+  text-align: center;
+}
 
-/* gallery */
-.lemma-block-gallery { display: grid; gap: 0.75rem; }
+/* gallery — cover-fit grid with hover zoom */
+.lemma-block-gallery {
+  display: grid;
+  gap: var(--space-3);
+  max-width: var(--container);
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}
 .lemma-block-gallery--2 { grid-template-columns: repeat(2, 1fr); }
 .lemma-block-gallery--3 { grid-template-columns: repeat(3, 1fr); }
 .lemma-block-gallery--4 { grid-template-columns: repeat(4, 1fr); }
-.lemma-block-gallery__item { width: 100%; border-radius: 6px; }
+@media (max-width: 40rem) {
+  .lemma-block-gallery--3, .lemma-block-gallery--4 { grid-template-columns: repeat(2, 1fr); }
+}
+.lemma-block-gallery__item {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: var(--radius);
+  transition: transform 0.2s ease;
+}
+.lemma-block-gallery__item:hover { transform: scale(1.02); }
+
+/* rich_text — comfortable reading measure */
+.lemma-block-rich_text {
+  max-width: var(--content);
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}
+
+/* ── Centered page layout (opt-in via main.layout--centered) ────────────────
+   Band blocks present as CONTAINED cards instead of edge-to-edge bands.
+   Dormant in themes that never emit layout classes — full-bleed stays the
+   classless default (standalone-ness holds). */
+.layout--centered .lemma-block-hero,
+.layout--centered .lemma-block-section,
+.layout--centered .lemma-block-cta {
+  max-width: var(--container);
+  margin-inline: auto;
+  border-radius: var(--radius-lg);
+}
+.layout--centered .lemma-block-hero { padding-block: var(--space-6); }
+.layout--centered .lemma-block-image--full {
+  max-width: var(--container);
+  padding-inline: var(--space-4);
+}
+.layout--centered .lemma-block-image--full img { border-radius: var(--radius); }

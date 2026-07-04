@@ -15,7 +15,7 @@ final class RouteResolver
         private readonly RedirectRepository $redirects,
         private readonly RouteRepository $routes,
         private readonly ContentTypeRepository $types,
-        private readonly PathRenderer $paths
+        private readonly CanonicalPathBuilder $canonical
     ) {
     }
 
@@ -49,6 +49,18 @@ final class RouteResolver
         }
 
         return null;
+    }
+
+    /**
+     * Root-grammar redirect fallback (root-mounted-types spec §4): after a
+     * root route miss, renames on root-mounted types keep 301ing from /old.
+     * At most one row can match — the RootMountGuard keeps root redirect
+     * sources globally unique per locale.
+     */
+    public function resolveRootRedirect(string $locale, string $slug): ?ResolutionResult
+    {
+        $redirect = $this->redirects->findBySourceAcrossRootTypes($locale, $slug);
+        return $redirect === null ? null : $this->resolveRedirect($redirect);
     }
 
     /** @param array<string,mixed> $redirect */
@@ -88,7 +100,15 @@ final class RouteResolver
 
         return ResolutionResult::moved([
             'uuid' => (string) $redirect['uuid'],
-            'to' => $this->paths->render((string) $targetType['slug'], $targetLocale, $targetSlug),
+            // Canonical target: root-collapsed for root-mounted types AND
+            // default-locale-collapsed (this previously used the raw prefixed
+            // template, sending redirects to off-canonical /en/... URLs).
+            'to' => $this->canonical->pathFor(
+                (string) $targetType['slug'],
+                (bool) ($targetType['mount_at_root'] ?? false),
+                $targetLocale,
+                $targetSlug,
+            ),
             'status' => (int) $redirect['status'],
             'external' => false,
             'target_state' => 'live',

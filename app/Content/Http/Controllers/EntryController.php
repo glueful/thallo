@@ -26,6 +26,7 @@ use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\ReferenceProjectionRepository;
 use App\Content\Repositories\RouteRepository;
+use App\Content\Routing\RootMountGuard;
 use App\Content\Schema\Migration\SchemaProjector;
 use App\Content\Support\OptimisticLockException;
 use App\Content\Validation\FieldValidator;
@@ -69,6 +70,8 @@ final class EntryController
         private readonly ?BlockMigrationGate $gate = null,
         /** Loop C working-copy stash; null = apply unavailable (minimal wiring). */
         private readonly ?PreviewWorkingCopyStore $workingCopies = null,
+        /** Root URL namespace guard; null = ungated (tests, minimal wiring). */
+        private readonly ?RootMountGuard $rootGuard = null,
     ) {
     }
 
@@ -571,6 +574,20 @@ final class EntryController
                 Response::HTTP_CONFLICT,
                 ['code' => 'ROUTE_TAKEN']
             );
+        }
+        // Root-mounted types claim the slug directly under / — the global root
+        // namespace (types, reserved, locales, other root pages/redirects)
+        // must stay collision-free (root-mounted-types spec §3).
+        $typeRow = $this->types->findByUuid($typeUuid);
+        if (($typeRow['mount_at_root'] ?? false) === true && $this->rootGuard !== null) {
+            $conflicts = $this->rootGuard->conflictsForSlug($locale, $input->slug, $uuid);
+            if ($conflicts !== []) {
+                return Response::error(
+                    'Root slug unavailable: ' . implode('; ', $conflicts),
+                    Response::HTTP_CONFLICT,
+                    ['code' => 'ROOT_SLUG_TAKEN', 'conflicts' => $conflicts]
+                );
+            }
         }
         $this->routes->assign($uuid, $typeUuid, $locale, $input->slug);
         return Response::success(['routes' => $this->routes->forEntry($uuid)], 'Route assigned.');

@@ -35,6 +35,23 @@ vi.mock('vue-router/auto', () => ({
   useRoute: () => ({ path: '/navigation', params: {}, query: {} }),
   useRouter: () => ({ push: vi.fn(), resolve: vi.fn() }),
 }))
+vi.mock('@/queries/contentTypes', () => ({
+  useContentTypes: () => ({
+    data: ref([{ slug: 'pages', name: 'Pages', public_delivery: true, schema: [] }]),
+  }),
+}))
+// The real picker is a USelectMenu over the entries query; the page only needs
+// its `picked` event, so a stub button stands in for the selection.
+vi.mock('@/fields/components/ReferencePicker.vue', () => ({
+  default: {
+    name: 'ReferencePicker',
+    props: { target: { type: String, required: true }, modelValue: { type: String, default: '' } },
+    emits: ['picked', 'update:modelValue'],
+    template:
+      '<button type="button" data-test="stub-pick" ' +
+      '@click="$emit(\'picked\', { uuid: \'e-9\', title: \'Hello Page\' })">pick</button>',
+  },
+}))
 
 import NavigationPage from '@/pages/navigation/index.vue'
 
@@ -88,6 +105,51 @@ describe('navigation page', () => {
     expect(arg.lockVersion).toBe(1)
     expect(arg.items).toHaveLength(2)
     expect(notify.success).toHaveBeenCalled()
+  })
+
+  it('Add page reveals the entry picker panel (nav-entry-items design)', async () => {
+    menusData.value = [{ slug: 'main', name: 'Main', item_count: 1, lock_version: 1 }]
+    const wrapper = mount(NavigationPage)
+    await flushPromises()
+    await wrapper.find('[data-test="nav-menu-row"]').trigger('click')
+    detailData.value = detail()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="add-page-picker"]').exists()).toBe(false)
+    await wrapper.find('[data-test="tree-add-page"]').trigger('click')
+    const picker = wrapper.find('[data-test="add-page-picker"]')
+    expect(picker.exists()).toBe(true)
+    expect(picker.text()).toContain('Pick a type first.')
+  })
+
+  it('picking a page adds an entry item whose label placeholder shows the page title', async () => {
+    menusData.value = [{ slug: 'main', name: 'Main', item_count: 1, lock_version: 1 }]
+    const wrapper = mount(NavigationPage)
+    await flushPromises()
+    await wrapper.find('[data-test="nav-menu-row"]').trigger('click')
+    detailData.value = detail()
+    await flushPromises()
+
+    await wrapper.find('[data-test="tree-add-page"]').trigger('click')
+    // The USelect v-model listener sits on Reka's SelectRoot (finding the
+    // component by the data-test CSS selector lands on SelectTrigger, whose
+    // emits go nowhere).
+    const root = wrapper
+      .findAllComponents({ name: 'SelectRoot' })
+      .find((r) => r.element.querySelector?.('[data-test="add-page-type"]'))
+    root!.vm.$emit('update:modelValue', 'pages')
+    await flushPromises()
+
+    await wrapper.find('[data-test="stub-pick"]').trigger('click')
+    await flushPromises()
+
+    const rows = wrapper.findAll('[data-test="tree-item"]')
+    expect(rows).toHaveLength(2)
+    // The new entry item's label input inherits the page title as its
+    // placeholder immediately — no save/reload required.
+    const label = rows[1]!.find('[data-test="tree-item-label"]')
+    expect(label.attributes('placeholder')).toBe('Hello Page')
+    expect((label.element as HTMLInputElement).value).toBe('')
   })
 
   it('a 409 on save reloads the menu and notifies instead of overwriting', async () => {

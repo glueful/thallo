@@ -119,9 +119,21 @@ final class ReferenceDeliveryFilterTest extends LemmaTestCase
                 new RedirectRepository($this->connection()),
                 $routes,
                 $types,
-                $paths,
+                new \App\Content\Seo\CanonicalPathBuilder(
+                    $paths,
+                    $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
+                ),
             ),
-            new CanonicalProjector($repo, $routes, $types, $paths, 'en'),
+            new CanonicalProjector(
+                $repo,
+                $routes,
+                $types,
+                new \App\Content\Seo\CanonicalPathBuilder(
+                    $paths,
+                    $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
+                ),
+                'en',
+            ),
         );
     }
 

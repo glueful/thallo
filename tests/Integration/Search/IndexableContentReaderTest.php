@@ -29,7 +29,9 @@ final class IndexableContentReaderTest extends LemmaTestCase
         self::assertSame('en', $record->locale);
         self::assertSame('blog', $record->contentTypeSlug);
         self::assertArrayHasKey('title', $record->fields);
-        self::assertStringContainsString('/en/blog/', $record->href);
+        // Search hrefs are canonical: the default locale collapses.
+        self::assertStringContainsString('/blog/', $record->href);
+        self::assertStringNotContainsString('/en/', $record->href);
     }
 
     public function testGetIndexablePublishedReturnsNullForUnpublishedLocale(): void

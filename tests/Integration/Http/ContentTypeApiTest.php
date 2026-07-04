@@ -173,6 +173,75 @@ final class ContentTypeApiTest extends LemmaTestCase
         }
     }
 
+    public function testUpdateMetaFlipsPublicDelivery(): void
+    {
+        // The headline gap: public_delivery was creation-only — no path to make
+        // an existing type publicly deliverable.
+        $this->controller()->store(
+            $this->hydrate(CreateContentTypeData::class, [
+                'slug' => 'landing', 'name' => 'Landing',
+                'schema' => [['name' => 'title', 'type' => 'string', 'required' => true]],
+            ]),
+            new Request(),
+        );
+        $resp = $this->controller()->update(
+            $this->hydrate(\App\Content\Http\DTOs\UpdateContentTypeData::class, [
+                'public_delivery' => true,
+                'description' => 'Now public',
+            ]),
+            new Request(),
+            'landing',
+        );
+        self::assertSame(200, $resp->getStatusCode());
+        $type = json_decode((string) $resp->getContent(), true)['data']['content_type'];
+        self::assertTrue($type['public_delivery']);
+        self::assertSame('Now public', $type['description']);
+        self::assertSame('landing', $type['slug']); // slug immutable, untouched
+
+        // Empty name -> 422; unknown slug -> 404.
+        $bad = $this->controller()->update(
+            $this->hydrate(\App\Content\Http\DTOs\UpdateContentTypeData::class, ['name' => '  ']),
+            new Request(),
+            'landing',
+        );
+        self::assertSame(422, $bad->getStatusCode());
+        $missing = $this->controller()->update(
+            $this->hydrate(\App\Content\Http\DTOs\UpdateContentTypeData::class, ['public_delivery' => true]),
+            new Request(),
+            'nope',
+        );
+        self::assertSame(404, $missing->getStatusCode());
+    }
+
+    public function testMountAtRootRoundTripsThroughCreateAndPatch(): void
+    {
+        // Create with the flag on, hydrated rows carry it, PATCH flips it off.
+        $resp = $this->controller()->store(
+            $this->hydrate(CreateContentTypeData::class, [
+                'slug' => 'pages', 'name' => 'Pages',
+                'public_delivery' => true,
+                'mount_at_root' => true,
+                'schema' => [['name' => 'title', 'type' => 'string', 'required' => true]],
+            ]),
+            new Request(),
+        );
+        self::assertSame(201, $resp->getStatusCode(), (string) $resp->getContent());
+        $type = json_decode((string) $resp->getContent(), true)['data']['content_type'];
+        self::assertTrue($type['mount_at_root']);
+        $row = (new ContentTypeRepository($this->connection()))->findBySlug('pages');
+        self::assertTrue($row['mount_at_root']);
+
+        $resp = $this->controller()->update(
+            $this->hydrate(\App\Content\Http\DTOs\UpdateContentTypeData::class, ['mount_at_root' => false]),
+            new Request(),
+            'pages',
+        );
+        self::assertSame(200, $resp->getStatusCode());
+        $type = json_decode((string) $resp->getContent(), true)['data']['content_type'];
+        self::assertFalse($type['mount_at_root']);
+        self::assertTrue($type['public_delivery']); // untouched by the partial PATCH
+    }
+
     public function testUpdateSchemaReturnsType(): void
     {
         // Seed a content type, then replace its schema, and assert the 200 payload shape.

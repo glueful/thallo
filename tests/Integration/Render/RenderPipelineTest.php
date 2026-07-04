@@ -216,4 +216,248 @@ final class RenderPipelineTest extends LemmaTestCase
         );
         self::assertStringNotContainsString('cache_tags', (string) $response->getContent());
     }
+
+    // ---- Presentation layer (modern-default-theme spec §5a) ------------------------
+
+    /**
+     * Seed a `pages` type (title + blocks body), publish one entry with the
+     * given fields at /pages/{slug}, and return its uuid. `_presentation` in
+     * $fields exercises the reserved system key end-to-end.
+     *
+     * @param array<string,mixed> $fields
+     */
+    private function seedPresentationEntry(array $fields, string $slug): string
+    {
+        (new \App\Content\Blocks\BlockTypeRepository($this->connection()))->create([
+            'slug' => 'quote',
+            'label' => 'Quote',
+            'schema' => [['name' => 'text', 'type' => 'text']],
+        ]);
+        $types = $this->container()->get(\App\Content\Repositories\ContentTypeRepository::class);
+        $type = $types->create([
+            'slug' => 'pages',
+            'name' => 'Pages',
+            'public_delivery' => true,
+            'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        $entries = new \App\Content\Repositories\EntryRepository($this->connection(), $this->appContext(), $types);
+        $publish = new \App\Content\Services\PublishService(
+            $this->appContext(),
+            $entries,
+            new \App\Content\Repositories\VersionRepository($this->connection()),
+            $types,
+            new \App\Content\Validation\FieldValidator(
+                $this->connection(),
+                $this->appContext(),
+                new \App\Content\Blocks\BlockTypeRepository($this->connection()),
+            ),
+            new \App\Content\Repositories\ReferenceProjectionRepository($this->connection()),
+        );
+        $entry = $entries->createEntry($type, 'en', 1, 'user00000001');
+        $entries->saveDraft($entry, 'en', $fields, 1, 0, 'user00000001');
+        (new \App\Content\Repositories\RouteRepository($this->connection()))->assign($entry, $type, 'en', $slug);
+        $publish->publish($entry, 'en', 'user00000001');
+        return $entry;
+    }
+
+    public function testPresentationOverrideHidesTitleAndSetsLayout(): void
+    {
+        $entry = $this->seedPresentationEntry([
+            'title' => 'Hidden Title Page',
+            '_presentation' => ['show_title' => false, 'layout' => 'full'],
+        ], 'hidden');
+        $res = $this->handle(Request::create('/pages/hidden', 'GET'));
+        self::assertSame(200, $res->getStatusCode());
+        $html = (string) $res->getContent();
+        // Attribute-resilient (plan-review note).
+        self::assertDoesNotMatchRegularExpression('/<h1[^>]*>\s*Hidden Title Page/', $html);
+        self::assertStringContainsString('layout--full', $html);
+
+        // Homepage honors the same override (override-app controller pattern).
+        $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $entry]);
+        $controller = $app->getContainer()
+            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+        $home = $controller->home(Request::create('/', 'GET'));
+        self::assertSame(200, $home->getStatusCode());
+        self::assertDoesNotMatchRegularExpression(
+            '/<h1[^>]*>\s*Hidden Title Page/',
+            (string) $home->getContent(),
+        );
+    }
+
+    public function testPresentationBuiltInsApplyWithoutOverride(): void
+    {
+        $this->seedBilingualPublishedEntry();
+        $plain = $this->handle(Request::create('/blog/hello', 'GET'));
+        $html = (string) $plain->getContent();
+        self::assertStringContainsString('<h1>Hello</h1>', $html);      // show_title built-in: true
+        self::assertStringContainsString('layout--centered', $html);    // layout built-in: centered
+        self::assertStringContainsString('entry-content', $html);
+    }
+
+    public function testThemeJsonSettingsBlockIsStrictlyValidated(): void
+    {
+        // Build a throwaway app theme on disk; settings validate at construction
+        // (modern-default-theme spec §5a: loud rejection, fixed vocabulary).
+        $dir = sys_get_temp_dir() . '/lemma-theme-settings-' . uniqid();
+        mkdir($dir . '/settingstheme/templates', 0777, true);
+        try {
+            $write = function (array $json) use ($dir): void {
+                file_put_contents(
+                    $dir . '/settingstheme/theme.json',
+                    json_encode(['name' => 'settingstheme'] + $json),
+                );
+            };
+            // Valid settings resolve, per-type included.
+            $write(['settings' => [
+                'layout' => 'full',
+                'types' => ['pages' => ['show_title' => false]],
+            ]]);
+            $locator = new \Glueful\Lemma\Render\ThemeLocator('settingstheme', $dir);
+            self::assertSame('full', $locator->settings()['layout']);
+            self::assertFalse($locator->settings()['types']['pages']['show_title']);
+
+            // Unknown key -> loud ThemeConfigError.
+            $write(['settings' => ['sparkles' => true]]);
+            try {
+                new \Glueful\Lemma\Render\ThemeLocator('settingstheme', $dir);
+                self::fail('expected ThemeConfigError');
+            } catch (\Glueful\Lemma\Render\ThemeConfigError) {
+            }
+
+            // Bad enum value -> loud too.
+            $write(['settings' => ['layout' => 'sideways']]);
+            $this->expectException(\Glueful\Lemma\Render\ThemeConfigError::class);
+            new \Glueful\Lemma\Render\ThemeLocator('settingstheme', $dir);
+        } finally {
+            @unlink($dir . '/settingstheme/theme.json');
+            @rmdir($dir . '/settingstheme/templates');
+            @rmdir($dir . '/settingstheme');
+            @rmdir($dir);
+        }
+    }
+
+    // ---- DB-backed homepage setting (homepage-setting spec §0) ---------------------
+
+    public function testHomepageDbSettingWinsAndClearFallsBackToEnv(): void
+    {
+        $dbHome = $this->seedPresentationEntry(['title' => 'DB Home'], 'db-home');
+        $envHome = $this->seedBilingualPublishedEntry(); // 'Hello' at /blog/hello
+
+        // Env configured, DB set: DB wins.
+        $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $envHome]);
+        $app->getContainer()->get(\App\Settings\SettingsStore::class)
+            ->putMany(['homepage_entry' => $dbHome]);
+        $controller = $app->getContainer()
+            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+        $home = fn(): string => (string) $controller->home(Request::create('/', 'GET'))->getContent();
+        self::assertStringContainsString('DB Home', $home());
+
+        // Clear (forget the row): env fallback ACTUALLY changes the render.
+        $app->getContainer()->get(\App\Settings\GeneralSettings::class)
+            ->save(['homepage_entry' => '']);
+        self::assertStringContainsString('Hello', $home());
+
+        // Both empty: the standalone index.
+        $bare = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => '']);
+        $bareController = $bare->getContainer()
+            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+        self::assertStringContainsString(
+            'powered by Lemma',
+            (string) $bareController->home(Request::create('/', 'GET'))->getContent(),
+        );
+    }
+
+    public function testBrokenDbHomepageFallsBackWithoutA500(): void
+    {
+        // Valid-at-write, broken later (spec pin): the provider re-validates per
+        // request, logs, and falls back — never a runtime 500.
+        $envHome = $this->seedBilingualPublishedEntry();
+        $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $envHome]);
+        $app->getContainer()->get(\App\Settings\SettingsStore::class)
+            ->putMany(['homepage_entry' => 'gone00000000']); // simulates a later-deleted entry
+        $controller = $app->getContainer()
+            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+        $res = $controller->home(Request::create('/', 'GET'));
+        self::assertSame(200, $res->getStatusCode());
+        self::assertStringContainsString('Hello', (string) $res->getContent()); // env fallback
+
+        // The env-invalid posture is UNCHANGED: loud 500 (deploy config error).
+        $bad = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => 'nope00000000']);
+        $badController = $bad->getContainer()
+            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+        self::assertSame(500, $badController->home(Request::create('/', 'GET'))->getStatusCode());
+    }
+
+    public function testHomepageSettingWriteTimeValidation(): void
+    {
+        $published = $this->seedPresentationEntry(['title' => 'Settable'], 'settable');
+        $controller = $this->container()->get(\App\Http\Controllers\GeneralSettingsController::class);
+        $hydrate = fn(array $body) => (new \Glueful\Validation\RequestDataHydrator())
+            ->hydrate(\App\Http\DTOs\UpdateGeneralSettingsData::class, $body, [], []);
+
+        // Unknown uuid -> 422.
+        $bad = $controller->update($hydrate(['homepage_entry' => 'missing000000']));
+        self::assertSame(422, $bad->getStatusCode());
+
+        // Published public entry -> saved; effective settings echo it.
+        $ok = $controller->update($hydrate(['homepage_entry' => $published]));
+        self::assertSame(200, $ok->getStatusCode());
+        $settings = json_decode((string) $ok->getContent(), true)['data']['settings'];
+        self::assertSame($published, $settings['homepage_entry']);
+
+        // Explicit '' clears the row -> env fallback ('' here).
+        $cleared = $controller->update($hydrate(['homepage_entry' => '']));
+        self::assertSame(200, $cleared->getStatusCode());
+        self::assertSame(
+            '',
+            json_decode((string) $cleared->getContent(), true)['data']['settings']['homepage_entry'],
+        );
+        self::assertNull(
+            $this->container()->get(\App\Settings\SettingsStore::class)->get('homepage_entry'),
+        );
+    }
+
+    public function testUnderscoreFieldNamesAreRejectedInSchemas(): void
+    {
+        // Reserved system keys (spec §5a): [a-z][a-z0-9_]* already forbids a
+        // leading underscore — this test PINS that as the reservation policy.
+        $types = $this->container()->get(\App\Content\Repositories\ContentTypeRepository::class);
+        $this->expectException(\App\Content\Schema\SchemaParseException::class);
+        \App\Content\Schema\ContentTypeSchema::fromArray([
+            ['name' => '_presentation', 'type' => 'string'],
+        ]);
+    }
+
+    public function testInvalidPresentationValuesFailValidation(): void
+    {
+        $validator = new \App\Content\Validation\FieldValidator(
+            $this->connection(),
+            $this->appContext(),
+            new \App\Content\Blocks\BlockTypeRepository($this->connection()),
+        );
+        $schema = \App\Content\Schema\ContentTypeSchema::fromArray([
+            ['name' => 'title', 'type' => 'string'],
+        ]);
+        // Valid vocabulary passes and is PRESERVED in the cleaned payload.
+        $clean = $validator->validate($schema, [
+            'title' => 'T',
+            '_presentation' => ['show_title' => false, 'layout' => 'centered'],
+        ]);
+        self::assertSame(['show_title' => false, 'layout' => 'centered'], $clean['_presentation']);
+        // Unknown subkey and bad enum value both fail loudly.
+        try {
+            $validator->validate($schema, ['title' => 'T', '_presentation' => ['layout' => 'sideways']]);
+            self::fail('expected ValidationException');
+        } catch (\App\Content\Validation\ValidationException) {
+        }
+        try {
+            $validator->validate($schema, ['title' => 'T', '_presentation' => ['sparkles' => true]]);
+            self::fail('expected ValidationException');
+        } catch (\App\Content\Validation\ValidationException) {
+        }
+    }
 }

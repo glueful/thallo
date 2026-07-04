@@ -177,6 +177,85 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   open, starting the stage and the tree OUT OF SYNC in a way stageStale
   cannot detect. One initial apply of the hydrated tree (after the stage
   loads, regardless of the Auto toggle) overwrites the stash with truth.
+- **Root-mounted content types**: a per-type `mount_at_root` flag serves
+  entries at `/{locale?}/{slug}` (`/about`, `/fr/a-propos`) instead of the
+  type-prefixed `/{type}/{slug}` — the marketing-site URL shape. The root
+  grammar is FIXED (never derived from `LEMMA_SEO_ROUTE_TEMPLATE`); type
+  paths take precedence at resolve time; the prefixed path 301s to the root
+  canonical (content only — redirect rows follow their descriptor in one
+  hop); rename redirects keep working at root. A `RootMountGuard` owns the
+  global root namespace at WRITE time (409/422, never silent shadowing):
+  root slugs and redirect sources cannot collide with type slugs, reserved
+  prefixes/exact paths (`v1`, `sitemap.xml`…), active locale codes,
+  `page`/`terms`, or each other — with a self-reclaim exception for an
+  entry renaming back to its own previous slug; flipping the flag ON
+  validates every existing route + redirect source first, and either flip
+  purges the render page cache. A single `CanonicalPathBuilder` now makes
+  the prefixed-vs-root + default-locale-collapse decision for EVERY href
+  surface: resolver/listing hrefs, nav targets, SEO canonical + hreflang
+  (per-pin type flags), search index hrefs, sitemap, delivery hrefs,
+  redirect targets, and the LemmaContext seam — fixing latent off-canonical
+  `/en/...` emissions in redirect targets, sitemap, search, and hreflang
+  alternates along the way. Admin: "Mount at root" toggles on the type
+  create screen and type editor (409 conflict lists surface in the toast;
+  the switch reverts — the flag never flips partially).
+- Content-type metadata is now editable post-creation: `PATCH
+  /content-types/{slug}` updates name/description/cache_ttl/**public_delivery**
+  (slug stays immutable; the schema keeps its own endpoint). Previously
+  `public_delivery` was creation-only — a type created with the switch off
+  (the default) could never be made publicly deliverable. The type editor's
+  read-only "Public delivery" row is now a live toggle; flipping the flag
+  purges the render page cache so stale public/404 responses don't linger.
+  Type dropdowns (navigation Add page, homepage picker) show non-public
+  types disabled with a "not publicly delivered" hint instead of hiding
+  them.
+- Navigation entry items are now first-class in the admin: "Add item"
+  split into **Add link** (url) and **Add page** (published-entry picker —
+  the UI previously could only create url items, leaving the entry-kind
+  machinery unreachable). Menu labels INHERIT the target page's localized
+  title when empty (resolver fallback: label locale → default → any →
+  published title) — typed labels override, clearing re-inherits, renames
+  flow to the nav on publish. The admin tree payload carries
+  `target_title` so the label input's placeholder shows the exact
+  inherited string, plus the resolved target path next to the status
+  badge. Newly added page items show the inherited-title placeholder
+  immediately (the picker hands back the display title), not only after
+  save/reload. Fixed: entry-item target paths now collapse the default
+  locale (`/pages/home`, not `/en/pages/home`) — matching the site's
+  canonical rule, so menus no longer link off-canonical.
+- DB-backed homepage setting: the homepage is now an admin-editable site
+  setting (Settings › General → Homepage picker, or "Set as homepage" in
+  the entry editor's publish panel; a Home badge marks the entry in the
+  content list and publish panel). Stores the entry uuid in
+  lemma_settings; env `RENDER_HOMEPAGE_ENTRY` remains the deploy default.
+  Write-time validation requires a published entry of a publicly
+  delivered type (422 otherwise); clearing DELETES the override row so
+  the env fallback shows through; a valid-at-write override that later
+  breaks (unpublished/deleted) is re-validated per request by a
+  source-aware `HomepageEntryProvider` contract — it logs and falls back
+  instead of 500ing, while an invalid ENV value keeps the loud config
+  error. One homepage entry, entry-level locale.
+- Modern default theme: the reference theme is now a polished modern-SaaS
+  site — fluid type scale, spacing/radius/color tokens with automatic dark
+  mode, sticky translucent header, namespaced shell classes
+  (.site-header/.site-nav/.site-footer — block templates' own
+  header/nav/footer elements no longer inherit shell styling), full-width
+  flow with per-block containers, and a restyled starter block library
+  (full-bleed gradient hero, panel CTA, section bands, card columns, pull
+  quote, cover-fit gallery). Presentation is a new LAYERED contract: one
+  composed `presentation` template context (`show_title`, `layout`)
+  resolves per-page override → theme.json per-type → theme.json default →
+  built-ins. Themes declare defaults in a strictly-validated `settings`
+  block; editors override per page from the canvas inspector's new
+  **Page** tab. Overrides live under the reserved `_presentation` fields
+  key — validated against a fixed vocabulary regardless of schema,
+  versioned/previewed/published with the page, STRIPPED from all delivery
+  payloads, and schema field names may never start with `_` (reserved
+  for system keys). The homepage
+  template now renders a blocks body through blocks() exactly like
+  entry.twig (it previously printed the array through the scalar
+  fallback). DB template overrides are untouched; disk fallbacks update
+  everywhere no override exists.
 - Partial DOM patching (canvas v10): successful Apply/auto-apply no longer
   reloads the stage iframe — the bridge fetches a real render of the
   working copy from the stage's own URL, proves the page shell and the

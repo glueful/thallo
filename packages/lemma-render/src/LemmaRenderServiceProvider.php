@@ -215,6 +215,10 @@ final class LemmaRenderServiceProvider extends ServiceProvider
                 : null,
             $dbTemplates ? $container->get(TemplateRepository::class) : null,
             $dbTemplates ? $container->get(TemplateLinter::class) : null,
+            $container->get(ThemeLocator::class),
+            $container->has(\Glueful\Lemma\Contracts\Delivery\HomepageEntryProvider::class)
+                ? $container->get(\Glueful\Lemma\Contracts\Delivery\HomepageEntryProvider::class)
+                : null,
         );
     }
 

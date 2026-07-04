@@ -88,7 +88,11 @@ final class NavigationApiTest extends LemmaTestCase
         self::assertSame('en', $show['locale']);
         self::assertCount(2, $show['items']);
         self::assertSame('published', $show['items'][1]['target_status']);
-        self::assertStringContainsString('/blog/hello', (string) $show['items'][1]['target_url']);
+        // Exact canonical: the default locale collapses (no /en/ prefix).
+        self::assertSame('https://site.test/blog/hello', (string) $show['items'][1]['target_url']);
+        // The inherited label (nav-entry-items design): the SPA shows this as
+        // the label placeholder — it never guesses titles itself.
+        self::assertSame('Hello', $show['items'][1]['target_title']);
         self::assertCount(1, $show['items'][1]['children']);
 
         // Stale lock_version → 409

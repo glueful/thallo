@@ -20,6 +20,9 @@ final class CreateContentTypesTable implements MigrationInterface
             $table->text('description')->nullable();
             $table->integer('cache_ttl')->nullable();
             $table->boolean('public_delivery')->default(false);
+            // Root-mounted URL grammar: entries serve at /{locale?}/{slug}
+            // (e.g. /about) instead of /{locale?}/{type}/{slug}.
+            $table->boolean('mount_at_root')->default(false);
             $table->enum('status', ['active', 'archived', 'deleted'], 'active');
             $table->json('schema');                 // field definitions (JSONB)
             $table->integer('schema_version')->default(1);

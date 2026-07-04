@@ -1,9 +1,11 @@
 {% set url = data.button_url|default('')|safe_url %}
 <aside class="lemma-block lemma-block-cta lemma-block-cta--{{ data.variant|default('primary') }}">
-  <h2 class="lemma-block-cta__heading">{{ data.heading|editable_text('heading') }}</h2>
-  {% if data.body %}<p class="lemma-block-cta__body">{{ data.body|editable_text('body') }}</p>{% endif %}
-  {% if data.button_label %}
-    {% if url %}<a class="lemma-block-cta__button" href="{{ url }}">{{ data.button_label|editable_text('button_label') }}</a>
-    {% else %}<span class="lemma-block-cta__button">{{ data.button_label|editable_text('button_label') }}</span>{% endif %}
-  {% endif %}
+  <div class="lemma-block-cta__inner">
+    <h2 class="lemma-block-cta__heading">{{ data.heading|editable_text('heading') }}</h2>
+    {% if data.body %}<p class="lemma-block-cta__body">{{ data.body|editable_text('body') }}</p>{% endif %}
+    {% if data.button_label %}
+      {% if url %}<a class="lemma-block-cta__button" href="{{ url }}">{{ data.button_label|editable_text('button_label') }}</a>
+      {% else %}<span class="lemma-block-cta__button">{{ data.button_label|editable_text('button_label') }}</span>{% endif %}
+    {% endif %}
+  </div>
 </aside>

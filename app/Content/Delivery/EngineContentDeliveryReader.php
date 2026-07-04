@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Content\Delivery;
 
 use App\Content\Repositories\ContentTypeRepository;
+use App\Content\Seo\CanonicalPathBuilder;
 use App\Content\Seo\CanonicalProjector;
-use App\Content\Seo\PathRenderer;
 use Glueful\Lemma\Contracts\Delivery\ContentDeliveryReader;
 
 /**
@@ -15,12 +15,9 @@ use Glueful\Lemma\Contracts\Delivery\ContentDeliveryReader;
  */
 final class EngineContentDeliveryReader implements ContentDeliveryReader
 {
-    /** @var array<string,string>|null uuid => type slug, lazily built */
-    private ?array $typeSlugs = null;
-
     public function __construct(
         private readonly DeliveryRepository $delivery,
-        private readonly PathRenderer $paths,
+        private readonly CanonicalPathBuilder $pathBuilder,
         private readonly CanonicalProjector $canonical,
         private readonly ContentTypeRepository $types,
     ) {
@@ -40,15 +37,16 @@ final class EngineContentDeliveryReader implements ContentDeliveryReader
     public function enumeratePublishedForSitemap(int $limit, int $offset = 0): array
     {
         $page = $this->delivery->enumeratePublishedForSitemap($limit, $offset);
-        $slugs = $this->typeSlugMap();
+        $types = $this->typeInfoMap();
 
         $items = [];
         foreach ($page['rows'] as $row) {
             $typeUuid = (string) $row['content_type_uuid'];
-            $typeSlug = $slugs[$typeUuid] ?? null;
-            if ($typeSlug === null) {
+            $info = $types[$typeUuid] ?? null;
+            if ($info === null) {
                 continue; // orphaned type — skip rather than emit a broken URL
             }
+            $typeSlug = $info['slug'];
             $locale = (string) $row['locale'];
             $slug = (string) $row['slug'];
             $entryUuid = (string) $row['entry_uuid'];
@@ -59,7 +57,9 @@ final class EngineContentDeliveryReader implements ContentDeliveryReader
             }
 
             $items[] = [
-                'href' => $this->paths->render($typeSlug, $locale, $slug),
+                // Sitemaps must list CANONICAL URLs — root-collapsed and
+                // default-locale collapsed, same builder as every href surface.
+                'href' => $this->pathBuilder->pathFor($typeSlug, $info['mount_at_root'], $locale, $slug),
                 'lastmod' => Timestamps::iso($row['published_at'] ?? null),
                 'alternates' => $alternates,
             ];
@@ -68,15 +68,23 @@ final class EngineContentDeliveryReader implements ContentDeliveryReader
         return ['items' => $items, 'total' => $page['total'], 'limit' => $limit, 'offset' => $offset];
     }
 
-    /** @return array<string,string> uuid => slug */
-    private function typeSlugMap(): array
+    /**
+     * Built per call, NOT memoized: this reader is a shared singleton, and a
+     * process-lifetime uuid=>type cache would go stale the moment types
+     * change (and poisons truncate-between-tests suites). One query per
+     * sitemap page is the honest cost.
+     *
+     * @return array<string,array{slug:string,mount_at_root:bool}> uuid => type info
+     */
+    private function typeInfoMap(): array
     {
-        if ($this->typeSlugs === null) {
-            $this->typeSlugs = [];
-            foreach ($this->types->all() as $type) {
-                $this->typeSlugs[(string) $type['uuid']] = (string) $type['slug'];
-            }
+        $map = [];
+        foreach ($this->types->all() as $type) {
+            $map[(string) $type['uuid']] = [
+                'slug' => (string) $type['slug'],
+                'mount_at_root' => (bool) ($type['mount_at_root'] ?? false),
+            ];
         }
-        return $this->typeSlugs;
+        return $map;
     }
 }

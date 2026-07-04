@@ -71,8 +71,26 @@ final class DeliveryApiTest extends LemmaTestCase
             new Projector(),
             new DeliveryEtag(),
             $locales,
-            new RouteResolver($repo, new RedirectRepository($this->connection()), $routes, $types, $paths),
-            new CanonicalProjector($repo, $routes, $types, $paths, 'en'),
+            new RouteResolver(
+                $repo,
+                new RedirectRepository($this->connection()),
+                $routes,
+                $types,
+                new \App\Content\Seo\CanonicalPathBuilder(
+                    $paths,
+                    $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
+                ),
+            ),
+            new CanonicalProjector(
+                $repo,
+                $routes,
+                $types,
+                new \App\Content\Seo\CanonicalPathBuilder(
+                    $paths,
+                    $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
+                ),
+                'en',
+            ),
         );
     }
 
@@ -163,6 +181,23 @@ final class DeliveryApiTest extends LemmaTestCase
         self::assertSame(404, $resp->getStatusCode());
     }
 
+    public function testPresentationIsStrippedFromTheShowPayload(): void
+    {
+        // The contract (modern-default-theme spec §5a): _presentation is
+        // draft/version state, NOT public content — the schema-allowlist
+        // projection strips it from every delivery payload.
+        $uuid = $this->publish([
+            'title' => 'Presented',
+            'priority' => 1,
+            '_presentation' => ['show_title' => false, 'layout' => 'full'],
+        ]);
+        $resp = $this->controller()->show($this->get(), $this->showQuery(), 'post', $uuid);
+        $data = json_decode((string) $resp->getContent(), true)['data'];
+        self::assertSame('Presented', $data['fields']['title']);
+        self::assertArrayNotHasKey('_presentation', $data['fields']);
+        self::assertStringNotContainsString('_presentation', (string) $resp->getContent());
+    }
+
     public function testShowReturnsPublishedFields(): void
     {
         $uuid = $this->publish(['title' => 'Hello show', 'priority' => 1]);
@@ -183,7 +218,8 @@ final class DeliveryApiTest extends LemmaTestCase
         self::assertSame(200, $resp->getStatusCode());
 
         $data = json_decode($resp->getContent(), true)['data'];
-        self::assertSame('/en/post/seo-show', $data['seo']['canonical']['href']);
+        // Canonical href collapses the default locale.
+        self::assertSame('/post/seo-show', $data['seo']['canonical']['href']);
         self::assertSame('/post/seo-show', $data['seo']['x_default']['href']);
         self::assertSame(['en'], array_column($data['seo']['alternates'], 'locale'));
     }
@@ -201,7 +237,9 @@ final class DeliveryApiTest extends LemmaTestCase
         $body = json_decode($resp->getContent(), true);
         self::assertArrayHasKey('redirect', $body['data']);
         self::assertArrayNotHasKey('fields', $body['data']);
-        self::assertSame('/en/post/new', $body['data']['redirect']['to']);
+        // Redirect targets are CANONICAL: the default locale collapses (the
+        // raw /en/... form was the pre-CanonicalPathBuilder off-canonical bug).
+        self::assertSame('/post/new', $body['data']['redirect']['to']);
         self::assertSame(301, $body['data']['redirect']['status']);
         self::assertSame('max-age=60, public', $resp->headers->get('Cache-Control'));
         self::assertStringContainsString('lemma:entry:' . $uuid, (string) $resp->headers->get('Cache-Tag'));

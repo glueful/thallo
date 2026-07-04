@@ -27,6 +27,7 @@ final class ContentTypeRepository
             'description' => isset($data['description']) ? (string) $data['description'] : null,
             'cache_ttl' => isset($data['cache_ttl']) ? max(0, (int) $data['cache_ttl']) : null,
             'public_delivery' => (bool) ($data['public_delivery'] ?? false),
+            'mount_at_root' => (bool) ($data['mount_at_root'] ?? false),
             'status' => 'active',
             'schema' => json_encode($schema->toArray(), JSON_THROW_ON_ERROR),
             'schema_version' => 1,
@@ -62,6 +63,37 @@ final class ContentTypeRepository
             'schema_version' => (int) $current['schema_version'] + 1,
             'updated_at' => $this->now(),
         ]);
+    }
+
+    /**
+     * Update NON-SCHEMA metadata (content-type PATCH): only supplied keys
+     * change; the slug is immutable and schema edits have their own path.
+     *
+     * @param array<string,mixed> $partial
+     */
+    public function updateMeta(string $uuid, array $partial): void
+    {
+        $update = [];
+        if (array_key_exists('name', $partial) && $partial['name'] !== null) {
+            $update['name'] = trim((string) $partial['name']);
+        }
+        if (array_key_exists('description', $partial) && $partial['description'] !== null) {
+            $update['description'] = (string) $partial['description'];
+        }
+        if (array_key_exists('cache_ttl', $partial) && $partial['cache_ttl'] !== null) {
+            $update['cache_ttl'] = max(0, (int) $partial['cache_ttl']);
+        }
+        if (array_key_exists('public_delivery', $partial) && $partial['public_delivery'] !== null) {
+            $update['public_delivery'] = (bool) $partial['public_delivery'];
+        }
+        if (array_key_exists('mount_at_root', $partial) && $partial['mount_at_root'] !== null) {
+            $update['mount_at_root'] = (bool) $partial['mount_at_root'];
+        }
+        if ($update === []) {
+            return;
+        }
+        $update['updated_at'] = $this->now();
+        $this->db->table('content_types')->where('uuid', '=', $uuid)->update($update);
     }
 
     /** @return array<string,mixed>|null */
@@ -123,6 +155,7 @@ final class ContentTypeRepository
         $row['schema_version'] = (int) $row['schema_version'];
         $row['cache_ttl'] = isset($row['cache_ttl']) ? (int) $row['cache_ttl'] : null;
         $row['public_delivery'] = (bool) ($row['public_delivery'] ?? false);
+        $row['mount_at_root'] = (bool) ($row['mount_at_root'] ?? false);
         return $row;
     }
 

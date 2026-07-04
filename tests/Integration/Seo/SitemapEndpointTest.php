@@ -34,7 +34,8 @@ final class SitemapEndpointTest extends LemmaTestCase
         self::assertSame('application/xml; charset=UTF-8', $resp->headers->get('Content-Type'));
         $body = (string) $resp->getContent();
         self::assertStringContainsString('<urlset', $body);
-        self::assertStringContainsString('https://site.test/en/blog/hello', $body);
+        // Sitemap URLs are canonical: the default locale collapses.
+        self::assertStringContainsString('https://site.test/blog/hello', $body);
     }
 
     public function testSitemap409WhenOriginMissing(): void

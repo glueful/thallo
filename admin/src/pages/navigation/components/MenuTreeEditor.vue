@@ -74,7 +74,7 @@ function setLabel(item: NavTreeItem, value: string): void {
           :model-value="item.labels[locale] ?? ''"
           size="sm"
           class="w-44"
-          :placeholder="`Label (${locale})`"
+          :placeholder="item.kind === 'entry' && item.target_title ? item.target_title : `Label (${locale})`"
           data-test="tree-item-label"
           @update:model-value="(v: string) => setLabel(item, v)"
         />
@@ -87,14 +87,19 @@ function setLabel(item: NavTreeItem, value: string): void {
           data-test="tree-item-url"
           @update:model-value="changed()"
         />
-        <UBadge
-          v-else-if="item.target_status"
-          :color="STATUS_COLOR[item.target_status]"
-          variant="subtle"
-          data-test="tree-item-status"
-        >
-          {{ STATUS_LABEL[item.target_status] }}
-        </UBadge>
+        <template v-else>
+          <UBadge
+            v-if="item.target_status"
+            :color="STATUS_COLOR[item.target_status]"
+            variant="subtle"
+            data-test="tree-item-status"
+          >
+            {{ STATUS_LABEL[item.target_status] }}
+          </UBadge>
+          <code v-if="item.target_url" class="text-muted max-w-48 truncate text-xs" data-test="tree-item-path">
+            {{ item.target_url }}
+          </code>
+        </template>
 
         <span class="grow" />
         <UButton size="xs" variant="ghost" icon="i-lucide-arrow-up" data-test="tree-item-up" @click="move(i, -1)" />
