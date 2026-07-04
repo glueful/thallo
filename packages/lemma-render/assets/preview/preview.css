@@ -89,6 +89,11 @@
 }
 .lemma-canvas-format-bar.lemma-canvas-format-visible { visibility: visible; }
 .lemma-canvas-format-row { display: flex; gap: 2px; }
+/* Active-state (polish batch §1): the caret/selection carries this mark. */
+.lemma-canvas-format-bar button.lemma-canvas-format-active {
+  background: #3f3f46;
+  color: #60a5fa;
+}
 
 /* Inline link panel (link-panel spec §1): a second row inside the bubble —
    the column layout shrink-wraps the bubble to the widest row. The apply
@@ -111,3 +116,22 @@
 }
 .lemma-canvas-link-panel input::placeholder { color: #a1a1aa; }
 .lemma-canvas-link-panel.lemma-canvas-link-invalid input { box-shadow: 0 0 0 1px #ef4444 inset; }
+
+/* Cursor-following drag ghost (polish batch §2): a compact stripped clone of
+   the dragged block riding the pointer. Geometry (transform) is set by the
+   bridge via CSSOM; everything visual lives here. */
+.lemma-canvas-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2147483000;
+  pointer-events: none;
+  max-width: 280px;
+  max-height: 96px;
+  overflow: hidden;
+  opacity: 0.85;
+  border-radius: 8px;
+  background: #fff;
+  color: #18181b;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+}

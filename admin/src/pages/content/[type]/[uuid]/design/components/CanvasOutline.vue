@@ -19,7 +19,40 @@ const props = defineProps<{
   selected: string | null
 }>()
 
-const emit = defineEmits<{ select: [id: string] }>()
+const emit = defineEmits<{
+  select: [id: string]
+  move: [id: string, delta: 1 | -1]
+  deleteRequest: [id: string]
+  duplicate: [id: string]
+  deselect: []
+}>()
+
+// Keyboard twin of the stage scheme (polish batch §4): acts on the SELECTED
+// block regardless of which row has focus; rows keep native button semantics
+// for Enter/Space (selection). No selection -> inert.
+function onKeydown(e: KeyboardEvent): void {
+  const id = props.selected
+  if (!id) return
+  if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault()
+    emit('move', id, e.key === 'ArrowUp' ? -1 : 1)
+    return
+  }
+  if (e.key === 'Backspace' || e.key === 'Delete') {
+    e.preventDefault()
+    emit('deleteRequest', id)
+    return
+  }
+  if ((e.metaKey || e.ctrlKey) && (e.key === 'd' || e.key === 'D')) {
+    e.preventDefault()
+    emit('duplicate', id)
+    return
+  }
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    emit('deselect')
+  }
+}
 
 const { data: allTypes } = useBlockTypes()
 const bySlug = computed(() => new Map((allTypes.value ?? []).map((t) => [t.slug, t])))
@@ -66,7 +99,7 @@ const groups = computed(() =>
 </script>
 
 <template>
-  <div class="space-y-3" data-test="canvas-outline">
+  <div class="space-y-3" data-test="canvas-outline" @keydown="onKeydown">
     <div v-for="group in groups" :key="group.field">
       <p class="px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted">
         {{ group.field }}

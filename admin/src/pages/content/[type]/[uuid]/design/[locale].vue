@@ -8,7 +8,7 @@ import { proseRichFieldName } from '@/fields/components/blocks/proseDetection'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
 import { applyPreview, mintPreviewData } from '@/queries/preview'
 import { useCanvasBridge } from '@/composables/useCanvasBridge'
-import type { EditKind } from '@/composables/useCanvasBridge'
+import type { BridgeAnchor, EditKind } from '@/composables/useCanvasBridge'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError, apiErrorCode, apiErrorDetails } from '@/api/errors'
 import { toFieldDef } from '@/fields/normalize'
@@ -157,10 +157,15 @@ function onOutlineSelect(id: string): void {
 
 // ── Stage toolbar intents (stage-toolbar spec §2/§4): mutate through the
 // FieldEditor (single tree authority), mirror ONLY after the commit. ──────────
-bridge.onBlockMove((id, delta) => {
+// Shared intent handlers (polish batch §4): the outline's keyboard emits and
+// the bridge's stage callbacks drive the SAME functions — no new mutation
+// paths, just two front doors.
+function moveBlockAndMirror(id: string, delta: 1 | -1): void {
   const neighbor = fieldEditorRef.value?.moveBlockById(id, delta) ?? null
   if (neighbor) bridge.mirrorMove(id, neighbor)
-})
+}
+
+bridge.onBlockMove(moveBlockAndMirror)
 
 bridge.onBlockMoveTo((id, neighbor) => {
   // The drag WAS the mirror: an accepted drop needs no message back — the
@@ -171,14 +176,16 @@ bridge.onBlockMoveTo((id, neighbor) => {
   if (!ok) reloadStage()
 })
 
-bridge.onBlockDuplicate((id) => {
+function duplicateAndMirror(id: string): void {
   const result = fieldEditorRef.value?.duplicateBlockById(id) ?? null
   if (result) {
     bridge.mirrorDuplicate(id, result.idMap)
     selected.value = result.newId
     fieldEditorRef.value?.selectBlockById(result.newId)
   }
-})
+}
+
+bridge.onBlockDuplicate(duplicateAndMirror)
 
 /**
  * Translate an iframe-viewport anchor into stage-container content
@@ -204,10 +211,19 @@ function anchoredPos(
 // Delete is parent-confirmed (review pin): the bridge only ever REQUESTS.
 const deleteRequest = ref<string | null>(null)
 const deletePos = ref<{ top: string; left: string } | null>(null)
-bridge.onBlockDeleteRequest((id, anchor) => {
-  deletePos.value = anchoredPos(anchor, 200)
+function openDeleteConfirm(id: string, anchor: BridgeAnchor | null): void {
+  deletePos.value = anchoredPos(anchor, 200) // null anchor -> centered fallback
   deleteRequest.value = id
-})
+}
+
+bridge.onBlockDeleteRequest(openDeleteConfirm)
+
+// Outline Escape (polish batch §4): clear parent state AND the stage ring —
+// the bridge's highlight handler clearSelection()s on an unresolvable id.
+function onOutlineDeselect(): void {
+  selected.value = null
+  bridge.highlight('')
+}
 
 function cancelDelete(): void {
   deleteRequest.value = null
@@ -231,8 +247,38 @@ const stageEl = ref<HTMLElement | null>(null)
 // toolbar button); null = the centered fallback classes.
 const addAfterPos = ref<{ top: string; left: string } | null>(null)
 
+// Type-to-filter (same semantics as the editor's BlockInsertMenu): matches
+// label/slug/description, Enter picks the first match, Escape cancels.
+const addAfterFilter = ref('')
+const filteredAddTypes = computed(() => {
+  const q = addAfterFilter.value.trim().toLowerCase()
+  if (q === '') return addAfterTypes.value
+  return addAfterTypes.value.filter(
+    (t) =>
+      t.label.toLowerCase().includes(q) ||
+      t.slug.toLowerCase().includes(q) ||
+      (t.description ?? '').toLowerCase().includes(q),
+  )
+})
+
+function onAddFilterKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    cancelAddAfter()
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    const first = filteredAddTypes.value[0]
+    if (first) chooseAddType(first.slug)
+  }
+}
+
+// Autofocus the filter when the picker opens (jsdom-safe: focus() no-ops).
+const vFocus = { mounted: (el: HTMLElement) => el.focus() }
+
 bridge.onBlockAddAfter((id, anchor) => {
   addAfterTypes.value = fieldEditorRef.value?.pickerTypesForBlock(id) ?? []
+  addAfterFilter.value = '' // fresh search per open
   addAfterPos.value = anchoredPos(anchor, 256) // the w-64 panel
   addAfterId.value = id
 })
@@ -659,20 +705,31 @@ function reloadStage(): void {
             data-test="canvas-add-picker"
           >
             <p class="mb-1 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
-              Add block after (visible on next Apply)
+              Add block after
             </p>
-            <button
-              v-for="t in addAfterTypes"
-              :key="t.slug"
-              class="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-elevated"
-              type="button"
-              :data-test="`canvas-add-type-${t.slug}`"
-              @click="chooseAddType(t.slug)"
-            >
-              <UIcon :name="t.icon || 'i-lucide-box'" />
-              <span class="font-medium">{{ t.label }}</span>
-            </button>
-            <p v-if="!addAfterTypes.length" class="px-2 py-1.5 text-sm text-muted">
+            <input
+              v-focus
+              v-model="addAfterFilter"
+              type="text"
+              placeholder="Filter blocks…"
+              class="mb-1 w-full rounded border border-default bg-transparent px-2 py-1 text-sm outline-none"
+              data-test="canvas-add-filter"
+              @keydown="onAddFilterKeydown"
+            />
+            <div class="grid grid-cols-2 gap-1">
+              <button
+                v-for="t in filteredAddTypes"
+                :key="t.slug"
+                class="flex flex-col items-center gap-1 rounded px-2 py-1.5 text-center text-xs hover:bg-elevated"
+                type="button"
+                :data-test="`canvas-add-type-${t.slug}`"
+                @click="chooseAddType(t.slug)"
+              >
+                <UIcon :name="t.icon || 'i-lucide-box'" class="size-4 text-muted" />
+                <span class="truncate font-medium">{{ t.label }}</span>
+              </button>
+            </div>
+            <p v-if="!filteredAddTypes.length" class="px-2 py-1.5 text-sm text-muted">
               No block types available here.
             </p>
             <div class="mt-1 flex justify-end">
@@ -688,6 +745,10 @@ function reloadStage(): void {
             :schema="schema"
             :selected="selected"
             @select="onOutlineSelect"
+            @move="moveBlockAndMirror"
+            @delete-request="(id: string) => openDeleteConfirm(id, null)"
+            @duplicate="duplicateAndMirror"
+            @deselect="onOutlineDeselect"
           />
         </aside>
         

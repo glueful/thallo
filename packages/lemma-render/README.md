@@ -163,6 +163,8 @@ the next Save & refresh re-renders the truth. All toolbar styling lives in the
 static `/_preview.css` (never inline styles); the toolbar is positioned by DOM
 placement inside the selected block's first element, so blocks whose templates
 render no element (text-only output) get selection but no toolbar.
+While dragging, a compact ghost of the block follows the cursor and the
+page auto-scrolls when the pointer nears the viewport edges.
 The selected block also answers the keyboard: Alt/Option+Arrow moves it,
 Backspace/Delete asks the admin's delete confirm, Cmd/Ctrl+D duplicates,
 Enter opens in-place editing when the block has exactly one editable region
@@ -184,7 +186,8 @@ contenteditable whose text flows back to the admin's block tree. Typed HTML
 is sanitized at save and re-sanitized by `safe_html` at render.
 While a rich session is active, selecting text shows a small formatting
 bubble over the selection (bold, italic, underline, strikethrough,
-link/unlink); the bridge normalizes ALL rich-region output (bar actions,
+link/unlink — buttons light up when the caret already carries the mark);
+the bridge normalizes ALL rich-region output (bar actions,
 native Cmd+B/Cmd+I, paste) into the sanitizer's allowlist shape
 (`strong`/`em`/`u`/`s`, no styled spans) before it
 flows back, so formatting survives save and re-render. Links are added

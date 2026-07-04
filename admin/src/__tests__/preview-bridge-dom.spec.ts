@@ -1549,3 +1549,245 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
     }
   })
 })
+
+describe('bubble active-state (polish batch §1)', () => {
+  const realGetSelection = window.getSelection
+  const realQueryCommandState = document.queryCommandState
+
+  function grantRich(id: string, inner?: string): HTMLElement {
+    const w = inner ? wrapper(id, inner) : proseWrapper(id)
+    document.body.appendChild(w)
+    sendToBridge({ type: 'lemma:edit-grant', id, field: 'body', kind: 'rich' })
+    return w
+  }
+
+  function endSession(w: HTMLElement): void {
+    const region = w.querySelector('.lemma-edit-region')
+    region?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  }
+
+  function bubble(): HTMLElement {
+    return document.querySelector('body > .lemma-canvas-format-bar') as HTMLElement
+  }
+
+  function stubSel(container: Node, collapsed = false): { collapse: (c: boolean) => void } {
+    const state = { isCollapsed: collapsed }
+    window.getSelection = vi.fn().mockImplementation(() => ({
+      isCollapsed: state.isCollapsed,
+      rangeCount: 1,
+      getRangeAt: () => ({
+        commonAncestorContainer: container,
+        cloneRange(): object {
+          return this
+        },
+        getBoundingClientRect: () => ({
+          left: 100, top: 200, width: 50, height: 20, bottom: 220, right: 150, x: 100, y: 200,
+        }),
+      }),
+      removeAllRanges: vi.fn(),
+      addRange: vi.fn(),
+    })) as unknown as typeof window.getSelection
+    return { collapse: (c: boolean) => (state.isCollapsed = c) }
+  }
+
+  function active(format: string): boolean {
+    return bubble()
+      .querySelector(`[data-format="${format}"]`)!
+      .classList.contains('lemma-canvas-format-active')
+  }
+
+  it('marks buttons from queryCommandState; link/unlink from region <a> containment', () => {
+    try {
+      document.queryCommandState = vi.fn(
+        (cmd: string) => cmd === 'bold',
+      ) as unknown as typeof document.queryCommandState
+      const w = grantRich(
+        'as-a-000001',
+        '<section><div class="lemma-edit-region" data-lemma-edit-block="as-a-000001" ' +
+          'data-lemma-edit-field="body"><p><a href="/x">linked</a></p></div></section>',
+      )
+      const anchor = w.querySelector('.lemma-edit-region a')!
+      stubSel(anchor.firstChild!)
+      document.dispatchEvent(new Event('selectionchange'))
+
+      expect(active('bold')).toBe(true)
+      expect(active('italic')).toBe(false)
+      expect(active('underline')).toBe(false)
+      expect(active('strikethrough')).toBe(false)
+      expect(active('link')).toBe(true)
+      expect(active('unlink')).toBe(true)
+      endSession(w)
+    } finally {
+      window.getSelection = realGetSelection
+      document.queryCommandState = realQueryCommandState
+    }
+  })
+
+  it('no-stale pin: hiding clears active classes; reopen recomputes from the live state', () => {
+    try {
+      let boldState = true
+      document.queryCommandState = vi.fn(
+        (cmd: string) => cmd === 'bold' && boldState,
+      ) as unknown as typeof document.queryCommandState
+      const w = grantRich('as-b-000001')
+      const sel = stubSel(w.querySelector('.lemma-edit-region p')!)
+      document.dispatchEvent(new Event('selectionchange'))
+      expect(active('bold')).toBe(true)
+
+      // Collapse -> hidden -> classes CLEARED (review P2).
+      sel.collapse(true)
+      document.dispatchEvent(new Event('selectionchange'))
+      expect(bubble().classList.contains('lemma-canvas-format-visible')).toBe(false)
+      expect(bubble().querySelector('.lemma-canvas-format-active')).toBeNull()
+
+      // Reopen over plain text: recomputed, stays inactive.
+      boldState = false
+      sel.collapse(false)
+      document.dispatchEvent(new Event('selectionchange'))
+      expect(bubble().classList.contains('lemma-canvas-format-visible')).toBe(true)
+      expect(active('bold')).toBe(false)
+      endSession(w)
+    } finally {
+      window.getSelection = realGetSelection
+      document.queryCommandState = realQueryCommandState
+    }
+  })
+
+  it('a missing or throwing queryCommandState leaves buttons inactive without crashing', () => {
+    try {
+      const w = grantRich('as-c-000001')
+      stubSel(w.querySelector('.lemma-edit-region p')!)
+
+      document.queryCommandState = undefined as unknown as typeof document.queryCommandState
+      document.dispatchEvent(new Event('selectionchange'))
+      expect(bubble().classList.contains('lemma-canvas-format-visible')).toBe(true)
+      expect(bubble().querySelector('.lemma-canvas-format-active')).toBeNull()
+
+      document.queryCommandState = vi.fn(() => {
+        throw new Error('detached selection')
+      }) as unknown as typeof document.queryCommandState
+      document.dispatchEvent(new Event('selectionchange'))
+      expect(bubble().querySelector('.lemma-canvas-format-active')).toBeNull()
+      endSession(w)
+    } finally {
+      window.getSelection = realGetSelection
+      document.queryCommandState = realQueryCommandState
+    }
+  })
+})
+
+describe('drag ghost + edge auto-scroll (polish batch §2/§3)', () => {
+  // Reuses the free-drag fixtures: wrappers with fixed rect bands.
+  function stubRects2(wrappers: HTMLElement[], height = 100): void {
+    wrappers.forEach((w, i) => {
+      const host = w.firstElementChild as HTMLElement
+      Object.defineProperty(host, 'getBoundingClientRect', {
+        configurable: true,
+        value: () => ({
+          top: i * height,
+          bottom: (i + 1) * height,
+          height,
+          left: 0,
+          right: 500,
+          width: 500,
+          x: 0,
+          y: i * height,
+          toJSON: () => ({}),
+        }),
+      })
+    })
+  }
+
+  function ghostList(): { list: HTMLElement; a: HTMLElement } {
+    const list = document.createElement('main')
+    const a = wrapper('gh-a-0000001')
+    const b = wrapper('gh-b-0000002')
+    const c = wrapper('gh-c-0000003')
+    list.append(a, b, c)
+    document.body.appendChild(list)
+    stubRects2([a, b, c])
+    return { list, a }
+  }
+
+  function gripDown2(w: HTMLElement): void {
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    w.querySelector('section')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    const gripSvg = w.querySelector('[data-action="drag"] svg')!
+    gripSvg.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true }))
+  }
+
+  function move(y: number, x = 0): void {
+    document.dispatchEvent(
+      new MouseEvent('pointermove', { bubbles: true, clientY: y, clientX: x } as MouseEventInit),
+    )
+  }
+
+  function ghost(): HTMLElement | null {
+    return document.querySelector('body > .lemma-canvas-drag-ghost')
+  }
+
+  it('a ghost appears on the first move, follows the pointer, and dies with the drag', () => {
+    const { a } = ghostList()
+    gripDown2(a)
+    expect(ghost()).toBeNull() // never on gripDown alone (click w/o movement)
+
+    move(160, 40)
+    const g = ghost()!
+    expect(g).not.toBeNull()
+    expect(g.style.transform).toBe('translate(52px, 172px)') // pointer + 12px offset
+    // Strip applied: the selected host's toolbar never rides the ghost.
+    expect(g.querySelector('.lemma-canvas-toolbar')).toBeNull()
+    expect(g.querySelector('.lemma-canvas-anchor')).toBeNull()
+
+    move(200, 60)
+    expect(g.style.transform).toBe('translate(72px, 212px)')
+
+    document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+    expect(ghost()).toBeNull()
+  })
+
+  it('Escape rollback removes the ghost too', () => {
+    const { a } = ghostList()
+    gripDown2(a)
+    move(160)
+    expect(ghost()).not.toBeNull()
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    expect(ghost()).toBeNull()
+  })
+
+  it('edge zones start a scroll interval; leaving stops it; direction follows the zone', () => {
+    vi.useFakeTimers()
+    const realInnerHeight = window.innerHeight
+    const scrollBy = vi.fn()
+    const realScrollBy = window.scrollBy
+    try {
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 })
+      window.scrollBy = scrollBy as unknown as typeof window.scrollBy
+
+      const { a } = ghostList()
+      gripDown2(a)
+      move(780) // bottom 48px zone
+      vi.advanceTimersByTime(100)
+      expect(scrollBy).toHaveBeenCalledWith(0, 12)
+      expect(scrollBy.mock.calls.length).toBeGreaterThan(2)
+
+      scrollBy.mockClear()
+      move(400) // out of both zones
+      vi.advanceTimersByTime(100)
+      expect(scrollBy).not.toHaveBeenCalled()
+
+      move(20) // top zone
+      vi.advanceTimersByTime(100)
+      expect(scrollBy).toHaveBeenCalledWith(0, -12)
+
+      scrollBy.mockClear()
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+      vi.advanceTimersByTime(100)
+      expect(scrollBy).not.toHaveBeenCalled() // cleared with the drag
+    } finally {
+      vi.useRealTimers()
+      window.scrollBy = realScrollBy
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: realInnerHeight })
+    }
+  })
+})

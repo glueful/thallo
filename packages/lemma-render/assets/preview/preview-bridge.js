@@ -263,8 +263,56 @@
         placed = true
       }
     }
-    if (placed) bar.classList.add('lemma-canvas-format-visible')
-    else bar.classList.remove('lemma-canvas-format-visible')
+    if (placed) {
+      bar.classList.add('lemma-canvas-format-visible')
+      updateFormatStates(sel.getRangeAt(0))
+    } else {
+      bar.classList.remove('lemma-canvas-format-visible')
+      clearFormatStates() // no-stale pin (polish batch §1): hidden = cleared
+    }
+  }
+
+  // ── Bubble active-state (polish batch §1) ───────────────────────────────────
+  var STATE_COMMANDS = {
+    bold: 'bold', italic: 'italic', underline: 'underline', strikethrough: 'strikeThrough'
+  }
+
+  function queryState(cmd) {
+    // Defensive: missing (jsdom) or THROWING (some engines throw on detached
+    // selections) — the button simply stays inactive.
+    if (!document.queryCommandState) return false
+    try {
+      return !!document.queryCommandState(cmd)
+    } catch (err) {
+      return false
+    }
+  }
+
+  function updateFormatStates(range) {
+    var bar = editing.formatBar
+    for (var key in STATE_COMMANDS) {
+      if (!Object.prototype.hasOwnProperty.call(STATE_COMMANDS, key)) continue
+      var btn = bar.querySelector('[data-format="' + key + '"]')
+      if (btn) btn.classList.toggle('lemma-canvas-format-active', queryState(STATE_COMMANDS[key]))
+    }
+    // Link/unlink state via containment (queryCommandState has no link
+    // notion) — the same region-contained-<a> rule the panel prefill uses.
+    var node = range.commonAncestorContainer
+    var el = node && node.nodeType === 1 ? node : node && node.parentNode
+    var a = el && el.closest ? el.closest('a') : null
+    var linked = !!(a && editing.region.contains(a))
+    var linkBtn = bar.querySelector('[data-format="link"]')
+    var unlinkBtn = bar.querySelector('[data-format="unlink"]')
+    if (linkBtn) linkBtn.classList.toggle('lemma-canvas-format-active', linked)
+    if (unlinkBtn) unlinkBtn.classList.toggle('lemma-canvas-format-active', linked)
+  }
+
+  function clearFormatStates() {
+    if (!editing || !editing.formatBar) return
+    Array.prototype.forEach.call(
+      editing.formatBar.querySelectorAll('.lemma-canvas-format-active'),
+      function (el) { el.classList.remove('lemma-canvas-format-active') }
+    )
   }
 
   function isSafeLinkUrl(url) {
@@ -561,7 +609,10 @@
     var w = findBlock(selectedId)
     if (!w || !w.parentNode) return
     e.preventDefault()
-    drag = { wrapper: w, originalNext: w.nextElementSibling, lastY: e.clientY }
+    drag = {
+      wrapper: w, originalNext: w.nextElementSibling, lastY: e.clientY,
+      ghost: null, scrollTimer: null, scrollDir: 0
+    }
     w.classList.add('lemma-canvas-dragging')
     // currentTarget (review P3): the listener sits on the grip BUTTON, but
     // e.target is often the nested svg/path — capture must attach to the
@@ -603,10 +654,60 @@
     }
   }
 
+  /**
+   * Cursor-following drag ghost (polish batch §2): a compact, stripped clone
+   * of the dragged host, built on the FIRST pointermove (a click without
+   * movement must not flash one). Geometry via CSSOM transform (reworded CSP
+   * pin); appearance in preview.css. Torn down in endDrag.
+   */
+  function buildDragGhost(w) {
+    var host = w.firstElementChild
+    if (!host) return null
+    var ghostEl = document.createElement('div')
+    ghostEl.className = 'lemma-canvas-drag-ghost'
+    var clone = host.cloneNode(true)
+    stripCanvasState(clone)
+    ghostEl.appendChild(clone)
+    document.body.appendChild(ghostEl)
+    return ghostEl
+  }
+
+  // Edge auto-scroll (polish batch §3): one interval at a time; zone
+  // membership re-evaluated per pointermove; cleared on exit and endDrag.
+  var EDGE_ZONE = 48
+  var EDGE_STEP = 12
+
+  function updateEdgeScroll(clientY) {
+    if (!drag) return
+    var vh = window.innerHeight || 0
+    var dir = 0
+    if (vh > 0) {
+      if (clientY < EDGE_ZONE) dir = -1
+      else if (clientY > vh - EDGE_ZONE) dir = 1
+    }
+    if (dir === drag.scrollDir) return
+    if (drag.scrollTimer) {
+      clearInterval(drag.scrollTimer)
+      drag.scrollTimer = null
+    }
+    drag.scrollDir = dir
+    if (dir !== 0) {
+      drag.scrollTimer = setInterval(function () {
+        window.scrollBy(0, dir * EDGE_STEP)
+      }, 16)
+    }
+  }
+
   function onDragMove(e) {
     if (!drag) return
     var w = drag.wrapper
     if (!w.parentNode) return
+    if (!drag.ghost) drag.ghost = buildDragGhost(w)
+    if (drag.ghost) {
+      drag.ghost.style.transform =
+        'translate(' + ((e.clientX || 0) + 12) + 'px, ' + ((e.clientY || 0) + 12) + 'px)'
+    }
+    updateEdgeScroll(e.clientY)
     // Direction gating (drag-feel amendment): live moves re-shift sibling
     // midpoints under the pointer, so undirected swaps can oscillate near a
     // boundary with unequal block heights. Only swap in the direction the
@@ -703,6 +804,8 @@
 
   function endDrag() {
     if (!drag) return
+    if (drag.ghost && drag.ghost.parentNode) drag.ghost.parentNode.removeChild(drag.ghost)
+    if (drag.scrollTimer) clearInterval(drag.scrollTimer)
     drag.wrapper.classList.remove('lemma-canvas-dragging')
     document.removeEventListener('pointermove', onDragMove)
     document.removeEventListener('pointerup', onDragUp)
