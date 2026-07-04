@@ -73,7 +73,8 @@ img { max-width: 100%; display: block; }
   justify-content: space-between;
   gap: var(--space-3);
 }
-.site-name { font-weight: 700; font-size: 1.05rem; color: var(--ink); text-decoration: none; }
+.site-name { font-weight: 700; font-size: 1.05rem; color: var(--ink); text-decoration: none; display: inline-flex; align-items: center; }
+.site-logo { display: block; height: 2rem; width: auto; max-width: 12rem; object-fit: contain; }
 .site-nav { display: flex; gap: var(--space-4); flex-wrap: wrap; }
 .site-nav a {
   color: var(--muted);

@@ -57,7 +57,14 @@
   {% endif %}
   <header class="site-header">
     <div class="site-header__inner">
-      <a href="/" class="site-name">{{ site.name }}</a>
+      {% set logo = site_logo() %}
+      <a href="/" class="site-name">
+        {%- if logo -%}
+          <img class="site-logo" src="{{ logo }}" alt="{{ site.name }}">
+        {%- else -%}
+          {{ site.name }}
+        {%- endif -%}
+      </a>
       <nav class="site-nav">
         {% for item in menu('main') %}
           <a href="{{ item.url }}">{{ item.label }}</a>
