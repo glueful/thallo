@@ -367,6 +367,82 @@ describe('useCanvasBridge', () => {
     bridge.dispose()
   })
 
+  it('stageRefresh resolves on the MATCHING ack; foreign ids ignored; timeout reloads', async () => {
+    vi.useFakeTimers()
+    try {
+      const postSpy = vi.fn()
+      const iframe = ref({
+        src: 'https://site.test/_preview/tok123',
+        contentWindow: { postMessage: postSpy },
+      } as unknown as HTMLIFrameElement)
+      const bridge = useCanvasBridge(iframe as Ref<HTMLIFrameElement | null>)
+
+      const p = bridge.stageRefresh()
+      const sent = postSpy.mock.calls[0][0] as { type: string; refresh_id: string }
+      expect(sent.type).toBe('lemma:stage-refresh')
+      expect(typeof sent.refresh_id).toBe('string')
+
+      // A foreign ack must not resolve it.
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'lemma:stage-refreshed',
+            refresh_id: 'someone-else',
+            mode: 'patched',
+            nonce: bridge.nonce,
+          },
+        }),
+      )
+      // The matching ack does.
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'lemma:stage-refreshed',
+            refresh_id: sent.refresh_id,
+            mode: 'busy',
+            nonce: bridge.nonce,
+          },
+        }),
+      )
+      await expect(p).resolves.toBe('busy')
+
+      // Timeout path resolves 'reload' — and clears pending state FIRST, so a
+      // late ack meets no stale resolver (plan-review note).
+      const p2 = bridge.stageRefresh()
+      const sent2 = postSpy.mock.calls[1][0] as { refresh_id: string }
+      vi.advanceTimersByTime(4100)
+      await expect(p2).resolves.toBe('reload')
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'lemma:stage-refreshed',
+            refresh_id: sent2.refresh_id,
+            mode: 'patched',
+            nonce: bridge.nonce,
+          },
+        }),
+      ) // late ack: must be inert (no throw, nothing to resolve)
+
+      // An unknown mode on a matching ack degrades to 'reload'.
+      const p3 = bridge.stageRefresh()
+      const sent3 = postSpy.mock.calls[2][0] as { refresh_id: string }
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            type: 'lemma:stage-refreshed',
+            refresh_id: sent3.refresh_id,
+            mode: 'garbage',
+            nonce: bridge.nonce,
+          },
+        }),
+      )
+      await expect(p3).resolves.toBe('reload')
+      bridge.dispose()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('blocks-index dispatch filters non-strings', () => {
     const bridge = useCanvasBridge(ref(null))
     let ids: string[] = []

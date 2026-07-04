@@ -203,6 +203,10 @@ Applies are automatic by default: the admin re-applies the working tree on a
 short debounce after edits (suppressed while typing in-place) and restores
 the stage's scroll position across reloads. An Auto toggle beside Apply
 turns this off per browser; failures pause it until a manual Apply succeeds.
+Successful applies update the stage in place when the change is provably
+confined to block wrappers (a real re-render is fetched and compared —
+never a client-side guess); anything else, including added or removed
+blocks and theme-shell changes, falls back to a full reload.
 
 Plain string/text fields join in via the opt-in `|editable_text` filter:
 `{{ data.heading|editable_text('heading') }}` marks the value's rendered

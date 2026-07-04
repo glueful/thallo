@@ -94,6 +94,7 @@ const bridge = vi.hoisted(() => {
       ) => (callbacks.textChanged = cb),
       editGrant: vi.fn(),
       editFlush: vi.fn().mockResolvedValue(undefined),
+      stageRefresh: vi.fn().mockResolvedValue('patched'),
       onEditStart: (cb: (id: string) => void) => (callbacks.editStart = cb),
       onEditEnd: (cb: (id: string) => void) => (callbacks.editEnd = cb),
       onScroll: (cb: (y: number) => void) => (callbacks.scroll = cb),
@@ -196,6 +197,8 @@ beforeEach(() => {
   bridge.instance.editGrant.mockClear()
   bridge.instance.editFlush.mockClear()
   bridge.instance.editFlush.mockResolvedValue(undefined)
+  bridge.instance.stageRefresh.mockClear()
+  bridge.instance.stageRefresh.mockResolvedValue('patched') // default: patch succeeds
   bridge.instance.restoreScroll.mockClear()
   notify.error.mockReset() // the suspension test counts error banners
   localStorage.clear()
@@ -240,7 +243,36 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
-  it('Apply posts token+fields, reloads the SAME stage URL, no re-mint', async () => {
+  it('opening the canvas reconciles the stash ONCE: one apply of the hydrated tree', async () => {
+    // The stash outlives sessions (keyed entry+locale, cleared only by save):
+    // an abandoned session's stash overlays the draft on the next open, so the
+    // stage and the tree start OUT OF SYNC. The initial reconciliation apply
+    // overwrites the stash with tree truth — regardless of the Auto toggle.
+    mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+    applyMock.mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+    expect(applyMock).not.toHaveBeenCalled() // not before the stage is loaded
+
+    await wrapper.find('[data-test="canvas-iframe"]').trigger('load')
+    await flushPromises()
+    expect(applyMock).toHaveBeenCalledTimes(1)
+    expect(applyMock).toHaveBeenCalledWith(
+      'entry0000001',
+      'en',
+      'tok1',
+      expect.objectContaining({ title: 'T' }), // the HYDRATED tree, verbatim
+    )
+    expect(bridge.instance.stageRefresh).toHaveBeenCalledTimes(1)
+
+    // A later reload (fallback path) must NOT re-run the reconciliation.
+    await wrapper.find('[data-test="canvas-iframe"]').trigger('load')
+    await flushPromises()
+    expect(applyMock).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('Apply posts token+fields and PATCHES in place — no remount, no re-mint', async () => {
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
     applyMock.mockResolvedValue(undefined)
     const wrapper = mountPage()
@@ -256,10 +288,30 @@ describe('canvas page', () => {
       'tok1',
       expect.objectContaining({ title: 'T' }),
     )
+    // dom-patching spec §4: success asks the bridge to patch; 'patched'
+    // means the iframe is NOT remounted (identity kept, scroll untouched).
+    expect(bridge.instance.stageRefresh).toHaveBeenCalledTimes(1)
     const iframe = wrapper.find('[data-test="canvas-iframe"]')
     expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1') // SAME URL
-    expect(iframe.element).not.toBe(before) // remounted -> reloaded
+    expect(iframe.element).toBe(before) // NOT remounted -> patched in place
     expect(mintMock).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('a reload answer (or timeout) from the bridge falls back to the full remount', async () => {
+    mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
+    applyMock.mockResolvedValue(undefined)
+    bridge.instance.stageRefresh.mockResolvedValue('reload')
+    const wrapper = mountPage()
+    await flushPromises()
+    const before = wrapper.find('[data-test="canvas-iframe"]').element
+
+    await wrapper.find('[data-test="canvas-apply"]').trigger('click')
+    await flushPromises()
+    await flushPromises()
+    const iframe = wrapper.find('[data-test="canvas-iframe"]')
+    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1') // SAME URL
+    expect(iframe.element).not.toBe(before) // remounted -> reloaded (today's path)
     wrapper.unmount()
   })
 
@@ -304,7 +356,9 @@ describe('canvas page', () => {
 
   it('Apply failure resets the stage (mirror DOM discarded) and keeps dirty fields', async () => {
     // Review P1: a rejected Apply wrote NO stash — optimistic mirrors from the
-    // stage toolbar must not survive as if they were applied.
+    // stage toolbar must not survive as if they were applied. Failure paths
+    // reload DIRECTLY (dom-patching spec §1): stageRefresh is asserted
+    // uncalled at the end of this test.
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
     applyMock.mockRejectedValueOnce(
       new ApiError('validation failed', 422, {}, { success: false }),
@@ -324,6 +378,7 @@ describe('canvas page', () => {
     const iframe = wrapper.find('[data-test="canvas-iframe"]')
     expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1') // SAME URL
     expect(iframe.element).not.toBe(before) // remounted -> mirror DOM discarded
+    expect(bridge.instance.stageRefresh).not.toHaveBeenCalled() // failure = direct reload
     expect(mintMock).toHaveBeenCalledTimes(1) // no re-mint on failure
     // Dirty local fields survive: a retry save still submits the MOVED order.
     saveMock.mockResolvedValue(undefined)
@@ -869,6 +924,46 @@ describe('auto-apply', () => {
     await flushPromises()
     return wrapper
   }
+
+  it('an inspector FORM edit auto-applies through the deep fields watcher', async () => {
+    // Regression guard (dom-patching bug hunt): inline editing has its own
+    // explicit edit-end re-arm, so a broken fields watcher would surface as
+    // "auto-apply only works when typing in the stage".
+    const wrapper = await mountAuto()
+    vi.useFakeTimers()
+    try {
+      const inputs = wrapper.findAll('input')
+      const title = inputs.find((i) => (i.element as HTMLInputElement).value === 'T')
+      expect(title).toBeDefined()
+      await title!.setValue('T changed in inspector')
+      await vi.advanceTimersByTimeAsync(900)
+      expect(applyMock).toHaveBeenCalledTimes(1)
+    } finally {
+      vi.useRealTimers()
+    }
+    wrapper.unmount()
+  })
+
+  it('a perpetual change stream cannot starve auto-apply (max-wait)', async () => {
+    // Bug hunt: anything touching fields more often than the 800ms debounce
+    // (an extension like Grammarly re-emitting TipTap updates, a theme timer)
+    // restarts the timer forever — the apply never fires and the veto
+    // breadcrumb never prints. The debounce may DELAY an apply, never
+    // starve it: max-wait forces a run ~2.5s after the first change.
+    const wrapper = await mountAuto()
+    vi.useFakeTimers()
+    try {
+      for (let i = 0; i < 8; i++) {
+        bridge.callbacks.textChanged?.('prose0000003', 'body', { html: `<p>tick ${i}</p>` })
+        await vi.advanceTimersByTimeAsync(400) // always inside the 800ms window
+      }
+      // 3200ms of continuous sub-debounce changes: max-wait must have fired.
+      expect(applyMock).toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
+    wrapper.unmount()
+  })
 
   it('a tree change auto-applies ONCE after the debounce; a burst coalesces', async () => {
     const wrapper = await mountAuto()

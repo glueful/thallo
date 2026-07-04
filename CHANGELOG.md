@@ -158,6 +158,37 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   The bridge's CSP pin is reworded: appearance stays in preview.css and no
   style attributes are ever emitted, but bridge-owned UI may be positioned
   via CSSOM transform (which strict style-src does not restrict).
+- Fixed: an in-stage edit session now commits-and-ends when focus leaves
+  the stage window (clicking into the inspector, switching tabs) —
+  cross-frame focus moves don't reliably fire the region's own blur, so
+  the session could outlive stage focus and pin the parent's edit-session
+  suppression, silently blocking every inspector-driven auto-apply until
+  a stage click or manual Apply (whose flush ends the session) healed it.
+  Stage-refresh acks now carry a diagnostic detail (swap counts / reload
+  reason) logged in the admin console.
+- Fixed: the auto-apply debounce gained a max-wait (~2.5s) — anything
+  touching the tree more often than the 800ms window (a browser extension
+  like Grammarly re-emitting editor updates, a theme timer) restarted the
+  trailing timer forever, silently starving auto-apply for inspector
+  edits. A change stream may now DELAY an apply, never prevent it. The
+  timer also logs its fire/veto reason to the admin console.
+- Fixed: opening the canvas now reconciles the working-copy stash — the
+  stash outlives sessions (keyed by entry+locale, cleared only by save),
+  so an abandoned session's stash silently overlaid the draft on the next
+  open, starting the stage and the tree OUT OF SYNC in a way stageStale
+  cannot detect. One initial apply of the hydrated tree (after the stage
+  loads, regardless of the Auto toggle) overwrites the stash with truth.
+- Partial DOM patching (canvas v10): successful Apply/auto-apply no longer
+  reloads the stage iframe — the bridge fetches a real render of the
+  working copy from the stage's own URL, proves the page shell and the
+  top-level block skeleton identical (live mirrors count: mirrored
+  move/duplicate/delete orders patch; unmirrored drift reloads), and swaps
+  only the wrappers whose HTML changed. Typing never flickers; scroll,
+  selection, and the session survive untouched. Anything unprovable —
+  fetch failures, shell drift, added/removed blocks — answers with an
+  honest full reload, and failure paths keep today's reload semantics.
+  New nonce-enveloped, refresh_id-correlated stage-refresh/stage-refreshed
+  message pair.
 - Session-wide working-copy overlay: the canvas's applied-but-unsaved
   working copy now wins over the draft EVERYWHERE the preview session
   overlays the draft — canonical URLs and (new) the homepage, which

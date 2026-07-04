@@ -282,6 +282,30 @@ describe('edit-in-place session', () => {
     expect(region.getAttribute('contenteditable')).toBeNull()
   })
 
+  it('window blur (focus leaving the stage) commits and ENDS the session', () => {
+    // The wedge (auto-apply bug hunt): clicking from the stage into the admin
+    // inspector moves focus CROSS-FRAME, which doesn't reliably fire the
+    // region's own blur — the session would outlive stage focus and pin the
+    // parent's editSessionActive forever, silently suppressing every
+    // inspector-driven auto-apply.
+    const w = proseWrapper('wb-a-000001')
+    document.body.appendChild(w)
+    sendToBridge({ type: 'lemma:edit-grant', id: 'wb-a-000001', field: 'body', kind: 'rich' })
+    const region = w.querySelector('.lemma-edit-region')!
+    expect(region.getAttribute('contenteditable')).toBe('true')
+    posted.mockClear()
+
+    window.dispatchEvent(new Event('blur'))
+    expect(lastPost('lemma:text-changed')).toMatchObject({ id: 'wb-a-000001' })
+    expect(lastPost('lemma:edit-end')).toMatchObject({ id: 'wb-a-000001' })
+    expect(region.getAttribute('contenteditable')).toBeNull()
+
+    // And with no session, a later window blur is inert (listener removed).
+    posted.mockClear()
+    window.dispatchEvent(new Event('blur'))
+    expect(posted).not.toHaveBeenCalled()
+  })
+
   it('grant field mismatch or multiple regions -> no editing (fail-safe)', () => {
     const w = proseWrapper('eip-b-000001')
     document.body.appendChild(w)
@@ -1788,6 +1812,278 @@ describe('drag ghost + edge auto-scroll (polish batch §2/§3)', () => {
       vi.useRealTimers()
       window.scrollBy = realScrollBy
       Object.defineProperty(window, 'innerHeight', { configurable: true, value: realInnerHeight })
+    }
+  })
+})
+
+describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
+  const realFetch = window.fetch
+
+  function acked(): { refresh_id?: string; mode?: string } | undefined {
+    return lastPost('lemma:stage-refreshed') as { refresh_id?: string; mode?: string } | undefined
+  }
+
+  function stubFetch(html: string, opts: { ok?: boolean; redirected?: boolean } = {}): void {
+    window.fetch = vi.fn().mockResolvedValue({
+      ok: opts.ok ?? true,
+      redirected: opts.redirected ?? false,
+      text: () => Promise.resolve(html),
+    }) as unknown as typeof window.fetch
+  }
+
+  /** Build a page-shaped live body and return its pieces. */
+  function liveStage(): { a: HTMLElement; b: HTMLElement } {
+    document.body.innerHTML = '<header><h1>Shell title</h1></header><main></main>'
+    const main = document.body.querySelector('main')!
+    const a = wrapper('pd-a-0000001', '<section><p>Alpha v1</p></section>')
+    const b = wrapper('pd-b-0000002', '<section><p>Beta v1</p></section>')
+    main.append(a, b)
+    return { a, b }
+  }
+
+  /** The fetched render: same shell, block contents parameterizable. */
+  function renderedHtml(alpha: string, beta: string, shellTitle = 'Shell title'): string {
+    return (
+      `<html><body><header><h1>${shellTitle}</h1></header><main>` +
+      `<div class="lemma-preview-block" data-lemma-block="pd-a-0000001"><section><p>${alpha}</p></section></div>` +
+      `<div class="lemma-preview-block" data-lemma-block="pd-b-0000002"><section><p>${beta}</p></section></div>` +
+      `</main></body></html>`
+    )
+  }
+
+  async function refresh(id = 'r1'): Promise<void> {
+    sendToBridge({ type: 'lemma:stage-refresh', refresh_id: id })
+    await new Promise((r) => setTimeout(r, 0)) // let the fetch promise chain settle
+    await new Promise((r) => setTimeout(r, 0))
+    await new Promise((r) => setTimeout(r, 0))
+  }
+
+  it('swaps ONLY the changed wrapper and acks patched with the echoed id', async () => {
+    try {
+      const { a, b } = liveStage()
+      stubFetch(renderedHtml('Alpha v2', 'Beta v1'))
+      posted.mockClear()
+      await refresh('r-alpha')
+
+      expect(acked()).toMatchObject({ refresh_id: 'r-alpha', mode: 'patched' })
+      const newA = document.querySelector('[data-lemma-block="pd-a-0000001"]')!
+      expect(newA.textContent).toContain('Alpha v2')
+      expect(newA).not.toBe(a) // swapped
+      expect(document.querySelector('[data-lemma-block="pd-b-0000002"]')).toBe(b) // identity kept
+      expect(document.querySelector('h1')!.textContent).toBe('Shell title')
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
+  it('shell drift reloads with the DOM untouched', async () => {
+    try {
+      const { a } = liveStage()
+      stubFetch(renderedHtml('Alpha v2', 'Beta v1', 'NEW shell title'))
+      posted.mockClear()
+      await refresh()
+      expect(acked()).toMatchObject({ mode: 'reload' })
+      expect(document.querySelector('[data-lemma-block="pd-a-0000001"]')).toBe(a) // untouched
+      expect(a.textContent).toContain('Alpha v1')
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
+  it('unmirrored structural drift reloads: extra id and duplicate ids', async () => {
+    try {
+      liveStage()
+      // Extra wrapper in the render (add-after shape).
+      stubFetch(
+        renderedHtml('Alpha v1', 'Beta v1').replace(
+          '</main>',
+          '<div class="lemma-preview-block" data-lemma-block="pd-c-0000003"><p>New</p></div></main>',
+        ),
+      )
+      posted.mockClear()
+      await refresh()
+      expect(acked()).toMatchObject({ mode: 'reload' })
+
+      // Duplicate id on the fetched side.
+      stubFetch(
+        renderedHtml('Alpha v1', 'Beta v1').replace(
+          'data-lemma-block="pd-b-0000002"',
+          'data-lemma-block="pd-a-0000001"',
+        ),
+      )
+      posted.mockClear()
+      await refresh()
+      expect(acked()).toMatchObject({ mode: 'reload' })
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
+  it('mirrored structural ops patch: a mirror-matched live order is NOT drift (review P2)', async () => {
+    try {
+      const { a, b } = liveStage()
+      // Mirror a move (b before a) the way the parent would after a commit.
+      sendToBridge({ type: 'lemma:mirror-move', id: 'pd-b-0000002', beforeId: 'pd-a-0000001' })
+      expect(b.nextElementSibling).toBe(a)
+      // The render agrees with the mirrored order.
+      stubFetch(
+        `<html><body><header><h1>Shell title</h1></header><main>` +
+          `<div class="lemma-preview-block" data-lemma-block="pd-b-0000002"><section><p>Beta SERVER</p></section></div>` +
+          `<div class="lemma-preview-block" data-lemma-block="pd-a-0000001"><section><p>Alpha v1</p></section></div>` +
+          `</main></body></html>`,
+      )
+      posted.mockClear()
+      await refresh()
+      expect(acked()).toMatchObject({ mode: 'patched' })
+      // The optimistic mirror's content is swapped to the RENDERED truth.
+      expect(document.querySelector('[data-lemma-block="pd-b-0000002"]')!.textContent).toContain(
+        'Beta SERVER',
+      )
+      expect(document.querySelector('[data-lemma-block="pd-a-0000001"]')).toBe(a)
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
+  it('canvas UI never poisons the gate; a swapped selected wrapper re-selects', async () => {
+    try {
+      const { a } = liveStage()
+      a.querySelector('section')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      expect(a.querySelector('.lemma-canvas-toolbar')).not.toBeNull() // live UI present
+      stubFetch(renderedHtml('Alpha v2', 'Beta v1'))
+      posted.mockClear()
+      await refresh()
+
+      expect(acked()).toMatchObject({ mode: 'patched' })
+      const newA = document.querySelector('[data-lemma-block="pd-a-0000001"]')!
+      expect(newA.textContent).toContain('Alpha v2')
+      // Selection survived the swap: ring + toolbar re-anchored on the NEW wrapper.
+      expect(newA.classList.contains('lemma-canvas-selected')).toBe(true)
+      expect(newA.querySelector('.lemma-canvas-toolbar')).not.toBeNull()
+      // Deselect cleanly for later tests.
+      document.body.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      )
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
+  it('a selected NESTED block dropped by its swapped parent deselects honestly', async () => {
+    // Top-level ids can never vanish past the sequence gate — but a selected
+    // NESTED block can, when its parent wrapper is swapped and the new render
+    // no longer contains it (spec §2.6: clear selection + post block-deselect).
+    try {
+      document.body.innerHTML = '<main></main>'
+      const parent = wrapper(
+        'pd-vp-00001',
+        '<section><div class="lemma-preview-block" data-lemma-block="pd-vc-00001"><p>child</p></div></section>',
+      )
+      document.body.querySelector('main')!.appendChild(parent)
+      const child = document.querySelector('[data-lemma-block="pd-vc-00001"]')!
+      child.querySelector('p')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      expect(lastPost('lemma:block-select')).toMatchObject({ id: 'pd-vc-00001' })
+
+      stubFetch(
+        `<html><body><main>` +
+          `<div class="lemma-preview-block" data-lemma-block="pd-vp-00001"><section><p>childless now</p></section></div>` +
+          `</main></body></html>`,
+      )
+      posted.mockClear()
+      await refresh()
+      expect(acked()).toMatchObject({ mode: 'patched' })
+      expect(lastPost('lemma:block-deselect')).toMatchObject({ id: 'pd-vc-00001' })
+      expect(document.querySelector('.lemma-canvas-toolbar')).toBeNull()
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
+  it('busy during an edit session and during a drag; DOM untouched', async () => {
+    try {
+      // Edit session.
+      const w = proseWrapper('pd-ed-00001')
+      document.body.appendChild(w)
+      sendToBridge({ type: 'lemma:edit-grant', id: 'pd-ed-00001', field: 'body', kind: 'rich' })
+      stubFetch(renderedHtml('x', 'y'))
+      posted.mockClear()
+      await refresh('r-busy')
+      expect(acked()).toMatchObject({ refresh_id: 'r-busy', mode: 'busy' })
+      w.querySelector('.lemma-edit-region')!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+      )
+
+      // Drag (grip a fresh list).
+      document.body.innerHTML = ''
+      const list = document.createElement('main')
+      const d1 = wrapper('pd-dr-00001')
+      const d2 = wrapper('pd-dr-00002')
+      list.append(d1, d2)
+      document.body.appendChild(list)
+      document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+      d1.querySelector('section')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+      d1.querySelector('[data-action="drag"] svg')!.dispatchEvent(
+        new MouseEvent('pointerdown', { bubbles: true, cancelable: true }),
+      )
+      posted.mockClear()
+      await refresh()
+      expect(acked()).toMatchObject({ mode: 'busy' })
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
+  it('fetch failures reload with DOM untouched: rejection, non-2xx, redirect, bodyless, annotation-less', async () => {
+    try {
+      const { a } = liveStage()
+      const cases: Array<() => void> = [
+        () => {
+          window.fetch = vi
+            .fn()
+            .mockRejectedValue(new Error('net')) as unknown as typeof window.fetch
+        },
+        () => stubFetch(renderedHtml('x', 'y'), { ok: false }),
+        () => stubFetch(renderedHtml('x', 'y'), { redirected: true }),
+        () => stubFetch(''), // parses to an empty body: zero wrappers while live has two
+        () => stubFetch('<html><body><p>login page</p></body></html>'), // annotation-less
+      ]
+      for (const arm of cases) {
+        arm()
+        posted.mockClear()
+        await refresh()
+        expect(acked()).toMatchObject({ mode: 'reload' })
+        expect(document.querySelector('[data-lemma-block="pd-a-0000001"]')).toBe(a)
+      }
+    } finally {
+      window.fetch = realFetch
+    }
+  })
+
+  it('a nested-only change swaps the top-level parent exactly once', async () => {
+    try {
+      document.body.innerHTML = '<main></main>'
+      const parent = wrapper(
+        'pd-np-00001',
+        '<section><div class="lemma-preview-block" data-lemma-block="pd-nc-00001"><p>child v1</p></div></section>',
+      )
+      document.body.querySelector('main')!.appendChild(parent)
+      stubFetch(
+        `<html><body><main>` +
+          `<div class="lemma-preview-block" data-lemma-block="pd-np-00001"><section>` +
+          `<div class="lemma-preview-block" data-lemma-block="pd-nc-00001"><p>child v2</p></div>` +
+          `</section></div></main></body></html>`,
+      )
+      posted.mockClear()
+      await refresh()
+      expect(acked()).toMatchObject({ mode: 'patched' })
+      expect(document.querySelector('[data-lemma-block="pd-nc-00001"]')!.textContent).toContain(
+        'child v2',
+      )
+      // ONE top-level wrapper for the id in the document (no double insert).
+      expect(document.querySelectorAll('[data-lemma-block="pd-np-00001"]')).toHaveLength(1)
+    } finally {
+      window.fetch = realFetch
     }
   })
 })
