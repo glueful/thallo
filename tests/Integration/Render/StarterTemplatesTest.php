@@ -82,6 +82,8 @@ final class StarterTemplatesTest extends LemmaTestCase
             'carousel' => ['slides_per_view' => '2', 'arrows' => true, 'dots' => true,
                 'slides' => [['id' => 'sl1', 'type' => 'quote', 'data' => ['text' => 'Slide']]]],
             'logo' => ['size' => 'large', 'link_home' => true],
+            'icon' => ['icon' => 'star', 'size' => 'large', 'align' => 'center',
+                'url' => '/pricing', 'label' => 'See pricing'],
             'logo_cloud' => ['title' => 'Trusted by', 'images' => ['blob00000000'],
                 'grayscale' => true, 'scroll' => true],
             'video' => ['source' => 'embed', 'url' => 'https://youtu.be/dQw4w9WgXcQ',
@@ -142,7 +144,7 @@ final class StarterTemplatesTest extends LemmaTestCase
         // field scheme-allowlists before landing in an href.
         $env = $this->env();
         foreach (['javascript:alert(1)', 'data:text/html,x', '//evil.com'] as $bad) {
-            foreach (['button' => 'url', 'feature' => 'url'] as $slug => $field) {
+            foreach (['button' => 'url', 'feature' => 'url', 'icon' => 'url'] as $slug => $field) {
                 $data = $this->fixture($slug);
                 $data[$field] = $bad;
                 $out = $env->createTemplate("{{ blocks(l) }}")->render(['l' => [

@@ -40,9 +40,10 @@ final class SeedBlockTypesTest extends LemmaTestCase
         self::assertSame('Layout', $section['category']);
         self::assertContains('blocks', array_column($section['schema'], 'type'));
 
-        // Block-library expansion (spec §3): 30 types; html seeds DEACTIVATED;
-        // hero/cta carry the Nuxt UI shapes; container declares value constraints.
-        self::assertSame(30, $expected);
+        // Block-library expansion (spec §3) + icon block (icon-library follow-up):
+        // 31 types; html seeds DEACTIVATED; hero/cta carry the Nuxt UI shapes;
+        // container declares value constraints.
+        self::assertSame(31, $expected);
         self::assertSame(0, (int) $repo->findBySlug('html')['active']);
         self::assertSame('Items', $repo->findBySlug('testimonial')['category']);
         $heroFields = array_column($repo->findBySlug('hero')['schema'], 'name');

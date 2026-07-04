@@ -7,6 +7,22 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Icon library**: `icon(name)` Twig function serving vendored inline SVGs —
+  the full Lucide set (1.23.0) by default and a curated 27-brand Simple Icons
+  (16.24.1) set under `brand:` (normalized to `fill="currentColor"` at import;
+  exact brand color is theme CSS). Strict name grammar `^(brand:)?[a-z0-9-]+$`;
+  unknown/invalid names return null so templates fall back to text. Returns
+  `Twig\Markup` (no `is_safe`) so `{{ icon(x) ?? x }}` renders the SVG raw
+  while string fallbacks stay auto-escaped. `icon` joined the DB-template
+  sandbox allowlist (CACHE_VERSION → 6); `IconAssetsTest` regression-gates the
+  vendored tree (no active content, brand normalization, manifest↔shipped
+  parity with `VENDORED.md`). Feature block `icon` field now renders Lucide
+  SVGs with the legacy free-text/emoji fallback preserved, and gains a
+  Lucide-only `pattern` on newly seeded installs.
+- **Icon block**: a 31st starter block — one Lucide glyph with size
+  (small/medium/large), alignment (start/center/end), optional safe-url link
+  with an accessible label (falls back to the icon name). Lucide-only
+  `pattern` on the name; unknown names degrade to escaped text.
 - **Rich HTML sanitization**: `RichHtmlSanitizer` contract + TipTap-scoped
   allowlist implementation over symfony/html-sanitizer (additive-only config,
   explicit 1MB input limit, task-list `data-*` preserved, checkbox inputs
