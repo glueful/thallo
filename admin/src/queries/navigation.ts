@@ -17,6 +17,8 @@ export interface NavTreeItem {
   labels: Record<string, string>
   target_status?: NavTargetStatus
   target_url?: string | null
+  /** The localized page title an EMPTY label inherits (nav-entry-items design). */
+  target_title?: string | null
   children: NavTreeItem[]
 }
 

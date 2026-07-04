@@ -85,7 +85,16 @@ final class TermFacetsArchiveTest extends LemmaTestCase
         $paths = new PathRenderer('/{locale}/{type}/{slug}', null, 'en');
         $references = new ReferenceResolver($repo);
         $projector = new Projector();
-        $canonical = new CanonicalProjector($repo, $routes, $types, $paths, 'en');
+        $canonical = new CanonicalProjector(
+            $repo,
+            $routes,
+            $types,
+            new \App\Content\Seo\CanonicalPathBuilder(
+                $paths,
+                $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
+            ),
+            'en',
+        );
 
         return new TaxonomyController(
             $this->appContext(),

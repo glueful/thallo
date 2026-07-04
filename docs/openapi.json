@@ -6233,6 +6233,9 @@
                                                             "public_delivery": {
                                                                 "type": "boolean"
                                                             },
+                                                            "mount_at_root": {
+                                                                "type": "boolean"
+                                                            },
                                                             "status": {
                                                                 "type": "string"
                                                             },
@@ -6506,6 +6509,10 @@
                                         "type": "boolean",
                                         "description": "Whether published delivery routes may be read without an API key."
                                     },
+                                    "mount_at_root": {
+                                        "type": "boolean",
+                                        "description": "Whether entries serve at \/{slug} instead of \/{type}\/{slug}."
+                                    },
                                     "schema": {
                                         "type": "array",
                                         "items": {
@@ -6599,6 +6606,7 @@
                                 "description": "A short description.",
                                 "cache_ttl": "example",
                                 "public_delivery": true,
+                                "mount_at_root": true,
                                 "schema": "example"
                             }
                         }
@@ -6780,6 +6788,9 @@
                                                             ]
                                                         },
                                                         "public_delivery": {
+                                                            "type": "boolean"
+                                                        },
+                                                        "mount_at_root": {
                                                             "type": "boolean"
                                                         },
                                                         "status": {
@@ -8557,6 +8568,9 @@
                                                         },
                                                         "webhooks_enabled": {
                                                             "type": "boolean"
+                                                        },
+                                                        "homepage_entry": {
+                                                            "type": "string"
                                                         }
                                                     }
                                                 }
@@ -8736,6 +8750,12 @@
                                             "boolean",
                                             "null"
                                         ]
+                                    },
+                                    "homepage_entry": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
                                     }
                                 }
                             },
@@ -8747,7 +8767,8 @@
                                 "max_per_page": "example",
                                 "cache_ttl": "example",
                                 "scheduler_enabled": true,
-                                "webhooks_enabled": true
+                                "webhooks_enabled": true,
+                                "homepage_entry": "example"
                             }
                         }
                     }
@@ -8795,6 +8816,9 @@
                                                         },
                                                         "webhooks_enabled": {
                                                             "type": "boolean"
+                                                        },
+                                                        "homepage_entry": {
+                                                            "type": "string"
                                                         }
                                                     }
                                                 }
@@ -17491,7 +17515,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Per entry item: target_status (published|unpublished|deleted|missing|routeless) and target_url resolved FOR ?locale= (status is locale-sensitive). Includes lock_version.",
+                "description": "Per entry item: target_status (published|unpublished|deleted|missing|routeless), target_title (the localized page title an empty label inherits) and target_url resolved FOR ?locale= (status is locale-sensitive). Includes lock_version.",
                 "responses": {
                     "200": {
                         "description": "Menu + tree + lock_version + echoed locale."
@@ -19202,6 +19226,9 @@
                                                         "public_delivery": {
                                                             "type": "boolean"
                                                         },
+                                                        "mount_at_root": {
+                                                            "type": "boolean"
+                                                        },
                                                         "status": {
                                                             "type": "string"
                                                         },
@@ -19554,6 +19581,420 @@
                     },
                     "500": {
                         "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No content type with that slug.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "operationId": "patchV1AdminContenttypesBySlug",
+                "summary": "Update content-type metadata",
+                "tags": [
+                    "Lemma Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "slug",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Non-schema metadata only (slug immutable; schema has its own endpoint). Changing public_delivery or mount_at_root purges the render page cache.",
+                "requestBody": {
+                    "required": false,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "name": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "description": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "cache_ttl": {
+                                        "type": [
+                                            "integer",
+                                            "null"
+                                        ]
+                                    },
+                                    "public_delivery": {
+                                        "type": [
+                                            "boolean",
+                                            "null"
+                                        ]
+                                    },
+                                    "mount_at_root": {
+                                        "type": [
+                                            "boolean",
+                                            "null"
+                                        ],
+                                        "description": "Whether entries serve at \/{slug} instead of \/{type}\/{slug}."
+                                    }
+                                }
+                            },
+                            "example": {
+                                "name": "Jane",
+                                "description": "A short description.",
+                                "cache_ttl": "example",
+                                "public_delivery": true,
+                                "mount_at_root": true
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Content type updated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "data": {
+                                            "type": "object",
+                                            "properties": {
+                                                "content_type": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "id": {
+                                                            "type": "integer"
+                                                        },
+                                                        "uuid": {
+                                                            "type": "string"
+                                                        },
+                                                        "slug": {
+                                                            "type": "string"
+                                                        },
+                                                        "name": {
+                                                            "type": "string"
+                                                        },
+                                                        "description": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "cache_ttl": {
+                                                            "type": [
+                                                                "integer",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "public_delivery": {
+                                                            "type": "boolean"
+                                                        },
+                                                        "mount_at_root": {
+                                                            "type": "boolean"
+                                                        },
+                                                        "status": {
+                                                            "type": "string"
+                                                        },
+                                                        "schema": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "object",
+                                                                "properties": {
+                                                                    "name": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "type": {
+                                                                        "type": "string",
+                                                                        "enum": [
+                                                                            "string",
+                                                                            "text",
+                                                                            "number",
+                                                                            "boolean",
+                                                                            "datetime",
+                                                                            "enum",
+                                                                            "reference",
+                                                                            "asset",
+                                                                            "json",
+                                                                            "blocks"
+                                                                        ]
+                                                                    },
+                                                                    "required": {
+                                                                        "type": [
+                                                                            "boolean",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "localized": {
+                                                                        "type": [
+                                                                            "boolean",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "filterable": {
+                                                                        "type": [
+                                                                            "boolean",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "filter_type": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "enum": {
+                                                                        "type": "array",
+                                                                        "items": {
+                                                                            "type": "string"
+                                                                        }
+                                                                    },
+                                                                    "format": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "reference_type": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "multiple": {
+                                                                        "type": [
+                                                                            "boolean",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "max_items": {
+                                                                        "type": [
+                                                                            "integer",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "reference_slug_field": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "block_types": {
+                                                                        "type": "array",
+                                                                        "items": {
+                                                                            "type": "string"
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        },
+                                                        "schema_version": {
+                                                            "type": "integer"
+                                                        },
+                                                        "created_by": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "created_at": {
+                                                            "type": "string",
+                                                            "format": "date-time"
+                                                        },
+                                                        "updated_at": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ],
+                                                            "format": "date-time"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "message",
+                                        "data"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid value (empty name).",
                         "content": {
                             "application\/json": {
                                 "schema": {
@@ -36637,6 +37078,9 @@
                                                             ]
                                                         },
                                                         "public_delivery": {
+                                                            "type": "boolean"
+                                                        },
+                                                        "mount_at_root": {
                                                             "type": "boolean"
                                                         },
                                                         "status": {

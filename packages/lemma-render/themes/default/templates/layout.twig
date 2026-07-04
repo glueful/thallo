@@ -8,21 +8,31 @@
   <link rel="stylesheet" href="{{ asset('blocks.css') }}">
 </head>
 <body>
-  <header>
-    {% if preview|default(false) %}
-      <div class="preview-banner">
-        Preview — unpublished content
-        {% if preview_exit|default(null) %}<a href="{{ preview_exit }}">Exit preview</a>{% endif %}
-      </div>
-    {% endif %}
-    <a href="/" class="site-name">{{ site.name }}</a>
-    <nav>
-      {% for item in menu('main') %}
-        <a href="{{ item.url }}">{{ item.label }}</a>
-      {% endfor %}
-    </nav>
+  {% if preview|default(false) %}
+    {# Above the sticky header on purpose: blur/stickiness must never hide it. #}
+    <div class="preview-banner">
+      Preview — unpublished content
+      {% if preview_exit|default(null) %}<a href="{{ preview_exit }}">Exit preview</a>{% endif %}
+    </div>
+  {% endif %}
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a href="/" class="site-name">{{ site.name }}</a>
+      <nav class="site-nav">
+        {% for item in menu('main') %}
+          <a href="{{ item.url }}">{{ item.label }}</a>
+        {% endfor %}
+      </nav>
+    </div>
   </header>
-  <main>{% block content %}{% endblock %}</main>
-  <footer><small>{{ site.name }}</small></footer>
+  {# The COMPOSED presentation context (spec §5a): page _presentation override
+     -> theme.json per-type -> theme.json default -> built-ins. Templates never
+     read _presentation directly. #}
+  <main class="layout--{{ presentation.layout ?? 'centered' }}">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    <div class="site-footer__inner"><small>{{ site.name }}</small></div>
+  </footer>
 </body>
 </html>

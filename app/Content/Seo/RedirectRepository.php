@@ -91,6 +91,28 @@ final class RedirectRepository
         );
     }
 
+    /**
+     * Redirect lookup across ROOT-MOUNTED types (root-mounted-types spec §4):
+     * the root 1-segment grammar consults renames from every root type after
+     * a route miss. Deterministic by construction — the RootMountGuard keeps
+     * root redirect sources globally unique per locale.
+     *
+     * @return array<string,mixed>|null
+     */
+    public function findBySourceAcrossRootTypes(string $locale, string $sourceSlug): ?array
+    {
+        return $this->normalize(
+            $this->db->table('entry_redirects')
+                ->select(['entry_redirects.*'])
+                ->join('content_types', 'content_types.uuid', '=', 'entry_redirects.content_type_uuid')
+                ->where('content_types.mount_at_root', '=', true)
+                ->where('content_types.status', '!=', 'deleted')
+                ->where('entry_redirects.locale', '=', $locale)
+                ->where('entry_redirects.source_slug', '=', $sourceSlug)
+                ->first()
+        );
+    }
+
     /** @return list<array<string,mixed>> */
     public function listForType(string $contentTypeUuid, ?string $locale = null): array
     {

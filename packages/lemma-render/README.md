@@ -37,6 +37,25 @@ the **default reference theme**; an app theme overrides it by name
 but invalid `theme.json` → loud 500; broken pack default → hard 500; template missing in
 both → `error.twig` → plain-text 500 (never a loop).
 
+The default theme is a **modern-SaaS reference**: token-driven CSS (colors,
+spacing, radius, fluid type) with automatic dark mode, a sticky translucent
+header, full-width flow with per-block containers, and NAMESPACED shell
+classes (`.site-header`/`.site-nav`/`.site-footer`) so block templates'
+own `header`/`nav`/`footer` elements never inherit shell styling. Presentation is a
+LAYERED contract: templates consume one composed `presentation` context
+(`show_title`, `layout`) resolved as per-page override → `theme.json`
+per-type setting → `theme.json` default → built-ins (`show_title: true`,
+`layout: 'centered'`). Themes declare defaults in a strict `settings`
+block (`{"settings": {"layout": "full", "types": {"pages": {"show_title":
+false}}}}` — unknown keys are rejected loudly); editors override per page
+from the canvas inspector's **Page** tab. The override lives under the
+reserved `_presentation` key in the draft's fields — it versions,
+previews, and publishes WITH the page but is **never public content**:
+the delivery API strips it from every payload, and schema field names may
+never start with `_` (reserved for system keys). `layout` maps to a
+`layout--*` class on `<main>`; band blocks render edge-to-edge under
+`full` and as contained cards under `centered`.
+
 Hierarchy: `entry/{type-slug}.twig` → `entry.twig`; `index.twig` (homepage);
 `404.twig`; `error.twig`; `layout.twig`. Context: `entry` (treat as read-only), `site`
 (`name`/`locale`), and functions:

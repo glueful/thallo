@@ -13,8 +13,10 @@ use function config;
 
 /**
  * MenuReader implementation: resolves a menu tree for a locale — label fallback chain
- * (requested → default → any), url items verbatim, entry items via EntryTargetResolver
- * with non-published items dropped WITH their subtree (spec §4).
+ * (requested → default → any → the TARGET ENTRY'S localized title for entry items:
+ * an empty label means "follow the page title", typed = override — nav-entry-items
+ * design), url items verbatim, entry items via EntryTargetResolver with
+ * non-published items dropped WITH their subtree (spec §4).
  */
 final class MenuResolver implements MenuReader
 {
@@ -53,6 +55,7 @@ final class MenuResolver implements MenuReader
         $out = [];
         foreach ($byParent[$parent] ?? [] as $row) {
             $entry = null;
+            $inherited = null;
             if ((string) $row['kind'] === 'entry') {
                 $entry = (string) $row['entry_uuid'];
                 $target = $this->targets->resolve($entry, $locale);
@@ -60,11 +63,16 @@ final class MenuResolver implements MenuReader
                     continue; // spec §4: drop the item AND its subtree
                 }
                 $url = (string) $target['path'];
+                $inherited = $target['title'] ?? null;
             } else {
                 $url = (string) $row['url'];
             }
+            $label = $this->label($row, $locale);
+            if ($label === '' && is_string($inherited)) {
+                $label = $inherited; // empty label inherits the page title
+            }
             $out[] = [
-                'label' => $this->label($row, $locale),
+                'label' => $label,
                 'url' => $url,
                 'entry' => $entry,
                 'children' => $this->children($byParent, (string) $row['uuid'], $locale),

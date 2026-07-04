@@ -17,7 +17,7 @@ const { success, error: notifyError } = useNotify()
 
 const slug = computed(() => String(route.params.slug))
 const { data, status, error } = useContentType(slug)
-const { updateSchema, remove } = useContentTypeMutations()
+const { updateMeta, updateSchema, remove } = useContentTypeMutations()
 
 // A local, editable copy of the schema. Re-seeded whenever the fetched type changes (load/refetch);
 // PATCH /content-types/{slug}/schema replaces the schema wholesale, so we send the whole array.
@@ -44,6 +44,60 @@ async function onSaveSchema() {
     success('Schema saved', 'Field changes were applied.')
   } catch (e) {
     notifyError(e, 'Couldn’t save schema')
+  }
+}
+
+// The switch reflects the server value; on toggle we PATCH and let the query
+// refetch settle the final state (revert locally on failure).
+const publicDelivery = ref(false)
+watch(
+  data,
+  (ct) => {
+    if (ct) publicDelivery.value = ct.public_delivery
+  },
+  { immediate: true },
+)
+
+async function onTogglePublicDelivery(value: boolean) {
+  publicDelivery.value = value
+  try {
+    await updateMeta.mutateAsync({ slug: slug.value, meta: { public_delivery: value } })
+    success(
+      value ? 'Public delivery enabled' : 'Public delivery disabled',
+      value
+        ? 'Entries of this type can now be delivered on the live site.'
+        : 'Entries of this type are no longer publicly delivered.',
+    )
+  } catch (e) {
+    publicDelivery.value = !value
+    notifyError(e, 'Couldn’t update public delivery')
+  }
+}
+
+const mountAtRoot = ref(false)
+watch(
+  data,
+  (ct) => {
+    if (ct) mountAtRoot.value = ct.mount_at_root
+  },
+  { immediate: true },
+)
+
+async function onToggleMountAtRoot(value: boolean) {
+  mountAtRoot.value = value
+  try {
+    await updateMeta.mutateAsync({ slug: slug.value, meta: { mount_at_root: value } })
+    success(
+      value ? 'Mounted at root' : 'Unmounted from root',
+      value
+        ? 'Entries now serve at /slug instead of /' + slug.value + '/slug.'
+        : 'Entries are back at /' + slug.value + '/slug.',
+    )
+  } catch (e) {
+    // A 409 lists every slug that collides with the root namespace — the
+    // flag never flips partially, so revert the switch and show the list.
+    mountAtRoot.value = !value
+    notifyError(e, 'Couldn’t mount at root')
   }
 }
 
@@ -115,7 +169,27 @@ async function confirmDelete() {
                 </div>
                 <div>
                   <dt class="text-muted">Public delivery</dt>
-                  <dd class="text-default">{{ data.public_delivery ? 'Yes' : 'No' }}</dd>
+                  <dd class="text-default">
+                    <USwitch
+                      :model-value="publicDelivery"
+                      :disabled="updateMeta.isLoading.value"
+                      data-test="public-delivery-toggle"
+                      :label="publicDelivery ? 'Yes' : 'No'"
+                      @update:model-value="onTogglePublicDelivery"
+                    />
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-muted">Mount at root</dt>
+                  <dd class="text-default">
+                    <USwitch
+                      :model-value="mountAtRoot"
+                      :disabled="updateMeta.isLoading.value"
+                      data-test="mount-at-root-toggle"
+                      :label="mountAtRoot ? `/slug` : `/${slug}/slug`"
+                      @update:model-value="onToggleMountAtRoot"
+                    />
+                  </dd>
                 </div>
                 <div>
                   <dt class="text-muted">Cache TTL</dt>

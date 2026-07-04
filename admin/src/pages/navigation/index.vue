@@ -7,6 +7,8 @@ import {
   type NavTreeItem,
 } from '@/queries/navigation'
 import { useLocales } from '@/queries/locales'
+import { useContentTypes } from '@/queries/contentTypes'
+import ReferencePicker from '@/fields/components/ReferencePicker.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError } from '@/api/errors'
@@ -37,6 +39,39 @@ const mutations = useNavigationMutations()
 const working = ref<NavTreeItem[]>([])
 const dirty = ref(false)
 
+// Add-page picker (nav-entry-items design): pick a published public entry,
+// push an entry-kind item with EMPTY labels — the label inherits the page
+// title until an editor overrides it.
+const { data: pageTypes } = useContentTypes()
+const addPageOpen = ref(false)
+const addPageType = ref('')
+const pageTypeOptions = computed(() =>
+  // Non-public types stay VISIBLE but disabled with the reason: they can
+  // never render a working nav link (the live site 404s them even when
+  // published) — silently hiding them just looks like an empty dropdown.
+  (pageTypes.value ?? []).map((t) => ({
+    label: (t.name ?? t.slug ?? '') + (t.public_delivery ? '' : ' — not publicly delivered'),
+    value: t.slug ?? '',
+    disabled: !t.public_delivery,
+  })),
+)
+const pickedEntry = ref('')
+// The picker's `picked` event carries the display title so the new row's
+// label placeholder shows the inherited page title immediately — the server
+// only computes target_title on the next tree load.
+function onEntryPicked({ uuid, title }: { uuid: string; title: string }) {
+  working.value.push({
+    kind: 'entry',
+    entry_uuid: uuid,
+    labels: {},
+    children: [],
+    target_title: title || null,
+  })
+  dirty.value = true
+  pickedEntry.value = ''
+  addPageOpen.value = false
+}
+
 function mergeBadges(local: NavTreeItem[], fetched: NavTreeItem[]): void {
   const byUuid = new Map<string, NavTreeItem>()
   const walk = (items: NavTreeItem[]): void => {
@@ -52,6 +87,7 @@ function mergeBadges(local: NavTreeItem[], fetched: NavTreeItem[]): void {
       if (source) {
         item.target_status = source.target_status
         item.target_url = source.target_url
+        item.target_title = source.target_title
       }
       apply(item.children)
     }
@@ -191,10 +227,40 @@ async function save(): Promise<void> {
               }
             "
           >
-            Add item
+            Add link
+          </UButton>
+          <UButton
+            size="sm"
+            variant="outline"
+            icon="i-lucide-file-text"
+            data-test="tree-add-page"
+            @click="addPageOpen = !addPageOpen"
+          >
+            Add page
           </UButton>
           <span class="grow" />
           <UButton size="sm" :disabled="!dirty" data-test="tree-save" @click="save">Save</UButton>
+        </div>
+
+        <div v-if="addPageOpen" class="border-default mt-3 grid gap-3 rounded border p-3 sm:grid-cols-2" data-test="add-page-picker">
+          <UFormField label="Content type">
+            <USelect
+              v-model="addPageType"
+              :items="pageTypeOptions"
+              placeholder="Pick a type…"
+              class="w-full"
+              data-test="add-page-type"
+            />
+          </UFormField>
+          <UFormField label="Page" hint="The menu label follows the page title until you override it.">
+            <ReferencePicker
+              v-if="addPageType"
+              v-model="pickedEntry"
+              :target="addPageType"
+              @picked="onEntryPicked"
+            />
+            <p v-else class="text-muted pt-1.5 text-sm">Pick a type first.</p>
+          </UFormField>
         </div>
       </UCard>
 

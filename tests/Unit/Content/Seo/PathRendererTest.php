@@ -36,4 +36,23 @@ final class PathRendererTest extends TestCase
 
         self::assertSame('/content/news/today', $renderer->render('news', 'fr', 'today'));
     }
+
+    public function testRootVariantsIgnoreTheRouteTemplate(): void
+    {
+        // Root grammar is FIXED /{locale?}/{slug} (spec §5): with a custom
+        // template, dropping {type} would print /content/about while the
+        // parser accepts /about — so the template is ignored entirely.
+        $renderer = new PathRenderer('/content/{type}/{slug}', 'https://site.test/');
+
+        self::assertSame('https://site.test/fr/a-propos', $renderer->renderRoot('fr', 'a-propos'));
+        self::assertSame('https://site.test/about', $renderer->renderRootDefaultLocale('about'));
+    }
+
+    public function testRootVariantsWithoutBase(): void
+    {
+        $renderer = new PathRenderer();
+
+        self::assertSame('/fr/a-propos', $renderer->renderRoot('fr', 'a-propos'));
+        self::assertSame('/about', $renderer->renderRootDefaultLocale('about'));
+    }
 }

@@ -10,8 +10,10 @@ use App\Content\Events\ModelUpdated;
 use App\Content\Indexing\EnsureFilterIndexesJob;
 use App\Content\Pipeline\PublishEventEmitter;
 use App\Content\Repositories\ContentTypeRepository;
+use App\Content\Routing\RootMountGuard;
 use App\Content\Http\DTOs\CreateContentTypeData;
 use App\Content\Http\DTOs\FieldDefinitionData;
+use App\Content\Http\DTOs\UpdateContentTypeData;
 use App\Content\Http\DTOs\UpdateContentTypeSchemaData;
 use App\Content\Schema\SchemaParseException;
 use App\Content\Http\DTOs\Responses\ContentTypes\ContentTypeListData;
@@ -43,6 +45,9 @@ final class ContentTypeController
         private readonly ContentTypeRepository $types,
         private readonly QueueManager $queue,
         private readonly ?PublishEventEmitter $events = null,
+        private readonly ?\Glueful\Cache\CacheStore $cache = null,
+        /** Root URL namespace guard; null = ungated (tests, minimal wiring). */
+        private readonly ?RootMountGuard $rootGuard = null,
     ) {
     }
 
@@ -91,6 +96,11 @@ final class ContentTypeController
         if ($this->types->findBySlug($input->slug) !== null) {
             return Response::validation(['slug' => "content type '{$input->slug}' already exists"]);
         }
+        // Type paths take precedence at resolve time, so a new type slug must
+        // not shadow a live root-mounted page (root-mounted-types spec §3).
+        if ($this->rootGuard !== null && ($conflicts = $this->rootGuard->typeSlugConflicts($input->slug)) !== []) {
+            return Response::validation(['slug' => implode('; ', $conflicts)]);
+        }
         try {
             $uuid = $this->types->create([
                 'slug' => $input->slug,
@@ -98,6 +108,7 @@ final class ContentTypeController
                 'description' => $input->description,
                 'cache_ttl' => $input->cache_ttl,
                 'public_delivery' => $input->public_delivery,
+                'mount_at_root' => $input->mount_at_root,
                 'schema' => array_map(static fn (FieldDefinitionData $f): array => $f->toArray(), $input->schema),
                 'created_by' => $this->actor($request),
             ]);
@@ -166,6 +177,70 @@ final class ContentTypeController
         $this->ensureFilterIndexes($row['uuid']);
         $this->events?->emitAfterCommit(new ModelUpdated(type: (string) $row['slug'], actor: $this->actor($request)));
         return Response::success(['content_type' => $this->types->findByUuid($row['uuid'])], 'Schema updated.');
+    }
+
+    /**
+     * Update NON-SCHEMA metadata: name, description, cache_ttl, and — the
+     * headline — `public_delivery`, which was previously creation-only,
+     * leaving no path to make an existing type publicly deliverable. The
+     * slug is immutable; schema edits keep their own endpoint. A
+     * public_delivery change purges the render page cache: flipping OFF
+     * must stop cached live pages from serving, and ON must clear cached
+     * 404 lookups.
+     */
+    #[ApiOperation(
+        summary: 'Update content-type metadata',
+        description: 'Non-schema metadata only (slug immutable; schema has its own endpoint). '
+            . 'Changing public_delivery or mount_at_root purges the render page cache.',
+        tags: ['Lemma Admin'],
+    )]
+    #[ApiResponse(200, schema: ContentTypeResultData::class, description: 'Content type updated.')]
+    #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No content type with that slug.')]
+    #[ApiResponse(422, schema: ErrorResponse::class, envelope: false, description: 'Invalid value (empty name).')]
+    public function update(UpdateContentTypeData $input, Request $request, string $slug): Response
+    {
+        $row = $this->types->findBySlug($slug);
+        if ($row === null) {
+            return Response::notFound('Content type not found.');
+        }
+        if ($input->name !== null && trim($input->name) === '') {
+            return Response::validation(['name' => 'must not be empty']);
+        }
+        // Flipping mount_at_root ON admits every existing route + redirect
+        // source of this type into the global root namespace — validate them
+        // ALL first; any conflict rejects the flip wholesale (spec §3).
+        $flippingOn = $input->mount_at_root === true && (bool) ($row['mount_at_root'] ?? false) === false;
+        if ($flippingOn && $this->rootGuard !== null) {
+            $conflicts = $this->rootGuard->conflictsForType((string) $row['uuid']);
+            if ($conflicts !== []) {
+                return Response::error(
+                    'Cannot mount at root: ' . implode('; ', $conflicts),
+                    Response::HTTP_CONFLICT,
+                    ['code' => 'ROOT_MOUNT_CONFLICT', 'conflicts' => $conflicts]
+                );
+            }
+        }
+        // Both flags change what URLs resolve (visibility / grammar), so either
+        // flip purges the render page cache: stale 200s AND cached 404s.
+        $routingChanged = ($input->public_delivery !== null
+                && $input->public_delivery !== (bool) ($row['public_delivery'] ?? false))
+            || ($input->mount_at_root !== null
+                && $input->mount_at_root !== (bool) ($row['mount_at_root'] ?? false));
+        $this->types->updateMeta((string) $row['uuid'], [
+            'name' => $input->name,
+            'description' => $input->description,
+            'cache_ttl' => $input->cache_ttl,
+            'public_delivery' => $input->public_delivery,
+            'mount_at_root' => $input->mount_at_root,
+        ]);
+        if ($routingChanged) {
+            $this->cache?->deletePattern('render:*');
+        }
+        $this->events?->emitAfterCommit(new ModelUpdated(type: (string) $row['slug'], actor: $this->actor($request)));
+        return Response::success(
+            ['content_type' => $this->types->findByUuid((string) $row['uuid'])],
+            'Content type updated.',
+        );
     }
 
     /**

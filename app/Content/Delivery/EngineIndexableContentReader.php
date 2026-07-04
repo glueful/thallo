@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Content\Delivery;
 
-use App\Content\Seo\PathRenderer;
+use App\Content\Seo\CanonicalPathBuilder;
 use Glueful\Lemma\Contracts\Search\IndexableContent;
 use Glueful\Lemma\Contracts\Search\IndexableContentReader;
 use Glueful\Lemma\Contracts\Search\IndexablePage;
@@ -19,7 +19,7 @@ final class EngineIndexableContentReader implements IndexableContentReader
 {
     public function __construct(
         private readonly DeliveryRepository $delivery,
-        private readonly PathRenderer $paths,
+        private readonly CanonicalPathBuilder $pathBuilder,
     ) {
     }
 
@@ -59,7 +59,15 @@ final class EngineIndexableContentReader implements IndexableContentReader
             contentTypeUuid: (string) $row['content_type_uuid'],
             contentTypeSlug: $typeSlug,
             publicDelivery: (bool) ($row['public_delivery'] ?? false),
-            href: $this->paths->render($typeSlug, $locale, $slug),
+            // Search results link straight to this — it must be the CANONICAL
+            // form (root-collapsed, default locale collapsed), same builder as
+            // every other href surface.
+            href: $this->pathBuilder->pathFor(
+                $typeSlug,
+                (bool) ($row['mount_at_root'] ?? false),
+                $locale,
+                $slug,
+            ),
             entryLabel: $slug,
             fields: (array) $fields,
             lastmod: Timestamps::iso($row['published_at'] ?? null),

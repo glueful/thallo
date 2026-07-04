@@ -45,7 +45,8 @@ final class CanonicalProjectorTest extends LemmaTestCase
 
         self::assertSame('/fr/blog/bonjour', $seo['canonical']['href']);
         self::assertSame([
-            ['locale' => 'en', 'href' => '/en/blog/hello', 'content_type' => 'blog', 'slug' => 'hello'],
+            // The en alternate is canonical too: default locale collapsed.
+            ['locale' => 'en', 'href' => '/blog/hello', 'content_type' => 'blog', 'slug' => 'hello'],
             ['locale' => 'fr', 'href' => '/fr/blog/bonjour', 'content_type' => 'blog', 'slug' => 'bonjour'],
         ], $seo['alternates']);
         self::assertSame('/blog/hello', $seo['x_default']['href']);
@@ -68,7 +69,10 @@ final class CanonicalProjectorTest extends LemmaTestCase
             new DeliveryRepository($this->connection()),
             $this->routes,
             $this->types,
-            new PathRenderer('/{locale}/{type}/{slug}', null, 'en'),
+            new \App\Content\Seo\CanonicalPathBuilder(
+                new PathRenderer('/{locale}/{type}/{slug}', null, 'en'),
+                $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
+            ),
             'en'
         );
     }

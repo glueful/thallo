@@ -20,14 +20,18 @@ final class EnumeratePublishedForSitemapTest extends LemmaTestCase
     private function reader(): EngineContentDeliveryReader
     {
         $paths = new PathRenderer('/{locale}/{type}/{slug}', 'https://site.test', 'en');
+        $builder = new \App\Content\Seo\CanonicalPathBuilder(
+            $paths,
+            $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
+        );
         return new EngineContentDeliveryReader(
             new DeliveryRepository($this->connection()),
-            $paths,
+            $builder,
             new CanonicalProjector(
                 new DeliveryRepository($this->connection()),
                 new RouteRepository($this->connection()),
                 new ContentTypeRepository($this->connection()),
-                $paths,
+                $builder,
                 'en',
             ),
             new ContentTypeRepository($this->connection()),
@@ -44,7 +48,8 @@ final class EnumeratePublishedForSitemapTest extends LemmaTestCase
         self::assertCount(2, $page['items']);
 
         $hrefs = array_map(static fn (array $i): string => $i['href'], $page['items']);
-        self::assertContains('https://site.test/en/blog/hello', $hrefs);
+        // Sitemap lists canonical URLs: the default locale collapses.
+        self::assertContains('https://site.test/blog/hello', $hrefs);
         self::assertContains('https://site.test/fr/blog/bonjour', $hrefs);
 
         foreach ($page['items'] as $item) {

@@ -71,8 +71,47 @@ final class MenuResolutionTest extends LemmaTestCase
         self::assertCount(2, $tree);
         self::assertSame('https://example.test/ext', $tree[0]['url']);
         self::assertNull($tree[0]['entry']);
-        self::assertStringContainsString('/blog/hello', $tree[1]['url']);
+        // The default locale collapses (no /en/ prefix) — the CanonicalProjector
+        // rule; a prefixed default here would render off-canonical nav links.
+        // (phpunit.xml sets LEMMA_PUBLIC_URL_BASE=https://site.test.)
+        self::assertSame('https://site.test/blog/hello', $tree[1]['url']);
         self::assertSame($entry, $tree[1]['entry']);
+
+        // A non-default locale keeps its prefix.
+        $fr = $this->reader()->menu('main', 'fr');
+        self::assertNotNull($fr);
+        self::assertSame('https://site.test/fr/blog/bonjour', $fr[1]['url']);
+    }
+
+    public function testEmptyLabelInheritsThePublishedPageTitle(): void
+    {
+        // nav-entry-items design: empty labels = "follow the page title"
+        // (published version's localized title); typed label = override;
+        // clearing the override re-inherits.
+        $entry = $this->seedBilingualPublishedEntry(); // published 'Hello' (en) / 'Bonjour' (fr)
+        $menu = $this->menus()->createMenu('main', 'Main');
+        $inherit = $this->item(['kind' => 'entry', 'entry_uuid' => $entry, 'url' => null,
+            'labels' => json_encode([])]);
+        $this->menus()->replaceTree((string) $menu['uuid'], 0, [$inherit]);
+
+        $tree = $this->reader()->menu('main', 'en');
+        self::assertSame('Hello', $tree[0]['label']);      // inherited (en)
+        $fr = $this->reader()->menu('main', 'fr');
+        self::assertSame('Bonjour', $fr[0]['label']);      // localized inheritance
+
+        // Override wins…
+        $this->menus()->replaceTree((string) $menu['uuid'], 1, [
+            $this->item(['uuid' => $inherit['uuid'], 'kind' => 'entry', 'entry_uuid' => $entry,
+                'url' => null, 'labels' => json_encode(['en' => 'Custom'])]),
+        ]);
+        self::assertSame('Custom', $this->reader()->menu('main', 'en')[0]['label']);
+
+        // …and clearing it re-inherits.
+        $this->menus()->replaceTree((string) $menu['uuid'], 2, [
+            $this->item(['uuid' => $inherit['uuid'], 'kind' => 'entry', 'entry_uuid' => $entry,
+                'url' => null, 'labels' => json_encode([])]),
+        ]);
+        self::assertSame('Hello', $this->reader()->menu('main', 'en')[0]['label']);
     }
 
     public function testNonPublishedSubtreeIsDropped(): void

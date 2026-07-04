@@ -26,6 +26,7 @@ final class GeneralSettingsController
 
     public function __construct(
         private readonly GeneralSettings $settings,
+        private readonly ?\Glueful\Lemma\Contracts\Delivery\PublicRouteResolver $resolver = null,
     ) {
     }
 
@@ -68,6 +69,7 @@ final class GeneralSettingsController
             'cache_ttl' => $input->cache_ttl,
             'scheduler_enabled' => $input->scheduler_enabled,
             'webhooks_enabled' => $input->webhooks_enabled,
+            'homepage_entry' => $input->homepage_entry,
         ]);
 
         return Response::success(
@@ -101,6 +103,20 @@ final class GeneralSettingsController
         $effMax = $input->max_per_page ?? (int) $current['max_per_page'];
         if (!isset($errors['default_per_page'], $errors['max_per_page']) && $effMax < $effDefault) {
             $errors['max_per_page'] = 'Max per page must be greater than or equal to the default.';
+        }
+
+        // Homepage (homepage-setting spec §0): write-time validation, never a
+        // runtime surprise — the uuid must resolve to PUBLISHED content of a
+        // publicly delivered type RIGHT NOW. '' (clear) and null (unchanged)
+        // skip the check.
+        if (
+            $input->homepage_entry !== null
+            && $input->homepage_entry !== ''
+            && ($this->resolver === null
+                || ($this->resolver->resolveEntry($input->homepage_entry)['kind'] ?? null) !== 'content')
+        ) {
+            $errors['homepage_entry'] =
+                'must be a published entry of a publicly delivered content type';
         }
 
         return $errors;

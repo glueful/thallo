@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace App\Content\Context;
 
 use App\Content\Localization\ContentLocaleService;
-use App\Content\Seo\PathRenderer;
+use App\Content\Repositories\ContentTypeRepository;
+use App\Content\Seo\CanonicalPathBuilder;
 use App\Settings\GeneralSettings;
 use Glueful\Lemma\Contracts\Context\LemmaContext;
 
@@ -14,7 +15,8 @@ final class EngineLemmaContext implements LemmaContext
     public function __construct(
         private readonly ContentLocaleService $locales,
         private readonly GeneralSettings $settings,
-        private readonly PathRenderer $paths,
+        private readonly CanonicalPathBuilder $pathBuilder,
+        private readonly ContentTypeRepository $types,
     ) {
     }
 
@@ -35,6 +37,14 @@ final class EngineLemmaContext implements LemmaContext
 
     public function renderPath(string $contentTypeSlug, string $locale, string $slug): string
     {
-        return $this->paths->render($contentTypeSlug, $locale, $slug);
+        // Canonical form: root-collapsed for root-mounted types, default
+        // locale collapsed — the same builder every href surface uses.
+        $type = $this->types->findBySlug($contentTypeSlug);
+        return $this->pathBuilder->pathFor(
+            $contentTypeSlug,
+            (bool) ($type['mount_at_root'] ?? false),
+            $locale,
+            $slug,
+        );
     }
 }

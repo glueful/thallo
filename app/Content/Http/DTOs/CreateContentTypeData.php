@@ -35,6 +35,9 @@ final class CreateContentTypeData implements RequestData
         /** @var bool Whether published delivery routes may be read without an API key. */
         #[Rule('boolean')]
         public readonly bool $public_delivery = false,
+        /** @var bool Whether entries serve at /{slug} instead of /{type}/{slug}. */
+        #[Rule('boolean')]
+        public readonly bool $mount_at_root = false,
         #[ArrayOf(FieldDefinitionData::class)]
         #[Rule('array')]
         public readonly array $schema = [],

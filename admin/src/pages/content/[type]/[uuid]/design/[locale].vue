@@ -130,6 +130,48 @@ function maybeReconcileStash(): void {
   void runApply(true)
 }
 
+// ── Page settings tab (modern-default-theme spec §5a) ─────────────────────────
+// _presentation is a reserved system key in the SAME fields tree: edits ride
+// the deep watcher -> auto-apply -> stash -> render chain like any content
+// change, and save/publish/version it with the draft. "Theme default" DELETES
+// the key so the theme.json chain shows through.
+const inspectorTab = ref('content')
+const inspectorTabs = [
+  { label: 'Content', value: 'content', slot: 'content' as const },
+  { label: 'Page', value: 'page', slot: 'page' as const },
+]
+
+const presentationOverride = computed<Record<string, unknown>>(() => {
+  const p = fields.value._presentation
+  return p !== null && typeof p === 'object' && !Array.isArray(p)
+    ? (p as Record<string, unknown>)
+    : {}
+})
+const presShowTitle = computed(() => {
+  const v = presentationOverride.value.show_title
+  return v === true ? 'show' : v === false ? 'hide' : 'default'
+})
+const presLayout = computed(() => {
+  const v = presentationOverride.value.layout
+  return v === 'full' || v === 'centered' ? v : 'default'
+})
+
+function patchPresentation(key: 'show_title' | 'layout', value: unknown): void {
+  const next = { ...presentationOverride.value }
+  if (value === undefined) delete next[key]
+  else next[key] = value
+  const nextFields = { ...fields.value }
+  if (Object.keys(next).length === 0) delete nextFields._presentation
+  else nextFields._presentation = next
+  fields.value = nextFields // reassign: the deep watcher schedules auto-apply
+}
+function setPresShowTitle(v: string): void {
+  patchPresentation('show_title', v === 'default' ? undefined : v === 'show')
+}
+function setPresLayout(v: string): void {
+  patchPresentation('layout', v === 'default' ? undefined : v)
+}
+
 // Outline panel visibility — same affordance shape as the inspector's
 // per-field outline rail toggle. Collapsed by default: the stage is the star.
 const outlineOpen = ref(false)
@@ -571,6 +613,24 @@ function refreshPreview(): void {
   void mintAndLoad()
 }
 
+// The editor's "Preview in theme" twin: a FRESH mint opened in a new tab —
+// the working-copy overlay rides the session (keyed entry+locale), so the
+// tab shows exactly what the stage shows, full-site navigable. The stage's
+// own token/iframe are untouched.
+const openingPreview = ref(false)
+async function openThemePreview(): Promise<void> {
+  openingPreview.value = true
+  try {
+    const mint = await mintPreviewData(uuid.value, locale.value)
+    if (mint.themeUrl) window.open(mint.themeUrl, '_blank', 'noopener')
+    else warning('Theme preview unavailable — rendered delivery is disabled')
+  } catch (e) {
+    notifyError(e, 'Preview failed')
+  } finally {
+    openingPreview.value = false
+  }
+}
+
 /**
  * Save-failure reset (stage-toolbar spec §2): discard mirror-only DOM by
  * remounting the iframe on the SAME URL (v-if unmount + remount = reload).
@@ -644,15 +704,28 @@ function reloadStage(): void {
             @click="toggleOutline()"
           />
           <UButton
+            v-if="!renderDisabled && iframeSrc"
+            variant="ghost"
+            color="neutral"
+            icon="i-lucide-eye"
+            square
+            :loading="openingPreview"
+            aria-label="Open theme preview in a new tab"
+            title="Open theme preview in a new tab"
+            data-test="canvas-open-preview"
+            @click="openThemePreview()"
+          />
+          <UButton
             v-if="mintFailed || (!renderDisabled && iframeSrc)"
             variant="ghost"
             color="neutral"
             icon="i-lucide-refresh-cw"
+            square
+            aria-label="Refresh preview"
+            title="Refresh preview"
             data-test="canvas-refresh-preview"
             @click="refreshPreview()"
-          >
-            Refresh preview
-          </UButton>
+          />
           <UButton
             :variant="autoEnabled && !autoSuspended ? 'soft' : 'outline'"
             :color="autoSuspended ? 'warning' : autoEnabled ? 'primary' : 'neutral'"
@@ -704,7 +777,73 @@ function reloadStage(): void {
       <div v-else class="flex h-full min-h-0 gap-4">
        
         <aside class="w-96 shrink-0 overflow-y-auto" data-test="canvas-inspector">
-          <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" />
+          <!-- Tabbed inspector (modern-default-theme spec §5a). unmount-on-hide
+               MUST stay false: the bridge routes every stage intent through
+               fieldEditorRef, which must never unmount on a tab switch. -->
+          <UTabs
+            v-model="inspectorTab"
+            :items="inspectorTabs"
+            :unmount-on-hide="false"
+            size="xs"
+            data-test="inspector-tabs"
+            variant="link"
+          >
+            <template #content>
+              <FieldEditor ref="fieldEditorRef" v-model="fields" :schema="schema" />
+            </template>
+            <template #page>
+              <div class="space-y-5 pt-2" data-test="page-settings">
+            <UFormField
+              label="Show page title"
+              help="Hide it when a hero block owns the page heading."
+            >
+              <UFieldGroup>
+                <UButton
+                  v-for="opt in [
+                    { label: 'Theme default', value: 'default' },
+                    { label: 'Show', value: 'show' },
+                    { label: 'Hide', value: 'hide' },
+                  ]"
+                  :key="opt.value"
+                  size="xs"
+                  :variant="presShowTitle === opt.value ? 'solid' : 'outline'"
+                  color="neutral"
+                  :data-test="`pres-title-${opt.value}`"
+                  @click="setPresShowTitle(opt.value)"
+                >
+                  {{ opt.label }}
+                </UButton>
+              </UFieldGroup>
+            </UFormField>
+            <UFormField
+              label="Layout"
+              help="Full width lets hero and section bands bleed edge-to-edge."
+            >
+              <UFieldGroup>
+                <UButton
+                  v-for="opt in [
+                    { label: 'Theme default', value: 'default' },
+                    { label: 'Centered', value: 'centered' },
+                    { label: 'Full width', value: 'full' },
+                  ]"
+                  :key="opt.value"
+                  size="xs"
+                  :variant="presLayout === opt.value ? 'solid' : 'outline'"
+                  color="neutral"
+                  :data-test="`pres-layout-${opt.value}`"
+                  @click="setPresLayout(opt.value)"
+                >
+                  {{ opt.label }}
+                </UButton>
+              </UFieldGroup>
+            </UFormField>
+                <p class="text-xs text-muted">
+                  “Theme default” follows the theme’s settings; overrides save
+                  and publish with this page.
+                </p>
+              </div>
+            </template>
+          </UTabs>
         </aside>
 
         <div ref="stageEl" class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3" data-test="canvas-stage">

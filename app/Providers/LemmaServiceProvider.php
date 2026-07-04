@@ -101,6 +101,8 @@ use App\Content\Retention\VersionPruner;
 use App\Content\Schema\Migration\SchemaProjector;
 use App\Content\Scheduling\ScheduleRunner;
 use App\Content\Seo\CanonicalProjector;
+use App\Content\Routing\RootMountGuard;
+use App\Content\Seo\CanonicalPathBuilder;
 use App\Content\Seo\PathRenderer;
 use App\Content\Seo\RedirectRepository;
 use App\Content\Seo\RouteResolver;
@@ -344,6 +346,11 @@ final class LemmaServiceProvider extends ServiceProvider
                 'shared'   => true,
                 'autowire' => true,
             ],
+            \Glueful\Lemma\Contracts\Delivery\HomepageEntryProvider::class => [
+                'class'    => \App\Content\Delivery\EngineHomepageEntryProvider::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
             \Glueful\Lemma\Contracts\Delivery\PublicRouteResolver::class => [
                 'class'    => \App\Content\Delivery\EnginePublicRouteResolver::class,
                 'shared'   => true,
@@ -407,6 +414,16 @@ final class LemmaServiceProvider extends ServiceProvider
             PathRenderer::class => [
                 'factory' => [self::class, 'makePathRenderer'],
                 'shared' => true,
+            ],
+            CanonicalPathBuilder::class => [
+                'class' => CanonicalPathBuilder::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            RootMountGuard::class => [
+                'class' => RootMountGuard::class,
+                'shared' => true,
+                'autowire' => true,
             ],
             RouteResolver::class => [
                 'class' => RouteResolver::class,
@@ -958,7 +975,7 @@ final class LemmaServiceProvider extends ServiceProvider
     {
         return new EngineContentDeliveryReader(
             $container->get(DeliveryRepository::class),
-            $container->get(PathRenderer::class),
+            $container->get(CanonicalPathBuilder::class),
             $container->get(CanonicalProjector::class),
             $container->get(ContentTypeRepository::class),
         );
@@ -968,7 +985,7 @@ final class LemmaServiceProvider extends ServiceProvider
     {
         return new EngineIndexableContentReader(
             $container->get(DeliveryRepository::class),
-            $container->get(PathRenderer::class),
+            $container->get(CanonicalPathBuilder::class),
         );
     }
 
@@ -978,7 +995,7 @@ final class LemmaServiceProvider extends ServiceProvider
             $container->get(DeliveryRepository::class),
             $container->get(RouteRepository::class),
             $container->get(ContentTypeRepository::class),
-            $container->get(PathRenderer::class),
+            $container->get(CanonicalPathBuilder::class),
             (string) config($container->get(ApplicationContext::class), 'i18n.default_locale', 'en')
         );
     }

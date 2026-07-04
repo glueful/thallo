@@ -22,6 +22,27 @@ describe('MenuTreeEditor', () => {
     expect((labels[0]!.element as HTMLInputElement).value).toBe('a')
   })
 
+  it('entry rows inherit the page title as the label placeholder and show the path', () => {
+    // nav-entry-items design: empty label = follow the page title; the SPA
+    // never guesses — target_title comes from the admin tree payload.
+    const wrapper = mountEditor([
+      {
+        uuid: 'e-1',
+        kind: 'entry',
+        entry_uuid: 'entry0000001',
+        labels: {},
+        target_status: 'published',
+        target_url: '/pages/about',
+        target_title: 'About us',
+        children: [],
+      },
+    ])
+    const label = wrapper.find('[data-test="tree-item-label"] input, input[data-test="tree-item-label"]')
+    expect(label.attributes('placeholder')).toBe('About us')
+    expect(wrapper.find('[data-test="tree-item-path"]').text()).toBe('/pages/about')
+    expect(wrapper.find('[data-test="tree-item-status"]').exists()).toBe(true)
+  })
+
   it('down button reorders siblings in place and emits changed', async () => {
     const items = [url('a'), url('b')]
     const wrapper = mountEditor(items)

@@ -26,6 +26,7 @@ final class GeneralSettings
         'cache_ttl'         => ['lemma.delivery.cache_ttl', 'int', 60],
         'scheduler_enabled' => ['lemma.scheduler.enabled', 'bool', true],
         'webhooks_enabled'  => ['lemma.pipeline.webhooks_enabled', 'bool', true],
+        'homepage_entry'    => ['lemma_render.homepage_entry', 'string', ''],
     ];
 
     public function __construct(
@@ -47,6 +48,12 @@ final class GeneralSettings
     public function defaultLocale(): string
     {
         return (string) $this->value('default_locale');
+    }
+
+    /** The RAW stored homepage override — null when no DB row (env applies). */
+    public function homepageEntryOverride(): ?string
+    {
+        return $this->store->get('homepage_entry');
     }
 
     public function defaultPerPage(): int
@@ -99,6 +106,14 @@ final class GeneralSettings
         $pairs = [];
         foreach (self::DEFS as $key => [$cfg, $type, $def]) {
             if (array_key_exists($key, $partial) && $partial[$key] !== null) {
+                // homepage_entry (homepage-setting spec §0): an EXPLICIT empty
+                // string means "clear to fallback" — the row is DELETED so the
+                // config/.env value shows through (a stored '' would shadow it).
+                // null keeps the usual "unchanged" meaning.
+                if ($key === 'homepage_entry' && $partial[$key] === '') {
+                    $this->store->forget($key);
+                    continue;
+                }
                 $pairs[$key] = $this->encode($partial[$key], $type);
             }
         }

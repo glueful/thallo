@@ -222,7 +222,7 @@ final class DeliveryRepository
 
     private const INDEXABLE_SELECT = [
         'p.entry_uuid', 'e.content_type_uuid', 'ct.slug as content_type_slug',
-        'ct.public_delivery', 'p.locale', 'r.slug', 'v.fields', 'p.published_at',
+        'ct.public_delivery', 'ct.mount_at_root', 'p.locale', 'r.slug', 'v.fields', 'p.published_at',
     ];
 
     /** The shared indexable join spine: publication → version, entry, route, content type. */

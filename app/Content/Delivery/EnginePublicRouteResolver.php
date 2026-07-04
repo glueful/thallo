@@ -12,7 +12,7 @@ use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\PublishedReferenceRepository;
 use App\Content\Schema\ContentTypeSchema;
-use App\Content\Seo\PathRenderer;
+use App\Content\Seo\CanonicalPathBuilder;
 use App\Content\Seo\RouteResolver;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
@@ -47,7 +47,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         private readonly DeliveryRepository $delivery,
         private readonly PublishedReferenceRepository $projection,
         private readonly ReferenceTargetResolver $terms,
-        private readonly PathRenderer $paths,
+        private readonly CanonicalPathBuilder $canonical,
         private readonly PreviewReader $preview,
         private readonly EntryRepository $entries,
         private readonly LoggerInterface $logger,
@@ -81,8 +81,14 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         }
 
         switch (count($decoded)) {
-            case 1: // /{type} → listing page 1
-                return $this->resolveListing($decoded[0], $locale, 1);
+            case 1: // /{type} → listing page 1; else root-mounted entry/redirect
+                // Type paths take precedence (root-mounted-types spec §2):
+                // types are few and explicit, and the write-time RootMountGuard
+                // makes the shadowing state unrepresentable anyway.
+                if ($this->types->findBySlug($decoded[0]) !== null) {
+                    return $this->resolveListing($decoded[0], $locale, 1);
+                }
+                return $this->resolveRootEntry($decoded[0], $locale, $previewSession);
             case 2: // /{type}/{slug} → entry (existing behavior)
                 [$typeSlug, $slug] = $decoded;
                 break;
@@ -139,18 +145,35 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         if ($typeRow === null || !$this->isPubliclyDeliverable($typeRow)) {
             return $this->notFound();
         }
+
+        return $this->resolveTypedEntry($typeRow, $slug, $locale, $previewSession, viaPrefixedPath: true);
+    }
+
+    /**
+     * The shared entry tail (root-mounted-types spec §2): per-type route/
+     * redirect resolution, preview-session + working-copy overlays, shaping.
+     * Both grammars end here — /{type}/{slug} and the root /{slug} — so the
+     * overlays and presentation extraction apply at root by construction.
+     *
+     * @param array<string,mixed> $typeRow
+     * @return array<string,mixed>
+     */
+    private function resolveTypedEntry(
+        array $typeRow,
+        string $slug,
+        string $locale,
+        ?PreviewSession $previewSession,
+        bool $viaPrefixedPath,
+    ): array {
         $typeUuid = (string) $typeRow['uuid'];
+        $typeSlug = (string) $typeRow['slug'];
 
         $result = $this->routes->resolve($typeUuid, $typeSlug, $this->localeChain($locale), $slug);
         if ($result === null) {
             return $this->notFound();
         }
         if ($result->isGone()) {
-            return [
-                'kind' => 'gone', 'locale' => $locale, 'type' => null, 'content' => null, 'redirect' => null,
-                'listing' => null, 'term' => null, 'term_type' => null, 'field' => null,
-                'preview' => false,
-            ];
+            return $this->gone($locale);
         }
         if ($result->isRedirect()) {
             $descriptor = $result->redirect();
@@ -158,6 +181,18 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         }
 
         $row = $result->content();
+
+        // Canonical collapse (spec §2): a root-mounted type reached via its
+        // PREFIXED path 301s to the root canonical — CONTENT ONLY (redirect
+        // rows already followed their own descriptor above; one hop, never
+        // /pages/old -> /old -> /new). Before the overlays, so preview
+        // sessions canonicalize too and overlay at the root path.
+        if ($viaPrefixedPath && (bool) ($typeRow['mount_at_root'] ?? false)) {
+            return $this->redirect(
+                $this->canonical->pathFor($typeSlug, true, (string) $row['locale'], $slug),
+                301,
+            );
+        }
 
         // Single-draft overlay (preview-sessions spec §3): the session's OWN entry
         // shows its draft at its canonical URL; everything else stays published.
@@ -184,7 +219,62 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
             'redirect' => null,
             'listing' => null, 'term' => null, 'term_type' => null, 'field' => null,
             'preview' => false,
+            'presentation' => $this->presentationOf($row),
             'cache_tags' => $this->expansionTags($expanded),
+        ];
+    }
+
+    /**
+     * Root grammar, 1 segment (root-mounted-types spec §2): a root-mounted
+     * entry lookup through the locale chain, then the root redirect fallback,
+     * then 404. Only root-mounted, publicly deliverable, active types
+     * participate; the RootMountGuard keeps the namespace collision-free so
+     * the first match is the only possible match.
+     *
+     * @return array<string,mixed>
+     */
+    private function resolveRootEntry(string $slug, string $locale, ?PreviewSession $previewSession): array
+    {
+        foreach ($this->localeChain($locale) as $chainLocale) {
+            $route = $this->db->table('entry_routes')
+                ->select(['entry_routes.content_type_uuid'])
+                ->join('content_types', 'content_types.uuid', '=', 'entry_routes.content_type_uuid')
+                ->where('content_types.mount_at_root', '=', true)
+                ->where('content_types.status', '!=', 'deleted')
+                ->where('entry_routes.locale', '=', $chainLocale)
+                ->where('entry_routes.slug', '=', $slug)
+                ->first();
+            if ($route === null) {
+                continue;
+            }
+            $typeRow = $this->types->findByUuid((string) $route['content_type_uuid']);
+            if ($typeRow === null || !$this->isPubliclyDeliverable($typeRow)) {
+                return $this->notFound();
+            }
+            return $this->resolveTypedEntry($typeRow, $slug, $locale, $previewSession, viaPrefixedPath: false);
+        }
+
+        $result = $this->routes->resolveRootRedirect($locale, $slug);
+        if ($result !== null) {
+            if ($result->isGone()) {
+                return $this->gone($locale);
+            }
+            if ($result->isRedirect()) {
+                $descriptor = $result->redirect();
+                return $this->redirect((string) $descriptor['to'], (int) $descriptor['status']);
+            }
+        }
+
+        return $this->notFound();
+    }
+
+    /** @return array<string,mixed> the shared gone shape */
+    private function gone(string $locale): array
+    {
+        return [
+            'kind' => 'gone', 'locale' => $locale, 'type' => null, 'content' => null, 'redirect' => null,
+            'listing' => null, 'term' => null, 'term_type' => null, 'field' => null,
+            'preview' => false,
         ];
     }
 
@@ -251,6 +341,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
             'redirect' => null,
             'listing' => null, 'term' => null, 'term_type' => null, 'field' => null,
             'preview' => false,
+            'presentation' => $this->presentationOf($row),
             'cache_tags' => $this->expansionTags($expanded),
         ];
     }
@@ -292,6 +383,28 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
      * @return array{entry_uuid:string,locale:string,version_uuid:?string,
      *               version:?int,schema_version:int,fields:array<string,mixed>}
      */
+    /**
+     * The RAW per-page presentation override (modern-default-theme spec §5a),
+     * extracted BEFORE shaping: the delivery shaper's schema allowlist strips
+     * _presentation from shaped content, so this is the only door it reaches
+     * the renderer through. Null = no override (theme defaults apply).
+     *
+     * @param array<string,mixed> $rowOrRead a spine row or reader result
+     * @return array<string,mixed>|null
+     */
+    private function presentationOf(array $rowOrRead): ?array
+    {
+        $fields = $rowOrRead['fields'] ?? null;
+        if (is_string($fields)) {
+            $fields = json_decode($fields, true);
+        }
+        if (!is_array($fields)) {
+            return null;
+        }
+        $presentation = $fields['_presentation'] ?? null;
+        return is_array($presentation) && $presentation !== [] ? $presentation : null;
+    }
+
     private function overlayWorkingCopy(array $read): array
     {
         if ($read['version_uuid'] !== null || $this->workingCopies === null) {
@@ -350,6 +463,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
             'content' => $content, 'redirect' => null,
             'listing' => null, 'term' => null, 'term_type' => null, 'field' => null,
             'preview' => true,
+            'presentation' => $this->presentationOf($read),
         ];
     }
 
@@ -583,7 +697,14 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         foreach ($shaped as $row) {
             $item = $this->shaper->item($row);
             $slug = $slugByEntry[(string) ($row['entry_uuid'] ?? '')] ?? null;
-            $item['href'] = $slug === null ? null : $this->href($typeSlug, $locale, $slug);
+            $item['href'] = $slug === null
+                ? null
+                : $this->canonical->pathFor(
+                    $typeSlug,
+                    (bool) ($typeRow['mount_at_root'] ?? false),
+                    $locale,
+                    $slug,
+                );
             $items[] = $item;
         }
         return $items;
@@ -602,14 +723,6 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
             static fn(string $uuid): string => 'lemma:entry:' . $uuid,
             $expanded->entryUuids(),
         );
-    }
-
-    /** Default locale collapses (no /en/ prefix) — the CanonicalProjector rule. */
-    private function href(string $typeSlug, string $locale, string $slug): string
-    {
-        return $locale === $this->locales->default()
-            ? $this->paths->renderDefaultLocale($typeSlug, $slug)
-            : $this->paths->render($typeSlug, $locale, $slug);
     }
 
     /** @return list<string> the render-owned listing allowlist (soft config read). */

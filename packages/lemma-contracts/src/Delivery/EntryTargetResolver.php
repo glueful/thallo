@@ -19,7 +19,10 @@ interface EntryTargetResolver
 {
     /**
      * @return array{status: 'published'|'unpublished'|'deleted'|'missing'|'routeless',
-     *   path: ?string}  path is non-null iff status is 'published'
+     *   path: ?string, title: ?string}  path is non-null iff status is 'published';
+     *   title is the entry's localized display title — the PUBLISHED version's for
+     *   published/routeless targets, the draft's for unpublished ones (so editors
+     *   see the inherited menu label before publishing), null for missing/deleted.
      */
     public function resolve(string $entryUuid, string $locale): array;
 }

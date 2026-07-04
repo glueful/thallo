@@ -630,7 +630,7 @@ export interface paths {
         };
         /**
          * Menu editor payload: full unfiltered tree for a locale
-         * @description Per entry item: target_status (published|unpublished|deleted|missing|routeless) and target_url resolved FOR ?locale= (status is locale-sensitive). Includes lock_version.
+         * @description Per entry item: target_status (published|unpublished|deleted|missing|routeless), target_title (the localized page title an empty label inherits) and target_url resolved FOR ?locale= (status is locale-sensitive). Includes lock_version.
          */
         get: operations["getV1AdminNavigationMenusBySlug"];
         /** Rename a navigation menu */
@@ -752,7 +752,11 @@ export interface paths {
         delete: operations["deleteV1AdminContenttypesBySlug"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update content-type metadata
+         * @description Non-schema metadata only (slug immutable; schema has its own endpoint). Changing public_delivery or mount_at_root purges the render page cache.
+         */
+        patch: operations["patchV1AdminContenttypesBySlug"];
         trace?: never;
     };
     "/content-types/{slug}/migrations": {
@@ -2870,6 +2874,7 @@ export interface operations {
                                 description?: string | null;
                                 cache_ttl?: number | null;
                                 public_delivery?: boolean;
+                                mount_at_root?: boolean;
                                 status?: string;
                                 schema?: {
                                     name?: string;
@@ -2967,6 +2972,7 @@ export interface operations {
                  *       "description": "A short description.",
                  *       "cache_ttl": "example",
                  *       "public_delivery": true,
+                 *       "mount_at_root": true,
                  *       "schema": "example"
                  *     }
                  */
@@ -2981,6 +2987,8 @@ export interface operations {
                     cache_ttl?: number | null;
                     /** @description Whether published delivery routes may be read without an API key. */
                     public_delivery?: boolean;
+                    /** @description Whether entries serve at /{slug} instead of /{type}/{slug}. */
+                    mount_at_root?: boolean;
                     schema?: {
                         name?: string;
                         type?: string;
@@ -3026,6 +3034,7 @@ export interface operations {
                                 description?: string | null;
                                 cache_ttl?: number | null;
                                 public_delivery?: boolean;
+                                mount_at_root?: boolean;
                                 status?: string;
                                 schema?: {
                                     name?: string;
@@ -3899,6 +3908,7 @@ export interface operations {
                                 cache_ttl?: number;
                                 scheduler_enabled?: boolean;
                                 webhooks_enabled?: boolean;
+                                homepage_entry?: string;
                             };
                         };
                     };
@@ -3975,7 +3985,8 @@ export interface operations {
                  *       "max_per_page": "example",
                  *       "cache_ttl": "example",
                  *       "scheduler_enabled": true,
-                 *       "webhooks_enabled": true
+                 *       "webhooks_enabled": true,
+                 *       "homepage_entry": "example"
                  *     }
                  */
                 "application/json": {
@@ -3987,6 +3998,7 @@ export interface operations {
                     cache_ttl?: number | null;
                     scheduler_enabled?: boolean | null;
                     webhooks_enabled?: boolean | null;
+                    homepage_entry?: string | null;
                 };
             };
         };
@@ -4010,6 +4022,7 @@ export interface operations {
                                 cache_ttl?: number;
                                 scheduler_enabled?: boolean;
                                 webhooks_enabled?: boolean;
+                                homepage_entry?: string;
                             };
                         };
                     };
@@ -7014,6 +7027,7 @@ export interface operations {
                                 description?: string | null;
                                 cache_ttl?: number | null;
                                 public_delivery?: boolean;
+                                mount_at_root?: boolean;
                                 status?: string;
                                 schema?: {
                                     name?: string;
@@ -7166,6 +7180,171 @@ export interface operations {
             };
             /** @description No content type with that slug. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    patchV1AdminContenttypesBySlug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                /**
+                 * @example {
+                 *       "name": "Jane",
+                 *       "description": "A short description.",
+                 *       "cache_ttl": "example",
+                 *       "public_delivery": true,
+                 *       "mount_at_root": true
+                 *     }
+                 */
+                "application/json": {
+                    name?: string | null;
+                    description?: string | null;
+                    cache_ttl?: number | null;
+                    public_delivery?: boolean | null;
+                    /** @description Whether entries serve at /{slug} instead of /{type}/{slug}. */
+                    mount_at_root?: boolean | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Content type updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            content_type?: {
+                                id?: number;
+                                uuid?: string;
+                                slug?: string;
+                                name?: string;
+                                description?: string | null;
+                                cache_ttl?: number | null;
+                                public_delivery?: boolean;
+                                mount_at_root?: boolean;
+                                status?: string;
+                                schema?: {
+                                    name?: string;
+                                    /** @enum {string} */
+                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json" | "blocks";
+                                    required?: boolean | null;
+                                    localized?: boolean | null;
+                                    filterable?: boolean | null;
+                                    filter_type?: string | null;
+                                    enum?: string[];
+                                    format?: string | null;
+                                    reference_type?: string | null;
+                                    multiple?: boolean | null;
+                                    max_items?: number | null;
+                                    reference_slug_field?: string | null;
+                                    block_types?: string[];
+                                }[];
+                                schema_version?: number;
+                                created_by?: string | null;
+                                /** Format: date-time */
+                                created_at?: string;
+                                /** Format: date-time */
+                                updated_at?: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description No content type with that slug. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Invalid value (empty name). */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14016,6 +14195,7 @@ export interface operations {
                                 description?: string | null;
                                 cache_ttl?: number | null;
                                 public_delivery?: boolean;
+                                mount_at_root?: boolean;
                                 status?: string;
                                 schema?: {
                                     name?: string;

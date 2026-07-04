@@ -47,6 +47,17 @@ final class SettingsStore
     }
 
     /**
+     * Remove a stored override so the config/.env fallback shows through
+     * (homepage-setting spec §0: clearing must DELETE the row — an empty
+     * string row would shadow the fallback with '').
+     */
+    public function forget(string $key): void
+    {
+        db($this->context)->table('lemma_settings')->where(['key' => $key])->delete();
+        $this->cache = null;
+    }
+
+    /**
      * Upsert each pair into `lemma_settings`.
      *
      * @param array<string,string> $pairs

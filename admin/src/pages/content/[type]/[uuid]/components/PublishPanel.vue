@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoutes, useSaveRoute } from '@/queries/routes'
 import { usePublish } from '@/queries/publish'
 import { usePreview, useThemePreview, buildPreviewUrl } from '@/queries/preview'
+import { useGeneralSettings, useGeneralSettingsMutations } from '@/queries/generalSettings'
 import { useSchedules, useScheduleMutations } from '@/queries/schedules'
 import { useEntryLocales } from '@/queries/entries'
 import { useNotify } from '@/composables/useNotify'
@@ -86,6 +87,22 @@ async function onThemePreview() {
   }
 }
 
+// ── Homepage (homepage-setting spec §1): the natural finish to the page-
+// building flow — design, preview, publish, set home. Write-time validation
+// lives server-side (published + publicly delivered); the button is disabled
+// with a hint until the entry is published.
+const { data: generalSettings } = useGeneralSettings()
+const { save: saveSettings } = useGeneralSettingsMutations()
+const isHomepage = computed(() => generalSettings.value?.homepage_entry === props.uuid)
+async function onSetHomepage() {
+  try {
+    await saveSettings.mutateAsync({ homepage_entry: props.uuid })
+    success('Set as homepage', 'This page now renders at /.')
+  } catch (e) {
+    notifyError(e, 'Couldn’t set as homepage')
+  }
+}
+
 // ── Schedule (behind a disclosure — it's the rare path) ─────────────────────
 const { data: schedules } = useSchedules(() => props.uuid)
 const scheduleOpen = ref(false)
@@ -140,6 +157,15 @@ function toggleSchedule(): void {
       >
         {{ status.label }}
       </UBadge>
+      <UBadge
+        v-if="isHomepage"
+        color="primary"
+        variant="subtle"
+        icon="i-lucide-house"
+        data-test="homepage-badge"
+      >
+        Home
+      </UBadge>
       <span class="flex-1" />
       <UTooltip text="Preview draft">
         <UButton
@@ -161,6 +187,21 @@ function toggleSchedule(): void {
           data-testid="theme-preview"
           :loading="themePreview.isLoading.value"
           @click="onThemePreview"
+        />
+      </UTooltip>
+      <UTooltip
+        v-if="!isHomepage"
+        :text="isPublished ? 'Set as homepage' : 'Publish first to set as homepage'"
+      >
+        <UButton
+          color="neutral"
+          variant="ghost"
+          icon="i-lucide-house"
+          aria-label="Set as homepage"
+          data-test="set-homepage"
+          :disabled="!isPublished"
+          :loading="saveSettings.isLoading.value"
+          @click="onSetHomepage"
         />
       </UTooltip>
     </div>
