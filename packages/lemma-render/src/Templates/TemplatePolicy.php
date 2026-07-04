@@ -28,7 +28,7 @@ final class TemplatePolicy
      * allowlist or enforcement change (tags/filters/functions/tests/node classes/
      * linter rules); the next render then recompiles — and re-lints — everything.
      */
-    public const CACHE_VERSION = 4; // bumped: 'media' + 'safe_url' joined the allowlists (starter-library spec §5)
+    public const CACHE_VERSION = 5; // bumped: 'site_logo' + 'video_embed' joined FUNCTIONS (block-library spec §2c)
 
     public const TAGS = ['if', 'for', 'set', 'block', 'extends', 'include', 'verbatim'];
 
@@ -41,7 +41,7 @@ final class TemplatePolicy
     ];
 
     public const FUNCTIONS = [
-        'menu', 'path', 'asset', 'facets', 'blocks', 'media',
+        'menu', 'path', 'asset', 'facets', 'blocks', 'media', 'site_logo', 'video_embed',
         'include', 'parent', 'block', 'cycle', 'date', 'min', 'max', 'range',
     ];
 

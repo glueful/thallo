@@ -58,6 +58,17 @@ final class SettingsStore
     }
 
     /**
+     * Drop the memo so the next read hits the database. Writes through this
+     * store invalidate automatically; this exists for callers that mutate
+     * `lemma_settings` AROUND the store (the test harness truncates tables
+     * between tests while the container singleton lives on).
+     */
+    public function clearCache(): void
+    {
+        $this->cache = null;
+    }
+
+    /**
      * Upsert each pair into `lemma_settings`.
      *
      * @param array<string,string> $pairs

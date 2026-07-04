@@ -46,6 +46,12 @@ final class FieldSchemaData implements ResponseData
         /** Picker-only allowlist of block-type slugs for a `blocks` field; absent = all active. */
         #[ArrayOf('string')]
         public readonly array $block_types = [],
+        /** Anchored regex body a string/text value must fully match; absent = unconstrained. */
+        public readonly ?string $pattern = null,
+        /** Inclusive lower bound for a `number` field; absent = unbounded. */
+        public readonly ?float $min = null,
+        /** Inclusive upper bound for a `number` field; absent = unbounded. */
+        public readonly ?float $max = null,
     ) {
     }
 }

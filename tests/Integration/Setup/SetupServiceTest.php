@@ -111,6 +111,54 @@ final class SetupServiceTest extends LemmaTestCase
         self::assertTrue((bool) ($byName['title']['required'] ?? false));
         self::assertSame('blocks', $byName['body']['type']);
         self::assertTrue((bool) ($byName['body']['required'] ?? false));
+
+        // Renderable out of the box: pages are publicly delivered AND mounted
+        // at root (/about, not /page/about).
+        self::assertTrue((bool) $type['public_delivery']);
+        self::assertTrue((bool) $type['mount_at_root']);
+
+        // The companion "Posts" type: publicly delivered, PREFIXED grammar
+        // (/post/hello — a blog shape), title/excerpt/body schema.
+        $posts = (new \App\Content\Repositories\ContentTypeRepository($this->connection()))
+            ->findBySlug('post');
+        self::assertNotNull($posts, 'fresh install must seed the "post" content type');
+        self::assertSame('Posts', $posts['name']);
+        self::assertTrue((bool) $posts['public_delivery']);
+        self::assertFalse((bool) $posts['mount_at_root']);
+        self::assertSame(
+            ['title', 'excerpt', 'body', 'categories'],
+            array_map(static fn(array $f): string => (string) $f['name'], $posts['schema']),
+        );
+
+        // The taxonomy worked-example (taxonomy-defaults direction): posts carry
+        // a FILTERABLE multi reference to the seeded "category" type — exactly
+        // the properties the /post/categories/{slug} archive grammar gates on.
+        $catField = null;
+        foreach ($posts['schema'] as $field) {
+            if ($field['name'] === 'categories') {
+                $catField = $field;
+            }
+        }
+        self::assertNotNull($catField);
+        self::assertSame('reference', $catField['type']);
+        self::assertSame('category', $catField['reference_type']);
+        self::assertTrue((bool) ($catField['multiple'] ?? false));
+        self::assertTrue((bool) ($catField['filterable'] ?? false));
+
+        $category = (new \App\Content\Repositories\ContentTypeRepository($this->connection()))
+            ->findBySlug('category');
+        self::assertNotNull($category, 'fresh install must seed the "category" content type');
+        self::assertTrue((bool) $category['public_delivery']);
+        // Term slugs resolve via the target's `slug` FIELD (reference_slug_field default).
+        self::assertSame(
+            ['title', 'slug'],
+            array_map(static fn(array $f): string => (string) $f['name'], $category['schema']),
+        );
+
+        // And the render allowlist row: without it, /post and the archives 404.
+        $row = $this->connection()->table('lemma_settings')
+            ->where(['key' => 'listing_types'])->first();
+        self::assertSame('post', $row['value'] ?? null);
     }
 
     public function testInstallIsPermanentLock(): void

@@ -41,6 +41,16 @@ final class FieldDefinition implements FieldDescriptor
          * @var list<string>
          */
         public readonly array $blockTypes = [],
+        /**
+         * Anchored regex BODY (no delimiters) a string/text value must fully match;
+         * null = unconstrained. Generic value validation (block-library spec §5) —
+         * e.g. the container block's hex colors, the shortcode block's name.
+         */
+        public readonly ?string $pattern = null,
+        /** Inclusive lower bound for a `number` field; null = unbounded. */
+        public readonly int|float|null $min = null,
+        /** Inclusive upper bound for a `number` field; null = unbounded. */
+        public readonly int|float|null $max = null,
     ) {
     }
 
@@ -166,6 +176,34 @@ final class FieldDefinition implements FieldDescriptor
             ));
         }
 
+        // Generic value constraints (block-library spec §5): `pattern` on
+        // string/text (anchored regex body, compilability checked HERE so a bad
+        // regex fails at schema save, never at content save), `min`/`max` on
+        // number. Ignored on other types.
+        $pattern = null;
+        if (($type === 'string' || $type === 'text') && is_string($raw['pattern'] ?? null) && $raw['pattern'] !== '') {
+            $pattern = (string) $raw['pattern'];
+            if (@preg_match('/\A(?:' . str_replace('/', '\/', $pattern) . ')\z/u', '') === false) {
+                throw new SchemaParseException("field '{$name}' has an invalid pattern regex");
+            }
+        }
+        $min = null;
+        $max = null;
+        if ($type === 'number') {
+            foreach (['min', 'max'] as $bound) {
+                $rawBound = $raw[$bound] ?? null;
+                if ($rawBound !== null) {
+                    if (!is_int($rawBound) && !is_float($rawBound)) {
+                        throw new SchemaParseException("field '{$name}' {$bound} must be a number");
+                    }
+                    ${$bound} = $rawBound;
+                }
+            }
+            if ($min !== null && $max !== null && $min > $max) {
+                throw new SchemaParseException("field '{$name}' min must not exceed max");
+            }
+        }
+
         return new self(
             name: $name,
             type: $type,
@@ -180,6 +218,9 @@ final class FieldDefinition implements FieldDescriptor
             maxItems: $maxItems,
             referenceSlugField: $referenceSlugField,
             blockTypes: $blockTypes,
+            pattern: $pattern,
+            min: $min,
+            max: $max,
         );
     }
 }

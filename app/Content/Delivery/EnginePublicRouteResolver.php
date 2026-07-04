@@ -53,6 +53,8 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         private readonly LoggerInterface $logger,
         /** Loop C working-copy stash; null = no ephemeral overlay (minimal wiring). */
         private readonly ?PreviewWorkingCopyStore $workingCopies = null,
+        /** Listing allowlist DB setting; null = config-only (minimal wiring). */
+        private readonly ?\App\Settings\GeneralSettings $settings = null,
     ) {
     }
 
@@ -725,9 +727,18 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         );
     }
 
-    /** @return list<string> the render-owned listing allowlist (soft config read). */
+    /**
+     * The listing allowlist — a General SETTING since the taxonomy defaults
+     * work: the DB row wins ('' = explicitly none) with the deploy config as
+     * the pre-first-save fallback; GeneralSettings owns that chain.
+     *
+     * @return list<string>
+     */
     private function listingTypes(): array
     {
+        if ($this->settings !== null) {
+            return $this->settings->listingTypes();
+        }
         return array_values(array_filter(array_map(
             strval(...),
             (array) config($this->context, 'lemma_render.listing_types', []),

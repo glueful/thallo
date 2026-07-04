@@ -2891,6 +2891,9 @@ export interface operations {
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
                                     block_types?: string[];
+                                    pattern?: string | null;
+                                    min?: number | null;
+                                    max?: number | null;
                                 }[];
                                 schema_version?: number;
                                 created_by?: string | null;
@@ -3004,6 +3007,12 @@ export interface operations {
                         reference_slug_field?: string | null;
                         /** @description Picker-only block-type allowlist for a `blocks` field. */
                         block_types?: string[];
+                        /** @description Anchored regex body a string/text value must fully match. */
+                        pattern?: string | null;
+                        /** @description Inclusive lower bound for a `number` field (ints coerce). */
+                        min?: number | null;
+                        /** @description Inclusive upper bound for a `number` field (ints coerce). */
+                        max?: number | null;
                     }[];
                 };
             };
@@ -3051,6 +3060,9 @@ export interface operations {
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
                                     block_types?: string[];
+                                    pattern?: string | null;
+                                    min?: number | null;
+                                    max?: number | null;
                                 }[];
                                 schema_version?: number;
                                 created_by?: string | null;
@@ -3175,6 +3187,9 @@ export interface operations {
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
                                     block_types?: string[];
+                                    pattern?: string | null;
+                                    min?: number | null;
+                                    max?: number | null;
                                 }[];
                             }[];
                         };
@@ -3277,6 +3292,12 @@ export interface operations {
                         reference_slug_field?: string | null;
                         /** @description Picker-only block-type allowlist for a `blocks` field. */
                         block_types?: string[];
+                        /** @description Anchored regex body a string/text value must fully match. */
+                        pattern?: string | null;
+                        /** @description Inclusive lower bound for a `number` field (ints coerce). */
+                        min?: number | null;
+                        /** @description Inclusive upper bound for a `number` field (ints coerce). */
+                        max?: number | null;
                     }[];
                 };
             };
@@ -3322,6 +3343,9 @@ export interface operations {
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
                                     block_types?: string[];
+                                    pattern?: string | null;
+                                    min?: number | null;
+                                    max?: number | null;
                                 }[];
                             };
                         };
@@ -3909,6 +3933,9 @@ export interface operations {
                                 scheduler_enabled?: boolean;
                                 webhooks_enabled?: boolean;
                                 homepage_entry?: string;
+                                site_logo?: string;
+                                /** @description Content types with public listings/archives. */
+                                listing_types?: string[];
                             };
                         };
                     };
@@ -3986,7 +4013,9 @@ export interface operations {
                  *       "cache_ttl": "example",
                  *       "scheduler_enabled": true,
                  *       "webhooks_enabled": true,
-                 *       "homepage_entry": "example"
+                 *       "homepage_entry": "example",
+                 *       "site_logo": "example",
+                 *       "listing_types": "example"
                  *     }
                  */
                 "application/json": {
@@ -3999,6 +4028,10 @@ export interface operations {
                     scheduler_enabled?: boolean | null;
                     webhooks_enabled?: boolean | null;
                     homepage_entry?: string | null;
+                    /** @description Asset uuid of the site logo; '' clears (site name shows instead). */
+                    site_logo?: string | null;
+                    /** @description Content types with public listings/archives; */
+                    listing_types?: string[] | null;
                 };
             };
         };
@@ -4023,6 +4056,9 @@ export interface operations {
                                 scheduler_enabled?: boolean;
                                 webhooks_enabled?: boolean;
                                 homepage_entry?: string;
+                                site_logo?: string;
+                                /** @description Content types with public listings/archives. */
+                                listing_types?: string[];
                             };
                         };
                     };
@@ -7044,6 +7080,9 @@ export interface operations {
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
                                     block_types?: string[];
+                                    pattern?: string | null;
+                                    min?: number | null;
+                                    max?: number | null;
                                 }[];
                                 schema_version?: number;
                                 created_by?: string | null;
@@ -7280,6 +7319,9 @@ export interface operations {
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
                                     block_types?: string[];
+                                    pattern?: string | null;
+                                    min?: number | null;
+                                    max?: number | null;
                                 }[];
                                 schema_version?: number;
                                 created_by?: string | null;
@@ -7740,6 +7782,9 @@ export interface operations {
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
                                     block_types?: string[];
+                                    pattern?: string | null;
+                                    min?: number | null;
+                                    max?: number | null;
                                 }[];
                             };
                         };
@@ -7963,6 +8008,12 @@ export interface operations {
                         reference_slug_field?: string | null;
                         /** @description Picker-only block-type allowlist for a `blocks` field. */
                         block_types?: string[];
+                        /** @description Anchored regex body a string/text value must fully match. */
+                        pattern?: string | null;
+                        /** @description Inclusive lower bound for a `number` field (ints coerce). */
+                        min?: number | null;
+                        /** @description Inclusive upper bound for a `number` field (ints coerce). */
+                        max?: number | null;
                     }[];
                 };
             };
@@ -8001,6 +8052,9 @@ export interface operations {
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
                                     block_types?: string[];
+                                    pattern?: string | null;
+                                    min?: number | null;
+                                    max?: number | null;
                                 }[];
                             };
                         };
@@ -12290,6 +12344,9 @@ export interface operations {
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
                                     block_types?: string[];
+                                    pattern?: string | null;
+                                    min?: number | null;
+                                    max?: number | null;
                                 }[];
                             };
                         };
@@ -12410,6 +12467,9 @@ export interface operations {
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
                                     block_types?: string[];
+                                    pattern?: string | null;
+                                    min?: number | null;
+                                    max?: number | null;
                                 }[];
                             };
                         };
@@ -14172,6 +14232,12 @@ export interface operations {
                         reference_slug_field?: string | null;
                         /** @description Picker-only block-type allowlist for a `blocks` field. */
                         block_types?: string[];
+                        /** @description Anchored regex body a string/text value must fully match. */
+                        pattern?: string | null;
+                        /** @description Inclusive lower bound for a `number` field (ints coerce). */
+                        min?: number | null;
+                        /** @description Inclusive upper bound for a `number` field (ints coerce). */
+                        max?: number | null;
                     }[];
                 };
             };
@@ -14212,6 +14278,9 @@ export interface operations {
                                     max_items?: number | null;
                                     reference_slug_field?: string | null;
                                     block_types?: string[];
+                                    pattern?: string | null;
+                                    min?: number | null;
+                                    max?: number | null;
                                 }[];
                                 schema_version?: number;
                                 created_by?: string | null;

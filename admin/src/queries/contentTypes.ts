@@ -41,6 +41,12 @@ export interface ContentTypeField {
   reference_slug_field?: string | null
   /** Picker-only block-type allowlist for a `blocks` field ([] / absent = all active). */
   block_types?: string[]
+  /** Anchored regex body a string/text value must fully match. */
+  pattern?: string | null
+  /** Inclusive lower bound for a `number` field. */
+  min?: number | null
+  /** Inclusive upper bound for a `number` field. */
+  max?: number | null
 }
 
 /** A content type with its full field schema. */
@@ -89,7 +95,14 @@ function normalizeField(
     format: type === 'text' ? ((f.format as 'plain' | 'rich' | undefined) ?? 'plain') : undefined,
     multiple: f.multiple ?? false,
     max_items: f.max_items ?? null,
+    // Round-trip EVERYTHING the server stores: normalize must never drop a
+    // schema key or an admin edit/save cycle silently strips it server-side.
+    reference_type: f.reference_type ?? null,
     reference_slug_field: f.reference_slug_field ?? undefined,
+    block_types: f.block_types ?? undefined,
+    pattern: f.pattern ?? undefined,
+    min: f.min ?? undefined,
+    max: f.max ?? undefined,
   }
 }
 

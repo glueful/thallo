@@ -18,6 +18,10 @@ export interface GeneralSettings {
   webhooks_enabled: boolean
   /** Entry uuid rendered at `/`; '' = no homepage (standalone index). Send '' to clear. */
   homepage_entry: string
+  /** Asset uuid of the site logo; '' = unset (site name renders instead). */
+  site_logo: string
+  /** Content types with public listings/archives ([] = none). */
+  listing_types: string[]
 }
 
 export type GeneralSettingsInput = Partial<GeneralSettings>

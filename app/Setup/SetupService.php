@@ -50,7 +50,12 @@ final class SetupService
      *   2. Creates the admin user via UserRepository.
      *   3. Assigns the configured admin role slug to the new user via AegisPermissionProvider.
      *   4. Writes site_name and default_locale to lemma_settings.
-     *   5. Seeds a generic "Pages" content type so a fresh instance is immediately editable.
+     *   5. Seeds "Pages" (publicly delivered, mounted at root), "Posts"
+     *      (publicly delivered, prefixed) and "Categories" (the taxonomy
+     *      worked-example: posts carry a filterable `categories` reference, so
+     *      /post/categories/{slug} archives work) content types, and writes
+     *      the `listing_types` setting (post) so listings/archives resolve —
+     *      a fresh instance is immediately editable AND renderable.
      *   6. Writes the `installed` marker to lemma_settings.
      *
      * @throws \RuntimeException  When the instance is already installed.
@@ -92,21 +97,66 @@ final class SetupService
             $this->put('site_name', $siteName);
             $this->put('default_locale', $locale);
 
-            // Seed a generic "Pages" content type so a fresh instance has a working
-            // editorial loop on day one. This is an ORDINARY content-type row — fully
-            // editable, renameable, and deletable like any user-defined type, not a
-            // hardcoded/system type — which keeps Lemma's "define your own types" model
-            // intact. Shares this transaction via the singleton Connection.
+            // Seed "Pages" and "Posts" content types so a fresh instance has a
+            // working editorial loop on day one. These are ORDINARY content-type
+            // rows — fully editable, renameable, and deletable like any
+            // user-defined type, not hardcoded/system types — which keeps
+            // Lemma's "define your own types" model intact. Both are publicly
+            // deliverable out of the box; pages mount at root (/about), posts
+            // keep the prefixed grammar (/post/hello) like a blog.
+            // Shares this transaction via the singleton Connection.
             $this->contentTypes->create([
-                'slug'        => 'page',
-                'name'        => 'Pages',
-                'description' => 'Generic static pages (e.g. About, Contact).',
-                'schema'      => [
+                'slug'            => 'page',
+                'name'            => 'Pages',
+                'description'     => 'Generic static pages (e.g. About, Contact).',
+                'public_delivery' => true,
+                'mount_at_root'   => true,
+                'schema'          => [
                     ['name' => 'title', 'type' => 'string', 'required' => true],
                     ['name' => 'body',  'type' => 'blocks', 'required' => true],
                 ],
-                'created_by'  => $userUuid,
+                'created_by'      => $userUuid,
             ]);
+            // Taxonomies are ORDINARY content types + filterable reference
+            // fields — this is the worked example of that pattern (deliberately
+            // ONE taxonomy: a second is a two-minute copy of the same recipe).
+            // Term slugs resolve via the target's published `slug` field
+            // (reference_slug_field default), and the archive grammar
+            // (/post/categories/{slug}) requires the reference field to be
+            // filterable and both types publicly delivered.
+            $this->contentTypes->create([
+                'slug'            => 'category',
+                'name'            => 'Categories',
+                'description'     => 'Groups posts into browsable archives.',
+                'public_delivery' => true,
+                'mount_at_root'   => false,
+                'schema'          => [
+                    ['name' => 'title', 'type' => 'string', 'required' => true],
+                    ['name' => 'slug',  'type' => 'string', 'required' => true],
+                ],
+                'created_by'      => $userUuid,
+            ]);
+            $this->contentTypes->create([
+                'slug'            => 'post',
+                'name'            => 'Posts',
+                'description'     => 'Dated articles and news (e.g. blog posts).',
+                'public_delivery' => true,
+                'mount_at_root'   => false,
+                'schema'          => [
+                    ['name' => 'title',      'type' => 'string', 'required' => true],
+                    ['name' => 'excerpt',    'type' => 'text'],
+                    ['name' => 'body',       'type' => 'blocks', 'required' => true],
+                    ['name' => 'categories', 'type' => 'reference', 'reference_type' => 'category',
+                        'multiple' => true, 'filterable' => true],
+                ],
+                'created_by'      => $userUuid,
+            ]);
+
+            // Listings/archives are allowlist-gated: without this row a fresh
+            // install's /post and /post/categories/{slug} would 404 — the
+            // half-working-default trap. A DB setting (editable in Settings →
+            // General) since the taxonomy-defaults work.
+            $this->put('listing_types', 'post');
 
             $this->put('installed', '1');
         });

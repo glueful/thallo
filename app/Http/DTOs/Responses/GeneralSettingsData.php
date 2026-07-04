@@ -23,6 +23,11 @@ final class GeneralSettingsData implements ResponseData
         public readonly bool $scheduler_enabled,
         public readonly bool $webhooks_enabled,
         public readonly string $homepage_entry,
+        /** Asset uuid of the site logo; '' = unset (site name renders instead). */
+        public readonly string $site_logo,
+        /** @var list<string> Content types with public listings/archives. */
+        #[\Glueful\Validation\Attributes\ArrayOf('string')]
+        public readonly array $listing_types,
     ) {
     }
 }

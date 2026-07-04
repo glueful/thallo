@@ -124,6 +124,15 @@ abstract class LemmaTestCase extends TestCase
         foreach (self::TABLES as $t) {
             $this->connection()->table($t)->where('id', '>', 0)->forceDelete();
         }
+        // Instance settings (varchar `key` PK — no integer id): a prior test's
+        // install/save (e.g. listing_types) must never shadow another test's
+        // config/.env fallback.
+        $this->connection()->table('lemma_settings')->where('key', '!=', '')->forceDelete();
+
+        // The SettingsStore singleton memoises lemma_settings rows per process:
+        // the truncation above just deleted rows its cache may still hold (or a
+        // prior test's install wrote rows a later warm read would resurrect).
+        $this->container()->get(\App\Settings\SettingsStore::class)->clearCache();
 
         // The CONTAINER BlockTypeRepository memoises schemasBySlug() per instance:
         // a prior test that warmed it through container-resolved services (render

@@ -27,6 +27,11 @@ final class GeneralSettings
         'scheduler_enabled' => ['lemma.scheduler.enabled', 'bool', true],
         'webhooks_enabled'  => ['lemma.pipeline.webhooks_enabled', 'bool', true],
         'homepage_entry'    => ['lemma_render.homepage_entry', 'string', ''],
+        'site_logo'         => ['lemma.site_logo', 'string', ''],
+        // Which content types expose /{type} listings + /{type}/{field}/{term}
+        // archives. DB row wins (CSV; '' = explicitly none); config/.env is the
+        // pre-first-save deploy default.
+        'listing_types'     => ['lemma_render.listing_types', 'list', []],
     ];
 
     public function __construct(
@@ -38,6 +43,18 @@ final class GeneralSettings
     public function siteName(): string
     {
         return (string) $this->value('site_name');
+    }
+
+    /** The effective listing-types allowlist (render grammar gate). @return list<string> */
+    public function listingTypes(): array
+    {
+        return array_values(array_filter(array_map(strval(...), (array) $this->value('listing_types'))));
+    }
+
+    /** Asset uuid of the site logo; '' when unset (blocks fall back to the site name). */
+    public function siteLogo(): string
+    {
+        return (string) $this->value('site_logo');
     }
 
     public function sitePreviewUrl(): string
@@ -137,6 +154,7 @@ final class GeneralSettings
         return match ($type) {
             'int' => (int) $raw,
             'bool' => in_array(strtolower($raw), ['1', 'true', 'on', 'yes'], true),
+            'list' => $raw === '' ? [] : array_values(array_filter(array_map(trim(...), explode(',', $raw)))),
             default => $raw,
         };
     }
@@ -146,6 +164,10 @@ final class GeneralSettings
         return match ($type) {
             'int' => (string) (int) $value,
             'bool' => $value ? 'true' : 'false',
+            'list' => implode(',', array_values(array_filter(array_map(
+                static fn(mixed $v): string => trim((string) $v),
+                (array) $value,
+            )))),
             default => trim((string) $value),
         };
     }
