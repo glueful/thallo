@@ -713,7 +713,7 @@ function reloadStage(): void {
               :class="{ 'bg-elevated': viewport === 'desktop' }"
               @click="setViewport('desktop')"
               :ui="{
-                base: 'rounded-none'
+                base: 'rounded-s'
               }"
             />
             <UButton
@@ -767,7 +767,7 @@ function reloadStage(): void {
               >
                 {{ autoSuspended ? 'Auto paused' : autoEnabled ? 'Auto' : 'Auto off' }}
               </UButton>
-              <UButton :loading="applying" data-test="canvas-apply" @click="applyWorking()">
+              <UButton :loading="applying" data-test="canvas-apply" :ui="{ base: 'rounded-ee' }" @click="applyWorking()">
                 Apply
               </UButton>
             </UFieldGroup>
