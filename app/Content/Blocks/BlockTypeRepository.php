@@ -228,7 +228,10 @@ final class BlockTypeRepository
     private function hydrate(array $row): array
     {
         $row['schema'] = (array) json_decode((string) ($row['schema'] ?? '[]'), true);
-        $row['active'] = (int) $row['active'];
+        // Boolean on the wire: rows flow straight into API responses, and the
+        // admin types `active: boolean` (an int 1 renders Reka switches OFF —
+        // strict check). Same hydration rule as content types' flags.
+        $row['active'] = (bool) $row['active'];
         return $row;
     }
 }

@@ -27,14 +27,28 @@ vi.mock('vue-router', async (importOriginal) => ({
   useRoute: () => ({ path: '/settings/content-types/pages', params: { slug: 'pages' }, query: {} }),
   useRouter: () => ({ push: vi.fn(), resolve: vi.fn() }),
 }))
-vi.mock('vue-router/auto', () => ({
+// vue-router is ALIASED to vue-router/auto (unplugin-vue-router), so this is
+// the one mock that matters: spread the real module (RouterLink, createRouter)
+// and override only the composables the page reads.
+vi.mock('vue-router/auto', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
   useRoute: () => ({ path: '/settings/content-types/pages', params: { slug: 'pages' }, query: {} }),
   useRouter: () => ({ push: vi.fn(), resolve: vi.fn() }),
-  // UButton's `to` renders through the Link override, which resolves RouterLink.
-  RouterLink: { props: ['to'], template: '<a><slot /></a>' },
 }))
 
+import { createMemoryHistory, createRouter } from 'vue-router'
 import ContentTypeEditor from '@/pages/settings/content-types/[slug].vue'
+
+// A REAL router instance is installed on every mount: the page renders
+// UButton :to (RouterLink), whose useLink() needs the injected router —
+// the vi.mock above only overrides the useRoute/useRouter composables.
+function mountEditor() {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/:pathMatch(.*)*', component: { template: '<div />' } }],
+  })
+  return mount(ContentTypeEditor, { global: { plugins: [router] } })
+}
 
 const pagesType = (): ContentType => ({
   slug: 'pages',
@@ -60,7 +74,7 @@ describe('content-type editor toggles', () => {
 
   it('PATCHes mount_at_root when the toggle flips', async () => {
     updateMetaMock.mockResolvedValue({ ...pagesType(), mount_at_root: true })
-    const wrapper = mount(ContentTypeEditor)
+    const wrapper = mountEditor()
     await flushPromises()
 
     await wrapper.find('[data-test="mount-at-root-toggle"]').trigger('click')
@@ -74,7 +88,7 @@ describe('content-type editor toggles', () => {
     updateMetaMock.mockRejectedValue(
       new ApiError("Cannot mount at root: 'v1' is a reserved path segment", 409, {}, null),
     )
-    const wrapper = mount(ContentTypeEditor)
+    const wrapper = mountEditor()
     await flushPromises()
 
     const toggle = wrapper.find('[data-test="mount-at-root-toggle"]')
@@ -88,7 +102,7 @@ describe('content-type editor toggles', () => {
 
   it('PATCHes public_delivery from its own toggle', async () => {
     updateMetaMock.mockResolvedValue({ ...pagesType(), public_delivery: false })
-    const wrapper = mount(ContentTypeEditor)
+    const wrapper = mountEditor()
     await flushPromises()
 
     await wrapper.find('[data-test="public-delivery-toggle"]').trigger('click')

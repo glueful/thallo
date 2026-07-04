@@ -124,17 +124,18 @@ describe('BlocksField', () => {
     expect(model.value.some((b) => b.id === 'b')).toBe(false)
   })
 
-  it('groups the picker by category with uncategorized under Other, last', async () => {
+  it('renders a flat tile grid — category orders the tiles, no headings', async () => {
     const wrapper = mount(BlocksField, { props: { field, modelValue: [] } })
     await flushPromises()
     await wrapper.find('[data-test="add-block"]').trigger('click')
-    // hero is "Layout"; quote is uncategorized → "Other". Named categories first.
-    const layout = wrapper.find('[data-test="picker-group-Layout"]')
-    const other = wrapper.find('[data-test="picker-group-Other"]')
-    expect(layout.exists()).toBe(true)
-    expect(other.exists()).toBe(true)
-    const html = wrapper.find('[data-test="block-picker"]').html()
-    expect(html.indexOf('picker-group-Layout')).toBeLessThan(html.indexOf('picker-group-Other'))
+    const picker = wrapper.find('[data-test="block-picker"]')
+    // No category headings render at all.
+    expect(picker.html()).not.toContain('picker-group-')
+    // hero is "Layout"; quote is uncategorized → sorts last: clustering
+    // survives the flattening even without labels.
+    const html = picker.html()
+    expect(html.indexOf('picker-item-hero')).toBeGreaterThan(-1)
+    expect(html.indexOf('picker-item-hero')).toBeLessThan(html.indexOf('picker-item-quote'))
   })
 
   it('shows an inactive badge for blocks whose type was deactivated', async () => {

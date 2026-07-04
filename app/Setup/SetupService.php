@@ -66,8 +66,15 @@ final class SetupService
         string $adminEmail,
         string $adminPassword,
         string $locale,
+        ?string $adminUrl = null,
     ): void {
-        $this->db->transaction(function () use ($siteName, $adminEmail, $adminPassword, $locale): void {
+        $this->db->transaction(function () use (
+            $siteName,
+            $adminEmail,
+            $adminPassword,
+            $locale,
+            $adminUrl,
+        ): void {
             // Reduces the race window: a concurrent request that completed install between
             // the caller's isInstalled() check and this point will be caught here. This does
             // not fully close the race (no row lock), but avoids the common double-install case.
@@ -96,6 +103,11 @@ final class SetupService
 
             $this->put('site_name', $siteName);
             $this->put('default_locale', $locale);
+            // The web setup form sends the admin SPA's own origin, so the
+            // preview bar's Edit/Design links work with zero configuration.
+            if (is_string($adminUrl) && preg_match('#\Ahttps?://#i', $adminUrl) === 1) {
+                $this->put('admin_url', rtrim($adminUrl, '/'));
+            }
 
             // Seed "Pages" and "Posts" content types so a fresh instance has a
             // working editorial loop on day one. These are ORDINARY content-type
@@ -106,7 +118,7 @@ final class SetupService
             // keep the prefixed grammar (/post/hello) like a blog.
             // Shares this transaction via the singleton Connection.
             $this->contentTypes->create([
-                'slug'            => 'page',
+                'slug'            => 'pages',
                 'name'            => 'Pages',
                 'description'     => 'Generic static pages (e.g. About, Contact).',
                 'public_delivery' => true,

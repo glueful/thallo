@@ -7,20 +7,14 @@ import RichText from '@/components/RichText.vue'
 import DateTimePicker from '@/components/DateTimePicker.vue'
 
 defineProps<{
-  name?: string
   fields: ContentTypeField[]
 }>()
 </script>
 
 <template>
-  <UCard :ui="{ root: 'bg-elevated/40' }">
-    <template #header>
-      <div class="flex items-center justify-between gap-2">
-        <h2 class="font-semibold text-default truncate">{{ name || 'Untitled' }}</h2>
-        <UBadge color="neutral" variant="subtle" size="sm">Preview</UBadge>
-      </div>
-    </template>
-
+  <!-- BARE form preview — no card/heading of its own: the consumer supplies
+       the chrome (new.vue wraps a card; the type editor titles a slideover). -->
+  <div>
     <UEmpty
       v-if="fields.length === 0"
       icon="i-lucide-eye"
@@ -68,6 +62,22 @@ defineProps<{
           :placeholder="field.enum?.[0] ?? 'Select…'"
         />
         <UFileUpload v-else-if="field.type === 'asset'" />
+        <!-- blocks: the real form renders the block editor — the preview shows
+             a representative empty-state panel instead of a bogus text input. -->
+        <div
+          v-else-if="field.type === 'blocks'"
+          class="flex flex-col items-center gap-1.5 rounded-lg border border-dashed border-accented px-3 py-5 text-center"
+        >
+          <UIcon name="i-lucide-blocks" class="size-5 text-dimmed" />
+          <p class="text-sm text-muted">Block editor</p>
+          <p class="text-xs text-dimmed">
+            {{
+              field.block_types?.length
+                ? `Allowed: ${field.block_types.join(', ')}`
+                : 'All active block types'
+            }}
+          </p>
+        </div>
         <DateTimePicker v-else-if="field.type === 'datetime'" />
         <UInput
           v-else
@@ -80,5 +90,5 @@ defineProps<{
         />
       </div>
     </div>
-  </UCard>
+  </div>
 </template>

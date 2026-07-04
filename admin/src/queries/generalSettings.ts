@@ -20,6 +20,8 @@ export interface GeneralSettings {
   homepage_entry: string
   /** Asset uuid of the site logo; '' = unset (site name renders instead). */
   site_logo: string
+  /** Admin SPA base URL for the preview bar's Edit/Design links. */
+  admin_url: string
   /** Content types with public listings/archives ([] = none). */
   listing_types: string[]
 }

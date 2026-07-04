@@ -72,6 +72,7 @@ final class GeneralSettingsController
             'webhooks_enabled' => $input->webhooks_enabled,
             'homepage_entry' => $input->homepage_entry,
             'site_logo' => $input->site_logo,
+            'admin_url' => $input->admin_url,
             'listing_types' => $input->listing_types,
         ]);
 
@@ -120,6 +121,16 @@ final class GeneralSettingsController
         ) {
             $errors['homepage_entry'] =
                 'must be a published entry of a publicly delivered content type';
+        }
+
+        // A non-empty admin URL must be absolute http(s) — relative values
+        // would resolve against the PUBLIC site in the preview bar.
+        if (
+            $input->admin_url !== null
+            && $input->admin_url !== ''
+            && preg_match('#\Ahttps?://#i', $input->admin_url) !== 1
+        ) {
+            $errors['admin_url'] = 'must be an absolute http(s) URL';
         }
 
         // Listing types must NAME REAL content types (typo protection); the

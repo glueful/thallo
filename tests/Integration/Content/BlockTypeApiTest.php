@@ -78,9 +78,9 @@ final class BlockTypeApiTest extends LemmaTestCase
 
         self::assertSame(200, $this->api()->deactivate('hero')->getStatusCode());
         $repo = new BlockTypeRepository($this->connection());
-        self::assertSame(0, $repo->findBySlug('hero')['active']);
+        self::assertFalse($repo->findBySlug('hero')['active']);
         self::assertSame(200, $this->api()->activate('hero')->getStatusCode());
-        self::assertSame(1, $repo->findBySlug('hero')['active']);
+        self::assertTrue($repo->findBySlug('hero')['active']);
 
         self::assertSame(404, $this->api()->show(Request::create('/x', 'GET'), 'ghost')->getStatusCode());
     }

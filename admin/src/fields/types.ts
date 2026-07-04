@@ -2,6 +2,8 @@
 // the same set the OpenAPI schema enumerates for content-type field definitions).
 export interface FieldDef {
   name: string
+  /** Display label override; empty string suppresses the inner label (outer form labels it). */
+  label?: string
   type:
     | 'string'
     | 'text'

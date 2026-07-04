@@ -154,7 +154,7 @@ final class EntryController
             $this->actor($request),
         );
         return Response::created([
-            'entry' => $this->entries->findEntry($uuid),
+            'entry' => $this->entryPayload((array) $this->entries->findEntry($uuid)),
             'draft' => $this->entries->findDraft($uuid, $locale),
         ], 'Entry created.');
     }
@@ -178,7 +178,26 @@ final class EntryController
         $entry = $this->entries->findEntry($uuid);
         return $entry === null
             ? Response::notFound('Entry not found.')
-            : Response::success(['entry' => $entry], 'Entry retrieved.');
+            : Response::success(['entry' => $this->entryPayload($entry)], 'Entry retrieved.');
+    }
+
+    /**
+     * The EntryData wire shape: the raw row plus human context for
+     * uuid-holding admin surfaces (homepage card, nav) — the type SLUG and
+     * the list's derived display title.
+     *
+     * @param array<string,mixed> $entry
+     * @return array<string,mixed>
+     */
+    private function entryPayload(array $entry): array
+    {
+        $type = $this->types->findByUuid((string) $entry['content_type_uuid']);
+        $entry['content_type'] = $type !== null ? (string) $type['slug'] : null;
+        $entry['display_title'] = $this->entries->displayTitle(
+            (string) $entry['uuid'],
+            $this->locales->default(),
+        );
+        return $entry;
     }
 
     /**

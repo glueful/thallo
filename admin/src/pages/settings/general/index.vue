@@ -10,6 +10,7 @@ import { useContentTypes } from '@/queries/contentTypes'
 import AssetField from '@/fields/components/AssetField.vue'
 import ReferencePicker from '@/fields/components/ReferencePicker.vue'
 import { useNotify } from '@/composables/useNotify'
+import { client } from '@/api/client'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -29,11 +30,12 @@ const form = reactive<GeneralSettings>({
   webhooks_enabled: true,
   homepage_entry: '',
   site_logo: '',
+  admin_url: '',
   listing_types: [],
 })
 
 // AssetField drives the same picker the block editor uses; single asset.
-const logoField = { name: 'site_logo', type: 'asset' } as const
+const logoField = { name: 'site_logo', label: '', type: 'asset' } as const
 
 // Homepage picker (homepage-setting spec §1): the entries query is
 // type-scoped, so picking = choose a type, then search its entries.
@@ -56,6 +58,30 @@ const listingTypeOptions = computed(() =>
     label: (t.name ?? t.slug ?? '') + (t.public_delivery ? '' : ' — not publicly delivered'),
     value: t.slug ?? '',
   })),
+)
+
+// Resolve the stored homepage uuid into HUMAN context (title + type) — the
+// uuid alone is not a UI. Also pre-selects the type so the entry picker is
+// immediately usable; a manual type choice is never overridden.
+const homepageEntry = ref<{ title: string; type: string | null } | null>(null)
+watch(
+  () => form.homepage_entry,
+  async (uuid) => {
+    homepageEntry.value = null
+    if (!uuid) return
+    try {
+      const { data } = await client.GET('/entries/{uuid}', { params: { path: { uuid } } })
+      const entry = data?.data?.entry as
+        | { display_title?: string; content_type?: string | null }
+        | undefined
+      if (!entry) return
+      homepageEntry.value = { title: entry.display_title ?? uuid, type: entry.content_type ?? null }
+      if (!homepageType.value && entry.content_type) homepageType.value = entry.content_type
+    } catch {
+      // Resolution is cosmetic — the uuid still renders as the fallback.
+    }
+  },
+  { immediate: true },
 )
 
 function clearHomepage(): void {
@@ -104,7 +130,7 @@ async function onSave() {
     </template>
 
     <template #body>
-      <div class="mx-auto w-full max-w-2xl space-y-6">
+      <div class="mx-auto w-full max-w-6xl space-y-6">
         <div v-if="status === 'pending'" class="space-y-3">
           <USkeleton class="h-40" />
           <USkeleton class="h-28" />
@@ -112,157 +138,184 @@ async function onSave() {
         </div>
 
         <template v-else>
-          <UCard>
-            <template #header><h2 class="font-semibold text-default">Site identity</h2></template>
-            <div class="space-y-4">
-              <UFormField label="Site name" hint="Shown to admins; the instance display name.">
-                <UInput v-model="form.site_name" placeholder="Lemma" class="w-full" />
-              </UFormField>
-              <UFormField
-                label="Site preview URL"
-                hint="Base URL of the live site, used for preview / “view live” links."
-              >
-                <UInput
-                  v-model="form.site_preview_url"
-                  type="url"
-                  placeholder="https://example.com"
-                  class="w-full"
-                />
-              </UFormField>
-              <UFormField
-                label="Site logo"
-                hint="Used by the Logo block (and themes). When unset, the site name renders instead."
-              >
-                <div data-test="site-logo-picker">
-                  <AssetField v-model="form.site_logo" :field="logoField" />
+          <!-- Two-column split (same shape as the content-type editor): Site
+               identity sits pinned in the LEFT rail; homepage + operational
+               settings own the wide RIGHT column. -->
+          <div class="grid gap-6 lg:grid-cols-3 pb-5">
+            <div class="space-y-6 lg:sticky lg:top-6 lg:self-start">
+              <UCard>
+                <template #header><h2 class="font-semibold text-default">Site identity</h2></template>
+                <div class="space-y-4">
+                  <UFormField label="Site name" description="Shown to admins; the instance display name.">
+                    <UInput v-model="form.site_name" placeholder="Lemma" class="w-full" />
+                  </UFormField>
+                  <UFormField
+                    label="Site preview URL"
+                    description="Base URL of the live site, used for preview / “view live” links."
+                  >
+                    <UInput
+                      v-model="form.site_preview_url"
+                      type="url"
+                      placeholder="https://example.com"
+                      class="w-full"
+                    />
+                  </UFormField>
+                  <UFormField
+                    label="Admin URL"
+                    description="This admin's base URL — powers the live preview bar's Edit/Design links."
+                  >
+                    <UInput
+                      v-model="form.admin_url"
+                      type="url"
+                      placeholder="https://admin.example.com"
+                      class="w-full"
+                      data-test="admin-url-input"
+                    />
+                  </UFormField>
+                  <UFormField
+                    label="Site logo"
+                    description="Used by the Logo block (and themes). When unset, the site name renders instead."
+                  >
+                    <div data-test="site-logo-picker">
+                      <AssetField v-model="form.site_logo" :field="logoField" />
+                    </div>
+                  </UFormField>
                 </div>
-              </UFormField>
-            </div>
-          </UCard>
+              </UCard>
 
-          <UCard>
-            <template #header><h2 class="font-semibold text-default">Public listings</h2></template>
-            <div class="space-y-4">
-              <p class="text-sm text-muted">
-                Content types that expose index pages (<code>/post</code>) and
-                taxonomy archives (<code>/post/categories/news</code>) on the
-                live site. Types not listed here only serve their entry pages.
-              </p>
-              <UFormField label="Listing types">
-                <USelectMenu
-                  v-model="form.listing_types"
-                  :items="listingTypeOptions"
-                  value-key="value"
-                  multiple
-                  placeholder="No listings"
-                  class="w-full"
-                  data-test="listing-types-select"
-                />
-              </UFormField>
             </div>
-          </UCard>
 
-          <UCard>
-            <template #header><h2 class="font-semibold text-default">Homepage</h2></template>
-            <div class="space-y-4">
-              <p class="text-sm text-muted">
-                The entry rendered at <code>/</code>. Cleared = the deploy default
-                (<code>RENDER_HOMEPAGE_ENTRY</code>), or the standalone index when
-                that is empty too. Must be a published entry of a publicly
-                delivered type.
-              </p>
-              <div v-if="form.homepage_entry" class="flex items-center gap-2" data-test="homepage-current">
-                <UBadge color="primary" variant="subtle" icon="i-lucide-house">Home</UBadge>
-                <code class="text-xs">{{ form.homepage_entry }}</code>
-                <UButton
-                  size="xs"
-                  variant="ghost"
-                  color="neutral"
-                  icon="i-lucide-x"
-                  aria-label="Clear homepage"
-                  data-test="homepage-clear"
-                  @click="clearHomepage()"
-                />
-              </div>
-              <div class="grid gap-4 sm:grid-cols-2">
-                <UFormField label="Content type">
-                  <USelect
-                    v-model="homepageType"
-                    :items="homepageTypeOptions"
-                    placeholder="Pick a type…"
-                    class="w-full"
-                    data-test="homepage-type"
-                  />
+            <div class="space-y-6 lg:col-span-2">
+              <UCard>
+                <template #header><h2 class="font-semibold text-default">Homepage</h2></template>
+                <div class="space-y-4">
+                  <p class="text-sm text-muted">
+                    The entry rendered at <code>/</code>. Cleared = the deploy default
+                    (<code>RENDER_HOMEPAGE_ENTRY</code>), or the standalone index when
+                    that is empty too. Must be a published entry of a publicly
+                    delivered type.
+                  </p>
+                  <div v-if="form.homepage_entry" class="flex items-center gap-2" data-test="homepage-current">
+                    <UBadge color="primary" variant="subtle" icon="i-lucide-house">Home</UBadge>
+                    <span class="text-sm font-medium text-default" :title="form.homepage_entry">
+                      {{ homepageEntry?.title ?? form.homepage_entry }}
+                    </span>
+                    <UBadge v-if="homepageEntry?.type" size="sm" color="neutral" variant="outline">
+                      {{ homepageEntry.type }}
+                    </UBadge>
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="neutral"
+                      icon="i-lucide-x"
+                      aria-label="Clear homepage"
+                      data-test="homepage-clear"
+                      @click="clearHomepage()"
+                    />
+                  </div>
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <UFormField label="Content type">
+                      <USelect
+                        v-model="homepageType"
+                        :items="homepageTypeOptions"
+                        placeholder="Pick a type…"
+                        class="w-full"
+                        data-test="homepage-type"
+                      />
+                    </UFormField>
+                    <UFormField label="Entry">
+                      <ReferencePicker
+                        v-if="homepageType"
+                        v-model="form.homepage_entry"
+                        :target="homepageType"
+                      />
+                      <p v-else class="pt-1.5 text-sm text-muted">Pick a type first.</p>
+                    </UFormField>
+                  </div>
+                </div>
+              </UCard>
+
+              <UCard>
+                <template #header><h2 class="font-semibold text-default">Public listings</h2></template>
+                <div class="space-y-4">
+                  <p class="text-sm text-muted">
+                    Content types that expose index pages (<code>/post</code>) and
+                    taxonomy archives (<code>/post/categories/news</code>) on the
+                    live site. Types not listed here only serve their entry pages.
+                  </p>
+                  <UFormField label="Listing types">
+                    <USelectMenu
+                      v-model="form.listing_types"
+                      :items="listingTypeOptions"
+                      value-key="value"
+                      multiple
+                      placeholder="No listings"
+                      class="w-full"
+                      data-test="listing-types-select"
+                    />
+                  </UFormField>
+                </div>
+              </UCard>
+
+              <UCard>
+                <template #header><h2 class="font-semibold text-default">Localization</h2></template>
+                <UFormField
+                  label="Default locale"
+                  description="The default content locale. Manage the enabled list under Languages."
+                >
+                  <USelect v-model="form.default_locale" :items="localeOptions" class="w-full" />
                 </UFormField>
-                <UFormField label="Entry">
-                  <ReferencePicker
-                    v-if="homepageType"
-                    v-model="form.homepage_entry"
-                    :target="homepageType"
-                  />
-                  <p v-else class="pt-1.5 text-sm text-muted">Pick a type first.</p>
-                </UFormField>
-              </div>
-            </div>
-          </UCard>
+              </UCard>
 
-          <UCard>
-            <template #header><h2 class="font-semibold text-default">Localization</h2></template>
-            <UFormField
-              label="Default locale"
-              hint="The default content locale. Manage the enabled list under Languages."
-            >
-              <USelect v-model="form.default_locale" :items="localeOptions" class="w-full" />
-            </UFormField>
-          </UCard>
+              <UCard>
+                <template #header
+                  ><h2 class="font-semibold text-default">Content delivery</h2></template
+                >
+                <div class="space-y-4">
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <UFormField label="Default items per page" description="Default page size for delivery.">
+                      <UInput
+                        v-model.number="form.default_per_page"
+                        type="number"
+                        :min="1"
+                        class="w-full"
+                      />
+                    </UFormField>
+                    <UFormField label="Max items per page" description="Hard cap a client can request.">
+                      <UInput
+                        v-model.number="form.max_per_page"
+                        type="number"
+                        :min="1"
+                        class="w-full"
+                      />
+                    </UFormField>
+                  </div>
+                  <UFormField
+                    label="Cache TTL (seconds)"
+                    description="Cache-Control max-age for delivery responses. 0 disables caching."
+                  >
+                    <UInput v-model.number="form.cache_ttl" type="number" :min="0" class="w-full" />
+                  </UFormField>
+                </div>
+              </UCard>
 
-          <UCard>
-            <template #header
-              ><h2 class="font-semibold text-default">Content delivery</h2></template
-            >
-            <div class="space-y-4">
-              <div class="grid gap-4 sm:grid-cols-2">
-                <UFormField label="Default items per page" hint="Default page size for delivery.">
-                  <UInput
-                    v-model.number="form.default_per_page"
-                    type="number"
-                    :min="1"
-                    class="w-full"
+              <UCard>
+                <template #header><h2 class="font-semibold text-default">Feature toggles</h2></template>
+                <div class="space-y-4">
+                  <USwitch
+                    v-model="form.scheduler_enabled"
+                    label="Publish scheduler"
+                    description="Run scheduled publish/unpublish jobs."
                   />
-                </UFormField>
-                <UFormField label="Max items per page" hint="Hard cap a client can request.">
-                  <UInput
-                    v-model.number="form.max_per_page"
-                    type="number"
-                    :min="1"
-                    class="w-full"
+                  <USwitch
+                    v-model="form.webhooks_enabled"
+                    label="Content webhooks"
+                    description="Dispatch content events to webhook subscriptions (master switch)."
                   />
-                </UFormField>
-              </div>
-              <UFormField
-                label="Cache TTL (seconds)"
-                hint="Cache-Control max-age for delivery responses. 0 disables caching."
-              >
-                <UInput v-model.number="form.cache_ttl" type="number" :min="0" class="w-full" />
-              </UFormField>
+                </div>
+              </UCard>
             </div>
-          </UCard>
-
-          <UCard>
-            <template #header><h2 class="font-semibold text-default">Feature toggles</h2></template>
-            <div class="space-y-4">
-              <USwitch
-                v-model="form.scheduler_enabled"
-                label="Publish scheduler"
-                description="Run scheduled publish/unpublish jobs."
-              />
-              <USwitch
-                v-model="form.webhooks_enabled"
-                label="Content webhooks"
-                description="Dispatch content events to webhook subscriptions (master switch)."
-              />
-            </div>
-          </UCard>
+          </div>
         </template>
       </div>
     </template>

@@ -22,6 +22,10 @@ final class EntryData implements ResponseData
         public readonly int $id,
         public readonly string $uuid,
         public readonly string $content_type_uuid,
+        /** The content type's slug (drives admin deep links). */
+        public readonly ?string $content_type,
+        /** Derived display title: default-locale draft title, else route slug, else uuid. */
+        public readonly string $display_title,
         public readonly EntryStatus $status,
         public readonly ?string $created_by,
         public readonly \DateTimeInterface $created_at,

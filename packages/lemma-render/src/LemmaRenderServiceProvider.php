@@ -220,6 +220,12 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             $container->has(\Glueful\Lemma\Contracts\Delivery\HomepageEntryProvider::class)
                 ? $container->get(\Glueful\Lemma\Contracts\Delivery\HomepageEntryProvider::class)
                 : null,
+            $container->has(\Glueful\Lemma\Contracts\Delivery\EntryTargetResolver::class)
+                ? $container->get(\Glueful\Lemma\Contracts\Delivery\EntryTargetResolver::class)
+                : null,
+            $container->has(\Glueful\Lemma\Contracts\Settings\AdminUrlProvider::class)
+                ? $container->get(\Glueful\Lemma\Contracts\Settings\AdminUrlProvider::class)
+                : null,
         );
     }
 

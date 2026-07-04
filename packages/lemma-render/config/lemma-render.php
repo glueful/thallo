@@ -23,6 +23,10 @@ return [
 
     // First-PATH-SEGMENT prefixes the catch-all must never render ('v1' reserves /v1 and
     // /v1/... but NOT /v1abc). Reserved hits return the framework's standard JSON 404.
+    // Admin SPA base URL for the preview bar's "Edit"/"Design" links (e.g.
+    // https://admin.example.com). Empty = the links don't render.
+    'admin_url' => env('RENDER_ADMIN_URL', ''),
+
     'reserved_prefixes' => ['v1', 'admin', 'extensions', 'theme-assets'],
 
     // Exact reserved paths ('sitemap.xml' does not reserve /sitemap-history).

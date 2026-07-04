@@ -9,6 +9,7 @@ import {
   type ContentTypeField,
 } from '@/queries/contentTypes'
 import { toApiError } from '@/api/errors'
+import { slugify } from '@/utils/slugify'
 import { useNotify } from '@/composables/useNotify'
 
 definePage({ meta: { requiresAuth: true } })
@@ -36,17 +37,11 @@ const state = reactive({
   mount_at_root: false,
 })
 const fields = ref<ContentTypeField[]>([])
+const previewOpen = ref(false)
 const createForm = useTemplateRef<Form<Schema>>('createForm')
 
 // Auto-derive the slug from the name until the user edits the slug directly.
 const slugTouched = ref(false)
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
 watch(
   () => state.name,
   (name) => {
@@ -115,9 +110,10 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         class="mx-auto w-full max-w-6xl"
         @submit="onSubmit"
       >
-        <div class="grid gap-6 lg:grid-cols-5">
-          <!-- Editor column -->
-          <div class="space-y-6 lg:col-span-3">
+        <!-- Same shape as the type editor: Details = slim sticky left rail,
+             Fields = the wide working column; preview lives in a slideover. -->
+        <div class="grid gap-6 lg:grid-cols-3">
+          <div class="lg:sticky lg:top-6 lg:self-start">
             <UCard>
               <template #header><h2 class="font-semibold text-default">Details</h2></template>
 
@@ -173,20 +169,40 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               </div>
             </UCard>
 
-            <UCard>
-              <template #header><h2 class="font-semibold text-default">Fields</h2></template>
-              <ContentTypeFields v-model="fields" />
-            </UCard>
           </div>
 
-          <!-- Live preview column -->
           <div class="lg:col-span-2">
-            <div class="lg:sticky lg:top-6">
-              <ContentTypePreview :name="state.name" :fields="fields" />
-            </div>
+            <UCard>
+              <template #header>
+                <div class="flex items-center justify-between gap-2">
+                  <h2 class="font-semibold text-default">Fields</h2>
+                  <UButton
+                    size="sm"
+                    variant="subtle"
+                    color="neutral"
+                    icon="i-lucide-eye"
+                    square
+                    aria-label="Preview the entry form"
+                    data-test="open-preview"
+                    @click="() => { previewOpen = true }"
+                  />
+                </div>
+              </template>
+              <ContentTypeFields v-model="fields" />
+            </UCard>
           </div>
         </div>
       </UForm>
     </template>
   </UDashboardPanel>
+
+  <USlideover
+    v-model:open="previewOpen"
+    :title="state.name || 'Untitled'"
+    description="Entry form preview — inputs are throwaway."
+  >
+    <template #body>
+      <ContentTypePreview :fields="fields" />
+    </template>
+  </USlideover>
 </template>

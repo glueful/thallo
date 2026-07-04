@@ -55,7 +55,7 @@ function removeUuid(uuid: string) {
 </script>
 
 <template>
-  <UFormField :label="field.name" :required="field.required" :name="field.name">
+  <UFormField :label="field.label ?? field.name" :required="field.required" :name="field.name">
     <!-- Multiple asset chips -->
     <div v-if="isMultiple" class="space-y-2">
       <div v-if="multiUuids.length" class="flex flex-wrap gap-1">

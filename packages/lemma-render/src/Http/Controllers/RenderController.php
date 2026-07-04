@@ -6,6 +6,8 @@ namespace Glueful\Lemma\Render\Http\Controllers;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response as ApiResponse;
+use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
+use Glueful\Lemma\Contracts\Settings\AdminUrlProvider;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
 use Glueful\Lemma\Contracts\Delivery\HomepageEntryProvider;
 use Glueful\Lemma\Contracts\Delivery\PreviewSession;
@@ -54,6 +56,10 @@ final class RenderController
         private readonly ?TemplateLinter $templateLinter = null,
         private readonly ?ThemeLocator $themes = null,
         private readonly ?HomepageEntryProvider $homepage = null,
+        /** Preview-bar status/live-path lookup; null = bar shows no status. */
+        private readonly ?EntryTargetResolver $targets = null,
+        /** Admin base URL (DB setting first); null = config-only fallback. */
+        private readonly ?AdminUrlProvider $adminUrlProvider = null,
     ) {
     }
 
@@ -267,6 +273,9 @@ final class RenderController
                 : 'entry.twig';
             $response = $this->render($template, $locale, $entry, 200, [
                 'preview' => true,
+                'preview_bar' => $session !== null
+                    ? $this->previewBar($session->entry, $typeSlug, $locale)
+                    : null,
                 'presentation' => $this->presentationContext(
                     $typeSlug !== '' ? $typeSlug : null,
                     $result['presentation'] ?? null,
@@ -369,6 +378,36 @@ final class RenderController
         // otherwise path-derive an unexcludable tag from the /_preview segment.
         tags: ['Default'],
     )]
+    /**
+     * The preview bar's context (admin-bar feature): REAL publish status via
+     * EntryTargetResolver plus deep links back into the admin's editor and
+     * design views. Everything degrades: no session -> null (plain banner);
+     * no admin_url config -> no edit links; no targets binding -> no status.
+     *
+     * @return array{status: ?string, live_path: ?string, editor_url: ?string,
+     *   design_url: ?string}|null
+     */
+    private function previewBar(string $entryUuid, string $typeSlug, string $locale): array
+    {
+        $target = $this->targets?->resolve($entryUuid, $locale);
+        $adminUrl = rtrim(
+            $this->adminUrlProvider?->adminUrl()
+                ?? (string) config($this->context, 'lemma_render.admin_url', ''),
+            '/',
+        );
+        $canLink = $adminUrl !== '' && $typeSlug !== '';
+        return [
+            'status' => $target !== null ? (string) $target['status'] : null,
+            'live_path' => $target !== null && is_string($target['path'] ?? null) ? $target['path'] : null,
+            'editor_url' => $canLink
+                ? "{$adminUrl}/content/{$typeSlug}/{$entryUuid}?locale={$locale}"
+                : null,
+            'design_url' => $canLink
+                ? "{$adminUrl}/content/{$typeSlug}/{$entryUuid}/design/{$locale}"
+                : null,
+        ];
+    }
+
     public function exit(): Response
     {
         $response = new Response('', 302, ['Location' => '/']);
@@ -441,6 +480,11 @@ final class RenderController
             $typeSlug !== '' ? $typeSlug : null,
             $result['presentation'] ?? null,
         );
+        // In-session chrome gets the admin bar for the entry BEING VIEWED —
+        // browsing another page in-session offers "edit what you see".
+        if (($extra['preview'] ?? false) === true && is_string($entry['entry_uuid'] ?? null)) {
+            $extra['preview_bar'] = $this->previewBar((string) $entry['entry_uuid'], $typeSlug, $locale);
+        }
         $response = $this->render($template, $locale, $entry, 200, $extra, $env, $assetBase);
         $this->tagResponse($response, $entry ?? [], $typeSlug);
         $this->mergeCacheTags($response, array_values(array_map('strval', (array) ($result['cache_tags'] ?? []))));

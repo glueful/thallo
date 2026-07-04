@@ -535,4 +535,46 @@ final class PreviewSessionTest extends LemmaTestCase
         );
         file_put_contents($base . '/assets/alt.css', '/* alt theme css */');
     }
+
+    public function testPreviewBarShowsRealStatusAndAdminLinks(): void
+    {
+        // Draft-only entry: draft status + deep links into the admin
+        // (RENDER_ADMIN_URL is set by phpunit.xml).
+        $entry = $this->seedDraftEntry('Bar draft');
+        $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
+        $controller = $this->container()
+            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+        $html = (string) $controller
+            ->preview(Request::create("/_preview/{$token}", 'GET'), $token)
+            ->getContent();
+
+        self::assertStringContainsString('Draft — not published yet', $html);
+        self::assertStringContainsString("https://admin.test/content/blog/{$entry}?locale=en", $html);
+        self::assertStringContainsString("https://admin.test/content/blog/{$entry}/design/en", $html);
+        self::assertStringContainsString('href="/_preview/exit"', $html);
+        self::assertStringNotContainsString('View live', $html);
+
+        // Publish the SAME entry: published status + the live-path link appear.
+        $types = new ContentTypeRepository($this->connection());
+        (new \App\Content\Repositories\RouteRepository($this->connection()))
+            ->assign($entry, (string) $types->findBySlug('blog')['uuid'], 'en', 'bar-draft');
+        $this->container()->get(\App\Content\Services\PublishService::class)
+            ->publish($entry, 'en', 'user00000001');
+        $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
+        $html = (string) $controller
+            ->preview(Request::create("/_preview/{$token}", 'GET'), $token)
+            ->getContent();
+        self::assertStringContainsString('Published — previewing the latest draft', $html);
+        self::assertStringContainsString('View live', $html);
+
+        // The DB setting (Settings -> General / setup-populated) beats the
+        // RENDER_ADMIN_URL deploy fallback the suite env provides.
+        $this->container()->get(\App\Settings\GeneralSettings::class)
+            ->save(['admin_url' => 'https://other-admin.test']);
+        $html = (string) $controller
+            ->preview(Request::create("/_preview/{$token}", 'GET'), $token)
+            ->getContent();
+        self::assertStringContainsString("https://other-admin.test/content/blog/{$entry}", $html);
+        self::assertStringNotContainsString('https://admin.test/', $html);
+    }
 }

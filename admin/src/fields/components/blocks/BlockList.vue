@@ -81,27 +81,34 @@ function insertType(type: BlockType): void {
         :key="block.id"
         :data-block-id="block.id"
       >
-        <!-- Hover-revealed insert divider at gap `index` (before this block). -->
+        <!-- Hover-revealed insert divider at gap `index` (before this block).
+             The divider button is the popover ANCHOR (not a trigger — open
+             state stays list-controlled so only ONE menu exists per level). -->
         <div class="group/divider relative -my-0.5 h-2">
-          <button
-            class="absolute inset-x-0 -top-1 flex h-4 items-center justify-center opacity-0 transition-opacity group-hover/divider:opacity-100 focus-visible:opacity-100"
-            type="button"
-            :data-test="`block-insert-${index}`"
-            :aria-label="`Insert block at position ${index + 1}`"
-            @click="openMenuAt(index)"
+          <UPopover
+            :open="menuIndex === index"
+            :portal="false"
+            :content="{ side: 'bottom', align: 'start', sideOffset: 4 }"
+            @update:open="(v: boolean) => { if (!v) closeMenu() }"
           >
-            <span class="h-px flex-1 bg-accented" />
-            <UIcon name="i-lucide-plus" class="mx-1 size-3.5 text-muted" />
-            <span class="h-px flex-1 bg-accented" />
-          </button>
+            <template #anchor>
+              <button
+                class="absolute inset-x-0 -top-1 flex h-4 items-center justify-center opacity-0 transition-opacity group-hover/divider:opacity-100 focus-visible:opacity-100"
+                type="button"
+                :data-test="`block-insert-${index}`"
+                :aria-label="`Insert block at position ${index + 1}`"
+                @click="openMenuAt(index)"
+              >
+                <span class="h-px flex-1 bg-accented" />
+                <UIcon name="i-lucide-plus" class="mx-1 size-3.5 text-muted" />
+                <span class="h-px flex-1 bg-accented" />
+              </button>
+            </template>
+            <template #content>
+              <BlockInsertMenu open :types="pickerTypes" @select="insertType" @close="closeMenu" />
+            </template>
+          </UPopover>
         </div>
-        <BlockInsertMenu
-          v-if="menuIndex === index"
-          open
-          :types="pickerTypes"
-          @select="insertType"
-          @close="closeMenu"
-        />
 
         <BlockCard
           :block="block"
@@ -130,22 +137,27 @@ function insertType(type: BlockType): void {
     </div>
 
     <div class="relative">
-      <UButton
-        variant="subtle"
-        color="neutral"
-        icon="i-lucide-plus"
-        square
-        aria-label="Add block"
-        data-test="add-block"
-        @click="openMenuAt(blocks.length)"
-      />
-      <BlockInsertMenu
-        v-if="menuIndex === blocks.length"
-        open
-        :types="pickerTypes"
-        @select="insertType"
-        @close="closeMenu"
-      />
+      <UPopover
+        :open="menuIndex === blocks.length"
+        :portal="false"
+        :content="{ side: 'bottom', align: 'start', sideOffset: 4 }"
+        @update:open="(v: boolean) => { if (!v) closeMenu() }"
+      >
+        <template #anchor>
+          <UButton
+            variant="subtle"
+            color="neutral"
+            icon="i-lucide-plus"
+            square
+            aria-label="Add block"
+            data-test="add-block"
+            @click="openMenuAt(blocks.length)"
+          />
+        </template>
+        <template #content>
+          <BlockInsertMenu open :types="pickerTypes" @select="insertType" @close="closeMenu" />
+        </template>
+      </UPopover>
     </div>
   </div>
 </template>

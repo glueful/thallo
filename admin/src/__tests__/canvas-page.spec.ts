@@ -509,7 +509,8 @@ describe('canvas page', () => {
     await flushPromises()
     await flushPromises()
 
-    await wrapper.find('[data-test="canvas-outline-toggle"]').trigger('click') // collapsed by default
+    // The outline lives in the inspector tabs now — unmount-on-hide is false,
+    // so its items are mounted (and clickable) without any toggle.
     await wrapper.find('[data-test="canvas-outline-item-blockaaa0001"]').trigger('click')
     await flushPromises()
     // Inspector selection landed (header focused via selectBlockById).
@@ -522,7 +523,6 @@ describe('canvas page', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    await wrapper.find('[data-test="canvas-outline-toggle"]').trigger('click')
     bridge.callbacks.select?.('blockaaa0001')
     await flushPromises()
     expect(wrapper.find('[data-test="canvas-outline-item-blockaaa0001"]').classes()).toContain(
@@ -542,7 +542,6 @@ describe('canvas page', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    await wrapper.find('[data-test="canvas-outline-toggle"]').trigger('click')
     const row = () => wrapper.find('[data-test="canvas-outline-item-blockaaa0001"]')
 
     // No selection: keys are inert.
@@ -774,40 +773,42 @@ describe('canvas page', () => {
     wrapper.unmount()
   })
 
-  it('an anchored add-after intent positions the picker at the + button', async () => {
+  it('add-after opens the popover picker with or without a bridge anchor', async () => {
+    // Positioning is DELEGATED: the picker is a UPopover on a virtual
+    // reference built from the bridge rect (iframe → viewport translation);
+    // flipping/shifting is floating-ui's job, so the spec asserts the open/
+    // close contract, not coordinate math (jsdom rects are all zeros anyway).
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     const wrapper = mountPage()
     await flushPromises()
 
-    // jsdom rects are all zeros, so top = 0 - 0 + 0 + anchor.y + 8.
     bridge.callbacks.addAfter?.('blockaaa0001', { x: 120, y: 42 })
     await flushPromises()
     const picker = wrapper.find('[data-test="canvas-add-picker"]')
     expect(picker.exists()).toBe(true)
-    expect(picker.attributes('style')).toContain('top: 50px')
-    // Anchored mode drops the centered-fallback classes.
-    expect(picker.classes()).not.toContain('mx-auto')
 
-    // Without an anchor, the centered fallback still applies.
+    // Cancel closes; an anchor-LESS intent still opens (stage-top fallback
+    // reference — the popover never fails to appear over missing geometry).
     await picker.find('[data-test="canvas-add-cancel"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(false)
     bridge.callbacks.addAfter?.('blockaaa0001')
     await flushPromises()
-    const centered = wrapper.find('[data-test="canvas-add-picker"]')
-    expect(centered.classes()).toContain('mx-auto')
+    expect(wrapper.find('[data-test="canvas-add-picker"]').exists()).toBe(true)
     wrapper.unmount()
   })
 
-  it('the outline panel starts COLLAPSED and toggles via the navbar button', async () => {
+  it('the outline is an inspector tab — always mounted, no navbar toggle', async () => {
     mintMock.mockResolvedValue({ token: 't', themeUrl: 'https://site.test/_preview/tok1' })
     const wrapper = mountPage()
     await flushPromises()
-    expect(wrapper.find('[data-test="canvas-outline"]').exists()).toBe(false)
 
-    await wrapper.find('[data-test="canvas-outline-toggle"]').trigger('click')
+    // Mounted from the start (unmount-on-hide false keeps every tab alive so
+    // bridge intents and outline state survive tab switches).
+    expect(wrapper.find('[data-test="outline-tab"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="canvas-outline"]').exists()).toBe(true)
-
-    await wrapper.find('[data-test="canvas-outline-toggle"]').trigger('click')
-    expect(wrapper.find('[data-test="canvas-outline"]').exists()).toBe(false)
+    // The old navbar toggle is gone.
+    expect(wrapper.find('[data-test="canvas-outline-toggle"]').exists()).toBe(false)
     wrapper.unmount()
   })
 

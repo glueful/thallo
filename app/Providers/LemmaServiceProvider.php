@@ -103,6 +103,7 @@ use App\Content\Scheduling\ScheduleRunner;
 use App\Content\Seo\CanonicalProjector;
 use App\Content\Routing\RootMountGuard;
 use App\Content\Seo\CanonicalPathBuilder;
+use App\Settings\EngineAdminUrlProvider;
 use App\Settings\EngineSiteLogoProvider;
 use App\Content\Seo\PathRenderer;
 use App\Content\Seo\RedirectRepository;
@@ -128,6 +129,7 @@ use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Authoring\DraftSummaryReader;
 use Glueful\Lemma\Contracts\Authoring\PublishGate;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
+use Glueful\Lemma\Contracts\Settings\AdminUrlProvider;
 use Glueful\Lemma\Contracts\Settings\SiteLogoProvider;
 use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
 use Glueful\Lemma\Contracts\Context\LemmaContext;
@@ -614,6 +616,11 @@ final class LemmaServiceProvider extends ServiceProvider
             ],
             SiteLogoProvider::class => [
                 'class'    => EngineSiteLogoProvider::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            AdminUrlProvider::class => [
+                'class'    => EngineAdminUrlProvider::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
