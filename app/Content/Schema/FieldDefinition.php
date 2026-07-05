@@ -14,6 +14,11 @@ final class FieldDefinition implements FieldDescriptor
     public const FILTER_TYPES = ['string', 'number', 'boolean', 'datetime', 'enum'];
     /** Presentation widget for a `text` field — both store a string; only the editor differs. */
     public const TEXT_FORMATS = ['plain', 'rich'];
+    /**
+     * Editor-hint formats for STRING fields (icon-picker spec §2): presentation
+     * metadata only — validation stays with the field's pattern/enum rules.
+     */
+    public const STRING_FORMATS = ['icon', 'brand-icon'];
 
     /** @param list<string> $enumValues */
     public function __construct(
@@ -116,8 +121,11 @@ final class FieldDefinition implements FieldDescriptor
                 throw new SchemaParseException("enum field '{$name}' requires non-empty enum values");
             }
         }
-        // `format` is a presentation hint, meaningful only for text fields (plain textarea vs rich
-        // editor). Default to 'plain'; ignore any value supplied on a non-text field.
+        // `format` is a presentation hint with a per-type vocabulary: text fields
+        // pick their editor (plain textarea vs rich, default 'plain'); string
+        // fields may declare an icon picker (icon|brand-icon, default none —
+        // icon-picker spec §2; validation stays with pattern/enum). Unknown
+        // values fail LOUDLY for typed vocabularies; other types ignore format.
         $format = null;
         if ($type === 'text') {
             $rawFormat = $raw['format'] ?? null;
@@ -127,6 +135,16 @@ final class FieldDefinition implements FieldDescriptor
                 $format = $rawFormat;
             } else {
                 throw new SchemaParseException("text field '{$name}' has invalid format (expected plain|rich)");
+            }
+        } elseif ($type === 'string') {
+            $rawFormat = $raw['format'] ?? null;
+            if ($rawFormat !== null && $rawFormat !== '') {
+                if (!is_string($rawFormat) || !in_array($rawFormat, self::STRING_FORMATS, true)) {
+                    throw new SchemaParseException(
+                        "string field '{$name}' has invalid format (expected icon|brand-icon)"
+                    );
+                }
+                $format = $rawFormat;
             }
         }
 

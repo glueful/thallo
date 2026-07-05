@@ -30,6 +30,7 @@ use App\Http\Controllers\EmailSettingsController;
 use App\Http\Controllers\ExtensionAdminController;
 use App\Http\Controllers\GeneralSettingsController;
 use App\Http\Controllers\HealthAdminController;
+use App\Http\Controllers\IconInventoryController;
 use App\Http\Controllers\ImportExportController;
 use App\Http\Controllers\MediaAdminController;
 use App\Http\Controllers\RegionAdminController;
@@ -860,6 +861,11 @@ final class LemmaServiceProvider extends ServiceProvider
             ],
             RegionAdminController::class => [
                 'class' => RegionAdminController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            IconInventoryController::class => [
+                'class' => IconInventoryController::class,
                 'shared' => true,
                 'autowire' => true,
             ],

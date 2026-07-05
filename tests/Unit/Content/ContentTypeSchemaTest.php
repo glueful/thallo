@@ -68,12 +68,41 @@ final class ContentTypeSchemaTest extends TestCase
         ]);
     }
 
-    public function testNonTextFieldIgnoresFormat(): void
+    public function testStringFieldAcceptsIconFormats(): void
     {
+        // Editor hints (icon-picker spec §2): presentation metadata only —
+        // validation stays with pattern/enum.
         $schema = ContentTypeSchema::fromArray([
-            ['name' => 'title', 'type' => 'string', 'format' => 'rich'],
+            ['name' => 'icon', 'type' => 'string', 'format' => 'icon'],
+            ['name' => 'brand', 'type' => 'string', 'format' => 'brand-icon'],
+            ['name' => 'title', 'type' => 'string'],
         ]);
 
-        self::assertNull($schema->field('title')->format);
+        self::assertSame('icon', $schema->field('icon')->format);
+        self::assertSame('brand-icon', $schema->field('brand')->format);
+        self::assertNull($schema->field('title')->format); // plain strings carry none
+    }
+
+    public function testFormatsAreTypeScoped(): void
+    {
+        // rich is TEXT-only…
+        try {
+            ContentTypeSchema::fromArray([['name' => 'x', 'type' => 'string', 'format' => 'rich']]);
+            self::fail('expected SchemaParseException');
+        } catch (SchemaParseException) {
+            $this->addToAssertionCount(1);
+        }
+        // …and icon is STRING-only.
+        try {
+            ContentTypeSchema::fromArray([['name' => 'x', 'type' => 'text', 'format' => 'icon']]);
+            self::fail('expected SchemaParseException');
+        } catch (SchemaParseException) {
+            $this->addToAssertionCount(1);
+        }
+        // Other types keep ignoring format (no vocabulary for them yet).
+        $schema = ContentTypeSchema::fromArray([
+            ['name' => 'n', 'type' => 'number', 'format' => 'rich'],
+        ]);
+        self::assertNull($schema->field('n')->format);
     }
 }

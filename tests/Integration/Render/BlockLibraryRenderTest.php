@@ -392,6 +392,31 @@ final class BlockLibraryRenderTest extends LemmaTestCase
         self::assertStringNotContainsString('__item--active', $inactive);
     }
 
+    public function testSocialLinkIconEnforcesBrandPrefixedStorage(): void
+    {
+        // P2 pin (icon-picker spec §8): the picker hiding `brand:` must never
+        // be the only guard — API-written bare names 422 at the validator.
+        $schema = null;
+        foreach (StarterBlockTypes::definitions() as $def) {
+            if ($def['slug'] === 'social_link') {
+                $schema = ContentTypeSchema::fromArray($def['schema']);
+            }
+        }
+        self::assertNotNull($schema);
+        try {
+            (new FieldValidator())->validate($schema, [
+                'icon' => 'github', 'url' => 'https://github.com/acme',
+            ]);
+            self::fail('expected ValidationException for a bare brand name');
+        } catch (ValidationException $e) {
+            self::assertArrayHasKey('icon', $e->errors());
+        }
+        $clean = (new FieldValidator())->validate($schema, [
+            'icon' => 'brand:github', 'url' => 'https://github.com/acme',
+        ]);
+        self::assertSame('brand:github', $clean['icon']);
+    }
+
     public function testNavigationRendersPerItemIconsWithLabelOnlyFallback(): void
     {
         $menus = $this->container()->get(\Glueful\Lemma\Navigation\MenuRepository::class);

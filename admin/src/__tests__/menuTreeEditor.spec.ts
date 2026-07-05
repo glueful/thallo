@@ -1,6 +1,13 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { ref } from 'vue'
 import type { NavTreeItem } from '@/queries/navigation'
+
+// The row hosts the icon picker modal, whose query needs Pinia — mock it.
+vi.mock('@/queries/icons', () => ({
+  useIcons: () => ({ data: ref({ icons: ['star', 'external-link'], svgs: {} }), status: ref('success') }),
+}))
+
 import MenuTreeEditor from '@/pages/navigation/components/MenuTreeEditor.vue'
 
 const url = (label: string, children: NavTreeItem[] = []): NavTreeItem => ({

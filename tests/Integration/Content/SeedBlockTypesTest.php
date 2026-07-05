@@ -68,6 +68,16 @@ final class SeedBlockTypesTest extends LemmaTestCase
         self::assertContains('25-25-50', $columns['widths']['enum']);
         self::assertSame(['stretch', 'top', 'center', 'bottom'], $columns['align']['enum']);
 
+        // Icon-picker formats (icon-picker spec §2): editor hints paired with
+        // patterns; brand-icon PAIRS the brand-prefixed pattern (P2 pin).
+        $iconBlock = array_column($repo->findBySlug('icon')['schema'], null, 'name');
+        self::assertSame('icon', $iconBlock['icon']['format']);
+        $featureType = array_column($repo->findBySlug('feature')['schema'], null, 'name');
+        self::assertSame('icon', $featureType['icon']['format']);
+        $socialLink = array_column($repo->findBySlug('social_link')['schema'], null, 'name');
+        self::assertSame('brand-icon', $socialLink['icon']['format']);
+        self::assertSame('brand:[a-z0-9]+(-[a-z0-9]+)*', $socialLink['icon']['pattern']);
+
         // Navigation v2 (nav-v2 spec §1): styling + submenu enums.
         $nav = array_column($repo->findBySlug('navigation')['schema'], null, 'name');
         self::assertSame(['start', 'center', 'end'], $nav['align']['enum']);

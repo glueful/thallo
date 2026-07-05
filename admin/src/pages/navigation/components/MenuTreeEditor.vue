@@ -64,6 +64,28 @@ function setLabel(item: NavTreeItem, value: string): void {
   item.labels[props.locale] = value
   changed()
 }
+
+// Icon picker (icon-picker spec §5, direct use): one modal per level, aimed
+// at the item being edited.
+import { computed, ref } from 'vue'
+import IconPickerModal from '@/fields/components/IconPickerModal.vue'
+const iconPickerFor = ref<NavTreeItem | null>(null)
+const iconPickerOpen = computed({
+  get: () => iconPickerFor.value !== null,
+  set: (v: boolean) => {
+    if (!v) iconPickerFor.value = null
+  },
+})
+function onIconSelect(name: string): void {
+  if (!iconPickerFor.value) return
+  iconPickerFor.value.icon = name
+  changed()
+}
+function onIconClear(): void {
+  if (!iconPickerFor.value) return
+  iconPickerFor.value.icon = null
+  changed()
+}
 </script>
 
 <template>
@@ -100,18 +122,30 @@ function setLabel(item: NavTreeItem, value: string): void {
             {{ item.target_url }}
           </code>
         </template>
-        <!-- Optional Lucide icon (nav-v2): the site renders it via icon();
-             the admin previews with its own i-lucide-* set (same names). -->
-        <div class="flex items-center gap-1">
-          <UInput
-            :model-value="item.icon ?? ''"
-            size="sm"
-            class="w-36"
-            placeholder="icon (lucide)"
-            data-test="tree-item-icon"
-            @update:model-value="(v: string) => { item.icon = v.trim() === '' ? null : v.trim(); changed() }"
-          />
+        <!-- Optional Lucide icon (nav-v2 + icon-picker spec §5, direct use:
+             tree items are not schema fields). Picker over the vendored
+             inventory; preview via the admin's i-lucide-* set (same names). -->
+        <div class="flex items-center gap-1" data-test="tree-item-icon">
           <UIcon v-if="item.icon" :name="`i-lucide-${item.icon}`" class="size-4 shrink-0 text-muted" />
+          <UButton
+            size="xs"
+            variant="subtle"
+            color="neutral"
+            data-test="tree-item-icon-choose"
+            @click="iconPickerFor = item"
+          >
+            {{ item.icon ?? 'Icon' }}
+          </UButton>
+          <UButton
+            v-if="item.icon"
+            size="xs"
+            variant="ghost"
+            color="neutral"
+            icon="i-lucide-x"
+            aria-label="Clear icon"
+            data-test="tree-item-icon-clear"
+            @click="() => { item.icon = null; changed() }"
+          />
         </div>
 
         <span class="grow" />
@@ -159,4 +193,12 @@ function setLabel(item: NavTreeItem, value: string): void {
       </div>
     </li>
   </ul>
+
+  <IconPickerModal
+    v-model:open="iconPickerOpen"
+    set="lucide"
+    :model-value="iconPickerFor?.icon ?? undefined"
+    @select="onIconSelect"
+    @clear="onIconClear"
+  />
 </template>
