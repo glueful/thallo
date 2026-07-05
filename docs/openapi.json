@@ -5861,6 +5861,237 @@
                 }
             }
         },
+        "\/v1\/admin\/render\/themes": {
+            "get": {
+                "operationId": "getV1AdminRenderThemes",
+                "summary": "List selectable themes (validator-accepted) and the active one",
+                "tags": [
+                    "Lemma Templates"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Selectable themes + the currently active theme."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "operationId": "postV1AdminRenderThemes",
+                "summary": "Clone a theme into a new app theme directory (themes\/{name})",
+                "tags": [
+                    "Lemma Templates"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Created; response carries the new theme and the refreshed theme list."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Invalid name\/source, name taken, or the themes directory is not writable."
+                    }
+                }
+            }
+        },
         "\/v1\/admin\/render\/templates": {
             "get": {
                 "operationId": "getV1AdminRenderTemplates",
@@ -9326,6 +9557,25 @@
                                         ],
                                         "description": "Asset uuid of the site logo; '' clears (site name shows instead)."
                                     },
+                                    "site_logo_dark": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "site_favicon": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
+                                    },
+                                    "theme": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ],
+                                        "description": "Live theme name; '' clears to the env\/config default."
+                                    },
                                     "admin_url": {
                                         "type": [
                                             "string",
@@ -9356,6 +9606,9 @@
                                 "webhooks_enabled": true,
                                 "homepage_entry": "example",
                                 "site_logo": "example",
+                                "site_logo_dark": "example",
+                                "site_favicon": "example",
+                                "theme": "example",
                                 "admin_url": "example",
                                 "listing_types": "example"
                             }
@@ -18548,6 +18801,73 @@
                 }
             }
         },
+        "\/_preview-assets\/{token}\/{path}": {
+            "get": {
+                "operationId": "getPreviewassetsByTokenByPath",
+                "summary": "GET \/_preview-assets\/{token}\/{path}",
+                "tags": [
+                    " Preview Assets"
+                ],
+                "parameters": [
+                    {
+                        "name": "token",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "path",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string",
+                            "pattern": ".+"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "\/v1\/admin\/render\/templates\/{path}\/versions\/{uuid}": {
             "get": {
                 "operationId": "getV1AdminRenderTemplatesByPathVersionsByUuid",
@@ -18563,7 +18883,7 @@
                         "description": "",
                         "schema": {
                             "type": "string",
-                            "pattern": ".+\\.twig"
+                            "pattern": ".+\\.(?:twig|css|js|json)"
                         }
                     },
                     {
@@ -18703,7 +19023,7 @@
                         "description": "",
                         "schema": {
                             "type": "string",
-                            "pattern": ".+\\.twig"
+                            "pattern": ".+\\.(?:twig|css|js|json)"
                         }
                     }
                 ],
@@ -18833,7 +19153,7 @@
                         "description": "",
                         "schema": {
                             "type": "string",
-                            "pattern": ".+\\.twig"
+                            "pattern": ".+\\.(?:twig|css|js|json)"
                         }
                     }
                 ],
@@ -18961,7 +19281,7 @@
                         "description": "",
                         "schema": {
                             "type": "string",
-                            "pattern": ".+\\.twig"
+                            "pattern": ".+\\.(?:twig|css|js|json)"
                         }
                     }
                 ],
@@ -19108,7 +19428,7 @@
                         "description": "",
                         "schema": {
                             "type": "string",
-                            "pattern": ".+\\.twig"
+                            "pattern": ".+\\.(?:twig|css|js|json)"
                         }
                     }
                 ],
@@ -33054,7 +33374,7 @@
                         "description": "",
                         "schema": {
                             "type": "string",
-                            "pattern": ".+\\.twig"
+                            "pattern": ".+\\.(?:twig|css|js|json)"
                         }
                     },
                     {
@@ -38618,6 +38938,10 @@
         {
             "name": " Preview",
             "description": "Operations related to  Preview"
+        },
+        {
+            "name": " Preview Assets",
+            "description": "Operations related to  Preview Assets"
         },
         {
             "name": "Analytics",

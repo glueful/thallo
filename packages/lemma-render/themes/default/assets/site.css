@@ -75,6 +75,14 @@ img { max-width: 100%; display: block; }
 }
 .site-name { font-weight: 700; font-size: 1.05rem; color: var(--ink); text-decoration: none; display: inline-flex; align-items: center; }
 .site-logo { display: block; height: 2rem; width: auto; max-width: 12rem; object-fit: contain; }
+/* Dark-logo variant (site-identity spec): the swap applies ONLY inside the
+   template-emitted --has-dark modifier — without a dark upload the single
+   light logo stays visible in dark mode, unchanged. */
+.site-logo--dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  .site-name--has-dark .site-logo--light { display: none; }
+  .site-name--has-dark .site-logo--dark { display: block; }
+}
 
 /* Region-backed chrome (global-regions spec): modifier classes from region settings. */
 .lemma-region-header--sticky { position: sticky; top: 0; z-index: 40; background: var(--bg); }

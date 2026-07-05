@@ -338,6 +338,33 @@ final class RenderController
         return $this->previewSupportAsset('preview-bridge.js', 'application/javascript; charset=UTF-8');
     }
 
+    /**
+     * The site custom stylesheet (custom-css spec §3): the ACTIVE theme's
+     * DB-backed custom.css row — DB-only, no filesystem fallback. The layout
+     * links it as /custom.css?v={version_uuid}, so the immutable year-long
+     * cache is safe: every save changes the URL. Absent or empty → plain 404
+     * (the layout emits no link in that state; a stale reference downgrades
+     * gracefully to unstyled).
+     */
+    #[\Glueful\Routing\Attributes\ApiOperation(
+        summary: 'Site custom stylesheet (not an API endpoint)',
+        tags: ['Default'],
+    )]
+    public function customCss(): Response
+    {
+        $row = $this->templates?->findCurrentSource(
+            $this->themes?->activePaths()['name'] ?? 'default',
+            'custom.css',
+        );
+        if ($row === null || trim((string) $row['source']) === '') {
+            return new Response('', 404, ['Content-Type' => 'text/css; charset=UTF-8']);
+        }
+        return new Response((string) $row['source'], 200, [
+            'Content-Type' => 'text/css; charset=UTF-8',
+            'Cache-Control' => 'public, max-age=31536000, immutable',
+        ]);
+    }
+
     private function previewSupportAsset(string $file, string $contentType): Response
     {
         $path = dirname(__DIR__, 3) . '/assets/preview/' . $file;
@@ -431,6 +458,63 @@ final class RenderController
         summary: 'Preview theme assets (not an API endpoint)',
         tags: ['Default'],
     )]
+    /**
+     * Live theme assets (theme-setting spec §3): resolved from the ACTIVE
+     * theme's assets dir PER REQUEST — replaces the boot-time static mount so
+     * a settings-driven theme switch applies without a restart. Explicit
+     * extension→MIME map (content-sniffing answers text/plain for CSS/JS —
+     * the 1.65.3 serveFrontend lesson). asset() emits ?t={theme}, so the
+     * day-long cache never crosses a theme switch.
+     */
+    #[\Glueful\Routing\Attributes\ApiOperation(
+        summary: 'Theme asset (not an API endpoint)',
+        tags: ['Default'],
+    )]
+    public function themeAsset(Request $request, string $path): Response
+    {
+        $bad = $path === ''
+            || str_starts_with($path, '/')
+            || str_contains($path, '\\')
+            || preg_match('#^[a-z][a-z0-9+.-]*://#i', $path) === 1
+            || in_array('..', explode('/', $path), true);
+        if ($bad) {
+            return ApiResponse::error('Not Found', 404);
+        }
+        $assets = $this->themes?->activePaths()['assets'] ?? null;
+        $file = $assets !== null ? $assets . '/' . $path : null;
+        if ($file === null || !is_file($file)) {
+            return ApiResponse::error('Not Found', 404);
+        }
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $mime = self::ASSET_MIME[$ext] ?? 'application/octet-stream';
+        return new Response((string) file_get_contents($file), 200, [
+            'Content-Type' => $mime,
+            'Cache-Control' => 'public, max-age=86400',
+        ]);
+    }
+
+    /** Extension→MIME for theme assets (explicit — never content-sniffed). */
+    private const ASSET_MIME = [
+        'css' => 'text/css; charset=UTF-8',
+        'js' => 'application/javascript; charset=UTF-8',
+        'mjs' => 'application/javascript; charset=UTF-8',
+        'json' => 'application/json; charset=UTF-8',
+        'svg' => 'image/svg+xml',
+        'png' => 'image/png',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'gif' => 'image/gif',
+        'webp' => 'image/webp',
+        'avif' => 'image/avif',
+        'ico' => 'image/x-icon',
+        'woff' => 'font/woff',
+        'woff2' => 'font/woff2',
+        'ttf' => 'font/ttf',
+        'otf' => 'font/otf',
+        'map' => 'application/json; charset=UTF-8',
+        'txt' => 'text/plain; charset=UTF-8',
+    ];
+
     public function previewAsset(Request $request, string $token, string $path): Response
     {
         $session = $this->sessionVerifier?->verify($token);

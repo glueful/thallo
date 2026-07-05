@@ -7,6 +7,69 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Live theme setting**: the site's theme is now an admin setting — a Theme
+  card in Settings → General (options from a new
+  `GET /admin/render/themes`), DB override → `RENDER_THEME` env → `default`,
+  applied on the next page view with no restart. Write-time validated (you
+  cannot store a nonexistent/broken theme); a row that goes stale later logs
+  and falls back — never a 500 (the env ladder is unchanged: missing env dir
+  still silently defaults, a present-but-broken env theme.json stays loud).
+  `/theme-assets/*` moved from a boot-frozen static mount to per-request
+  serving with an explicit MIME map, and `asset()` URLs now carry a
+  `?t={theme}` cache-buster so browser caches never survive a theme switch;
+  a `ThemeChanged` contract event purges pages AND themed error bodies via
+  the standard `lemma:render:page` tag. New lemma-contracts seam:
+  `Settings/ThemeSettingProvider` (raw stored override, never the resolved
+  fallback).
+- **Site custom CSS**: a DB-backed, per-theme `custom.css` — the styling
+  escape hatch. Rides the existing template store (versioning, history,
+  restore, and the purge pipeline for free) as the ONE allowed non-twig
+  path; save/restore validate it as CSS (UTF-8 + configurable size cap,
+  `LEMMA_CUSTOM_CSS_MAX_BYTES`) instead of Twig-linting, and it never falls
+  back to the filesystem. Served at `GET /custom.css` with immutable
+  year-long caching — safe because the layout links it via a new
+  policy-gated `custom_css()` function as `/custom.css?v={version_uuid}`
+  (TemplatePolicy CACHE_VERSION 8 → 9), loaded AFTER the theme stylesheets
+  so operator rules win the cascade. Admin: a pinned "Site" entry in the
+  templates tree (always visible; 404 opens an empty editor, not an error)
+  with CSS syntax highlighting and trust-model framing (site styling for
+  operators under templates.manage — not a content-editing surface). The
+  templates page also gained a dashboard panel layout, independently
+  scrolling panes with a vertical divider, collapsible folder groups
+  (collapsed by default, folder/file icons), a search filter that
+  force-opens matching folders, and a theme indicator/switcher backed by a
+  new `themes` list in the listing API. Theme asset files (`assets/*.css`,
+  `assets/*.js`) and `theme.json` also join the tree as READ-ONLY viewers
+  (lock icon, no save/history, editor read-only with per-type syntax
+  highlighting) so operators can browse class names to override in
+  `custom.css` — writes to those paths remain impossible at the API. The
+  editor gained autocomplete: real CSS property/value completion
+  (@codemirror/lang-css) and a Twig completion source seeded from the
+  TemplatePolicy allowlists (functions/filters/tests + tag snippets), so the
+  editor never suggests what the linter would reject. Themes can now be
+  CLONED: `php glueful lemma:theme:clone <name> [--from=]` or the Duplicate
+  button next to the templates-page theme switcher — a full server-side copy
+  into `themes/{name}/` (strict lowercase name grammar, refuse-overwrite,
+  loud error on unwritable app dirs, theme.json name rewritten), immediately
+  valid and selectable.
+- **Site identity**: favicon + dark-mode logo settings. Two new
+  GeneralSettings keys (`site_favicon`, `site_logo_dark`) round-trip through
+  `PUT /admin/settings/general`. Twig: new `site_favicon()` joins the
+  sandbox allowlist (TemplatePolicy `CACHE_VERSION` 7 → 8) and resolves the
+  uuid through the SAME `media()` predicate — a private/deleted/gated blob
+  yields null and the layout emits NO `<link rel="icon">` (favicon fetches
+  are anonymous; a 401ing link is worse than a missing one). `site_logo()`
+  gains a strict variant argument (`null|'light'|'dark'` only; anything else
+  returns null — a DB template can never widen it into a settings lookup);
+  dark unset falls back to the light logo. The default theme's header and
+  logo block render a light/dark img pair gated by a template-emitted
+  `--has-dark` modifier (CSS swaps under `prefers-color-scheme: dark`);
+  without a dark upload the light-only markup is byte-identical. Admin:
+  Site identity card gains "Site logo (dark)" and "Favicon" uploads with a
+  browser-tab `FaviconPreview` mock (app tile + fake tab with favicon, site
+  name, ×); AssetField's single-asset preview drops the uuid text for a
+  larger image — identity lives in the media picker's filenames, with the
+  uuid kept as a `title`/`alt` tooltip + assistive-tech affordance.
 - **Icon picker**: `GET /admin/icons?set=lucide|brands` exposes the render
   pack's VENDORED icon inventory (glob parity with what `icon()` renders,
   per-process memo). String fields gain editor-hint formats — `STRING_FORMATS`

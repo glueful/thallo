@@ -10,8 +10,11 @@ use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
 use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
+use Glueful\Lemma\Contracts\Settings\SiteFaviconProvider;
 use Glueful\Lemma\Contracts\Settings\SiteLogoProvider;
 use Glueful\Lemma\Contracts\Navigation\MenuReader;
+use Glueful\Lemma\Render\ActiveThemeSource;
+use Glueful\Lemma\Render\Templates\CustomCssUrl;
 use Glueful\Lemma\Render\Templates\IconSet;
 use Psr\Log\LoggerInterface;
 use Twig\Environment;
@@ -97,6 +100,12 @@ final class RenderContextExtension extends AbstractExtension
         private readonly ?IconSet $icons = null,
         /** Soft-bound (global-regions spec): null → region_blocks() returns null → fallback chrome. */
         private readonly ?RegionReader $regions = null,
+        /** Soft-bound (site-identity spec): null → site_favicon() returns null. */
+        private readonly ?SiteFaviconProvider $favicon = null,
+        /** Pack-internal (custom-css spec): null → custom_css() returns null. */
+        private readonly ?CustomCssUrl $customCssUrl = null,
+        /** Pack-internal (theme-setting spec §3): null → no asset cache-buster. */
+        private readonly ?ActiveThemeSource $themeSource = null,
     ) {
         $this->locale = $defaultLocale;
     }
@@ -131,7 +140,18 @@ final class RenderContextExtension extends AbstractExtension
                 'needs_context' => true,
             ]),
             new TwigFunction('region_settings', $this->regionSettings(...)),
+            new TwigFunction('site_favicon', $this->siteFavicon(...)),
+            new TwigFunction('custom_css', $this->customCss(...)),
         ];
+    }
+
+    /**
+     * The site custom stylesheet's versioned URL (custom-css spec §4), or null
+     * when no non-empty DB row exists — the layout emits no link on null.
+     */
+    public function customCss(): ?string
+    {
+        return $this->customCssUrl?->url();
     }
 
     /**
@@ -187,10 +207,32 @@ final class RenderContextExtension extends AbstractExtension
      * The configured site logo as a public media URL (block-library spec §2):
      * provider-injected settings read resolved through media() — null when
      * unset or unresolvable, so the logo block falls back to the site name.
+     *
+     * $variant (site-identity spec §2, P2 pin): a CLOSED vocabulary at the
+     * template boundary — null|'light'|'dark' only; anything else returns
+     * null, so DB templates can never turn the argument into an unbounded
+     * settings lookup. 'dark' unset → null → templates fall back to light.
      */
-    public function siteLogo(): ?string
+    public function siteLogo(?string $variant = null): ?string
     {
-        $uuid = $this->siteLogo?->siteLogoUuid();
+        $variant ??= 'light';
+        if (!in_array($variant, ['light', 'dark'], true)) {
+            return null;
+        }
+        $uuid = $this->siteLogo?->siteLogoUuid($variant);
+        return $uuid === null ? null : $this->media($uuid);
+    }
+
+    /**
+     * The configured favicon as a public media URL (site-identity spec §2,
+     * P1 pin): the SAME media() predicate as everything else — uploads
+     * disabled, non-anonymous access, or a non-public blob yield null, so
+     * the layout emits NO link tag rather than one that 401s (favicon
+     * fetches are anonymous browser requests).
+     */
+    public function siteFavicon(): ?string
+    {
+        $uuid = $this->favicon?->faviconUuid();
         return $uuid === null ? null : $this->media($uuid);
     }
 
@@ -545,6 +587,14 @@ final class RenderContextExtension extends AbstractExtension
                 $rel,
             ));
         }
-        return ($this->assetBase ?? '/theme-assets') . '/' . $rel;
+        $url = ($this->assetBase ?? '/theme-assets') . '/' . $rel;
+        // Theme cache-buster (theme-setting spec §3 P1): live base only — the
+        // preview pipeline's setAssetBase override is already theme-pinned and
+        // must not be rewritten. Browser caches don't see page-cache purges;
+        // the ?t= makes a theme switch re-fetch every asset immediately.
+        if ($this->assetBase === null && $this->themeSource !== null) {
+            $url .= '?t=' . rawurlencode($this->themeSource->name());
+        }
+        return $url;
     }
 }

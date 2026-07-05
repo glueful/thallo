@@ -12,6 +12,8 @@ export interface TemplateRow {
   origin: 'db' | 'theme' | 'default'
   overridden: boolean
   updated_at: string | null
+  /** Browsable theme file (assets/theme.json) — viewable, never editable. */
+  readonly?: boolean
 }
 
 export interface TemplateDetail {
@@ -20,6 +22,7 @@ export interface TemplateDetail {
   origin: 'db' | 'theme' | 'default'
   source: string
   version_uuid: string | null
+  readonly?: boolean
 }
 
 export interface TemplateVersion {
@@ -41,9 +44,9 @@ const themeQs = (theme: string) => (theme === '' ? '' : `?${new URLSearchParams(
 
 export async function fetchTemplates(
   theme = '',
-): Promise<{ theme: string; templates: TemplateRow[] }> {
+): Promise<{ theme: string; themes: string[]; templates: TemplateRow[] }> {
   const json = await authFetch(`${base()}${themeQs(theme)}`)
-  return (json.data ?? json) as { theme: string; templates: TemplateRow[] }
+  return (json.data ?? json) as { theme: string; themes: string[]; templates: TemplateRow[] }
 }
 
 export async function fetchTemplate(path: string, theme = ''): Promise<TemplateDetail> {
@@ -92,6 +95,27 @@ export async function restoreVersion(
     method: 'POST',
   })
   return (json.data ?? json) as { version_uuid: string }
+}
+
+/** Selectable themes + the active one (feeds the Settings → General Theme card). */
+export async function fetchRenderThemes(): Promise<{ themes: string[]; active: string }> {
+  const json = await authFetch(`${runtimeConfig.apiBase}/render/themes`)
+  return (json.data ?? json) as { themes: string[]; active: string }
+}
+
+/**
+ * Clone a theme into themes/{name}/ (server-side copy; 422 carries the reason
+ * — bad name, name taken, or an unwritable themes directory).
+ */
+export async function cloneTheme(
+  name: string,
+  from = 'default',
+): Promise<{ theme: string; themes: string[] }> {
+  const json = await authFetch(`${runtimeConfig.apiBase}/render/themes`, {
+    method: 'POST',
+    body: JSON.stringify({ name, from }),
+  })
+  return (json.data ?? json) as { theme: string; themes: string[] }
 }
 
 /** Extract the linter violations from a thrown ApiError body (422s), else []. */

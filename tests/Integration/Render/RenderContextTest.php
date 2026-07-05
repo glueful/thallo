@@ -8,7 +8,10 @@ use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
 use App\Tests\Support\LemmaTestCase;
 use Glueful\Helpers\Utils;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
+use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
 use Glueful\Lemma\Contracts\Navigation\MenuReader;
+use Glueful\Lemma\Contracts\Settings\SiteFaviconProvider;
+use Glueful\Lemma\Contracts\Settings\SiteLogoProvider;
 use Glueful\Lemma\Navigation\MenuRepository;
 use Glueful\Lemma\Render\RenderContextExtension;
 use Twig\Error\RuntimeError;
@@ -131,5 +134,91 @@ final class RenderContextTest extends LemmaTestCase
     {
         // Soft-bound seam: minimal wiring (no SiteLogoProvider) must not fail.
         self::assertNull($this->extensionWithoutReader()->siteLogo());
+        self::assertNull($this->extensionWithoutReader()->siteFavicon());
+    }
+
+    public function testSiteLogoVariantVocabularyIsClosed(): void
+    {
+        // Site-identity P2 pin: null|'light'|'dark' only — a DB template can
+        // never turn the argument into an unbounded settings lookup.
+        $ext = $this->identityExtension(light: 'light0000001', dark: 'dark00000001');
+
+        self::assertSame('/media/light0000001', $ext->siteLogo());
+        self::assertSame('/media/light0000001', $ext->siteLogo('light'));
+        self::assertSame('/media/dark00000001', $ext->siteLogo('dark'));
+        self::assertNull($ext->siteLogo('weird'));
+        self::assertNull($ext->siteLogo('site_favicon'));
+    }
+
+    public function testDarkLogoUnsetFallsThroughToNull(): void
+    {
+        // Dark is an OVERRIDE: unset → null → templates render the light logo.
+        $ext = $this->identityExtension(light: 'light0000001', dark: null);
+        self::assertSame('/media/light0000001', $ext->siteLogo());
+        self::assertNull($ext->siteLogo('dark'));
+    }
+
+    public function testSiteFaviconObeysTheMediaPredicate(): void
+    {
+        // Site-identity P1 pin: the uuid resolves through the SAME MediaUrlResolver
+        // predicate — a non-anonymously-servable blob yields null (no link tag).
+        $set = $this->identityExtension(favicon: 'favic0000001');
+        self::assertSame('/media/favic0000001', $set->siteFavicon());
+
+        $private = $this->identityExtension(favicon: 'denied000001');
+        self::assertNull($private->siteFavicon());
+
+        $unset = $this->identityExtension(favicon: null);
+        self::assertNull($unset->siteFavicon());
+    }
+
+    /**
+     * An extension with stub identity providers and a MediaUrlResolver that
+     * resolves every uuid EXCEPT 'denied000001' (the not-public case).
+     */
+    private function identityExtension(
+        ?string $light = null,
+        ?string $dark = null,
+        ?string $favicon = null,
+    ): RenderContextExtension {
+        $logos = new class ($light, $dark) implements SiteLogoProvider {
+            public function __construct(private readonly ?string $light, private readonly ?string $dark)
+            {
+            }
+
+            public function siteLogoUuid(string $variant = 'light'): ?string
+            {
+                return match ($variant) {
+                    'light' => $this->light,
+                    'dark' => $this->dark,
+                    default => null,
+                };
+            }
+        };
+        $favicons = new class ($favicon) implements SiteFaviconProvider {
+            public function __construct(private readonly ?string $favicon)
+            {
+            }
+
+            public function faviconUuid(): ?string
+            {
+                return $this->favicon;
+            }
+        };
+        $media = new class implements MediaUrlResolver {
+            public function url(string $uuid): ?string
+            {
+                return $uuid === 'denied000001' ? null : '/media/' . $uuid;
+            }
+        };
+
+        return new RenderContextExtension(
+            null,
+            $this->container()->get(EntryTargetResolver::class),
+            'en',
+            mediaUrls: $media,
+            siteLogo: $logos,
+            favicon: $favicons,
+        );
     }
 }

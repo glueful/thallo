@@ -211,6 +211,43 @@ final class BlockLibraryRenderTest extends LemmaTestCase
         self::assertStringNotContainsString('<img', $out);
     }
 
+    public function testLogoBlockRendersTheDarkPairOnlyWhenTheVariantIsSet(): void
+    {
+        // Container-wired path: EngineSiteLogoProvider over GeneralSettings +
+        // the real MediaUrlResolver (public blobs only).
+        $seedBlob = function (): string {
+            $uuid = \Glueful\Helpers\Utils::generateNanoID();
+            $this->connection()->table('blobs')->insert([
+                'uuid' => $uuid, 'name' => 'logo.png', 'mime_type' => 'image/png',
+                'size' => 1, 'url' => 'uploads/logo.png', 'visibility' => 'public',
+                'status' => 'active', 'created_by' => 'user00000001',
+                'created_at' => gmdate('Y-m-d H:i:s'),
+            ]);
+            return $uuid;
+        };
+        $store = $this->container()->get(\App\Settings\SettingsStore::class);
+        $render = fn(): string => $this->render([
+            ['id' => 'l1', 'type' => 'logo', 'data' => ['link_home' => true]],
+        ]);
+
+        // Light-only regression: the single un-suffixed image, no modifier.
+        $light = $seedBlob();
+        $store->putMany(['site_logo' => $light]);
+        $out = $render();
+        self::assertStringContainsString('<img class="lemma-block-logo__image" src="', $out);
+        self::assertStringNotContainsString('--has-dark', $out);
+        self::assertStringNotContainsString('__image--dark', $out);
+
+        // Dark set: the modifier + the light/dark pair.
+        $dark = $seedBlob();
+        $store->putMany(['site_logo_dark' => $dark]);
+        $out = $render();
+        self::assertStringContainsString('lemma-block-logo--has-dark', $out);
+        self::assertStringContainsString('lemma-block-logo__image--light', $out);
+        self::assertStringContainsString('lemma-block-logo__image--dark', $out);
+        self::assertStringContainsString('/blobs/' . $dark, $out);
+    }
+
     public function testFaqAndTabsGroupsAreScopedPerBlockInstance(): void
     {
         $faq = static fn (string $id): array => ['id' => $id, 'type' => 'faq', 'data' => [

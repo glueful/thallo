@@ -11,8 +11,11 @@ const props = withDefaults(
     /** The dropzone already opens the picker (with a Library tab); hosts that
         find the extra button redundant can hide it. Defaults to shown. */
     libraryButton?: boolean
+    /** Hosts that render their own preview (e.g. the favicon's browser-tab
+        mock) can hide the built-in single-asset one. Defaults to shown. */
+    preview?: boolean
   }>(),
-  { libraryButton: true },
+  { libraryButton: true, preview: true },
 )
 // Stores blob uuid(s) — the backend FieldValidator::assetExistsOnMediaDisk validates by uuid.
 // Single: string | undefined. Multiple: string[].
@@ -145,9 +148,16 @@ function onLibraryPick(uuid: string) {
           Choose from library
         </UButton>
         <p v-if="upload.isLoading.value" class="text-xs text-muted">Uploading…</p>
-        <div v-else-if="singleUuid" class="flex min-w-0 items-center gap-2">
-          <img :src="blobDisplayUrl(singleUuid)" alt="" class="h-10 w-10 shrink-0 rounded object-cover" />
-          <span class="truncate text-xs text-muted">{{ singleUuid }}</span>
+        <!-- Identity pin (site-identity spec §4): the picker owns rich identity;
+             title/alt keep a tooltip + AT affordance without visual noise. -->
+        <div v-else-if="preview && singleUuid" class="flex min-w-0 items-center gap-2">
+          <img
+            :src="blobDisplayUrl(singleUuid)"
+            :alt="singleUuid"
+            :title="singleUuid"
+            class="max-h-20 max-w-full rounded object-contain"
+            data-test="asset-single-preview"
+          />
         </div>
       </div>
     </template>

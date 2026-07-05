@@ -7,7 +7,10 @@ namespace App\Http\Controllers;
 use App\Http\DTOs\Responses\GeneralSettingsResultData;
 use App\Http\DTOs\UpdateGeneralSettingsData;
 use App\Settings\GeneralSettings;
+use Glueful\Events\EventService;
 use Glueful\Http\Response;
+use Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator;
+use Glueful\Lemma\Contracts\Settings\ThemeChanged;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 
@@ -28,6 +31,9 @@ final class GeneralSettingsController
         private readonly GeneralSettings $settings,
         private readonly ?\Glueful\Lemma\Contracts\Delivery\PublicRouteResolver $resolver = null,
         private readonly ?\App\Content\Repositories\ContentTypeRepository $contentTypes = null,
+        /** Soft-bound (theme-setting spec §1): null = render pack absent, theme is inert. */
+        private readonly ?PreviewThemeValidator $themeValidator = null,
+        private readonly ?EventService $events = null,
     ) {
     }
 
@@ -61,7 +67,10 @@ final class GeneralSettingsController
             return Response::validation($errors);
         }
 
+        $themeBefore = $this->settings->themeOverride();
+
         $this->settings->save([
+            'theme' => $input->theme,
             'site_name' => $input->site_name,
             'site_preview_url' => $input->site_preview_url,
             'default_locale' => $input->default_locale,
@@ -72,9 +81,17 @@ final class GeneralSettingsController
             'webhooks_enabled' => $input->webhooks_enabled,
             'homepage_entry' => $input->homepage_entry,
             'site_logo' => $input->site_logo,
+            'site_logo_dark' => $input->site_logo_dark,
+            'site_favicon' => $input->site_favicon,
             'admin_url' => $input->admin_url,
             'listing_types' => $input->listing_types,
         ]);
+
+        // ThemeChanged only when the STORED override actually changed (theme-
+        // setting spec §5): the render pack purges its page cache on it.
+        if ($input->theme !== null && $this->settings->themeOverride() !== $themeBefore) {
+            $this->events?->dispatch(new ThemeChanged($this->settings->theme()));
+        }
 
         return Response::success(
             ['settings' => $this->settings->all()],
@@ -121,6 +138,19 @@ final class GeneralSettingsController
         ) {
             $errors['homepage_entry'] =
                 'must be a published entry of a publicly delivered content type';
+        }
+
+        // Theme (theme-setting spec §1): write-time validation — you cannot
+        // store a theme that doesn't exist or has a broken theme.json. '' (clear)
+        // and null (unchanged) skip; validator unbound (render pack absent) skips
+        // too — the value is inert without a renderer.
+        if (
+            $input->theme !== null
+            && $input->theme !== ''
+            && $this->themeValidator !== null
+            && !$this->themeValidator->isValidTheme($input->theme)
+        ) {
+            $errors['theme'] = 'unknown theme';
         }
 
         // A non-empty admin URL must be absolute http(s) — relative values

@@ -1315,6 +1315,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/_preview-assets/{token}/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /_preview-assets/{token}/{path} */
+        get: operations["getPreviewassetsByTokenByPath"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/seo/meta/{type}/{slug}": {
         parameters: {
             query?: never;
@@ -7922,6 +7939,44 @@ export interface operations {
             };
             /** @description Unknown menu. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getPreviewassetsByTokenByPath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

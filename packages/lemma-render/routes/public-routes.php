@@ -42,6 +42,17 @@ $router->get('/_preview-assets/{token}/{path}', [RenderController::class, 'previ
 $router->get('/_preview.css', [RenderController::class, 'previewCss']);
 $router->get('/_preview-bridge.js', [RenderController::class, 'previewBridgeJs']);
 
+// Site custom CSS (custom-css spec §3): DB-backed stylesheet, immutable-cached —
+// the layout links it with ?v={version_uuid}, so every save changes the URL.
+// Static route: wins over the '*' page catch-all by router bucketing.
+$router->get('/custom.css', [RenderController::class, 'customCss']);
+
+// Live theme assets (theme-setting spec §3): served from the ACTIVE theme per
+// request (the boot-time static mount is gone — a settings-driven theme switch
+// applies without a restart). asset() emits ?t={theme} as the cache-buster.
+$router->get('/theme-assets/{path}', [RenderController::class, 'themeAsset'])
+    ->where('path', '.+');
+
 // Session detection runs BEFORE the page cache (preview-sessions spec §4): session
 // state is not cache state, and verified sessions bypass the cache wholesale.
 $router->get('/', [RenderController::class, 'home'])

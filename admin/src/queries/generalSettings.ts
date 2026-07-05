@@ -20,6 +20,12 @@ export interface GeneralSettings {
   homepage_entry: string
   /** Asset uuid of the site logo; '' = unset (site name renders instead). */
   site_logo: string
+  /** Dark-scheme logo variant uuid; '' = no override (the main logo renders). */
+  site_logo_dark: string
+  /** Favicon blob uuid; '' = unset (no link tag renders). */
+  site_favicon: string
+  /** Live theme name (effective); saving '' clears the override to the env default. */
+  theme: string
   /** Admin SPA base URL for the preview bar's Edit/Design links. */
   admin_url: string
   /** Content types with public listings/archives ([] = none). */

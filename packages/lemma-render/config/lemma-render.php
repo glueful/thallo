@@ -55,4 +55,11 @@ return [
     // the filesystem theme. false = ops kill-switch — pure filesystem loading
     // (pre-feature behavior) and the template admin routes are not registered.
     'db_templates' => env('RENDER_DB_TEMPLATES', true),
+
+    // Site custom CSS (custom-css spec §2): save-time size cap for the DB-backed
+    // custom.css, in bytes. Encoding + size are the ONLY gates — CSS is never
+    // syntax-validated (a broken rule loses in the browser; it cannot 500 the site).
+    'custom_css' => [
+        'max_bytes' => (int) env('LEMMA_CUSTOM_CSS_MAX_BYTES', 262144),
+    ],
 ];

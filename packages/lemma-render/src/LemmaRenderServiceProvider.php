@@ -9,6 +9,7 @@ use Glueful\Cache\CacheStore;
 use Glueful\Database\Connection;
 use Glueful\Events\EventService;
 use Glueful\Extensions\ServiceProvider;
+use Glueful\Lemma\Render\Templates\CustomCssUrl;
 use Glueful\Lemma\Render\Templates\DatabaseTemplateLoader;
 use Glueful\Lemma\Render\Templates\IconSet;
 use Glueful\Lemma\Render\Templates\IconInventory;
@@ -20,7 +21,10 @@ use Glueful\Lemma\Contracts\Content\BlockEditableFieldResolver;
 use Glueful\Lemma\Contracts\Content\RegionReader;
 use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
+use Glueful\Lemma\Contracts\Settings\SiteFaviconProvider;
 use Glueful\Lemma\Contracts\Settings\SiteLogoProvider;
+use Glueful\Lemma\Contracts\Settings\ThemeChanged;
+use Glueful\Lemma\Contracts\Settings\ThemeSettingProvider;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
 use Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator;
@@ -28,6 +32,7 @@ use Glueful\Lemma\Contracts\Navigation\MenuReader;
 use Glueful\Lemma\Contracts\Content\RegionUpdated;
 use Glueful\Lemma\Contracts\Navigation\MenuUpdated;
 use Glueful\Lemma\Render\Console\ClearRenderCacheCommand;
+use Glueful\Lemma\Render\Console\ThemeCloneCommand;
 use Glueful\Lemma\Contracts\Delivery\PreviewSessionVerifier;
 use Glueful\Lemma\Render\Http\Controllers\RenderController;
 use Glueful\Lemma\Render\Http\Controllers\TemplatesAdminController;
@@ -37,7 +42,9 @@ use Glueful\Lemma\Render\Http\Middleware\RenderPageCache;
 use Glueful\Lemma\Render\Listeners\PurgeRenderCacheOnMenuUpdate;
 use Glueful\Lemma\Render\Listeners\PurgeRenderCacheOnRegionUpdate;
 use Glueful\Lemma\Render\Listeners\PurgeRenderCacheOnTemplateUpdate;
+use Glueful\Lemma\Render\Listeners\PurgeRenderCacheOnThemeChange;
 use Glueful\Lemma\Render\Templates\TemplateUpdated;
+use Glueful\Lemma\Render\Templates\ThemeCloner;
 use Psr\Container\ContainerInterface;
 
 use function config;
@@ -51,6 +58,14 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             ThemeLocator::class => [
                 'shared' => true,
                 'factory' => [self::class, 'makeThemeLocator'],
+            ],
+            ActiveThemeSource::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeActiveThemeSource'],
+            ],
+            PurgeRenderCacheOnThemeChange::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makePurgeRenderCacheOnThemeChange'],
             ],
             RenderContextExtension::class => [
                 'shared' => true,
@@ -87,6 +102,14 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             IconInventory::class => [
                 'shared' => true,
                 'factory' => [self::class, 'makeIconInventory'],
+            ],
+            ThemeCloner::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeThemeCloner'],
+            ],
+            ThemeCloneCommand::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeThemeCloneCommand'],
             ],
             ClearRenderCacheCommand::class => [
                 'shared' => true,
@@ -142,6 +165,8 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             $container->get(PreviewThemeValidator::class),
             $container->get(ThemeLocator::class),
             $container->get(EventService::class),
+            $container->get(ApplicationContext::class),
+            $container->get(ThemeCloner::class),
         );
     }
 
@@ -171,6 +196,21 @@ final class LemmaRenderServiceProvider extends ServiceProvider
     {
         $context = $container->get(ApplicationContext::class);
         return new RenderThemeValidator($context->getBasePath() . '/themes');
+    }
+
+    public static function makeThemeCloner(ContainerInterface $container): ThemeCloner
+    {
+        $context = $container->get(ApplicationContext::class);
+        return new ThemeCloner(
+            $context->getBasePath() . '/themes',
+            dirname(__DIR__) . '/themes',
+            $container->get(PreviewThemeValidator::class),
+        );
+    }
+
+    public static function makeThemeCloneCommand(ContainerInterface $container): ThemeCloneCommand
+    {
+        return new ThemeCloneCommand($container->get(ThemeCloner::class));
     }
 
     public static function makeClearRenderCacheCommand(
@@ -256,10 +296,33 @@ final class LemmaRenderServiceProvider extends ServiceProvider
     public static function makeThemeLocator(ContainerInterface $container): ThemeLocator
     {
         $context = $container->get(ApplicationContext::class);
+        // Theme-setting spec §2: the NAME comes from the per-request source
+        // (stored override -> env -> default); ThemeLocator's own ladder
+        // (missing dir silent fallback, broken PRESENT dir loud) is untouched.
         return new ThemeLocator(
-            (string) config($context, 'lemma_render.theme', 'default'),
+            $container->get(ActiveThemeSource::class)->name(),
             $context->getBasePath() . '/themes',
         );
+    }
+
+    public static function makeActiveThemeSource(ContainerInterface $container): ActiveThemeSource
+    {
+        $context = $container->get(ApplicationContext::class);
+        return new ActiveThemeSource(
+            // Soft-bound: the app's settings engine may be absent.
+            $container->has(ThemeSettingProvider::class)
+                ? $container->get(ThemeSettingProvider::class)
+                : null,
+            $container->get(PreviewThemeValidator::class),
+            (string) config($context, 'lemma_render.theme', 'default'),
+            $container->get(\Psr\Log\LoggerInterface::class),
+        );
+    }
+
+    public static function makePurgeRenderCacheOnThemeChange(
+        ContainerInterface $container,
+    ): PurgeRenderCacheOnThemeChange {
+        return new PurgeRenderCacheOnThemeChange($container);
     }
 
     public static function makeRenderContextExtension(ContainerInterface $container): RenderContextExtension
@@ -304,6 +367,17 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             $container->has(RegionReader::class)
                 ? $container->get(RegionReader::class)
                 : null,
+            // site_favicon() (site-identity spec): soft-bound; null = no link tag.
+            $container->has(SiteFaviconProvider::class)
+                ? $container->get(SiteFaviconProvider::class)
+                : null,
+            // custom_css() (custom-css spec): pack-internal — repo + active theme.
+            new CustomCssUrl(
+                $container->get(TemplateRepository::class),
+                $container->get(ThemeLocator::class),
+            ),
+            // asset() theme buster (theme-setting spec §3).
+            $container->get(ActiveThemeSource::class),
         );
     }
 
@@ -361,12 +435,9 @@ final class LemmaRenderServiceProvider extends ServiceProvider
         if ($registry->isEnabled('lemma.render')) {
             $this->loadRoutesFrom(__DIR__ . '/../routes/public-routes.php');
 
-            // Theme assets only (never templates/theme.json). Mounted at BOOT — v1 theme
-            // changes require a restart/cache rebuild (spec §4).
-            $assets = app($context, ThemeLocator::class)->activePaths()['assets'];
-            if (is_dir($assets)) {
-                $this->serveFrontend('/theme-assets', $assets, ['spaFallback' => false]);
-            }
+            // Theme assets are served DYNAMICALLY by RenderController::themeAsset
+            // (theme-setting spec §3) — the old boot-time static mount froze the
+            // theme into the compiled route manifest.
 
             // The pack's purge listeners (spec §4 + global-regions spec §11): menu and
             // region changes purge broadly — both can appear on any rendered page.
@@ -392,10 +463,17 @@ final class LemmaRenderServiceProvider extends ServiceProvider
                     [app($context, PurgeRenderCacheOnTemplateUpdate::class), 'onTemplateUpdated'],
                 );
             }
+
+            // Live theme switch (theme-setting spec §5): the app's settings save
+            // dispatches ThemeChanged; every page + themed error body purges.
+            $events->addListener(
+                ThemeChanged::class,
+                [app($context, PurgeRenderCacheOnThemeChange::class), 'onThemeChanged'],
+            );
         }
 
         // OUTSIDE the capability gate (analytics-pack precedent): an operator may need
         // to clear stale pages right after disabling the capability.
-        $this->commands([ClearRenderCacheCommand::class]);
+        $this->commands([ClearRenderCacheCommand::class, ThemeCloneCommand::class]);
     }
 }

@@ -63,6 +63,107 @@ final class TemplateCatalog
         return null;
     }
 
+    /**
+     * READ-ONLY theme files for the admin browser (custom-css follow-up):
+     * the theme's asset stylesheets/scripts and theme.json — viewable so
+     * operators can find class names to override in custom.css, never
+     * editable (no DB layer serves them; the save grammar rejects them).
+     *
+     * @return list<array{path:string,origin:string}>
+     */
+    public function listReadOnly(string $theme): array
+    {
+        $files = [];
+        foreach ($this->walkAssets($this->packThemesDir . '/default') as $p) {
+            $files[$p] = 'default';
+        }
+        if (is_file($this->packThemesDir . '/default/theme.json')) {
+            $files['theme.json'] = 'default';
+        }
+        if ($theme !== 'default') {
+            $themeRoot = rtrim($this->appThemesDir, '/') . '/' . $theme;
+            foreach ($this->walkAssets($themeRoot) as $p) {
+                $files[$p] = 'theme';
+            }
+            if (is_file($themeRoot . '/theme.json')) {
+                $files['theme.json'] = 'theme';
+            }
+        }
+        ksort($files);
+        $out = [];
+        foreach ($files as $path => $origin) {
+            $out[] = ['path' => $path, 'origin' => $origin];
+        }
+        return $out;
+    }
+
+    /**
+     * Read one read-only theme file (theme-root-relative path, already
+     * grammar-validated by the caller): app theme first, pack default second
+     * — the same ladder readFile() uses for templates.
+     *
+     * @return array{source:string,origin:string}|null
+     */
+    public function readReadOnlyFile(string $theme, string $path): ?array
+    {
+        if ($theme !== 'default') {
+            $themeFile = rtrim($this->appThemesDir, '/') . '/' . $theme . '/' . $path;
+            if (is_file($themeFile)) {
+                return ['source' => (string) file_get_contents($themeFile), 'origin' => 'theme'];
+            }
+        }
+        $default = $this->packThemesDir . '/default/' . $path;
+        if (is_file($default)) {
+            return ['source' => (string) file_get_contents($default), 'origin' => 'default'];
+        }
+        return null;
+    }
+
+    /** @return list<string> theme-root-relative assets/… paths (.css/.js) under $themeRoot */
+    private function walkAssets(string $themeRoot): array
+    {
+        $dir = $themeRoot . '/assets';
+        if (!is_dir($dir)) {
+            return [];
+        }
+        $out = [];
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
+        );
+        foreach ($iterator as $file) {
+            $name = $file->getFilename();
+            if ($file->isFile() && (str_ends_with($name, '.css') || str_ends_with($name, '.js'))) {
+                $rel = ltrim(str_replace('\\', '/', substr($file->getPathname(), strlen($dir))), '/');
+                $out[] = 'assets/' . $rel;
+            }
+        }
+        sort($out);
+        return $out;
+    }
+
+    /**
+     * App-theme DIRECTORY candidates for the theme switcher — names only;
+     * the caller validates each via PreviewThemeValidator (single source of
+     * theme-validity truth; no duplicate rules here).
+     *
+     * @return list<string>
+     */
+    public function themeCandidates(): array
+    {
+        $dir = rtrim($this->appThemesDir, '/');
+        if (!is_dir($dir)) {
+            return [];
+        }
+        $out = [];
+        foreach (scandir($dir) ?: [] as $entry) {
+            if ($entry !== '.' && $entry !== '..' && is_dir($dir . '/' . $entry)) {
+                $out[] = $entry;
+            }
+        }
+        sort($out);
+        return $out;
+    }
+
     /** @return list<string> theme-relative *.twig paths under $dir */
     private function walk(string $dir): array
     {

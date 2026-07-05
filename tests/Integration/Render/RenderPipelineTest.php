@@ -470,6 +470,166 @@ final class RenderPipelineTest extends LemmaTestCase
         );
     }
 
+    public function testIdentitySettingsRoundTrip(): void
+    {
+        // Site-identity spec §1: site_favicon + site_logo_dark thread through the
+        // DTO, controller save map, and effective settings.
+        $controller = $this->container()->get(\App\Http\Controllers\GeneralSettingsController::class);
+        $hydrate = fn(array $body) => (new \Glueful\Validation\RequestDataHydrator())
+            ->hydrate(\App\Http\DTOs\UpdateGeneralSettingsData::class, $body, [], []);
+
+        $res = $controller->update($hydrate([
+            'site_favicon' => 'favic0000001',
+            'site_logo_dark' => 'dark00000001',
+        ]));
+        self::assertSame(200, $res->getStatusCode());
+        $settings = json_decode((string) $res->getContent(), true)['data']['settings'];
+        self::assertSame('favic0000001', $settings['site_favicon']);
+        self::assertSame('dark00000001', $settings['site_logo_dark']);
+
+        $general = $this->container()->get(\App\Settings\GeneralSettings::class);
+        self::assertSame('favic0000001', $general->siteFavicon());
+        self::assertSame('dark00000001', $general->siteLogoDark());
+    }
+
+    public function testAssetUrlsCarryTheThemeBuster(): void
+    {
+        // Theme-setting spec §3 P1: browser caches don't see page-cache purges —
+        // asset() appends ?t={theme} so a switch re-fetches assets immediately.
+        $this->seedBilingualPublishedEntry();
+        $html = $this->renderHello();
+        self::assertMatchesRegularExpression('#/theme-assets/site\.css\?t=default#', $html);
+        self::assertMatchesRegularExpression('#/theme-assets/blocks\.css\?t=default#', $html);
+    }
+
+    public function testThemeSettingRoundTripAndValidation(): void
+    {
+        $controller = $this->container()->get(\App\Http\Controllers\GeneralSettingsController::class);
+        $hydrate = fn(array $body) => (new \Glueful\Validation\RequestDataHydrator())
+            ->hydrate(\App\Http\DTOs\UpdateGeneralSettingsData::class, $body, [], []);
+
+        // Unknown theme -> 422 (the validator is bound; only 'default' exists here).
+        self::assertSame(422, $controller->update($hydrate(['theme' => 'nope']))->getStatusCode());
+
+        // 'default' is always valid; round-trips as the STORED override.
+        $ok = $controller->update($hydrate(['theme' => 'default']));
+        self::assertSame(200, $ok->getStatusCode());
+        $general = $this->container()->get(\App\Settings\GeneralSettings::class);
+        self::assertSame('default', $general->themeOverride());
+
+        // Explicit '' clears the row -> env fallback; the RAW override reads null.
+        $controller->update($hydrate(['theme' => '']));
+        self::assertNull($general->themeOverride());
+        self::assertSame('default', $general->theme()); // effective falls back
+    }
+
+    /** Insert a blobs row directly (the framework table; uploads are out of scope here). */
+    private function seedBlob(string $visibility = 'public'): string
+    {
+        $uuid = Utils::generateNanoID();
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $uuid,
+            'name' => 'pic.png',
+            'mime_type' => 'image/png',
+            'size' => 123,
+            'url' => 'uploads/pic.png',
+            'visibility' => $visibility,
+            'status' => 'active',
+            'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+        return $uuid;
+    }
+
+    /** Render /blog/hello through the real kernel with a cold page cache. */
+    private function renderHello(): string
+    {
+        $this->container()->get(\Glueful\Cache\CacheStore::class)->deletePattern('render:*');
+        $res = $this->handle(Request::create('/blog/hello', 'GET'));
+        self::assertSame(200, $res->getStatusCode());
+        return (string) $res->getContent();
+    }
+
+    public function testCustomCssLinkRendersOnlyWhenARowExists(): void
+    {
+        $this->seedBilingualPublishedEntry();
+
+        // Fresh install: no link at all.
+        self::assertStringNotContainsString('/custom.css', $this->renderHello());
+
+        // Saved custom CSS: the layout links the versioned URL.
+        $save = function (string $source): void {
+            $req = Request::create(
+                '/x',
+                'PUT',
+                [],
+                [],
+                [],
+                ['CONTENT_TYPE' => 'application/json'],
+                (string) json_encode(['source' => $source]),
+            );
+            $req->attributes->set('user', ['uuid' => 'user00000001']);
+            $res = $this->container()
+                ->get(\Glueful\Lemma\Render\Http\Controllers\TemplatesAdminController::class)
+                ->save($req, 'custom.css');
+            self::assertSame(200, $res->getStatusCode());
+        };
+        $save('.x { color: red; }');
+        $html = $this->renderHello();
+        self::assertMatchesRegularExpression('#/custom\.css\?v=[A-Za-z0-9_-]+#', $html);
+        preg_match('#/custom\.css\?v=([A-Za-z0-9_-]+)#', $html, $m1);
+
+        // A new save changes the cache-buster (immutable caching stays honest).
+        $save('.y { color: blue; }');
+        preg_match('#/custom\.css\?v=([A-Za-z0-9_-]+)#', $this->renderHello(), $m2);
+        self::assertNotSame($m1[1], $m2[1]);
+    }
+
+    public function testFaviconLinkObeysTheMediaPredicate(): void
+    {
+        $this->seedBilingualPublishedEntry();
+        $store = $this->container()->get(\App\Settings\SettingsStore::class);
+
+        // Unset: no link tag at all.
+        self::assertStringNotContainsString('rel="icon"', $this->renderHello());
+
+        // Public blob: the link renders with the blob-route URL.
+        $public = $this->seedBlob();
+        $store->putMany(['site_favicon' => $public]);
+        $html = $this->renderHello();
+        self::assertStringContainsString('rel="icon"', $html);
+        self::assertStringContainsString('/blobs/' . $public, $html);
+
+        // P1 proof: a PRIVATE blob yields NO link tag — favicon fetches are
+        // anonymous; a 401ing link is worse than a missing one.
+        $store->putMany(['site_favicon' => $this->seedBlob(visibility: 'private')]);
+        self::assertStringNotContainsString('rel="icon"', $this->renderHello());
+    }
+
+    public function testDarkLogoPairRendersOnlyWhenTheVariantIsSet(): void
+    {
+        $this->seedBilingualPublishedEntry();
+        $store = $this->container()->get(\App\Settings\SettingsStore::class);
+        $light = $this->seedBlob();
+        $store->putMany(['site_logo' => $light]);
+
+        // Light-only regression: the single un-suffixed img, no modifier, no dark twin.
+        $html = $this->renderHello();
+        self::assertStringContainsString('<img class="site-logo" src="', $html);
+        self::assertStringContainsString('/blobs/' . $light, $html);
+        self::assertStringNotContainsString('site-name--has-dark', $html);
+        self::assertStringNotContainsString('site-logo--dark', $html);
+
+        // Dark set: the modifier + the light/dark pair.
+        $dark = $this->seedBlob();
+        $store->putMany(['site_logo_dark' => $dark]);
+        $html = $this->renderHello();
+        self::assertStringContainsString('site-name--has-dark', $html);
+        self::assertStringContainsString('class="site-logo site-logo--light"', $html);
+        self::assertStringContainsString('class="site-logo site-logo--dark"', $html);
+        self::assertStringContainsString('/blobs/' . $dark, $html);
+    }
+
     public function testUnderscoreFieldNamesAreRejectedInSchemas(): void
     {
         // Reserved system keys (spec §5a): [a-z][a-z0-9_]* already forbids a
