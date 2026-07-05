@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
-import { toValue, type MaybeRefOrGetter } from 'vue'
+import { reactive, toValue, type MaybeRefOrGetter } from 'vue'
 import { authFetch } from '@/api/authFetch'
 import { runtimeConfig } from '@/runtime/config'
 import { useCapabilitiesStore } from '@/stores/capabilities'
@@ -116,6 +116,91 @@ export function useExtensionMutations() {
   })
 
   return { enable, disable }
+}
+
+// ── Install (composer require, detached) ──────────────────────────────────────
+// POST /install starts a background job (composer require + auto-enable); the client
+// polls GET /install/{jobId} until a terminal status. `succeeded` = installed AND
+// enabled; `installed_not_enabled` = installed but auto-enable hit a snag (e.g. a
+// missing dependency) — not a hard failure.
+
+export type InstallStatus =
+  | 'queued'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'installed_not_enabled'
+
+export interface InstallJob {
+  id: string
+  package: string
+  status: InstallStatus
+  output: string
+  error: string | null
+  enableError: string | null
+}
+
+const TERMINAL: InstallStatus[] = ['succeeded', 'failed', 'installed_not_enabled']
+
+export async function startInstall(name: string): Promise<string> {
+  const json = await authFetch(`${base()}/install`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+  const d = (json.data ?? json) as { jobId?: string }
+  return String(d.jobId ?? '')
+}
+
+export async function fetchInstallJob(jobId: string): Promise<InstallJob> {
+  const json = await authFetch(`${base()}/install/${encodeURIComponent(jobId)}`)
+  return (json.data ?? json) as InstallJob
+}
+
+export interface InstallState {
+  status: 'starting' | InstallStatus
+  error?: string
+}
+
+/**
+ * Per-package install orchestration: start → poll → converge. `pollMs` is injectable
+ * so tests can drive it fast. A successful install auto-enables the extension, which
+ * changes the capability set, so we converge the gated nav/catalog (same pattern as
+ * enable/disable).
+ */
+export function useExtensionInstall(pollMs = 1500) {
+  const cache = useQueryCache()
+  const caps = useCapabilitiesStore()
+  const state = reactive<Record<string, InstallState>>({})
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+  async function install(name: string): Promise<InstallStatus> {
+    state[name] = { status: 'starting' }
+    try {
+      const jobId = await startInstall(name)
+      for (;;) {
+        await sleep(pollMs)
+        const job = await fetchInstallJob(jobId)
+        state[name] = { status: job.status, error: job.error ?? job.enableError ?? undefined }
+        if (TERMINAL.includes(job.status)) {
+          cache.invalidateQueries({ key: ['extensions'] }) // refresh the installed flag
+          if (job.status === 'succeeded') void caps.refreshUntilChanged()
+          return job.status
+        }
+      }
+    } catch (e) {
+      state[name] = { status: 'failed', error: e instanceof Error ? e.message : 'Install failed' }
+      cache.invalidateQueries({ key: ['extensions'] })
+      return 'failed'
+    }
+  }
+
+  const installing = (name: string): boolean => {
+    const s = state[name]?.status
+    return s === 'starting' || s === 'queued' || s === 'running'
+  }
+
+  return { state, install, installing }
 }
 
 /** Short display name: `glueful/audit` → `audit`. */

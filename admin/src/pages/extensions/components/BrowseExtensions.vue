@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { refDebounced } from '@vueuse/core'
-import { useExtensionCatalog, extensionShortName } from '@/queries/extensions'
+import { useExtensionCatalog, useExtensionInstall, extensionShortName } from '@/queries/extensions'
 import { useNotify } from '@/composables/useNotify'
 
 const search = ref('')
 const debounced = refDebounced(search, 350)
 const { data, status } = useExtensionCatalog(debounced)
-const { success } = useNotify()
+const { success, warning, error } = useNotify()
+const { install, installing } = useExtensionInstall()
 
 const results = computed(() => data.value?.results ?? [])
 const available = computed(() => data.value?.available !== false)
@@ -15,9 +16,18 @@ const available = computed(() => data.value?.available !== false)
 const numberFmt = new Intl.NumberFormat(undefined, { notation: 'compact' })
 const fmt = (n: number) => numberFmt.format(n)
 
-async function copyInstall(name: string) {
-  await navigator.clipboard.writeText(`composer require ${name}`)
-  success('Copied to clipboard', `composer require ${name}`)
+// Install in-place: composer require runs on the server (detached); on success the
+// catalog refetches and this card flips to "Installed". No leaving the admin.
+async function onInstall(name: string) {
+  const short = extensionShortName(name)
+  const result = await install(name)
+  if (result === 'succeeded') {
+    success('Extension installed', `${short} is installed and enabled.`)
+  } else if (result === 'installed_not_enabled') {
+    warning('Installed, not enabled', `${short} installed but couldn't be enabled automatically — check its dependencies.`)
+  } else {
+    error(new Error('Install failed'), `Couldn't install ${short}`)
+  }
 }
 </script>
 
@@ -91,12 +101,14 @@ async function copyInstall(name: string) {
             <div class="flex items-center gap-1">
               <UButton
                 v-if="!pkg.installed"
-                icon="i-lucide-clipboard-copy"
-                label="Install"
-                color="neutral"
-                variant="outline"
+                icon="i-lucide-download"
+                :label="installing(pkg.name) ? 'Installing…' : 'Install'"
+                color="primary"
+                variant="solid"
                 size="xs"
-                @click="copyInstall(pkg.name)"
+                :loading="installing(pkg.name)"
+                :data-test="`install-${pkg.name}`"
+                @click="onInstall(pkg.name)"
               />
               <UButton
                 icon="i-lucide-external-link"

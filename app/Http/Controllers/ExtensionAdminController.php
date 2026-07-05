@@ -9,6 +9,11 @@ use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\EnabledProviders;
 use Glueful\Extensions\ExtensionManager;
 use Glueful\Extensions\ExtensionStateWriter;
+use Glueful\Extensions\Install\ExtensionInstaller;
+use Glueful\Extensions\Install\HostNotWritableException;
+use Glueful\Extensions\Install\InstallDisabledException;
+use Glueful\Extensions\Install\InstallJobStore;
+use Glueful\Extensions\Install\PackageNotAllowedException;
 use Glueful\Extensions\PackageManifest;
 use Glueful\Helpers\RequestHelper;
 use Glueful\Http\Response;
@@ -132,6 +137,54 @@ final class ExtensionAdminController
     public function disable(Request $request): Response
     {
         return $this->toggle($request, false);
+    }
+
+    /** POST /v1/admin/extensions/install — composer require a new glueful extension (dev only). */
+    #[ApiOperation(
+        summary: 'Install a glueful extension',
+        description: 'Runs `composer require` for a catalog extension in a detached background '
+            . 'process and auto-enables it. Returns a job id to poll. Dev only (composer cannot '
+            . 'write on immutable production hosts). Requires the `system.access` permission.',
+        tags: ['Extensions'],
+    )]
+    #[ApiResponse(200, description: 'Install started; body carries the job id.')]
+    #[ApiResponse(403, description: 'Installer disabled (production/kill-switch).')]
+    #[ApiResponse(409, description: 'Host filesystem is not writable (immutable deploy).')]
+    #[ApiResponse(422, description: 'Not an installable glueful extension.')]
+    public function install(Request $request): Response
+    {
+        $raw = RequestHelper::getRequestData($request)['name'] ?? null;
+        $name = is_string($raw) ? trim($raw) : '';
+
+        try {
+            $result = app($this->context, ExtensionInstaller::class)->start($name);
+        } catch (InstallDisabledException $e) {
+            return Response::forbidden($e->getMessage());
+        } catch (HostNotWritableException $e) {
+            return Response::error($e->getMessage(), 409, ['reason' => $e->reason]);
+        } catch (PackageNotAllowedException $e) {
+            return Response::error($e->getMessage(), 422);
+        }
+
+        return Response::success($result, 'Install started.');
+    }
+
+    /** GET /v1/admin/extensions/install/{jobId} — poll a running/finished install. */
+    #[ApiOperation(
+        summary: 'Poll an extension install job',
+        description: 'Returns the status, streamed composer output and any error for a detached '
+            . 'install started via POST /extensions/install. Requires the `system.access` permission.',
+        tags: ['Extensions'],
+    )]
+    #[ApiResponse(200, description: 'Install job record.')]
+    #[ApiResponse(404, description: 'Unknown or expired install job.')]
+    public function installStatus(string $jobId): Response
+    {
+        $record = app($this->context, InstallJobStore::class)->get($jobId);
+
+        return $record === null
+            ? Response::notFound('Unknown install job.')
+            : Response::success($record, 'Install status.');
     }
 
     /** GET /v1/admin/extensions/{vendor}/{name}/readme — rendered README for an installed extension. */

@@ -240,6 +240,13 @@ $router->group(['prefix' => '/v1/admin', 'middleware' => ['auth']], function (Ro
     $router->post('/extensions/disable', [ExtensionAdminController::class, 'disable'])
         ->middleware('lemma_permission:system.access');
 
+    // Install a new extension via composer (detached background job) + poll its status.
+    $router->post('/extensions/install', [ExtensionAdminController::class, 'install'])
+        ->middleware('lemma_permission:system.access');
+
+    $router->get('/extensions/install/{jobId}', [ExtensionAdminController::class, 'installStatus'])
+        ->middleware('lemma_permission:system.access');
+
     $router->get('/extensions/{vendor}/{name}/readme', [ExtensionAdminController::class, 'readme'])
         ->middleware('lemma_permission:system.access');
 
