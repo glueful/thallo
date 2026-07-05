@@ -140,6 +140,30 @@ final class BlockLibraryRenderTest extends LemmaTestCase
         parent::tearDown();
     }
 
+    public function testCopyrightShortcodeRendersDynamicYear(): void
+    {
+        // The pack default theme SHIPS shortcodes/copyright.twig: the © symbol,
+        // a server-rendered year (rolls over automatically), name from params
+        // falling back to site.name, optional since-range.
+        $year = date('Y');
+        $out = $this->env()->createTemplate('{{ blocks(list) }}')->render([
+            'list' => [['id' => 'cw1', 'type' => 'shortcode', 'data' => [
+                'name' => 'copyright', 'params' => ['name' => 'Acme Co', 'since' => '2020'],
+            ]]],
+            'site' => ['name' => 'Lemma'],
+        ]);
+        self::assertStringContainsString("© 2020–{$year} Acme Co", $out);
+
+        // No params: the site name from context, plain current year.
+        $plain = $this->env()->createTemplate('{{ blocks(list) }}')->render([
+            'list' => [['id' => 'cw2', 'type' => 'shortcode', 'data' => [
+                'name' => 'copyright', 'params' => [],
+            ]]],
+            'site' => ['name' => 'Lemma'],
+        ]);
+        self::assertStringContainsString("© {$year} Lemma", $plain);
+    }
+
     public function testShortcodeRendersThemeTemplateWithParamsOrNothing(): void
     {
         // The APP theme dir provides the shortcode (the primary convention:
@@ -237,6 +261,168 @@ final class BlockLibraryRenderTest extends LemmaTestCase
             'schema' => [['name' => 'code', 'type' => 'text']]]);
         $row = $repo->findBySlug('html');
         self::assertSame(0, (int) $row['active']);
+    }
+
+    public function testColumnsWidthPresetsEmitExactAllowlistedTokens(): void
+    {
+        $two = $this->render([[
+            'id' => 'colw1', 'type' => 'columns',
+            'data' => ['layout' => '2', 'widths' => '33-67',
+                'col_1' => [], 'col_2' => [], 'col_3' => []],
+        ]]);
+        self::assertStringContainsString('lemma-block-columns--w-33-67', $two);
+
+        // Mismatch (3-col preset on a 2-col layout): NO width token at all.
+        $mismatch = $this->render([[
+            'id' => 'colw2', 'type' => 'columns',
+            'data' => ['layout' => '2', 'widths' => '33-33-33',
+                'col_1' => [], 'col_2' => [], 'col_3' => []],
+        ]]);
+        self::assertStringNotContainsString('--w-', $mismatch);
+
+        // Absent fields: byte-compatible with today's markup (no new tokens).
+        $plain = $this->render([[
+            'id' => 'colw3', 'type' => 'columns',
+            'data' => ['layout' => '2', 'col_1' => [], 'col_2' => [], 'col_3' => []],
+        ]]);
+        self::assertStringNotContainsString('--w-', $plain);
+        self::assertStringNotContainsString('--align-', $plain);
+    }
+
+    public function testColumnsAlignEmitsTokensOnlyForNonDefaults(): void
+    {
+        $center = $this->render([[
+            'id' => 'cola1', 'type' => 'columns',
+            'data' => ['layout' => '2', 'align' => 'center',
+                'col_1' => [], 'col_2' => [], 'col_3' => []],
+        ]]);
+        self::assertStringContainsString('lemma-block-columns--align-center', $center);
+
+        $stretch = $this->render([[
+            'id' => 'cola2', 'type' => 'columns',
+            'data' => ['layout' => '2', 'align' => 'stretch',
+                'col_1' => [], 'col_2' => [], 'col_3' => []],
+        ]]);
+        self::assertStringNotContainsString('--align-', $stretch);
+    }
+
+    public function testSocialLinksRenderBrandIconsWithAccessibleLabels(): void
+    {
+        $out = $this->render([[
+            'id' => 'soc1', 'type' => 'social_links',
+            'data' => ['items' => [
+                ['id' => 'soc1a', 'type' => 'social_link',
+                    'data' => ['icon' => 'brand:github', 'url' => 'https://github.com/acme']],
+            ]],
+        ]]);
+        self::assertStringContainsString('<svg', $out);
+        self::assertStringContainsString('fill="currentColor"', $out);
+        self::assertStringContainsString('aria-label="github"', $out); // label falls back to the brand name
+        self::assertStringContainsString('href="https://github.com/acme"', $out);
+    }
+
+    /** Seed 'main': about (plain), services (own url, child web, grandchild seo). */
+    private function seedNavMenu(): void
+    {
+        $menus = $this->container()->get(\Glueful\Lemma\Navigation\MenuRepository::class);
+        $menu = $menus->createMenu('main', 'Main');
+        $now = gmdate('Y-m-d H:i:s');
+        $row = static fn (string $uuid, ?string $parent, int $pos, string $url, string $label): array => [
+            'uuid' => $uuid, 'parent_uuid' => $parent, 'position' => $pos, 'kind' => 'url',
+            'entry_uuid' => null, 'url' => $url, 'labels' => json_encode(['en' => $label]),
+            'created_at' => $now, 'updated_at' => $now,
+        ];
+        $menus->replaceTree((string) $menu['uuid'], 0, [
+            $row('navitem00001', null, 0, '/about', 'About'),
+            $row('navitem00002', null, 1, '/services', 'Services'),
+            $row('navitem00003', 'navitem00002', 0, '/services/web', 'Web'),
+            $row('navitem00004', 'navitem00003', 0, '/services/web/seo', 'SEO'),
+        ]);
+    }
+
+    public function testNavigationRendersTreeWithHoverSubmenus(): void
+    {
+        $this->seedNavMenu();
+        $out = $this->render([[
+            'id' => 'nav2a', 'type' => 'navigation',
+            'data' => ['menu' => 'main', 'align' => 'center', 'size' => 'lg',
+                'active_style' => 'pill', 'hover_style' => 'underline'],
+        ]]);
+        foreach (
+            [
+            'lemma-block-navigation--align-center', 'lemma-block-navigation--size-lg',
+            'lemma-block-navigation--active-pill', 'lemma-block-navigation--hover-underline',
+            'lemma-block-navigation--reveal-hover',
+            ] as $token
+        ) {
+            self::assertStringContainsString($token, $out);
+        }
+        self::assertStringContainsString('__item--parent', $out);   // services has children
+        self::assertStringNotContainsString('<details', $out);      // hover mode
+        self::assertStringContainsString('href="/services/web/seo"', $out); // grandchild FLATTENED in
+        self::assertStringContainsString('<svg', $out);             // chevron-down indicator default
+    }
+
+    public function testNavigationClickModeUsesDetailsAndRepeatsParentUrl(): void
+    {
+        $this->seedNavMenu();
+        $out = $this->render([[
+            'id' => 'nav2b', 'type' => 'navigation',
+            'data' => ['menu' => 'main', 'submenu_trigger' => 'click', 'submenu_icon' => 'none'],
+        ]]);
+        self::assertStringContainsString('<details class="lemma-block-navigation__details" name="nav-nav2b"', $out);
+        // Parent url repeated as first child (summary swallows navigation).
+        self::assertStringContainsString('href="/services"', $out);
+        self::assertStringNotContainsString('<svg', $out);          // icon: none
+    }
+
+    public function testNavigationActiveStateMatchesCurrentPath(): void
+    {
+        $this->seedNavMenu();
+        $active = $this->env()->createTemplate('{{ blocks(list) }}')->render([
+            'list' => [['id' => 'nav2c', 'type' => 'navigation', 'data' => ['menu' => 'main']]],
+            'current_path' => '/about',
+        ]);
+        self::assertStringContainsString('__item--active', $active);
+
+        $inactive = $this->env()->createTemplate('{{ blocks(list) }}')->render([
+            'list' => [['id' => 'nav2d', 'type' => 'navigation', 'data' => ['menu' => 'main']]],
+            'current_path' => '/elsewhere',
+        ]);
+        self::assertStringNotContainsString('__item--active', $inactive);
+    }
+
+    public function testNavigationRendersPerItemIconsWithLabelOnlyFallback(): void
+    {
+        $menus = $this->container()->get(\Glueful\Lemma\Navigation\MenuRepository::class);
+        $menu = $menus->createMenu('main', 'Main');
+        $now = gmdate('Y-m-d H:i:s');
+        $menus->replaceTree((string) $menu['uuid'], 0, [
+            ['uuid' => 'navicon00001', 'parent_uuid' => null, 'position' => 0, 'kind' => 'url',
+                'entry_uuid' => null, 'url' => '/docs', 'icon' => 'external-link',
+                'labels' => json_encode(['en' => 'Docs']), 'created_at' => $now, 'updated_at' => $now],
+            ['uuid' => 'navicon00002', 'parent_uuid' => null, 'position' => 1, 'kind' => 'url',
+                'entry_uuid' => null, 'url' => '/blog', 'icon' => 'no-such-glyph',
+                'labels' => json_encode(['en' => 'Blog']), 'created_at' => $now, 'updated_at' => $now],
+        ]);
+
+        $out = $this->render([[
+            'id' => 'navicn', 'type' => 'navigation',
+            'data' => ['menu' => 'main', 'submenu_icon' => 'none'],
+        ]]);
+        self::assertStringContainsString('<svg', $out);            // external-link rendered
+        self::assertStringContainsString('Docs', $out);
+        self::assertStringContainsString('Blog', $out);            // unknown icon: label alone…
+        self::assertStringNotContainsString('no-such-glyph', $out); // …never the raw name
+    }
+
+    public function testNavigationBlockRendersNothingForAnUnknownMenu(): void
+    {
+        $out = $this->render([[
+            'id' => 'nav1', 'type' => 'navigation', 'data' => ['menu' => 'no-such-menu'],
+        ]]);
+        self::assertStringContainsString('lemma-block-navigation', $out); // root always renders
+        self::assertStringNotContainsString('<nav', $out);                // but no empty nav
     }
 
     public function testIconBlockRendersSvgWithSizeAlignAndAccessibleLink(): void

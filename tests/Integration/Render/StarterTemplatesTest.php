@@ -33,7 +33,7 @@ final class StarterTemplatesTest extends LemmaTestCase
         return match ($slug) {
             'section' => ['title' => 'Band', 'background' => 'subtle',
                 'content' => [['id' => 'x1', 'type' => 'quote', 'data' => ['text' => 'Inner']]]],
-            'columns' => ['layout' => '2',
+            'columns' => ['layout' => '2', 'widths' => '33-67', 'align' => 'center',
                 'col_1' => [['id' => 'x2', 'type' => 'quote', 'data' => ['text' => 'Left']]],
                 'col_2' => [['id' => 'x3', 'type' => 'quote', 'data' => ['text' => 'Right']]],
                 'col_3' => []],
@@ -84,6 +84,11 @@ final class StarterTemplatesTest extends LemmaTestCase
             'logo' => ['size' => 'large', 'link_home' => true],
             'icon' => ['icon' => 'star', 'size' => 'large', 'align' => 'center',
                 'url' => '/pricing', 'label' => 'See pricing'],
+            'navigation' => ['menu' => 'main', 'orientation' => 'horizontal', 'align' => 'center',
+                'size' => 'md', 'submenu_trigger' => 'hover'],
+            'social_links' => ['items' => [['id' => 'socfix1', 'type' => 'social_link',
+                'data' => ['icon' => 'brand:github', 'url' => 'https://github.com/acme', 'label' => 'GitHub']]]],
+            'social_link' => ['icon' => 'brand:github', 'url' => 'https://github.com/acme'],
             'logo_cloud' => ['title' => 'Trusted by', 'images' => ['blob00000000'],
                 'grayscale' => true, 'scroll' => true],
             'video' => ['source' => 'embed', 'url' => 'https://youtu.be/dQw4w9WgXcQ',
@@ -143,8 +148,9 @@ final class StarterTemplatesTest extends LemmaTestCase
         // The global safe_url rule (block-library spec §2): every user URL
         // field scheme-allowlists before landing in an href.
         $env = $this->env();
+        $urlBlocks = ['button' => 'url', 'feature' => 'url', 'icon' => 'url', 'social_link' => 'url'];
         foreach (['javascript:alert(1)', 'data:text/html,x', '//evil.com'] as $bad) {
-            foreach (['button' => 'url', 'feature' => 'url', 'icon' => 'url'] as $slug => $field) {
+            foreach ($urlBlocks as $slug => $field) {
                 $data = $this->fixture($slug);
                 $data[$field] = $bad;
                 $out = $env->createTemplate("{{ blocks(l) }}")->render(['l' => [

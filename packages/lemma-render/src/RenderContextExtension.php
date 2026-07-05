@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Glueful\Lemma\Render;
 
 use Glueful\Lemma\Contracts\Content\BlockEditableFieldResolver;
+use Glueful\Lemma\Contracts\Content\RegionReader;
 use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
@@ -94,6 +95,8 @@ final class RenderContextExtension extends AbstractExtension
         private readonly ?SiteLogoProvider $siteLogo = null,
         /** Pack-internal (icon-library spec): null → icon() returns null. */
         private readonly ?IconSet $icons = null,
+        /** Soft-bound (global-regions spec): null → region_blocks() returns null → fallback chrome. */
+        private readonly ?RegionReader $regions = null,
     ) {
         $this->locale = $defaultLocale;
     }
@@ -120,7 +123,51 @@ final class RenderContextExtension extends AbstractExtension
             new TwigFunction('site_logo', $this->siteLogo(...)),
             new TwigFunction('video_embed', $this->videoEmbed(...)),
             new TwigFunction('icon', $this->icon(...)), // NO is_safe — safety travels in the Markup value
+            // NO is_safe — the layout assigns the result via {% set %}, where
+            // compile-time safety is lost; Markup carries safety in the VALUE
+            // (the icon() lesson) while a null still falls through cleanly.
+            new TwigFunction('region_blocks', $this->regionBlocks(...), [
+                'needs_environment' => true,
+                'needs_context' => true,
+            ]),
+            new TwigFunction('region_settings', $this->regionSettings(...)),
         ];
+    }
+
+    /**
+     * The ONE region render path (global-regions spec §10): resolves the
+     * region and composes it through the real blocks() machinery with canvas
+     * annotation and edit-in-place marking suppressed for the subtree —
+     * chrome block ids are not entry blocks; annotated wrappers would corrupt
+     * the canvas DOM↔id bridge. Suppression is render-context state inside
+     * this helper; blocks() keeps its public signature and no annotation
+     * toggle leaks into templates. Null for EVERY unavailable state — reader
+     * unbound, region absent, saved empty (the reader folds absent/empty;
+     * unbound folds here) — so templates render fallback chrome on null;
+     * hiding is _presentation's decision.
+     *
+     * @param array<string,mixed> $context
+     */
+    public function regionBlocks(Environment $env, array $context, string $slug): ?\Twig\Markup
+    {
+        $list = $this->regions?->blocks($slug);
+        if ($list === null || $list === []) {
+            return null;
+        }
+        $saved = $this->annotateBlocks;
+        $this->annotateBlocks = false;
+        try {
+            $html = $this->blocks($env, $context, $list);
+        } finally {
+            $this->annotateBlocks = $saved;
+        }
+        return new \Twig\Markup($html, 'UTF-8');
+    }
+
+    /** @return array<string,mixed> */
+    public function regionSettings(string $slug): array
+    {
+        return $this->regions?->settings($slug) ?? [];
     }
 
     /**
@@ -370,6 +417,10 @@ final class RenderContextExtension extends AbstractExtension
                         'data' => $data,
                         'entry' => $entry,
                         'site' => $context['site'] ?? [],
+                        // Normalized request path (nav-v2 spec §3): passthrough
+                        // like site — block templates get a FRESH context, so
+                        // active-state detection needs the caller's value.
+                        'current_path' => $context['current_path'] ?? null,
                         'index' => $index,
                     ]);
                 } finally {

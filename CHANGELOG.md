@@ -7,6 +7,59 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Navigation block v2 + menu-item icons**: the navigation block becomes a
+  real site-nav component — the `menu` field is picked from existing menus in
+  the editor (cosmetic select; the slug + pattern rule stay the contract),
+  plus align (start/center/end), size (sm/md/lg), active_style
+  (underline/pill/none), hover_style (color/underline/pill), submenu_icon
+  (curated: chevron-down/chevron-right/plus/none) and submenu_trigger
+  (hover/click) enums. Nested menu items now RENDER (v1 dropped them):
+  CSS-only dropdowns — hover mode via :hover/:focus-within, click mode via
+  native `<details name>` (name-exclusivity is progressive enhancement;
+  parents with their own url repeat it as the first child). One nesting
+  level; grandchildren flatten. Active state matches against a new
+  `current_path` render-context value normalized by the SAME normalizer as
+  the page-cache key (`RenderPageCache::normalizePath()`, extracted public
+  static, HTTP-path hygiene only — canonical decisions stay with the
+  pre-render 301s), passed through to block contexts; item urls are absolute
+  resolver output, path-compared in the template. Menu ITEMS gain an
+  optional Lucide `icon` (column folded into the create-table migration +
+  manual dev/test DB sync; lucide-only grammar validated at tree save with
+  dot-path 422s; carried by resolver + admin tree; rendered via `icon()`
+  with label-only fallback; live preview chip in the tree editor).
+- **Global regions (editable header & footer)**: header and footer become
+  structured block regions (`lemma_regions`: slug PK, blocks + settings JSON) —
+  the same `{id,type,data}` model as entry blocks, validated by the real
+  `FieldValidator` plus SERVER-enforced per-region palettes (a deliberate
+  divergence from the picker-only `block_types` convention) and a fixed
+  settings vocabulary (header: sticky/width; footer: width). New structured-
+  source starter blocks: `navigation` (selects a MENU slug, renders via
+  `menu()`) and `social_links`/`social_link` (brand-namespace icons through
+  `icon()`, safe_url links) — 34 starters total. Rendering goes through the
+  new `region_blocks()`/`region_settings()` sandbox functions
+  (CACHE_VERSION → 7): `region_blocks()` returns `Twig\Markup`, suppresses
+  canvas annotation internally (chrome ids are not entry blocks), and returns
+  null for EVERY unavailable state — unbound reader, missing table, absent
+  row, saved-empty list — so the layout falls back to the hardcoded chrome;
+  hiding is per-page via the new `_presentation.header/footer`
+  (`default`|`hidden`) keys. Saves broad-purge the render page cache
+  (`RegionUpdated` → `lemma:render:page`, the menu/template posture). Admin:
+  `GET/PUT /admin/regions` (palettes ship in the response) + a Site → Header
+  & footer page reusing the blocks editor with palette-filtered pickers and
+  clobber-safe dirty tracking. Setup seeds default regions (logo + main nav /
+  site-name footer) so fresh installs are region-editable from minute one.
+  `POST /admin/regions/preview` renders the UNSAVED chrome through the real
+  theme pipeline (save-identical validation, never writes) into a sandboxed
+  blob-URL iframe on the page — debounced auto-refresh + manual refresh,
+  last-good-preview with an explicit "Preview not updated" stale badge on
+  validation errors.
+- **Columns sizing**: the columns block gains `widths` ratio presets
+  (50-50 … 25-25-50) and `align` vertical alignment (stretch/top/center/
+  bottom) — exact-token modifier classes emitted from a single template
+  allowlist map (mismatched layout/preset, unknown or absent values render
+  equal columns; stretch/absent is byte-identical to the old markup).
+  Additive schema only — no content rewrite; defaults live in template/CSS/
+  editor.
 - **Icon library**: `icon(name)` Twig function serving vendored inline SVGs —
   the full Lucide set (1.23.0) by default and a curated 27-brand Simple Icons
   (16.24.1) set under `brand:` (normalized to `fill="currentColor"` at import;

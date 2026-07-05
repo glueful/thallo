@@ -233,6 +233,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/regions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List chrome regions
+         * @description Every global region (header, footer) with its saved blocks, settings, allowed block palette and settings keys. Absent rows surface as empty lists so the editor always round-trips. Requires `content.view`.
+         */
+        get: operations["getV1AdminRegions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/regions/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview chrome regions
+         * @description Renders the POSTED (unsaved) header/footer block lists through the real theme pipeline and returns a self-contained HTML document for an iframe. Validates exactly like a save (palette, schemas, settings) so errors surface BEFORE anything goes live. Never writes. Requires `content.view`.
+         */
+        post: operations["postV1AdminRegionsPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings/general": {
         parameters: {
             query?: never;
@@ -1254,6 +1294,26 @@ export interface paths {
          * @description Idempotent — succeeds even when no route is assigned.
          */
         delete: operations["deleteV1AdminEntriesByUuidRoutesByLocale"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/regions/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save a chrome region
+         * @description Replaces the region's block list and settings. Blocks are validated against their block-type schemas AND the region's server-enforced palette (out-of-palette types 422 with dot paths); settings are a fixed vocabulary. Applies immediately and purges the render page cache. Requires `content.manage`.
+         */
+        put: operations["putV1AdminRegionsBySlug"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3881,6 +3941,170 @@ export interface operations {
                 };
             };
             /** @description Invalid recipient, missing host, or transport failure. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminRegions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Regions with palettes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AdminRegionsPreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                /**
+                 * @example {
+                 *       "regions": "example"
+                 *     }
+                 */
+                "application/json": {
+                    /** @description array{blocks?: list<array<string,mixed>>, settings?: array<string,mixed>}> */
+                    regions?: unknown[];
+                };
+            };
+        };
+        responses: {
+            /** @description Rendered preview document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Render pack unavailable. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Same validation a save would fail. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -11178,6 +11402,106 @@ export interface operations {
                         };
                     };
                 };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    putV1AdminRegionsBySlug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                /**
+                 * @example {
+                 *       "blocks": "example",
+                 *       "settings": "example"
+                 *     }
+                 */
+                "application/json": {
+                    /** @description Ordered {id,type,data} block list. */
+                    blocks?: unknown[];
+                    /** @description Fixed per-region settings vocabulary. */
+                    settings?: unknown[];
+                };
+            };
+        };
+        responses: {
+            /** @description Region saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown region slug. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Out-of-palette block, schema violation, or unknown setting. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Unexpected server error. */
             500: {

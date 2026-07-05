@@ -166,8 +166,18 @@ const presLayout = computed(() => {
   const v = presentationOverride.value.layout
   return v === 'full' || v === 'centered' ? v : 'default'
 })
+// Chrome suppression (global-regions spec §7): 'default'|'hidden'; absent
+// follows the theme. The UI maps absent → "Theme default", 'default' → "Show"
+// (an explicit override over a theme that hides), 'hidden' → "Hide".
+const presChrome = (key: 'header' | 'footer') =>
+  computed(() => {
+    const v = presentationOverride.value[key]
+    return v === 'hidden' ? 'hide' : v === 'default' ? 'show' : 'default'
+  })
+const presHeader = presChrome('header')
+const presFooter = presChrome('footer')
 
-function patchPresentation(key: 'show_title' | 'layout', value: unknown): void {
+function patchPresentation(key: 'show_title' | 'layout' | 'header' | 'footer', value: unknown): void {
   const next = { ...presentationOverride.value }
   if (value === undefined) delete next[key]
   else next[key] = value
@@ -181,6 +191,9 @@ function setPresShowTitle(v: string): void {
 }
 function setPresLayout(v: string): void {
   patchPresentation('layout', v === 'default' ? undefined : v)
+}
+function setPresChrome(key: 'header' | 'footer', v: string): void {
+  patchPresentation(key, v === 'default' ? undefined : v === 'show' ? 'default' : 'hidden')
 }
 
 
@@ -913,6 +926,50 @@ function reloadStage(): void {
                   color="neutral"
                   :data-test="`pres-layout-${opt.value}`"
                   @click="setPresLayout(opt.value)"
+                >
+                  {{ opt.label }}
+                </UButton>
+              </UFieldGroup>
+            </UFormField>
+            <UFormField
+              label="Header"
+              help="Hide the site header on this page (landing pages)."
+            >
+              <UFieldGroup>
+                <UButton
+                  v-for="opt in [
+                    { label: 'Theme default', value: 'default' },
+                    { label: 'Show', value: 'show' },
+                    { label: 'Hide', value: 'hide' },
+                  ]"
+                  :key="opt.value"
+                  size="xs"
+                  :variant="presHeader === opt.value ? 'solid' : 'outline'"
+                  color="neutral"
+                  :data-test="`pres-header-${opt.value}`"
+                  @click="setPresChrome('header', opt.value)"
+                >
+                  {{ opt.label }}
+                </UButton>
+              </UFieldGroup>
+            </UFormField>
+            <UFormField
+              label="Footer"
+              help="Hide the site footer on this page."
+            >
+              <UFieldGroup>
+                <UButton
+                  v-for="opt in [
+                    { label: 'Theme default', value: 'default' },
+                    { label: 'Show', value: 'show' },
+                    { label: 'Hide', value: 'hide' },
+                  ]"
+                  :key="opt.value"
+                  size="xs"
+                  :variant="presFooter === opt.value ? 'solid' : 'outline'"
+                  color="neutral"
+                  :data-test="`pres-footer-${opt.value}`"
+                  @click="setPresChrome('footer', opt.value)"
                 >
                   {{ opt.label }}
                 </UButton>

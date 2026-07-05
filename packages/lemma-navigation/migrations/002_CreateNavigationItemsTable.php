@@ -22,6 +22,8 @@ final class CreateNavigationItemsTable implements MigrationInterface
             $table->string('kind', 8);
             $table->string('entry_uuid', 12)->nullable();
             $table->string('url', 1024)->nullable();
+            // Optional Lucide icon name rendered before the label (nav-v2 spec §5).
+            $table->string('icon', 64)->nullable();
             // locale → label; resolution falls back requested → default locale → any.
             $table->json('labels');
             $table->timestamp('created_at')->nullable();

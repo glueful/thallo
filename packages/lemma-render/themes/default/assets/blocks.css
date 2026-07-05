@@ -14,6 +14,26 @@
    tracks currentColor — CSS wins over the SVGs' width/height attributes. */
 .lemma-icon { width: 1em; height: 1em; display: inline-block; vertical-align: -0.125em; }
 
+/* Chrome context (global-regions spec): region blocks flow inline within the
+   already-contained header/footer inner — no page-band margins, no double
+   containment from blocks that carry their own max-width wrappers. */
+.lemma-region .lemma-block { margin-block: 0; max-width: none; padding-inline: 0; margin-inline: 0; }
+/* The navigation block GROWS in chrome: the region inner is a space-between
+   flex row, so an auto-width nav pins to the end regardless of its own align.
+   flex-grow gives the list room — align start/center/end then actually acts. */
+.lemma-region .lemma-block-navigation { flex: 1; min-width: 0; }
+/* Columns lose their page-content CARD skin in chrome: a header/footer column
+   is a layout slot, not a hoverable card. */
+.lemma-region .lemma-block-columns__col {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  transition: none;
+}
+.lemma-region .lemma-block-columns__col:hover { transform: none; }
+
 /* hero — full-bleed gradient band (PageHero anatomy: wrapper + media,
    vertical = centered stack, horizontal = two columns, --reverse swaps) */
 .lemma-block-hero {
@@ -113,8 +133,23 @@
 }
 .lemma-block-columns--2 { grid-template-columns: repeat(2, 1fr); }
 .lemma-block-columns--3 { grid-template-columns: repeat(3, 1fr); }
+/* Width presets (columns-sizing spec §2): one rule per allowlisted token. */
+.lemma-block-columns--w-50-50 { grid-template-columns: 1fr 1fr; }
+.lemma-block-columns--w-33-67 { grid-template-columns: 1fr 2fr; }
+.lemma-block-columns--w-67-33 { grid-template-columns: 2fr 1fr; }
+.lemma-block-columns--w-25-75 { grid-template-columns: 1fr 3fr; }
+.lemma-block-columns--w-75-25 { grid-template-columns: 3fr 1fr; }
+.lemma-block-columns--w-33-33-33 { grid-template-columns: 1fr 1fr 1fr; }
+.lemma-block-columns--w-25-50-25 { grid-template-columns: 1fr 2fr 1fr; }
+.lemma-block-columns--w-50-25-25 { grid-template-columns: 2fr 1fr 1fr; }
+.lemma-block-columns--w-25-25-50 { grid-template-columns: 1fr 1fr 2fr; }
+/* Vertical alignment (default = stretch, the base grid behavior). */
+.lemma-block-columns--align-top { align-items: start; }
+.lemma-block-columns--align-center { align-items: center; }
+.lemma-block-columns--align-bottom { align-items: end; }
 @media (max-width: 40rem) {
-  .lemma-block-columns--2, .lemma-block-columns--3 { grid-template-columns: 1fr; }
+  .lemma-block-columns--2, .lemma-block-columns--3,
+  [class*="lemma-block-columns--w-"] { grid-template-columns: 1fr; }
 }
 .lemma-block-columns__col {
   background: var(--bg);
@@ -601,6 +636,82 @@ details[open] > .lemma-block-faq_item__question::after { transform: rotate(225de
 .lemma-block-icon--center { text-align: center; }
 .lemma-block-icon--end { text-align: end; }
 .lemma-block-icon__link { color: inherit; display: inline-flex; }
+
+/* copyright shortcode — muted small print */
+.lemma-shortcode-copyright { margin: 0; font-size: 0.85rem; color: var(--muted); }
+
+/* navigation — links from a menu (structured source); v2: tree + styling.
+   Defaults (--hover-color, --active-underline, --size-md) reproduce the v1
+   look; submenus are CSS-only (hover: :hover/:focus-within, click: details). */
+.lemma-block-navigation__nav { display: block; }
+.lemma-block-navigation__list {
+  display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center;
+  list-style: none; margin: 0; padding: 0;
+}
+.lemma-block-navigation--vertical .lemma-block-navigation__list { flex-direction: column; gap: var(--space-1); align-items: stretch; }
+.lemma-block-navigation--align-start .lemma-block-navigation__list { justify-content: flex-start; }
+.lemma-block-navigation--align-center .lemma-block-navigation__list { justify-content: center; }
+.lemma-block-navigation--align-end .lemma-block-navigation__list { justify-content: flex-end; }
+.lemma-block-navigation--size-sm { font-size: 0.85rem; }
+.lemma-block-navigation--size-md { font-size: 0.95rem; }
+.lemma-block-navigation--size-lg { font-size: 1.1rem; }
+.lemma-block-navigation__list a,
+.lemma-block-navigation__list summary,
+.lemma-block-navigation__list span[tabindex] {
+  color: var(--muted); text-decoration: none; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 0.35em;
+  padding: 0.25em 0.5em; border-radius: var(--radius);
+}
+/* hover styles */
+.lemma-block-navigation--hover-color .lemma-block-navigation__list a:hover,
+.lemma-block-navigation--hover-color .lemma-block-navigation__list summary:hover { color: var(--ink); }
+.lemma-block-navigation--hover-underline .lemma-block-navigation__list a:hover,
+.lemma-block-navigation--hover-underline .lemma-block-navigation__list summary:hover {
+  color: var(--ink); text-decoration: underline; text-underline-offset: 0.35em;
+}
+.lemma-block-navigation--hover-pill .lemma-block-navigation__list a:hover,
+.lemma-block-navigation--hover-pill .lemma-block-navigation__list summary:hover {
+  color: var(--accent-ink); background: var(--accent);
+}
+/* active styles */
+.lemma-block-navigation--active-underline .lemma-block-navigation__item--active > a,
+.lemma-block-navigation--active-underline li.lemma-block-navigation__item--active > a {
+  color: var(--ink); text-decoration: underline; text-underline-offset: 0.35em;
+}
+.lemma-block-navigation--active-pill .lemma-block-navigation__item--active > a,
+.lemma-block-navigation--active-pill li.lemma-block-navigation__item--active > a {
+  color: var(--accent-ink); background: var(--accent);
+}
+/* submenus */
+.lemma-block-navigation__item--parent { position: relative; }
+.lemma-block-navigation__submenu {
+  list-style: none; margin: 0; padding: var(--space-2);
+  min-width: 12rem; display: none;
+  background: var(--bg); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.lemma-block-navigation--horizontal .lemma-block-navigation__item--parent > .lemma-block-navigation__submenu,
+.lemma-block-navigation--horizontal .lemma-block-navigation__details > .lemma-block-navigation__submenu {
+  position: absolute; top: 100%; left: 0; z-index: 30;
+}
+.lemma-block-navigation--reveal-hover .lemma-block-navigation__item--parent:hover > .lemma-block-navigation__submenu,
+.lemma-block-navigation--reveal-hover .lemma-block-navigation__item--parent:focus-within > .lemma-block-navigation__submenu { display: block; }
+.lemma-block-navigation__details > summary { list-style: none; }
+.lemma-block-navigation__details > summary::-webkit-details-marker { display: none; }
+.lemma-block-navigation__details[open] > .lemma-block-navigation__submenu { display: block; }
+.lemma-block-navigation--vertical .lemma-block-navigation__submenu {
+  position: static; display: none; box-shadow: none; border: 0; padding-left: var(--space-4);
+}
+.lemma-block-navigation--vertical.lemma-block-navigation--reveal-hover .lemma-block-navigation__item--parent:hover > .lemma-block-navigation__submenu,
+.lemma-block-navigation--vertical.lemma-block-navigation--reveal-hover .lemma-block-navigation__item--parent:focus-within > .lemma-block-navigation__submenu,
+.lemma-block-navigation--vertical .lemma-block-navigation__details[open] > .lemma-block-navigation__submenu { display: block; }
+.lemma-block-navigation__submenu a { display: flex; padding: 0.35em 0.5em; }
+
+/* social_links — a row of brand glyphs */
+.lemma-block-social_links { display: flex; gap: var(--space-3); align-items: center; }
+.lemma-block-social_links .lemma-block-social_link { margin-block: 0; }
+.lemma-block-social_link__link { color: var(--muted); font-size: 1.25rem; display: inline-flex; }
+.lemma-block-social_link__link:hover { color: var(--ink); }
 
 /* logo_cloud — trusted-by strip; --scroll = pure-CSS marquee */
 .lemma-block-logo_cloud { padding-block: var(--space-6); }

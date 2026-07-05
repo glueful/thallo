@@ -89,6 +89,22 @@ final class MenuTreeDTO
                     break;
                 }
             }
+            // Optional Lucide icon (nav-v2 spec §5): lucide-only grammar — no
+            // brand: namespace in navigation. Empty/null = no icon.
+            $icon = $item['icon'] ?? null;
+            if ($icon === '') {
+                $icon = null;
+            }
+            if ($icon !== null) {
+                if (
+                    !is_string($icon)
+                    || strlen($icon) > 64
+                    || preg_match('/\A[a-z0-9]+(-[a-z0-9]+)*\z/', $icon) !== 1
+                ) {
+                    $errors["{$p}.icon"] = ['icon must be a lucide name (lowercase, hyphenated)'];
+                    $icon = null;
+                }
+            }
             $uuid = Utils::generateNanoID();
             $kind = $item['kind'] ?? null;
             if ($kind === 'entry') {
@@ -97,14 +113,14 @@ final class MenuTreeDTO
                 if (in_array($status, ['missing', 'deleted'], true)) {
                     $errors["{$p}.entry_uuid"] = ["entry target is {$status}"];
                 }
-                $rows[] = self::row($uuid, $parent, $i, 'entry', $entry, null, $labels);
+                $rows[] = self::row($uuid, $parent, $i, 'entry', $entry, null, $labels, $icon);
             } elseif ($kind === 'url') {
                 $url = is_string($item['url'] ?? null) ? trim($item['url']) : '';
                 $ok = preg_match('#^(https?://|/)#', $url) === 1 && mb_strlen($url) <= 1024;
                 if (!$ok) {
                     $errors["{$p}.url"] = ['url must be http(s):// or site-relative /… of at most 1024 chars'];
                 }
-                $rows[] = self::row($uuid, $parent, $i, 'url', null, $url, $labels);
+                $rows[] = self::row($uuid, $parent, $i, 'url', null, $url, $labels, $icon);
             } else {
                 $errors["{$p}.kind"] = ['kind must be entry or url'];
                 continue;
@@ -138,6 +154,7 @@ final class MenuTreeDTO
         ?string $entryUuid,
         ?string $url,
         array $labels,
+        ?string $icon,
     ): array {
         $now = gmdate('Y-m-d H:i:s');
         return [
@@ -147,6 +164,7 @@ final class MenuTreeDTO
             'kind' => $kind,
             'entry_uuid' => $entryUuid,
             'url' => $url,
+            'icon' => $icon,
             'labels' => json_encode($labels, JSON_THROW_ON_ERROR),
             'created_at' => $now,
             'updated_at' => $now,

@@ -15,6 +15,14 @@ vi.mock('vue-router/auto', () => ({
   useRoute: () => ({ path: '/x', params: {}, query: {} }),
   useRouter: () => ({ push: vi.fn(), resolve: vi.fn() }),
 }))
+vi.mock('@/queries/navigation', () => ({
+  useNavMenus: () => ({
+    data: ref([
+      { slug: 'main', name: 'Main', item_count: 2, lock_version: 0 },
+      { slug: 'footer-menu', name: 'Footer', item_count: 1, lock_version: 0 },
+    ]),
+  }),
+}))
 
 import BlocksField from '@/fields/components/BlocksField.vue'
 
@@ -443,5 +451,51 @@ describe('BlocksField', () => {
     expect(api.pickerTypesFor('inner0000001').map((t) => t.slug)).toEqual(['quote'])
     expect(api.pickerTypesFor('missing')).toEqual([])
     wrapper.unmount()
+  })
+
+  it('the navigation block renders a menu SELECT (nav-v2 spec §2); other types keep plain inputs', async () => {
+    blockTypes.value = [
+      ...defaultTypes(),
+      {
+        uuid: 'bt9', slug: 'navigation', label: 'Navigation', icon: null,
+        category: 'Layout', description: null, active: true,
+        schema: [
+          { name: 'menu', type: 'string', required: true, localized: false, filterable: false },
+        ],
+      },
+    ]
+    const model = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([
+      { id: 'navblk000001', type: 'navigation', data: { menu: 'main' } },
+    ])
+    const wrapper = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: model.value,
+        'onUpdate:modelValue': (v: typeof model.value) => (model.value = v),
+      },
+    })
+    await flushPromises()
+    // Expand the card so its schema form renders.
+    await wrapper.find('[data-test="block-toggle-navblk000001"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="nav-menu-select"]').exists()).toBe(true)
+
+    // A hero block's string field stays a plain input — no select.
+    const heroModel = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([
+      { id: 'heroblk00001', type: 'hero', data: { heading: 'H' } },
+    ])
+    const heroWrapper = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: heroModel.value,
+        'onUpdate:modelValue': (v: typeof heroModel.value) => (heroModel.value = v),
+      },
+    })
+    await flushPromises()
+    await heroWrapper.find('[data-test="block-toggle-heroblk00001"]').trigger('click')
+    await flushPromises()
+    expect(heroWrapper.find('[data-test="nav-menu-select"]').exists()).toBe(false)
+    wrapper.unmount()
+    heroWrapper.unmount()
   })
 })

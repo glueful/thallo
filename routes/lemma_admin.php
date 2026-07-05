@@ -21,6 +21,7 @@ use App\Http\Controllers\GeneralSettingsController;
 use App\Http\Controllers\HealthAdminController;
 use App\Http\Controllers\ImportExportController;
 use App\Http\Controllers\MediaAdminController;
+use App\Http\Controllers\RegionAdminController;
 use App\Http\Controllers\ScheduledTasksController;
 use App\Http\Controllers\UserAdminController;
 use Glueful\Api\Webhooks\Http\Controllers\WebhookController;
@@ -199,6 +200,17 @@ $router->group(['prefix' => '/v1/admin', 'middleware' => ['auth']], function (Ro
 
     $router->post('/settings/email/test', [EmailSettingsController::class, 'test'])
         ->middleware('lemma_permission:system.config');
+
+    // Global chrome regions (header/footer block lists) — chrome is content policy.
+    $router->get('/regions', [RegionAdminController::class, 'index'])
+        ->middleware('lemma_permission:content.view');
+
+    // Renders UNSAVED region payloads through the real theme pipeline (never writes).
+    $router->post('/regions/preview', [RegionAdminController::class, 'preview'])
+        ->middleware('lemma_permission:content.view');
+
+    $router->put('/regions/{slug}', [RegionAdminController::class, 'update'])
+        ->middleware('lemma_permission:content.manage');
 
     // Instance General settings — site identity, default locale, delivery defaults, feature toggles
     // (persisted as LEMMA_* keys in .env).

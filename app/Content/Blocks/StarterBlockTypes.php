@@ -69,9 +69,32 @@ final class StarterBlockTypes
                 'category' => 'Layout', 'description' => 'Two or three columns of blocks.',
                 'schema' => [
                     ['name' => 'layout', 'type' => 'enum', 'enum' => ['2', '3']],
+                    // Ratio presets (columns-sizing spec): one flat enum for both
+                    // layouts; a preset that doesn't match `layout` renders as
+                    // equal columns (template allowlist guard), never an error.
+                    ['name' => 'widths', 'type' => 'enum', 'enum' => [
+                        '50-50', '33-67', '67-33', '25-75', '75-25',
+                        '33-33-33', '25-50-25', '50-25-25', '25-25-50',
+                    ]],
+                    ['name' => 'align', 'type' => 'enum', 'enum' => ['stretch', 'top', 'center', 'bottom']],
                     ['name' => 'col_1', 'type' => 'blocks'],
                     ['name' => 'col_2', 'type' => 'blocks'],
                     ['name' => 'col_3', 'type' => 'blocks'],
+                ]],
+            ['slug' => 'navigation', 'label' => 'Navigation', 'icon' => 'i-lucide-menu',
+                'category' => 'Layout',
+                'description' => 'Links from a navigation menu (structured source — pick a menu, not links).',
+                'schema' => [
+                    ['name' => 'menu', 'type' => 'string', 'required' => true,
+                        'pattern' => '[a-z0-9]+(-[a-z0-9]+)*'],
+                    ['name' => 'orientation', 'type' => 'enum', 'enum' => ['horizontal', 'vertical']],
+                    ['name' => 'align', 'type' => 'enum', 'enum' => ['start', 'center', 'end']],
+                    ['name' => 'size', 'type' => 'enum', 'enum' => ['sm', 'md', 'lg']],
+                    ['name' => 'active_style', 'type' => 'enum', 'enum' => ['underline', 'pill', 'none']],
+                    ['name' => 'hover_style', 'type' => 'enum', 'enum' => ['color', 'underline', 'pill']],
+                    ['name' => 'submenu_icon', 'type' => 'enum',
+                        'enum' => ['chevron-down', 'chevron-right', 'plus', 'none']],
+                    ['name' => 'submenu_trigger', 'type' => 'enum', 'enum' => ['hover', 'click']],
                 ]],
             ['slug' => 'divider', 'label' => 'Divider', 'icon' => 'i-lucide-minus',
                 'category' => 'Layout', 'description' => 'A horizontal rule or visual break.',
@@ -208,6 +231,12 @@ final class StarterBlockTypes
                     ['name' => 'url', 'type' => 'string'],
                     ['name' => 'label', 'type' => 'string'],
                 ]],
+            ['slug' => 'social_links', 'label' => 'Social links', 'icon' => 'i-lucide-share-2',
+                'category' => 'Content',
+                'description' => 'A row of brand icons linking to social profiles.',
+                'schema' => [
+                    ['name' => 'items', 'type' => 'blocks', 'block_types' => ['social_link']],
+                ]],
             ['slug' => 'logo_cloud', 'label' => 'Logo cloud', 'icon' => 'i-lucide-building-2',
                 'category' => 'Media', 'description' => 'A “trusted by” strip of brand logos.',
                 'schema' => [
@@ -285,6 +314,14 @@ final class StarterBlockTypes
                 'schema' => [
                     ['name' => 'title', 'type' => 'string', 'required' => true],
                     ['name' => 'description', 'type' => 'text'],
+                ]],
+            ['slug' => 'social_link', 'label' => 'Social link', 'icon' => 'i-lucide-link',
+                'category' => 'Items', 'description' => 'One social profile: brand icon + URL.',
+                'schema' => [
+                    ['name' => 'icon', 'type' => 'string', 'required' => true,
+                        'pattern' => 'brand:[a-z0-9]+(-[a-z0-9]+)*'],
+                    ['name' => 'url', 'type' => 'string', 'required' => true],
+                    ['name' => 'label', 'type' => 'string'],
                 ]],
         ];
     }

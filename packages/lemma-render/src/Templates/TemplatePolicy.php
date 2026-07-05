@@ -28,7 +28,8 @@ final class TemplatePolicy
      * allowlist or enforcement change (tags/filters/functions/tests/node classes/
      * linter rules); the next render then recompiles — and re-lints — everything.
      */
-    public const CACHE_VERSION = 6; // bumped: 'icon' joined FUNCTIONS (icon-library spec)
+    // bumped: 'region_blocks' + 'region_settings' joined FUNCTIONS (global-regions spec)
+    public const CACHE_VERSION = 7;
 
     public const TAGS = ['if', 'for', 'set', 'block', 'extends', 'include', 'verbatim'];
 
@@ -42,6 +43,7 @@ final class TemplatePolicy
 
     public const FUNCTIONS = [
         'menu', 'path', 'asset', 'facets', 'blocks', 'media', 'site_logo', 'video_embed', 'icon',
+        'region_blocks', 'region_settings',
         'include', 'parent', 'block', 'cycle', 'date', 'min', 'max', 'range',
     ];
 

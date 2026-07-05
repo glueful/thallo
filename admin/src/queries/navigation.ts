@@ -14,6 +14,8 @@ export interface NavTreeItem {
   kind: 'entry' | 'url'
   entry_uuid?: string
   url?: string
+  /** Optional Lucide icon name rendered before the label (nav-v2). */
+  icon?: string | null
   labels: Record<string, string>
   target_status?: NavTargetStatus
   target_url?: string | null

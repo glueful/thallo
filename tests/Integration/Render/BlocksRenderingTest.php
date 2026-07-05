@@ -156,7 +156,10 @@ final class BlocksRenderingTest extends LemmaTestCase
         self::assertContains('site_logo', TemplatePolicy::FUNCTIONS);
         self::assertContains('video_embed', TemplatePolicy::FUNCTIONS);
         self::assertContains('icon', TemplatePolicy::FUNCTIONS);
-        self::assertSame(6, TemplatePolicy::CACHE_VERSION); // 6 = 'icon' joined (icon-library spec)
+        self::assertContains('region_blocks', TemplatePolicy::FUNCTIONS);
+        self::assertContains('region_settings', TemplatePolicy::FUNCTIONS);
+        // 7 = region_blocks/region_settings joined (global-regions spec)
+        self::assertSame(7, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);
@@ -164,6 +167,8 @@ final class BlocksRenderingTest extends LemmaTestCase
         self::assertSame([], $linter->lint('{{ media(data.image) }}'));
         self::assertSame([], $linter->lint('{{ site_logo() }}'));
         self::assertSame([], $linter->lint('{{ icon(data.icon) ?? data.icon }}'));
+        self::assertSame([], $linter->lint('{{ region_blocks(\'header\') }}'));
+        self::assertSame([], $linter->lint("{{ region_settings('header').width|default('contained') }}"));
     }
 
     public function testSafeHtmlSanitizesAndFailsClosed(): void
