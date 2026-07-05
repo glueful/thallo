@@ -109,6 +109,8 @@ use App\Content\Seo\CanonicalProjector;
 use App\Content\Routing\RootMountGuard;
 use App\Content\Seo\CanonicalPathBuilder;
 use App\Settings\EngineAdminUrlProvider;
+use App\Settings\EngineSiteFaviconProvider;
+use App\Settings\EngineThemeSettingProvider;
 use App\Settings\EngineSiteLogoProvider;
 use App\Content\Seo\PathRenderer;
 use App\Content\Seo\RedirectRepository;
@@ -137,7 +139,9 @@ use Glueful\Lemma\Contracts\Authoring\PublishGate;
 use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
 use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
 use Glueful\Lemma\Contracts\Settings\AdminUrlProvider;
+use Glueful\Lemma\Contracts\Settings\SiteFaviconProvider;
 use Glueful\Lemma\Contracts\Settings\SiteLogoProvider;
+use Glueful\Lemma\Contracts\Settings\ThemeSettingProvider;
 use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
 use Glueful\Lemma\Contracts\Context\LemmaContext;
 use Glueful\Lemma\Contracts\Delivery\ContentDeliveryReader;
@@ -623,6 +627,18 @@ final class LemmaServiceProvider extends ServiceProvider
             ],
             SiteLogoProvider::class => [
                 'class'    => EngineSiteLogoProvider::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            SiteFaviconProvider::class => [
+                'class'    => EngineSiteFaviconProvider::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            // Live theme override (theme-setting spec §2): RAW-row provider —
+            // the render pack's ActiveThemeSource soft-binds it.
+            ThemeSettingProvider::class => [
+                'class'    => EngineThemeSettingProvider::class,
                 'shared'   => true,
                 'autowire' => true,
             ],

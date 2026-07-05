@@ -85,6 +85,24 @@ describe('AssetField — choose from library', () => {
     wrapper.unmount()
   })
 
+  it('single-mode preview is uuid-free with a tooltip identity affordance', async () => {
+    // Site-identity P2 pin: the picker owns rich identity (filenames); the
+    // field preview stays minimal — the uuid lives in title/alt only.
+    const wrapper = mount(AssetField, {
+      props: { field: { name: 'image', type: 'asset' as const }, modelValue: 'blob00000001' },
+    })
+    await flushPromises()
+
+    const preview = wrapper.find('[data-test="asset-single-preview"]')
+    expect(preview.exists()).toBe(true)
+    expect(preview.attributes('src')).toBe('/blobs/blob00000001')
+    expect(preview.attributes('title')).toBe('blob00000001')
+    expect(preview.attributes('alt')).toBe('blob00000001')
+    // No visible uuid text node anywhere in the field.
+    expect(wrapper.text()).not.toContain('blob00000001')
+    wrapper.unmount()
+  })
+
   it('multiple mode appends without duplicates and respects max_items', async () => {
     const wrapper = mount(AssetField, {
       props: {

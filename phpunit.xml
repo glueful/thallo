@@ -38,5 +38,9 @@
         <env name="LEMMA_ADMIN_BUNDLE_PATH" value="tests/fixtures/admin"/>
         <env name="LEMMA_PUBLIC_URL_BASE" value="https://site.test"/>
         <env name="RENDER_ADMIN_URL" value="https://admin.test"/>
+        <!-- media()/site_logo()/site_favicon() tests need anonymously retrievable
+             public blobs; force="true" pins this against ambient .env/CI values. -->
+        <env name="UPLOADS_ACCESS" value="public" force="true"/>
+        <env name="UPLOADS_ENABLED" value="true" force="true"/>
     </php>
 </phpunit>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import {
   useGeneralSettings,
   useGeneralSettingsMutations,
@@ -9,6 +9,9 @@ import { useLocales } from '@/queries/locales'
 import { useContentTypes } from '@/queries/contentTypes'
 import AssetField from '@/fields/components/AssetField.vue'
 import ReferencePicker from '@/fields/components/ReferencePicker.vue'
+import FaviconPreview from './components/FaviconPreview.vue'
+import { blobDisplayUrl } from '@/queries/media'
+import { fetchRenderThemes } from '@/queries/templates'
 import { useNotify } from '@/composables/useNotify'
 import { client } from '@/api/client'
 
@@ -30,12 +33,28 @@ const form = reactive<GeneralSettings>({
   webhooks_enabled: true,
   homepage_entry: '',
   site_logo: '',
+  site_logo_dark: '',
+  site_favicon: '',
+  theme: '',
   admin_url: '',
   listing_types: [],
 })
 
+// Live theme options (theme-setting spec §4): fetched from the render pack;
+// a fetch failure (pack absent, no permission) just hides the card.
+const availableThemes = ref<string[]>([])
+onMounted(async () => {
+  try {
+    availableThemes.value = (await fetchRenderThemes()).themes
+  } catch {
+    availableThemes.value = []
+  }
+})
+
 // AssetField drives the same picker the block editor uses; single asset.
 const logoField = { name: 'site_logo', label: '', type: 'asset' } as const
+const logoDarkField = { name: 'site_logo_dark', label: '', type: 'asset' } as const
+const faviconField = { name: 'site_favicon', label: '', type: 'asset' } as const
 
 // Homepage picker (homepage-setting spec §1): the entries query is
 // type-scoped, so picking = choose a type, then search its entries.
@@ -161,10 +180,10 @@ async function onSave() {
 
         <template v-else>
           <!-- Two-column split (same shape as the content-type editor): Site
-               identity sits pinned in the LEFT rail; homepage + operational
+               identity in the LEFT rail; logos/site icon, homepage + operational
                settings own the wide RIGHT column. -->
           <div class="grid gap-6 lg:grid-cols-3 pb-5">
-            <div class="space-y-6 lg:sticky lg:top-6 lg:self-start">
+            <div class="space-y-6 lg:self-start">
               <UCard>
                 <template #header><h2 class="font-semibold text-default">Site identity</h2></template>
                 <div class="space-y-4">
@@ -194,20 +213,83 @@ async function onSave() {
                       data-test="admin-url-input"
                     />
                   </UFormField>
-                  <UFormField
-                    label="Site logo"
-                    description="Used by the Logo block (and themes). When unset, the site name renders instead."
-                  >
-                    <div data-test="site-logo-picker">
-                      <AssetField v-model="form.site_logo" :field="logoField" :library-button="false" />
-                    </div>
-                  </UFormField>
                 </div>
               </UCard>
 
             </div>
 
             <div class="space-y-6 lg:col-span-2">
+              <UCard v-if="availableThemes.length > 0" data-test="theme-card">
+                <template #header><h2 class="font-semibold text-default">Theme</h2></template>
+                <UFormField
+                  label="Live theme"
+                  description="Applies on the next page view — no restart. Preview a theme first via a preview session; duplicate one from the Templates page."
+                >
+                  <USelect
+                    v-model="form.theme"
+                    :items="availableThemes"
+                    class="w-full"
+                    data-test="theme-setting-select"
+                  />
+                </UFormField>
+              </UCard>
+
+              <UCard>
+                <template #header>
+                  <h2 class="font-semibold text-default">Logos &amp; site icon</h2>
+                </template>
+                <div class="space-y-6">
+                  <!-- Logos (top): light and dark side by side -->
+                  <div class="grid gap-6 sm:grid-cols-2">
+                    <UFormField
+                      label="Site logo"
+                      description="Used by the Logo block (and themes). When unset, the site name renders instead."
+                    >
+                      <div data-test="site-logo-picker">
+                        <AssetField
+                          v-model="form.site_logo"
+                          :field="logoField"
+                          :library-button="false"
+                        />
+                      </div>
+                    </UFormField>
+                    <UFormField
+                      label="Site logo (dark)"
+                      description="Shown when visitors use a dark color scheme; themes without a dark scheme ignore it. Falls back to the main logo."
+                    >
+                      <div data-test="site-logo-dark-picker">
+                        <AssetField
+                          v-model="form.site_logo_dark"
+                          :field="logoDarkField"
+                          :library-button="false"
+                        />
+                      </div>
+                    </UFormField>
+                  </div>
+                  <!-- Site icon (below) -->
+                  <div class="space-y-4">
+                    <UFormField
+                      label="Favicon"
+                      description="PNG or SVG, square, ≥ 512×512 recommended."
+                    >
+                      <div data-test="site-favicon-picker">
+                        <AssetField
+                          v-model="form.site_favicon"
+                          :field="faviconField"
+                          :library-button="false"
+                          :preview="false"
+                        />
+                      </div>
+                    </UFormField>
+                    <FaviconPreview
+                      v-if="form.site_favicon"
+                      :src="blobDisplayUrl(form.site_favicon)"
+                      :site-name="form.site_name"
+                    />
+                  </div>
+                </div>
+              </UCard>
+
               <UCard>
                 <template #header><h2 class="font-semibold text-default">Homepage</h2></template>
                 <div class="space-y-4">

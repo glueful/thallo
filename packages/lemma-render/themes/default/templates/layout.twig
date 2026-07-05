@@ -4,8 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{{ site.name }}{% endblock %}</title>
+  {# Site-identity spec §3: the link renders only when the blob is anonymously
+     servable (site_favicon() applies the media() predicate) — a missing icon
+     beats one that 401s on the browser's anonymous fetch. #}
+  {% set favicon = site_favicon() %}
+  {% if favicon %}<link rel="icon" href="{{ favicon }}">{% endif %}
   <link rel="stylesheet" href="{{ asset('site.css') }}">
   <link rel="stylesheet" href="{{ asset('blocks.css') }}">
+  {# Site custom CSS (custom-css spec §4): DB-backed, loaded LAST so operator
+     rules win the cascade; null (absent/empty) emits nothing. #}
+  {% set customCss = custom_css() %}
+  {% if customCss %}<link rel="stylesheet" href="{{ customCss }}">{% endif %}
   {# Progressive enhancement (block-library spec §2): carousel controls only;
      loaded ONCE here, never from block templates; no-ops in the canvas stage. #}
   <script defer src="{{ asset('blocks.js') }}"></script>
@@ -70,8 +79,15 @@
   <header class="site-header">
     <div class="site-header__inner">
       {% set logo = site_logo() %}
-      <a href="/" class="site-name">
-        {%- if logo -%}
+      {% set logoDark = site_logo('dark') %}
+      {# --has-dark modifier (site-identity spec §3): the template — not a CSS
+         sibling probe — decides when the dark swap applies, so light-only
+         markup stays byte-identical. #}
+      <a href="/" class="site-name{% if logo and logoDark %} site-name--has-dark{% endif %}">
+        {%- if logo and logoDark -%}
+          <img class="site-logo site-logo--light" src="{{ logo }}" alt="{{ site.name }}">
+          <img class="site-logo site-logo--dark" src="{{ logoDark }}" alt="{{ site.name }}">
+        {%- elseif logo -%}
           <img class="site-logo" src="{{ logo }}" alt="{{ site.name }}">
         {%- else -%}
           {{ site.name }}

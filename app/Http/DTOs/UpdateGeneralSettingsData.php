@@ -39,6 +39,13 @@ final class UpdateGeneralSettingsData implements RequestData
         /** @var string|null Asset uuid of the site logo; '' clears (site name shows instead). */
         #[Rule('string')]
         public readonly ?string $site_logo = null,
+        #[Rule('string')]
+        public readonly ?string $site_logo_dark = null,
+        #[Rule('string')]
+        public readonly ?string $site_favicon = null,
+        /** @var string|null Live theme name; '' clears to the env/config default. */
+        #[Rule('string')]
+        public readonly ?string $theme = null,
         /** @var string|null Admin SPA base URL for preview-bar deep links; '' clears. */
         #[Rule('string')]
         public readonly ?string $admin_url = null,

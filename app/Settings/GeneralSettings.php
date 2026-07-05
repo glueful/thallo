@@ -28,6 +28,14 @@ final class GeneralSettings
         'webhooks_enabled'  => ['lemma.pipeline.webhooks_enabled', 'bool', true],
         'homepage_entry'    => ['lemma_render.homepage_entry', 'string', ''],
         'site_logo'         => ['lemma.site_logo', 'string', ''],
+        // Dark-scheme logo variant (site-identity spec): an OVERRIDE — unset
+        // means the main logo renders in dark mode too.
+        'site_logo_dark'    => ['lemma.site_logo_dark', 'string', ''],
+        // Favicon blob uuid; rendered only when anonymously servable.
+        'site_favicon'      => ['lemma.site_favicon', 'string', ''],
+        // Live theme (theme-setting spec §1): DB override → RENDER_THEME env →
+        // 'default'. Write-validated; explicit '' clears to the env fallback.
+        'theme'             => ['lemma_render.theme', 'string', 'default'],
         // Admin SPA base URL — powers the preview bar's Edit/Design deep links.
         // Auto-populated at web setup (the SPA sends its own origin).
         'admin_url'         => ['lemma_render.admin_url', 'string', ''],
@@ -64,6 +72,34 @@ final class GeneralSettings
     public function siteLogo(): string
     {
         return (string) $this->value('site_logo');
+    }
+
+    /** Dark-scheme logo variant uuid; '' = no override (the main logo renders). */
+    public function siteLogoDark(): string
+    {
+        return (string) $this->value('site_logo_dark');
+    }
+
+    /** Favicon blob uuid; '' when unset. */
+    public function siteFavicon(): string
+    {
+        return (string) $this->value('site_favicon');
+    }
+
+    /** The EFFECTIVE live theme (row → env → 'default'). */
+    public function theme(): string
+    {
+        return (string) $this->value('theme');
+    }
+
+    /**
+     * The RAW stored theme override — null when no DB row (env applies). The
+     * homepageEntryOverride() mirror: providers must never surface the env
+     * fallback as if it were a stored override (theme-setting spec §5).
+     */
+    public function themeOverride(): ?string
+    {
+        return $this->store->get('theme');
     }
 
     public function sitePreviewUrl(): string
@@ -132,11 +168,12 @@ final class GeneralSettings
         $pairs = [];
         foreach (self::DEFS as $key => [$cfg, $type, $def]) {
             if (array_key_exists($key, $partial) && $partial[$key] !== null) {
-                // homepage_entry (homepage-setting spec §0): an EXPLICIT empty
-                // string means "clear to fallback" — the row is DELETED so the
-                // config/.env value shows through (a stored '' would shadow it).
+                // homepage_entry (homepage-setting spec §0) and theme
+                // (theme-setting spec §1): an EXPLICIT empty string means
+                // "clear to fallback" — the row is DELETED so the config/.env
+                // value shows through (a stored '' would shadow it).
                 // null keeps the usual "unchanged" meaning.
-                if ($key === 'homepage_entry' && $partial[$key] === '') {
+                if (in_array($key, ['homepage_entry', 'theme'], true) && $partial[$key] === '') {
                     $this->store->forget($key);
                     continue;
                 }

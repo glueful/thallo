@@ -625,6 +625,13 @@ details[open] > .lemma-block-faq_item__question::after { transform: rotate(225de
 .lemma-block-logo--medium .lemma-block-logo__image { height: 2.5rem; }
 .lemma-block-logo--large .lemma-block-logo__image { height: 3.5rem; }
 .lemma-block-logo__name { font-weight: 700; font-size: 1.25rem; letter-spacing: -0.02em; }
+/* Dark-logo variant (site-identity spec): mirrors the site.css rule pair;
+   applies only inside the template-emitted --has-dark modifier. */
+.lemma-block-logo__image--dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  .lemma-block-logo--has-dark .lemma-block-logo__image--light { display: none; }
+  .lemma-block-logo--has-dark .lemma-block-logo__image--dark { display: block; }
+}
 
 /* icon — a single decorative Lucide glyph, optionally linked; sizes scale
    font-size (the .lemma-icon svg is 1em) and color rides currentColor */

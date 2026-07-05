@@ -86,6 +86,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/render/themes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List selectable themes (validator-accepted) and the active one */
+        get: operations["getV1AdminRenderThemes"];
+        put?: never;
+        /** Clone a theme into a new app theme directory (themes/{name}) */
+        post: operations["postV1AdminRenderThemes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/render/templates": {
         parameters: {
             query?: never;
@@ -2789,6 +2807,151 @@ export interface operations {
             };
         };
     };
+    getV1AdminRenderThemes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Selectable themes + the currently active theme. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AdminRenderThemes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created; response carries the new theme and the refreshed theme list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Invalid name/source, name taken, or the themes directory is not writable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     getV1AdminRenderTemplates: {
         parameters: {
             query?: never;
@@ -4345,6 +4508,9 @@ export interface operations {
                  *       "webhooks_enabled": true,
                  *       "homepage_entry": "example",
                  *       "site_logo": "example",
+                 *       "site_logo_dark": "example",
+                 *       "site_favicon": "example",
+                 *       "theme": "example",
                  *       "admin_url": "example",
                  *       "listing_types": "example"
                  *     }
@@ -4361,6 +4527,10 @@ export interface operations {
                     homepage_entry?: string | null;
                     /** @description Asset uuid of the site logo; '' clears (site name shows instead). */
                     site_logo?: string | null;
+                    site_logo_dark?: string | null;
+                    site_favicon?: string | null;
+                    /** @description Live theme name; '' clears to the env/config default. */
+                    theme?: string | null;
                     /** @description Admin SPA base URL for preview-bar deep links; '' clears. */
                     admin_url?: string | null;
                     /** @description Content types with public listings/archives; */

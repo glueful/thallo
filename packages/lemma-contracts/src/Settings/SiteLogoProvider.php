@@ -11,6 +11,13 @@ namespace Glueful\Lemma\Contracts\Settings;
  */
 interface SiteLogoProvider
 {
-    /** Asset uuid of the configured site logo, or null when unset. */
-    public function siteLogoUuid(): ?string;
+    /**
+     * Asset uuid of the configured site logo, or null when unset.
+     *
+     * $variant (site-identity spec §2): 'light' (default) or 'dark' — the
+     * dark-scheme override. Unknown variants MUST return null (defense in
+     * depth under the extension's closed vocabulary); a dark request with no
+     * dark upload returns null so templates fall back to the light logo.
+     */
+    public function siteLogoUuid(string $variant = 'light'): ?string;
 }

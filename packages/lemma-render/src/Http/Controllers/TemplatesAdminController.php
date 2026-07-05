@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Glueful\Lemma\Render\Http\Controllers;
 
+use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Events\EventService;
 use Glueful\Http\Response;
 use Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator;
@@ -12,6 +13,7 @@ use Glueful\Lemma\Render\Templates\TemplateCatalog;
 use Glueful\Lemma\Render\Templates\TemplateLinter;
 use Glueful\Lemma\Render\Templates\TemplateRepository;
 use Glueful\Lemma\Render\Templates\TemplateUpdated;
+use Glueful\Lemma\Render\Templates\ThemeCloner;
 use Glueful\Lemma\Render\ThemeLocator;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
@@ -26,6 +28,9 @@ use Symfony\Component\HttpFoundation\Request;
  */
 final class TemplatesAdminController
 {
+    /** The one non-twig path (custom-css spec §2): DB-only, CSS-validated. */
+    private const CUSTOM_CSS = 'custom.css';
+
     public function __construct(
         private readonly TemplateRepository $templates,
         private readonly TemplateLinter $linter,
@@ -33,7 +38,47 @@ final class TemplatesAdminController
         private readonly PreviewThemeValidator $themeValidator,
         private readonly ThemeLocator $activeTheme,
         private readonly EventService $events,
+        private readonly ApplicationContext $context,
+        private readonly ?ThemeCloner $themeCloner = null,
     ) {
+    }
+
+    #[ApiOperation(
+        summary: 'List selectable themes (validator-accepted) and the active one',
+        tags: ['Lemma Templates'],
+    )]
+    #[ApiResponse(200, description: 'Selectable themes + the currently active theme.')]
+    public function themes(): Response
+    {
+        return Response::success([
+            'themes' => $this->availableThemes(),
+            'active' => $this->activeTheme->activePaths()['name'],
+        ]);
+    }
+
+    #[ApiOperation(
+        summary: 'Clone a theme into a new app theme directory (themes/{name})',
+        tags: ['Lemma Templates'],
+    )]
+    #[ApiResponse(200, description: 'Created; response carries the new theme and the refreshed theme list.')]
+    #[ApiResponse(422, description: 'Invalid name/source, name taken, or the themes directory is not writable.')]
+    public function createTheme(Request $request): Response
+    {
+        if ($this->themeCloner === null) {
+            return Response::error('Theme cloning is unavailable.', 404);
+        }
+        $body = (array) json_decode((string) $request->getContent(), true);
+        $name = is_string($body['name'] ?? null) ? $body['name'] : '';
+        $from = is_string($body['from'] ?? null) && $body['from'] !== '' ? $body['from'] : 'default';
+        try {
+            $created = $this->themeCloner->clone($name, $from);
+        } catch (\InvalidArgumentException | \RuntimeException $e) {
+            return Response::error($e->getMessage(), 422);
+        }
+        return Response::success([
+            'theme' => $created['name'],
+            'themes' => $this->availableThemes(),
+        ], 'Theme created.');
     }
 
     /**
@@ -47,7 +92,34 @@ final class TemplatesAdminController
         if ($theme === null) {
             return Response::error('Unknown theme.', 404);
         }
-        return Response::success(['theme' => $theme, 'templates' => $this->catalog->list($theme)]);
+        // Read-only theme files (assets + theme.json) join the listing flagged,
+        // so the admin can browse class names to override in custom.css.
+        $readonly = array_map(
+            static fn(array $row): array => $row + ['overridden' => false, 'updated_at' => null, 'readonly' => true],
+            $this->catalog->listReadOnly($theme),
+        );
+        return Response::success([
+            'theme' => $theme,
+            'themes' => $this->availableThemes(),
+            'templates' => [...$this->catalog->list($theme), ...$readonly],
+        ]);
+    }
+
+    /**
+     * Selectable themes for the admin switcher: the pack 'default' plus every
+     * app theme directory the validator accepts (same ladder ThemeLocator uses).
+     *
+     * @return list<string>
+     */
+    private function availableThemes(): array
+    {
+        $themes = ['default'];
+        foreach ($this->catalog->themeCandidates() as $name) {
+            if ($this->themeValidator->isValidTheme($name)) {
+                $themes[] = $name;
+            }
+        }
+        return $themes;
     }
 
     /**
@@ -59,7 +131,26 @@ final class TemplatesAdminController
     public function show(Request $request, string $path): Response
     {
         $theme = $this->theme($request);
-        if ($theme === null || $this->invalidPath($path)) {
+        if ($theme === null) {
+            return Response::error('Not Found', 404);
+        }
+        // Read-only theme files: filesystem view, no DB layer, never editable
+        // (save/delete/restore reject these paths — the grammar never allowed them).
+        if ($this->isReadOnlyPath($path)) {
+            $file = $this->catalog->readReadOnlyFile($theme, $path);
+            if ($file === null) {
+                return Response::error('Not Found', 404);
+            }
+            return Response::success([
+                'path' => $path,
+                'theme' => $theme,
+                'origin' => $file['origin'],
+                'source' => $file['source'],
+                'version_uuid' => null,
+                'readonly' => true,
+            ]);
+        }
+        if (!$this->pathAllowed($path)) {
             return Response::error('Not Found', 404);
         }
         $db = $this->templates->findCurrentSource($theme, $path);
@@ -71,6 +162,11 @@ final class TemplatesAdminController
                 'source' => $db['source'],
                 'version_uuid' => $db['version_uuid'],
             ]);
+        }
+        // custom.css is DB-only by contract (spec §1): never fall through to the
+        // filesystem — an accidental theme custom.css file must not become the source.
+        if ($this->isCustomCss($path)) {
+            return Response::error('Not Found', 404);
         }
         $file = $this->catalog->readFile($theme, $path);
         if ($file === null) {
@@ -105,7 +201,7 @@ final class TemplatesAdminController
         if ($theme === null) {
             return Response::error('Unknown theme.', 404);
         }
-        if ($this->invalidPath($path)) {
+        if (!$this->pathAllowed($path)) {
             return Response::error(
                 'Invalid template path (slash-separated [A-Za-z0-9._-] segments, ending .twig).',
                 422,
@@ -116,13 +212,23 @@ final class TemplatesAdminController
         if (!is_string($source)) {
             return Response::error('source must be a string.', 422);
         }
-        $violations = $this->linter->lint($source, $path);
-        if ($violations !== []) {
-            return new Response([
-                'success' => false,
-                'message' => 'Template policy violations.',
-                'errors' => $violations,
-            ], 422);
+        // Type-aware validation (custom-css spec §2): the well-known CSS path
+        // skips the Twig policy linter — CSS cannot 500 the site, so only
+        // encoding + size gate it. Twig paths lint exactly as before.
+        if ($this->isCustomCss($path)) {
+            $cssError = $this->cssViolation($source);
+            if ($cssError !== null) {
+                return Response::error($cssError, 422);
+            }
+        } else {
+            $violations = $this->linter->lint($source, $path);
+            if ($violations !== []) {
+                return new Response([
+                    'success' => false,
+                    'message' => 'Template policy violations.',
+                    'errors' => $violations,
+                ], 422);
+            }
         }
         $ids = $this->templates->save($theme, $path, $source, $this->userUuid($request));
         $this->events->dispatch(new TemplateUpdated($theme, $path));
@@ -145,7 +251,7 @@ final class TemplatesAdminController
     public function delete(Request $request, string $path): Response
     {
         $theme = $this->theme($request);
-        if ($theme === null || $this->invalidPath($path)) {
+        if ($theme === null || !$this->pathAllowed($path)) {
             return Response::error('Not Found', 404);
         }
         if (!$this->templates->deactivate($theme, $path)) {
@@ -164,7 +270,7 @@ final class TemplatesAdminController
     public function versions(Request $request, string $path): Response
     {
         $theme = $this->theme($request);
-        if ($theme === null || $this->invalidPath($path)) {
+        if ($theme === null || !$this->pathAllowed($path)) {
             return Response::error('Not Found', 404);
         }
         if ($this->templates->find($theme, $path) === null) {
@@ -186,7 +292,7 @@ final class TemplatesAdminController
     public function showVersion(Request $request, string $path, string $uuid): Response
     {
         $theme = $this->theme($request);
-        if ($theme === null || $this->invalidPath($path)) {
+        if ($theme === null || !$this->pathAllowed($path)) {
             return Response::error('Not Found', 404);
         }
         $version = $this->templates->findVersion($theme, $path, $uuid);
@@ -209,23 +315,32 @@ final class TemplatesAdminController
     public function restore(Request $request, string $path, string $uuid): Response
     {
         $theme = $this->theme($request);
-        if ($theme === null || $this->invalidPath($path)) {
+        if ($theme === null || !$this->pathAllowed($path)) {
             return Response::error('Not Found', 404);
         }
         $version = $this->templates->findVersion($theme, $path, $uuid);
         if ($version === null) {
             return Response::error('Unknown version for this path.', 404);
         }
-        // Re-lint against TODAY'S policy (spec §4): old versions can predate a policy
-        // tightening or have been mutated around the API — restore must not put a
-        // template live that a fresh save would reject. Same 422 payload as save().
-        $violations = $this->linter->lint($version['source'], $path);
-        if ($violations !== []) {
-            return new Response([
-                'success' => false,
-                'message' => 'Template policy violations.',
-                'errors' => $violations,
-            ], 422);
+        // Re-validate against TODAY'S rules (spec §4): old versions can predate a
+        // policy tightening or have been mutated around the API — restore must not
+        // put a template live that a fresh save would reject. Same 422 payloads as
+        // save(): the CSS path re-runs the CSS branch (Twig-linting stored CSS
+        // would 422 valid rules); twig paths re-lint.
+        if ($this->isCustomCss($path)) {
+            $cssError = $this->cssViolation($version['source']);
+            if ($cssError !== null) {
+                return Response::error($cssError, 422);
+            }
+        } else {
+            $violations = $this->linter->lint($version['source'], $path);
+            if ($violations !== []) {
+                return new Response([
+                    'success' => false,
+                    'message' => 'Template policy violations.',
+                    'errors' => $violations,
+                ], 422);
+            }
         }
         $ids = $this->templates->save($theme, $path, $version['source'], $this->userUuid($request));
         $this->events->dispatch(new TemplateUpdated($theme, $path));
@@ -254,6 +369,68 @@ final class TemplatesAdminController
      * discouraged. The charset also excludes \, :, and scheme syntax. Empty segments
      * cover leading slashes and "//". DB-only paths are FINE.
      */
+    private function isCustomCss(string $path): bool
+    {
+        return $path === self::CUSTOM_CSS;
+    }
+
+    /**
+     * Read-only browsable theme files: theme.json and assets/… stylesheets/
+     * scripts. Same URL-safe segment grammar as templates (each segment
+     * [A-Za-z0-9._-]+, no '.'/'..'), different extensions — and NEVER writable:
+     * save/delete/restore go through pathAllowed(), which rejects these.
+     */
+    private function isReadOnlyPath(string $path): bool
+    {
+        if ($path === 'theme.json') {
+            return true;
+        }
+        if (!str_starts_with($path, 'assets/')) {
+            return false;
+        }
+        if (!str_ends_with($path, '.css') && !str_ends_with($path, '.js')) {
+            return false;
+        }
+        foreach (explode('/', $path) as $segment) {
+            if (
+                $segment === ''
+                || $segment === '.'
+                || $segment === '..'
+                || preg_match('/^[A-Za-z0-9._-]+$/', $segment) !== 1
+            ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * The full allowed-path set: the exact CUSTOM_CSS path plus the twig
+     * grammar. invalidPath() itself stays twig-only so its "ending .twig"
+     * error copy remains true — every OTHER non-twig path still 422s.
+     */
+    private function pathAllowed(string $path): bool
+    {
+        return $this->isCustomCss($path) || !$this->invalidPath($path);
+    }
+
+    /**
+     * The CSS validation branch (custom-css spec §2): encoding + size only —
+     * broken CSS loses in the browser, it cannot 500 the site, so there is
+     * deliberately no syntax gate. Shared by save() and restore().
+     */
+    private function cssViolation(string $source): ?string
+    {
+        if (!mb_check_encoding($source, 'UTF-8')) {
+            return 'custom.css must be valid UTF-8.';
+        }
+        $max = (int) config($this->context, 'lemma_render.custom_css.max_bytes', 262144);
+        if (strlen($source) > $max) {
+            return "custom.css exceeds the size limit ({$max} bytes).";
+        }
+        return null;
+    }
+
     private function invalidPath(string $path): bool
     {
         if ($path === '' || !str_ends_with($path, '.twig')) {

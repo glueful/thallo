@@ -23,6 +23,15 @@ vi.mock('@/queries/contentTypes', () => ({
 vi.mock('@/composables/useNotify', () => ({
   useNotify: () => ({ success: notify.success, error: notify.error }),
 }))
+// The page renders FaviconPreview from blobDisplayUrl(form.site_favicon).
+vi.mock('@/queries/media', () => ({
+  blobDisplayUrl: (uuid: string) => `/blobs/${uuid}`,
+}))
+// Theme card options come from the render pack's themes endpoint.
+const fetchRenderThemesMock = vi.hoisted(() => vi.fn())
+vi.mock('@/queries/templates', () => ({
+  fetchRenderThemes: fetchRenderThemesMock,
+}))
 vi.mock('vue-router/auto', () => ({
   useRoute: () => ({ path: '/settings/general', params: {}, query: {} }),
   useRouter: () => ({ push: vi.fn(), resolve: vi.fn() }),
@@ -56,6 +65,9 @@ const settings = (): GeneralSettings => ({
   webhooks_enabled: true,
   homepage_entry: '',
   site_logo: '',
+  site_logo_dark: '',
+  site_favicon: '',
+  theme: 'default',
   admin_url: '',
   listing_types: ['post'],
 })
@@ -67,6 +79,9 @@ describe('general settings page — site logo', () => {
     saveMock.mockReset()
     notify.success.mockClear()
     notify.error.mockClear()
+    fetchRenderThemesMock
+      .mockReset()
+      .mockResolvedValue({ themes: ['default', 'corporate'], active: 'default' })
   })
 
   it('picking a logo asset saves site_logo with the rest of the form', async () => {
@@ -98,5 +113,49 @@ describe('general settings page — site logo', () => {
     const wrapper = mount(GeneralSettingsPage)
     await flushPromises()
     expect(wrapper.find('[data-test="stub-logo-pick"]').text()).toBe('blob00000007')
+  })
+
+  it('the Theme card renders from the themes endpoint and saves form.theme', async () => {
+    saveMock.mockResolvedValue({ ...settings() })
+    const wrapper = mount(GeneralSettingsPage)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="theme-card"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="theme-setting-select"]').text()).toContain('default')
+
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
+    await saveBtn!.trigger('click')
+    await flushPromises()
+    expect(saveMock.mock.calls[0]![0]).toMatchObject({ theme: 'default' })
+  })
+
+  it('a failed themes fetch hides the Theme card without an error toast', async () => {
+    fetchRenderThemesMock.mockRejectedValue(new Error('403'))
+    const wrapper = mount(GeneralSettingsPage)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="theme-card"]').exists()).toBe(false)
+    expect(notify.error).not.toHaveBeenCalled()
+  })
+
+  it('renders dark-logo and favicon fields; the favicon preview only when set', async () => {
+    const wrapper = mount(GeneralSettingsPage)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="site-logo-dark-picker"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="site-favicon-picker"]').exists()).toBe(true)
+    // No favicon set: no preview.
+    expect(wrapper.find('[data-test="favicon-preview"]').exists()).toBe(false)
+
+    settingsData.value = { ...settings(), site_favicon: 'favic0000001' }
+    await flushPromises()
+
+    const preview = wrapper.find('[data-test="favicon-preview"]')
+    expect(preview.exists()).toBe(true)
+    // Both the app tile and the tab mock render the uploaded blob.
+    const imgs = preview.findAll('img')
+    expect(imgs.length).toBe(2)
+    expect(imgs[0]!.attributes('src')).toBe('/blobs/favic0000001')
+    expect(preview.text()).toContain('Lemma')
   })
 })
