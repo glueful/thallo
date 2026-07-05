@@ -223,7 +223,7 @@ async function onSave() {
                 <template #header><h2 class="font-semibold text-default">Theme</h2></template>
                 <UFormField
                   label="Live theme"
-                  description="Applies on the next page view — no restart. Preview a theme first via a preview session; duplicate one from the Templates page."
+                  description="Applies on the next page view — no restart. Preview a theme first via a preview session; duplicate one from the Theme editor."
                 >
                   <USelect
                     v-model="form.theme"
