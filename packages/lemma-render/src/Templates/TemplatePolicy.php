@@ -28,8 +28,8 @@ final class TemplatePolicy
      * allowlist or enforcement change (tags/filters/functions/tests/node classes/
      * linter rules); the next render then recompiles — and re-lints — everything.
      */
-    // bumped: 'custom_css' joined FUNCTIONS (custom-css spec)
-    public const CACHE_VERSION = 9;
+    // bumped: Twig 3.28's ConfigNode joined the node allowlist
+    public const CACHE_VERSION = 10;
 
     public const TAGS = ['if', 'for', 'set', 'block', 'extends', 'include', 'verbatim'];
 
@@ -71,6 +71,11 @@ final class TemplatePolicy
         \Twig\Node\ModuleNode::class,
         \Twig\Node\BodyNode::class,
         \Twig\Node\Node::class,
+        // Twig 3.28: a childless, attributeless structural marker ("has global
+        // side effects but does not generate template code") — reviewed; the
+        // constructs it carries (e.g. macro declarations) are still denied by
+        // their own nodes/tags.
+        \Twig\Node\ConfigNode::class,
         \Twig\Node\Nodes::class,
         \Twig\Node\TextNode::class,
         \Twig\Node\PrintNode::class,

@@ -7,6 +7,30 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Email admin**: Settings → Email is now the full email admin, a pure
+  client of glueful/email-notification 1.11's API. Transport settings are
+  DB-backed (saved via `PUT /email/settings`, applied on the next send — the
+  old `.env`-writing `EmailSettingsController` and its routes are retired);
+  a new **Mail templates** section manages every registered template
+  (accordion per template with subject, HTML body editing, placeholder chips
+  from definition metadata, save with inline engine-violation 422s, and
+  reset-to-default); and a send-test modal covers both a plain transport
+  test and per-template test-sends rendered with placeholder samples —
+  real sends, domain policy applying. `email.templates.manage` is ensured
+  and granted to administrator in the folded roles seed (the Aegis catalog
+  sync is CLI-only, so the migration creates the permission row if missing);
+  a 403 hides the templates section gracefully. The test-migration harness
+  gained the extension's migrations path; the mailer select derives from the
+  configured mailer set (hardcoded sendmail dies). Twig 3.28's `ConfigNode`
+  joined the template-policy node allowlist (CACHE_VERSION 9 → 10) — the
+  deny-by-default policy flagged the upgrade exactly as designed.
+  The Mail templates section also manages the LAYOUT PARTIALS (layout,
+  header, footer, and the new styles partial — the clean CSS-injection
+  point: the layout includes it inside its <style> block, so overriding it
+  restyles every email without touching document structure); body-only
+  editing with per-type highlighting (CSS for styles), save/reset, and the
+  same inline lint 422s. Requires glueful/email-notification with partial
+  support (> 1.11.0).
 - **Live theme setting**: the site's theme is now an admin setting — a Theme
   card in Settings → General (options from a new
   `GET /admin/render/themes`), DB override → `RENDER_THEME` env → `default`,

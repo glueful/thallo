@@ -23,11 +23,20 @@ use Glueful\Helpers\Utils;
  */
 final class SeedLemmaRolesAndPermissions implements MigrationInterface
 {
-    /** Permissions OWNED by Lemma (created + removed by this migration). slug => label */
+    /**
+     * Permissions ENSURED by this migration (created if missing + removed on
+     * rollback). slug => [label, category]. Most are Lemma-owned; the email
+     * one is DECLARED by glueful/email-notification's permissions() catalog —
+     * but the Aegis catalog sync is CLI-driven, not part of migrations, so a
+     * grant-only reference would silently no-op on a fresh database. The
+     * create-if-missing here is idempotent by slug; a later `permissions:sync`
+     * reconciles the catalog metadata.
+     */
     private const PERMISSIONS = [
-        'content.publish' => 'Publish and unpublish content',
-        'content.manage' => 'Manage content types',
-        'content.routes' => 'Manage redirects and SEO routes',
+        'content.publish' => ['Publish and unpublish content', 'content'],
+        'content.manage' => ['Manage content types', 'content'],
+        'content.routes' => ['Manage redirects and SEO routes', 'content'],
+        'email.templates.manage' => ['Manage email templates & settings', 'email'],
     ];
 
     /** Lemma-owned roles. slug => [name, level, granted permission slugs (Aegis + Lemma)] */
@@ -46,6 +55,8 @@ final class SeedLemmaRolesAndPermissions implements MigrationInterface
             'collections.manage', 'collections.schema.manage', 'collections.data.manage',
             'analytics.read',
             'seo.manage',
+            // Email admin (glueful/email-notification): templates + transport settings.
+            'email.templates.manage',
         ],
     ];
 
@@ -55,11 +66,11 @@ final class SeedLemmaRolesAndPermissions implements MigrationInterface
     {
         $this->db = new Connection();
 
-        // Create Lemma's own permissions (idempotent).
+        // Create the ensured permissions (idempotent by slug).
         $this->ensureRows('permissions', array_map(
-            static fn(string $slug, string $label): array => [
-                'slug' => $slug, 'name' => $label, 'category' => 'content',
-                'description' => $label, 'is_system' => true,
+            static fn(string $slug, array $def): array => [
+                'slug' => $slug, 'name' => $def[0], 'category' => $def[1],
+                'description' => $def[0], 'is_system' => true,
             ],
             array_keys(self::PERMISSIONS),
             array_values(self::PERMISSIONS),

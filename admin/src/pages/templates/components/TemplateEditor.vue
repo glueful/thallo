@@ -9,10 +9,11 @@ import { autocompletion, completionKeymap } from '@codemirror/autocomplete'
 import { css } from '@codemirror/lang-css'
 import { jinja2 } from '@codemirror/legacy-modes/mode/jinja2'
 import { javascript, json } from '@codemirror/legacy-modes/mode/javascript'
+import { html } from '@codemirror/legacy-modes/mode/xml'
 import { twigCompletions } from './twigCompletions'
 
 const props = withDefaults(
-  defineProps<{ language?: 'twig' | 'css' | 'json' | 'javascript'; readonly?: boolean }>(),
+  defineProps<{ language?: 'twig' | 'css' | 'json' | 'javascript' | 'html'; readonly?: boolean }>(),
   { language: 'twig', readonly: false },
 )
 
@@ -31,6 +32,8 @@ function languageExtensions(): Extension[] {
       return [StreamLanguage.define(json)]
     case 'javascript':
       return [StreamLanguage.define(javascript)]
+    case 'html':
+      return [StreamLanguage.define(html)]
     default:
       return [
         StreamLanguage.define(jinja2),

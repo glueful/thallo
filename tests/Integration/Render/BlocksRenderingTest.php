@@ -160,8 +160,8 @@ final class BlocksRenderingTest extends LemmaTestCase
         self::assertContains('region_settings', TemplatePolicy::FUNCTIONS);
         self::assertContains('site_favicon', TemplatePolicy::FUNCTIONS);
         self::assertContains('custom_css', TemplatePolicy::FUNCTIONS);
-        // 9 = custom_css joined (custom-css spec)
-        self::assertSame(9, TemplatePolicy::CACHE_VERSION);
+        // 10 = Twig 3.28's ConfigNode joined the node allowlist
+        self::assertSame(10, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);
