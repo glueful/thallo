@@ -18,7 +18,7 @@ export interface FieldDef {
   required?: boolean
   enum?: string[]
   /** Presentation widget for `text` fields: 'plain' (textarea) or 'rich' (editor). */
-  format?: 'plain' | 'rich'
+  format?: 'plain' | 'rich' | 'icon' | 'brand-icon'
   /** Target content-type slug for a `reference` field — drives the searchable entry picker. */
   referenceType?: string
   /** Ordered-array reference/asset field. */

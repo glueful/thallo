@@ -8681,6 +8681,128 @@
                 }
             }
         },
+        "\/v1\/admin\/icons": {
+            "get": {
+                "operationId": "getV1AdminIcons",
+                "summary": "List vendored icons",
+                "tags": [
+                    "Lemma Icons"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Bare icon names from the render pack's vendored set (lucide|brands), sorted. The icon picker's source of truth \u2014 parity with icon() by construction. Requires `content.view`.",
+                "responses": {
+                    "200": {
+                        "description": "Sorted icon names."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Render pack unavailable."
+                    },
+                    "422": {
+                        "description": "Unknown set."
+                    }
+                }
+            }
+        },
         "\/v1\/admin\/regions": {
             "get": {
                 "operationId": "getV1AdminRegions",
@@ -38552,6 +38674,10 @@
         {
             "name": "Lemma Delivery",
             "description": "Operations related to Lemma Delivery"
+        },
+        {
+            "name": "Lemma Icons",
+            "description": "Operations related to Lemma Icons"
         },
         {
             "name": "Lemma Navigation",

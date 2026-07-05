@@ -1,13 +1,21 @@
 <script setup lang="ts">
 import type { FieldDef } from '../types'
+import IconField from './IconField.vue'
 
+// format branches the widget (the TextField→RichText pattern):
+//   'icon' | 'brand-icon' → the icon picker field (icon-picker spec §5)
+//   otherwise             → a plain input
 defineProps<{ field: FieldDef }>()
-// Vue 3.5 defineModel: two-way binding with no manual props/emit plumbing.
 const model = defineModel<string>()
 </script>
 
 <template>
-  <UFormField :label="field.name" :required="field.required" :name="field.name">
+  <IconField
+    v-if="field.format === 'icon' || field.format === 'brand-icon'"
+    v-model="model"
+    :field="field"
+  />
+  <UFormField v-else :label="field.name" :required="field.required" :name="field.name">
     <UInput v-model="model" class="w-full" />
   </UFormField>
 </template>

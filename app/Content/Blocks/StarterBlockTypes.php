@@ -225,7 +225,7 @@ final class StarterBlockTypes
                 'description' => 'A single decorative icon from the Lucide set, optionally linked.',
                 'schema' => [
                     ['name' => 'icon', 'type' => 'string', 'required' => true,
-                        'pattern' => '[a-z0-9]+(-[a-z0-9]+)*'],
+                        'pattern' => '[a-z0-9]+(-[a-z0-9]+)*', 'format' => 'icon'],
                     ['name' => 'size', 'type' => 'enum', 'enum' => ['small', 'medium', 'large']],
                     ['name' => 'align', 'type' => 'enum', 'enum' => ['start', 'center', 'end']],
                     ['name' => 'url', 'type' => 'string'],
@@ -284,7 +284,7 @@ final class StarterBlockTypes
             ['slug' => 'feature', 'label' => 'Feature', 'icon' => 'i-lucide-check',
                 'category' => 'Items', 'description' => 'One feature: icon, title, description, link.',
                 'schema' => [
-                    ['name' => 'icon', 'type' => 'string', 'pattern' => '[a-z0-9]+(-[a-z0-9]+)*'],
+                    ['name' => 'icon', 'type' => 'string', 'pattern' => '[a-z0-9]+(-[a-z0-9]+)*', 'format' => 'icon'],
                     ['name' => 'title', 'type' => 'string', 'required' => true],
                     ['name' => 'description', 'type' => 'text'],
                     ['name' => 'url', 'type' => 'string'],
@@ -319,7 +319,7 @@ final class StarterBlockTypes
                 'category' => 'Items', 'description' => 'One social profile: brand icon + URL.',
                 'schema' => [
                     ['name' => 'icon', 'type' => 'string', 'required' => true,
-                        'pattern' => 'brand:[a-z0-9]+(-[a-z0-9]+)*'],
+                        'pattern' => 'brand:[a-z0-9]+(-[a-z0-9]+)*', 'format' => 'brand-icon'],
                     ['name' => 'url', 'type' => 'string', 'required' => true],
                     ['name' => 'label', 'type' => 'string'],
                 ]],

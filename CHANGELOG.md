@@ -7,6 +7,17 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Icon picker**: `GET /admin/icons?set=lucide|brands` exposes the render
+  pack's VENDORED icon inventory (glob parity with what `icon()` renders,
+  per-process memo). String fields gain editor-hint formats — `STRING_FORMATS`
+  (`icon` | `brand-icon`), type-scoped like text's `plain|rich`, validation
+  unchanged (pattern/enum; seeded brand-icon schemas PAIR the `brand:`
+  pattern, so API-written bare names 422). A searchable page-numbered
+  `IconPickerModal` (80/page, one page of tiles in the DOM, pinned selection,
+  Clear, empty state) behind a compact `IconField` — wired through
+  StringField's format branch (custom types get it by declaring the format)
+  and used directly by navigation menu items. Brand fields display bare names
+  but store `brand:`-prefixed values.
 - **Navigation block v2 + menu-item icons**: the navigation block becomes a
   real site-nav component — the `menu` field is picked from existing menus in
   the editor (cosmetic select; the slug + pattern rule stay the contract),

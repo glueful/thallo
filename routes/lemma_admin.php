@@ -19,6 +19,7 @@ use App\Http\Controllers\EmailSettingsController;
 use App\Http\Controllers\ExtensionAdminController;
 use App\Http\Controllers\GeneralSettingsController;
 use App\Http\Controllers\HealthAdminController;
+use App\Http\Controllers\IconInventoryController;
 use App\Http\Controllers\ImportExportController;
 use App\Http\Controllers\MediaAdminController;
 use App\Http\Controllers\RegionAdminController;
@@ -200,6 +201,10 @@ $router->group(['prefix' => '/v1/admin', 'middleware' => ['auth']], function (Ro
 
     $router->post('/settings/email/test', [EmailSettingsController::class, 'test'])
         ->middleware('lemma_permission:system.config');
+
+    // Vendored icon inventory for the admin icon picker.
+    $router->get('/icons', [IconInventoryController::class, 'index'])
+        ->middleware('lemma_permission:content.view');
 
     // Global chrome regions (header/footer block lists) — chrome is content policy.
     $router->get('/regions', [RegionAdminController::class, 'index'])

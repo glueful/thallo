@@ -11,6 +11,7 @@ use Glueful\Events\EventService;
 use Glueful\Extensions\ServiceProvider;
 use Glueful\Lemma\Render\Templates\DatabaseTemplateLoader;
 use Glueful\Lemma\Render\Templates\IconSet;
+use Glueful\Lemma\Render\Templates\IconInventory;
 use Glueful\Lemma\Render\Templates\TemplateLinter;
 use Glueful\Lemma\Render\Templates\TemplateRepository;
 use Glueful\Lemma\Contracts\Capability\Capability;
@@ -82,6 +83,10 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             PurgeRenderCacheOnRegionUpdate::class => [
                 'shared' => true,
                 'factory' => [self::class, 'makePurgeRenderCacheOnRegionUpdate'],
+            ],
+            IconInventory::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeIconInventory'],
             ],
             ClearRenderCacheCommand::class => [
                 'shared' => true,
@@ -184,6 +189,11 @@ final class LemmaRenderServiceProvider extends ServiceProvider
         ContainerInterface $container,
     ): PurgeRenderCacheOnRegionUpdate {
         return new PurgeRenderCacheOnRegionUpdate($container);
+    }
+
+    public static function makeIconInventory(ContainerInterface $container): IconInventory
+    {
+        return new IconInventory(dirname(__DIR__) . '/resources/icons');
     }
 
     public static function makeRenderErrorCache(ContainerInterface $container): RenderErrorCache
