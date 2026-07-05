@@ -172,6 +172,8 @@ final class NavigationAdminController
             $node = [
                 'uuid' => (string) $row['uuid'],
                 'kind' => (string) $row['kind'],
+                // Optional Lucide icon (nav-v2 spec §5).
+                'icon' => isset($row['icon']) && $row['icon'] !== '' ? (string) $row['icon'] : null,
                 'labels' => json_decode((string) $row['labels'], true) ?: [],
                 'children' => $this->tree($byParent, (string) $row['uuid'], $locale),
             ];

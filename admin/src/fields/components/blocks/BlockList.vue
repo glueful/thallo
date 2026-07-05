@@ -89,6 +89,7 @@ function insertType(type: BlockType): void {
             :open="menuIndex === index"
             :portal="false"
             :content="{ side: 'bottom', align: 'start', sideOffset: 4 }"
+            :ui="{ content: 'z-50' }"
             @update:open="(v: boolean) => { if (!v) closeMenu() }"
           >
             <template #anchor>
@@ -141,6 +142,7 @@ function insertType(type: BlockType): void {
         :open="menuIndex === blocks.length"
         :portal="false"
         :content="{ side: 'bottom', align: 'start', sideOffset: 4 }"
+        :ui="{ content: 'z-50' }"
         @update:open="(v: boolean) => { if (!v) closeMenu() }"
       >
         <template #anchor>

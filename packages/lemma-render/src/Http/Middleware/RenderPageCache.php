@@ -101,10 +101,26 @@ final class RenderPageCache implements RouteMiddleware
      */
     private function key(string $path): string
     {
+        return "render:{$this->theme}:" . rawurlencode(self::normalizePath($path));
+    }
+
+    /**
+     * The ONE request-path normalizer (nav-v2 spec §3): cache keys and the
+     * render context's current_path must never disagree on what "the path" is.
+     *
+     * SCOPE PIN (nav-v2 review P2): HTTP-path hygiene ONLY — strips any query
+     * string, collapses duplicate slashes, trims the trailing slash (root
+     * stays '/'). It performs NO canonical routing decisions: no locale
+     * collapse, no root-mount conversion, no redirect logic. Those happen
+     * BEFORE render (301s + CanonicalPathBuilder). This is not a canonical
+     * URL builder — do not grow it into one.
+     */
+    public static function normalizePath(string $path): string
+    {
+        $path = (string) strtok($path, '?');
         $collapsed = (string) preg_replace('#/{2,}#', '/', '/' . trim($path, " \t"));
         $trimmed = rtrim($collapsed, '/');
-        $normalized = $trimmed === '' ? '/' : $trimmed;
-        return "render:{$this->theme}:" . rawurlencode($normalized);
+        return $trimmed === '' ? '/' : $trimmed;
     }
 
     /** @param array{body: string, status: int, contentType: string, cacheTag: string, etag: string} $entry */

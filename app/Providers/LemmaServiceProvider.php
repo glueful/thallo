@@ -32,6 +32,7 @@ use App\Http\Controllers\GeneralSettingsController;
 use App\Http\Controllers\HealthAdminController;
 use App\Http\Controllers\ImportExportController;
 use App\Http\Controllers\MediaAdminController;
+use App\Http\Controllers\RegionAdminController;
 use App\Http\Controllers\ScheduledTasksController;
 use App\Http\Controllers\UserAdminController;
 use App\Support\UserRoleAssignmentPolicy;
@@ -81,6 +82,9 @@ use App\Content\Blocks\EngineBlockEditableFieldResolver;
 use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Blocks\BlockUsageScanner;
 use App\Content\Blocks\Migration\BlockBackfillRunner;
+use App\Content\Regions\EngineRegionReader;
+use App\Content\Regions\RegionRepository;
+use App\Content\Regions\RegionValidator;
 use App\Content\Blocks\Migration\BlockInstanceWalker;
 use App\Content\Blocks\Migration\BlockMigrationRepository;
 use App\Content\Blocks\Migration\BlockMigrationService;
@@ -125,6 +129,7 @@ use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Cache\CacheStore;
 use Glueful\Lemma\Contracts\Authoring\ContentWriter;
 use Glueful\Lemma\Contracts\Content\BlockEditableFieldResolver;
+use Glueful\Lemma\Contracts\Content\RegionReader;
 use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Authoring\DraftSummaryReader;
 use Glueful\Lemma\Contracts\Authoring\PublishGate;
@@ -620,6 +625,23 @@ final class LemmaServiceProvider extends ServiceProvider
                 'shared'   => true,
                 'autowire' => true,
             ],
+            // Global chrome regions (global-regions spec): storage + save
+            // validation + the render-pack's soft-bound reader seam.
+            RegionRepository::class => [
+                'class'    => RegionRepository::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            RegionValidator::class => [
+                'class'    => RegionValidator::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            RegionReader::class => [
+                'class'    => EngineRegionReader::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
             AdminUrlProvider::class => [
                 'class'    => EngineAdminUrlProvider::class,
                 'shared'   => true,
@@ -833,6 +855,11 @@ final class LemmaServiceProvider extends ServiceProvider
             ],
             GeneralSettingsController::class => [
                 'class' => GeneralSettingsController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            RegionAdminController::class => [
+                'class' => RegionAdminController::class,
                 'shared' => true,
                 'autowire' => true,
             ],

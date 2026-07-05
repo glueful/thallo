@@ -94,7 +94,7 @@ final class MenuRepository
     public function itemsOf(string $menuUuid): array
     {
         $stmt = $this->db->getPDO()->prepare(
-            'SELECT uuid, parent_uuid, position, kind, entry_uuid, url, labels'
+            'SELECT uuid, parent_uuid, position, kind, entry_uuid, url, icon, labels'
             . ' FROM navigation_items WHERE menu_uuid = ? ORDER BY position ASC, id ASC'
         );
         $stmt->execute([$menuUuid]);

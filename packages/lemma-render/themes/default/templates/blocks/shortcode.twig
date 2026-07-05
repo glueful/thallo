@@ -3,6 +3,6 @@
    also block traversal for any legacy value written around the API. #}
 {% if name and '/' not in name and '.' not in name %}
 <div class="lemma-block lemma-block-shortcode" data-shortcode="{{ name }}">
-  {%- include 'shortcodes/' ~ name ~ '.twig' ignore missing with {'params': data.params|default({})} only -%}
+  {%- include 'shortcodes/' ~ name ~ '.twig' ignore missing with {'params': data.params|default({}), 'site': site|default({})} only -%}
 </div>
 {% endif %}

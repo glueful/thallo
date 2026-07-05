@@ -75,6 +75,13 @@ img { max-width: 100%; display: block; }
 }
 .site-name { font-weight: 700; font-size: 1.05rem; color: var(--ink); text-decoration: none; display: inline-flex; align-items: center; }
 .site-logo { display: block; height: 2rem; width: auto; max-width: 12rem; object-fit: contain; }
+
+/* Region-backed chrome (global-regions spec): modifier classes from region settings. */
+.lemma-region-header--sticky { position: sticky; top: 0; z-index: 40; background: var(--bg); }
+.lemma-region-header--full .site-header__inner,
+.lemma-region-footer--full .site-footer__inner { max-width: none; }
+.lemma-region .site-header__inner,
+.lemma-region .site-footer__inner { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
 .site-nav { display: flex; gap: var(--space-4); flex-wrap: wrap; }
 .site-nav a {
   color: var(--muted);

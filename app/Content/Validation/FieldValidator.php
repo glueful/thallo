@@ -78,9 +78,11 @@ final class FieldValidator
 
     /**
      * The fixed _presentation vocabulary: show_title (bool), layout
-     * ('full'|'centered'). Anything else fails loudly — presentation is a
-     * system contract, not a free-form bag. An empty array is allowed and
-     * normalized away (treated as "no override").
+     * ('full'|'centered'), header/footer ('default'|'hidden' — global-regions
+     * spec §7; 'variant:{slug}' is future vocabulary, rejected today).
+     * Anything else fails loudly — presentation is a system contract, not a
+     * free-form bag. An empty array is allowed and normalized away (treated
+     * as "no override").
      *
      * @return array<string,mixed>|null
      * @throws ValidationException
@@ -102,6 +104,11 @@ final class FieldValidator
                     throw new ValidationException(['_presentation.layout' => "must be 'full' or 'centered'"]);
                 }
                 $clean['layout'] = $subValue;
+            } elseif ($key === 'header' || $key === 'footer') {
+                if (!in_array($subValue, ['default', 'hidden'], true)) {
+                    throw new ValidationException(["_presentation.{$key}" => "must be 'default' or 'hidden'"]);
+                }
+                $clean[$key] = $subValue;
             } else {
                 throw new ValidationException(['_presentation' => "unknown setting '{$key}'"]);
             }

@@ -128,6 +128,9 @@ abstract class LemmaTestCase extends TestCase
         // install/save (e.g. listing_types) must never shadow another test's
         // config/.env fallback.
         $this->connection()->table('lemma_settings')->where('key', '!=', '')->forceDelete();
+        // Chrome regions (varchar `slug` PK — no integer id): a prior test's saved
+        // header/footer must never leak chrome into another test's render.
+        $this->connection()->table('lemma_regions')->where('slug', '!=', '')->forceDelete();
 
         // The SettingsStore singleton memoises lemma_settings rows per process:
         // the truncation above just deleted rows its cache may still hold (or a

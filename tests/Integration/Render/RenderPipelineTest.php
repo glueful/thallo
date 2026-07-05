@@ -263,6 +263,55 @@ final class RenderPipelineTest extends LemmaTestCase
         return $entry;
     }
 
+    public function testCurrentPathIsInTemplateContextNormalized(): void
+    {
+        // Unit: the shared normalizer (HTTP-path hygiene ONLY — no canonical
+        // routing decisions; the P2 scope pin).
+        $normalize = \Glueful\Lemma\Render\Http\Middleware\RenderPageCache::normalizePath(...);
+        self::assertSame('/pages/ctx', $normalize('/pages//ctx/'));
+        self::assertSame('/pages/ctx', $normalize('/pages/ctx?x=1'));
+        self::assertSame('/', $normalize('/'));
+        self::assertSame('/', $normalize('//'));
+
+        // End-to-end: a TEST-ONLY minimal DB layout override prints the probe —
+        // the production layout gains no debug artifact (nav-v2 review P1); the
+        // override row lives in the test DB and truncates with the test. (A
+        // verbatim layout copy can't be the fixture: the filesystem layout uses
+        // constructs the DB sandbox deliberately excludes.)
+        $this->seedPresentationEntry(['title' => 'Ctx'], 'ctx');
+        (new \Glueful\Lemma\Render\Templates\TemplateRepository($this->connection()))->save(
+            'default',
+            'layout.twig',
+            '<!doctype html><html><body><!-- test-probe:{{ current_path }} -->'
+                . '{% block content %}{% endblock %}</body></html>',
+            null,
+        );
+        // Non-canonical forms 301 BEFORE render (the resolver's job — exactly
+        // why exact-matching against canonical item urls is sound):
+        self::assertSame(301, $this->handle(Request::create('/pages//ctx/', 'GET'))->getStatusCode());
+
+        $res = $this->handle(Request::create('/pages/ctx?utm=x', 'GET'));
+        self::assertSame(200, $res->getStatusCode());
+        self::assertStringContainsString('test-probe:/pages/ctx', (string) $res->getContent());
+    }
+
+    public function testPresentationHiddenSuppressesChromeAndItsFallback(): void
+    {
+        // Chrome keys (global-regions spec §7/§12): 'hidden' suppresses BOTH the
+        // region render and the hardcoded fallback — per page, no region needed.
+        $entry = $this->seedPresentationEntry([
+            'title' => 'No Chrome',
+            '_presentation' => ['header' => 'hidden', 'footer' => 'hidden'],
+        ], 'nochrome');
+        $res = $this->handle(Request::create('/pages/nochrome', 'GET'));
+        self::assertSame(200, $res->getStatusCode());
+        $html = (string) $res->getContent();
+        self::assertStringNotContainsString('class="site-name"', $html);   // no fallback header
+        self::assertStringNotContainsString('lemma-region-header', $html); // no region header
+        self::assertStringNotContainsString('<footer', $html);             // no footer at all
+        self::assertStringContainsString('No Chrome', $html);              // the page itself renders
+    }
+
     public function testPresentationOverrideHidesTitleAndSetsLayout(): void
     {
         $entry = $this->seedPresentationEntry([
@@ -456,6 +505,19 @@ final class RenderPipelineTest extends LemmaTestCase
         }
         try {
             $validator->validate($schema, ['title' => 'T', '_presentation' => ['sparkles' => true]]);
+            self::fail('expected ValidationException');
+        } catch (\App\Content\Validation\ValidationException) {
+        }
+
+        // Chrome keys (global-regions spec §7): 'default' | 'hidden' only —
+        // variants are FUTURE vocabulary and must fail loudly today.
+        $clean = $validator->validate($schema, [
+            'title' => 'T',
+            '_presentation' => ['header' => 'hidden', 'footer' => 'default'],
+        ]);
+        self::assertSame(['header' => 'hidden', 'footer' => 'default'], $clean['_presentation']);
+        try {
+            $validator->validate($schema, ['title' => 'T', '_presentation' => ['footer' => 'variant:mini']]);
             self::fail('expected ValidationException');
         } catch (\App\Content\Validation\ValidationException) {
         }

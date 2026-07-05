@@ -15,6 +15,7 @@ use Glueful\Lemma\Contracts\Delivery\PreviewSessionVerifier;
 use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
 use Glueful\Lemma\Render\HomepageConfigError;
 use Glueful\Lemma\Render\Http\Middleware\PreviewSessionMiddleware;
+use Glueful\Lemma\Render\Http\Middleware\RenderPageCache;
 use Glueful\Lemma\Render\RenderContextExtension;
 use Glueful\Lemma\Render\RenderErrorCache;
 use Glueful\Lemma\Render\ReservedPaths;
@@ -72,8 +73,12 @@ final class RenderController
      */
     private bool $annotateBlocks = false;
 
+    /** Normalized request path for the render context (nav-v2 spec §3). */
+    private string $currentPath = '/';
+
     public function home(Request $request): Response
     {
+        $this->currentPath = RenderPageCache::normalizePath($request->getPathInfo());
         $session = $this->session($request);
         $this->annotateBlocks = $session !== null;
         // Source-aware provider (homepage-setting spec §0): the DB site setting
@@ -118,6 +123,7 @@ final class RenderController
 
     public function page(Request $request, string $path): Response
     {
+        $this->currentPath = RenderPageCache::normalizePath($request->getPathInfo());
         if ($this->reserved->isReserved($path)) {
             // Byte-compatible with the router's own 404 (shape + content type); API
             // clients under /v1 etc. never receive themed HTML.
@@ -242,6 +248,7 @@ final class RenderController
     )]
     public function preview(Request $request, string $token): Response
     {
+        $this->currentPath = RenderPageCache::normalizePath($request->getPathInfo());
         // Preview-session render, entry point ONE (visual-canvas spec §2 P1): this
         // route does NOT pass PreviewSessionMiddleware — the canvas iframe's first
         // load lands here, so annotation keys off controller knowledge, not the
@@ -611,7 +618,7 @@ final class RenderController
      * sessions inherit them.
      *
      * @param array<string,mixed>|null $override the raw per-page _presentation
-     * @return array{show_title: bool, layout: string}
+     * @return array{show_title: bool, layout: string, header: string, footer: string}
      */
     private function presentationContext(?string $typeSlug, ?array $override): array
     {
@@ -620,9 +627,15 @@ final class RenderController
             ? $settings['types'][$typeSlug]
             : [];
         $layout = $override['layout'] ?? $type['layout'] ?? $settings['layout'] ?? 'centered';
+        // Chrome suppression (global-regions spec §7): anything but the exact
+        // 'hidden' composes to 'default' — future variant values degrade safely.
+        $header = $override['header'] ?? $type['header'] ?? $settings['header'] ?? 'default';
+        $footer = $override['footer'] ?? $type['footer'] ?? $settings['footer'] ?? 'default';
         return [
             'show_title' => (bool) ($override['show_title'] ?? $type['show_title'] ?? $settings['show_title'] ?? true),
             'layout' => $layout === 'full' ? 'full' : 'centered',
+            'header' => $header === 'hidden' ? 'hidden' : 'default',
+            'footer' => $footer === 'hidden' ? 'hidden' : 'default',
         ];
     }
 
@@ -660,6 +673,9 @@ final class RenderController
                 'locale' => $locale,
                 'locales' => [],
             ],
+            // Normalized request path (nav-v2 spec §3): same normalizer as the
+            // page-cache key, so cached bodies and this value agree per path.
+            'current_path' => $this->currentPath,
         ];
         if ($entry !== null) {
             $context['entry'] = $entry;

@@ -2,6 +2,7 @@
 import { computed, inject } from 'vue'
 import { fieldComponent } from '../../registry'
 import { toFieldDef } from '../../normalize'
+import { useNavMenus } from '@/queries/navigation'
 import { BlocksContextKey } from './context'
 import type { BlockInstance } from './useBlockListOps'
 import { newBlockId } from './useBlockListOps'
@@ -55,6 +56,39 @@ const summary = computed(() => {
   }
   return ''
 })
+
+// Cosmetic editor ergonomics for SEEDED block types, keyed by their immutable
+// type slugs (frontend-only by decision — no schema vocabulary). Columns:
+// col_3 hides unless layout is 3, and the widths presets narrow to the
+// current layout's column count. Hiding is COSMETIC — hidden fields keep
+// their data (the render template already ignores them), so flipping layout
+// back restores everything. Navigation: the `menu` slug field renders as a
+// select over existing menus (nav-v2 spec §2) — the picker is cosmetic, the
+// slug + pattern rule stay the contract. Custom block types are unaffected.
+const columnsLayout = computed(() =>
+  String(props.block.data.layout ?? '2') === '3' ? 3 : 2,
+)
+
+function fieldVisible(name: string): boolean {
+  if (props.block.type !== 'columns') return true
+  if (name === 'col_3') return columnsLayout.value === 3
+  return true
+}
+
+function displayFieldDef(f: Parameters<typeof toFieldDef>[0]): ReturnType<typeof toFieldDef> {
+  const def = toFieldDef(f)
+  if (props.block.type === 'columns' && def.name === 'widths' && def.enum) {
+    return { ...def, enum: def.enum.filter((v) => v.split('-').length === columnsLayout.value) }
+  }
+  return def
+}
+
+// Rules of hooks: called unconditionally; the enabled-gate means it only
+// FETCHES for navigation blocks.
+const menusQuery = useNavMenus(() => props.block.type === 'navigation')
+const menuOptions = computed(() =>
+  (menusQuery.data.value ?? []).map((m) => ({ label: m.name || m.slug, value: m.slug })),
+)
 
 // Per-card confirm state (the pre-refactor field-global ref behaved identically
 // for a single user; local state avoids plumbing a model through every level).
@@ -259,28 +293,43 @@ function onHeaderKeydown(event: KeyboardEvent): void {
            FieldDef. Blocks-typed fields render a NESTED BlockList inside the same
            ops-owning tree, or the max-depth notice at the cap. -->
       <template v-for="f in type?.schema ?? []" :key="f.name">
-        <p
-          v-if="toFieldDef(f).type === 'blocks' && depth >= ctx.maxDepth"
-          class="rounded border border-dashed border-default px-2 py-1.5 text-xs text-muted"
-          data-test="max-depth-notice"
-        >
-          “{{ f.name }}”: maximum nesting depth ({{ ctx.maxDepth }}) reached.
-        </p>
-        <UFormField v-else-if="toFieldDef(f).type === 'blocks'" :label="f.name" :name="f.name">
-          <BlockList
-            :blocks="(block.data[f.name] as BlockInstance[]) ?? []"
-            :parent-id="block.id"
-            :region="f.name"
-            :depth="depth + 1"
+        <template v-if="fieldVisible(f.name)">
+          <p
+            v-if="toFieldDef(f).type === 'blocks' && depth >= ctx.maxDepth"
+            class="rounded border border-dashed border-default px-2 py-1.5 text-xs text-muted"
+            data-test="max-depth-notice"
+          >
+            “{{ f.name }}”: maximum nesting depth ({{ ctx.maxDepth }}) reached.
+          </p>
+          <UFormField v-else-if="toFieldDef(f).type === 'blocks'" :label="f.name" :name="f.name">
+            <BlockList
+              :blocks="(block.data[f.name] as BlockInstance[]) ?? []"
+              :parent-id="block.id"
+              :region="f.name"
+              :depth="depth + 1"
+            />
+          </UFormField>
+          <UFormField
+            v-else-if="block.type === 'navigation' && f.name === 'menu'"
+            label="menu"
+            name="menu"
+          >
+            <USelect
+              :model-value="(block.data.menu as string) ?? ''"
+              :items="menuOptions"
+              class="w-full"
+              data-test="nav-menu-select"
+              @update:model-value="(v: unknown) => patchData('menu', v)"
+            />
+          </UFormField>
+          <component
+            :is="fieldComponent(toFieldDef(f).type)"
+            v-else
+            :field="displayFieldDef(f)"
+            :model-value="block.data[f.name]"
+            @update:model-value="(v: unknown) => patchData(f.name, v)"
           />
-        </UFormField>
-        <component
-          :is="fieldComponent(toFieldDef(f).type)"
-          v-else
-          :field="toFieldDef(f)"
-          :model-value="block.data[f.name]"
-          @update:model-value="(v: unknown) => patchData(f.name, v)"
-        />
+        </template>
       </template>
     </div>
   </div>

@@ -16,6 +16,7 @@ use Glueful\Lemma\Render\Templates\TemplateRepository;
 use Glueful\Lemma\Contracts\Capability\Capability;
 use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
 use Glueful\Lemma\Contracts\Content\BlockEditableFieldResolver;
+use Glueful\Lemma\Contracts\Content\RegionReader;
 use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
 use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
 use Glueful\Lemma\Contracts\Settings\SiteLogoProvider;
@@ -23,6 +24,7 @@ use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
 use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
 use Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator;
 use Glueful\Lemma\Contracts\Navigation\MenuReader;
+use Glueful\Lemma\Contracts\Content\RegionUpdated;
 use Glueful\Lemma\Contracts\Navigation\MenuUpdated;
 use Glueful\Lemma\Render\Console\ClearRenderCacheCommand;
 use Glueful\Lemma\Contracts\Delivery\PreviewSessionVerifier;
@@ -32,6 +34,7 @@ use Glueful\Lemma\Render\Templates\TemplateCatalog;
 use Glueful\Lemma\Render\Http\Middleware\PreviewSessionMiddleware;
 use Glueful\Lemma\Render\Http\Middleware\RenderPageCache;
 use Glueful\Lemma\Render\Listeners\PurgeRenderCacheOnMenuUpdate;
+use Glueful\Lemma\Render\Listeners\PurgeRenderCacheOnRegionUpdate;
 use Glueful\Lemma\Render\Listeners\PurgeRenderCacheOnTemplateUpdate;
 use Glueful\Lemma\Render\Templates\TemplateUpdated;
 use Psr\Container\ContainerInterface;
@@ -75,6 +78,10 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             PurgeRenderCacheOnMenuUpdate::class => [
                 'shared' => true,
                 'factory' => [self::class, 'makePurgeRenderCacheOnMenuUpdate'],
+            ],
+            PurgeRenderCacheOnRegionUpdate::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makePurgeRenderCacheOnRegionUpdate'],
             ],
             ClearRenderCacheCommand::class => [
                 'shared' => true,
@@ -171,6 +178,12 @@ final class LemmaRenderServiceProvider extends ServiceProvider
         ContainerInterface $container,
     ): PurgeRenderCacheOnMenuUpdate {
         return new PurgeRenderCacheOnMenuUpdate($container);
+    }
+
+    public static function makePurgeRenderCacheOnRegionUpdate(
+        ContainerInterface $container,
+    ): PurgeRenderCacheOnRegionUpdate {
+        return new PurgeRenderCacheOnRegionUpdate($container);
     }
 
     public static function makeRenderErrorCache(ContainerInterface $container): RenderErrorCache
@@ -276,6 +289,11 @@ final class LemmaRenderServiceProvider extends ServiceProvider
             // icon() (icon-library spec): pack-internal furniture — fixed
             // resources root, no app-side contract to soft-bind.
             new IconSet(dirname(__DIR__) . '/resources/icons'),
+            // region_blocks()/region_settings() (global-regions spec): soft-bound;
+            // null = fallback chrome everywhere.
+            $container->has(RegionReader::class)
+                ? $container->get(RegionReader::class)
+                : null,
         );
     }
 
@@ -340,13 +358,18 @@ final class LemmaRenderServiceProvider extends ServiceProvider
                 $this->serveFrontend('/theme-assets', $assets, ['spaFallback' => false]);
             }
 
-            // The pack's ONE purge listener (spec §4): menu changes purge broadly.
+            // The pack's purge listeners (spec §4 + global-regions spec §11): menu and
+            // region changes purge broadly — both can appear on any rendered page.
             // Entry/type purges need no render code — InvalidateCacheTagsListener
             // already invalidates the tags the middleware stores under.
             $events = app($context, EventService::class);
             $events->addListener(
                 MenuUpdated::class,
                 [app($context, PurgeRenderCacheOnMenuUpdate::class), 'onMenuUpdated'],
+            );
+            $events->addListener(
+                RegionUpdated::class,
+                [app($context, PurgeRenderCacheOnRegionUpdate::class), 'onRegionUpdated'],
             );
 
             // DB-edited templates (spec §5/§7): admin routes + purge listener only

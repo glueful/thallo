@@ -100,6 +100,19 @@ function setLabel(item: NavTreeItem, value: string): void {
             {{ item.target_url }}
           </code>
         </template>
+        <!-- Optional Lucide icon (nav-v2): the site renders it via icon();
+             the admin previews with its own i-lucide-* set (same names). -->
+        <div class="flex items-center gap-1">
+          <UInput
+            :model-value="item.icon ?? ''"
+            size="sm"
+            class="w-36"
+            placeholder="icon (lucide)"
+            data-test="tree-item-icon"
+            @update:model-value="(v: string) => { item.icon = v.trim() === '' ? null : v.trim(); changed() }"
+          />
+          <UIcon v-if="item.icon" :name="`i-lucide-${item.icon}`" class="size-4 shrink-0 text-muted" />
+        </div>
 
         <span class="grow" />
         <UButton size="xs" variant="ghost" icon="i-lucide-arrow-up" data-test="tree-item-up" @click="move(i, -1)" />

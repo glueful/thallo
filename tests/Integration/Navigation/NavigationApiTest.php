@@ -74,7 +74,8 @@ final class NavigationApiTest extends LemmaTestCase
         $tree = [
             'lock_version' => 0,
             'items' => [
-                ['kind' => 'url', 'url' => '/about', 'labels' => ['en' => 'About'], 'children' => []],
+                ['kind' => 'url', 'url' => '/about', 'icon' => 'external-link',
+                    'labels' => ['en' => 'About'], 'children' => []],
                 ['kind' => 'entry', 'entry_uuid' => $entry, 'labels' => ['en' => 'Hello'], 'children' => [
                     ['kind' => 'url', 'url' => 'https://example.test', 'labels' => ['en' => 'Ext'], 'children' => []],
                 ]],
@@ -87,6 +88,9 @@ final class NavigationApiTest extends LemmaTestCase
         self::assertSame(1, $show['lock_version']);
         self::assertSame('en', $show['locale']);
         self::assertCount(2, $show['items']);
+        // Per-item icon round-trips (nav-v2 spec §5); absent stays null.
+        self::assertSame('external-link', $show['items'][0]['icon']);
+        self::assertNull($show['items'][1]['icon']);
         self::assertSame('published', $show['items'][1]['target_status']);
         // Exact canonical: the default locale collapses (no /en/ prefix).
         self::assertSame('https://site.test/blog/hello', (string) $show['items'][1]['target_url']);
@@ -131,6 +135,11 @@ final class NavigationApiTest extends LemmaTestCase
             'unknown kind' => [['kind' => 'blob', 'labels' => [], 'children' => []]],
             'javascript url' => [['kind' => 'url', 'url' => 'javascript:alert(1)', 'labels' => [], 'children' => []]],
             'missing entry' => [['kind' => 'entry', 'entry_uuid' => 'nope00000000', 'labels' => [], 'children' => []]],
+            // Icon grammar (nav-v2 spec §5): lucide-only, lowercase-hyphenated.
+            'malformed icon' => [['kind' => 'url', 'url' => '/x', 'icon' => 'Bad Name',
+                'labels' => [], 'children' => []]],
+            'brand icon' => [['kind' => 'url', 'url' => '/x', 'icon' => 'brand:github',
+                'labels' => [], 'children' => []]],
         ];
         // depth > 6
         $deep = ['kind' => 'url', 'url' => '/x', 'labels' => [], 'children' => []];

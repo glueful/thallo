@@ -55,6 +55,18 @@
       </span>
     </div>
   {% endif %}
+  {# Global chrome regions (global-regions spec): a saved region renders through
+     region_blocks() (annotation-suppressed internally); EVERY null — unbound
+     reader, absent row, saved-empty list — falls back to the hardcoded chrome
+     below. Hiding is a page _presentation decision, never an empty region. #}
+  {% set headerHidden = (presentation.header|default('default')) == 'hidden' %}
+  {% set headerHtml = headerHidden ? null : region_blocks('header') %}
+  {% if headerHtml %}
+    {% set hs = region_settings('header') %}
+    <header class="site-header lemma-region lemma-region-header lemma-region-header--{{ hs.width|default('contained') }}{% if hs.sticky|default(false) %} lemma-region-header--sticky{% endif %}">
+      <div class="site-header__inner">{{ headerHtml }}</div>
+    </header>
+  {% elseif not headerHidden %}
   <header class="site-header">
     <div class="site-header__inner">
       {% set logo = site_logo() %}
@@ -72,14 +84,24 @@
       </nav>
     </div>
   </header>
+  {% endif %}
   {# The COMPOSED presentation context (spec §5a): page _presentation override
      -> theme.json per-type -> theme.json default -> built-ins. Templates never
      read _presentation directly. #}
   <main class="layout--{{ presentation.layout ?? 'centered' }}">
     {% block content %}{% endblock %}
   </main>
+  {% set footerHidden = (presentation.footer|default('default')) == 'hidden' %}
+  {% set footerHtml = footerHidden ? null : region_blocks('footer') %}
+  {% if footerHtml %}
+    {% set fs = region_settings('footer') %}
+    <footer class="site-footer lemma-region lemma-region-footer lemma-region-footer--{{ fs.width|default('contained') }}">
+      <div class="site-footer__inner">{{ footerHtml }}</div>
+    </footer>
+  {% elseif not footerHidden %}
   <footer class="site-footer">
     <div class="site-footer__inner"><small>{{ site.name }}</small></div>
   </footer>
+  {% endif %}
 </body>
 </html>

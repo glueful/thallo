@@ -40,10 +40,11 @@ final class SeedBlockTypesTest extends LemmaTestCase
         self::assertSame('Layout', $section['category']);
         self::assertContains('blocks', array_column($section['schema'], 'type'));
 
-        // Block-library expansion (spec §3) + icon block (icon-library follow-up):
-        // 31 types; html seeds DEACTIVATED; hero/cta carry the Nuxt UI shapes;
+        // Block-library expansion (spec §3) + icon block (icon-library follow-up)
+        // + navigation/social_links + social_link child (global-regions spec):
+        // 34 types; html seeds DEACTIVATED; hero/cta carry the Nuxt UI shapes;
         // container declares value constraints.
-        self::assertSame(31, $expected);
+        self::assertSame(34, $expected);
         self::assertSame(0, (int) $repo->findBySlug('html')['active']);
         self::assertSame('Items', $repo->findBySlug('testimonial')['category']);
         $heroFields = array_column($repo->findBySlug('hero')['schema'], 'name');
@@ -60,6 +61,21 @@ final class SeedBlockTypesTest extends LemmaTestCase
         self::assertSame('#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?', $container['background_color']['pattern']);
         self::assertSame(0, $container['overlay_opacity']['min']);
         self::assertSame(100, $container['overlay_opacity']['max']);
+
+        // Columns sizing (columns-sizing spec): ratio presets + vertical alignment.
+        $columns = array_column($repo->findBySlug('columns')['schema'], null, 'name');
+        self::assertContains('33-67', $columns['widths']['enum']);
+        self::assertContains('25-25-50', $columns['widths']['enum']);
+        self::assertSame(['stretch', 'top', 'center', 'bottom'], $columns['align']['enum']);
+
+        // Navigation v2 (nav-v2 spec §1): styling + submenu enums.
+        $nav = array_column($repo->findBySlug('navigation')['schema'], null, 'name');
+        self::assertSame(['start', 'center', 'end'], $nav['align']['enum']);
+        self::assertSame(['sm', 'md', 'lg'], $nav['size']['enum']);
+        self::assertSame(['underline', 'pill', 'none'], $nav['active_style']['enum']);
+        self::assertSame(['color', 'underline', 'pill'], $nav['hover_style']['enum']);
+        self::assertSame(['chevron-down', 'chevron-right', 'plus', 'none'], $nav['submenu_icon']['enum']);
+        self::assertSame(['hover', 'click'], $nav['submenu_trigger']['enum']);
     }
 
     public function testRerunSkipsEverythingAndPreservesAdminEdits(): void

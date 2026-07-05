@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace App\Setup;
 
+use App\Content\Regions\RegionRepository;
 use App\Content\Repositories\ContentTypeRepository;
 use Glueful\Auth\PasswordHasher;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Users\Repositories\UserRepository;
+use Glueful\Helpers\Utils;
 
 /**
  * Single source of truth for first-run installation.
@@ -169,6 +171,24 @@ final class SetupService
             // half-working-default trap. A DB setting (editable in Settings →
             // General) since the taxonomy-defaults work.
             $this->put('listing_types', 'post');
+
+            // Default chrome regions (global-regions spec §9): reproduce the
+            // theme's hardcoded look so fresh installs are region-editable
+            // from minute one. Structured sources by construction — the logo
+            // block reads Settings → General, navigation renders the 'main'
+            // menu. Existing installs never get these (install() only); their
+            // layouts keep the hardcoded fallback until a region is saved.
+            $regions = app($this->context, RegionRepository::class);
+            $regions->save('header', [
+                ['id' => Utils::generateNanoID(12), 'type' => 'logo',
+                    'data' => ['size' => 'medium', 'link_home' => true]],
+                ['id' => Utils::generateNanoID(12), 'type' => 'navigation',
+                    'data' => ['menu' => 'main']],
+            ], ['sticky' => false, 'width' => 'contained'], $userUuid);
+            $regions->save('footer', [
+                ['id' => Utils::generateNanoID(12), 'type' => 'rich_text',
+                    'data' => ['body' => '<p>' . htmlspecialchars($siteName, ENT_QUOTES) . '</p>']],
+            ], ['width' => 'contained'], $userUuid);
 
             $this->put('installed', '1');
         });

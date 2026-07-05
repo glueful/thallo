@@ -79,6 +79,17 @@ final class SetupApiTest extends LemmaTestCase
             $userRepo->findByEmail('admin@getlemma.dev'),
             'the first admin was created',
         );
+
+        // Default chrome regions seeded (global-regions spec §9): header is
+        // logo + navigation(main), footer carries the site name as rich_text.
+        $regions = $this->container()->get(\App\Content\Regions\RegionRepository::class);
+        $header = $regions->find('header');
+        self::assertNotNull($header);
+        self::assertSame(['logo', 'navigation'], array_column($header['blocks'], 'type'));
+        self::assertSame('main', $header['blocks'][1]['data']['menu']);
+        $footer = $regions->find('footer');
+        self::assertNotNull($footer);
+        self::assertSame(['rich_text'], array_column($footer['blocks'], 'type'));
     }
 
     public function testSecondSetupIsPermanentlyLockedWith409(): void
