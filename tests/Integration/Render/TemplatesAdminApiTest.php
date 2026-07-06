@@ -285,7 +285,7 @@ final class TemplatesAdminApiTest extends AppTestCase
             $route = $this->findRoute($method, $path);
             self::assertNotNull($route, "missing route {$method} {$path}");
             self::assertContains(
-                'lemma_permission:templates.manage',
+                'content_permission:templates.manage',
                 (array) ($route['middleware'] ?? []),
                 "permission missing on {$method} {$path}",
             );

@@ -33,7 +33,7 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * The plaintext key is shown exactly once (on create/rotate); only its SHA-256 hash is stored, so a
  * lost key can only be rotated or revoked, never re-read. Gated by `system.access` — see
- * routes/lemma_admin.php.
+ * routes/admin.php.
  */
 final class ApiKeyAdminController
 {

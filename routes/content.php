@@ -20,7 +20,7 @@ use Glueful\Routing\Router;
 $router->group(['prefix' => '/v1/content', 'middleware' => ['optional_api_key']], function (Router $router): void {
     // List published entries of a content type.
     $router->get('/{type}', [DeliveryController::class, 'index'])
-        ->middleware('lemma_delivery_access')
+        ->middleware('delivery_access')
         ->middleware('rate_limit')
         ->rateLimit(120, 1, by: 'user');
 
@@ -28,20 +28,20 @@ $router->group(['prefix' => '/v1/content', 'middleware' => ['optional_api_key']]
     // /{type}/{slugOrUuid} share a segment shape and `facets` must win. `facets` is a
     // reserved word on this surface (an entry literally slugged `facets` is shadowed).
     $router->get('/{type}/facets', [TaxonomyController::class, 'facets'])
-        ->middleware('lemma_delivery_access')
+        ->middleware('delivery_access')
         ->middleware('rate_limit')
         ->rateLimit(120, 1, by: 'user');
 
     // Get a single published entry by slug or UUID.
     $router->get('/{type}/{slugOrUuid}', [DeliveryController::class, 'show'])
-        ->middleware('lemma_delivery_access')
+        ->middleware('delivery_access')
         ->middleware('rate_limit')
         ->rateLimit(120, 1, by: 'user');
 
     // Term archive: the shaped term + its published members (projection-backed
     // membership — term-archives/facets spec §3).
     $router->get('/{type}/archive/{field}/{term}', [TaxonomyController::class, 'archive'])
-        ->middleware('lemma_delivery_access')
+        ->middleware('delivery_access')
         ->middleware('rate_limit')
         ->rateLimit(120, 1, by: 'user');
 });

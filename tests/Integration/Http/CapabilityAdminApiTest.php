@@ -50,7 +50,7 @@ final class CapabilityAdminApiTest extends AppTestCase
         self::assertNotNull($route, '/v1/admin/capabilities must be registered');
         $middleware = (array) ($route['middleware'] ?? []);
         self::assertContains(
-            'lemma_permission:system.access',
+            'content_permission:system.access',
             $middleware,
             'capabilities endpoint must require system.access',
         );

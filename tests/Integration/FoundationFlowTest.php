@@ -19,7 +19,7 @@ use App\Tests\Support\AppTestCase;
 
 /**
  * Proves the ThalloServiceProvider wiring is correct end-to-end through the booted
- * application: the provider's DI definitions resolve, the `lemma_permission` middleware
+ * application: the provider's DI definitions resolve, the `content_permission` middleware
  * alias resolves, the /v1/admin/* routes are live in the router with their permission
  * middleware attached, and a request driven through the REAL kernel reaches that
  * middleware pipeline (an unauthenticated call to a gated route is rejected, not 404'd —
@@ -54,8 +54,8 @@ final class FoundationFlowTest extends AppTestCase
     public function testPermissionMiddlewareAliasResolves(): void
     {
         // This is exactly how Router::resolveMiddleware() turns the string
-        // 'lemma_permission:...' into a middleware instance.
-        $middleware = $this->container()->get('lemma_permission');
+        // 'content_permission:...' into a middleware instance.
+        $middleware = $this->container()->get('content_permission');
 
         self::assertInstanceOf(RequirePermission::class, $middleware);
     }
@@ -64,27 +64,27 @@ final class FoundationFlowTest extends AppTestCase
     public static function adminRoutes(): array
     {
         return [
-            ['GET', '/v1/admin/content-types', 'lemma_permission:content.view'],
-            ['POST', '/v1/admin/content-types', 'lemma_permission:content.manage'],
-            ['GET', '/v1/admin/content-types/{slug}', 'lemma_permission:content.view'],
-            ['PATCH', '/v1/admin/content-types/{slug}/schema', 'lemma_permission:content.manage'],
-            ['POST', '/v1/admin/entries', 'lemma_permission:content.create'],
-            ['GET', '/v1/admin/entries/{uuid}', 'lemma_permission:content.view'],
-            ['GET', '/v1/admin/entries/{uuid}/draft/{locale}', 'lemma_permission:content.view'],
-            ['PUT', '/v1/admin/entries/{uuid}/draft/{locale}', 'lemma_permission:content.edit'],
-            ['DELETE', '/v1/admin/entries/{uuid}/draft/{locale}', 'lemma_permission:content.edit'],
-            ['DELETE', '/v1/admin/entries/{uuid}', 'lemma_permission:content.delete'],
-            ['GET', '/v1/admin/entries/{uuid}/versions/{locale}', 'lemma_permission:content.view'],
-            ['GET', '/v1/admin/entries/{uuid}/routes', 'lemma_permission:content.view'],
-            ['PUT', '/v1/admin/entries/{uuid}/routes/{locale}', 'lemma_permission:content.edit'],
-            ['DELETE', '/v1/admin/entries/{uuid}/routes/{locale}', 'lemma_permission:content.edit'],
-            ['POST', '/v1/admin/content-types/{slug}/redirects', 'lemma_permission:content.routes'],
-            ['GET', '/v1/admin/content-types/{slug}/redirects', 'lemma_permission:content.routes'],
-            ['DELETE', '/v1/admin/redirects/{uuid}', 'lemma_permission:content.routes'],
-            ['DELETE', '/v1/admin/content-types/{slug}', 'lemma_permission:content.manage'],
-            ['POST', '/v1/admin/entries/{uuid}/publish/{locale}', 'lemma_permission:content.publish'],
-            ['POST', '/v1/admin/entries/{uuid}/unpublish/{locale}', 'lemma_permission:content.publish'],
-            ['POST', '/v1/admin/entries/{uuid}/rollback/{locale}', 'lemma_permission:content.publish'],
+            ['GET', '/v1/admin/content-types', 'content_permission:content.view'],
+            ['POST', '/v1/admin/content-types', 'content_permission:content.manage'],
+            ['GET', '/v1/admin/content-types/{slug}', 'content_permission:content.view'],
+            ['PATCH', '/v1/admin/content-types/{slug}/schema', 'content_permission:content.manage'],
+            ['POST', '/v1/admin/entries', 'content_permission:content.create'],
+            ['GET', '/v1/admin/entries/{uuid}', 'content_permission:content.view'],
+            ['GET', '/v1/admin/entries/{uuid}/draft/{locale}', 'content_permission:content.view'],
+            ['PUT', '/v1/admin/entries/{uuid}/draft/{locale}', 'content_permission:content.edit'],
+            ['DELETE', '/v1/admin/entries/{uuid}/draft/{locale}', 'content_permission:content.edit'],
+            ['DELETE', '/v1/admin/entries/{uuid}', 'content_permission:content.delete'],
+            ['GET', '/v1/admin/entries/{uuid}/versions/{locale}', 'content_permission:content.view'],
+            ['GET', '/v1/admin/entries/{uuid}/routes', 'content_permission:content.view'],
+            ['PUT', '/v1/admin/entries/{uuid}/routes/{locale}', 'content_permission:content.edit'],
+            ['DELETE', '/v1/admin/entries/{uuid}/routes/{locale}', 'content_permission:content.edit'],
+            ['POST', '/v1/admin/content-types/{slug}/redirects', 'content_permission:content.routes'],
+            ['GET', '/v1/admin/content-types/{slug}/redirects', 'content_permission:content.routes'],
+            ['DELETE', '/v1/admin/redirects/{uuid}', 'content_permission:content.routes'],
+            ['DELETE', '/v1/admin/content-types/{slug}', 'content_permission:content.manage'],
+            ['POST', '/v1/admin/entries/{uuid}/publish/{locale}', 'content_permission:content.publish'],
+            ['POST', '/v1/admin/entries/{uuid}/unpublish/{locale}', 'content_permission:content.publish'],
+            ['POST', '/v1/admin/entries/{uuid}/rollback/{locale}', 'content_permission:content.publish'],
         ];
     }
 
@@ -96,7 +96,7 @@ final class FoundationFlowTest extends AppTestCase
     ): void {
         $route = $this->findRoute($method, $path);
 
-        self::assertNotNull($route, "expected {$method} {$path} to be registered by routes/lemma_admin.php");
+        self::assertNotNull($route, "expected {$method} {$path} to be registered by routes/admin.php");
         /** @var array<int, string> $middleware */
         $middleware = $route['middleware'];
         self::assertContains('auth', $middleware, "route {$path} must carry the auth middleware");

@@ -24,7 +24,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Unlike the controller-level {@see \App\Tests\Integration\Http\DeliveryApiTest} (which
  * news up the controller with the repositories), this test drives a genuine HTTP request
  * through {@see AppTestCase::handle()} (the same entry point as public/index.php) so the
- * full pipeline is exercised: routing (routes/lemma_content.php), optional API-key
+ * full pipeline is exercised: routing (routes/content.php), optional API-key
  * authentication (which sets the `api_key_scopes` attribute when a key is present), and the
  * fail-closed delivery access gate — none of which the controller test touches.
  *

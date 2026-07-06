@@ -169,9 +169,9 @@ return [
             // Lemma route files register absolute /v1/... paths directly in the router.
             // The reflect generator reads those live route paths, so no prefix injection
             // is needed here.
-            'lemma_content.php' => '',
-            'lemma_admin.php' => '',
-            'lemma_preview.php' => '',
+            'content.php' => '',
+            'admin.php' => '',
+            'preview.php' => '',
 
             // Framework routes - no version prefix
             'health.php' => '',
@@ -198,7 +198,7 @@ return [
             'scheme' => 'bearer',
             'bearerFormat' => 'JWT',
             'description' => 'JWT bearer token. Used by the admin authoring API (/v1/admin/*), '
-                . 'combined with a per-route lemma_permission RBAC check.',
+                . 'combined with a per-route content_permission RBAC check.',
         ],
         'ApiKeyAuth' => [
             'type' => 'apiKey',

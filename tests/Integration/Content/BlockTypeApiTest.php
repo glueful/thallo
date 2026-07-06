@@ -100,7 +100,7 @@ final class BlockTypeApiTest extends AppTestCase
             $route = $this->findRoute($method, $path);
             self::assertNotNull($route, "missing route {$method} {$path}");
             self::assertContains(
-                "lemma_permission:{$permission}",
+                "content_permission:{$permission}",
                 (array) ($route['middleware'] ?? []),
                 "wrong permission on {$method} {$path}",
             );

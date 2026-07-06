@@ -179,7 +179,7 @@ use Psr\Container\ContainerInterface;
  * array_merges them so the registration reads as a table of contents. All bindings
  * autowire unless they need a factory (config-derived construction) or explicit arguments.
  *
- * Routes: routes/lemma_admin.php is NOT loaded here. The framework's RouteManifest
+ * Routes: routes/admin.php is NOT loaded here. The framework's RouteManifest
  * auto-discovers every routes/*.php file (underscore-prefixed partials excepted) during
  * the HTTP phase, which already runs AFTER extension boot(). Calling loadRoutesFrom()
  * in boot() would load the file a second time and the Router throws LogicException on a
@@ -516,7 +516,7 @@ final class ThalloServiceProvider extends ServiceProvider
                 'class' => DeliveryAccessMiddleware::class,
                 'shared' => true,
                 'autowire' => true,
-                'alias' => ['lemma_delivery_access'],
+                'alias' => ['delivery_access'],
             ],
             OptionalApiKeyAuthMiddleware::class => [
                 'class' => OptionalApiKeyAuthMiddleware::class,
@@ -767,8 +767,8 @@ final class ThalloServiceProvider extends ServiceProvider
 
     /**
      * Content-domain HTTP controllers, plus RequirePermission under the
-     * `lemma_permission` container alias — how `->middleware('lemma_permission:...')`
-     * resolves (Router::resolveMiddleware() does container->get('lemma_permission')).
+     * `content_permission` container alias — how `->middleware('content_permission:...')`
+     * resolves (Router::resolveMiddleware() does container->get('content_permission')).
      *
      * @return array<string, array<string, mixed>>
      */
@@ -824,7 +824,7 @@ final class ThalloServiceProvider extends ServiceProvider
                 'class' => RequirePermission::class,
                 'shared' => true,
                 'autowire' => true,
-                'alias' => ['lemma_permission'],
+                'alias' => ['content_permission'],
             ],
         ];
     }
@@ -1060,7 +1060,7 @@ final class ThalloServiceProvider extends ServiceProvider
 
     public function boot(ApplicationContext $context): void
     {
-        // Routes: routes/lemma_admin.php is auto-discovered by RouteManifest. Do NOT
+        // Routes: routes/admin.php is auto-discovered by RouteManifest. Do NOT
         // call loadRoutesFrom() here — it would double-register the routes and the
         // Router throws on duplicate static paths.
 
@@ -1075,7 +1075,7 @@ final class ThalloServiceProvider extends ServiceProvider
 
         // Mount the compiled admin SPA at /admin via the framework seam: secure asset serving
         // + index.html deep-link fallback + cache split. No-ops (with a warning) if the bundle
-        // is unbuilt. The /admin/config + /admin/setup static routes (routes/lemma_admin_spa.php)
+        // is unbuilt. The /admin/config + /admin/setup static routes (routes/admin_spa.php)
         // keep precedence over the SPA catch-all via the router's static-first lookup.
         // Gated by lemma.admin.enabled so an operator can disable the default admin and bring
         // their own (the admin is a replaceable client of the /v1/admin API).

@@ -31,7 +31,7 @@ use Symfony\Component\HttpFoundation\Request;
  *  - Enable/disable: rewrites config/extensions.php and recompiles the extension cache. Like the
  *    CLI, this is a dev-only operation (production config is immutable/cached — edit + redeploy).
  *
- * Gated by `system.access` (see routes/lemma_admin.php).
+ * Gated by `system.access` (see routes/admin.php).
  */
 final class ExtensionAdminController
 {

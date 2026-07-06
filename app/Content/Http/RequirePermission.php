@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Requires the authenticated user to hold a specific Lemma RBAC permission.
  *
- * Registered under the `lemma_permission` alias and used on the fluent admin routes.
+ * Registered under the `content_permission` alias and used on the fluent admin routes.
  * The required permission slug is the first middleware parameter; the check runs through
  * the same `PermissionManager::can()` that Aegis backs, scoped to the resource the route
  * targets: `locale:<code>` for routes carrying `{locale}`, else the coarse `lemma`.
@@ -94,7 +94,7 @@ final class RequirePermission implements RouteMiddleware
         $params = (array) $request->attributes->get('_route_params');
         $locale = $params['locale'] ?? null;
 
-        return is_string($locale) && $locale !== '' ? "locale:{$locale}" : 'lemma';
+        return is_string($locale) && $locale !== '' ? "locale:{$locale}" : 'thallo';
     }
 
     /**

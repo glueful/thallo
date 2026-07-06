@@ -196,7 +196,7 @@ final class SeoMetaEndpointTest extends AppTestCase
             $route = $this->findRoute($method, '/v1/admin/seo/meta/{entryUuid}');
             self::assertNotNull($route, "admin meta {$method} route must be registered");
             self::assertContains(
-                'lemma_permission:seo.manage',
+                'content_permission:seo.manage',
                 (array) ($route['middleware'] ?? []),
                 "admin meta {$method} must require seo.manage",
             );

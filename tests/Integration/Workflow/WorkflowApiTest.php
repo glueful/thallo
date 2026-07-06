@@ -134,14 +134,14 @@ final class WorkflowApiTest extends AppTestCase
     {
         $route = $this->findRoute('POST', '/v1/admin/workflow/entries/{uuid}/{locale}/approve');
         self::assertNotNull($route);
-        self::assertContains('lemma_permission:workflow.review', (array) ($route['middleware'] ?? []));
+        self::assertContains('content_permission:workflow.review', (array) ($route['middleware'] ?? []));
 
         $route = $this->findRoute('GET', '/v1/admin/workflow/queue');
         self::assertNotNull($route);
-        self::assertContains('lemma_permission:workflow.review', (array) ($route['middleware'] ?? []));
+        self::assertContains('content_permission:workflow.review', (array) ($route['middleware'] ?? []));
 
         $route = $this->findRoute('POST', '/v1/admin/workflow/entries/{uuid}/{locale}/withdraw');
         self::assertNotNull($route);
-        self::assertContains('lemma_permission:content.view', (array) ($route['middleware'] ?? []));
+        self::assertContains('content_permission:content.view', (array) ($route['middleware'] ?? []));
     }
 }

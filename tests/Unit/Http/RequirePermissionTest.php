@@ -11,7 +11,7 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Fail-closed contract for the `lemma_permission` middleware.
+ * Fail-closed contract for the `content_permission` middleware.
  *
  * Every guard that cannot positively establish authorization must return 403. The three
  * pre-`can()` branches are exercised here with a bare {@see ApplicationContext} (no container),
@@ -97,15 +97,15 @@ final class RequirePermissionTest extends TestCase
     {
         $mw = new RequirePermission($this->contextWithoutContainer());
 
-        self::assertSame('lemma', $this->resourceFor($mw, new Request()));
+        self::assertSame('thallo', $this->resourceFor($mw, new Request()));
 
         $noLocale = new Request();
         $noLocale->attributes->set('_route_params', ['uuid' => 'e1abcdefghij']);
-        self::assertSame('lemma', $this->resourceFor($mw, $noLocale));
+        self::assertSame('thallo', $this->resourceFor($mw, $noLocale));
 
         $empty = new Request();
         $empty->attributes->set('_route_params', ['locale' => '']);
-        self::assertSame('lemma', $this->resourceFor($mw, $empty));
+        self::assertSame('thallo', $this->resourceFor($mw, $empty));
     }
 
     private function resourceFor(RequirePermission $mw, Request $request): string

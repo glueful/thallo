@@ -17,7 +17,7 @@ use Glueful\Routing\Attributes\ApiResponse;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Admin review-workflow API. Route-gated (capability → auth → lemma_permission); the
+ * Admin review-workflow API. Route-gated (capability → auth → content_permission); the
  * finer rules (self-review, withdraw ownership, note-required) live in the service/DTO.
  */
 final class WorkflowController

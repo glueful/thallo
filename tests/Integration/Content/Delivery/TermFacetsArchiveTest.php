@@ -394,7 +394,7 @@ final class TermFacetsArchiveTest extends AppTestCase
 
     public function testNonPublicSourceTypeIsDeniedOnBothEndpointsThroughTheKernel(): void
     {
-        // Review P2: SOURCE-type visibility is enforced by the lemma_delivery_access
+        // Review P2: SOURCE-type visibility is enforced by the delivery_access
         // route middleware (same as the existing delivery routes) — controller-direct
         // tests bypass it, so prove the route wiring at kernel level for both endpoints.
         // The middleware denies with 403 ("requires a scoped API key"), identical to the

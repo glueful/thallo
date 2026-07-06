@@ -89,7 +89,7 @@ final class UserRoleAssignmentPolicy
     private function canManageRoles(string $actorUuid): bool
     {
         try {
-            return $this->aegis->can($actorUuid, self::MANAGE_PERMISSION, 'lemma');
+            return $this->aegis->can($actorUuid, self::MANAGE_PERMISSION, 'thallo');
         } catch (\Throwable) {
             return false;
         }

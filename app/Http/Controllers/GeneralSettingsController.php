@@ -21,7 +21,7 @@ use Glueful\Routing\Attributes\ApiResponse;
  * Backed by the `settings` table via {@see GeneralSettings}: a stored row overrides the
  * deploy-time config/.env default, so a save takes effect on the next request across every instance
  * with no restart (unlike the `.env`-backed email settings). Gated by `content.manage` — see
- * routes/lemma_admin.php.
+ * routes/admin.php.
  */
 final class GeneralSettingsController
 {

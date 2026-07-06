@@ -12,7 +12,7 @@ use Glueful\Routing\Attributes\ApiResponse;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Admin read/write of the seo_meta override table. Behind auth + lemma_permission:seo.manage.
+ * Admin read/write of the seo_meta override table. Behind auth + content_permission:seo.manage.
  */
 final class AdminSeoMetaController
 {

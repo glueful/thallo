@@ -23,7 +23,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * through {@see AppTestCase::handle()} (the same entry point as public/index.php) so the
  * whole pipeline runs for both halves of the door:
  *
- *  - MINT  POST /v1/admin/entries/{uuid}/preview/{locale} — auth-gated + `lemma_permission`
+ *  - MINT  POST /v1/admin/entries/{uuid}/preview/{locale} — auth-gated + `content_permission`
  *    gated. We authenticate as an API-key admin and satisfy the RBAC permission with the
  *    framework's {@see InMemoryPermissionProvider} (the test-only provider the framework
  *    ships precisely for this), granting our seeded user `content.view`. With a
@@ -40,7 +40,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  *
  * Unlike the controller-level {@see \App\Tests\Integration\Http\PreviewApiTest} (which news
  * up the controller directly), this is the genuine kernel round-trip: routing, the `auth`
- * middleware + API-key provider, the `lemma_permission` RBAC gate, and the public rate-limited
+ * middleware + API-key provider, the `content_permission` RBAC gate, and the public rate-limited
  * read path all run.
  */
 final class PreviewFlowTest extends AppTestCase
@@ -61,7 +61,7 @@ final class PreviewFlowTest extends AppTestCase
 
         // Grant the admin principal the permission the mint route requires. The provider is
         // installed on the process-singleton PermissionManager the middleware resolves, so
-        // the kernel's `lemma_permission` gate sees the grant. Cleared in tearDown.
+        // the kernel's `content_permission` gate sees the grant. Cleared in tearDown.
         $this->permissionManager()->setProvider(new InMemoryPermissionProvider([
             $this->userUuid => ['content.view'],
         ]));
@@ -156,7 +156,7 @@ final class PreviewFlowTest extends AppTestCase
     }
 
     // ── 2b. The permission gate DISCRIMINATES: authenticated but unpermissioned ─
-    //        admin is denied (403) — proving lemma_permission runs on the real
+    //        admin is denied (403) — proving content_permission runs on the real
     //        post-auth principal (the `'user'` array) and fails closed on a missing grant.
 
     public function testAuthenticatedButUnpermissionedMintIsForbidden(): void

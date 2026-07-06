@@ -204,7 +204,7 @@ final class NavigationApiTest extends AppTestCase
     {
         $route = $this->findRoute('PUT', '/v1/admin/navigation/menus/{slug}/items');
         self::assertNotNull($route);
-        self::assertContains('lemma_permission:navigation.manage', (array) ($route['middleware'] ?? []));
+        self::assertContains('content_permission:navigation.manage', (array) ($route['middleware'] ?? []));
 
         $route = $this->findRoute('GET', '/v1/menus/{slug}');
         self::assertNotNull($route);

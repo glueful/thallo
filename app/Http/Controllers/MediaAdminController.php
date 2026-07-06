@@ -25,7 +25,7 @@ use Symfony\Component\HttpFoundation\Request;
  *  - media_usage (which entries reference a blob), surfaced via {@see usage()} and maintained by
  *    {@see \App\Content\Pipeline\Listeners\MediaUsageProjector} off the asset events.
  *
- * Gated by `content.view` (read) / `content.manage` (write) — see routes/lemma_admin.php.
+ * Gated by `content.view` (read) / `content.manage` (write) — see routes/admin.php.
  */
 final class MediaAdminController
 {
