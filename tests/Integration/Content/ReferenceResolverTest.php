@@ -15,9 +15,9 @@ use App\Content\Repositories\VersionRepository;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class ReferenceResolverTest extends LemmaTestCase
+final class ReferenceResolverTest extends AppTestCase
 {
     private string $type;
 

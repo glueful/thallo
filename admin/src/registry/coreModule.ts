@@ -67,13 +67,13 @@ const main: NavigationMenuItem[] = [
       {
         label: 'API Reference',
         icon: 'i-lucide-book-open',
-        to: 'https://getlemma.com/docs/',
+        to: 'https://thallo.dev/docs/',
         target: '_blank',
       },
       {
         label: 'Documentation',
         icon: 'i-lucide-library',
-        to: 'https://getlemma.com/',
+        to: 'https://thallo.dev/',
         target: '_blank',
       },
     ],

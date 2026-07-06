@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Navigation;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Capability\CapabilityRegistry;
 
-final class NavigationCapabilityTest extends LemmaTestCase
+final class NavigationCapabilityTest extends AppTestCase
 {
     public function testCapabilityRegisteredAndEnabledByDefault(): void
     {
         self::assertTrue(
-            $this->container()->get(CapabilityRegistry::class)->isEnabled('lemma.navigation'),
-            'lemma.navigation must be registered and enabled by default',
+            $this->container()->get(CapabilityRegistry::class)->isEnabled('thallo.navigation'),
+            'thallo.navigation must be registered and enabled by default',
         );
     }
 }

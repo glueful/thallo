@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<ruleset name="Lemma">
-    <description>Lemma coding standard — PSR-12 (matches the Glueful framework and extensions).</description>
+<ruleset name="Thallo">
+    <description>Thallo coding standard — PSR-12 (matches the Glueful framework and extensions).</description>
 
     <!-- Paths checked when phpcs/phpcbf run with no explicit argument. -->
     <file>app</file>
@@ -23,7 +23,7 @@
     <exclude-pattern>packages/*/assets/*</exclude-pattern>
 
     <!--
-      Lemma migrations are intentionally GLOBAL (unnamespaced): the framework's
+      Thallo migrations are intentionally GLOBAL (unnamespaced): the framework's
       MigrationManager include()s each file and instantiates the bare class name,
       and framework-core + every Glueful extension ships migrations this way.
       Exclude only the missing-namespace sniff, and only for migration dirs.

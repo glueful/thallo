@@ -9,10 +9,10 @@ use App\Content\Http\Controllers\BlockTypeController;
 use App\Content\Http\DTOs\BlockTypeData;
 use App\Content\Http\DTOs\FieldDefinitionData;
 use App\Content\Http\DTOs\UpdateBlockTypeData;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
-final class BlockTypeApiTest extends LemmaTestCase
+final class BlockTypeApiTest extends AppTestCase
 {
     private function api(): BlockTypeController
     {
@@ -100,7 +100,7 @@ final class BlockTypeApiTest extends LemmaTestCase
             $route = $this->findRoute($method, $path);
             self::assertNotNull($route, "missing route {$method} {$path}");
             self::assertContains(
-                "lemma_permission:{$permission}",
+                "content_permission:{$permission}",
                 (array) ($route['middleware'] ?? []),
                 "wrong permission on {$method} {$path}",
             );

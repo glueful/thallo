@@ -19,7 +19,7 @@ use App\Http\DTOs\ErrorResponse;
 use App\Support\ActorHelper;
 use Glueful\Auth\UserIdentity;
 use Glueful\Http\Response;
-use Glueful\Lemma\Contracts\Authoring\PublishBlocked;
+use Thallo\Contracts\Authoring\PublishBlocked;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -61,7 +61,7 @@ final class PublicationController
         summary: 'Publish an entry\'s draft',
         description: 'Snapshots the current draft into an immutable version, pins it, and makes it visible '
             . 'to the delivery API.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: VersionResultData::class, description: 'Entry published.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No entry/draft to publish.')]
@@ -117,7 +117,7 @@ final class PublicationController
         summary: 'Unpublish an entry',
         description: 'Removes the publication pin (versions are retained); idempotent — succeeds even when '
             . 'nothing is published.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, description: 'Entry unpublished.')]
     // 401/403/429/500 inferred from middleware + documentation.errors config.
@@ -144,7 +144,7 @@ final class PublicationController
         summary: 'Roll back to a previous version',
         description: 'Re-pins an existing `version_uuid` as the published version; no new version is '
             . 'created.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(
         200,
@@ -190,7 +190,7 @@ final class PublicationController
     #[ApiOperation(
         summary: 'List entry versions',
         description: 'Immutable published versions, newest first.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, description: 'Entry versions.')]
     public function versions(Request $request, string $uuid, string $locale): Response

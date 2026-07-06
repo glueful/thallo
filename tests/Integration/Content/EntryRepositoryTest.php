@@ -7,9 +7,9 @@ namespace App\Tests\Integration\Content;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Support\OptimisticLockException;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class EntryRepositoryTest extends LemmaTestCase
+final class EntryRepositoryTest extends AppTestCase
 {
     private function repo(): EntryRepository
     {

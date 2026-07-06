@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Http;
 
 use App\Http\Controllers\IconInventoryController;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
-final class IconInventoryApiTest extends LemmaTestCase
+final class IconInventoryApiTest extends AppTestCase
 {
     private function controller(): IconInventoryController
     {
@@ -24,7 +24,7 @@ final class IconInventoryApiTest extends LemmaTestCase
         self::assertGreaterThan(1500, count($icons));
         // Glob parity with the vendored directory, not a pinned literal.
         $dir = $this->appContext()->getBasePath()
-            . '/packages/lemma-render/resources/icons/lucide/*.svg';
+            . '/packages/thallo-render/resources/icons/lucide/*.svg';
         self::assertCount(count(glob($dir) ?: []), $icons);
         $sorted = $icons;
         sort($sorted);

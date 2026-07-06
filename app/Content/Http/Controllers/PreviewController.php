@@ -15,8 +15,8 @@ use App\Content\Preview\PreviewTokenException;
 use App\Http\DTOs\ErrorResponse;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
-use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
-use Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator;
+use Thallo\Contracts\Capability\CapabilityRegistry;
+use Thallo\Contracts\Delivery\PreviewThemeValidator;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -25,7 +25,7 @@ use Symfony\Component\HttpFoundation\Request;
  * The narrow preview door (V1_DESIGN §6). Two endpoints, two trust models:
  *
  *  - mint()  POST /v1/admin/entries/{uuid}/preview/{locale} — permission-gated at the
- *    route (`lemma_permission:content.view`). Issues a short-lived HMAC-signed
+ *    route (`content_permission:content.view`). Issues a short-lived HMAC-signed
  *    token bound to one {entry, locale, ?version}. Minting is authoritative-free (the
  *    reader validates existence), so the actor identity is not needed here — the route
  *    middleware is the gate.
@@ -66,7 +66,7 @@ final class PreviewController
         description: 'The returned token is the bearer capability for the unauthenticated '
             . '`GET /v1/preview/{token}`. An optional `version_uuid` pins a historical version instead of '
             . 'the current draft.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: PreviewMintData::class, description: 'Preview token minted.')]
     // 401/403/429/500 inferred from middleware + documentation.errors config.
@@ -93,10 +93,10 @@ final class PreviewController
         $ttl = $this->minter->ttlSeconds();
         $exp = time() + $ttl;
 
-        // theme_url: the SERVER decides (preview spec §4) — null when lemma.render is
+        // theme_url: the SERVER decides (preview spec §4) — null when thallo.render is
         // disabled or the pack is absent (isEnabled covers both); the JSON preview URL
         // is unaffected either way. The SPA never builds theme URLs.
-        $renderEnabled = app($this->context, CapabilityRegistry::class)->isEnabled('lemma.render');
+        $renderEnabled = app($this->context, CapabilityRegistry::class)->isEnabled('thallo.render');
 
         return Response::success([
             'token' => $token,
@@ -114,7 +114,7 @@ final class PreviewController
         summary: 'Read a draft via a signed preview token',
         description: 'Unauthenticated — the token in the path is the only credential, and this is the only '
             . 'way to read unpublished content. Returns the draft, or the version the token pins.',
-        tags: ['Lemma Preview'],
+        tags: ['Thallo Preview'],
     )]
     #[ApiResponse(200, schema: PreviewResultData::class, description: 'The previewed draft (or pinned version).')]
     #[ApiResponse(

@@ -21,8 +21,8 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * `Cache-Control: public, max-age=<ttl>` is emitted with the per-type TTL (delivery is
  * may be publicly readable but the responses are still cacheable). `Cache-Tag` carries the
- * surrogate keys a CDN/cache layer purges on publish: `lemma:entry:{uuid}` for each
- * member entry plus `lemma:type:{slug}` for the whole type.
+ * surrogate keys a CDN/cache layer purges on publish: `thallo:entry:{uuid}` for each
+ * member entry plus `thallo:type:{slug}` for the whole type.
  */
 final class DeliveryEtag
 {
@@ -124,10 +124,10 @@ final class DeliveryEtag
         $tags = [];
         foreach ([...$entryUuids, ...$expandedEntryUuids] as $uuid) {
             if ($uuid !== '') {
-                $tags['lemma:entry:' . $uuid] = true;
+                $tags['thallo:entry:' . $uuid] = true;
             }
         }
-        $tags['lemma:type:' . $typeSlug] = true;
+        $tags['thallo:type:' . $typeSlug] = true;
         return implode(', ', array_keys($tags));
     }
 }

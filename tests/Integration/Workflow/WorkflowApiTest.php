@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Workflow;
 
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Workflow\Http\Controllers\WorkflowController;
+use App\Tests\Support\AppTestCase;
+use Thallo\Workflow\Http\Controllers\WorkflowController;
 use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;
 
-final class WorkflowApiTest extends LemmaTestCase
+final class WorkflowApiTest extends AppTestCase
 {
     use SeedsPublishedContent;
 
@@ -134,14 +134,14 @@ final class WorkflowApiTest extends LemmaTestCase
     {
         $route = $this->findRoute('POST', '/v1/admin/workflow/entries/{uuid}/{locale}/approve');
         self::assertNotNull($route);
-        self::assertContains('lemma_permission:workflow.review', (array) ($route['middleware'] ?? []));
+        self::assertContains('content_permission:workflow.review', (array) ($route['middleware'] ?? []));
 
         $route = $this->findRoute('GET', '/v1/admin/workflow/queue');
         self::assertNotNull($route);
-        self::assertContains('lemma_permission:workflow.review', (array) ($route['middleware'] ?? []));
+        self::assertContains('content_permission:workflow.review', (array) ($route['middleware'] ?? []));
 
         $route = $this->findRoute('POST', '/v1/admin/workflow/entries/{uuid}/{locale}/withdraw');
         self::assertNotNull($route);
-        self::assertContains('lemma_permission:content.view', (array) ($route['middleware'] ?? []));
+        self::assertContains('content_permission:content.view', (array) ($route['middleware'] ?? []));
     }
 }

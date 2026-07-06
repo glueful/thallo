@@ -9,8 +9,8 @@ use App\Http\DTOs\UpdateGeneralSettingsData;
 use App\Settings\GeneralSettings;
 use Glueful\Events\EventService;
 use Glueful\Http\Response;
-use Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator;
-use Glueful\Lemma\Contracts\Settings\ThemeChanged;
+use Thallo\Contracts\Delivery\PreviewThemeValidator;
+use Thallo\Contracts\Settings\ThemeChanged;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 
@@ -18,10 +18,10 @@ use Glueful\Routing\Attributes\ApiResponse;
  * Read/write the instance "General" settings — site identity, default locale, content-delivery
  * defaults, and feature toggles.
  *
- * Backed by the `lemma_settings` table via {@see GeneralSettings}: a stored row overrides the
+ * Backed by the `settings` table via {@see GeneralSettings}: a stored row overrides the
  * deploy-time config/.env default, so a save takes effect on the next request across every instance
  * with no restart (unlike the `.env`-backed email settings). Gated by `content.manage` — see
- * routes/lemma_admin.php.
+ * routes/admin.php.
  */
 final class GeneralSettingsController
 {
@@ -29,7 +29,7 @@ final class GeneralSettingsController
 
     public function __construct(
         private readonly GeneralSettings $settings,
-        private readonly ?\Glueful\Lemma\Contracts\Delivery\PublicRouteResolver $resolver = null,
+        private readonly ?\Thallo\Contracts\Delivery\PublicRouteResolver $resolver = null,
         private readonly ?\App\Content\Repositories\ContentTypeRepository $contentTypes = null,
         /** Soft-bound (theme-setting spec §1): null = render pack absent, theme is inert. */
         private readonly ?PreviewThemeValidator $themeValidator = null,
@@ -41,9 +41,9 @@ final class GeneralSettingsController
     #[ApiOperation(
         summary: 'Get general settings',
         description: 'Effective instance settings (site identity, default locale, delivery defaults, '
-            . 'feature toggles): a lemma_settings override, else the config/.env default. Requires '
+            . 'feature toggles): a settings override, else the config/.env default. Requires '
             . '`content.manage`.',
-        tags: ['Lemma Settings'],
+        tags: ['Thallo Settings'],
     )]
     #[ApiResponse(200, schema: GeneralSettingsResultData::class, description: 'Current general settings.')]
     public function show(): Response
@@ -54,9 +54,9 @@ final class GeneralSettingsController
     /** PUT /v1/admin/settings/general */
     #[ApiOperation(
         summary: 'Update general settings',
-        description: 'Persists the submitted settings to lemma_settings (only supplied fields change). '
+        description: 'Persists the submitted settings to settings (only supplied fields change). '
             . 'Applies on the next request — no restart. Requires `content.manage`.',
-        tags: ['Lemma Settings'],
+        tags: ['Thallo Settings'],
     )]
     #[ApiResponse(200, schema: GeneralSettingsResultData::class, description: 'Settings saved.')]
     #[ApiResponse(422, description: 'Invalid value (non-positive page size, max < default, …).')]

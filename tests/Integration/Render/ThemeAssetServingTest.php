@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Render;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -12,7 +12,7 @@ use Symfony\Component\HttpFoundation\Request;
  * assets dir resolves per request (no boot mount), explicit MIME map (never
  * content-sniffed), traversal guarded.
  */
-final class ThemeAssetServingTest extends LemmaTestCase
+final class ThemeAssetServingTest extends AppTestCase
 {
     public function testServesTheActiveThemesCssWithExplicitMime(): void
     {

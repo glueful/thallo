@@ -25,7 +25,7 @@ final class ScheduleController
     ) {
     }
 
-    #[ApiOperation(summary: 'Schedule a publish/unpublish', tags: ['Lemma Admin'])]
+    #[ApiOperation(summary: 'Schedule a publish/unpublish', tags: ['Thallo Admin'])]
     #[ApiResponse(201, description: 'Schedule created or rescheduled.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'Entry not found or deleted.')]
     #[ApiResponse(422, schema: ErrorResponse::class, envelope: false, description: 'Invalid schedule payload.')]
@@ -61,14 +61,14 @@ final class ScheduleController
         return Response::created(['schedule' => $row], 'Schedule saved.');
     }
 
-    #[ApiOperation(summary: 'List an entry\'s schedules', tags: ['Lemma Admin'])]
+    #[ApiOperation(summary: 'List an entry\'s schedules', tags: ['Thallo Admin'])]
     #[ApiResponse(200, description: 'Schedules retrieved.')]
     public function index(Request $request, string $uuid): Response
     {
         return Response::success(['schedules' => $this->schedules->forEntry($uuid)], 'Schedules retrieved.');
     }
 
-    #[ApiOperation(summary: 'Cancel a pending schedule', tags: ['Lemma Admin'])]
+    #[ApiOperation(summary: 'Cancel a pending schedule', tags: ['Thallo Admin'])]
     #[ApiResponse(200, description: 'Schedule canceled.')]
     #[ApiResponse(409, schema: ErrorResponse::class, envelope: false, description: 'Schedule is not pending.')]
     public function destroy(Request $request, string $uuid, string $scheduleUuid): Response

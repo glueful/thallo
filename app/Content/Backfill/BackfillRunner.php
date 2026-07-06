@@ -233,6 +233,6 @@ final class BackfillRunner
 
         /** @var CacheStore $cache */
         $cache = $this->container->get(CacheStore::class);
-        $cache->invalidateTags(['lemma:type:' . (string) $type['slug']]);
+        $cache->invalidateTags(['thallo:type:' . (string) $type['slug']]);
     }
 }

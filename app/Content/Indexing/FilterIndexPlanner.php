@@ -46,14 +46,14 @@ final class FilterIndexPlanner
                     'field'      => $name,
                     'filter_type' => $field->type, // 'reference' | 'asset'
                     'method'     => 'gin',
-                    'index_name' => 'lemma_fidx_' . substr(sha1($typeUuid . $name), 0, 16),
+                    'index_name' => 'fidx_' . substr(sha1($typeUuid . $name), 0, 16),
                     'expression' => '(' . FieldSqlExpression::membershipArray($name) . ') jsonb_path_ops',
                 ]
                 : [
                     'field'      => $name,
                     'filter_type' => (string) $field->filterType,
                     'method'     => 'btree',
-                    'index_name' => 'lemma_fidx_' . substr(sha1($typeUuid . $name), 0, 16),
+                    'index_name' => 'fidx_' . substr(sha1($typeUuid . $name), 0, 16),
                     'expression' => $this->expression($name, (string) $field->filterType),
                 ];
         }

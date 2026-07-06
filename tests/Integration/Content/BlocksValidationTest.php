@@ -8,9 +8,9 @@ use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Validation\FieldValidator;
 use App\Content\Validation\ValidationException;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class BlocksValidationTest extends LemmaTestCase
+final class BlocksValidationTest extends AppTestCase
 {
     private BlockTypeRepository $blocks;
     private FieldValidator $validator;

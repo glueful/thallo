@@ -16,8 +16,8 @@ use App\Content\Repositories\RouteRepository;
 use App\Content\Repositories\VersionRepository;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\Http\Controllers\RenderController;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\Http\Controllers\RenderController;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -25,14 +25,14 @@ use Symfony\Component\HttpFoundation\Request;
  * DB draft for DRAFT-MODE tokens only; saveDraft clears the stash; pinned
  * versions are never overlaid.
  */
-final class PreviewWorkingCopyTest extends LemmaTestCase
+final class PreviewWorkingCopyTest extends AppTestCase
 {
     private string $type;
 
     protected function tearDown(): void
     {
         $this->container()->get(\Glueful\Cache\CacheStore::class)->deletePattern('render:*');
-        $this->container()->get(\Glueful\Lemma\Seo\Cache\SitemapCache::class)->forgetAll();
+        $this->container()->get(\Thallo\Seo\Cache\SitemapCache::class)->forgetAll();
         parent::tearDown();
     }
 
@@ -101,7 +101,7 @@ final class PreviewWorkingCopyTest extends LemmaTestCase
         $html = $this->renderPreview($token);
         self::assertStringContainsString('Applied only', $html);
         // The working-only block is ANNOTATED like any rendered instance.
-        self::assertStringContainsString('data-lemma-block="workingb0001"', $html);
+        self::assertStringContainsString('data-thallo-block="workingb0001"', $html);
 
         // saveDraft SUCCESS clears the stash (clear-on-save pin): the next render
         // shows the (updated) draft, not a stale working copy. Read the CURRENT

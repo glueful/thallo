@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "6d393d43eab405f05c30db3e5dfc60d5",
+    "content-hash": "88ceaa6a5e5774c214a5ef933112fd7c",
     "packages": [
         {
             "name": "composer/semver",
@@ -1072,348 +1072,6 @@
             "time": "2026-06-16T07:05:28+00:00"
         },
         {
-            "name": "glueful/lemma-analytics",
-            "version": "0.1.0",
-            "dist": {
-                "type": "path",
-                "url": "packages/lemma-analytics",
-                "reference": "c4d60ba1b85921e76d9fc30877cc7e90d92d913d"
-            },
-            "require": {
-                "glueful/framework": "^1.65.0",
-                "glueful/lemma-contracts": "*",
-                "php": "^8.3"
-            },
-            "type": "glueful-extension",
-            "extra": {
-                "glueful": {
-                    "provider": "Glueful\\Lemma\\Analytics\\LemmaAnalyticsServiceProvider"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Glueful\\Lemma\\Analytics\\": "src/"
-                }
-            },
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Michael Tawiah Sowah",
-                    "email": "michael@glueful.dev"
-                }
-            ],
-            "description": "Product-analytics fact store for Lemma: consumes lifecycle events, owns its own facts, as a removable capability pack.",
-            "transport-options": {
-                "relative": true
-            }
-        },
-        {
-            "name": "glueful/lemma-collections",
-            "version": "0.1.0",
-            "dist": {
-                "type": "path",
-                "url": "packages/lemma-collections",
-                "reference": "b4b55cc62d19609b84d5b8811f3f46d7343b4d6e"
-            },
-            "require": {
-                "glueful/framework": "^1.64.0",
-                "glueful/lemma-contracts": "*",
-                "php": "^8.3"
-            },
-            "type": "glueful-extension",
-            "extra": {
-                "glueful": {
-                    "provider": "Glueful\\Lemma\\Collections\\LemmaCollectionsServiceProvider"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Glueful\\Lemma\\Collections\\": "src/"
-                }
-            },
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Michael Tawiah Sowah",
-                    "email": "michael@glueful.dev"
-                }
-            ],
-            "description": "Developer-defined data collections with a public CRUD/query API, as a removable Lemma capability pack.",
-            "transport-options": {
-                "relative": true
-            }
-        },
-        {
-            "name": "glueful/lemma-contracts",
-            "version": "0.1.0",
-            "dist": {
-                "type": "path",
-                "url": "packages/lemma-contracts",
-                "reference": "9ae9bdda37ef2b4ee9738e923de6cd01d02856cd"
-            },
-            "require": {
-                "php": "^8.3"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "Glueful\\Lemma\\Contracts\\": "src/"
-                }
-            },
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Michael Tawiah Sowah",
-                    "email": "michael@glueful.dev"
-                }
-            ],
-            "description": "Thin, stable contracts (interfaces, DTOs, events, VOs) that Lemma capability packs compile against.",
-            "transport-options": {
-                "relative": true
-            }
-        },
-        {
-            "name": "glueful/lemma-importers",
-            "version": "0.1.0",
-            "dist": {
-                "type": "path",
-                "url": "packages/lemma-importers",
-                "reference": "97f11f6469a47ca010d257df85b29c20f03027e4"
-            },
-            "require": {
-                "glueful/aegis": "^1.13.1",
-                "glueful/framework": "^1.64.0",
-                "glueful/import-export": "^1.1.1",
-                "glueful/lemma-contracts": "*",
-                "glueful/users": "^2.3.0",
-                "league/commonmark": "^2.8",
-                "php": "^8.3",
-                "symfony/html-sanitizer": "^7.0 || ^8.0"
-            },
-            "type": "glueful-extension",
-            "extra": {
-                "glueful": {
-                    "provider": "Glueful\\Lemma\\Importers\\LemmaImportersServiceProvider"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Glueful\\Lemma\\Importers\\": "src/"
-                }
-            },
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Michael Tawiah Sowah",
-                    "email": "michael@glueful.dev"
-                }
-            ],
-            "description": "Lemma content format importers (CSV / Markdown / WordPress) as a removable capability pack.",
-            "transport-options": {
-                "relative": true
-            }
-        },
-        {
-            "name": "glueful/lemma-navigation",
-            "version": "0.1.0",
-            "dist": {
-                "type": "path",
-                "url": "packages/lemma-navigation",
-                "reference": "b4a378dd2542cc818a6791a91430153fe371a845"
-            },
-            "require": {
-                "glueful/framework": "^1.65.2",
-                "glueful/lemma-contracts": "*",
-                "php": "^8.3"
-            },
-            "type": "glueful-extension",
-            "extra": {
-                "glueful": {
-                    "provider": "Glueful\\Lemma\\Navigation\\LemmaNavigationServiceProvider"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Glueful\\Lemma\\Navigation\\": "src/"
-                }
-            },
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Michael Tawiah Sowah",
-                    "email": "michael@glueful.dev"
-                }
-            ],
-            "description": "Navigation menus for Lemma: menu trees as data with published-only resolution, as a removable capability pack.",
-            "transport-options": {
-                "relative": true
-            }
-        },
-        {
-            "name": "glueful/lemma-render",
-            "version": "0.1.0",
-            "dist": {
-                "type": "path",
-                "url": "packages/lemma-render",
-                "reference": "ad4133aa87a4d0369314125081561dadf35aa673"
-            },
-            "require": {
-                "glueful/framework": "^1.65.2",
-                "glueful/lemma-contracts": "*",
-                "php": "^8.3",
-                "twig/twig": "^3.0"
-            },
-            "type": "glueful-extension",
-            "extra": {
-                "glueful": {
-                    "provider": "Glueful\\Lemma\\Render\\LemmaRenderServiceProvider"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Glueful\\Lemma\\Render\\": "src/"
-                }
-            },
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Michael Tawiah Sowah",
-                    "email": "michael@glueful.dev"
-                }
-            ],
-            "description": "Rendered delivery for Lemma: server-rendered pages from published content via filesystem Twig themes, as a removable capability pack.",
-            "transport-options": {
-                "relative": true
-            }
-        },
-        {
-            "name": "glueful/lemma-search",
-            "version": "0.1.0",
-            "dist": {
-                "type": "path",
-                "url": "packages/lemma-search",
-                "reference": "2e6079c039e58c52b4382e2aa01e1fd4a7e0804d"
-            },
-            "require": {
-                "glueful/framework": "^1.65.0",
-                "glueful/lemma-contracts": "*",
-                "glueful/meilisearch": "*",
-                "php": "^8.3"
-            },
-            "type": "glueful-extension",
-            "extra": {
-                "glueful": {
-                    "provider": "Glueful\\Lemma\\Search\\LemmaSearchServiceProvider"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Glueful\\Lemma\\Search\\": "src/"
-                }
-            },
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Michael Tawiah Sowah",
-                    "email": "michael@glueful.dev"
-                }
-            ],
-            "description": "Search for Lemma: a public, delivery-parity content search API backed by Meilisearch, as a removable capability pack.",
-            "transport-options": {
-                "relative": true
-            }
-        },
-        {
-            "name": "glueful/lemma-seo",
-            "version": "0.1.0",
-            "dist": {
-                "type": "path",
-                "url": "packages/lemma-seo",
-                "reference": "542c57e4250cdf8bc6474b2712e5dc00693d8b5b"
-            },
-            "require": {
-                "glueful/framework": "^1.65.0",
-                "glueful/lemma-contracts": "*",
-                "php": "^8.3"
-            },
-            "type": "glueful-extension",
-            "extra": {
-                "glueful": {
-                    "provider": "Glueful\\Lemma\\Seo\\LemmaSeoServiceProvider"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Glueful\\Lemma\\Seo\\": "src/"
-                }
-            },
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Michael Tawiah Sowah",
-                    "email": "michael@glueful.dev"
-                }
-            ],
-            "description": "SEO for Lemma: sitemaps, per-entry meta, and robots.txt as a removable capability pack.",
-            "transport-options": {
-                "relative": true
-            }
-        },
-        {
-            "name": "glueful/lemma-workflow",
-            "version": "0.1.0",
-            "dist": {
-                "type": "path",
-                "url": "packages/lemma-workflow",
-                "reference": "a0b1d64ed5c5294d3ee7e560de43b44d95b8d363"
-            },
-            "require": {
-                "glueful/framework": "^1.65.0",
-                "glueful/lemma-contracts": "*",
-                "php": "^8.3"
-            },
-            "type": "glueful-extension",
-            "extra": {
-                "glueful": {
-                    "provider": "Glueful\\Lemma\\Workflow\\LemmaWorkflowServiceProvider"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Glueful\\Lemma\\Workflow\\": "src/"
-                }
-            },
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Michael Tawiah Sowah",
-                    "email": "michael@glueful.dev"
-                }
-            ],
-            "description": "Editorial approval workflow for Lemma: single-stage review state machine over draft/publish, as a removable capability pack.",
-            "transport-options": {
-                "relative": true
-            }
-        },
-        {
             "name": "glueful/media",
             "version": "v1.1.0",
             "source": {
@@ -1561,6 +1219,348 @@
                 "source": "https://github.com/glueful/meilisearch/tree/v1.6.0"
             },
             "time": "2026-06-15T01:45:19+00:00"
+        },
+        {
+            "name": "glueful/thallo-analytics",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-analytics",
+                "reference": "43d839e5e8fba7076c4ad68bdd3a26fed86325a4"
+            },
+            "require": {
+                "glueful/framework": "^1.65.0",
+                "glueful/thallo-contracts": "*",
+                "php": "^8.3"
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "provider": "Thallo\\Analytics\\AnalyticsServiceProvider"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Analytics\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Product-analytics fact store for Thallo: consumes lifecycle events, owns its own facts, as a removable capability pack.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "glueful/thallo-collections",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-collections",
+                "reference": "d5f5669a9a0b81d1d072a06b8329db2abec540f1"
+            },
+            "require": {
+                "glueful/framework": "^1.64.0",
+                "glueful/thallo-contracts": "*",
+                "php": "^8.3"
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "provider": "Thallo\\Collections\\CollectionsServiceProvider"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Collections\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Developer-defined data collections with a public CRUD/query API, as a removable Thallo capability pack.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "glueful/thallo-contracts",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-contracts",
+                "reference": "c431ede0bd226e060e08eec677830dec2cdd8ea5"
+            },
+            "require": {
+                "php": "^8.3"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Contracts\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Thin, stable contracts (interfaces, DTOs, events, VOs) that Thallo capability packs compile against.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "glueful/thallo-importers",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-importers",
+                "reference": "85361cc97a119be1bb80aab926490e42ded8abc9"
+            },
+            "require": {
+                "glueful/aegis": "^1.13.1",
+                "glueful/framework": "^1.64.0",
+                "glueful/import-export": "^1.1.1",
+                "glueful/thallo-contracts": "*",
+                "glueful/users": "^2.3.0",
+                "league/commonmark": "^2.8",
+                "php": "^8.3",
+                "symfony/html-sanitizer": "^7.0 || ^8.0"
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "provider": "Thallo\\Importers\\ImportersServiceProvider"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Importers\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Thallo content format importers (CSV / Markdown / WordPress) as a removable capability pack.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "glueful/thallo-navigation",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-navigation",
+                "reference": "5bf698b5858771abf4729759f2036b2356e19db4"
+            },
+            "require": {
+                "glueful/framework": "^1.65.2",
+                "glueful/thallo-contracts": "*",
+                "php": "^8.3"
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "provider": "Thallo\\Navigation\\NavigationServiceProvider"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Navigation\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Navigation menus for Thallo: menu trees as data with published-only resolution, as a removable capability pack.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "glueful/thallo-render",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-render",
+                "reference": "71a397b76875d2825a8358280bc80b2285e7fc5a"
+            },
+            "require": {
+                "glueful/framework": "^1.65.2",
+                "glueful/thallo-contracts": "*",
+                "php": "^8.3",
+                "twig/twig": "^3.0"
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "provider": "Thallo\\Render\\RenderServiceProvider"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Render\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Rendered delivery for Thallo: server-rendered pages from published content via filesystem Twig themes, as a removable capability pack.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "glueful/thallo-search",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-search",
+                "reference": "fd1969527b913d56a9a038ea96df130c20a08465"
+            },
+            "require": {
+                "glueful/framework": "^1.65.0",
+                "glueful/meilisearch": "*",
+                "glueful/thallo-contracts": "*",
+                "php": "^8.3"
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "provider": "Thallo\\Search\\SearchServiceProvider"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Search\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Search for Thallo: a public, delivery-parity content search API backed by Meilisearch, as a removable capability pack.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "glueful/thallo-seo",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-seo",
+                "reference": "e6965d2bf5f5cbfd9f5eefe88eedeaa8012bd7d6"
+            },
+            "require": {
+                "glueful/framework": "^1.65.0",
+                "glueful/thallo-contracts": "*",
+                "php": "^8.3"
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "provider": "Thallo\\Seo\\SeoServiceProvider"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Seo\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "SEO for Thallo: sitemaps, per-entry meta, and robots.txt as a removable capability pack.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "glueful/thallo-workflow",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-workflow",
+                "reference": "97f531992b8d9e81dc85404647b5b8c6dee1750c"
+            },
+            "require": {
+                "glueful/framework": "^1.65.0",
+                "glueful/thallo-contracts": "*",
+                "php": "^8.3"
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "provider": "Thallo\\Workflow\\WorkflowServiceProvider"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Workflow\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Editorial approval workflow for Thallo: single-stage review state machine over draft/publish, as a removable capability pack.",
+            "transport-options": {
+                "relative": true
+            }
         },
         {
             "name": "glueful/users",

@@ -81,19 +81,19 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   function onMessage(event: MessageEvent): void {
     const data = (event.data ?? {}) as BridgeMessage
     if (data.nonce !== nonce) return
-    if (data.type === 'lemma:block-select' && typeof data.id === 'string') selectCb?.(data.id)
+    if (data.type === 'thallo:block-select' && typeof data.id === 'string') selectCb?.(data.id)
     // Stage Escape (keyboard-shortcuts spec §3): notification-only — the
     // bridge already cleared its own ring/toolbar.
-    if (data.type === 'lemma:block-deselect' && typeof data.id === 'string') deselectCb?.(data.id)
-    if (data.type === 'lemma:block-hover' && typeof data.id === 'string') hoverCb?.(data.id)
-    if (data.type === 'lemma:blocks-index' && Array.isArray(data.ids)) {
+    if (data.type === 'thallo:block-deselect' && typeof data.id === 'string') deselectCb?.(data.id)
+    if (data.type === 'thallo:block-hover' && typeof data.id === 'string') hoverCb?.(data.id)
+    if (data.type === 'thallo:blocks-index' && Array.isArray(data.ids)) {
       indexCb?.(data.ids.filter((v): v is string => typeof v === 'string'))
     }
     // Stage toolbar intents (stage-toolbar spec §1).
-    if (data.type === 'lemma:block-move' && typeof data.id === 'string') {
+    if (data.type === 'thallo:block-move' && typeof data.id === 'string') {
       if (data.delta === 1 || data.delta === -1) moveCb?.(data.id, data.delta)
     }
-    if (data.type === 'lemma:block-move-to' && typeof data.id === 'string') {
+    if (data.type === 'thallo:block-move-to' && typeof data.id === 'string') {
       // XOR (review P2): exactly one neighbor key — both or neither is
       // malformed and dropped, never a silent preference.
       const hasBefore = typeof data.beforeId === 'string'
@@ -101,17 +101,17 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       if (hasBefore && !hasAfter) moveToCb?.(data.id, { beforeId: data.beforeId as string })
       else if (hasAfter && !hasBefore) moveToCb?.(data.id, { afterId: data.afterId as string })
     }
-    if (data.type === 'lemma:block-duplicate' && typeof data.id === 'string') {
+    if (data.type === 'thallo:block-duplicate' && typeof data.id === 'string') {
       duplicateCb?.(data.id)
     }
-    if (data.type === 'lemma:block-delete-request' && typeof data.id === 'string') {
+    if (data.type === 'thallo:block-delete-request' && typeof data.id === 'string') {
       const deleteAnchor =
         typeof data.rect?.x === 'number' && typeof data.rect?.y === 'number'
           ? { x: data.rect.x, y: data.rect.y }
           : null
       deleteRequestCb?.(data.id, deleteAnchor)
     }
-    if (data.type === 'lemma:block-add-after' && typeof data.id === 'string') {
+    if (data.type === 'thallo:block-add-after' && typeof data.id === 'string') {
       const anchor =
         typeof data.rect?.x === 'number' && typeof data.rect?.y === 'number'
           ? { x: data.rect.x, y: data.rect.y }
@@ -120,14 +120,14 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     }
     // Edit-in-place (edit-in-place spec §3/§4; v4 field-addressed shapes).
     if (
-      data.type === 'lemma:edit-request' &&
+      data.type === 'thallo:edit-request' &&
       typeof data.id === 'string' &&
       typeof data.field === 'string'
     ) {
       editRequestCb?.(data.id, data.field)
     }
     if (
-      data.type === 'lemma:text-changed' &&
+      data.type === 'thallo:text-changed' &&
       typeof data.id === 'string' &&
       typeof data.field === 'string'
     ) {
@@ -137,13 +137,13 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
         textChangedCb?.(data.id, data.field, { text: data.text })
       }
     }
-    if (data.type === 'lemma:edit-flushed') {
+    if (data.type === 'thallo:edit-flushed') {
       flushResolve?.()
       flushResolve = null
     }
     // Partial DOM patching (dom-patching spec §1): id-correlated ack — a slow
     // fetch or timeout can never resolve a LATER refresh's promise.
-    if (data.type === 'lemma:stage-refreshed') {
+    if (data.type === 'thallo:stage-refreshed') {
       const ack = data as BridgeMessage & { refresh_id?: string; mode?: string; detail?: string }
       if (pendingRefresh !== null && ack.refresh_id === pendingRefresh.id) {
         const { resolve } = pendingRefresh
@@ -153,13 +153,13 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       }
     }
     // Auto-apply lifecycle + scroll preservation (auto-apply spec §1/§3).
-    if (data.type === 'lemma:edit-start' && typeof data.id === 'string') {
+    if (data.type === 'thallo:edit-start' && typeof data.id === 'string') {
       editStartCb?.(data.id)
     }
-    if (data.type === 'lemma:edit-end' && typeof data.id === 'string') {
+    if (data.type === 'thallo:edit-end' && typeof data.id === 'string') {
       editEndCb?.(data.id)
     }
-    if (data.type === 'lemma:scroll' && typeof data.y === 'number') {
+    if (data.type === 'thallo:scroll' && typeof data.y === 'number') {
       scrollCb?.(data.y)
     }
   }
@@ -169,7 +169,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
   return {
     nonce,
     hello(): void {
-      post({ type: 'lemma:canvas-hello' })
+      post({ type: 'thallo:canvas-hello' })
     },
     onBlockSelect(cb: (id: string) => void): void {
       selectCb = cb
@@ -184,10 +184,10 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       indexCb = cb
     },
     highlight(id: string): void {
-      post({ type: 'lemma:highlight', id })
+      post({ type: 'thallo:highlight', id })
     },
     scrollTo(id: string): void {
-      post({ type: 'lemma:scroll-to', id })
+      post({ type: 'thallo:scroll-to', id })
     },
     onBlockMove(cb: (id: string, delta: 1 | -1) => void): void {
       moveCb = cb
@@ -208,13 +208,13 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
     },
     // Mirrors (stage-toolbar spec §1): posted ONLY after the tree committed.
     mirrorMove(id: string, neighbor: { beforeId: string } | { afterId: string }): void {
-      post({ type: 'lemma:mirror-move', id, ...neighbor })
+      post({ type: 'thallo:mirror-move', id, ...neighbor })
     },
     mirrorRemove(id: string): void {
-      post({ type: 'lemma:mirror-remove', id })
+      post({ type: 'thallo:mirror-remove', id })
     },
     mirrorDuplicate(sourceId: string, idMap: Record<string, string>): void {
-      post({ type: 'lemma:mirror-duplicate', sourceId, idMap })
+      post({ type: 'thallo:mirror-duplicate', sourceId, idMap })
     },
     onEditRequest(cb: (id: string, field: string) => void): void {
       editRequestCb = cb
@@ -234,10 +234,10 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
       scrollCb = cb
     },
     restoreScroll(y: number): void {
-      post({ type: 'lemma:restore-scroll', y })
+      post({ type: 'thallo:restore-scroll', y })
     },
     editGrant(id: string, field: string, kind: EditKind): void {
-      post({ type: 'lemma:edit-grant', id, field, kind })
+      post({ type: 'thallo:edit-grant', id, field, kind })
     },
     /**
      * Flush any in-stage editing session before Apply (spec §4): resolves on
@@ -245,7 +245,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
      * bridge answers (a mid-reload stage must not wedge Apply).
      */
     editFlush(): Promise<void> {
-      post({ type: 'lemma:edit-flush' })
+      post({ type: 'thallo:edit-flush' })
       return new Promise((resolve) => {
         flushResolve = () => resolve()
         setTimeout(() => {
@@ -261,7 +261,7 @@ export function useCanvasBridge(iframeRef: Ref<HTMLIFrameElement | null>) {
      */
     stageRefresh(): Promise<StageRefreshMode> {
       const refreshId = `r${++refreshSeq}-${nonce}`
-      post({ type: 'lemma:stage-refresh', refresh_id: refreshId })
+      post({ type: 'thallo:stage-refresh', refresh_id: refreshId })
       return new Promise((resolve) => {
         pendingRefresh = { id: refreshId, resolve }
         setTimeout(() => {

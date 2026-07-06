@@ -10,10 +10,10 @@ final class CapabilityRegistrationTest extends TestCase
 {
     public function testProviderFqcnDeclaredInPackComposer(): void
     {
-        $path = dirname(__DIR__, 3) . '/packages/lemma-search/composer.json';
+        $path = dirname(__DIR__, 3) . '/packages/thallo-search/composer.json';
         $composer = json_decode((string) file_get_contents($path), true);
         self::assertSame(
-            'Glueful\\Lemma\\Search\\LemmaSearchServiceProvider',
+            'Thallo\\Search\\SearchServiceProvider',
             $composer['extra']['glueful']['provider'] ?? null,
         );
     }

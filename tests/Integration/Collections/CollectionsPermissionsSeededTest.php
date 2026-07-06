@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
 /**
  * Verifies the pack's 003 migration seeds the collections.* permissions and grants them to the
  * existing Aegis `administrator` role (the migration runs after Aegis seeds the role ladder).
  */
-final class CollectionsPermissionsSeededTest extends LemmaTestCase
+final class CollectionsPermissionsSeededTest extends AppTestCase
 {
     private const SLUGS = ['collections.manage', 'collections.schema.manage', 'collections.data.manage'];
 

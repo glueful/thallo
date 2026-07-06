@@ -7,7 +7,7 @@ namespace App\Content\Delivery;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\PublishedReferenceRepository;
 use App\Content\Schema\ContentTypeSchema;
-use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
+use Thallo\Contracts\Delivery\FacetCountsReader;
 
 /**
  * Template-facing facet counts over the published-reference projection, with the SAME
@@ -55,8 +55,8 @@ final class EngineFacetCountsReader implements FacetCountsReader
             'items' => $items,
             // Valid facet — even with zero counts — tags the page (review P1).
             'cache_tags' => [
-                'lemma:type:' . (string) $typeRow['slug'],
-                'lemma:type:' . (string) $targetRow['slug'],
+                'thallo:type:' . (string) $typeRow['slug'],
+                'thallo:type:' . (string) $targetRow['slug'],
             ],
         ];
     }

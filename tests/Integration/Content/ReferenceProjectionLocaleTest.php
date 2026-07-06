@@ -6,7 +6,7 @@ namespace App\Tests\Integration\Content;
 
 use App\Content\Repositories\ReferenceProjectionRepository;
 use App\Content\Schema\ContentTypeSchema;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
 /**
  * Regression: the reference projection is keyed per (source entry, locale). Rebuilding or clearing
@@ -14,7 +14,7 @@ use App\Tests\Support\LemmaTestCase;
  * locale of a multi-locale entry wipes the others' "what links here" rows and wrongly frees assets
  * still referenced by another locale's published version.
  */
-final class ReferenceProjectionLocaleTest extends LemmaTestCase
+final class ReferenceProjectionLocaleTest extends AppTestCase
 {
     private const SCHEMA = [['name' => 'author', 'type' => 'reference']];
 

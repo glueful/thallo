@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Content\Schema;
 
 use App\Content\Repositories\ContentTypeRepository;
-use Glueful\Lemma\Contracts\Schema\ContentSchemaReader;
-use Glueful\Lemma\Contracts\Schema\ContentTypeReader;
+use Thallo\Contracts\Schema\ContentSchemaReader;
+use Thallo\Contracts\Schema\ContentTypeReader;
 
 final class EngineContentTypeReader implements ContentTypeReader
 {

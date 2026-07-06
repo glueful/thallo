@@ -6,8 +6,8 @@ namespace App\Content\Delivery;
 
 use App\Content\Repositories\ContentTypeRepository;
 use Glueful\Database\Connection;
-use Glueful\Lemma\Contracts\Delivery\ReferenceTargetResolver;
-use Glueful\Lemma\Contracts\Schema\FieldDescriptor;
+use Thallo\Contracts\Delivery\ReferenceTargetResolver;
+use Thallo\Contracts\Schema\FieldDescriptor;
 
 /**
  * Resolves reference-filter input values (uuids and/or slugs) to a deduped list of target entry

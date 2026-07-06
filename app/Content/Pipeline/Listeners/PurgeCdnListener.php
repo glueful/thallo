@@ -13,7 +13,7 @@ use Psr\Container\ContainerInterface;
 /**
  * Purges the CDN edge cache by surrogate tag when content changes (V1_DESIGN §5).
  *
- * CAPABILITY-GATED. The default Lemma install enables users/aegis/media/email but NOT
+ * CAPABILITY-GATED. The default Thallo install enables users/aegis/media/email but NOT
  * glueful/cdn. Core always binds {@see EdgeCacheInterface} — to the no-op
  * {@see \Glueful\Cache\NullEdgeCache} when no CDN integration is installed — so a naive
  * container `has()` check is ALWAYS true and would call purge on the null cache. The real
@@ -23,8 +23,8 @@ use Psr\Container\ContainerInterface;
  *
  * When a real CDN IS present, it purges the SAME surrogate tags the delivery layer emits and
  * the cache-invalidation listener invalidates:
- *   - entry events -> [lemma:entry:{uuid}, lemma:type:{slug}]
- *   - model events -> [lemma:type:{slug}]
+ *   - entry events -> [thallo:entry:{uuid}, thallo:type:{slug}]
+ *   - model events -> [thallo:type:{slug}]
  * Entry events carry the content-type UUID (not the slug), so the type tag is resolved
  * uuid -> slug via ContentTypeRepository (memoised) — mirroring InvalidateCacheTagsListener.
  *
@@ -36,7 +36,7 @@ use Psr\Container\ContainerInterface;
  * Registered via EventService::addListener(..., '@' . self::class) — the '@serviceId' form
  * resolves this service lazily and invokes it as a callable, so the entry point is
  * __invoke(object $event). Idempotent + re-drivable: purging an already-fresh tag is a no-op,
- * so `lemma:resync` can safely re-run it.
+ * so `thallo:resync` can safely re-run it.
  */
 final class PurgeCdnListener
 {
@@ -83,16 +83,16 @@ final class PurgeCdnListener
     {
         if ($event instanceof BaseEntryEvent) {
             $slug = $this->resolveSlug($event->type);
-            $tags = ['lemma:entry:' . $event->entry];
+            $tags = ['thallo:entry:' . $event->entry];
             if ($slug !== null) {
-                $tags[] = 'lemma:type:' . $slug;
+                $tags[] = 'thallo:type:' . $slug;
             }
             return $tags;
         }
 
         if ($event instanceof BaseModelEvent) {
             // Model events carry the slug directly.
-            return ['lemma:type:' . $event->type];
+            return ['thallo:type:' . $event->type];
         }
 
         return [];

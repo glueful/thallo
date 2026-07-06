@@ -7,7 +7,7 @@ namespace App\Settings;
 use Glueful\Bootstrap\ApplicationContext;
 
 /**
- * Thin key/value store over the `lemma_settings` table — the runtime-mutable instance settings
+ * Thin key/value store over the `settings` table — the runtime-mutable instance settings
  * (set at install by {@see \App\Setup\SetupService} and edited from Settings › General).
  *
  * Unlike `.env`, rows are shared across every app instance and apply on the next request with no
@@ -31,7 +31,7 @@ final class SettingsStore
         }
 
         $out = [];
-        foreach (db($this->context)->table('lemma_settings')->get() as $row) {
+        foreach (db($this->context)->table('settings')->get() as $row) {
             $key = (string) ($row['key'] ?? '');
             if ($key !== '') {
                 $out[$key] = (string) ($row['value'] ?? '');
@@ -53,14 +53,14 @@ final class SettingsStore
      */
     public function forget(string $key): void
     {
-        db($this->context)->table('lemma_settings')->where(['key' => $key])->delete();
+        db($this->context)->table('settings')->where(['key' => $key])->delete();
         $this->cache = null;
     }
 
     /**
      * Drop the memo so the next read hits the database. Writes through this
      * store invalidate automatically; this exists for callers that mutate
-     * `lemma_settings` AROUND the store (the test harness truncates tables
+     * `settings` AROUND the store (the test harness truncates tables
      * between tests while the container singleton lives on).
      */
     public function clearCache(): void
@@ -69,7 +69,7 @@ final class SettingsStore
     }
 
     /**
-     * Upsert each pair into `lemma_settings`.
+     * Upsert each pair into `settings`.
      *
      * @param array<string,string> $pairs
      */
@@ -82,15 +82,15 @@ final class SettingsStore
         $now = date('Y-m-d H:i:s');
         foreach ($pairs as $key => $value) {
             // `key` is the (non-integer) primary key, so upsert is check-then-write (mirrors SetupService).
-            $existing = db($this->context)->table('lemma_settings')->where(['key' => $key])->first();
+            $existing = db($this->context)->table('settings')->where(['key' => $key])->first();
             if ($existing === null) {
-                db($this->context)->table('lemma_settings')->insert([
+                db($this->context)->table('settings')->insert([
                     'key' => $key,
                     'value' => $value,
                     'updated_at' => $now,
                 ]);
             } else {
-                db($this->context)->table('lemma_settings')->where(['key' => $key])->update([
+                db($this->context)->table('settings')->where(['key' => $key])->update([
                     'value' => $value,
                     'updated_at' => $now,
                 ]);

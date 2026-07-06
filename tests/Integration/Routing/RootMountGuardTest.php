@@ -13,7 +13,7 @@ use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\RouteRepository;
 use App\Content\Routing\RootMountGuard;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,7 +23,7 @@ use Symfony\Component\HttpFoundation\Request;
  * root slug could collide, checked at the three write paths — route
  * assignment, flipping mount_at_root ON, and content-type creation.
  */
-final class RootMountGuardTest extends LemmaTestCase
+final class RootMountGuardTest extends AppTestCase
 {
     private function guard(): RootMountGuard
     {

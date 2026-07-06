@@ -7,9 +7,9 @@ namespace App\Tests\Integration\Content;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Validation\FieldValidator;
 use App\Content\Validation\ValidationException;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class FieldValidatorMediaDiskTest extends LemmaTestCase
+final class FieldValidatorMediaDiskTest extends AppTestCase
 {
     protected function setUp(): void
     {
@@ -20,13 +20,13 @@ final class FieldValidatorMediaDiskTest extends LemmaTestCase
     protected function tearDown(): void
     {
         $this->deleteBlobFixtures();
-        $this->setConfig('lemma.media_disk', 'local');
+        $this->setConfig('thallo.media_disk', 'local');
         parent::tearDown();
     }
 
     public function testAssetFieldRequiresActiveBlobOnConfiguredMediaDisk(): void
     {
-        $this->setConfig('lemma.media_disk', 'media');
+        $this->setConfig('thallo.media_disk', 'media');
         $this->insertBlob('assetmedia01', 'media');
         $this->insertBlob('assetlocal01', 'local');
 

@@ -1,0 +1,10 @@
+{% set orientation = data.orientation|default('vertical') %}
+<aside class="thallo-block thallo-block-cta thallo-block-cta--{{ data.variant|default('outline') }} thallo-block-cta--{{ orientation }}{% if data.reverse|default(false) %} thallo-block-cta--reverse{% endif %}">
+  <div class="thallo-block-cta__inner">
+    <div class="thallo-block-cta__wrapper">
+      <h2 class="thallo-block-cta__title">{{ data.title|editable_text('title') }}</h2>
+      {% if data.description %}<p class="thallo-block-cta__description">{{ data.description|editable_text('description') }}</p>{% endif %}
+      {% if data.links|default([]) is not empty %}<div class="thallo-block-cta__links">{{ blocks(data.links) }}</div>{% endif %}
+    </div>
+  </div>
+</aside>

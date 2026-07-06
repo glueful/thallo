@@ -4,24 +4,24 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
-use Glueful\Lemma\Collections\CollectionManager;
-use Glueful\Lemma\Collections\Data\Actor;
-use Glueful\Lemma\Collections\Data\RowRepository;
-use Glueful\Lemma\Collections\Http\Controllers\CollectionAdminSchemaController;
-use Glueful\Lemma\Collections\Http\DTOs\AddIndexData;
-use Glueful\Lemma\Collections\Http\DTOs\CreateCollectionData;
-use Glueful\Lemma\Collections\Http\DTOs\FieldData;
-use Glueful\Lemma\Collections\Http\DTOs\UpdateAccessData;
-use Glueful\Lemma\Collections\Repositories\CollectionDefinitionRepository;
+use Thallo\Collections\CollectionManager;
+use Thallo\Collections\Data\Actor;
+use Thallo\Collections\Data\RowRepository;
+use Thallo\Collections\Http\Controllers\CollectionAdminSchemaController;
+use Thallo\Collections\Http\DTOs\AddIndexData;
+use Thallo\Collections\Http\DTOs\CreateCollectionData;
+use Thallo\Collections\Http\DTOs\FieldData;
+use Thallo\Collections\Http\DTOs\UpdateAccessData;
+use Thallo\Collections\Repositories\CollectionDefinitionRepository;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Drives CollectionAdminSchemaController through the container (routes arrive in a later task),
  * asserting the Response and the persisted definition — including the access-policy control.
  */
-final class AdminSchemaApiTest extends LemmaTestCase
+final class AdminSchemaApiTest extends AppTestCase
 {
     private const NAME = 'gadgets';
 

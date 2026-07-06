@@ -39,7 +39,7 @@ final class VersionPruner
             $report->recordLineage($deleted, $selection['retained'], $selection['pinnedSkipped']);
         }
 
-        $this->logger?->info('lemma.versions.pruned', array_merge($report->toArray(), [
+        $this->logger?->info('thallo.versions.pruned', array_merge($report->toArray(), [
             'keep' => $policy->keep,
             'max_age_days' => $policy->maxAgeDays,
             'dry_run' => $dryRun,

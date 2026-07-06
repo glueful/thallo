@@ -7,7 +7,7 @@ namespace App\Content\Blocks;
 /**
  * The starter block library (starter-library spec §1; expanded + hero/cta
  * reshaped by the block-library spec) — DATA ONLY, the one source of truth for
- * `lemma:blocks:seed`. Every schema passes BlockTypeRepository::create()'s
+ * `thallo:blocks:seed`. Every schema passes BlockTypeRepository::create()'s
  * rules (the seeder goes through it, so the starters validate themselves). No
  * `reference` fields: reference_type targets site-specific content types.
  *

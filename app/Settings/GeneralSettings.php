@@ -7,42 +7,42 @@ namespace App\Settings;
 use Glueful\Bootstrap\ApplicationContext;
 
 /**
- * Effective instance "General" settings: a `lemma_settings` row overrides the deploy-time
- * config/.env default. Precedence: DB row → `config('lemma.*')` (which reads .env) → hard default.
+ * Effective instance "General" settings: a `settings` row overrides the deploy-time
+ * config/.env default. Precedence: DB row → `config('thallo.*')` (which reads .env) → hard default.
  *
- * This is the single read point for these settings so a save (to `lemma_settings`) takes effect on
+ * This is the single read point for these settings so a save (to `settings`) takes effect on
  * the next request across every instance, with no `.env` rewrite or restart. Consumers call e.g.
- * `app($context, GeneralSettings::class)->maxPerPage()` instead of `config('lemma.delivery.max_per_page')`.
+ * `app($context, GeneralSettings::class)->maxPerPage()` instead of `config('thallo.delivery.max_per_page')`.
  */
 final class GeneralSettings
 {
     /** Setting key => [config path used as the deploy-time default, value type, hard fallback]. */
     private const DEFS = [
-        'site_name'         => ['lemma.site_name', 'string', 'Lemma'],
-        'site_preview_url'  => ['lemma.admin.site_preview_url', 'string', ''],
-        'default_locale'    => ['lemma.admin.default_locale', 'string', 'en'],
-        'default_per_page'  => ['lemma.delivery.default_per_page', 'int', 20],
-        'max_per_page'      => ['lemma.delivery.max_per_page', 'int', 100],
-        'cache_ttl'         => ['lemma.delivery.cache_ttl', 'int', 60],
-        'scheduler_enabled' => ['lemma.scheduler.enabled', 'bool', true],
-        'webhooks_enabled'  => ['lemma.pipeline.webhooks_enabled', 'bool', true],
-        'homepage_entry'    => ['lemma_render.homepage_entry', 'string', ''],
-        'site_logo'         => ['lemma.site_logo', 'string', ''],
+        'site_name'         => ['thallo.site_name', 'string', 'Thallo'],
+        'site_preview_url'  => ['thallo.admin.site_preview_url', 'string', ''],
+        'default_locale'    => ['thallo.admin.default_locale', 'string', 'en'],
+        'default_per_page'  => ['thallo.delivery.default_per_page', 'int', 20],
+        'max_per_page'      => ['thallo.delivery.max_per_page', 'int', 100],
+        'cache_ttl'         => ['thallo.delivery.cache_ttl', 'int', 60],
+        'scheduler_enabled' => ['thallo.scheduler.enabled', 'bool', true],
+        'webhooks_enabled'  => ['thallo.pipeline.webhooks_enabled', 'bool', true],
+        'homepage_entry'    => ['render.homepage_entry', 'string', ''],
+        'site_logo'         => ['thallo.site_logo', 'string', ''],
         // Dark-scheme logo variant (site-identity spec): an OVERRIDE — unset
         // means the main logo renders in dark mode too.
-        'site_logo_dark'    => ['lemma.site_logo_dark', 'string', ''],
+        'site_logo_dark'    => ['thallo.site_logo_dark', 'string', ''],
         // Favicon blob uuid; rendered only when anonymously servable.
-        'site_favicon'      => ['lemma.site_favicon', 'string', ''],
+        'site_favicon'      => ['thallo.site_favicon', 'string', ''],
         // Live theme (theme-setting spec §1): DB override → RENDER_THEME env →
         // 'default'. Write-validated; explicit '' clears to the env fallback.
-        'theme'             => ['lemma_render.theme', 'string', 'default'],
+        'theme'             => ['render.theme', 'string', 'default'],
         // Admin SPA base URL — powers the preview bar's Edit/Design deep links.
         // Auto-populated at web setup (the SPA sends its own origin).
-        'admin_url'         => ['lemma_render.admin_url', 'string', ''],
+        'admin_url'         => ['render.admin_url', 'string', ''],
         // Which content types expose /{type} listings + /{type}/{field}/{term}
         // archives. DB row wins (CSV; '' = explicitly none); config/.env is the
         // pre-first-save deploy default.
-        'listing_types'     => ['lemma_render.listing_types', 'list', []],
+        'listing_types'     => ['render.listing_types', 'list', []],
     ];
 
     public function __construct(

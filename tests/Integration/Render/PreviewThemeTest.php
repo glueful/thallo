@@ -9,9 +9,9 @@ use App\Content\Preview\PreviewToken;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
-use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
+use Thallo\Contracts\Delivery\PublicRouteResolver;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\Request;
  * preview flag, fail-closed), the uncached /_preview/{token} route, headers, and the
  * banner. Uses the REAL token mechanism (PreviewMinter / PreviewToken).
  */
-final class PreviewThemeTest extends LemmaTestCase
+final class PreviewThemeTest extends AppTestCase
 {
     use SeedsPublishedContent;
 

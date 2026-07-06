@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\ImportExport;
 
-use App\Content\ImportExport\LemmaContentImporter;
-use App\Tests\Support\LemmaTestCase;
+use App\Content\ImportExport\ContentImporter;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\ImportExport\Support\ImportBatch;
 use Glueful\Extensions\ImportExport\Support\ImportContext;
 use Glueful\Extensions\ImportExport\Support\ImportOptions;
@@ -15,13 +15,13 @@ use Glueful\Extensions\ImportExport\Support\ImportSource;
  * Proves that a multi-valued reference field (fields.category = uuid array)
  * survives an export→import round-trip verbatim, order preserved.
  *
- * Mirrors the setup established in LemmaContentImporterTest: write a bundle to
+ * Mirrors the setup established in ContentImporterTest: write a bundle to
  * a temp NDJSON file, seed an import_export_jobs + import_export_files row,
- * then drive LemmaContentImporter::process() in dry_run (no writes) and in
+ * then drive ContentImporter::process() in dry_run (no writes) and in
  * commit (upsert) mode.  The entry_draft's fields.category must equal the
  * original uuid array in the same order after the commit pass.
  */
-final class MultiValueReferenceRoundTripTest extends LemmaTestCase
+final class MultiValueReferenceRoundTripTest extends AppTestCase
 {
     /** Two category UUIDs that travel as an ordered array through the bundle. */
     private const CATEGORY_A = 'catA0000001';
@@ -81,9 +81,9 @@ final class MultiValueReferenceRoundTripTest extends LemmaTestCase
         );
     }
 
-    private function importer(): LemmaContentImporter
+    private function importer(): ContentImporter
     {
-        return new LemmaContentImporter($this->appContext(), $this->connection());
+        return new ContentImporter($this->appContext(), $this->connection());
     }
 
     /**
@@ -91,11 +91,11 @@ final class MultiValueReferenceRoundTripTest extends LemmaTestCase
      */
     private function writeBundle(array $records): string
     {
-        $dir = sys_get_temp_dir() . '/lemma-import-export-tests';
+        $dir = sys_get_temp_dir() . '/import-export-tests';
         if (!is_dir($dir)) {
             mkdir($dir, 0770, true);
         }
-        $path = $dir . '/lemma-multival-ref.ndjson';
+        $path = $dir . '/multival-ref.ndjson';
         file_put_contents($path, implode("\n", array_map(
             static fn(array $record): string => json_encode($record, JSON_THROW_ON_ERROR),
             $records
@@ -109,11 +109,11 @@ final class MultiValueReferenceRoundTripTest extends LemmaTestCase
         $this->connection()->table('import_export_jobs')->insert([
             'uuid' => 'job000000001',
             'type' => 'import',
-            'adapter' => 'lemma.content',
+            'adapter' => 'thallo.content',
             'status' => 'queued',
             'mode' => 'commit',
             'source_disk' => 'storage',
-            'source_path' => 'imports/lemma-multival-ref.ndjson',
+            'source_path' => 'imports/multival-ref.ndjson',
             'total_records' => 7,
             'created_at' => '2026-06-16 00:00:00',
             'updated_at' => '2026-06-16 00:00:00',
@@ -131,7 +131,7 @@ final class MultiValueReferenceRoundTripTest extends LemmaTestCase
     }
 
     /**
-     * Build a Lemma content NDJSON bundle whose entry has a `category` field
+     * Build a Thallo content NDJSON bundle whose entry has a `category` field
      * carrying a multi-valued reference array (two uuid strings, ordered).
      *
      * The bundle intentionally omits `entry_route` and `asset_manifest` because

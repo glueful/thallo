@@ -7,16 +7,16 @@ namespace App\Tests\Integration\Pipeline;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Services\PublishService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use App\Tests\Support\RecordingWebhookDispatcher;
 use Glueful\Api\Webhooks\WebhookDispatcher;
 
 /**
  * Proves the webhook-dispatch listener (V1_DESIGN §5) wired in
- * LemmaServiceProvider::boot() forwards content events to the core WebhookDispatcher
+ * ThalloServiceProvider::boot() forwards content events to the core WebhookDispatcher
  * with the FROZEN event name + the identity-only payload.
  *
- * Lemma builds no webhook infra: it calls the core
+ * Thallo builds no webhook infra: it calls the core
  * WebhookDispatcher::dispatch(string $event, array $data): array (signing / retries /
  * delivery tracking are the core's). The whole security model is that the payload carries
  * identity ONLY — never a `fields` key — so receivers re-fetch through the delivery API
@@ -27,7 +27,7 @@ use Glueful\Api\Webhooks\WebhookDispatcher;
  * resolves WebhookDispatcher::class per-invocation, so it picks up the spy even though it
  * was wired (and possibly already resolved) at boot.
  */
-final class WebhookDispatchTest extends LemmaTestCase
+final class WebhookDispatchTest extends AppTestCase
 {
     private string $type;
     private string $entry;
@@ -85,9 +85,9 @@ final class WebhookDispatchTest extends LemmaTestCase
 
     public function testWebhooksDisabledGateSuppressesDispatch(): void
     {
-        // Flip lemma.pipeline.webhooks_enabled off via the context's config cache (getConfig
+        // Flip thallo.pipeline.webhooks_enabled off via the context's config cache (getConfig
         // checks the cache first). Restored in tearDown via clearConfigCache().
-        $this->setConfig('lemma.pipeline.webhooks_enabled', false);
+        $this->setConfig('thallo.pipeline.webhooks_enabled', false);
 
         // setUp's createEntry/saveDraft already emitted (enabled) events; only the publish
         // below is exercised under the disabled gate.

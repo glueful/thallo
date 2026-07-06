@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Setup;
 
 use App\Setup\SetupService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
 /**
  * Verifies the SetupService install flow end-to-end against a real PostgreSQL database.
  *
- * Requires `composer test:migrate` to have run first (lemma_settings table must exist).
+ * Requires `composer test:migrate` to have run first (settings table must exist).
  */
-final class SetupServiceTest extends LemmaTestCase
+final class SetupServiceTest extends AppTestCase
 {
     protected function setUp(): void
     {
@@ -20,8 +20,8 @@ final class SetupServiceTest extends LemmaTestCase
 
         // Start each test from a clean slate. The users table is uuid-keyed (no `id`
         // column), so TRUNCATE ... CASCADE is the reliable wipe — it clears users, the
-        // Aegis user_roles child rows, and the lemma_settings markers regardless of PK.
-        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, lemma_settings CASCADE');
+        // Aegis user_roles child rows, and the settings markers regardless of PK.
+        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, settings CASCADE');
     }
 
     private function service(): SetupService
@@ -39,7 +39,7 @@ final class SetupServiceTest extends LemmaTestCase
         $svc = $this->service();
 
         $svc->install(
-            siteName: 'Lemma Test Site',
+            siteName: 'Thallo Test Site',
             adminEmail: 'admin@example.com',
             adminPassword: 'S3cur3P@ssw0rd!',
             locale: 'en',
@@ -59,16 +59,16 @@ final class SetupServiceTest extends LemmaTestCase
             'stored hash must verify against the original password',
         );
 
-        // Verify site_name was written to lemma_settings.
-        $row = $this->connection()->table('lemma_settings')
+        // Verify site_name was written to settings.
+        $row = $this->connection()->table('settings')
             ->where(['key' => 'site_name'])
             ->first();
 
         self::assertNotNull($row);
-        self::assertSame('Lemma Test Site', $row['value']);
+        self::assertSame('Thallo Test Site', $row['value']);
 
         // Verify default_locale was written.
-        $localeRow = $this->connection()->table('lemma_settings')
+        $localeRow = $this->connection()->table('settings')
             ->where(['key' => 'default_locale'])
             ->first();
 
@@ -81,7 +81,7 @@ final class SetupServiceTest extends LemmaTestCase
         $svc = $this->service();
 
         $svc->install(
-            siteName: 'Lemma Test Site',
+            siteName: 'Thallo Test Site',
             adminEmail: 'admin@example.com',
             adminPassword: 'S3cur3P@ssw0rd!',
             locale: 'en',
@@ -156,13 +156,13 @@ final class SetupServiceTest extends LemmaTestCase
         );
 
         // And the render allowlist row: without it, /post and the archives 404.
-        $row = $this->connection()->table('lemma_settings')
+        $row = $this->connection()->table('settings')
             ->where(['key' => 'listing_types'])->first();
         self::assertSame('post', $row['value'] ?? null);
 
         // No admin_url was passed (CLI-style install) -> no row written.
         self::assertNull(
-            $this->connection()->table('lemma_settings')->where(['key' => 'admin_url'])->first(),
+            $this->connection()->table('settings')->where(['key' => 'admin_url'])->first(),
         );
     }
 
@@ -177,7 +177,7 @@ final class SetupServiceTest extends LemmaTestCase
             locale: 'en',
             adminUrl: 'https://admin.example.com/',
         );
-        $row = $this->connection()->table('lemma_settings')->where(['key' => 'admin_url'])->first();
+        $row = $this->connection()->table('settings')->where(['key' => 'admin_url'])->first();
         self::assertSame('https://admin.example.com', $row['value'] ?? null); // trailing / trimmed
     }
 
@@ -195,7 +195,7 @@ final class SetupServiceTest extends LemmaTestCase
         self::assertTrue($svc->isInstalled());
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Lemma is already installed.');
+        $this->expectExceptionMessage('Thallo is already installed.');
 
         $svc->install(
             siteName: 'Second Attempt',

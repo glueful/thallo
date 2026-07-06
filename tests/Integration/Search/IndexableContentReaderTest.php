@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Search;
 
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Search\IndexableContentReader;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Search\IndexableContentReader;
 
-final class IndexableContentReaderTest extends LemmaTestCase
+final class IndexableContentReaderTest extends AppTestCase
 {
     use SeedsPublishedContent;
 

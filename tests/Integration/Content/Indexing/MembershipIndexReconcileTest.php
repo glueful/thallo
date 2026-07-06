@@ -6,26 +6,26 @@ namespace App\Tests\Integration\Content\Indexing;
 
 use App\Content\Indexing\EnsureFilterIndexesJob;
 use App\Content\Repositories\ContentTypeRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Helpers\Utils;
 
 /**
  * Verifies that reconcile() drops a stale btree registry row and builds a GIN expression index
  * when a field's family flips from scalar (e.g. string) to membership (reference/asset).
  */
-final class MembershipIndexReconcileTest extends LemmaTestCase
+final class MembershipIndexReconcileTest extends AppTestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
-        // Clear the registry table — it is outside LemmaTestCase's TABLES truncate set.
-        $this->connection()->table('lemma_filter_indexes')->where('id', '>', 0)->delete();
+        // Clear the registry table — it is outside AppTestCase's TABLES truncate set.
+        $this->connection()->table('filter_indexes')->where('id', '>', 0)->delete();
     }
 
     protected function tearDown(): void
     {
         // Drop any physical indexes created by reconcile() so reruns are clean.
-        $rows = $this->connection()->table('lemma_filter_indexes')->select(['index_name'])->get();
+        $rows = $this->connection()->table('filter_indexes')->select(['index_name'])->get();
         foreach ($rows as $row) {
             $name = (string) $row['index_name'];
             if (preg_match('/\A[a-z0-9_]+\z/', $name) === 1) {
@@ -34,7 +34,7 @@ final class MembershipIndexReconcileTest extends LemmaTestCase
         }
         // Also clean up the index that may have been created in the first reconcile run
         // before the registry row was updated (stale btree drop happened, new GIN created).
-        $this->connection()->table('lemma_filter_indexes')->where('id', '>', 0)->delete();
+        $this->connection()->table('filter_indexes')->where('id', '>', 0)->delete();
         parent::tearDown();
     }
 
@@ -52,12 +52,12 @@ final class MembershipIndexReconcileTest extends LemmaTestCase
         ]);
 
         // 2. Determine the stable index name (matches FilterIndexPlanner's hash).
-        $indexName = 'lemma_fidx_' . substr(sha1($typeUuid . 'category'), 0, 16);
+        $indexName = 'fidx_' . substr(sha1($typeUuid . 'category'), 0, 16);
 
         // 3. Manually insert a stale registry row simulating an old btree scalar index
         //    (filter_type='string', status='ready') that was created before the field
         //    became a filterable membership reference.
-        $this->connection()->table('lemma_filter_indexes')->insert([
+        $this->connection()->table('filter_indexes')->insert([
             'uuid'              => Utils::generateNanoID(12),
             'content_type_uuid' => $typeUuid,
             'field'             => 'category',
@@ -80,7 +80,7 @@ final class MembershipIndexReconcileTest extends LemmaTestCase
         $job->reconcile($db, $types, $typeUuid);
 
         // 6a. Registry row must now reflect 'reference' family and be 'ready'.
-        $reg = $db->table('lemma_filter_indexes')
+        $reg = $db->table('filter_indexes')
             ->where('content_type_uuid', '=', $typeUuid)
             ->where('field', '=', 'category')
             ->first();

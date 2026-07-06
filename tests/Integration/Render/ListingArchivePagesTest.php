@@ -8,10 +8,10 @@ use App\Content\Events\EntryPublished;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\PublishedReferenceRepository;
 use App\Content\Repositories\RouteRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 use Glueful\Cache\CacheStore;
-use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
+use Thallo\Contracts\Delivery\PublicRouteResolver;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -21,7 +21,7 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * Suite env: RENDER_LISTING_TYPES=blog,post, RENDER_LISTING_PER_PAGE=2.
  */
-final class ListingArchivePagesTest extends LemmaTestCase
+final class ListingArchivePagesTest extends AppTestCase
 {
     private const CAT_TYPE_UUID = 'cattyperlst0';
     private string $postType;
@@ -207,11 +207,11 @@ final class ListingArchivePagesTest extends LemmaTestCase
         self::assertSame(200, $res->getStatusCode());
         $html = (string) $res->getContent();
         self::assertStringContainsString('Kernel post', $html);
-        // Ready hrefs, no path() loop (absolute here: suite sets LEMMA_PUBLIC_URL_BASE).
+        // Ready hrefs, no path() loop (absolute here: suite sets PUBLIC_URL_BASE).
         self::assertStringContainsString('href="https://site.test/post/kernel-post"', $html);
         // The broad type tag is on the response (the §4 purge pin).
-        self::assertStringContainsString('lemma:type:post', (string) $res->headers->get('Cache-Tag'));
-        self::assertStringContainsString('lemma:entry:kpost0000001', (string) $res->headers->get('Cache-Tag'));
+        self::assertStringContainsString('thallo:type:post', (string) $res->headers->get('Cache-Tag'));
+        self::assertStringContainsString('thallo:entry:kpost0000001', (string) $res->headers->get('Cache-Tag'));
     }
 
     public function testArchiveRendersTermAndMembersWithTags(): void
@@ -225,9 +225,9 @@ final class ListingArchivePagesTest extends LemmaTestCase
         self::assertStringContainsString('Tagged', $html);       // term heading
         self::assertStringContainsString('Tagged post', $html);  // member
         $cacheTag = (string) $res->headers->get('Cache-Tag');
-        self::assertStringContainsString('lemma:type:post', $cacheTag);
-        self::assertStringContainsString('lemma:type:category', $cacheTag);   // term type
-        self::assertStringContainsString('lemma:entry:term00000005', $cacheTag); // the term
+        self::assertStringContainsString('thallo:type:post', $cacheTag);
+        self::assertStringContainsString('thallo:type:category', $cacheTag);   // term type
+        self::assertStringContainsString('thallo:entry:term00000005', $cacheTag); // the term
     }
 
     public function testPaginationPathsAndDistinctCacheEntries(): void
@@ -257,7 +257,7 @@ final class ListingArchivePagesTest extends LemmaTestCase
     {
         // The §4 pin proven STRICTLY: the cached page must NOT contain the newly
         // published entry, so its per-item entry tags cannot explain the purge — only
-        // the broad lemma:type:post tag can. Cache page 2 (per_page=2: it holds only
+        // the broad thallo:type:post tag can. Cache page 2 (per_page=2: it holds only
         // the third-oldest post), then publish a brand-new entry that was never
         // rendered anywhere.
         $this->seedMemberPost('kpost0000006', 'vkpost000006', 'one', [], 'One');
@@ -278,7 +278,7 @@ final class ListingArchivePagesTest extends LemmaTestCase
 
         self::assertNull(
             $this->cache()->get('render:default:%2Fpost%2Fpage%2F2'),
-            'page 2 must purge via lemma:type:post — no per-entry tag links it to the new entry',
+            'page 2 must purge via thallo:type:post — no per-entry tag links it to the new entry',
         );
     }
 

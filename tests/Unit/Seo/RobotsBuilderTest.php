@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Seo;
 
-use Glueful\Lemma\Seo\Sitemap\RobotsBuilder;
+use Thallo\Seo\Sitemap\RobotsBuilder;
 use PHPUnit\Framework\TestCase;
 
 final class RobotsBuilderTest extends TestCase

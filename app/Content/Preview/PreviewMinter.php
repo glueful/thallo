@@ -52,6 +52,6 @@ final class PreviewMinter
      */
     public function ttlSeconds(): int
     {
-        return (int) config($this->context, 'lemma.preview.ttl_seconds', 600);
+        return (int) config($this->context, 'thallo.preview.ttl_seconds', 600);
     }
 }

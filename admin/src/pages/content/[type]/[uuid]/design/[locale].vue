@@ -143,7 +143,7 @@ function maybeReconcileStash(): void {
 // the key so the theme.json chain shows through.
 const inspectorTab = ref('content')
 const caps = useCapabilitiesStore()
-const seoEnabled = computed(() => caps.isEnabled('lemma.seo'))
+const seoEnabled = computed(() => caps.isEnabled('thallo.seo'))
 const inspectorTabs = computed(() => [
   { label: 'Content', value: 'content', slot: 'content' as const },
   { label: 'Outline', value: 'outline', slot: 'outline' as const },
@@ -462,7 +462,7 @@ const save = useSaveDraft(uuid.value, () => locale.value, type.value)
 const applying = ref(false)
 
 // ── Auto-apply (auto-apply spec §1): a SCHEDULER over the one runApply core ──
-const autoEnabled = ref(localStorage.getItem('lemma.canvas.auto_apply') !== '0')
+const autoEnabled = ref(localStorage.getItem('thallo.canvas.auto_apply') !== '0')
 const autoSuspended = ref(false) // session-local; never persisted
 const editSessionActive = ref(false)
 const applyQueued = ref(false) // the coalescing boolean — never a counter
@@ -520,7 +520,7 @@ function toggleAuto(): void {
     return
   }
   autoEnabled.value = !autoEnabled.value
-  localStorage.setItem('lemma.canvas.auto_apply', autoEnabled.value ? '1' : '0')
+  localStorage.setItem('thallo.canvas.auto_apply', autoEnabled.value ? '1' : '0')
   if (!autoEnabled.value) cancelAutoTimer()
   else if (stageStale.value) scheduleAuto()
 }

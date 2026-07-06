@@ -8,7 +8,7 @@ use App\Content\Preview\PreviewToken;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\RouteRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Helpers\Utils;
 use Glueful\Permissions\PermissionManager;
@@ -20,10 +20,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * End-to-end preview flow through the REAL application kernel.
  *
  * The preview door is the ONLY way to see a draft. This test drives genuine HTTP requests
- * through {@see LemmaTestCase::handle()} (the same entry point as public/index.php) so the
+ * through {@see AppTestCase::handle()} (the same entry point as public/index.php) so the
  * whole pipeline runs for both halves of the door:
  *
- *  - MINT  POST /v1/admin/entries/{uuid}/preview/{locale} — auth-gated + `lemma_permission`
+ *  - MINT  POST /v1/admin/entries/{uuid}/preview/{locale} — auth-gated + `content_permission`
  *    gated. We authenticate as an API-key admin and satisfy the RBAC permission with the
  *    framework's {@see InMemoryPermissionProvider} (the test-only provider the framework
  *    ships precisely for this), granting our seeded user `content.view`. With a
@@ -40,10 +40,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  *
  * Unlike the controller-level {@see \App\Tests\Integration\Http\PreviewApiTest} (which news
  * up the controller directly), this is the genuine kernel round-trip: routing, the `auth`
- * middleware + API-key provider, the `lemma_permission` RBAC gate, and the public rate-limited
+ * middleware + API-key provider, the `content_permission` RBAC gate, and the public rate-limited
  * read path all run.
  */
-final class PreviewFlowTest extends LemmaTestCase
+final class PreviewFlowTest extends AppTestCase
 {
     private string $type;
     private string $userUuid;
@@ -52,7 +52,7 @@ final class PreviewFlowTest extends LemmaTestCase
     {
         parent::setUp();
 
-        // LemmaTestCase only truncates the Lemma content tables; the users/api_keys rows
+        // AppTestCase only truncates the Thallo content tables; the users/api_keys rows
         // we seed for the kernel auth chain — and the singleton permission provider — are
         // ours to clean up.
         $this->purgeAuthFixtures();
@@ -61,7 +61,7 @@ final class PreviewFlowTest extends LemmaTestCase
 
         // Grant the admin principal the permission the mint route requires. The provider is
         // installed on the process-singleton PermissionManager the middleware resolves, so
-        // the kernel's `lemma_permission` gate sees the grant. Cleared in tearDown.
+        // the kernel's `content_permission` gate sees the grant. Cleared in tearDown.
         $this->permissionManager()->setProvider(new InMemoryPermissionProvider([
             $this->userUuid => ['content.view'],
         ]));
@@ -101,7 +101,7 @@ final class PreviewFlowTest extends LemmaTestCase
         $token = $data['token'];
         self::assertIsString($token);
         // theme_url is SERVER-decided (preview spec §4): the suite runs with
-        // lemma.render enabled, so it must be present and token-bound.
+        // thallo.render enabled, so it must be present and token-bound.
         self::assertSame('/_preview/' . $token, $data['theme_url']);
 
         // READ through the kernel with NO auth header at all — the token is the capability.
@@ -121,7 +121,7 @@ final class PreviewFlowTest extends LemmaTestCase
         $uuid = $this->seedDraft('No theme', 'no-theme-preview');
         // Override boots lose extension routes (loadRoutesFrom latch) — drive the
         // controller from the override container directly (established precedent).
-        $app = self::bootAppWithConfigOverride('lemma', ['capabilities' => ['lemma.render' => false]]);
+        $app = self::bootAppWithConfigOverride('thallo', ['capabilities' => ['thallo.render' => false]]);
         $controller = $app->getContainer()
             ->get(\App\Content\Http\Controllers\PreviewController::class);
         $res = $controller->mint(
@@ -156,7 +156,7 @@ final class PreviewFlowTest extends LemmaTestCase
     }
 
     // ── 2b. The permission gate DISCRIMINATES: authenticated but unpermissioned ─
-    //        admin is denied (403) — proving lemma_permission runs on the real
+    //        admin is denied (403) — proving content_permission runs on the real
     //        post-auth principal (the `'user'` array) and fails closed on a missing grant.
 
     public function testAuthenticatedButUnpermissionedMintIsForbidden(): void

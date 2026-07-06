@@ -7,7 +7,7 @@ namespace App\Tests\Integration\Content;
 use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Blocks\StarterBlockTypes;
 use App\Content\Console\SeedBlockTypesCommand;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
@@ -15,7 +15,7 @@ use Symfony\Component\Console\Tester\CommandTester;
  * not prove console-manifest registration; that is covered by the provider diff
  * (consoleCommandServices + commands list) and the commands:cache note.
  */
-final class SeedBlockTypesTest extends LemmaTestCase
+final class SeedBlockTypesTest extends AppTestCase
 {
     private function runSeed(): CommandTester
     {

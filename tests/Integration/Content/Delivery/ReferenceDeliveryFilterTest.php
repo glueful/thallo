@@ -23,7 +23,7 @@ use App\Content\Seo\RouteResolver;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
 use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Support\FieldSelection\Projector;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,7 +34,7 @@ use Symfony\Component\HttpFoundation\Request;
  * chain. Proves uuid lookup, slug resolution, `in` operator, scalar/array backward compat,
  * absent-field exclusion, ambiguous-slug rejection, and asset-uuid filtering.
  */
-final class ReferenceDeliveryFilterTest extends LemmaTestCase
+final class ReferenceDeliveryFilterTest extends AppTestCase
 {
     /** Content type uuid of the `category` type (seeded directly for predictable uuid). */
     private const CAT_TYPE_UUID = 'cattyperef00';

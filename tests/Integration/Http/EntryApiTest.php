@@ -19,13 +19,13 @@ use App\Content\Repositories\ScheduleRepository;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Validation\FieldValidator;
 use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 
-final class EntryApiTest extends LemmaTestCase
+final class EntryApiTest extends AppTestCase
 {
     private string $type;
 
@@ -57,7 +57,7 @@ final class EntryApiTest extends LemmaTestCase
 
     /**
      * Hydrate a request DTO exactly as the router would, so DTO validation is exercised
-     * before the controller sees it. (Lemma DTOs use only built-in rules, so no registry.)
+     * before the controller sees it. (Thallo DTOs use only built-in rules, so no registry.)
      *
      * @param  class-string<RequestData> $dtoClass
      * @param  array<string,mixed>       $body

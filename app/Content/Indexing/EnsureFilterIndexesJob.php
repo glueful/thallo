@@ -73,7 +73,7 @@ final class EnsureFilterIndexesJob extends Job
             $desiredByName[$d['index_name']] = $d;
         }
 
-        $existing = $db->table('lemma_filter_indexes')
+        $existing = $db->table('filter_indexes')
             ->where('content_type_uuid', '=', $typeUuid)
             ->get();
         $existingByName = [];
@@ -105,7 +105,7 @@ final class EnsureFilterIndexesJob extends Job
             }
             $this->assertSafeName($name);
             $this->dropIndex($db, (string) $name, $logger);
-            $db->table('lemma_filter_indexes')
+            $db->table('filter_indexes')
                 ->where('content_type_uuid', '=', $typeUuid)
                 ->where('index_name', '=', $name)
                 ->delete();
@@ -217,12 +217,12 @@ final class EnsureFilterIndexesJob extends Job
      */
     private function upsertRegistry(Connection $db, string $typeUuid, array $d, string $status): void
     {
-        $exists = $db->table('lemma_filter_indexes')
+        $exists = $db->table('filter_indexes')
             ->where('content_type_uuid', '=', $typeUuid)
             ->where('field', '=', $d['field'])
             ->first();
         if ($exists === null) {
-            $db->table('lemma_filter_indexes')->insert([
+            $db->table('filter_indexes')->insert([
                 'uuid' => Utils::generateNanoID(12),
                 'content_type_uuid' => $typeUuid,
                 'field' => $d['field'],
@@ -233,7 +233,7 @@ final class EnsureFilterIndexesJob extends Job
             ]);
             return;
         }
-        $db->table('lemma_filter_indexes')
+        $db->table('filter_indexes')
             ->where('content_type_uuid', '=', $typeUuid)
             ->where('field', '=', $d['field'])
             ->update([
@@ -245,7 +245,7 @@ final class EnsureFilterIndexesJob extends Job
 
     private function markStatus(Connection $db, string $typeUuid, string $name, string $status): void
     {
-        $db->table('lemma_filter_indexes')
+        $db->table('filter_indexes')
             ->where('content_type_uuid', '=', $typeUuid)
             ->where('index_name', '=', $name)
             ->update(['status' => $status]);

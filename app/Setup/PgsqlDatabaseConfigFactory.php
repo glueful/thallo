@@ -8,8 +8,8 @@ use Glueful\Installer\DatabaseConfig;
 use Glueful\Installer\EnvWriter;
 
 /**
- * Builds a Postgres DatabaseConfig for first-run setup. Lemma is Postgres-required, so the engine
- * is always 'pgsql' — never prompted. This is the single place that knows Lemma's DB_PGSQL_* env
+ * Builds a Postgres DatabaseConfig for first-run setup. Thallo is Postgres-required, so the engine
+ * is always 'pgsql' — never prompted. This is the single place that knows Thallo's DB_PGSQL_* env
  * key names; both interactive and --quiet (from-env) input funnel through here.
  */
 final class PgsqlDatabaseConfigFactory

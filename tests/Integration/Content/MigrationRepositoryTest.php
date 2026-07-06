@@ -8,9 +8,9 @@ use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\MigrationRepository;
 use App\Content\Schema\Migration\MigrationOpSet;
 use App\Content\Schema\Migration\RenameField;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class MigrationRepositoryTest extends LemmaTestCase
+final class MigrationRepositoryTest extends AppTestCase
 {
     public function testSchemaMigrationTableExistsWithStatusGuard(): void
     {

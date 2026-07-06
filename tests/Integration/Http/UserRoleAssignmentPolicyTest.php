@@ -6,7 +6,7 @@ namespace App\Tests\Integration\Http;
 
 use App\Support\RoleAssignmentException;
 use App\Support\UserRoleAssignmentPolicy;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Helpers\Utils;
 
@@ -16,7 +16,7 @@ use Glueful\Helpers\Utils;
  * role ladder (superuser 100 / administrator 80 / editor 50 / user 10) and the `users.roles.manage`
  * permission granted by migration 008.
  */
-final class UserRoleAssignmentPolicyTest extends LemmaTestCase
+final class UserRoleAssignmentPolicyTest extends AppTestCase
 {
     /** @var list<string> */
     private array $seeded = [];

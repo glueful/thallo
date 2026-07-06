@@ -9,8 +9,8 @@ use App\Content\Delivery\UnfilterableFieldException;
 use App\Content\Delivery\InvalidFilterException;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Validation\FieldValidator;
-use Glueful\Lemma\Contracts\Delivery\ReferenceTargetResolver;
-use Glueful\Lemma\Contracts\Schema\FieldDescriptor;
+use Thallo\Contracts\Delivery\ReferenceTargetResolver;
+use Thallo\Contracts\Schema\FieldDescriptor;
 use PHPUnit\Framework\TestCase;
 
 final class FilterCompilerTest extends TestCase

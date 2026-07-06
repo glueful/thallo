@@ -5,19 +5,19 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Importers;
 
 use App\Content\Repositories\ContentTypeRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\ImportExport\Repositories\ImportExportFileRepository;
 use Glueful\Extensions\ImportExport\Repositories\ImportExportJobRepository;
 use Glueful\Extensions\ImportExport\Support\ImportBatch;
 use Glueful\Extensions\ImportExport\Support\ImportContext;
 use Glueful\Extensions\ImportExport\Support\ImportOptions;
 use Glueful\Extensions\ImportExport\Support\ImportSource;
-use Glueful\Lemma\Importers\CsvContentImporter;
-use Glueful\Lemma\Importers\CsvUserImporter;
-use Glueful\Lemma\Importers\MarkdownContentImporter;
-use Glueful\Lemma\Importers\WordpressContentImporter;
+use Thallo\Importers\CsvContentImporter;
+use Thallo\Importers\CsvUserImporter;
+use Thallo\Importers\MarkdownContentImporter;
+use Thallo\Importers\WordpressContentImporter;
 
-final class ImporterHardeningTest extends LemmaTestCase
+final class ImporterHardeningTest extends AppTestCase
 {
     /** @var list<string> */
     private array $tmpFiles = [];
@@ -32,7 +32,7 @@ final class ImporterHardeningTest extends LemmaTestCase
 
     private function tmpFile(string $suffix, string $contents): string
     {
-        $path = sys_get_temp_dir() . '/lemma-importer-test-' . bin2hex(random_bytes(6)) . $suffix;
+        $path = sys_get_temp_dir() . '/thallo-importer-test-' . bin2hex(random_bytes(6)) . $suffix;
         file_put_contents($path, $contents);
         $this->tmpFiles[] = $path;
         return $path;

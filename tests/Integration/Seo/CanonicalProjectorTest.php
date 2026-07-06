@@ -14,9 +14,9 @@ use App\Content\Seo\CanonicalProjector;
 use App\Content\Seo\PathRenderer;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class CanonicalProjectorTest extends LemmaTestCase
+final class CanonicalProjectorTest extends AppTestCase
 {
     private ContentTypeRepository $types;
     private EntryRepository $entries;

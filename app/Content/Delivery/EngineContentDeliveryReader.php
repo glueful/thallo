@@ -7,7 +7,7 @@ namespace App\Content\Delivery;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Seo\CanonicalPathBuilder;
 use App\Content\Seo\CanonicalProjector;
-use Glueful\Lemma\Contracts\Delivery\ContentDeliveryReader;
+use Thallo\Contracts\Delivery\ContentDeliveryReader;
 
 /**
  * Adapts DeliveryRepository (publication-spine queries) to the ContentDeliveryReader

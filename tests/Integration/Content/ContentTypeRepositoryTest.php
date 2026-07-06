@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Content;
 
 use App\Content\Repositories\ContentTypeRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class ContentTypeRepositoryTest extends LemmaTestCase
+final class ContentTypeRepositoryTest extends AppTestCase
 {
     private function repo(): ContentTypeRepository
     {

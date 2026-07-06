@@ -12,7 +12,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'lemma:schedules:run',
+    name: 'thallo:schedules:run',
     description: 'Fire due scheduled publish/unpublish actions through the normal publish path',
 )]
 final class RunDueSchedulesCommand extends BaseCommand

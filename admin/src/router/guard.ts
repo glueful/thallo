@@ -8,7 +8,7 @@ declare module 'vue-router' {
     // Protected pages opt in via definePage({ meta: { requiresAuth: true } }).
     requiresAuth?: boolean
     /**
-     * Capability id (e.g. 'lemma.forms') that must be enabled for this route to be reachable.
+     * Capability id (e.g. 'thallo.forms') that must be enabled for this route to be reachable.
      *
      * **Important:** a `requiresCapability` route should also set `requiresAuth: true`.
      * The capability gate only runs when the user is authenticated

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Collections;
 
-use Glueful\Lemma\Collections\Exceptions\BlockedSchemaChangeException;
-use Glueful\Lemma\Collections\Schema\CollectionDefinition;
-use Glueful\Lemma\Collections\Schema\CollectionField;
-use Glueful\Lemma\Collections\Schema\DdlPlanner;
+use Thallo\Collections\Exceptions\BlockedSchemaChangeException;
+use Thallo\Collections\Schema\CollectionDefinition;
+use Thallo\Collections\Schema\CollectionField;
+use Thallo\Collections\Schema\DdlPlanner;
 use PHPUnit\Framework\TestCase;
 
 final class DdlPlannerTest extends TestCase

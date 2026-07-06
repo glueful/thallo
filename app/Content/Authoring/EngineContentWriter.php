@@ -9,7 +9,7 @@ use App\Content\Repositories\EntryRepository;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use Glueful\Lemma\Contracts\Authoring\ContentWriter;
+use Thallo\Contracts\Authoring\ContentWriter;
 
 /**
  * Adapts the engine's authoring services to the high-level ContentWriter contract.

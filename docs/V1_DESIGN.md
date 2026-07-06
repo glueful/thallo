@@ -1,4 +1,4 @@
-# Lemma V1 Technical Design
+# Thallo V1 Technical Design
 
 This document makes the architecture decisions that [APPROACH.md](APPROACH.md)
 deliberately left open. These are the decisions that are expensive to reverse
@@ -91,7 +91,7 @@ for number/datetime, equality/`in` for string/enum/boolean), and the query
 validation that rejects anything else. Without it, index generation and
 operator validation are guesswork.
 
-For each filterable field, Lemma creates the corresponding PostgreSQL
+For each filterable field, Thallo creates the corresponding PostgreSQL
 expression index on `entry_versions` — created by a queued job when the model
 changes (`CREATE INDEX CONCURRENTLY`), never inline in a request. The index is a
 **latency optimization, not a filterability gate**: query validation only
@@ -107,7 +107,7 @@ lifecycle**.
 containment with paths, typed casts) go through `whereRaw()` *with bindings*
 in v1. If these call sites multiply, propose a `whereJsonPath()` family in the
 framework rather than accumulating raw SQL — track as a framework work item,
-not a Lemma blocker.
+not a Thallo blocker.
 
 ### Schema evolution
 
@@ -164,7 +164,7 @@ aren't even in a table the delivery repository touches.
 - Unpublish = delete the `entry_publications` row.
 - Rollback = re-pin an older version row.
 - **Scheduled publish/unpublish is implemented.** Scheduled publish is deferred
-  execution of the normal publish action: at `run_at`, Lemma validates and
+  execution of the normal publish action: at `run_at`, Thallo validates and
   publishes the current draft; if validation fails, the entry remains unchanged
   and the schedule row records the failure. Scheduled unpublish is the symmetric
   deferred call to the normal unpublish path. There are no special publication
@@ -205,16 +205,16 @@ single most painful CMS migration there is. Carrying the column costs one
 config default; adding localization later becomes feature work instead of a
 schema rewrite.
 
-**Lemma V1 requires `glueful/i18n` for locale infrastructure.**
+**Thallo V1 requires `glueful/i18n` for locale infrastructure.**
 The extension ships a locale registry (`LocaleManagerInterface`) with
 single-parent fallback chains (loop-protected), a request locale resolver
 (`LocaleResolverInterface`: explicit → `?locale=`/`X-Locale` → user claims →
 tenant → app locale), catalogs, pluralization, and a locale management
 API/CLI. The division of labor:
 
-- `ContentLocaleService` is Lemma's local seam over i18n. It reads
+- `ContentLocaleService` is Thallo's local seam over i18n. It reads
   enabled/default/fallback locales from `LocaleManagerInterface`; the
-  `glueful/i18n` dependency is part of Lemma's V1 product core, not an
+  `glueful/i18n` dependency is part of Thallo's V1 product core, not an
   optional localization mode.
 - Admin authoring, route assignment, publishing, rollback/version listing, and
   preview-token minting validate locale params against the enabled locale set.
@@ -228,14 +228,14 @@ API/CLI. The division of labor:
 
 V1 supports backend per-locale RBAC through Aegis resource-filtered grants: locale-targeted
 admin routes authorize against `locale:<code>` while locale-agnostic routes keep the coarse
-`lemma` resource. Lemma does not add a UI/API for assigning per-locale grants; that remains an
+`thallo` resource. Thallo does not add a UI/API for assigning per-locale grants; that remains an
 admin-interface workflow layered on top of Aegis. **Implemented design:**
 [`docs/superpowers/specs/2026-06-16-per-locale-rbac-design.md`](superpowers/specs/2026-06-16-per-locale-rbac-design.md)
 (via Aegis resource filters; per-content-type deferred).
 
 Field-level localization (`localized: true` in the field schema) is already
 representable. V1 keeps whole-entry locale variants as the persisted unit; a
-future editor can use the flag to identify translated fields. Lemma now automates
+future editor can use the flag to identify translated fields. Thallo now automates
 flag-aware copy-on-create for locale drafts; copy-on-change remains deferred.
 **Implemented design:** [`docs/superpowers/specs/2026-06-16-field-localization-design.md`](superpowers/specs/2026-06-16-field-localization-design.md)
 (flag-aware copy-on-create; copy-on-change deferred).
@@ -245,7 +245,7 @@ flag-aware copy-on-create for locale drafts; copy-on-change remains deferred.
 ## 4. References: JSONB values + normalized index, resolved at delivery
 
 **Decision:** reference fields store target **entry UUIDs** (never version
-UUIDs) inside `fields` JSONB, and Lemma maintains the `entry_references` table
+UUIDs) inside `fields` JSONB, and Thallo maintains the `entry_references` table
 as a write-time projection (rebuilt on every draft save inside the same
 transaction, snapshotted through publish).
 
@@ -294,7 +294,7 @@ commit, and discards them on rollback. What it cannot survive is the process
 dying between commit and callback execution: the side effects above are
 in-process. Consequence for v1: every downstream effect must be **re-drivable
 and idempotent** (cache tags can be re-invalidated, search can be reindexed,
-CDN re-purged — and a `lemma:resync` command exists to do so), and a missed
+CDN re-purged — and a `thallo:resync` command exists to do so), and a missed
 webhook is acknowledged as possible. If webhook delivery guarantees ever
 become a product requirement, the upgrade path is a transactional outbox
 table written inside the publish transaction and drained by a worker — a
@@ -313,15 +313,15 @@ contained change to this section, not a redesign.
 | `asset.attached` / `asset.detached` | blob reference added/removed from an entry |
 
 Webhook subscriptions use core `Api\Webhooks` (subscription, signing, retries,
-delivery tracking) with these event names — Lemma does not build webhook
+delivery tracking) with these event names — Thallo does not build webhook
 infrastructure, it defines the taxonomy and payloads (entry UUID, type, locale,
 version, actor, timestamp; never full field payloads by default — receivers
 fetch via the delivery API with their own key).
 
 ### Cache tags
 
-- `lemma:entry:{uuid}` — invalidated on publish/unpublish/delete of that entry.
-- `lemma:type:{slug}` — invalidated on any publish within the type (covers
+- `thallo:entry:{uuid}` — invalidated on publish/unpublish/delete of that entry.
+- `thallo:type:{slug}` — invalidated on any publish within the type (covers
   list endpoints) and on model changes.
 
 Delivery responses carry `ETag` (hash of version UUID + selection) and
@@ -347,7 +347,7 @@ GET /v1/content/{type}/{slug-or-uuid}  -- single published entry
   Delivery is intentionally dynamic: the allowed fields are derived per request
   from the model definition (`schema->fields()`), so the whitelist tracks the
   model and rejects any undeclared field. `#[Fields]` suits fixed DTO/controller
-  shapes; it cannot express a per-model dynamic surface, so Lemma deliberately
+  shapes; it cannot express a per-model dynamic surface, so Thallo deliberately
   uses the schema-derived allow-list instead. This is the product's answer to
   GraphQL — stated, deliberate.
 - **Filtering/sorting:** `?filter[field]=` / `?sort=` restricted to the
@@ -370,16 +370,16 @@ doc from day one; the delivery API is the stability-promised surface.
 
 ## 7. Permissions (v1: coarse, honest about it)
 
-Three hierarchical roles via `glueful/aegis`, named and seeded by Lemma:
+Three hierarchical roles via `glueful/aegis`, named and seeded by Thallo:
 
 - **admin** — content models, API keys, users, everything;
 - **editor** — entries CRUD + publish across all types;
 - **viewer** — read-only admin access.
 
-Permission names are namespaced (`lemma.models.manage`, `lemma.entries.write`,
-`lemma.entries.publish`, ...). Per-content-type restriction later uses
+Permission names are namespaced (`thallo.models.manage`, `thallo.entries.write`,
+`thallo.entries.publish`, ...). Per-content-type restriction later uses
 Aegis's **native resource-level filters** — checks take a resource argument
-(`can($user, 'lemma.entries.write', 'content-type:{slug}')`) — not
+(`can($user, 'thallo.entries.write', 'content-type:{slug}')`) — not
 type-encoded permission names, so the v1 permission list never has to be
 renamed. Aegis's direct user grants and temporal (expiring) permissions come
 for free with this choice. Per-locale and workflow-state permissions arrive
@@ -391,7 +391,7 @@ resource argument.
 
 ## 8. Media
 
-As per APPROACH.md: field values store blob UUIDs; `lemma.media_disk` selects
+As per APPROACH.md: field values store blob UUIDs; `thallo.media_disk` selects
 the Glueful storage disk; `glueful/media` provides transforms when installed
 (absent it, originals only — same degradation contract as the framework).
 `asset.attached`/`asset.detached` events come from the reference projection
@@ -402,14 +402,14 @@ used" for free.
 
 ## 9. Export / portability (v1-adjacent, before any public release)
 
-**Lemma does not build export machinery — `glueful/import-export` is the
+**Thallo does not build export machinery — `glueful/import-export` is the
 engine.** It already ships job/batch/error/report persistence, queue-backed
 deterministic batches, dry-run vs commit modes, engine-owned retry, streaming
 NDJSON and ZIP-bundle readers/writers (ZIP-slip protected), lifecycle events,
-and HTTP + CLI job management. Lemma implements the adapters
+and HTTP + CLI job management. Thallo implements the adapters
 (`ExporterInterface` / `ImporterInterface`, registered by service tag), per
 the boundary in [ADAPTER_NOTES.md](ADAPTER_NOTES.md): the engine runs the job;
-Lemma defines what the records mean.
+Thallo defines what the records mean.
 
 The v1 adapters produce/consume a versioned ZIP bundle: content types, entries
 with full version history (or published-only as an adapter option), routes,
@@ -421,11 +421,11 @@ core `blobs` table, stripping `fetch_path`, so restored content references
 resolve by UUID when the same storage backend/bucket has already been restored
 or mounted.
 
-Lemma import/export does **not** copy asset bytes. In a cross-storage restore,
+Thallo import/export does **not** copy asset bytes. In a cross-storage restore,
 operators must transfer the files separately; otherwise the imported blob row
 can resolve while the actual `/blobs/{uuid}` fetch still 404s. This is an
 intentional boundary: Glueful core owns the blob table and configured storage
-layer, while Lemma restores only the blob metadata that its content references
+layer, while Thallo restores only the blob metadata that its content references
 as part of a full content-bundle restore.
 
 Import upserts content records by UUID and uses the engine's dry-run mode for
@@ -446,7 +446,7 @@ establish the pattern they follow.
   intersection and losing the reason Postgres was chosen. Revisit only with
   real demand, as a port, not a v1 constraint.
 - **CI runs against real PostgreSQL.** The framework's SQLite test harness
-  does not exercise JSONB operators or expression indexes; Lemma's integration
+  does not exercise JSONB operators or expression indexes; Thallo's integration
   suite needs a Postgres service from the first pipeline. Unit tests that
   don't touch JSONB can keep SQLite for speed.
 
@@ -454,7 +454,7 @@ establish the pattern they follow.
 
 `glueful/tenancy` (built; row-level shared-database tenancy) scopes
 tenant-owned tables through a `tenant_uuid` column, a `BelongsToTenant` ORM
-trait, and a raw-SQL interceptor backstop. Lemma v1 integrates with the broader
+trait, and a raw-SQL interceptor backstop. Thallo v1 integrates with the broader
 Glueful ecosystem but does **not** carry `tenant_uuid` columns in its content
 tables. This is the opposite call from the locale decision (§3) for a structural
 reason:
@@ -466,7 +466,7 @@ reason:
   additive: add `tenant_uuid`, backfill every row with a default tenant,
   set NOT NULL, extend the unique constraints
   (e.g. `entry_routes` becomes `UNIQUE (tenant_uuid, content_type_uuid,
-  locale, slug)`), add the `BelongsToTenant` trait to Lemma models. No row
+  locale, slug)`), add the `BelongsToTenant` trait to Thallo models. No row
   identity changes, no data rewrite.
 
 Carrying the column now would also be actively awkward: with the extension
@@ -476,7 +476,7 @@ distinct), so single-tenant installs would need a sentinel tenant value — a
 permanent wart for a future feature.
 
 So tenancy is not blocked by ecosystem availability; it is consciously scoped
-as a V1.x/V2 Lemma integration track. When Lemma needs tenant-owned content,
+as a V1.x/V2 Thallo integration track. When Thallo needs tenant-owned content,
 the work is a coordinated content-schema migration and repository/model
 adoption of `glueful/tenancy`, not a prerequisite for closing the V1 headless
 backend.
@@ -484,7 +484,7 @@ backend.
 Design rules that keep the retrofit cheap (cost nothing today):
 
 - all cross-table joins/identifiers are UUIDs (already true), so cache tags
-  (`lemma:entry:{uuid}`) and references stay globally unique under tenancy;
+  (`thallo:entry:{uuid}`) and references stay globally unique under tenancy;
 - repositories never assume table-wide uniqueness of slugs beyond the
   constraint itself — uniqueness checks go through the constraint, not
   application-level "does this slug exist" scans;
@@ -495,17 +495,17 @@ Design rules that keep the retrofit cheap (cost nothing today):
 
 ## 11. Build order
 
-Lemma is scaffolded from **`glueful/api-skeleton`** — the documented
+Thallo is scaffolded from **`glueful/api-skeleton`** — the documented
 quick-start — as deliberate dogfooding of the new-project experience
 (see APPROACH.md, Technical Foundation). Any onboarding friction found while
-building Lemma is filed against the skeleton/framework, not worked around.
+building Thallo is filed against the skeleton/framework, not worked around.
 
-1. **Framework release first, then a tagged api-skeleton** — Lemma pins a
+1. **Framework release first, then a tagged api-skeleton** — Thallo pins a
    released `glueful/framework`, and `composer create-project` needs a tagged
    skeleton that itself pins that release (the skeleton's current state is
    untagged on dev; the tenancy extension is waiting on the same framework
    release — do not start a second product on `dev`).
-2. Scaffold the Lemma app from the skeleton (users/aegis enabled via the
+2. Scaffold the Thallo app from the skeleton (users/aegis enabled via the
    capabilities switchboard, PostgreSQL configured); then migrations +
    models/repositories for §1's tables; validation of field values against
    `content_types.schema` (framework DTO/Validator).

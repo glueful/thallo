@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace App\Tests\Integration\ImportExport;
 
 use App\Capabilities\DefaultCapabilityRegistry;
-use Glueful\Lemma\Importers\CsvContentImporter;
-use App\Tests\Support\LemmaTestCase;
+use Thallo\Importers\CsvContentImporter;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\ImportExport\Support\ImportBatch;
 use Glueful\Extensions\ImportExport\Support\ImportContext;
 use Glueful\Extensions\ImportExport\Support\ImportOptions;
 use Glueful\Extensions\ImportExport\Support\ImportSource;
 use Glueful\Http\Exceptions\Client\ForbiddenException;
-use Glueful\Lemma\Contracts\Authoring\ContentWriter;
-use Glueful\Lemma\Contracts\Capability\Capability;
-use Glueful\Lemma\Contracts\Schema\ContentTypeReader;
+use Thallo\Contracts\Authoring\ContentWriter;
+use Thallo\Contracts\Capability\Capability;
+use Thallo\Contracts\Schema\ContentTypeReader;
 
-final class CsvContentImporterTest extends LemmaTestCase
+final class CsvContentImporterTest extends AppTestCase
 {
     /** @var array<string,mixed> */
     private const OPTIONS = [
@@ -105,9 +105,9 @@ final class CsvContentImporterTest extends LemmaTestCase
 
     public function testProcessFailsClosedWhenTheCapabilityIsDisabled(): void
     {
-        // A job retried after lemma.importers was disabled must not run its remaining batches.
-        $disabled = new DefaultCapabilityRegistry(['lemma.importers' => false]);
-        $disabled->register(new Capability('lemma.importers'));
+        // A job retried after thallo.importers was disabled must not run its remaining batches.
+        $disabled = new DefaultCapabilityRegistry(['thallo.importers' => false]);
+        $disabled->register(new Capability('thallo.importers'));
 
         $importer = new CsvContentImporter(
             $this->appContext(),
@@ -131,7 +131,7 @@ final class CsvContentImporterTest extends LemmaTestCase
 
     private function writeCsv(string $contents): string
     {
-        $dir = sys_get_temp_dir() . '/lemma-csv-import-tests';
+        $dir = sys_get_temp_dir() . '/thallo-csv-import-tests';
         if (!is_dir($dir)) {
             mkdir($dir, 0770, true);
         }

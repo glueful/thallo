@@ -16,7 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * A failed migration stays ACTIVE (write gate closed) until this converges it.
  */
 #[AsCommand(
-    name: 'lemma:blocks:migration:backfill',
+    name: 'thallo:blocks:migration:backfill',
     description: 'Run or resume the backfill for a block-type schema migration',
 )]
 final class RunBlockBackfillCommand extends BaseCommand

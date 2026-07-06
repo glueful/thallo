@@ -17,7 +17,7 @@ use Symfony\Component\HttpFoundation\Request;
  * First-run web setup — UNAUTHENTICATED by design (there is no admin yet to authenticate), but
  * SELF-LOCKING: once SetupService::isInstalled() is true it returns 409 forever, so a second
  * "first" admin can never be created. The heavy lifting (and the race-safety) lives in
- * SetupService::install(), which the future `php glueful lemma:setup` CLI shares.
+ * SetupService::install(), which the future `php glueful thallo:setup` CLI shares.
  *
  * Responses use the framework's standard envelope via Glueful\Http\Response (success / error),
  * matching the rest of the API.
@@ -39,7 +39,7 @@ final class SetupController
         description: 'Unauthenticated, self-locking first-run setup: creates the first admin and '
             . 'writes site settings. Returns 409 forever once the instance is installed — a second '
             . '"first" admin can never be created.',
-        tags: ['Lemma Setup'],
+        tags: ['Thallo Setup'],
     )]
     #[ApiResponse(200, description: 'Setup complete; the first admin was created.')]
     #[ApiResponse(409, description: 'Already installed — setup is permanently locked.')]
@@ -53,7 +53,7 @@ final class SetupController
         }
 
         // Guard the unauthenticated first-run endpoint so a random first caller can't claim the
-        // instance on a public deploy (see config lemma.setup.token).
+        // instance on a public deploy (see config thallo.setup.token).
         $denied = $this->assertSetupAllowed($request);
         if ($denied !== null) {
             return $denied;
@@ -90,7 +90,7 @@ final class SetupController
      *   - When a setup token is configured, the request MUST present it in the X-Setup-Token header
      *     (constant-time compare); a missing/wrong token is refused.
      *   - With no token configured, setup is allowed only outside production; in production it is
-     *     refused so the operator must set LEMMA_SETUP_TOKEN (or use the CLI) to provision.
+     *     refused so the operator must set SETUP_TOKEN (or use the CLI) to provision.
      */
     private function assertSetupAllowed(?Request $request): ?Response
     {
@@ -98,7 +98,7 @@ final class SetupController
             return null; // CLI/trusted path — no HTTP caller to gate.
         }
 
-        $expected = (string) config($this->context, 'lemma.setup.token', '');
+        $expected = (string) config($this->context, 'thallo.setup.token', '');
         if ($expected !== '') {
             $provided = (string) ($request->headers->get('X-Setup-Token') ?? '');
             if (!hash_equals($expected, $provided)) {
@@ -109,7 +109,7 @@ final class SetupController
 
         if (env('APP_ENV') === 'production') {
             return Response::error(
-                'First-run setup is disabled. Set LEMMA_SETUP_TOKEN (or provision via the CLI).',
+                'First-run setup is disabled. Set SETUP_TOKEN (or provision via the CLI).',
                 403,
             );
         }

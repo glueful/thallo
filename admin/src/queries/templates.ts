@@ -1,7 +1,7 @@
 import { authFetch } from '@/api/authFetch'
 import { runtimeConfig } from '@/runtime/config'
 
-// Templates admin API (glueful/lemma-render pack, /v1/admin/render/templates/*).
+// Templates admin API (glueful/thallo-render pack, /v1/admin/render/templates/*).
 // Untyped query params + slash-spanning {path} segments, so this rides on authFetch
 // with hand-built URLs like queries/navigation.ts. Template paths are server-pinned to
 // slash-separated [A-Za-z0-9._-]+ segments (DB-edited templates spec §5), so embedding

@@ -72,7 +72,7 @@ export function useAnalyticsSummary(
       return fetchSummary(r.from, r.to)
     },
     // When `enabled` resolves false the query never runs — the Home strip passes the
-    // `lemma.analytics` capability flag so a disabled pack never hits the (404'd) backend route.
+    // `thallo.analytics` capability flag so a disabled pack never hits the (404'd) backend route.
     enabled: () => (enabled === undefined ? true : toValue(enabled)),
   })
 }

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Seo;
 
-use Glueful\Lemma\Contracts\Events\ContentLifecycleEvent;
-use Glueful\Lemma\Seo\Cache\SitemapCache;
-use Glueful\Lemma\Seo\Listeners\SitemapCacheInvalidator;
+use Thallo\Contracts\Events\ContentLifecycleEvent;
+use Thallo\Seo\Cache\SitemapCache;
+use Thallo\Seo\Listeners\SitemapCacheInvalidator;
 use PHPUnit\Framework\TestCase;
 
 final class SitemapCacheInvalidatorTest extends TestCase

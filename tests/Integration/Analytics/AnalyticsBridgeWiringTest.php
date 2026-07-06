@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Analytics;
 
 use App\Content\Events\EntryPublished;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
-use Glueful\Lemma\Collections\Data\Actor;
-use Glueful\Lemma\Collections\Events\CollectionCreated;
-use Glueful\Lemma\Collections\Events\CollectionRowCreated;
+use Thallo\Collections\Data\Actor;
+use Thallo\Collections\Events\CollectionCreated;
+use Thallo\Collections\Events\CollectionRowCreated;
 
-final class AnalyticsBridgeWiringTest extends LemmaTestCase
+final class AnalyticsBridgeWiringTest extends AppTestCase
 {
     protected function setUp(): void
     {

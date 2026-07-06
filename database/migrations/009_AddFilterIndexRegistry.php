@@ -9,10 +9,10 @@ final class AddFilterIndexRegistry implements MigrationInterface
 {
     public function up(SchemaBuilderInterface $schema): void
     {
-        if ($schema->hasTable('lemma_filter_indexes')) {
+        if ($schema->hasTable('filter_indexes')) {
             return;
         }
-        $schema->createTable('lemma_filter_indexes', function ($table) {
+        $schema->createTable('filter_indexes', function ($table) {
             $table->bigInteger('id')->primary()->autoIncrement();
             $table->string('uuid', 12);
             $table->string('content_type_uuid', 12);
@@ -28,7 +28,7 @@ final class AddFilterIndexRegistry implements MigrationInterface
 
     public function down(SchemaBuilderInterface $schema): void
     {
-        $schema->dropTableIfExists('lemma_filter_indexes');
+        $schema->dropTableIfExists('filter_indexes');
     }
 
     public function getDescription(): string

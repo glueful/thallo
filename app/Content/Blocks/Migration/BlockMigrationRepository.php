@@ -51,7 +51,7 @@ final class BlockMigrationRepository
             $actor,
             $now
         ): void {
-            $this->db->table('lemma_block_type_migrations')->insert([
+            $this->db->table('block_type_migrations')->insert([
                 'uuid' => $uuid,
                 'block_type_uuid' => $blockTypeUuid,
                 'ops' => json_encode($ops->toArray(), JSON_THROW_ON_ERROR),
@@ -74,7 +74,7 @@ final class BlockMigrationRepository
     /** @return array<string,mixed>|null running OR failed — both are ACTIVE (spec §3) */
     public function activeForType(string $blockTypeUuid): ?array
     {
-        return $this->hydrate($this->db->table('lemma_block_type_migrations')
+        return $this->hydrate($this->db->table('block_type_migrations')
             ->where('block_type_uuid', '=', $blockTypeUuid)
             ->whereIn('status', ['running', 'failed'])
             ->orderBy('id', 'ASC')
@@ -89,8 +89,8 @@ final class BlockMigrationRepository
      */
     public function activeAny(): array
     {
-        $rows = $this->db->table('lemma_block_type_migrations as m')
-            ->join('lemma_block_types as t', 't.uuid', '=', 'm.block_type_uuid')
+        $rows = $this->db->table('block_type_migrations as m')
+            ->join('block_types as t', 't.uuid', '=', 'm.block_type_uuid')
             ->select(['m.uuid', 'm.block_type_uuid', 'm.status', 't.slug'])
             ->whereIn('m.status', ['running', 'failed'])
             ->get();
@@ -113,7 +113,7 @@ final class BlockMigrationRepository
     {
         return array_values(array_filter(array_map(
             fn(array $row): ?array => $this->hydrate($row),
-            $this->db->table('lemma_block_type_migrations')
+            $this->db->table('block_type_migrations')
                 ->where('block_type_uuid', '=', $blockTypeUuid)
                 ->where('status', '=', 'completed')
                 ->where('created_at', '>', $versionCreatedAt)
@@ -125,7 +125,7 @@ final class BlockMigrationRepository
     /** @return array<string,mixed>|null */
     public function find(string $uuid): ?array
     {
-        return $this->hydrate($this->db->table('lemma_block_type_migrations')
+        return $this->hydrate($this->db->table('block_type_migrations')
             ->where('uuid', '=', $uuid)
             ->first());
     }
@@ -135,7 +135,7 @@ final class BlockMigrationRepository
     {
         return array_values(array_filter(array_map(
             fn(array $row): ?array => $this->hydrate($row),
-            $this->db->table('lemma_block_type_migrations')
+            $this->db->table('block_type_migrations')
                 ->where('block_type_uuid', '=', $blockTypeUuid)
                 ->orderBy('id', 'ASC')
                 ->get()
@@ -145,7 +145,7 @@ final class BlockMigrationRepository
     public function incrementDone(string $uuid): void
     {
         $stmt = $this->db->getPDO()->prepare(
-            'UPDATE lemma_block_type_migrations
+            'UPDATE block_type_migrations
              SET work_items_done = work_items_done + 1
              WHERE uuid = :uuid'
         );
@@ -167,7 +167,7 @@ final class BlockMigrationRepository
             'reason' => $reason,
         ];
 
-        $this->db->table('lemma_block_type_migrations')
+        $this->db->table('block_type_migrations')
             ->where('uuid', '=', $uuid)
             ->update([
                 'work_items_failed' => (int) $row['work_items_failed'] + 1,
@@ -177,7 +177,7 @@ final class BlockMigrationRepository
 
     public function resetFailures(string $uuid): void
     {
-        $this->db->table('lemma_block_type_migrations')
+        $this->db->table('block_type_migrations')
             ->where('uuid', '=', $uuid)
             ->update([
                 'work_items_failed' => 0,
@@ -193,7 +193,7 @@ final class BlockMigrationRepository
             throw new \InvalidArgumentException('Migration finish status must be completed or failed.');
         }
 
-        $this->db->table('lemma_block_type_migrations')
+        $this->db->table('block_type_migrations')
             ->where('uuid', '=', $uuid)
             ->update([
                 'status' => $status,

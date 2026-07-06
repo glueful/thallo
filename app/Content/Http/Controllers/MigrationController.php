@@ -30,7 +30,7 @@ final class MigrationController
         summary: 'Start a destructive schema migration',
         description: 'Runs asynchronously. `ops` is a list of `{op:"rename",from,to}` / '
             . '`{op:"delete",name}`; only one migration per type may run at a time (409).',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(201, description: 'Migration started; poll the returned migration row for progress.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No content type with that slug.')]
@@ -54,7 +54,7 @@ final class MigrationController
         return Response::created(['migration' => $this->migrations->find($uuid)], 'Migration started.');
     }
 
-    #[ApiOperation(summary: 'List schema migrations for a content type', tags: ['Lemma Admin'])]
+    #[ApiOperation(summary: 'List schema migrations for a content type', tags: ['Thallo Admin'])]
     #[ApiResponse(200, description: 'Schema migrations for the content type.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No content type with that slug.')]
     public function index(Request $request, string $slug): Response
@@ -70,7 +70,7 @@ final class MigrationController
         );
     }
 
-    #[ApiOperation(summary: 'Get one schema migration', tags: ['Lemma Admin'])]
+    #[ApiOperation(summary: 'Get one schema migration', tags: ['Thallo Admin'])]
     #[ApiResponse(200, description: 'The migration row with progress counters and failure report.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No such migration.')]
     public function show(Request $request, string $slug, string $migrationUuid): Response

@@ -15,7 +15,7 @@ final class IconAssetsTest extends TestCase
 {
     private function root(): string
     {
-        return dirname(__DIR__, 3) . '/packages/lemma-render/resources/icons';
+        return dirname(__DIR__, 3) . '/packages/thallo-render/resources/icons';
     }
 
     /** @return list<string> */

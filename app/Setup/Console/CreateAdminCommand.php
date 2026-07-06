@@ -14,14 +14,14 @@ use Symfony\Component\Console\Output\OutputInterface;
 use function config;
 
 #[AsCommand(
-    name: 'lemma:create-admin',
-    description: 'Create the first admin + site settings (Layer 2). Run after lemma:provision.',
+    name: 'thallo:create-admin',
+    description: 'Create the first admin + site settings (Layer 2). Run after thallo:provision.',
 )]
 final class CreateAdminCommand extends BaseCommand
 {
     protected function configure(): void
     {
-        $this->addOption('site-name', null, InputOption::VALUE_REQUIRED, 'Site name', 'Lemma');
+        $this->addOption('site-name', null, InputOption::VALUE_REQUIRED, 'Site name', 'Thallo');
         $this->addOption('admin-email', null, InputOption::VALUE_REQUIRED, 'First admin email');
         $this->addOption('admin-password', null, InputOption::VALUE_REQUIRED, 'First admin password');
         $this->addOption('locale', null, InputOption::VALUE_REQUIRED, 'Default locale', 'en');

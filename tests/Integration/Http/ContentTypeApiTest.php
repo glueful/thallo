@@ -8,13 +8,13 @@ use App\Content\Http\Controllers\ContentTypeController;
 use App\Content\Http\DTOs\CreateContentTypeData;
 use App\Content\Http\DTOs\UpdateContentTypeSchemaData;
 use App\Content\Repositories\ContentTypeRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;
 use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;
 
-final class ContentTypeApiTest extends LemmaTestCase
+final class ContentTypeApiTest extends AppTestCase
 {
     private function controller(): ContentTypeController
     {
@@ -25,7 +25,7 @@ final class ContentTypeApiTest extends LemmaTestCase
 
     /**
      * Hydrate a request DTO exactly as the router would, so DTO validation is exercised
-     * before the controller sees it. (Lemma DTOs use only built-in rules, so no registry.)
+     * before the controller sees it. (Thallo DTOs use only built-in rules, so no registry.)
      *
      * @param  class-string<RequestData> $dtoClass
      * @param  array<string,mixed>       $body

@@ -4,7 +4,7 @@ import { authFetch } from '@/api/authFetch'
 import { runtimeConfig } from '@/runtime/config'
 import { qk } from './keys'
 
-// The review-workflow admin endpoints (glueful/lemma-workflow pack, /v1/admin/workflow/*).
+// The review-workflow admin endpoints (glueful/thallo-workflow pack, /v1/admin/workflow/*).
 // Untyped in the OpenAPI spec for now, so this rides on authFetch like queries/seo.ts.
 
 export type WorkflowStateName = 'draft' | 'in_review' | 'approved' | 'changes_requested'

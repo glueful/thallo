@@ -8,7 +8,7 @@ use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Glueful\Helpers\Utils;
 
 /**
- * Grant the i18n admin permissions to Aegis's `administrator` role so the Lemma admin can
+ * Grant the i18n admin permissions to Aegis's `administrator` role so the Thallo admin can
  * manage languages/translations.
  *
  * The `glueful/i18n` extension declares its permissions (`i18n.view/manage/import/export`) in the
@@ -23,7 +23,7 @@ use Glueful\Helpers\Utils;
  */
 final class GrantI18nPermissionsToAdministrator implements MigrationInterface
 {
-    /** i18n permission slugs the Lemma admin needs → label. */
+    /** i18n permission slugs the Thallo admin needs → label. */
     private const PERMISSIONS = [
         'i18n.view' => 'View locales and translations',
         'i18n.manage' => 'Create and edit locales and translations',

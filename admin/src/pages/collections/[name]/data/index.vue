@@ -63,5 +63,5 @@ function onCreated(newName: string) {
 <route lang="yaml">
 meta:
   requiresAuth: true
-  requiresCapability: lemma.collections
+  requiresCapability: thallo.collections
 </route>

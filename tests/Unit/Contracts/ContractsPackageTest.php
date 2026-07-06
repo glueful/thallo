@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Contracts;
 
-use Glueful\Lemma\Contracts\ContractsManifest;
+use Thallo\Contracts\ContractsManifest;
 use PHPUnit\Framework\TestCase;
 
 final class ContractsPackageTest extends TestCase

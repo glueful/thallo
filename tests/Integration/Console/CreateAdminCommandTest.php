@@ -6,16 +6,16 @@ namespace App\Tests\Integration\Console;
 
 use App\Setup\Console\CreateAdminCommand;
 use App\Setup\SetupService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
-final class CreateAdminCommandTest extends LemmaTestCase
+final class CreateAdminCommandTest extends AppTestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
         // uuid-keyed users table => TRUNCATE ... CASCADE is the reliable wipe.
-        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, lemma_settings CASCADE');
+        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, settings CASCADE');
     }
 
     private function tester(): CommandTester

@@ -10,23 +10,23 @@ use App\Content\Repositories\RouteRepository;
 use App\Content\Seo\CanonicalProjector;
 use App\Content\Services\PublishService;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Delivery\ContentDeliveryReader;
-use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
-use Glueful\Lemma\Contracts\Search\IndexableContentReader;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Delivery\ContentDeliveryReader;
+use Thallo\Contracts\Delivery\EntryTargetResolver;
+use Thallo\Contracts\Search\IndexableContentReader;
 
 /**
  * Every canonical href surface, root-collapsed for a mount_at_root type AND
  * unchanged for a prefixed type IN THE SAME RUN (root-mounted-types spec §5/§8):
  * nav targets, sitemap, search index, SEO canonical + hreflang alternates.
  * All surfaces go through the one CanonicalPathBuilder — this test is the
- * drift alarm. (phpunit.xml sets LEMMA_PUBLIC_URL_BASE=https://site.test.)
+ * drift alarm. (phpunit.xml sets PUBLIC_URL_BASE=https://site.test.)
  *
  * Mixed-type hreflang alternates are NOT representable in fixtures — an
  * entry's publication pins always carry its own type — so the per-pin flag
  * lookup is exercised with same-type pins (en + fr of the root type).
  */
-final class RootMountCanonicalSurfacesTest extends LemmaTestCase
+final class RootMountCanonicalSurfacesTest extends AppTestCase
 {
     use SeedsPublishedContent;
 

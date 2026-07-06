@@ -17,9 +17,9 @@ use App\Content\Seo\RouteResolver;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
-use Glueful\Lemma\Contracts\Delivery\PreviewSession;
-use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
-use Glueful\Lemma\Contracts\Delivery\ReferenceTargetResolver;
+use Thallo\Contracts\Delivery\PreviewSession;
+use Thallo\Contracts\Delivery\PublicRouteResolver;
+use Thallo\Contracts\Delivery\ReferenceTargetResolver;
 use Glueful\Support\FieldSelection\FieldSelector;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -361,7 +361,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         try {
             $read = $this->preview->read($token);
         } catch (PreviewTokenException | PreviewNotFoundException $e) {
-            $this->logger->info('lemma-render: preview token rejected', [
+            $this->logger->info('thallo-render: preview token rejected', [
                 'reason' => get_class($e),
                 'error' => $e->getMessage(),
             ]);
@@ -493,7 +493,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
 
     /**
      * /{type}[/page/n] → listing. Dormant unless the type is allowlisted in
-     * lemma_render.listing_types (a render-owned key read softly — this grammar exists
+     * render.listing_types (a render-owned key read softly — this grammar exists
      * only for rendered delivery; pack absent / key empty ⇒ not_found).
      *
      * @return array<string,mixed>
@@ -635,7 +635,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
      */
     private function paginate(string $typeUuid, string $locale, int $page, ?array $filter): ?array
     {
-        $perPage = max(1, (int) config($this->context, 'lemma_render.listing_per_page', 10));
+        $perPage = max(1, (int) config($this->context, 'render.listing_per_page', 10));
         $result = $this->delivery->paginatePublished($typeUuid, $locale, $page, $perPage, $filter, null);
         $totalPages = max(1, (int) ceil($result['total'] / $perPage));
         if ($page > $totalPages) {
@@ -722,7 +722,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
     private function expansionTags(ExpandedTargets $expanded): array
     {
         return array_map(
-            static fn(string $uuid): string => 'lemma:entry:' . $uuid,
+            static fn(string $uuid): string => 'thallo:entry:' . $uuid,
             $expanded->entryUuids(),
         );
     }
@@ -741,7 +741,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         }
         return array_values(array_filter(array_map(
             strval(...),
-            (array) config($this->context, 'lemma_render.listing_types', []),
+            (array) config($this->context, 'render.listing_types', []),
         )));
     }
 

@@ -10,8 +10,8 @@ use App\Content\Preview\PreviewMinter;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\RouteRepository;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\Http\Controllers\RenderController;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\Http\Controllers\RenderController;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -19,14 +19,14 @@ use Symfony\Component\HttpFoundation\Request;
  * renders only — both data attributes present, never in live renders, never
  * for non-prose blocks. The resolver mirrors the client prose convention.
  */
-final class EditInPlaceMarkingTest extends LemmaTestCase
+final class EditInPlaceMarkingTest extends AppTestCase
 {
     private string $type;
 
     protected function tearDown(): void
     {
         $this->container()->get(\Glueful\Cache\CacheStore::class)->deletePattern('render:*');
-        $this->container()->get(\Glueful\Lemma\Seo\Cache\SitemapCache::class)->forgetAll();
+        $this->container()->get(\Thallo\Seo\Cache\SitemapCache::class)->forgetAll();
         parent::tearDown();
     }
 
@@ -91,9 +91,9 @@ final class EditInPlaceMarkingTest extends LemmaTestCase
             $token,
         )->getContent();
         self::assertStringContainsString('Hello prose', $preview);
-        self::assertStringContainsString('class="lemma-edit-region"', $preview);
-        self::assertStringContainsString('data-lemma-edit-block="proseblk0001"', $preview);
-        self::assertStringContainsString('data-lemma-edit-field="body"', $preview);
+        self::assertStringContainsString('class="thallo-edit-region"', $preview);
+        self::assertStringContainsString('data-thallo-edit-block="proseblk0001"', $preview);
+        self::assertStringContainsString('data-thallo-edit-field="body"', $preview);
 
         // LIVE render: publish, request the public path, assert NO marking.
         $version = (new \App\Content\Services\PublishService(
@@ -112,8 +112,8 @@ final class EditInPlaceMarkingTest extends LemmaTestCase
         $live = $this->handle(Request::create('/page/eip-page', 'GET'));
         $liveHtml = (string) $live->getContent();
         self::assertStringContainsString('Hello prose', $liveHtml);
-        self::assertStringNotContainsString('lemma-edit-region', $liveHtml);
-        self::assertStringNotContainsString('data-lemma-edit-block', $liveHtml);
+        self::assertStringNotContainsString('thallo-edit-region', $liveHtml);
+        self::assertStringNotContainsString('data-thallo-edit-block', $liveHtml);
     }
 
     public function testNestedProseInsideAContainerGetsItsOwnFrame(): void
@@ -163,12 +163,15 @@ final class EditInPlaceMarkingTest extends LemmaTestCase
             Request::create("/_preview/{$token}", 'GET'),
             $token,
         )->getContent();
-        self::assertStringContainsString('data-lemma-edit-block="nestedpr0001"', $html);
+        self::assertStringContainsString('data-thallo-edit-block="nestedpr0001"', $html);
         // The section's own prose marking never appears (safe_html, non-prose)
         // — but with editable_text adoption its TITLE region legitimately may;
         // assert the absence of a safe_html-style rich region specifically by
         // checking no marker carries the section id with the rich field name.
-        self::assertStringNotContainsString('data-lemma-edit-block="sectionb0001" data-lemma-edit-field="body"', $html);
+        self::assertStringNotContainsString(
+            'data-thallo-edit-block="sectionb0001" data-thallo-edit-field="body"',
+            $html,
+        );
     }
 
     /** Seed a page whose body holds one `hero` block with the given data. */
@@ -184,7 +187,7 @@ final class EditInPlaceMarkingTest extends LemmaTestCase
                 ['name' => 'title', 'type' => 'string'],
                 ['name' => 'description', 'type' => 'text'],
                 ['name' => 'links', 'type' => 'blocks'],
-                ['name' => 'image', 'type' => 'asset'], // Lemma schema type is asset, not media
+                ['name' => 'image', 'type' => 'asset'], // Thallo schema type is asset, not media
                 ['name' => 'orientation', 'type' => 'enum', 'enum' => ['vertical', 'horizontal']],
                 ['name' => 'reverse', 'type' => 'boolean'],
             ],
@@ -231,14 +234,14 @@ final class EditInPlaceMarkingTest extends LemmaTestCase
 
         // Marked span with BOTH attributes; the VALUE is filter-escaped.
         self::assertStringContainsString(
-            '<span class="lemma-edit-region" data-lemma-edit-block="heroblok0001"'
-                . ' data-lemma-edit-field="title">Big &lt;b&gt;launch&lt;/b&gt; &quot;day&quot;</span>',
+            '<span class="thallo-edit-region" data-thallo-edit-block="heroblok0001"'
+                . ' data-thallo-edit-field="title">Big &lt;b&gt;launch&lt;/b&gt; &quot;day&quot;</span>',
             $html,
         );
         // The button label inside the <a> is marked too (interactive-element
         // pin), against the BUTTON child block's own id.
         self::assertStringContainsString(
-            'data-lemma-edit-block="herobtn00001" data-lemma-edit-field="label">Go</span>',
+            'data-thallo-edit-block="herobtn00001" data-thallo-edit-field="label">Go</span>',
             $html,
         );
     }
@@ -264,8 +267,8 @@ final class EditInPlaceMarkingTest extends LemmaTestCase
 
         $live = (string) $this->handle(Request::create('/page/et-live', 'GET'))->getContent();
         self::assertStringContainsString('A &amp; B', $live);
-        self::assertStringNotContainsString('lemma-edit-region', $live);
-        self::assertStringNotContainsString('data-lemma-edit-field', $live);
+        self::assertStringNotContainsString('thallo-edit-region', $live);
+        self::assertStringNotContainsString('data-thallo-edit-field', $live);
     }
 
     public function testEditableTextEmptyAndNonStringValues(): void
@@ -277,11 +280,11 @@ final class EditInPlaceMarkingTest extends LemmaTestCase
             Request::create("/_preview/{$token}", 'GET'),
             $token,
         )->getContent();
-        self::assertStringContainsString('data-lemma-edit-field="title"></span>', $html);
+        self::assertStringContainsString('data-thallo-edit-field="title"></span>', $html);
 
         // Direct filter calls: non-string -> '', and NO frame -> escaped value only
         // even with annotations on.
-        $ext = $this->container()->get(\Glueful\Lemma\Render\RenderContextExtension::class);
+        $ext = $this->container()->get(\Thallo\Render\RenderContextExtension::class);
         $ext->setBlockAnnotations(true);
         $ext->resetBlockFrames();
         self::assertSame('x &lt;y&gt;', $ext->editableText('x <y>', 'f'));

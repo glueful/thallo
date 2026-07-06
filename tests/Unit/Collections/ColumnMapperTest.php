@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Collections;
 
-use Glueful\Lemma\Collections\Schema\CollectionField;
-use Glueful\Lemma\Collections\Schema\ColumnMapper;
+use Thallo\Collections\Schema\CollectionField;
+use Thallo\Collections\Schema\ColumnMapper;
 use PHPUnit\Framework\TestCase;
 
 final class ColumnMapperTest extends TestCase

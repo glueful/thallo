@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Seo;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Bootstrap\ApplicationContext;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Proves lemma-seo is cleanly disable-able: with lemma.seo disabled, the Task-4/5/6 boot
+ * Proves thallo-seo is cleanly disable-able: with thallo.seo disabled, the Task-4/5/6 boot
  * gate skips loadRoutesFrom() entirely, so every SEO surface (public meta, sitemap, robots,
  * admin meta) returns 404 — route unregistered, not a live-but-disabled handler.
  */
-final class SeoRemovabilityTest extends LemmaTestCase
+final class SeoRemovabilityTest extends AppTestCase
 {
     private static ?ApplicationContext $disabledApp = null;
 
@@ -22,8 +22,8 @@ final class SeoRemovabilityTest extends LemmaTestCase
     {
         parent::setUpBeforeClass();
 
-        self::$disabledApp ??= self::bootAppWithConfigOverride('lemma', [
-            'capabilities' => ['lemma.seo' => false],
+        self::$disabledApp ??= self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.seo' => false],
         ]);
     }
 

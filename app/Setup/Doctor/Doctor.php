@@ -14,7 +14,7 @@ use Glueful\Installer\EnvWriter;
  *  - reachability(): needs a DatabaseConfig; runs after creds exist (or against existing env).
  *
  * Runtime facts (PHP version, loaded extensions, base path) are injected so every branch is
- * unit-testable. `lemma:setup` calls preflight() before prompting; `lemma:doctor` calls both.
+ * unit-testable. `thallo:setup` calls preflight() before prompting; `thallo:doctor` calls both.
  */
 final class Doctor
 {
@@ -96,8 +96,8 @@ final class Doctor
 
     /**
      * Security keys are a WARNING when absent, never a hard preflight FAIL — on a fresh checkout
-     * they are absent BY DESIGN and `lemma:setup` generates them via the Installer. Standalone
-     * `lemma:doctor --strict` promotes this WARN to a failure (a configured-but-keyless install is
+     * they are absent BY DESIGN and `thallo:setup` generates them via the Installer. Standalone
+     * `thallo:doctor --strict` promotes this WARN to a failure (a configured-but-keyless install is
      * a real post-setup problem). All three framework keys are checked (TOKEN_SALT included).
      */
     private function keysCheck(): Check

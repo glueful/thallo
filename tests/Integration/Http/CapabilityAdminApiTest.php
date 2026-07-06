@@ -6,10 +6,10 @@ namespace App\Tests\Integration\Http;
 
 use App\Capabilities\DefaultCapabilityRegistry;
 use App\Http\Controllers\CapabilityAdminController;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Capability\Capability;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Capability\Capability;
 
-final class CapabilityAdminApiTest extends LemmaTestCase
+final class CapabilityAdminApiTest extends AppTestCase
 {
     public function testReturnsOnlyEnabledCapabilities(): void
     {
@@ -50,7 +50,7 @@ final class CapabilityAdminApiTest extends LemmaTestCase
         self::assertNotNull($route, '/v1/admin/capabilities must be registered');
         $middleware = (array) ($route['middleware'] ?? []);
         self::assertContains(
-            'lemma_permission:system.access',
+            'content_permission:system.access',
             $middleware,
             'capabilities endpoint must require system.access',
         );

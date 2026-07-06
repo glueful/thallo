@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Schema\FieldTypeRegistry;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Schema\FieldTypeRegistry;
 
 /**
- * Verifies that LemmaCollectionsServiceProvider seeds all collections.* field types
+ * Verifies that CollectionsServiceProvider seeds all collections.* field types
  * into the shared FieldTypeRegistry and that none of them collide with content.* keys.
  */
-final class CollectionFieldTypesRegistrationTest extends LemmaTestCase
+final class CollectionFieldTypesRegistrationTest extends AppTestCase
 {
     /** @var list<string> */
     private const EXPECTED_TYPES = [

@@ -276,12 +276,12 @@ export interface paths {
         };
         /**
          * Get general settings
-         * @description Effective instance settings (site identity, default locale, delivery defaults, feature toggles): a lemma_settings override, else the config/.env default. Requires `content.manage`.
+         * @description Effective instance settings (site identity, default locale, delivery defaults, feature toggles): a settings override, else the config/.env default. Requires `content.manage`.
          */
         get: operations["getV1AdminSettingsGeneral"];
         /**
          * Update general settings
-         * @description Persists the submitted settings to lemma_settings (only supplied fields change). Applies on the next request — no restart. Requires `content.manage`.
+         * @description Persists the submitted settings to settings (only supplied fields change). Applies on the next request — no restart. Requires `content.manage`.
          */
         put: operations["putV1AdminSettingsGeneral"];
         post?: never;
@@ -488,7 +488,7 @@ export interface paths {
         };
         /**
          * List enabled capabilities
-         * @description Capabilities provided by installed packs and not disabled by the lemma.capabilities switchboard. Requires the `system.access` permission.
+         * @description Capabilities provided by installed packs and not disabled by the thallo.capabilities switchboard. Requires the `system.access` permission.
          */
         get: operations["getV1AdminCapabilities"];
         put?: never;
@@ -550,7 +550,7 @@ export interface paths {
         put?: never;
         /**
          * Clear cache
-         * @description Clears the cache. With `content_type`, only that type's delivery cache (the `lemma:type:<slug>` tag) is invalidated; otherwise the whole cache is flushed. Requires `system.access`.
+         * @description Clears the cache. With `content_type`, only that type's delivery cache (the `thallo:type:<slug>` tag) is invalidated; otherwise the whole cache is flushed. Requires `system.access`.
          */
         post: operations["postV1AdminCacheClear"];
         delete?: never;
@@ -3630,7 +3630,7 @@ export interface operations {
                 q?: string;
                 /** @description Page number (default 1). */
                 page?: number;
-                /** @description Items per page (clamped to lemma.delivery.max_per_page; default default_per_page). */
+                /** @description Items per page (clamped to thallo.delivery.max_per_page; default default_per_page). */
                 perPage?: number;
             };
             header?: never;

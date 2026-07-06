@@ -6,14 +6,14 @@ namespace App\Content\Events;
 
 use Glueful\Events\Contracts\BaseEvent;
 use Glueful\Extensions\Audit\Contracts\AuditableEvent;
-use Glueful\Lemma\Contracts\Events\ContentLifecycleEvent;
+use Thallo\Contracts\Events\ContentLifecycleEvent;
 
 /**
- * Base class for every Lemma content domain event.
+ * Base class for every Thallo content domain event.
  *
  * The string returned by {@see name()} is a FROZEN public API contract
  * (V1_DESIGN §5): downstream listeners, webhook subscribers and the
- * `lemma:resync` command key off these names, so they must never drift.
+ * `thallo:resync` command key off these names, so they must never drift.
  *
  * Payloads are deliberately minimal — entry/asset identity, actor and
  * timestamp — and NEVER carry a `fields` key. Receivers re-fetch the full
@@ -114,7 +114,7 @@ abstract class BaseContentEvent extends BaseEvent implements AuditableEvent, Con
     /**
      * The actor carried by the event (the user who saved/published), as a fallback for when there's
      * no HTTP request to resolve one from — these events dispatch after-commit and can also originate
-     * from CLI (`lemma:resync`). The uuid comes from the payload; the label, when known, is supplied
+     * from CLI (`thallo:resync`). The uuid comes from the payload; the label, when known, is supplied
      * by {@see PublishEventEmitter} via {@see setAuditActorLabel()}. Request resolution still wins
      * when an HTTP request is present.
      *

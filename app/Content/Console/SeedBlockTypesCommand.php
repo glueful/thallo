@@ -17,7 +17,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * decision), so reruns never overwrite edits. Deliberately no --force.
  */
 #[AsCommand(
-    name: 'lemma:blocks:seed',
+    name: 'thallo:blocks:seed',
     description: 'Seed the starter block types (skips any slug that already exists)',
     aliases: ['blocks:seed'],
 )]

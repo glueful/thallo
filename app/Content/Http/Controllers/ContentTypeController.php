@@ -52,13 +52,13 @@ final class ContentTypeController
     }
 
     /**
-     * List every content type defined in this Lemma instance, including each one's field
+     * List every content type defined in this Thallo instance, including each one's field
      * schema, straight from {@see ContentTypeRepository::all()}.
      */
     #[ApiOperation(
         summary: 'List content types',
         description: 'Each item includes its full field schema.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: ContentTypeListData::class, description: 'All content types.')]
     // 401/403/429/500 inferred from middleware + documentation.errors config.
@@ -78,7 +78,7 @@ final class ContentTypeController
         summary: 'Create a content type',
         description: '`slug` must be a unique lowercase identifier. Filterable-field indexes are built '
             . 'out-of-band after commit.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(201, schema: ContentTypeResultData::class, description: 'Content type created.')]
     #[ApiResponse(
@@ -128,7 +128,7 @@ final class ContentTypeController
     #[ApiOperation(
         summary: 'Get a content type by slug',
         description: 'Includes the full field schema.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: ContentTypeResultData::class, description: 'The content type.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No content type with that slug.')]
@@ -154,7 +154,7 @@ final class ContentTypeController
         summary: 'Update a content type\'s field schema',
         description: 'Replaces the schema wholesale (not a merge) and bumps the schema version. '
             . 'Filterable-field indexes are rebuilt out-of-band after commit.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: ContentTypeResultData::class, description: 'Schema updated.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No content type with that slug.')]
@@ -192,7 +192,7 @@ final class ContentTypeController
         summary: 'Update content-type metadata',
         description: 'Non-schema metadata only (slug immutable; schema has its own endpoint). '
             . 'Changing public_delivery or mount_at_root purges the render page cache.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: ContentTypeResultData::class, description: 'Content type updated.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No content type with that slug.')]
@@ -253,7 +253,7 @@ final class ContentTypeController
         summary: 'Delete a content type',
         description: 'Soft-delete: existing entries stay in storage but the model is hidden from listing '
             . 'and delivery.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, description: 'Content type deleted.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No content type with that slug.')]

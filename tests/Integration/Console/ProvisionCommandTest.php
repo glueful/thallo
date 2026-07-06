@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Console;
 
 use App\Setup\Console\ProvisionCommand;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
@@ -13,7 +13,7 @@ use Symfony\Component\Console\Tester\CommandTester;
  * non-numeric --db-port override) must abort BEFORE the framework Installer runs — so the
  * command never writes .env or migrates against the real repo during the test.
  */
-final class ProvisionCommandTest extends LemmaTestCase
+final class ProvisionCommandTest extends AppTestCase
 {
     public function testInvalidDbPortFailsBeforeInstaller(): void
     {

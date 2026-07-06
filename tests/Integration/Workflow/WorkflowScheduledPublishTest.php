@@ -10,9 +10,9 @@ use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\ScheduleRepository;
 use App\Content\Scheduling\ScheduleRunner;
 use App\Tests\Integration\Workflow\Concerns\GrantsPermissions;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Workflow\WorkflowService;
-use Glueful\Lemma\Workflow\WorkflowStateRepository;
+use App\Tests\Support\AppTestCase;
+use Thallo\Workflow\WorkflowService;
+use Thallo\Workflow\WorkflowStateRepository;
 
 /**
  * Spec-pinned scheduled-publish semantics: ONE uniform gate rule evaluated at RUN time
@@ -20,7 +20,7 @@ use Glueful\Lemma\Workflow\WorkflowStateRepository;
  * fails; a bypass-holding creator publishes (recorded as published_with_bypass); an
  * approved draft publishes for anyone.
  */
-final class WorkflowScheduledPublishTest extends LemmaTestCase
+final class WorkflowScheduledPublishTest extends AppTestCase
 {
     use GrantsPermissions;
 

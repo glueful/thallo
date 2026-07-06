@@ -22,7 +22,7 @@ final class PreviewWorkingCopyStore
 
     private function key(string $entryUuid, string $locale): string
     {
-        return 'lemma:preview:working:' . $entryUuid . ':' . $locale;
+        return 'thallo:preview:working:' . $entryUuid . ':' . $locale;
     }
 
     /** @param array<string,mixed> $cleanFields validator OUTPUT only — never raw payload */

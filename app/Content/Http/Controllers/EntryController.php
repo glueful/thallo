@@ -89,7 +89,7 @@ final class EntryController
             . 'delivery feed). Each row has a derived `display_title`, editorial `status` '
             . '(draft|scheduled|published), the `locales` present, and `updated_at`. Offset paged via '
             . '`page`/`perPage`; `q` filters on the display title. Requires the `content.view` permission.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: EntryListData::class, description: 'A page of entries.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'Unknown content type slug.')]
@@ -130,7 +130,7 @@ final class EntryController
     #[ApiOperation(
         summary: 'Create an entry',
         description: 'Seeds an empty draft in the given `locale` (defaults to the i18n default).',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(201, schema: EntryCreateResultData::class, description: 'Entry created with an empty draft.')]
     #[ApiResponse(422, schema: ErrorResponse::class, envelope: false, description: 'Unknown content type.')]
@@ -168,7 +168,7 @@ final class EntryController
     #[ApiOperation(
         summary: 'Get an entry',
         description: 'Identity and status only, not field content — use the draft endpoint for values.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: EntryResultData::class, description: 'The entry.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No entry with that UUID.')]
@@ -211,7 +211,7 @@ final class EntryController
     #[ApiOperation(
         summary: 'Get an entry\'s draft for a locale',
         description: 'Returns field values plus the `lock_version` to echo back on save.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: DraftResultData::class, description: 'The draft.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No draft for that entry/locale.')]
@@ -253,7 +253,7 @@ final class EntryController
         summary: 'Save an entry\'s draft (optimistic-locked)',
         description: 'Optimistic-locked: pass the `lock_version` from the last read; a stale value yields '
             . '409 carrying the current draft so the client can rebase.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: DraftResultData::class, description: 'Draft saved.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No entry with that UUID.')]
@@ -328,7 +328,7 @@ final class EntryController
         description: 'Validates the submitted fields with the same guards as a draft save and stashes the '
             . 'cleaned result so the preview session renders unsaved work. Nothing is persisted; a successful '
             . 'draft save clears the stash.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, description: 'Working copy applied to the preview session.')]
     #[ApiResponse(403, schema: ErrorResponse::class, envelope: false, description: 'Invalid or re-pointed token.')]
@@ -413,7 +413,7 @@ final class EntryController
     #[ApiOperation(
         summary: 'Discard an entry draft',
         description: 'Drops the working draft only; published content is untouched.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, description: 'Draft discarded.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No draft for that entry/locale.')]
@@ -437,7 +437,7 @@ final class EntryController
     #[ApiOperation(
         summary: 'Delete an entry',
         description: 'Soft-delete; refused (409) while published content still references the entry.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, description: 'Entry deleted.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No entry with that UUID.')]
@@ -471,7 +471,7 @@ final class EntryController
     #[ApiOperation(
         summary: 'List entry routes',
         description: 'Route slugs assigned across all the entry\'s locales.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, description: 'Entry routes.')]
     public function routes(Request $request, string $uuid): Response
@@ -488,7 +488,7 @@ final class EntryController
     #[ApiOperation(
         summary: 'List entry locale variants',
         description: 'Per-locale draft, publication, and route state — the entry\'s translation status.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: EntryLocalesResultData::class, description: 'Entry locale variants.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No entry with that UUID.')]
@@ -511,7 +511,7 @@ final class EntryController
     #[ApiOperation(
         summary: 'Create an entry locale draft',
         description: 'Optionally seeds the new draft by copying the current draft from `source_locale`.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(201, schema: DraftResultData::class, description: 'Locale draft created.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No entry with that UUID.')]
@@ -571,7 +571,7 @@ final class EntryController
     #[ApiOperation(
         summary: 'Assign an entry route',
         description: 'Replaces any existing route slug for the entry+locale.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, description: 'Route assigned.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No entry with that UUID.')]
@@ -621,7 +621,7 @@ final class EntryController
     #[ApiOperation(
         summary: 'Remove an entry route',
         description: 'Idempotent — succeeds even when no route is assigned.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, description: 'Route removed.')]
     public function removeRoute(Request $request, string $uuid, string $locale): Response

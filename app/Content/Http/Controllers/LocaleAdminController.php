@@ -23,7 +23,7 @@ final class LocaleAdminController
         description: 'Returns the number of published and draft entries that exist in the given locale. '
             . 'Use this before disabling a locale to warn when published content would be hidden. '
             . 'Requires the `content.manage` permission.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: LocaleUsageData::class, description: 'Published and draft entry counts for the locale.')]
     #[ApiResponse(401, schema: ErrorResponse::class, envelope: false, description: 'Not authenticated.')]

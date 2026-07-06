@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
-use Glueful\Lemma\Collections\CollectionManager;
-use Glueful\Lemma\Collections\Data\Actor;
-use Glueful\Lemma\Collections\Data\RowRepository;
-use Glueful\Lemma\Collections\Schema\CollectionDefinition;
+use Thallo\Collections\CollectionManager;
+use Thallo\Collections\Data\Actor;
+use Thallo\Collections\Data\RowRepository;
+use Thallo\Collections\Schema\CollectionDefinition;
 
 /**
  * RowRepository::truncate() empties the collection table and resets the auto-increment id (a real
  * TRUNCATE), keeping the schema.
  */
-final class RowTruncateTest extends LemmaTestCase
+final class RowTruncateTest extends AppTestCase
 {
     private const COL = 'trunc_test';
 

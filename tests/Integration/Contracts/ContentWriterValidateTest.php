@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Contracts;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Authoring\ContentWriter;
-use Glueful\Lemma\Contracts\Authoring\ValidationFailed;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Authoring\ContentWriter;
+use Thallo\Contracts\Authoring\ValidationFailed;
 
-final class ContentWriterValidateTest extends LemmaTestCase
+final class ContentWriterValidateTest extends AppTestCase
 {
     private function seedType(): string
     {

@@ -6,7 +6,7 @@ import { useCapabilitiesStore } from '@/stores/capabilities'
 definePage({ meta: { requiresAuth: true } })
 
 const caps = useCapabilitiesStore()
-const enabled = computed(() => caps.isEnabled('lemma.workflow'))
+const enabled = computed(() => caps.isEnabled('thallo.workflow'))
 
 const { data, isLoading, error } = useWorkflowQueue(enabled)
 const items = computed(() => data.value?.items ?? [])

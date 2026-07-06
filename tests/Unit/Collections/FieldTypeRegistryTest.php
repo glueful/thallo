@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Collections;
 
 use App\Content\Schema\FieldTypes\DefaultFieldTypeRegistry;
-use Glueful\Lemma\Contracts\Schema\FieldTypeDefinition;
+use Thallo\Contracts\Schema\FieldTypeDefinition;
 use PHPUnit\Framework\TestCase;
 
 final class FieldTypeRegistryTest extends TestCase

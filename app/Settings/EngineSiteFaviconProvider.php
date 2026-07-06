@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Settings;
 
-use Glueful\Lemma\Contracts\Settings\SiteFaviconProvider;
+use Thallo\Contracts\Settings\SiteFaviconProvider;
 
 /** GeneralSettings-backed favicon (site-identity spec §2). */
 final class EngineSiteFaviconProvider implements SiteFaviconProvider

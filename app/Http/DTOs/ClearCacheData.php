@@ -12,7 +12,7 @@ use Glueful\Validation\Contracts\RequestData;
  * ({@see \App\Http\Controllers\CacheAdminController::clear()}).
  *
  * `content_type`: when supplied, only that content type's delivery cache is invalidated
- * (the `lemma:type:<slug>` tag); when omitted, the whole cache is flushed.
+ * (the `thallo:type:<slug>` tag); when omitted, the whole cache is flushed.
  */
 final class ClearCacheData implements RequestData
 {

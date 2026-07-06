@@ -6,7 +6,7 @@ import { useSessionStore } from '@/stores/session'
 import { runtimeConfig } from '@/runtime/config'
 
 // ── Import/Export (glueful/import-export extension, /import-export/*) ──────────────────────────────
-// The job API lives on the root `core` client. Two endpoints are Lemma-owned (under /v1/admin):
+// The job API lives on the root `core` client. Two endpoints are Thallo-owned (under /v1/admin):
 // the export-result download and the import-file upload — both need raw fetch (binary / multipart),
 // so they go through the session bearer directly rather than the typed client.
 // The OpenAPI spec types the nested response payloads loosely, so we pin the contracts here.
@@ -189,7 +189,7 @@ export function useImportExportMutations() {
   return { runExport, runImport, cancel, retry }
 }
 
-// ── Lemma-owned upload (multipart) + download (binary) ────────────────────────────────────────────
+// ── Thallo-owned upload (multipart) + download (binary) ────────────────────────────────────────────
 export interface UploadedImport {
   disk: string
   path: string

@@ -17,7 +17,7 @@ import MenuTreeEditor from './components/MenuTreeEditor.vue'
 definePage({ meta: { requiresAuth: true } })
 
 const caps = useCapabilitiesStore()
-const enabled = computed(() => caps.isEnabled('lemma.navigation'))
+const enabled = computed(() => caps.isEnabled('thallo.navigation'))
 const { success, error: notifyError } = useNotify()
 
 const { data: menus } = useNavMenus(enabled)

@@ -10,13 +10,13 @@ use App\Content\Http\DTOs\ScheduleData;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\ScheduleRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Auth\UserIdentity;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 
-final class ScheduleApiTest extends LemmaTestCase
+final class ScheduleApiTest extends AppTestCase
 {
     private string $type;
 

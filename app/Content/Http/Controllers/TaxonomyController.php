@@ -27,7 +27,7 @@ use App\Content\Seo\CanonicalProjector;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
 use Glueful\Http\Response;
-use Glueful\Lemma\Contracts\Delivery\ReferenceTargetResolver;
+use Thallo\Contracts\Delivery\ReferenceTargetResolver;
 use Glueful\Support\FieldSelection\FieldSelector;
 use Glueful\Support\FieldSelection\Projector;
 use Symfony\Component\HttpFoundation\Request;
@@ -145,7 +145,7 @@ final class TaxonomyController
         // version uuid, and any publish that changes them purges via the type tags.
         $etag = $this->etags->forItem(sha1((string) json_encode($data)), $this->selectionKey($request));
         $cacheTag = implode(', ', array_map(
-            static fn(string $s): string => 'lemma:type:' . $s,
+            static fn(string $s): string => 'thallo:type:' . $s,
             array_values(array_unique($tagSlugs)),
         ));
         return $this->etags->applyHeaders($response, $etag, $this->ttl($typeRow), $cacheTag, $this->isScoped($request));
@@ -316,7 +316,7 @@ final class TaxonomyController
         $etag = $this->etags->forList($versionUuids, $this->selectionKey($request), $expanded->versionIdentities());
         $cacheTag = $this->etags->cacheTag($entryUuids, (string) $typeRow['slug'], $expanded->entryUuids());
         if ($targetSlug !== (string) $typeRow['slug']) {
-            $cacheTag .= ', lemma:type:' . $targetSlug; // self-referencing taxonomies dedupe
+            $cacheTag .= ', thallo:type:' . $targetSlug; // self-referencing taxonomies dedupe
         }
         return $this->etags->applyHeaders($response, $etag, $this->ttl($typeRow), $cacheTag, $this->isScoped($request));
     }

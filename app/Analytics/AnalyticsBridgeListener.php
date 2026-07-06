@@ -11,18 +11,18 @@ use App\Content\Events\EntryPublished;
 use App\Content\Events\EntryUnpublished;
 use App\Content\Events\EntryUpdated;
 use Glueful\Events\Contracts\BaseEvent;
-use Glueful\Lemma\Analytics\Facts\AnalyticsFact;
-use Glueful\Lemma\Analytics\Facts\AnalyticsRecorder;
-use Glueful\Lemma\Collections\Events\CollectionCreated;
-use Glueful\Lemma\Collections\Events\CollectionDropped;
-use Glueful\Lemma\Collections\Events\CollectionRowCreated;
-use Glueful\Lemma\Collections\Events\CollectionRowDeleted;
-use Glueful\Lemma\Collections\Events\CollectionRowUpdated;
-use Glueful\Lemma\Collections\Events\CollectionUpdated;
+use Thallo\Analytics\Facts\AnalyticsFact;
+use Thallo\Analytics\Facts\AnalyticsRecorder;
+use Thallo\Collections\Events\CollectionCreated;
+use Thallo\Collections\Events\CollectionDropped;
+use Thallo\Collections\Events\CollectionRowCreated;
+use Thallo\Collections\Events\CollectionRowDeleted;
+use Thallo\Collections\Events\CollectionRowUpdated;
+use Thallo\Collections\Events\CollectionUpdated;
 
 /**
  * Bridges pack/content lifecycle events into analytics facts — the App-side seam so the pack stays
- * dependency-pure (it cannot reference lemma-collections or App content events). Mirrors
+ * dependency-pure (it cannot reference thallo-collections or App content events). Mirrors
  * CollectionAuditListener.
  */
 final class AnalyticsBridgeListener

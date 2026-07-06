@@ -25,7 +25,7 @@
         <env name="DB_DRIVER" value="pgsql"/>
         <env name="DB_PGSQL_HOST" value="127.0.0.1"/>
         <env name="DB_PGSQL_PORT" value="5432"/>
-        <env name="DB_PGSQL_DATABASE" value="lemma_test"/>
+        <env name="DB_PGSQL_DATABASE" value="app_test"/>
         <env name="DB_PGSQL_USERNAME" value="postgres"/>
         <env name="DB_PGSQL_PASSWORD" value="postgres"/>
         <env name="DB_PGSQL_SCHEMA" value="public"/>
@@ -35,8 +35,8 @@
         <env name="CACHE_TAGS" value="false"/>
         <env name="QUERY_CACHE_ENABLED" value="false"/>
         <env name="QUERY_CACHE_STORE" value="array"/>
-        <env name="LEMMA_ADMIN_BUNDLE_PATH" value="tests/fixtures/admin"/>
-        <env name="LEMMA_PUBLIC_URL_BASE" value="https://site.test"/>
+        <env name="ADMIN_BUNDLE_PATH" value="tests/fixtures/admin"/>
+        <env name="PUBLIC_URL_BASE" value="https://site.test"/>
         <env name="RENDER_ADMIN_URL" value="https://admin.test"/>
         <!-- media()/site_logo()/site_favicon() tests need anonymously retrievable
              public blobs; force="true" pins this against ambient .env/CI values. -->

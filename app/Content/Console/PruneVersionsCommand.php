@@ -18,7 +18,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * should export first if they need a recoverable archive.
  */
 #[AsCommand(
-    name: 'lemma:versions:prune',
+    name: 'thallo:versions:prune',
     description: 'Delete out-of-policy, non-pinned entry_versions history',
 )]
 final class PruneVersionsCommand extends BaseCommand
@@ -29,9 +29,9 @@ final class PruneVersionsCommand extends BaseCommand
             ->setHelp(
                 "Deletes old, non-pinned version snapshots per (entry, locale) lineage.\n"
                 . "The pinned version always survives. Deletion is permanent; export first.\n\n"
-                . "  lemma:versions:prune --dry-run\n"
-                . "  lemma:versions:prune --keep=10\n"
-                . "  lemma:versions:prune --max-age-days=90\n"
+                . "  thallo:versions:prune --dry-run\n"
+                . "  thallo:versions:prune --keep=10\n"
+                . "  thallo:versions:prune --max-age-days=90\n"
                 . 'With no configured or passed policy, pruning is a no-op.'
             )
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Report what would be deleted; delete nothing')
@@ -48,9 +48,9 @@ final class PruneVersionsCommand extends BaseCommand
     {
         $dryRun = (bool) $input->getOption('dry-run');
         $keep = $input->getOption('keep')
-            ?? config($this->context, 'lemma.versions.retention.keep');
+            ?? config($this->context, 'thallo.versions.retention.keep');
         $maxAge = $input->getOption('max-age-days')
-            ?? config($this->context, 'lemma.versions.retention.max_age_days');
+            ?? config($this->context, 'thallo.versions.retention.max_age_days');
 
         try {
             $policy = RetentionPolicy::fromValues($keep, $maxAge);
@@ -61,7 +61,7 @@ final class PruneVersionsCommand extends BaseCommand
 
         if (!$policy->isEnabled()) {
             $this->warning(
-                'No retention policy configured (LEMMA_VERSION_KEEP / LEMMA_VERSION_MAX_AGE_DAYS) '
+                'No retention policy configured (VERSION_KEEP / VERSION_MAX_AGE_DAYS) '
                 . 'and no --keep/--max-age-days override; nothing to prune (unlimited history).',
             );
             return self::SUCCESS;

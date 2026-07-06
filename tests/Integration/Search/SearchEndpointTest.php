@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Search;
 
 use App\Content\Repositories\ContentTypeRepository;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Schema\ContentTypeReader;
-use Glueful\Lemma\Search\Engine\SearchBackend;
-use Glueful\Lemma\Search\Http\SearchController;
-use Glueful\Lemma\Search\Query\Hit;
-use Glueful\Lemma\Search\Query\SearchRequest;
-use Glueful\Lemma\Search\Query\SearchResults;
-use Glueful\Lemma\Search\Query\VisibilityResolver;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Schema\ContentTypeReader;
+use Thallo\Search\Engine\SearchBackend;
+use Thallo\Search\Http\SearchController;
+use Thallo\Search\Query\Hit;
+use Thallo\Search\Query\SearchRequest;
+use Thallo\Search\Query\SearchResults;
+use Thallo\Search\Query\VisibilityResolver;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -20,7 +20,7 @@ use Symfony\Component\HttpFoundation\Request;
  * SitemapEndpointTest) the controller is constructed directly with a FAKE SearchBackend
  * over the real ContentTypeReader/test DB. Route registration is asserted separately.
  */
-final class SearchEndpointTest extends LemmaTestCase
+final class SearchEndpointTest extends AppTestCase
 {
     /**
      * @param list<Hit> $hits
@@ -72,7 +72,7 @@ final class SearchEndpointTest extends LemmaTestCase
 
     public function testRouteAbsentByDefaultBecausePackIsOptIn(): void
     {
-        // lemma-search is opt-in (not in the default config/extensions.php allow-list), so the
+        // thallo-search is opt-in (not in the default config/extensions.php allow-list), so the
         // route is NOT registered in the standard boot. Enablement wires it up — see
         // SearchEnablementTest, which boots with the provider added.
         self::assertNull($this->findRoute('GET', '/v1/search'), '/v1/search must be opt-in, not default');

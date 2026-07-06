@@ -8,10 +8,10 @@ use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Seo\RedirectRepository;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Delivery\PublicRouteResolver;
 
-final class PublicRouteResolverTest extends LemmaTestCase
+final class PublicRouteResolverTest extends AppTestCase
 {
     use SeedsPublishedContent;
 
@@ -183,7 +183,7 @@ final class PublicRouteResolverTest extends LemmaTestCase
         self::assertCount(1, $r['listing']['items']);
         $item = $r['listing']['items'][0];
         // hrefs are whatever PathRenderer returns — absolute here because the suite
-        // sets LEMMA_PUBLIC_URL_BASE (matching path()/canonicals); default-locale
+        // sets PUBLIC_URL_BASE (matching path()/canonicals); default-locale
         // collapse (no /en/ segment) is the assertion that matters.
         self::assertSame('https://site.test/blog/hello', $item['href']);
         self::assertArrayNotHasKey('seo', $item);             // LIST shape, not shapePublic
@@ -360,7 +360,7 @@ final class PublicRouteResolverTest extends LemmaTestCase
 
         $result = $this->resolver()->resolvePath('/page/source');
         self::assertSame('content', $result['kind']);
-        self::assertContains('lemma:entry:' . $target, $result['cache_tags']);
+        self::assertContains('thallo:entry:' . $target, $result['cache_tags']);
         // Privacy: the tags never ride inside the content payload.
         self::assertArrayNotHasKey('cache_tags', $result['content']);
     }

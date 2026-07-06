@@ -18,11 +18,11 @@ use Glueful\Routing\RouteManifest;
  * route file in a *function-local* `static $loaded` keyed by realpath. That static survives for
  * the entire PHP process and — unlike the framework's own RouteManifest — has no reset hook.
  * Booting the framework a SECOND time in the same process therefore silently drops every
- * extension-provided route (e.g. lemma-collections' `/v1/collections/*`) from the second boot's
+ * extension-provided route (e.g. thallo-collections' `/v1/collections/*`) from the second boot's
  * router: loadRoutesFrom() sees the file as "already loaded" and returns before registering it.
  *
  * The full `composer test` run mixes the framework-booting Feature test
- * ({@see \App\Tests\TestCase}) with the LemmaTestCase suites. When these booted independently,
+ * ({@see \App\Tests\TestCase}) with the AppTestCase suites. When these booted independently,
  * whichever booted first consumed the one-shot route loaders and the other was left with a
  * router missing all extension routes (collections requests 404'd).
  *

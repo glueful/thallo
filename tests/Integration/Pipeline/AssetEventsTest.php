@@ -10,7 +10,7 @@ use App\Content\Events\EntryUpdated;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Support\OptimisticLockException;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 
 /**
@@ -25,7 +25,7 @@ use Glueful\Events\EventService;
  * runs through the container-resolved EntryRepository, so the wired
  * PublishEventEmitter is exercised exactly as production would.
  */
-final class AssetEventsTest extends LemmaTestCase
+final class AssetEventsTest extends AppTestCase
 {
     private string $type;
     private string $entry;

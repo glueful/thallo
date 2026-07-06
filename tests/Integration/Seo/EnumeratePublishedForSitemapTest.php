@@ -11,9 +11,9 @@ use App\Content\Repositories\RouteRepository;
 use App\Content\Seo\CanonicalProjector;
 use App\Content\Seo\PathRenderer;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class EnumeratePublishedForSitemapTest extends LemmaTestCase
+final class EnumeratePublishedForSitemapTest extends AppTestCase
 {
     use SeedsPublishedContent;
 

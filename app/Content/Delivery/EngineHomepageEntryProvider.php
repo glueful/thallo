@@ -6,8 +6,8 @@ namespace App\Content\Delivery;
 
 use App\Settings\GeneralSettings;
 use Glueful\Bootstrap\ApplicationContext;
-use Glueful\Lemma\Contracts\Delivery\HomepageEntryProvider;
-use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
+use Thallo\Contracts\Delivery\HomepageEntryProvider;
+use Thallo\Contracts\Delivery\PublicRouteResolver;
 use Psr\Log\LoggerInterface;
 
 use function config;
@@ -39,11 +39,11 @@ final class EngineHomepageEntryProvider implements HomepageEntryProvider
                 return $override;
             }
             $this->logger->warning(
-                'lemma: the homepage_entry site setting no longer resolves to published '
+                'thallo: the homepage_entry site setting no longer resolves to published '
                 . 'public content — falling back to the deploy default',
                 ['entry' => $override],
             );
         }
-        return (string) config($this->context, 'lemma_render.homepage_entry', '');
+        return (string) config($this->context, 'render.homepage_entry', '');
     }
 }

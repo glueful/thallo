@@ -19,7 +19,7 @@ const { mutateAsync: createEntry } = useCreateEntry()
 const overview = computed(() => data.value)
 
 const caps = useCapabilitiesStore()
-const analyticsOn = computed(() => caps.isEnabled('lemma.analytics'))
+const analyticsOn = computed(() => caps.isEnabled('thallo.analytics'))
 const analyticsRange = computed(() => rangeFor(30))
 // Pass analyticsOn as the `enabled` gate: when the pack is disabled the summary query never fires,
 // so Home never hits the (404'd) /analytics/summary route.
@@ -87,7 +87,7 @@ function fmtTime(v?: string | null): string {
           <p class="text-sm text-muted">Here's a snapshot of your content.</p>
         </header>
 
-        <!-- Analytics KPI strip (only when lemma.analytics is enabled) -->
+        <!-- Analytics KPI strip (only when thallo.analytics is enabled) -->
         <div
           v-if="analyticsOn"
           data-test="home-analytics-strip"

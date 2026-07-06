@@ -9,7 +9,7 @@ use Glueful\Helpers\Utils;
 
 /**
  * Grant the review-workflow permissions to Aegis's `administrator` role. The
- * `glueful/lemma-workflow` pack declares the permission rows (its own seed migration);
+ * `glueful/thallo-workflow` pack declares the permission rows (its own seed migration);
  * granting onto roles is the HOST APP's decision — this dependent migration runs after
  * Aegis has created the role.
  */

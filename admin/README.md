@@ -1,11 +1,11 @@
-# Lemma Admin
+# Thallo Admin
 
-The first-party admin SPA for a [Lemma](https://getlemma.dev) instance — the editorial UI for
-authoring, publishing, and managing content. It is a **replaceable client of the Lemma admin API**
+The first-party admin SPA for a [Thallo](https://thallo.dev) instance — the editorial UI for
+authoring, publishing, and managing content. It is a **replaceable client of the Thallo admin API**
 (`/v1/admin`): the backend owns the data and the API; this app is one front end for it, and an
-operator can disable it (`lemma.admin.enabled=false`) and bring their own.
+operator can disable it (`thallo.admin.enabled=false`) and bring their own.
 
-> Source lives here; the **compiled bundle** is what the Lemma app serves at `/admin`.
+> Source lives here; the **compiled bundle** is what the Thallo app serves at `/admin`.
 
 ## Stack
 
@@ -54,12 +54,12 @@ src/
   App.vue, main.ts
 ```
 
-## Integration with the Lemma backend
+## Integration with the Thallo backend
 
-This SPA is mounted by the Lemma app via the framework's `serveFrontend()` seam and talks to the
-admin API. A few contracts must hold for the build to drop into a Lemma instance:
+This SPA is mounted by the Thallo app via the framework's `serveFrontend()` seam and talks to the
+admin API. A few contracts must hold for the build to drop into a Thallo instance:
 
-- **Build output → the Lemma app's `public/admin/`** (what `serveFrontend('/admin', …)` serves).
+- **Build output → the Thallo app's `public/admin/`** (what `serveFrontend('/admin', …)` serves).
   Set `build.outDir` accordingly (e.g. `../public/admin`). *(not wired yet — default is `dist/`)*
 - **Base path `/admin/`** — the bundle is served under `/admin`, so assets must resolve there.
   Set Vite `base: '/admin/'` (the router already uses `import.meta.env.BASE_URL`).

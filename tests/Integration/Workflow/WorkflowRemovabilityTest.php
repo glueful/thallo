@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Workflow;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Bootstrap\ApplicationContext;
-use Glueful\Lemma\Contracts\Authoring\PublishBlocked;
+use Thallo\Contracts\Authoring\PublishBlocked;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Proves lemma-workflow is cleanly disable-able: with lemma.workflow disabled, the boot
+ * Proves thallo-workflow is cleanly disable-able: with thallo.workflow disabled, the boot
  * gate skips routes + listeners entirely (404s, no state mutations), and the publish gate
  * short-circuits so publish behaves as current core. Also guards the pack boundary: no
- * App\ references in packages/lemma-workflow/src.
+ * App\ references in packages/thallo-workflow/src.
  */
-final class WorkflowRemovabilityTest extends LemmaTestCase
+final class WorkflowRemovabilityTest extends AppTestCase
 {
     private static ?ApplicationContext $disabledApp = null;
 
@@ -24,8 +24,8 @@ final class WorkflowRemovabilityTest extends LemmaTestCase
     {
         parent::setUpBeforeClass();
 
-        self::$disabledApp ??= self::bootAppWithConfigOverride('lemma', [
-            'capabilities' => ['lemma.workflow' => false],
+        self::$disabledApp ??= self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.workflow' => false],
         ]);
     }
 
@@ -67,14 +67,14 @@ final class WorkflowRemovabilityTest extends LemmaTestCase
                 ->publish($entry, 'en', 'nobypass0009');
             self::assertNotSame('', $version);
         } catch (PublishBlocked $e) {
-            self::fail('publish must be UNGATED when lemma.workflow is disabled');
+            self::fail('publish must be UNGATED when thallo.workflow is disabled');
         }
     }
 
     public function testPackSourceHasNoAppReferences(): void
     {
         // Mirror scripts/check-pack-boundaries.php: a leading [^\w] catches bare \App\ FQCNs.
-        $root = dirname(__DIR__, 3) . '/packages/lemma-workflow/src';
+        $root = dirname(__DIR__, 3) . '/packages/thallo-workflow/src';
         $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root));
         $checked = 0;
         foreach ($files as $file) {

@@ -7,9 +7,9 @@ namespace App\Tests\Unit\Collections;
 use Glueful\Auth\AuthenticationManager;
 use Glueful\Auth\JwtAuthenticationProvider;
 use Glueful\Bootstrap\ApplicationContext;
-use Glueful\Lemma\Collections\Http\CollectionAccessResolver;
-use Glueful\Lemma\Collections\Schema\AccessPolicy;
-use Glueful\Lemma\Collections\Schema\CollectionDefinition;
+use Thallo\Collections\Http\CollectionAccessResolver;
+use Thallo\Collections\Schema\AccessPolicy;
+use Thallo\Collections\Schema\CollectionDefinition;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 

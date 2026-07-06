@@ -4,25 +4,25 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\ImportExport;
 
-use App\Content\ImportExport\LemmaContentExporter;
-use App\Content\ImportExport\LemmaContentImporter;
-use App\Tests\Support\LemmaTestCase;
+use App\Content\ImportExport\ContentExporter;
+use App\Content\ImportExport\ContentImporter;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\ImportExport\Registry\ExporterRegistry;
 use Glueful\Extensions\ImportExport\Registry\ImporterRegistry;
 
-final class ImportExportAdapterRegistrationTest extends LemmaTestCase
+final class ImportExportAdapterRegistrationTest extends AppTestCase
 {
-    public function testLemmaContentExporterIsRegisteredWithImportExportRegistry(): void
+    public function testContentExporterIsRegisteredWithImportExportRegistry(): void
     {
         $registry = $this->container()->get(ExporterRegistry::class);
 
-        self::assertInstanceOf(LemmaContentExporter::class, $registry->get('lemma.content'));
+        self::assertInstanceOf(ContentExporter::class, $registry->get('thallo.content'));
     }
 
-    public function testLemmaContentImporterIsRegisteredWithImportExportRegistry(): void
+    public function testContentImporterIsRegisteredWithImportExportRegistry(): void
     {
         $registry = $this->container()->get(ImporterRegistry::class);
 
-        self::assertInstanceOf(LemmaContentImporter::class, $registry->get('lemma.content'));
+        self::assertInstanceOf(ContentImporter::class, $registry->get('thallo.content'));
     }
 }

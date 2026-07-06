@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Capabilities;
 
 use App\Capabilities\DefaultCapabilityRegistry;
-use App\Providers\LemmaServiceProvider;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Capability\Capability;
-use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
+use App\Providers\ThalloServiceProvider;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Capability\Capability;
+use Thallo\Contracts\Capability\CapabilityRegistry;
 
-final class CapabilityRegistryWiringTest extends LemmaTestCase
+final class CapabilityRegistryWiringTest extends AppTestCase
 {
     public function testContractResolvesToTheEngineRegistry(): void
     {
@@ -33,22 +33,22 @@ final class CapabilityRegistryWiringTest extends LemmaTestCase
     public function testFactoryReadsTheWholeCapabilitiesMapNotDottedKeys(): void
     {
         // Seed a disabled override for a DOTTED id via the public config-defaults seam.
-        // config/lemma.php's `capabilities` is empty, so this default surfaces (defaults
-        // merge UNDER file config). A correct factory reads the whole `lemma.capabilities`
+        // config/thallo.php's `capabilities` is empty, so this default surfaces (defaults
+        // merge UNDER file config). A correct factory reads the whole `thallo.capabilities`
         // map and sees `test.fake => false`. A buggy dotted-access impl
-        // (config('lemma.capabilities.test.fake')) would walk capabilities['test']['fake'],
+        // (config('thallo.capabilities.test.fake')) would walk capabilities['test']['fake'],
         // never find the literal-key 'test.fake', fall back to the default, and wrongly
         // ENABLE it — failing this test.
-        $this->appContext()->mergeConfigDefaults('lemma', ['capabilities' => ['test.fake' => false]]);
+        $this->appContext()->mergeConfigDefaults('thallo', ['capabilities' => ['test.fake' => false]]);
 
         // Call the factory directly to build a FRESH registry from the (now-seeded) config,
         // bypassing the shared singleton.
-        $reg = LemmaServiceProvider::makeCapabilityRegistry($this->container());
+        $reg = ThalloServiceProvider::makeCapabilityRegistry($this->container());
         $reg->register(new Capability('test.fake'));
 
         self::assertFalse(
             $reg->isEnabled('test.fake'),
-            'factory must read the whole lemma.capabilities map (full id key), not via dotted access',
+            'factory must read the whole thallo.capabilities map (full id key), not via dotted access',
         );
     }
 }

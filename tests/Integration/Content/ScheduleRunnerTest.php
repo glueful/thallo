@@ -13,10 +13,10 @@ use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\ScheduleRepository;
 use App\Content\Repositories\VersionRepository;
 use App\Content\Scheduling\ScheduleRunner;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 
-final class ScheduleRunnerTest extends LemmaTestCase
+final class ScheduleRunnerTest extends AppTestCase
 {
     private string $type;
 

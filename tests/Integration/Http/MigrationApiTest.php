@@ -8,11 +8,11 @@ use App\Content\Http\Controllers\MigrationController;
 use App\Content\Http\DTOs\MigrationData;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\MigrationRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 
-final class MigrationApiTest extends LemmaTestCase
+final class MigrationApiTest extends AppTestCase
 {
     protected function setUp(): void
     {

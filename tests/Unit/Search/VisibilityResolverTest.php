@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Search;
 
-use Glueful\Lemma\Contracts\Schema\ContentSchemaReader;
-use Glueful\Lemma\Contracts\Schema\ContentTypeReader;
-use Glueful\Lemma\Search\Query\VisibilityResolver;
+use Thallo\Contracts\Schema\ContentSchemaReader;
+use Thallo\Contracts\Schema\ContentTypeReader;
+use Thallo\Search\Query\VisibilityResolver;
 use PHPUnit\Framework\TestCase;
 
 final class VisibilityResolverTest extends TestCase

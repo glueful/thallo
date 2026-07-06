@@ -10,7 +10,7 @@
 
 return [
     'enabled' => [
-        'App\\Providers\\LemmaServiceProvider',
+        'App\\Providers\\ThalloServiceProvider',
         // 'App\\Providers\\EventServiceProvider',
     ],
 ];

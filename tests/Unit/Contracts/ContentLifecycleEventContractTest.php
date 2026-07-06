@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Contracts;
 
 use App\Content\Events\EntryCreated;
-use Glueful\Lemma\Contracts\Events\ContentLifecycleEvent;
+use Thallo\Contracts\Events\ContentLifecycleEvent;
 use PHPUnit\Framework\TestCase;
 
 final class ContentLifecycleEventContractTest extends TestCase

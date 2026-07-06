@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\ImportExport;
 
-use Glueful\Lemma\Importers\CsvUserImporter;
-use App\Tests\Support\LemmaTestCase;
+use Thallo\Importers\CsvUserImporter;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\ImportExport\Support\ImportBatch;
 use Glueful\Extensions\ImportExport\Support\ImportContext;
 use Glueful\Extensions\ImportExport\Support\ImportOptions;
 use Glueful\Extensions\ImportExport\Support\ImportSource;
 
-final class CsvUserImporterTest extends LemmaTestCase
+final class CsvUserImporterTest extends AppTestCase
 {
     /** @var array<string,mixed> */
     private const OPTIONS = [
@@ -142,7 +142,7 @@ final class CsvUserImporterTest extends LemmaTestCase
 
     private function writeCsv(string $contents): string
     {
-        $dir = sys_get_temp_dir() . '/lemma-user-import-tests';
+        $dir = sys_get_temp_dir() . '/thallo-user-import-tests';
         if (!is_dir($dir)) {
             mkdir($dir, 0770, true);
         }

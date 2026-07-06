@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Http;
 
 use App\Http\Controllers\ExtensionAdminController;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -16,7 +16,7 @@ use Symfony\Component\HttpFoundation\Request;
  * The unknown-name path returns 404 BEFORE any config write, so these assertions never mutate
  * config/extensions.php.
  */
-final class ExtensionAdminControllerTest extends LemmaTestCase
+final class ExtensionAdminControllerTest extends AppTestCase
 {
     /** @param array<string,mixed> $body */
     private function jsonPost(array $body): Request

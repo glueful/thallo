@@ -19,11 +19,11 @@ use App\Content\Repositories\RouteRepository;
 use App\Content\Repositories\VersionRepository;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 
-final class BlockRestoreProjectionTest extends LemmaTestCase
+final class BlockRestoreProjectionTest extends AppTestCase
 {
     private string $type;
 
@@ -195,7 +195,7 @@ final class BlockRestoreProjectionTest extends LemmaTestCase
         // One wall-clock second, three distinct microsecond instants:
         $this->connection()->table('entry_versions')->where('uuid', '=', $v1)
             ->update(['created_at' => '2026-07-03 12:00:00.100000']);
-        $this->connection()->table('lemma_block_type_migrations')->where('uuid', '=', $m)
+        $this->connection()->table('block_type_migrations')->where('uuid', '=', $m)
             ->update(['created_at' => '2026-07-03 12:00:00.200000']);
         $this->connection()->table('entry_versions')->where('uuid', '=', $vBackfill)
             ->update(['created_at' => '2026-07-03 12:00:00.300000']);

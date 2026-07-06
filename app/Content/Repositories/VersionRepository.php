@@ -23,7 +23,7 @@ final class VersionRepository
 
     public function reserveNextVersionNumber(string $entryUuid, string $locale): int
     {
-        $lockKey = "lemma:entry_versions:{$entryUuid}:{$locale}";
+        $lockKey = "thallo:entry_versions:{$entryUuid}:{$locale}";
         $stmt = $this->db->getPDO()->prepare('SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))');
         $stmt->execute(['lock_key' => $lockKey]);
 
@@ -49,7 +49,7 @@ final class VersionRepository
             'schema_version' => $schemaVersion,
             'created_by' => $actor,
             // MICROSECONDS (block-migrations spec §5): the restore suffix compares
-            // this against lemma_block_type_migrations.created_at with strict > —
+            // this against block_type_migrations.created_at with strict > —
             // second precision would make same-second version/migration pairs
             // ambiguous. Postgres timestamp columns store µs natively.
             'created_at' => (new \DateTimeImmutable())->format('Y-m-d H:i:s.u'),

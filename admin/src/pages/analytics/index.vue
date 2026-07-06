@@ -164,5 +164,5 @@ function setSegment(seg: BreakdownSegment): void {
 <route lang="yaml">
 meta:
   requiresAuth: true
-  requiresCapability: lemma.analytics
+  requiresCapability: thallo.analytics
 </route>

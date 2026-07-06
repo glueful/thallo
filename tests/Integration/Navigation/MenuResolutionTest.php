@@ -7,12 +7,12 @@ namespace App\Tests\Integration\Navigation;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Helpers\Utils;
-use Glueful\Lemma\Contracts\Navigation\MenuReader;
-use Glueful\Lemma\Navigation\MenuRepository;
+use Thallo\Contracts\Navigation\MenuReader;
+use Thallo\Navigation\MenuRepository;
 
-final class MenuResolutionTest extends LemmaTestCase
+final class MenuResolutionTest extends AppTestCase
 {
     use SeedsPublishedContent;
 
@@ -73,7 +73,7 @@ final class MenuResolutionTest extends LemmaTestCase
         self::assertNull($tree[0]['entry']);
         // The default locale collapses (no /en/ prefix) — the CanonicalProjector
         // rule; a prefixed default here would render off-canonical nav links.
-        // (phpunit.xml sets LEMMA_PUBLIC_URL_BASE=https://site.test.)
+        // (phpunit.xml sets PUBLIC_URL_BASE=https://site.test.)
         self::assertSame('https://site.test/blog/hello', $tree[1]['url']);
         self::assertSame($entry, $tree[1]['entry']);
 

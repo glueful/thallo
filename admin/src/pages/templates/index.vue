@@ -369,7 +369,7 @@ onMounted(loadList)
             data-test="custom-css-note"
           >
             Loaded after the theme stylesheets on every page — target blocks via their
-            <code>lemma-block-*</code> classes. Site styling for trusted operators; this is not a
+            <code>thallo-block-*</code> classes. Site styling for trusted operators; this is not a
             content-editing surface.
           </p>
           <p v-else-if="origin !== 'db'" class="text-xs text-muted" data-test="fs-origin-note">

@@ -57,9 +57,9 @@ return [
     |
     */
     'info' => [
-        'title' => env('API_TITLE', 'Lemma CMS API'),
+        'title' => env('API_TITLE', 'Thallo CMS API'),
         'description' => env('API_DESCRIPTION', implode("\n", [
-            'The Lemma headless CMS API.',
+            'The Thallo headless CMS API.',
             '',
             '## Authentication',
             '',
@@ -68,7 +68,7 @@ return [
                 . 'type explicitly opts into public delivery. Keys are environment-prefixed '
                 . '(`gf_live_*` / `gf_test_*`) and provisioned out of band.',
             '- **Admin API** (`/v1/admin/*`) — send a bearer JWT in the `Authorization` header '
-                . '(`Authorization: Bearer <token>`). Each route also enforces a `lemma.*` '
+                . '(`Authorization: Bearer <token>`). Each route also enforces a `thallo.*` '
                 . 'permission (named in the operation description). Obtain a token from your '
                 . 'Glueful auth endpoint (e.g. `POST /v1/auth/login`).',
             '- **Preview** (`GET /v1/preview/{token}`) — unauthenticated: the signed, '
@@ -145,8 +145,8 @@ return [
         'routes' => $root . '/routes',
 
         // Include framework routes (auth/blobs/health/etc.) in the spec.
-        // Default true: from a Lemma consumer's POV the platform's auth + blob endpoints are
-        // part of Lemma's API surface. NOTE: there is no tag-level filter yet, so this also
+        // Default true: from a Thallo consumer's POV the platform's auth + blob endpoints are
+        // part of Thallo's API surface. NOTE: there is no tag-level filter yet, so this also
         // brings the framework's infra tags (Health/Data/Documentation/Security) — group/hide
         // them in the docs UI, or set this false to drop all framework routes.
         'include_framework_routes' => (bool) env('API_DOCS_INCLUDE_FRAMEWORK_ROUTES', true),
@@ -166,12 +166,12 @@ return [
         |
         */
         'route_prefixes' => [
-            // Lemma route files register absolute /v1/... paths directly in the router.
+            // Thallo route files register absolute /v1/... paths directly in the router.
             // The reflect generator reads those live route paths, so no prefix injection
             // is needed here.
-            'lemma_content.php' => '',
-            'lemma_admin.php' => '',
-            'lemma_preview.php' => '',
+            'content.php' => '',
+            'admin.php' => '',
+            'preview.php' => '',
 
             // Framework routes - no version prefix
             'health.php' => '',
@@ -198,7 +198,7 @@ return [
             'scheme' => 'bearer',
             'bearerFormat' => 'JWT',
             'description' => 'JWT bearer token. Used by the admin authoring API (/v1/admin/*), '
-                . 'combined with a per-route lemma_permission RBAC check.',
+                . 'combined with a per-route content_permission RBAC check.',
         ],
         'ApiKeyAuth' => [
             'type' => 'apiKey',
@@ -220,7 +220,7 @@ return [
     | resolves its security from the middleware it carries: the admin API uses
     | `auth` (BearerAuth) and the delivery API uses `optional_api_key` (ApiKeyAuth),
     | so per-operation security is emitted natively for the key path. OpenAPI cannot
-    | express Lemma's per-content-type anonymous opt-in; operation text documents it.
+    | express Thallo's per-content-type anonymous opt-in; operation text documents it.
     |
     */
     'middleware_map' => [
@@ -235,7 +235,7 @@ return [
     |
     | Body schema + descriptions the reflect generator attaches to auto-inferred
     | error responses (401/403 on secured routes, 429 on rate-limited routes, plus
-    | any status listed in `always`). Pointed at Lemma's ErrorResponse DTO with
+    | any status listed in `always`). Pointed at Thallo's ErrorResponse DTO with
     | `envelope: false` so the inferred bodies match exactly what the controllers
     | document by hand — letting those repeated 401/403/429 attributes be dropped
     | without changing the spec. (`schema: null` would emit a slim inline
@@ -268,7 +268,7 @@ return [
         'include_routes' => true,
 
         // Include extension routes (users account/2FA, aegis RBAC, i18n, import/export).
-        // Default true: from a Lemma consumer's POV these are part of Lemma's API surface.
+        // Default true: from a Thallo consumer's POV these are part of Thallo's API surface.
         'include_extensions' => (bool) env('API_DOCS_INCLUDE_EXTENSIONS', true),
 
         // Pretty print JSON output
@@ -280,7 +280,7 @@ return [
 
         // Tag allow/deny filter applied to the assembled spec before write. `include` is an
         // allow-list (empty = keep all tags); `exclude` is a deny-list and WINS over include.
-        // Lemma's public spec drops the platform's infrastructure groups — generic table CRUD
+        // Thallo's public spec drops the platform's infrastructure groups — generic table CRUD
         // (`Data`), ops probes (`Health`), the docs endpoints (`Documentation`), `Security` (CSRF),
         // `Admin` (the SPA-serving HTML routes mounted by serveFrontend at /admin — not an API),
         // `Theme Assets` (the render pack's static mount, path-derived like `Admin`),

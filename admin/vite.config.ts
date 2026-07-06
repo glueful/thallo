@@ -34,7 +34,7 @@ export default defineConfig(({ mode }) => {
     server: isDevelopment
       ? {
           // Bind ALL interfaces (not VITE_HOST): the Apache proxy connects over IPv4 127.0.0.1, but
-          // a hostname like getlemma.com would bind IPv6 ::1 only (per /etc/hosts) and be unreachable.
+          // a hostname like thallo.dev would bind IPv6 ::1 only (per /etc/hosts) and be unreachable.
           host: true,
           port: VITE_PORT ? parseInt(VITE_PORT, 10) : undefined,
           // The Apache proxy forwards Host: VITE_HOST (ProxyPreserveHost), so Vite 8 must allow it
@@ -47,7 +47,7 @@ export default defineConfig(({ mode }) => {
                   cert: fs.readFileSync(path.resolve(VITE_SSL_CERT_PATH)),
                 }
               : undefined,
-          // When the SPA is fronted by a proxy (e.g. Apache at getlemma.com), the page origin isn't
+          // When the SPA is fronted by a proxy (e.g. Apache at thallo.dev), the page origin isn't
           // the Vite origin, so point the HMR client straight at the Vite dev server. wss when Vite
           // serves https. host must match the TLS cert's domain for the wss handshake to validate.
           hmr: {

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Settings;
 
-use Glueful\Lemma\Contracts\Settings\SiteLogoProvider;
+use Thallo\Contracts\Settings\SiteLogoProvider;
 
 /** GeneralSettings-backed site logo (block-library spec §2 + site-identity spec §2). */
 final class EngineSiteLogoProvider implements SiteLogoProvider

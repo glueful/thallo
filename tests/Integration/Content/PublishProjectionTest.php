@@ -13,7 +13,7 @@ use App\Content\Schema\Migration\SchemaProjector;
 use App\Content\Services\MigrationService;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
 /**
  * Regression: publishing a draft still on an OLDER schema_version (a backfill lagging or failed
@@ -22,7 +22,7 @@ use App\Tests\Support\LemmaTestCase;
  * without the projection the pre-rename key is silently dropped (or fails a now-required rename
  * target), losing published data.
  */
-final class PublishProjectionTest extends LemmaTestCase
+final class PublishProjectionTest extends AppTestCase
 {
     public function testPublishProjectsDraftOnOlderSchemaBeforeValidating(): void
     {

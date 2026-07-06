@@ -6,9 +6,9 @@ namespace App\Tests\Integration\Content;
 
 use App\Content\Http\DTOs\Responses\Entries\EntryLocaleScheduleData;
 use App\Content\Repositories\EntryRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class EntryLocaleSummaryTest extends LemmaTestCase
+final class EntryLocaleSummaryTest extends AppTestCase
 {
     public function testLocaleSummaryIncludesScheduledBlock(): void
     {

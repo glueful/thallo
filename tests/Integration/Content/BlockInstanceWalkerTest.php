@@ -9,9 +9,9 @@ use App\Content\Blocks\Migration\BlockInstanceWalker;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Schema\Migration\MigrationOpSet;
 use App\Content\Schema\Migration\RenameField;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class BlockInstanceWalkerTest extends LemmaTestCase
+final class BlockInstanceWalkerTest extends AppTestCase
 {
     private BlockInstanceWalker $walker;
     private ContentTypeSchema $schema;

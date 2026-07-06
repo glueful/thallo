@@ -16,14 +16,14 @@ $container = $app->getContainer();
 // Wire up Glueful’s Symfony Console application with DI
 $cli = new GluefulConsole($container);
 
-// When invoked through the branded `lemma` launcher, present the console as that brand
-// (e.g. "Lemma") instead of "Glueful CLI". Bare `php glueful` is unaffected.
-$brand = getenv('LEMMA_CONSOLE_NAME');
+// When invoked through the branded `thallo` launcher, present the console as that brand
+// (e.g. "Thallo") instead of "Glueful CLI". Bare `php glueful` is unaffected.
+$brand = getenv('CONSOLE_NAME');
 if (is_string($brand) && $brand !== '') {
     $cli->setName($brand);
-    // Lemma has no release version of its own yet, so show just the name. Symfony omits the
-    // version when it is the 'UNKNOWN' sentinel. Set LEMMA_CONSOLE_VERSION to show a number later.
-    $version = getenv('LEMMA_CONSOLE_VERSION');
+    // Thallo has no release version of its own yet, so show just the name. Symfony omits the
+    // version when it is the 'UNKNOWN' sentinel. Set CONSOLE_VERSION to show a number later.
+    $version = getenv('CONSOLE_VERSION');
     $cli->setVersion(is_string($version) && $version !== '' ? $version : 'UNKNOWN');
 }
 

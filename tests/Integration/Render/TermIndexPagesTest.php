@@ -8,10 +8,10 @@ use App\Content\Events\EntryPublished;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\PublishedReferenceRepository;
 use App\Content\Repositories\RouteRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 use Glueful\Cache\CacheStore;
-use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
+use Thallo\Contracts\Delivery\PublicRouteResolver;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -21,7 +21,7 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * Suite env: RENDER_LISTING_TYPES=blog,post.
  */
-final class TermIndexPagesTest extends LemmaTestCase
+final class TermIndexPagesTest extends AppTestCase
 {
     private const CAT_TYPE_UUID = 'cattypetidx0';
     private string $postType;
@@ -246,8 +246,8 @@ final class TermIndexPagesTest extends LemmaTestCase
         self::assertStringContainsString('href="/post/category/php"', $html); // controller-built href
         self::assertStringContainsString('href="/post/category/laravel"', $html);
         $cacheTag = (string) $res->headers->get('Cache-Tag');
-        self::assertStringContainsString('lemma:type:post', $cacheTag);      // count changes
-        self::assertStringContainsString('lemma:type:category', $cacheTag);  // slug/term changes
+        self::assertStringContainsString('thallo:type:post', $cacheTag);      // count changes
+        self::assertStringContainsString('thallo:type:category', $cacheTag);  // slug/term changes
     }
 
     public function testValidEmptyIndexIs200AndGateFailureIsThemed404(): void
@@ -297,7 +297,7 @@ final class TermIndexPagesTest extends LemmaTestCase
             $this->container()->get(CacheStore::class)->get('render:default:%2Fpost%2Fterms%2Fcategory'),
         );
 
-        // A brand-new post publishes → lemma:type:post purges the index (its counts
+        // A brand-new post publishes → thallo:type:post purges the index (its counts
         // just changed) with zero new invalidation code.
         $this->seedMemberPost('tidxpostnew1', 'vtidxpostnw1', ['tidxterm0003']);
         $this->container()->get(EventService::class)

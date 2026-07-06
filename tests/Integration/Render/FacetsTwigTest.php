@@ -6,9 +6,9 @@ namespace App\Tests\Integration\Render;
 
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\PublishedReferenceRepository;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
-use Glueful\Lemma\Render\RenderContextExtension;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Delivery\FacetCountsReader;
+use Thallo\Render\RenderContextExtension;
 use Twig\Environment;
 use Twig\Loader\ArrayLoader;
 
@@ -16,7 +16,7 @@ use Twig\Loader\ArrayLoader;
  * facets() in Twig (preview spec §5): the {items, cache_tags} contract (incl. the
  * valid-empty case), the render-scoped tag collector, and gate fail-safety.
  */
-final class FacetsTwigTest extends LemmaTestCase
+final class FacetsTwigTest extends AppTestCase
 {
     private const CAT_TYPE_UUID = 'cattypefctw0';
     private string $postType;
@@ -91,7 +91,7 @@ final class FacetsTwigTest extends LemmaTestCase
             [['uuid' => 'ftwterm00001', 'slug' => 'php', 'count' => 1]],
             $r['items'],
         );
-        self::assertSame(['lemma:type:post', 'lemma:type:category'], $r['cache_tags']);
+        self::assertSame(['thallo:type:post', 'thallo:type:category'], $r['cache_tags']);
     }
 
     public function testValidEmptyFacetStillCarriesTags(): void
@@ -100,7 +100,7 @@ final class FacetsTwigTest extends LemmaTestCase
         // showing this facet purges when the first matching entry publishes (review P1).
         $r = $this->reader()->counts('post', 'category', 'en');
         self::assertSame([], $r['items']);
-        self::assertSame(['lemma:type:post', 'lemma:type:category'], $r['cache_tags']);
+        self::assertSame(['thallo:type:post', 'thallo:type:category'], $r['cache_tags']);
     }
 
     public function testGateFailuresReturnEmptyItemsAndEmptyTags(): void
@@ -135,7 +135,7 @@ final class FacetsTwigTest extends LemmaTestCase
         // Successful render: items in output, tags in the collector.
         $extension->resetTags();
         self::assertSame('php:1', $twig->render('ok.twig'));
-        self::assertSame(['lemma:type:post', 'lemma:type:category'], $extension->drainTags());
+        self::assertSame(['thallo:type:post', 'thallo:type:category'], $extension->drainTags());
         self::assertSame([], $extension->drainTags()); // drain clears
 
         // A failing render must not leak tags into the NEXT render (review pin):

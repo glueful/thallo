@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Glueful\Events\EventService;
-use Glueful\Lemma\Collections\CollectionManager;
-use Glueful\Lemma\Collections\Data\Actor;
-use Glueful\Lemma\Collections\Data\RowRepository;
-use Glueful\Lemma\Collections\Events\CollectionRowCreated;
-use Glueful\Lemma\Collections\Events\CollectionRowDeleted;
-use Glueful\Lemma\Collections\Events\CollectionRowUpdated;
-use Glueful\Lemma\Collections\Exceptions\CollectionExpandForbiddenException;
-use Glueful\Lemma\Collections\Exceptions\RowReferencedException;
-use Glueful\Lemma\Collections\Exceptions\RowValidationException;
-use Glueful\Lemma\Collections\Relations\RelationResolver;
-use Glueful\Lemma\Collections\Schema\CollectionDefinition;
+use Thallo\Collections\CollectionManager;
+use Thallo\Collections\Data\Actor;
+use Thallo\Collections\Data\RowRepository;
+use Thallo\Collections\Events\CollectionRowCreated;
+use Thallo\Collections\Events\CollectionRowDeleted;
+use Thallo\Collections\Events\CollectionRowUpdated;
+use Thallo\Collections\Exceptions\CollectionExpandForbiddenException;
+use Thallo\Collections\Exceptions\RowReferencedException;
+use Thallo\Collections\Exceptions\RowValidationException;
+use Thallo\Collections\Relations\RelationResolver;
+use Thallo\Collections\Schema\CollectionDefinition;
 
 /**
  * Integration tests for Task 10: relation validation-on-write, bounded expand, restrict-delete,
@@ -28,7 +28,7 @@ use Glueful\Lemma\Collections\Schema\CollectionDefinition;
  *   - rel_test_articles (single + multi relation to authors)
  *   - rel_test_nested   (single relation to articles — for no-recurse expand test)
  */
-final class RelationsTest extends LemmaTestCase
+final class RelationsTest extends AppTestCase
 {
     private const AUTHORS_COLLECTION  = 'rel_test_authors';
     private const ARTICLES_COLLECTION = 'rel_test_articles';

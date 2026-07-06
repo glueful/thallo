@@ -24,7 +24,7 @@ use App\Content\Seo\RouteResolver;
 use App\Content\Validation\FieldValidator;
 use App\Content\Repositories\VersionRepository;
 use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
 use Glueful\Support\FieldSelection\Projector;
 use Glueful\Validation\RequestDataHydrator;
@@ -37,7 +37,7 @@ use Symfony\Component\HttpFoundation\Request;
  * the admin EntryApiTest), publishing entries through the real {@see PublishService} so
  * the leak-proof read path is exercised end to end.
  */
-final class DeliveryApiTest extends LemmaTestCase
+final class DeliveryApiTest extends AppTestCase
 {
     private string $type;
 
@@ -242,7 +242,7 @@ final class DeliveryApiTest extends LemmaTestCase
         self::assertSame('/post/new', $body['data']['redirect']['to']);
         self::assertSame(301, $body['data']['redirect']['status']);
         self::assertSame('max-age=60, public', $resp->headers->get('Cache-Control'));
-        self::assertStringContainsString('lemma:entry:' . $uuid, (string) $resp->headers->get('Cache-Tag'));
+        self::assertStringContainsString('thallo:entry:' . $uuid, (string) $resp->headers->get('Cache-Tag'));
     }
 
     public function testShowReturns404ForBrokenInternalRedirectTarget(): void

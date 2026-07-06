@@ -14,14 +14,14 @@ use Psr\Container\ContainerInterface;
  * Purges the delivery layer's surrogate cache keys when content changes (V1_DESIGN §5).
  *
  * The delivery API (App\Content\Http\DeliveryEtag::cacheTag) tags every response with
- * `lemma:entry:{uuid}` for each member entry plus `lemma:type:{slug}` for the type. This
+ * `thallo:entry:{uuid}` for each member entry plus `thallo:type:{slug}` for the type. This
  * listener invalidates the SAME strings so a publish/unpublish/delete/model change drops
  * the stale cache. A byte-for-byte match is essential — a mismatch silently serves stale
  * content forever.
  *
  * Tag sets:
- *   - entry events  -> [lemma:entry:{uuid}, lemma:type:{slug}]
- *   - model events  -> [lemma:type:{slug}]
+ *   - entry events  -> [thallo:entry:{uuid}, thallo:type:{slug}]
+ *   - model events  -> [thallo:type:{slug}]
  *
  * Entry events carry the content-type UUID (not the slug), so the type tag is resolved
  * uuid -> slug via ContentTypeRepository (memoised). Model events already carry the slug.
@@ -71,16 +71,16 @@ final class InvalidateCacheTagsListener
     {
         if ($event instanceof BaseEntryEvent) {
             $slug = $this->resolveSlug($event->type);
-            $tags = ['lemma:entry:' . $event->entry];
+            $tags = ['thallo:entry:' . $event->entry];
             if ($slug !== null) {
-                $tags[] = 'lemma:type:' . $slug;
+                $tags[] = 'thallo:type:' . $slug;
             }
             return $tags;
         }
 
         if ($event instanceof BaseModelEvent) {
             // Model events carry the slug directly.
-            return ['lemma:type:' . $event->type];
+            return ['thallo:type:' . $event->type];
         }
 
         return [];

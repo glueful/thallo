@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Content\Authoring;
 
 use Glueful\Database\Connection;
-use Glueful\Lemma\Contracts\Authoring\DraftSummaryReader;
+use Thallo\Contracts\Authoring\DraftSummaryReader;
 
 /** Engine-backed DraftSummaryReader over entries/entry_drafts/content_types. */
 final class EngineDraftSummaryReader implements DraftSummaryReader

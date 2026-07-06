@@ -2,7 +2,7 @@
 
 /**
  * Fails if any first-party pack under packages/ declares a Composer dependency on
- * glueful/lemma (the engine app). Packs may depend on glueful/lemma-contracts,
+ * glueful/thallo (the engine app). Packs may depend on glueful/thallo-contracts,
  * glueful/framework, and pack-specific deps — never on the engine package.
  */
 
@@ -13,21 +13,21 @@ $violations = [];
 foreach (glob($root . '/packages/*/composer.json') ?: [] as $manifest) {
     $json = json_decode((string) file_get_contents($manifest), true);
     $name = $json['name'] ?? $manifest;
-    if (($json['name'] ?? '') === 'glueful/lemma-contracts') {
+    if (($json['name'] ?? '') === 'glueful/thallo-contracts') {
         continue; // the contracts package itself is exempt
     }
     $deps = array_merge($json['require'] ?? [], $json['require-dev'] ?? []);
-    if (array_key_exists('glueful/lemma', $deps)) {
-        $violations[] = "{$name} depends on glueful/lemma (forbidden — use glueful/lemma-contracts)";
+    if (array_key_exists('glueful/thallo', $deps)) {
+        $violations[] = "{$name} depends on glueful/thallo (forbidden — use glueful/thallo-contracts)";
     }
 }
 // Source-level boundary: no first-party pack (except the contracts package) may reference App\*.
 foreach (glob($root . '/packages/*', GLOB_ONLYDIR) ?: [] as $pkgDir) {
-    if (basename($pkgDir) === 'lemma-contracts') {
+    if (basename($pkgDir) === 'thallo-contracts') {
         continue;
     }
     // Pack PHP lives under src/ (classes) and routes/ (route definition files); both must be
-    // App-free. lemma-contracts is skipped above.
+    // App-free. thallo-contracts is skipped above.
     foreach (['src', 'routes'] as $sub) {
         if (!is_dir($pkgDir . '/' . $sub)) {
             continue;

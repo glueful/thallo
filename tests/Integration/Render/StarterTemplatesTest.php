@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Render;
 
 use App\Content\Blocks\StarterBlockTypes;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\RenderContextExtension;
-use Glueful\Lemma\Render\ThemeLocator;
-use Glueful\Lemma\Render\TwigFactory;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\RenderContextExtension;
+use Thallo\Render\ThemeLocator;
+use Thallo\Render\TwigFactory;
 use Twig\Environment;
 
-final class StarterTemplatesTest extends LemmaTestCase
+final class StarterTemplatesTest extends AppTestCase
 {
     private function env(): Environment
     {
@@ -109,7 +109,7 @@ final class StarterTemplatesTest extends LemmaTestCase
                 ['id' => 'b1', 'type' => $slug, 'data' => $this->fixture($slug)],
             ]]);
             self::assertNotSame('', trim($out), "empty render for {$slug}");
-            self::assertStringContainsString("lemma-block-{$slug}", $out, $slug);
+            self::assertStringContainsString("thallo-block-{$slug}", $out, $slug);
         }
         // rich_text renders SANITIZED through safe_html — markup survives, attacks
         // never reach output (the no-|raw pin, now with the sanitizer shipped).
@@ -121,7 +121,7 @@ final class StarterTemplatesTest extends LemmaTestCase
         // Spot-check modifier classes (the style-convention pin).
         $section = $env->createTemplate("{{ blocks(l) }}")->render(['l' => [
             ['id' => 's', 'type' => 'section', 'data' => $this->fixture('section')]]]);
-        self::assertStringContainsString('lemma-block-section--subtle', $section);
+        self::assertStringContainsString('thallo-block-section--subtle', $section);
         self::assertStringContainsString('Inner', $section); // children composed
     }
 
@@ -132,7 +132,7 @@ final class StarterTemplatesTest extends LemmaTestCase
             ['id' => 'c', 'type' => 'columns', 'data' => $this->fixture('columns')]]]);
         self::assertStringContainsString('Left', $two);
         self::assertStringContainsString('Right', $two);
-        self::assertStringContainsString('lemma-block-columns--2', $two);
+        self::assertStringContainsString('thallo-block-columns--2', $two);
 
         $data = $this->fixture('columns');
         $data['layout'] = '3';
@@ -140,7 +140,7 @@ final class StarterTemplatesTest extends LemmaTestCase
         $three = $env->createTemplate("{{ blocks(l) }}")->render(['l' => [
             ['id' => 'c3', 'type' => 'columns', 'data' => $data]]]);
         self::assertStringContainsString('Third', $three);
-        self::assertStringContainsString('lemma-block-columns--3', $three);
+        self::assertStringContainsString('thallo-block-columns--3', $three);
     }
 
     public function testUnsafeUrlsRenderNoLinkThroughTheRealTemplates(): void
@@ -162,7 +162,7 @@ final class StarterTemplatesTest extends LemmaTestCase
         // …and safe URLs do link.
         $ok = $env->createTemplate("{{ blocks(l) }}")->render(['l' => [
             ['id' => 'ok', 'type' => 'button', 'data' => $this->fixture('button')]]]);
-        self::assertStringContainsString('<a class="lemma-block-button__link', $ok);
+        self::assertStringContainsString('<a class="thallo-block-button__link', $ok);
     }
 
     public function testMediaTemplatesSkipTheImageOnUnresolvableBlobs(): void
@@ -172,6 +172,6 @@ final class StarterTemplatesTest extends LemmaTestCase
         $out = $this->env()->createTemplate("{{ blocks(l) }}")->render(['l' => [
             ['id' => 'i', 'type' => 'image', 'data' => $this->fixture('image')]]]);
         self::assertStringNotContainsString('<img', $out);
-        self::assertStringContainsString('lemma-block-image', $out);
+        self::assertStringContainsString('thallo-block-image', $out);
     }
 }

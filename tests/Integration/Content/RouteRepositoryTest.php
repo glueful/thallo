@@ -6,9 +6,9 @@ namespace App\Tests\Integration\Content;
 
 use App\Content\Repositories\RouteRepository;
 use App\Content\Seo\RedirectRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class RouteRepositoryTest extends LemmaTestCase
+final class RouteRepositoryTest extends AppTestCase
 {
     private function repo(): RouteRepository
     {

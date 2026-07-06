@@ -2,7 +2,7 @@ import type { Completion, CompletionContext, CompletionResult } from '@codemirro
 import { snippetCompletion } from '@codemirror/autocomplete'
 
 // The sandbox vocabulary — a MIRROR of the render pack's TemplatePolicy
-// allowlists (packages/lemma-render/src/Templates/TemplatePolicy.php).
+// allowlists (packages/thallo-render/src/Templates/TemplatePolicy.php).
 // Completions therefore never suggest something the save-time linter would
 // reject. Keep in sync when the policy gains entries (CACHE_VERSION bumps
 // are the tell).

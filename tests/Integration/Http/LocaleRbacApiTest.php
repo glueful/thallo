@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Http;
 
-use App\Content\Http\RequireLemmaPermission;
-use App\Tests\Support\LemmaTestCase;
+use App\Content\Http\RequirePermission;
+use App\Tests\Support\AppTestCase;
 use Glueful\Auth\UserIdentity;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;
@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\Request;
  * cannot mint bearer JWTs, so it invokes the middleware directly with auth attributes and
  * real Aegis grants against the booted PermissionManager.
  */
-final class LocaleRbacApiTest extends LemmaTestCase
+final class LocaleRbacApiTest extends AppTestCase
 {
     /** @var list<string> */
     private array $createdUserUuids = [];
@@ -53,7 +53,7 @@ final class LocaleRbacApiTest extends LemmaTestCase
     public function testLocaleScopedPublishAllowsTargetLocale(): void
     {
         $user = $this->newUser();
-        $this->assignLocaleRole($user, 'lemma_editor_fr', ['content.publish'], 'fr');
+        $this->assignLocaleRole($user, 'editor_fr', ['content.publish'], 'fr');
 
         self::assertTrue($this->allows($user, 'content.publish', '/entries/{uuid}/publish/{locale}', [
             'locale' => 'fr',
@@ -63,7 +63,7 @@ final class LocaleRbacApiTest extends LemmaTestCase
     public function testLocaleScopedPublishDeniesOtherLocale(): void
     {
         $user = $this->newUser();
-        $this->assignLocaleRole($user, 'lemma_editor_fr', ['content.publish'], 'fr');
+        $this->assignLocaleRole($user, 'editor_fr', ['content.publish'], 'fr');
 
         self::assertFalse($this->allows($user, 'content.publish', '/entries/{uuid}/publish/{locale}', [
             'locale' => 'de',
@@ -73,7 +73,7 @@ final class LocaleRbacApiTest extends LemmaTestCase
     public function testLocaleScopedReadAllowsOwnLocaleDraft(): void
     {
         $user = $this->newUser();
-        $this->assignLocaleRole($user, 'lemma_editor_fr', ['content.view'], 'fr');
+        $this->assignLocaleRole($user, 'editor_fr', ['content.view'], 'fr');
 
         self::assertTrue($this->allows($user, 'content.view', '/entries/{uuid}/draft/{locale}', [
             'locale' => 'fr',
@@ -86,7 +86,7 @@ final class LocaleRbacApiTest extends LemmaTestCase
     public function testLocaleScopedReadCannotDiscoverCoarseInventory(): void
     {
         $user = $this->newUser();
-        $this->assignLocaleRole($user, 'lemma_editor_fr', ['content.view'], 'fr');
+        $this->assignLocaleRole($user, 'editor_fr', ['content.view'], 'fr');
 
         self::assertFalse($this->allows($user, 'content.view', '/entries/{uuid}/locales', []));
         self::assertFalse($this->allows($user, 'content.view', '/entries/{uuid}', []));
@@ -95,7 +95,7 @@ final class LocaleRbacApiTest extends LemmaTestCase
     public function testCoarseReadRestoresDiscovery(): void
     {
         $user = $this->newUser();
-        $this->assignLocaleRole($user, 'lemma_reader_global', ['content.view'], '*');
+        $this->assignLocaleRole($user, 'reader_global', ['content.view'], '*');
 
         self::assertTrue($this->allows($user, 'content.view', '/entries/{uuid}/locales', []));
         self::assertTrue($this->allows($user, 'content.view', '/entries/{uuid}', []));
@@ -104,7 +104,7 @@ final class LocaleRbacApiTest extends LemmaTestCase
     public function testLocaleOnlyUserIsDeniedLocaleAgnosticDestroy(): void
     {
         $user = $this->newUser();
-        $this->assignLocaleRole($user, 'lemma_editor_fr', ['content.edit'], 'fr');
+        $this->assignLocaleRole($user, 'editor_fr', ['content.edit'], 'fr');
 
         self::assertFalse($this->allows($user, 'content.edit', '/entries/{uuid}', []));
     }
@@ -121,7 +121,7 @@ final class LocaleRbacApiTest extends LemmaTestCase
     {
         $user = $this->newUser();
         self::assertTrue($this->provider()->assignRole($user, 'editor'));
-        $this->assignLocaleRole($user, 'lemma_editor_fr', ['content.publish'], 'fr');
+        $this->assignLocaleRole($user, 'editor_fr', ['content.publish'], 'fr');
 
         self::assertTrue($this->allows($user, 'content.publish', '/entries/{uuid}/publish/{locale}', [
             'locale' => 'de',
@@ -137,7 +137,7 @@ final class LocaleRbacApiTest extends LemmaTestCase
         ]));
     }
 
-    public function testRouterPopulatesLocaleRouteParamForRealLemmaRoutes(): void
+    public function testRouterPopulatesLocaleRouteParamForRealRoutes(): void
     {
         $localeMatch = $this->router()->match(
             Request::create('/v1/admin/entries/abcd1234efgh/draft/fr', 'GET')
@@ -155,7 +155,7 @@ final class LocaleRbacApiTest extends LemmaTestCase
     /** @param array<string,string> $routeParams */
     private function allows(string $userUuid, string $permission, string $path, array $routeParams): bool
     {
-        $middleware = new RequireLemmaPermission($this->appContext());
+        $middleware = new RequirePermission($this->appContext());
 
         $request = Request::create($path, 'POST');
         $request->attributes->set('_route_params', $routeParams);
@@ -246,7 +246,7 @@ final class LocaleRbacApiTest extends LemmaTestCase
         }
 
         $testRoles = $db->table('roles')->select(['uuid'])
-            ->whereIn('slug', ['lemma_editor_fr', 'lemma_editor_de', 'lemma_reader_global'])
+            ->whereIn('slug', ['editor_fr', 'editor_de', 'reader_global'])
             ->get();
         $roleUuids = array_map(static fn (array $row): string => (string) $row['uuid'], $testRoles);
 

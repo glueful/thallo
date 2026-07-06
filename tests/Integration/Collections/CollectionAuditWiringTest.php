@@ -6,21 +6,21 @@ namespace App\Tests\Integration\Collections;
 
 use App\Collections\Audit\CollectionRowAuditEvent;
 use App\Collections\Audit\CollectionSchemaAuditEvent;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
-use Glueful\Lemma\Collections\Data\Actor;
-use Glueful\Lemma\Collections\Events\CollectionCreated;
-use Glueful\Lemma\Collections\Events\CollectionDropped;
-use Glueful\Lemma\Collections\Events\CollectionRowCreated;
-use Glueful\Lemma\Collections\Events\CollectionRowDeleted;
-use Glueful\Lemma\Collections\Events\CollectionUpdated;
+use Thallo\Collections\Data\Actor;
+use Thallo\Collections\Events\CollectionCreated;
+use Thallo\Collections\Events\CollectionDropped;
+use Thallo\Collections\Events\CollectionRowCreated;
+use Thallo\Collections\Events\CollectionRowDeleted;
+use Thallo\Collections\Events\CollectionUpdated;
 
 /**
  * Proves the App audit listener is wired to the pack's pure CollectionRow* events: dispatching one
- * through the app EventService triggers CollectionAuditListener (registered in LemmaServiceProvider),
+ * through the app EventService triggers CollectionAuditListener (registered in ThalloServiceProvider),
  * which bridges it to a CollectionRowAuditEvent — the AuditableEvent the Audit extension records.
  */
-final class CollectionAuditWiringTest extends LemmaTestCase
+final class CollectionAuditWiringTest extends AppTestCase
 {
     public function testCollectionRowEventsAreBridgedToAuditableEvents(): void
     {

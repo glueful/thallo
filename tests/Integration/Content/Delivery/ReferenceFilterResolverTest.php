@@ -7,9 +7,9 @@ namespace App\Tests\Integration\Content\Delivery;
 use App\Content\Delivery\InvalidFilterException;
 use App\Content\Delivery\ReferenceFilterResolver;
 use App\Content\Schema\FieldDefinition;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class ReferenceFilterResolverTest extends LemmaTestCase
+final class ReferenceFilterResolverTest extends AppTestCase
 {
     private function seedType(): void
     {

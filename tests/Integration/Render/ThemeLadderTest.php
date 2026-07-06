@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Render;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\ThemeConfigError;
-use Glueful\Lemma\Render\ThemeLocator;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\ThemeConfigError;
+use Thallo\Render\ThemeLocator;
 
-final class ThemeLadderTest extends LemmaTestCase
+final class ThemeLadderTest extends AppTestCase
 {
     private string $tmpThemes;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->tmpThemes = sys_get_temp_dir() . '/lemma-render-themes-' . bin2hex(random_bytes(4));
+        $this->tmpThemes = sys_get_temp_dir() . '/thallo-render-themes-' . bin2hex(random_bytes(4));
         mkdir($this->tmpThemes, 0755, true);
     }
 
@@ -40,7 +40,7 @@ final class ThemeLadderTest extends LemmaTestCase
 
         self::assertSame('default', $paths['name']);
         self::assertCount(1, $paths['templates']); // pack default only
-        self::assertStringContainsString('lemma-render/themes/default/templates', $paths['templates'][0]);
+        self::assertStringContainsString('thallo-render/themes/default/templates', $paths['templates'][0]);
         self::assertFileExists($paths['templates'][0] . '/layout.twig');
     }
 

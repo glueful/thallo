@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Lemma-owned HTTP glue for the glueful/import-export extension.
+ * Thallo-owned HTTP glue for the glueful/import-export extension.
  *
  * The extension owns the job API (under /import-export) but ships no route to (a) download an
  * export's result file or (b) upload an import source file. This controller fills both gaps:

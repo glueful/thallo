@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Analytics;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 
-final class MigrationSmokeTest extends LemmaTestCase
+final class MigrationSmokeTest extends AppTestCase
 {
     public function testAnalyticsTablesExist(): void
     {

@@ -20,10 +20,10 @@ describe('admin module registry', () => {
     registerAdminModule({ id: 'core', nav: { main: [{ label: 'Home', to: '/' }] } })
     registerAdminModule({
       id: 'forms',
-      requires: ['lemma.forms'],
+      requires: ['thallo.forms'],
       nav: { main: [{ label: 'Forms', to: '/forms' }] },
     })
-    const enabled = new Set(['lemma.forms'])
+    const enabled = new Set(['thallo.forms'])
     const [mainOn] = visibleNav((id) => enabled.has(id))
     expect(mainOn.map((i) => i.label)).toEqual(['Home', 'Forms'])
     const [mainOff] = visibleNav(() => false)

@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Render;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Bootstrap\ApplicationContext;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Proves lemma-render is cleanly disable-able: with lemma.render disabled the boot gate
+ * Proves thallo-render is cleanly disable-able: with thallo.render disabled the boot gate
  * skips the routes entirely, so unmatched public paths behave EXACTLY as pre-render
  * (the router's standard JSON 404 — this is also the byte-compat source the pipeline
  * test's reserved-guard responses are shaped after). Boundary: no app-engine references
- * in packages/lemma-render/src.
+ * in packages/thallo-render/src.
  */
-final class RenderRemovabilityTest extends LemmaTestCase
+final class RenderRemovabilityTest extends AppTestCase
 {
     private static ?ApplicationContext $disabledApp = null;
 
@@ -24,8 +24,8 @@ final class RenderRemovabilityTest extends LemmaTestCase
     {
         parent::setUpBeforeClass();
 
-        self::$disabledApp ??= self::bootAppWithConfigOverride('lemma', [
-            'capabilities' => ['lemma.render' => false],
+        self::$disabledApp ??= self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.render' => false],
         ]);
     }
 
@@ -56,7 +56,7 @@ final class RenderRemovabilityTest extends LemmaTestCase
     public function testPackSourceHasNoAppReferences(): void
     {
         // Mirror scripts/check-pack-boundaries.php: a leading [^\w] catches bare FQCNs too.
-        $root = dirname(__DIR__, 3) . '/packages/lemma-render/src';
+        $root = dirname(__DIR__, 3) . '/packages/thallo-render/src';
         $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root));
         $checked = 0;
         foreach ($files as $file) {

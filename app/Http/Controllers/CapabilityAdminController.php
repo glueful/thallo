@@ -6,8 +6,8 @@ namespace App\Http\Controllers;
 
 use App\Http\DTOs\Responses\CapabilityListData;
 use Glueful\Http\Response;
-use Glueful\Lemma\Contracts\Capability\Capability;
-use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
+use Thallo\Contracts\Capability\Capability;
+use Thallo\Contracts\Capability\CapabilityRegistry;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 
@@ -26,7 +26,7 @@ final class CapabilityAdminController
     #[ApiOperation(
         summary: 'List enabled capabilities',
         description: 'Capabilities provided by installed packs and not disabled by the '
-            . 'lemma.capabilities switchboard. Requires the `system.access` permission.',
+            . 'thallo.capabilities switchboard. Requires the `system.access` permission.',
         tags: ['Capabilities'],
     )]
     #[ApiResponse(200, schema: CapabilityListData::class, description: 'Enabled capabilities.')]

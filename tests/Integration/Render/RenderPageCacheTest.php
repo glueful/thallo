@@ -7,11 +7,11 @@ namespace App\Tests\Integration\Render;
 use App\Content\Events\EntryPublished;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
 use Glueful\Events\EventService;
-use Glueful\Lemma\Contracts\Navigation\MenuUpdated;
-use Glueful\Lemma\Render\RenderErrorCache;
+use Thallo\Contracts\Navigation\MenuUpdated;
+use Thallo\Render\RenderErrorCache;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -20,7 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
  * router bucket order, and listener wiring are all under test. The cache store is
  * process-shared — tearDown purges render:* keys so later tests never serve stale seeds.
  */
-final class RenderPageCacheTest extends LemmaTestCase
+final class RenderPageCacheTest extends AppTestCase
 {
     use SeedsPublishedContent;
 
@@ -47,8 +47,8 @@ final class RenderPageCacheTest extends LemmaTestCase
         $res = $this->handle(Request::create('/blog/hello', 'GET'));
         self::assertSame(200, $res->getStatusCode());
         $cacheTag = (string) $res->headers->get('Cache-Tag');
-        self::assertStringContainsString('lemma:entry:' . $entry, $cacheTag);
-        self::assertStringContainsString('lemma:type:blog', $cacheTag);
+        self::assertStringContainsString('thallo:entry:' . $entry, $cacheTag);
+        self::assertStringContainsString('thallo:type:blog', $cacheTag);
     }
 
     public function testSecondRequestServesFromCacheWithEtagAndCacheControl(): void
@@ -152,7 +152,7 @@ final class RenderPageCacheTest extends LemmaTestCase
         // cache_enabled=false must be byte-for-byte today's behavior. Config-override
         // boots lose extension routes (loadRoutesFrom latch), so exercise the middleware
         // directly with enabled=false.
-        $middleware = new \Glueful\Lemma\Render\Http\Middleware\RenderPageCache(
+        $middleware = new \Thallo\Render\Http\Middleware\RenderPageCache(
             $this->cache(),
             'default',
             false,
@@ -176,8 +176,8 @@ final class RenderPageCacheTest extends LemmaTestCase
         $first = $this->handle(Request::create('/no/such-page', 'GET'));
         self::assertSame(404, $first->getStatusCode());
         // The fixed body's Cache-Tag reaches the client/CDN too, so edge purges on
-        // lemma:render:page compose for themed 404s.
-        self::assertSame('lemma:render:page', $first->headers->get('Cache-Tag'));
+        // thallo:render:page compose for themed 404s.
+        self::assertSame('thallo:render:page', $first->headers->get('Cache-Tag'));
         self::assertIsArray($this->cache()->get('render:default:404'));
 
         // Overwrite the stored body: a DIFFERENT bogus path serving the sentinel proves
@@ -210,7 +210,7 @@ final class RenderPageCacheTest extends LemmaTestCase
         self::assertSame(1, $calls);
         self::assertSame(404, $second->getStatusCode());
         self::assertSame('<html>404</html>', (string) $second->getContent());
-        self::assertSame('lemma:render:page', $second->headers->get('Cache-Tag'));
+        self::assertSame('thallo:render:page', $second->headers->get('Cache-Tag'));
     }
 
     public function testFailedErrorRenderIsNeverStored(): void
@@ -249,7 +249,7 @@ final class RenderPageCacheTest extends LemmaTestCase
 
         $res = $this->handle(Request::create('/blog/moved-away', 'GET'));
         self::assertSame(410, $res->getStatusCode());
-        self::assertSame('lemma:render:page', $res->headers->get('Cache-Tag'));
+        self::assertSame('thallo:render:page', $res->headers->get('Cache-Tag'));
         self::assertIsArray($this->cache()->get('render:default:410'));
     }
 
@@ -281,8 +281,8 @@ final class RenderPageCacheTest extends LemmaTestCase
         $root = $this->cache()->get('render:default:%2F');
         self::assertIsArray($root);
         // Precondition, asserted rather than assumed: the test env runs the STANDALONE
-        // homepage (lemma_render.homepage_entry unset), so the root entry carries no
-        // entry/type surrogate tags — only lemma:render:page. If the homepage were
+        // homepage (render.homepage_entry unset), so the root entry carries no
+        // entry/type surrogate tags — only thallo:render:page. If the homepage were
         // configured to entry A, publishing A SHOULD purge it too and this test's
         // "B still hit" assertion would be wrong by setup.
         self::assertSame('', $root['cacheTag']);
@@ -297,13 +297,13 @@ final class RenderPageCacheTest extends LemmaTestCase
     public function testRenderPageTagInvalidationDropsEverything(): void
     {
         // Every stored entry — per-path pages AND the fixed 404 body — carries
-        // lemma:render:page, so a broad invalidation empties the namespace.
+        // thallo:render:page, so a broad invalidation empties the namespace.
         $this->seedBilingualPublishedEntry();
         $this->handle(Request::create('/blog/hello', 'GET'));
         $this->handle(Request::create('/no/such-page', 'GET'));
         self::assertCount(2, $this->cache()->getKeys('render:*'));
 
-        $this->cache()->invalidateTags(['lemma:render:page']);
+        $this->cache()->invalidateTags(['thallo:render:page']);
         self::assertSame([], $this->cache()->getKeys('render:*'));
     }
 
@@ -330,7 +330,7 @@ final class RenderPageCacheTest extends LemmaTestCase
         self::assertCount(2, $this->cache()->getKeys('render:*'));
 
         $command = $this->container()
-            ->get(\Glueful\Lemma\Render\Console\ClearRenderCacheCommand::class);
+            ->get(\Thallo\Render\Console\ClearRenderCacheCommand::class);
         $command->clear();
 
         self::assertSame([], $this->cache()->getKeys('render:*'));

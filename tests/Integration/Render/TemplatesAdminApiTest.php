@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Render;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\Http\Controllers\TemplatesAdminController;
-use Glueful\Lemma\Render\Templates\TemplateRepository;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\Http\Controllers\TemplatesAdminController;
+use Thallo\Render\Templates\TemplateRepository;
 use Glueful\Routing\Router;
 use Symfony\Component\HttpFoundation\Request;
 
-final class TemplatesAdminApiTest extends LemmaTestCase
+final class TemplatesAdminApiTest extends AppTestCase
 {
     private function api(): TemplatesAdminController
     {
@@ -162,7 +162,7 @@ final class TemplatesAdminApiTest extends LemmaTestCase
     {
         // custom-css spec §2: braces would be noise to a Twig linter; the exact
         // path skips it and validates as CSS (encoding + size only).
-        $res = $this->api()->save($this->putReq('.lemma-block-hero { padding: 2rem; }'), 'custom.css');
+        $res = $this->api()->save($this->putReq('.thallo-block-hero { padding: 2rem; }'), 'custom.css');
         self::assertSame(200, $res->getStatusCode());
 
         $show = $this->json($this->api()->show(Request::create('/x', 'GET'), 'custom.css'));
@@ -179,7 +179,7 @@ final class TemplatesAdminApiTest extends LemmaTestCase
 
     public function testCustomCssSizeCapAndEncoding(): void
     {
-        $max = (int) config($this->appContext(), 'lemma_render.custom_css.max_bytes', 262144);
+        $max = (int) config($this->appContext(), 'render.custom_css.max_bytes', 262144);
         $over = str_repeat('a', $max + 1);
         self::assertSame(422, $this->api()->save($this->putReq($over), 'custom.css')->getStatusCode());
         self::assertSame(422, $this->api()->save($this->putReq("\xC3\x28"), 'custom.css')->getStatusCode());
@@ -257,7 +257,7 @@ final class TemplatesAdminApiTest extends LemmaTestCase
 
         // Mutate the OLD version around the API (stands in for a version predating a
         // policy tightening): restore must 422 and change nothing.
-        $this->connection()->table('lemma_render_template_versions')
+        $this->connection()->table('render_template_versions')
             ->where('uuid', '=', $old)
             ->update(['source' => "{{ constant('X') }}"]);
 
@@ -285,7 +285,7 @@ final class TemplatesAdminApiTest extends LemmaTestCase
             $route = $this->findRoute($method, $path);
             self::assertNotNull($route, "missing route {$method} {$path}");
             self::assertContains(
-                'lemma_permission:templates.manage',
+                'content_permission:templates.manage',
                 (array) ($route['middleware'] ?? []),
                 "permission missing on {$method} {$path}",
             );

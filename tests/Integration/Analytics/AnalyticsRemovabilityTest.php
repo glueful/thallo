@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Analytics;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Events\EventService;
-use Glueful\Lemma\Collections\Events\CollectionCreated;
+use Thallo\Collections\Events\CollectionCreated;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Removability contract: with lemma.analytics DISABLED at boot, the admin route surface is entirely
+ * Removability contract: with thallo.analytics DISABLED at boot, the admin route surface is entirely
  * absent — GET /v1/admin/analytics/summary returns 404 (route unregistered), not 401 from a
  * live-but-disabled auth gate.
  */
-final class AnalyticsRemovabilityTest extends LemmaTestCase
+final class AnalyticsRemovabilityTest extends AppTestCase
 {
     private static ?ApplicationContext $disabledApp = null;
 
@@ -25,8 +25,8 @@ final class AnalyticsRemovabilityTest extends LemmaTestCase
     {
         parent::setUpBeforeClass(); // shared ENABLED app
 
-        self::$disabledApp ??= self::bootAppWithConfigOverride('lemma', [
-            'capabilities' => ['lemma.analytics' => false],
+        self::$disabledApp ??= self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.analytics' => false],
         ]);
     }
 

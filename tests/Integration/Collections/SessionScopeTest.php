@@ -4,24 +4,24 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Glueful\Helpers\Utils;
-use Glueful\Lemma\Collections\CollectionManager;
+use Thallo\Collections\CollectionManager;
 use Glueful\Permissions\PermissionManager;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
  * The session branch of CollectionScopeMiddleware: a scoped write is authorized by a logged-in
- * user's Aegis permission (collections.{collection}.write on resource 'lemma'), not only by an
+ * user's Aegis permission (collections.{collection}.write on resource 'thallo'), not only by an
  * api-key scope.
  *
  * The public routes carry no auth middleware, so the gate authenticates on demand; here we pre-set
  * the `user` request attribute (the gate reads it before calling AuthenticationManager), which lets
  * us exercise the permission check without minting a JWT.
  */
-final class SessionScopeTest extends LemmaTestCase
+final class SessionScopeTest extends AppTestCase
 {
     private const COL = 'widgets';
 
@@ -46,9 +46,9 @@ final class SessionScopeTest extends LemmaTestCase
     {
         // The Aegis provider grants by looking up the permission slug, so it must exist first.
         $this->seedPermission('collections.' . self::COL . '.write');
-        $this->permissions()->assignPermission('u-author', 'collections.' . self::COL . '.write', 'lemma');
+        $this->permissions()->assignPermission('u-author', 'collections.' . self::COL . '.write', 'thallo');
         self::assertTrue(
-            $this->permissions()->can('u-author', 'collections.' . self::COL . '.write', 'lemma'),
+            $this->permissions()->can('u-author', 'collections.' . self::COL . '.write', 'thallo'),
             'the granted permission should make can() true',
         );
 

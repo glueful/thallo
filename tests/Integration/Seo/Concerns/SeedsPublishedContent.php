@@ -14,7 +14,7 @@ use App\Content\Validation\FieldValidator;
 
 /**
  * Seeds a `blog` content type with one entry published in `en` (hello) and `fr` (bonjour).
- * Requires the host TestCase to provide connection()/appContext() (LemmaTestCase does).
+ * Requires the host TestCase to provide connection()/appContext() (AppTestCase does).
  */
 trait SeedsPublishedContent
 {

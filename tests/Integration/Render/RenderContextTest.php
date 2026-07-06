@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Render;
 
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Helpers\Utils;
-use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
-use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
-use Glueful\Lemma\Contracts\Navigation\MenuReader;
-use Glueful\Lemma\Contracts\Settings\SiteFaviconProvider;
-use Glueful\Lemma\Contracts\Settings\SiteLogoProvider;
-use Glueful\Lemma\Navigation\MenuRepository;
-use Glueful\Lemma\Render\RenderContextExtension;
+use Thallo\Contracts\Delivery\EntryTargetResolver;
+use Thallo\Contracts\Delivery\MediaUrlResolver;
+use Thallo\Contracts\Navigation\MenuReader;
+use Thallo\Contracts\Settings\SiteFaviconProvider;
+use Thallo\Contracts\Settings\SiteLogoProvider;
+use Thallo\Navigation\MenuRepository;
+use Thallo\Render\RenderContextExtension;
 use Twig\Error\RuntimeError;
 
-final class RenderContextTest extends LemmaTestCase
+final class RenderContextTest extends AppTestCase
 {
     use SeedsPublishedContent;
 
@@ -61,7 +61,7 @@ final class RenderContextTest extends LemmaTestCase
 
     public function testMenuIsEmptyWithoutAReader(): void
     {
-        // Render must not hard-depend on lemma-navigation.
+        // Render must not hard-depend on thallo-navigation.
         self::assertSame([], $this->extensionWithoutReader()->menu('main'));
         self::assertSame([], $this->extension()->menu('does-not-exist'));
     }

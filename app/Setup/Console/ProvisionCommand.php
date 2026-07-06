@@ -21,7 +21,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use function base_path;
 
 #[AsCommand(
-    name: 'lemma:provision',
+    name: 'thallo:provision',
     description: 'Configure the database + security keys and run migrations (Layer 1; no admin)',
 )]
 final class ProvisionCommand extends BaseCommand
@@ -90,7 +90,7 @@ final class ProvisionCommand extends BaseCommand
 
         // Postgres is fixed; the password is never shown.
         $this->success(sprintf(
-            'Database configured: %s:%d/%s (migrations applied). Next: `lemma create-admin`.',
+            'Database configured: %s:%d/%s (migrations applied). Next: `thallo create-admin`.',
             $database->host,
             $database->port,
             $database->database,

@@ -8,9 +8,9 @@ use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\ReferenceProjectionRepository;
 use App\Content\Schema\ContentTypeSchema;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class ReferenceProjectionTest extends LemmaTestCase
+final class ReferenceProjectionTest extends AppTestCase
 {
     private string $type;
 

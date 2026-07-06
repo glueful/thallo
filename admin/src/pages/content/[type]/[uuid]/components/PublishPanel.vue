@@ -88,7 +88,7 @@ const caps = useCapabilitiesStore()
 const hasExternalPreview = computed(
   () => Boolean(generalSettings.value?.site_preview_url || runtimeConfig.sitePreviewUrl),
 )
-const hasThemePreview = computed(() => caps.isEnabled('lemma.render'))
+const hasThemePreview = computed(() => caps.isEnabled('thallo.render'))
 const preview = usePreview(props.uuid, props.locale)
 async function onPreview() {
   try {

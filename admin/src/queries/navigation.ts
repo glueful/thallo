@@ -4,7 +4,7 @@ import { authFetch } from '@/api/authFetch'
 import { runtimeConfig } from '@/runtime/config'
 import { qk } from './keys'
 
-// Navigation admin API (glueful/lemma-navigation pack, /v1/admin/navigation/*).
+// Navigation admin API (glueful/thallo-navigation pack, /v1/admin/navigation/*).
 // Untyped in the OpenAPI spec for now, so this rides on authFetch like queries/seo.ts.
 
 export type NavTargetStatus = 'published' | 'unpublished' | 'deleted' | 'missing' | 'routeless'

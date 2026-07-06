@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Render;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\Http\Controllers\TemplatesAdminController;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\Http\Controllers\TemplatesAdminController;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
  * immutable cache headers; absent or empty → 404. DB-only — the route never
  * touches theme directories.
  */
-final class CustomCssServingTest extends LemmaTestCase
+final class CustomCssServingTest extends AppTestCase
 {
     protected function tearDown(): void
     {
@@ -33,13 +33,13 @@ final class CustomCssServingTest extends LemmaTestCase
 
     public function testServesTheRowWithImmutableHeaders(): void
     {
-        $this->saveCss('.lemma-block-hero { padding: 2rem; }');
+        $this->saveCss('.thallo-block-hero { padding: 2rem; }');
 
         $res = $this->handle(Request::create('/custom.css?v=abc123', 'GET'));
         self::assertSame(200, $res->getStatusCode());
         self::assertStringContainsString('text/css', (string) $res->headers->get('Content-Type'));
         self::assertStringContainsString('immutable', (string) $res->headers->get('Cache-Control'));
-        self::assertStringContainsString('.lemma-block-hero', (string) $res->getContent());
+        self::assertStringContainsString('.thallo-block-hero', (string) $res->getContent());
     }
 
     public function testMissingOrEmptyCustomCssIs404(): void

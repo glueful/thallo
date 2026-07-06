@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Content\Sanitization;
 
-use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
+use Thallo\Contracts\Content\RichHtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 

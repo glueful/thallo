@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Search;
 
-use Glueful\Lemma\Search\Engine\MeilisearchBackend;
-use Glueful\Lemma\Search\Engine\MeilisearchIndex;
-use Glueful\Lemma\Search\Index\DocumentBuilder;
-use Glueful\Lemma\Search\Query\SearchRequest;
+use Thallo\Search\Engine\MeilisearchBackend;
+use Thallo\Search\Engine\MeilisearchIndex;
+use Thallo\Search\Index\DocumentBuilder;
+use Thallo\Search\Query\SearchRequest;
 use PHPUnit\Framework\TestCase;
 
 final class MeilisearchBackendTest extends TestCase

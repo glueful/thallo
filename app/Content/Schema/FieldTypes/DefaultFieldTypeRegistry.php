@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Content\Schema\FieldTypes;
 
-use Glueful\Lemma\Contracts\Schema\FieldTypeDefinition;
-use Glueful\Lemma\Contracts\Schema\FieldTypeRegistry;
+use Thallo\Contracts\Schema\FieldTypeDefinition;
+use Thallo\Contracts\Schema\FieldTypeRegistry;
 
 final class DefaultFieldTypeRegistry implements FieldTypeRegistry
 {

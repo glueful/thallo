@@ -6,11 +6,11 @@ namespace App\Tests\Integration\Render;
 
 use App\Content\Regions\RegionRepository;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
-use Glueful\Lemma\Render\RenderContextExtension;
-use Glueful\Lemma\Render\ThemeLocator;
-use Glueful\Lemma\Render\TwigFactory;
+use Thallo\Render\RenderContextExtension;
+use Thallo\Render\ThemeLocator;
+use Thallo\Render\TwigFactory;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\Request;
  * by construction, absent row, saved-empty list) falls back to the hardcoded
  * chrome; _presentation hides both; region chrome is never canvas-annotated.
  */
-final class RegionRenderingTest extends LemmaTestCase
+final class RegionRenderingTest extends AppTestCase
 {
     use SeedsPublishedContent;
 
@@ -37,9 +37,9 @@ final class RegionRenderingTest extends LemmaTestCase
     /** Render the homepage through the real controller with homepage_entry set. */
     private function renderHome(string $entry, ?array $presentation = null): string
     {
-        $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $entry]);
+        $app = self::bootAppWithConfigOverride('render', ['homepage_entry' => $entry]);
         $controller = $app->getContainer()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $res = $controller->home(Request::create('/', 'GET'));
         self::assertSame(200, $res->getStatusCode());
         return (string) $res->getContent();
@@ -54,11 +54,11 @@ final class RegionRenderingTest extends LemmaTestCase
         ], ['sticky' => true, 'width' => 'full'], null);
 
         $html = $this->renderHome($entry);
-        self::assertStringContainsString('lemma-region-header', $html);
-        self::assertStringContainsString('lemma-region-header--sticky', $html);
-        self::assertStringContainsString('lemma-region-header--full', $html);
-        self::assertStringContainsString('lemma-block-navigation', $html);
-        self::assertStringContainsString('lemma-block-logo', $html);
+        self::assertStringContainsString('thallo-region-header', $html);
+        self::assertStringContainsString('thallo-region-header--sticky', $html);
+        self::assertStringContainsString('thallo-region-header--full', $html);
+        self::assertStringContainsString('thallo-block-navigation', $html);
+        self::assertStringContainsString('thallo-block-logo', $html);
         // The hardcoded fallback header is gone.
         self::assertStringNotContainsString('class="site-name"', $html);
     }
@@ -70,14 +70,14 @@ final class RegionRenderingTest extends LemmaTestCase
         // (a) No region rows at all.
         $absent = $this->renderHome($entry);
         self::assertStringContainsString('class="site-name"', $absent);
-        self::assertStringNotContainsString('lemma-region-header', $absent);
+        self::assertStringNotContainsString('thallo-region-header', $absent);
 
         // (b) Saved-but-empty region: SAME null, SAME fallback (pinned rule).
         $this->regions()->save('header', [], [], null);
         $this->container()->get(CacheStore::class)->deletePattern('render:*');
         $empty = $this->renderHome($entry);
         self::assertStringContainsString('class="site-name"', $empty);
-        self::assertStringNotContainsString('lemma-region-header', $empty);
+        self::assertStringNotContainsString('thallo-region-header', $empty);
 
         // Footer fallback is present in both.
         self::assertStringContainsString('<footer class="site-footer">', $empty);
@@ -119,7 +119,7 @@ final class RegionRenderingTest extends LemmaTestCase
         $this->publishSvc()->publish($rootEntry, 'en', 'user00000001');
 
         // A menu of TWO entry items + a header region rendering it.
-        $menus = $this->container()->get(\Glueful\Lemma\Navigation\MenuRepository::class);
+        $menus = $this->container()->get(\Thallo\Navigation\MenuRepository::class);
         $menu = $menus->createMenu('main', 'Main');
         $now = gmdate('Y-m-d H:i:s');
         $item = static fn (string $uuid, int $pos, string $target): array => [
@@ -136,7 +136,7 @@ final class RegionRenderingTest extends LemmaTestCase
         ], [], null);
 
         $controller = $this->container()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $render = function (string $path) use ($controller): string {
             $this->container()->get(CacheStore::class)->deletePattern('render:*');
             $res = $controller->page(Request::create('/' . ltrim($path, '/')), $path);
@@ -198,18 +198,18 @@ final class RegionRenderingTest extends LemmaTestCase
             $entryHtml = $env->createTemplate('{{ blocks(list) }}')->render(['list' => [
                 ['id' => 'entryblock01', 'type' => 'quote', 'data' => ['text' => 'Entry']],
             ]]);
-            self::assertStringContainsString('lemma-preview-block', $entryHtml); // canvas mode is ON
+            self::assertStringContainsString('thallo-preview-block', $entryHtml); // canvas mode is ON
 
             $regionHtml = $env->createTemplate("{{ region_blocks('footer') }}")->render([]);
-            self::assertStringContainsString('lemma-block-social_links', $regionHtml);
-            self::assertStringNotContainsString('lemma-preview-block', $regionHtml);
+            self::assertStringContainsString('thallo-block-social_links', $regionHtml);
+            self::assertStringNotContainsString('thallo-preview-block', $regionHtml);
             self::assertStringNotContainsString('regftrsoc001', $regionHtml); // no id markers either
 
             // …and suppression is scoped: blocks() AFTER a region render still annotates.
             $after = $env->createTemplate('{{ blocks(list) }}')->render(['list' => [
                 ['id' => 'entryblock02', 'type' => 'quote', 'data' => ['text' => 'After']],
             ]]);
-            self::assertStringContainsString('lemma-preview-block', $after);
+            self::assertStringContainsString('thallo-preview-block', $after);
         } finally {
             $ext->setBlockAnnotations(false);
         }

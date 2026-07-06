@@ -61,7 +61,7 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
   // After an enable/disable, the backend can keep serving the PREVIOUS capability list for a
   // few seconds (dev extension-cache TTL), so a single refetch usually loses the race. Poll
   // until the set actually changes, then stop; bounded so a toggle that never changes the
-  // capability list (an extension with no lemma capability) can't poll forever.
+  // capability list (an extension with no thallo capability) can't poll forever.
   async function refreshUntilChanged(maxAttempts = 6, intervalMs = 1200): Promise<void> {
     const before = new Set(enabledIds.value)
     for (let attempt = 0; attempt < maxAttempts; attempt++) {

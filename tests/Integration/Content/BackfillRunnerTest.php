@@ -12,9 +12,9 @@ use App\Content\Repositories\MigrationRepository;
 use App\Content\Repositories\VersionRepository;
 use App\Content\Schema\Migration\MigrationOpSet;
 use App\Content\Services\MigrationService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class BackfillRunnerTest extends LemmaTestCase
+final class BackfillRunnerTest extends AppTestCase
 {
     protected function setUp(): void
     {
@@ -128,12 +128,12 @@ final class BackfillRunnerTest extends LemmaTestCase
             'name' => 'Article',
             'schema' => [['name' => 'score', 'type' => 'number', 'filterable' => true, 'filter_type' => 'number']],
         ]);
-        $this->connection()->table('lemma_filter_indexes')->insert([
+        $this->connection()->table('filter_indexes')->insert([
             'uuid' => 'idxaaaaaaaaa',
             'content_type_uuid' => $type,
             'field' => 'score',
             'filter_type' => 'number',
-            'index_name' => 'idx_lemma_filter_score',
+            'index_name' => 'idx_filter_score',
             'status' => 'ready',
             'created_at' => date('Y-m-d H:i:s'),
         ]);
@@ -142,12 +142,12 @@ final class BackfillRunnerTest extends LemmaTestCase
         $this->runner()->run($this->migrationUuid($type));
 
         self::assertTrue($this->queueContains(EnsureFilterIndexesJob::class, ['content_type_uuid' => $type]));
-        self::assertNotNull($this->connection()->table('lemma_filter_indexes')->where('field', '=', 'score')->first());
+        self::assertNotNull($this->connection()->table('filter_indexes')->where('field', '=', 'score')->first());
 
         (new EnsureFilterIndexesJob([], $this->appContext()))
             ->reconcile($this->connection(), $this->types(), $type);
 
-        self::assertNull($this->connection()->table('lemma_filter_indexes')->where('field', '=', 'score')->first());
+        self::assertNull($this->connection()->table('filter_indexes')->where('field', '=', 'score')->first());
     }
 
     public function testDraftBackfillDoesNotClobberConcurrentEditorSaveAndRecordsFailure(): void

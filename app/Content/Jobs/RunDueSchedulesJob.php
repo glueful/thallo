@@ -11,7 +11,7 @@ use Glueful\Queue\Job;
  * Cron entry point for scheduled publish/unpublish.
  *
  * The scheduler resolves handler_class through the queue JobInterface path, while manual
- * operators use lemma:schedules:run. Both delegate to the shared ScheduleRunner.
+ * operators use thallo:schedules:run. Both delegate to the shared ScheduleRunner.
  */
 final class RunDueSchedulesJob extends Job
 {

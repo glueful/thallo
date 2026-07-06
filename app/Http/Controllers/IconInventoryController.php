@@ -6,7 +6,7 @@ namespace App\Http\Controllers;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
-use Glueful\Lemma\Render\Templates\IconInventory;
+use Thallo\Render\Templates\IconInventory;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -28,7 +28,7 @@ final class IconInventoryController
         description: 'Bare icon names from the render pack\'s vendored set (lucide|brands), sorted. '
             . 'The icon picker\'s source of truth — parity with icon() by construction. '
             . 'Requires `content.view`.',
-        tags: ['Lemma Icons'],
+        tags: ['Thallo Icons'],
     )]
     #[ApiResponse(200, description: 'Sorted icon names.')]
     #[ApiResponse(409, description: 'Render pack unavailable.')]

@@ -21,7 +21,7 @@ use App\Content\Seo\CanonicalProjector;
 use App\Content\Seo\PathRenderer;
 use App\Content\Seo\RedirectRepository;
 use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Support\FieldSelection\Projector;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,7 +31,7 @@ use Symfony\Component\HttpFoundation\Request;
  * counts and membership, fail-closed target-type visibility, DeliveryListQuery-mirrored
  * pagination envelopes, and the facets-before-show route precedence.
  */
-final class TermFacetsArchiveTest extends LemmaTestCase
+final class TermFacetsArchiveTest extends AppTestCase
 {
     private const CAT_TYPE_UUID = 'cattypefct00';
     private string $postType;
@@ -196,8 +196,8 @@ final class TermFacetsArchiveTest extends LemmaTestCase
             $cats, // count DESC, slug ASC
         );
         // Surrogate tags: source AND target type (zero new purge code rides these).
-        self::assertStringContainsString('lemma:type:post', (string) $r['headers']->get('Cache-Tag'));
-        self::assertStringContainsString('lemma:type:category', (string) $r['headers']->get('Cache-Tag'));
+        self::assertStringContainsString('thallo:type:post', (string) $r['headers']->get('Cache-Tag'));
+        self::assertStringContainsString('thallo:type:category', (string) $r['headers']->get('Cache-Tag'));
     }
 
     public function testUnpublishedTermDropsOutOfFacetsWhileProjectionRowsRemain(): void
@@ -299,10 +299,10 @@ final class TermFacetsArchiveTest extends LemmaTestCase
         // Surrogate tags: member entries + term entry + both types.
         $r = $this->archive('post', 'category', 'news');
         $cacheTag = (string) $r['headers']->get('Cache-Tag');
-        self::assertStringContainsString('lemma:entry:apost0000001', $cacheTag);
-        self::assertStringContainsString('lemma:entry:catarc000001', $cacheTag);
-        self::assertStringContainsString('lemma:type:post', $cacheTag);
-        self::assertStringContainsString('lemma:type:category', $cacheTag);
+        self::assertStringContainsString('thallo:entry:apost0000001', $cacheTag);
+        self::assertStringContainsString('thallo:entry:catarc000001', $cacheTag);
+        self::assertStringContainsString('thallo:type:post', $cacheTag);
+        self::assertStringContainsString('thallo:type:category', $cacheTag);
     }
 
     public function testArchiveMembershipComesFromTheProjectionNotJsonb(): void
@@ -394,7 +394,7 @@ final class TermFacetsArchiveTest extends LemmaTestCase
 
     public function testNonPublicSourceTypeIsDeniedOnBothEndpointsThroughTheKernel(): void
     {
-        // Review P2: SOURCE-type visibility is enforced by the lemma_delivery_access
+        // Review P2: SOURCE-type visibility is enforced by the delivery_access
         // route middleware (same as the existing delivery routes) — controller-direct
         // tests bypass it, so prove the route wiring at kernel level for both endpoints.
         // The middleware denies with 403 ("requires a scoped API key"), identical to the

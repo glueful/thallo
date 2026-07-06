@@ -12,7 +12,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
 #[AsCommand(
-    name: 'lemma:schema:backfill',
+    name: 'thallo:schema:backfill',
     description: 'Run or resume the backfill for a destructive schema migration',
 )]
 final class RunBackfillCommand extends BaseCommand

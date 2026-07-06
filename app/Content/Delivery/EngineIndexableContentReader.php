@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Content\Delivery;
 
 use App\Content\Seo\CanonicalPathBuilder;
-use Glueful\Lemma\Contracts\Search\IndexableContent;
-use Glueful\Lemma\Contracts\Search\IndexableContentReader;
-use Glueful\Lemma\Contracts\Search\IndexablePage;
+use Thallo\Contracts\Search\IndexableContent;
+use Thallo\Contracts\Search\IndexableContentReader;
+use Thallo\Contracts\Search\IndexablePage;
 
 /**
  * Adapts the delivery spine to the search IndexableContentReader contract. Both read

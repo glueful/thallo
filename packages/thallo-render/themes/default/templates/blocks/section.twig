@@ -1,0 +1,6 @@
+<section class="thallo-block thallo-block-section thallo-block-section--{{ data.background|default('none') }}">
+  <div class="thallo-block-section__inner">
+    {% if data.title %}<h2 class="thallo-block-section__title">{{ data.title|editable_text('title') }}</h2>{% endif %}
+    {{ blocks(data.content) }}
+  </div>
+</section>

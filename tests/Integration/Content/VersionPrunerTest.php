@@ -12,9 +12,9 @@ use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\VersionRepository;
 use App\Content\Retention\RetentionPolicy;
 use App\Content\Retention\VersionPruner;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class VersionPrunerTest extends LemmaTestCase
+final class VersionPrunerTest extends AppTestCase
 {
     private VersionRepository $versions;
 
@@ -251,12 +251,12 @@ final class VersionPrunerTest extends LemmaTestCase
     public function testRetentionConfigBlockPassesRawValuesThrough(): void
     {
         self::assertIsArray(
-            config($this->appContext(), 'lemma.versions'),
-            'config/lemma.php must expose a versions block',
+            config($this->appContext(), 'thallo.versions'),
+            'config/thallo.php must expose a versions block',
         );
 
-        $keep = config($this->appContext(), 'lemma.versions.retention.keep');
-        $maxAge = config($this->appContext(), 'lemma.versions.retention.max_age_days');
+        $keep = config($this->appContext(), 'thallo.versions.retention.keep');
+        $maxAge = config($this->appContext(), 'thallo.versions.retention.max_age_days');
 
         self::assertNull($keep);
         self::assertNull($maxAge);

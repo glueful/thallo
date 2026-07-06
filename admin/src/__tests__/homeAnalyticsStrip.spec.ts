@@ -10,7 +10,7 @@ const enabled = ref(true)
 const h = vi.hoisted(() => ({ summaryEnabled: null as unknown }))
 
 vi.mock('@/stores/capabilities', () => ({
-  useCapabilitiesStore: () => ({ isEnabled: (id: string) => (id === 'lemma.analytics' ? enabled.value : true) }),
+  useCapabilitiesStore: () => ({ isEnabled: (id: string) => (id === 'thallo.analytics' ? enabled.value : true) }),
 }))
 vi.mock('@/queries/home', () => ({
   useHomeOverview: () => ({ data: ref({ types: [], recent: [], total_entries: 0 }), status: ref('success') }),
@@ -40,14 +40,14 @@ describe('home analytics KPI strip', () => {
     h.summaryEnabled = null
   })
 
-  it('shows the analytics strip and enables the query when lemma.analytics is enabled', () => {
+  it('shows the analytics strip and enables the query when thallo.analytics is enabled', () => {
     const wrapper = mount(HomePage, { global: { stubs } })
     expect(wrapper.find('[data-test="home-analytics-strip"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('128')
     expect(toValue(h.summaryEnabled)).toBe(true)
   })
 
-  it('hides the strip AND disables the analytics query when lemma.analytics is disabled', () => {
+  it('hides the strip AND disables the analytics query when thallo.analytics is disabled', () => {
     enabled.value = false
     const wrapper = mount(HomePage, { global: { stubs } })
     expect(wrapper.find('[data-test="home-analytics-strip"]').exists()).toBe(false)

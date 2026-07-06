@@ -15,9 +15,9 @@ use App\Content\Seo\RedirectRepository;
 use App\Content\Seo\RouteResolver;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class RouteResolverTest extends LemmaTestCase
+final class RouteResolverTest extends AppTestCase
 {
     private ContentTypeRepository $types;
     private EntryRepository $entries;

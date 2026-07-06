@@ -8,7 +8,7 @@ use App\Http\Controllers\AdminConfigController;
 use App\Http\Controllers\SetupController;
 use App\Content\Http\DTOs\Requests\SetupData;
 use App\Setup\SetupService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\Users\Repositories\UserRepository;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,17 +22,17 @@ use Symfony\Component\HttpFoundation\Request;
  * - /admin/config reports installed:false before and installed:true after.
  * - The gate reads the persisted installed invariant, not controller-local state.
  *
- * Requires `composer test:migrate` to have been run first (lemma_settings + users tables must exist).
+ * Requires `composer test:migrate` to have been run first (settings + users tables must exist).
  */
-final class SetupApiTest extends LemmaTestCase
+final class SetupApiTest extends AppTestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
 
         // Start from a clean slate on each test: wipe users, Aegis user_roles, and the
-        // lemma_settings markers so install() is always re-runnable.
-        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, lemma_settings CASCADE');
+        // settings markers so install() is always re-runnable.
+        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, settings CASCADE');
     }
 
     private function service(): SetupService
@@ -57,8 +57,8 @@ final class SetupApiTest extends LemmaTestCase
     private function validBody(): array
     {
         return [
-            'site_name'      => 'getlemma.dev',
-            'admin_email'    => 'admin@getlemma.dev',
+            'site_name'      => 'thallo.dev',
+            'admin_email'    => 'admin@thallo.dev',
             'admin_password' => 'correct horse battery',
             'locale'         => 'en',
         ];
@@ -76,7 +76,7 @@ final class SetupApiTest extends LemmaTestCase
         // The admin now exists and can be looked up by email (created via glueful/users).
         $userRepo = $this->container()->get(UserRepository::class);
         self::assertNotNull(
-            $userRepo->findByEmail('admin@getlemma.dev'),
+            $userRepo->findByEmail('admin@thallo.dev'),
             'the first admin was created',
         );
 
@@ -175,7 +175,7 @@ final class SetupApiTest extends LemmaTestCase
         }
     }
 
-    /** Set config `lemma.setup.token` in the process-shared context cache; returns a restore closure. */
+    /** Set config `thallo.setup.token` in the process-shared context cache; returns a restore closure. */
     private function forceSetupToken(string $token): \Closure
     {
         $context = $this->appContext();
@@ -185,7 +185,7 @@ final class SetupApiTest extends LemmaTestCase
         $previous = $ref->getValue($context);
 
         $patched = $previous;
-        $patched['lemma.setup.token'] = $token;
+        $patched['thallo.setup.token'] = $token;
         $ref->setValue($context, $patched);
 
         return static function () use ($ref, $context, $previous): void {

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Content\Validation;
 
-use Glueful\Lemma\Contracts\Authoring\ValidationFailed;
+use Thallo\Contracts\Authoring\ValidationFailed;
 
 final class ValidationException extends \RuntimeException implements ValidationFailed
 {

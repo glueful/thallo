@@ -9,10 +9,10 @@ use App\Content\Blocks\StarterBlockTypes;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Validation\FieldValidator;
 use App\Content\Validation\ValidationException;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\RenderContextExtension;
-use Glueful\Lemma\Render\ThemeLocator;
-use Glueful\Lemma\Render\TwigFactory;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\RenderContextExtension;
+use Thallo\Render\ThemeLocator;
+use Thallo\Render\TwigFactory;
 use Twig\Environment;
 
 /**
@@ -22,7 +22,7 @@ use Twig\Environment;
  * modes, html verbatim output, shortcode template resolution, the logo
  * fallback chain, and per-instance group identity for faq/tabs.
  */
-final class BlockLibraryRenderTest extends LemmaTestCase
+final class BlockLibraryRenderTest extends AppTestCase
 {
     private function env(string $theme = 'default'): Environment
     {
@@ -68,7 +68,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
             'style="--container-bg: #112233; --container-overlay: #000000; --container-overlay-opacity: 0.4"',
             $out,
         );
-        self::assertStringContainsString('lemma-block-container__overlay', $out);
+        self::assertStringContainsString('thallo-block-container__overlay', $out);
 
         // No styling fields -> NO style attribute at all.
         $bare = $this->render([['id' => 'c2', 'type' => 'container', 'data' => ['content' => []]]]);
@@ -150,7 +150,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
             'list' => [['id' => 'cw1', 'type' => 'shortcode', 'data' => [
                 'name' => 'copyright', 'params' => ['name' => 'Acme Co', 'since' => '2020'],
             ]]],
-            'site' => ['name' => 'Lemma'],
+            'site' => ['name' => 'Thallo'],
         ]);
         self::assertStringContainsString("© 2020–{$year} Acme Co", $out);
 
@@ -159,9 +159,9 @@ final class BlockLibraryRenderTest extends LemmaTestCase
             'list' => [['id' => 'cw2', 'type' => 'shortcode', 'data' => [
                 'name' => 'copyright', 'params' => [],
             ]]],
-            'site' => ['name' => 'Lemma'],
+            'site' => ['name' => 'Thallo'],
         ]);
-        self::assertStringContainsString("© {$year} Lemma", $plain);
+        self::assertStringContainsString("© {$year} Thallo", $plain);
     }
 
     public function testShortcodeRendersThemeTemplateWithParamsOrNothing(): void
@@ -206,7 +206,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
             'site' => ['name' => 'Acme'],
             'list' => [['id' => 'l1', 'type' => 'logo', 'data' => ['link_home' => true]]],
         ]);
-        self::assertStringContainsString('<span class="lemma-block-logo__name">Acme</span>', $out);
+        self::assertStringContainsString('<span class="thallo-block-logo__name">Acme</span>', $out);
         self::assertStringContainsString('href="/"', $out);
         self::assertStringNotContainsString('<img', $out);
     }
@@ -234,7 +234,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
         $light = $seedBlob();
         $store->putMany(['site_logo' => $light]);
         $out = $render();
-        self::assertStringContainsString('<img class="lemma-block-logo__image" src="', $out);
+        self::assertStringContainsString('<img class="thallo-block-logo__image" src="', $out);
         self::assertStringNotContainsString('--has-dark', $out);
         self::assertStringNotContainsString('__image--dark', $out);
 
@@ -242,9 +242,9 @@ final class BlockLibraryRenderTest extends LemmaTestCase
         $dark = $seedBlob();
         $store->putMany(['site_logo_dark' => $dark]);
         $out = $render();
-        self::assertStringContainsString('lemma-block-logo--has-dark', $out);
-        self::assertStringContainsString('lemma-block-logo__image--light', $out);
-        self::assertStringContainsString('lemma-block-logo__image--dark', $out);
+        self::assertStringContainsString('thallo-block-logo--has-dark', $out);
+        self::assertStringContainsString('thallo-block-logo__image--light', $out);
+        self::assertStringContainsString('thallo-block-logo__image--dark', $out);
         self::assertStringContainsString('/blobs/' . $dark, $out);
     }
 
@@ -284,7 +284,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
         // The default layout loads the enhancement ONCE, deferred.
         $layout = (string) file_get_contents(
             $this->appContext()->getBasePath()
-                . '/packages/lemma-render/themes/default/templates/layout.twig',
+                . '/packages/thallo-render/themes/default/templates/layout.twig',
         );
         self::assertSame(1, substr_count($layout, "asset('blocks.js')"));
         self::assertStringContainsString('<script defer', $layout);
@@ -307,7 +307,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
             'data' => ['layout' => '2', 'widths' => '33-67',
                 'col_1' => [], 'col_2' => [], 'col_3' => []],
         ]]);
-        self::assertStringContainsString('lemma-block-columns--w-33-67', $two);
+        self::assertStringContainsString('thallo-block-columns--w-33-67', $two);
 
         // Mismatch (3-col preset on a 2-col layout): NO width token at all.
         $mismatch = $this->render([[
@@ -333,7 +333,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
             'data' => ['layout' => '2', 'align' => 'center',
                 'col_1' => [], 'col_2' => [], 'col_3' => []],
         ]]);
-        self::assertStringContainsString('lemma-block-columns--align-center', $center);
+        self::assertStringContainsString('thallo-block-columns--align-center', $center);
 
         $stretch = $this->render([[
             'id' => 'cola2', 'type' => 'columns',
@@ -361,7 +361,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
     /** Seed 'main': about (plain), services (own url, child web, grandchild seo). */
     private function seedNavMenu(): void
     {
-        $menus = $this->container()->get(\Glueful\Lemma\Navigation\MenuRepository::class);
+        $menus = $this->container()->get(\Thallo\Navigation\MenuRepository::class);
         $menu = $menus->createMenu('main', 'Main');
         $now = gmdate('Y-m-d H:i:s');
         $row = static fn (string $uuid, ?string $parent, int $pos, string $url, string $label): array => [
@@ -387,9 +387,9 @@ final class BlockLibraryRenderTest extends LemmaTestCase
         ]]);
         foreach (
             [
-            'lemma-block-navigation--align-center', 'lemma-block-navigation--size-lg',
-            'lemma-block-navigation--active-pill', 'lemma-block-navigation--hover-underline',
-            'lemma-block-navigation--reveal-hover',
+            'thallo-block-navigation--align-center', 'thallo-block-navigation--size-lg',
+            'thallo-block-navigation--active-pill', 'thallo-block-navigation--hover-underline',
+            'thallo-block-navigation--reveal-hover',
             ] as $token
         ) {
             self::assertStringContainsString($token, $out);
@@ -407,7 +407,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
             'id' => 'nav2b', 'type' => 'navigation',
             'data' => ['menu' => 'main', 'submenu_trigger' => 'click', 'submenu_icon' => 'none'],
         ]]);
-        self::assertStringContainsString('<details class="lemma-block-navigation__details" name="nav-nav2b"', $out);
+        self::assertStringContainsString('<details class="thallo-block-navigation__details" name="nav-nav2b"', $out);
         // Parent url repeated as first child (summary swallows navigation).
         self::assertStringContainsString('href="/services"', $out);
         self::assertStringNotContainsString('<svg', $out);          // icon: none
@@ -456,7 +456,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
 
     public function testNavigationRendersPerItemIconsWithLabelOnlyFallback(): void
     {
-        $menus = $this->container()->get(\Glueful\Lemma\Navigation\MenuRepository::class);
+        $menus = $this->container()->get(\Thallo\Navigation\MenuRepository::class);
         $menu = $menus->createMenu('main', 'Main');
         $now = gmdate('Y-m-d H:i:s');
         $menus->replaceTree((string) $menu['uuid'], 0, [
@@ -483,7 +483,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
         $out = $this->render([[
             'id' => 'nav1', 'type' => 'navigation', 'data' => ['menu' => 'no-such-menu'],
         ]]);
-        self::assertStringContainsString('lemma-block-navigation', $out); // root always renders
+        self::assertStringContainsString('thallo-block-navigation', $out); // root always renders
         self::assertStringNotContainsString('<nav', $out);                // but no empty nav
     }
 
@@ -494,8 +494,8 @@ final class BlockLibraryRenderTest extends LemmaTestCase
             'data' => ['icon' => 'star', 'size' => 'large', 'align' => 'center',
                 'url' => '/pricing', 'label' => 'See pricing'],
         ]]);
-        self::assertStringContainsString('lemma-block-icon--large', $out);
-        self::assertStringContainsString('lemma-block-icon--center', $out);
+        self::assertStringContainsString('thallo-block-icon--large', $out);
+        self::assertStringContainsString('thallo-block-icon--center', $out);
         self::assertStringContainsString('<svg', $out);
         self::assertStringContainsString('aria-label="See pricing"', $out);
         self::assertStringContainsString('href="/pricing"', $out);
@@ -516,7 +516,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
             'data' => ['icon' => 'activity', 'title' => 'Fast'],
         ]]);
         self::assertStringContainsString('<svg', $out);
-        self::assertStringContainsString('lemma-icon', $out);
+        self::assertStringContainsString('thallo-icon', $out);
         self::assertStringNotContainsString('&lt;svg', $out); // not escaped text
     }
 

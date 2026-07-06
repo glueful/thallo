@@ -12,7 +12,7 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 // The framework's env() reads $_ENV only. CI supplies config (DB_PGSQL_*, etc.) via
 // the shell/job environment, which PHP's variables_order (often no `E`) and Dotenv's
 // immutable-skip can leave absent from $_ENV — so the framework silently falls back to
-// config DEFAULTS (e.g. database 'glueful' instead of lemma_test, pooling on) even
+// config DEFAULTS (e.g. database 'glueful' instead of app_test, pooling on) even
 // though getenv() has the right values. Mirror the process env into $_ENV so every
 // config value resolves, then force pooling off (a sequential test run needs no pool).
 // Done BEFORE the .env load so createImmutable keeps these values.
@@ -42,7 +42,7 @@ if ($envValue('APP_ENV', 'development') !== 'testing') {
 }
 
 $database = $envValue('DB_PGSQL_DATABASE', '');
-if ($database !== 'lemma_test' && !str_ends_with((string) $database, '_test')) {
+if ($database !== 'app_test' && !str_ends_with((string) $database, '_test')) {
     $fail("Refusing to run test migrations against non-test database '{$database}'.");
 }
 
@@ -107,34 +107,34 @@ $manager->addMigrationPath(
     'glueful/email-notification'
 );
 $manager->addMigrationPath(
-    $root . '/packages/lemma-analytics/migrations',
+    $root . '/packages/thallo-analytics/migrations',
     MigrationPriority::DEPENDENT,
-    'lemma-analytics'
+    'thallo-analytics'
 );
 $manager->addMigrationPath(
-    $root . '/packages/lemma-collections/migrations',
+    $root . '/packages/thallo-collections/migrations',
     MigrationPriority::DEPENDENT,
-    'lemma-collections'
+    'thallo-collections'
 );
 $manager->addMigrationPath(
-    $root . '/packages/lemma-seo/migrations',
+    $root . '/packages/thallo-seo/migrations',
     MigrationPriority::DEPENDENT,
-    'lemma-seo'
+    'thallo-seo'
 );
 $manager->addMigrationPath(
-    $root . '/packages/lemma-workflow/migrations',
+    $root . '/packages/thallo-workflow/migrations',
     MigrationPriority::DEPENDENT,
-    'lemma-workflow'
+    'thallo-workflow'
 );
 $manager->addMigrationPath(
-    $root . '/packages/lemma-navigation/migrations',
+    $root . '/packages/thallo-navigation/migrations',
     MigrationPriority::DEPENDENT,
-    'lemma-navigation'
+    'thallo-navigation'
 );
 $manager->addMigrationPath(
-    $root . '/packages/lemma-render/migrations',
+    $root . '/packages/thallo-render/migrations',
     MigrationPriority::DEPENDENT,
-    'lemma-render'
+    'thallo-render'
 );
 $manager->addMigrationPath(
     $root . '/database/dependent-migrations',

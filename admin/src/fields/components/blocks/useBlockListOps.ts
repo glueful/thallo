@@ -96,7 +96,7 @@ export function createBlockListOps(regionsOf: RegionResolver) {
   /**
    * Old-id → new-id map between a source subtree and its reIdSubtree copy —
    * the two have identical shape by construction, so a parallel walk suffices.
-   * This is what mirror-duplicate needs to rewrite data-lemma-block in a clone.
+   * This is what mirror-duplicate needs to rewrite data-thallo-block in a clone.
    */
   function idMapBetween(source: BlockInstance, copy: BlockInstance): Record<string, string> {
     const map: Record<string, string> = { [source.id]: copy.id }

@@ -6,9 +6,9 @@ namespace App\Tests\Integration\Content;
 
 use App\Content\Enums\ScheduleAction;
 use App\Content\Repositories\ScheduleRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class ScheduleRepositoryTest extends LemmaTestCase
+final class ScheduleRepositoryTest extends AppTestCase
 {
     public function testEntrySchedulesTableShape(): void
     {
@@ -216,7 +216,7 @@ final class ScheduleRepositoryTest extends LemmaTestCase
             'pgsql:host=%s;port=%s;dbname=%s',
             $_ENV['DB_PGSQL_HOST'] ?? getenv('DB_PGSQL_HOST') ?: '127.0.0.1',
             $_ENV['DB_PGSQL_PORT'] ?? getenv('DB_PGSQL_PORT') ?: '5432',
-            $_ENV['DB_PGSQL_DATABASE'] ?? getenv('DB_PGSQL_DATABASE') ?: 'lemma_test',
+            $_ENV['DB_PGSQL_DATABASE'] ?? getenv('DB_PGSQL_DATABASE') ?: 'app_test',
         );
 
         return new \PDO(

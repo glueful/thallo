@@ -12,7 +12,7 @@ import { resolve } from 'node:path'
 // the jsdom environment (same convention as schemaBoundary.spec.ts) — resolve
 // from cwd.
 const source = readFileSync(
-  resolve(process.cwd(), '../packages/lemma-render/assets/preview/preview-bridge.js'),
+  resolve(process.cwd(), '../packages/thallo-render/assets/preview/preview-bridge.js'),
   'utf8',
 )
 
@@ -25,8 +25,8 @@ function sendToBridge(data: Record<string, unknown>, origin = 'https://admin.tes
 
 function wrapper(id: string, inner = `<section><a href="/x">link ${id}</a></section>`): HTMLElement {
   const el = document.createElement('div')
-  el.className = 'lemma-preview-block'
-  el.setAttribute('data-lemma-block', id)
+  el.className = 'thallo-preview-block'
+  el.setAttribute('data-thallo-block', id)
   el.innerHTML = inner
   return el
 }
@@ -39,7 +39,7 @@ beforeAll(() => {
   // Silent until hello (v1 pin), then session = { origin, nonce }.
   window.dispatchEvent(
     new MessageEvent('message', {
-      data: { type: 'lemma:canvas-hello', nonce: NONCE },
+      data: { type: 'thallo:canvas-hello', nonce: NONCE },
       origin: 'https://admin.test',
     }),
   )
@@ -64,11 +64,11 @@ describe('preview bridge (direct eval)', () => {
     document.body.appendChild(w)
     w.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
-    expect(lastPost('lemma:block-select')).toMatchObject({ id: 'blk-sel-0001', nonce: NONCE })
-    expect(w.classList.contains('lemma-canvas-selected')).toBe(true)
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'blk-sel-0001', nonce: NONCE })
+    expect(w.classList.contains('thallo-canvas-selected')).toBe(true)
     const host = w.firstElementChild!
-    expect(host.classList.contains('lemma-canvas-anchor')).toBe(true)
-    const toolbar = host.querySelector(':scope > .lemma-canvas-toolbar')
+    expect(host.classList.contains('thallo-canvas-anchor')).toBe(true)
+    const toolbar = host.querySelector(':scope > .thallo-canvas-toolbar')
     expect(toolbar).not.toBeNull()
     // All five actions present.
     const actions = [...toolbar!.querySelectorAll('[data-action]')].map((b) =>
@@ -81,16 +81,16 @@ describe('preview bridge (direct eval)', () => {
     // Children of void elements (hr, img, …) never RENDER — inserting the
     // toolbar inside them makes it invisible. The bridge attaches a
     // bridge-owned shim sibling instead.
-    const w = wrapper('void-a-00001', '<hr class="lemma-block-divider">')
+    const w = wrapper('void-a-00001', '<hr class="thallo-block-divider">')
     document.body.appendChild(w)
     w.querySelector('hr')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    expect(lastPost('lemma:block-select')).toMatchObject({ id: 'void-a-00001' })
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'void-a-00001' })
 
-    const shim = w.querySelector('.lemma-canvas-shim')!
+    const shim = w.querySelector('.thallo-canvas-shim')!
     expect(shim).not.toBeNull()
     expect(shim.previousElementSibling!.tagName).toBe('HR')
-    expect(shim.classList.contains('lemma-canvas-anchor')).toBe(true)
-    expect(shim.querySelector('.lemma-canvas-toolbar')).not.toBeNull()
+    expect(shim.classList.contains('thallo-canvas-anchor')).toBe(true)
+    expect(shim.querySelector('.thallo-canvas-toolbar')).not.toBeNull()
     // The hr itself carries NO children and no anchor class.
     expect(w.querySelector('hr')!.childNodes).toHaveLength(0)
 
@@ -98,7 +98,7 @@ describe('preview bridge (direct eval)', () => {
     const other = wrapper('void-b-00001')
     document.body.appendChild(other)
     other.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    expect(w.querySelector('.lemma-canvas-shim')).toBeNull()
+    expect(w.querySelector('.thallo-canvas-shim')).toBeNull()
   })
 
   it('toolbar clicks post intents and never re-select', () => {
@@ -107,29 +107,29 @@ describe('preview bridge (direct eval)', () => {
     w.querySelector('section')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     posted.mockClear()
 
-    const toolbar = w.querySelector('.lemma-canvas-toolbar')!
+    const toolbar = w.querySelector('.thallo-canvas-toolbar')!
     const click = (action: string) =>
       toolbar
         .querySelector(`[data-action="${action}"]`)!
         .dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
     click('move-up')
-    expect(lastPost('lemma:block-move')).toMatchObject({ id: 'blk-int-0001', delta: -1 })
+    expect(lastPost('thallo:block-move')).toMatchObject({ id: 'blk-int-0001', delta: -1 })
     click('move-down')
-    expect(lastPost('lemma:block-move')).toMatchObject({ id: 'blk-int-0001', delta: 1 })
+    expect(lastPost('thallo:block-move')).toMatchObject({ id: 'blk-int-0001', delta: 1 })
     click('duplicate')
-    expect(lastPost('lemma:block-duplicate')).toMatchObject({ id: 'blk-int-0001' })
+    expect(lastPost('thallo:block-duplicate')).toMatchObject({ id: 'blk-int-0001' })
     click('delete')
-    const del = lastPost('lemma:block-delete-request')!
+    const del = lastPost('thallo:block-delete-request')!
     expect(del).toMatchObject({ id: 'blk-int-0001' })
     // The delete button's rect rides along so the parent anchors its confirm.
     expect(del.rect).toMatchObject({ x: expect.any(Number), y: expect.any(Number) })
     click('add-after')
-    const addAfter = lastPost('lemma:block-add-after')!
+    const addAfter = lastPost('thallo:block-add-after')!
     expect(addAfter).toMatchObject({ id: 'blk-int-0001' })
     // The + button's rect rides along so the parent can anchor its picker.
     expect(addAfter.rect).toMatchObject({ x: expect.any(Number), y: expect.any(Number) })
-    expect(lastPost('lemma:block-select')).toBeUndefined()
+    expect(lastPost('thallo:block-select')).toBeUndefined()
   })
 
   it('mirror-move places the wrapper next to the named sibling (beforeId and afterId)', () => {
@@ -140,20 +140,20 @@ describe('preview bridge (direct eval)', () => {
     list.append(a, b, c)
     document.body.appendChild(list)
 
-    sendToBridge({ type: 'lemma:mirror-move', id: 'mv-c-0000003', beforeId: 'mv-a-0000001' })
-    expect([...list.children].map((el) => el.getAttribute('data-lemma-block'))).toEqual([
+    sendToBridge({ type: 'thallo:mirror-move', id: 'mv-c-0000003', beforeId: 'mv-a-0000001' })
+    expect([...list.children].map((el) => el.getAttribute('data-thallo-block'))).toEqual([
       'mv-c-0000003',
       'mv-a-0000001',
       'mv-b-0000002',
     ])
-    sendToBridge({ type: 'lemma:mirror-move', id: 'mv-c-0000003', afterId: 'mv-b-0000002' })
-    expect([...list.children].map((el) => el.getAttribute('data-lemma-block'))).toEqual([
+    sendToBridge({ type: 'thallo:mirror-move', id: 'mv-c-0000003', afterId: 'mv-b-0000002' })
+    expect([...list.children].map((el) => el.getAttribute('data-thallo-block'))).toEqual([
       'mv-a-0000001',
       'mv-b-0000002',
       'mv-c-0000003',
     ])
     // Missing wrapper -> ignored, no throw.
-    sendToBridge({ type: 'lemma:mirror-move', id: 'nope', beforeId: 'mv-a-0000001' })
+    sendToBridge({ type: 'thallo:mirror-move', id: 'nope', beforeId: 'mv-a-0000001' })
   })
 
   it('mirror-move ignores a reference wrapper in ANOTHER parent (same-list guard)', () => {
@@ -167,11 +167,11 @@ describe('preview bridge (direct eval)', () => {
 
     // Stale/mismatched reference lives in a different container: the block
     // must NOT cross parents (same-list-only pin) — the mirror is a no-op.
-    sendToBridge({ type: 'lemma:mirror-move', id: 'gd-a-0000001', beforeId: 'gd-b-0000002' })
+    sendToBridge({ type: 'thallo:mirror-move', id: 'gd-a-0000001', beforeId: 'gd-b-0000002' })
     expect(a.parentNode).toBe(listA)
-    sendToBridge({ type: 'lemma:mirror-move', id: 'gd-a-0000001', afterId: 'gd-b-0000002' })
+    sendToBridge({ type: 'thallo:mirror-move', id: 'gd-a-0000001', afterId: 'gd-b-0000002' })
     expect(a.parentNode).toBe(listA)
-    expect([...listB.children].map((el) => el.getAttribute('data-lemma-block'))).toEqual([
+    expect([...listB.children].map((el) => el.getAttribute('data-thallo-block'))).toEqual([
       'gd-b-0000002',
     ])
   })
@@ -180,39 +180,39 @@ describe('preview bridge (direct eval)', () => {
     const w = wrapper('rm-a-0000001')
     document.body.appendChild(w)
     w.querySelector('section')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    expect(document.querySelector('.lemma-canvas-toolbar')).not.toBeNull()
+    expect(document.querySelector('.thallo-canvas-toolbar')).not.toBeNull()
 
-    sendToBridge({ type: 'lemma:mirror-remove', id: 'rm-a-0000001' })
-    expect(document.querySelector('[data-lemma-block="rm-a-0000001"]')).toBeNull()
-    expect(document.querySelector('.lemma-canvas-toolbar')).toBeNull()
+    sendToBridge({ type: 'thallo:mirror-remove', id: 'rm-a-0000001' })
+    expect(document.querySelector('[data-thallo-block="rm-a-0000001"]')).toBeNull()
+    expect(document.querySelector('.thallo-canvas-toolbar')).toBeNull()
   })
 
   it('mirror-duplicate clones, STRIPS canvas UI state, and rewrites ids via idMap', () => {
     const w = wrapper(
       'dup-a-000001',
-      '<section><div class="lemma-preview-block" data-lemma-block="dup-child-01"><p>inner</p></div></section>',
+      '<section><div class="thallo-preview-block" data-thallo-block="dup-child-01"><p>inner</p></div></section>',
     )
     document.body.appendChild(w)
     // Select the source so its clone WOULD carry toolbar/anchor/ring state.
     w.querySelector('section')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
     sendToBridge({
-      type: 'lemma:mirror-duplicate',
+      type: 'thallo:mirror-duplicate',
       sourceId: 'dup-a-000001',
       idMap: { 'dup-a-000001': 'dup-b-000002', 'dup-child-01': 'dup-child-02' },
     })
-    const copy = document.querySelector('[data-lemma-block="dup-b-000002"]')
+    const copy = document.querySelector('[data-thallo-block="dup-b-000002"]')
     expect(copy).not.toBeNull()
     expect(copy!.previousElementSibling).toBe(w)
     // Subtree id rewritten via the map.
-    expect(copy!.querySelector('[data-lemma-block="dup-child-02"]')).not.toBeNull()
-    expect(copy!.querySelector('[data-lemma-block="dup-child-01"]')).toBeNull()
+    expect(copy!.querySelector('[data-thallo-block="dup-child-02"]')).not.toBeNull()
+    expect(copy!.querySelector('[data-thallo-block="dup-child-01"]')).toBeNull()
     // Canvas UI state stripped from the clone (review P2).
-    expect(copy!.querySelector('.lemma-canvas-toolbar')).toBeNull()
-    expect(copy!.classList.contains('lemma-canvas-selected')).toBe(false)
-    expect(copy!.querySelector('.lemma-canvas-anchor')).toBeNull()
+    expect(copy!.querySelector('.thallo-canvas-toolbar')).toBeNull()
+    expect(copy!.classList.contains('thallo-canvas-selected')).toBe(false)
+    expect(copy!.querySelector('.thallo-canvas-anchor')).toBeNull()
     // The SOURCE keeps its selected state untouched.
-    expect(w.classList.contains('lemma-canvas-selected')).toBe(true)
+    expect(w.classList.contains('thallo-canvas-selected')).toBe(true)
   })
 
   it('drops messages with a wrong nonce or origin', () => {
@@ -224,7 +224,7 @@ describe('preview bridge (direct eval)', () => {
     window.dispatchEvent(
       new MessageEvent('message', {
         data: {
-          type: 'lemma:mirror-move',
+          type: 'thallo:mirror-move',
           id: 'sec-b-000002',
           beforeId: 'sec-a-000001',
           nonce: 'wrong',
@@ -235,7 +235,7 @@ describe('preview bridge (direct eval)', () => {
     window.dispatchEvent(
       new MessageEvent('message', {
         data: {
-          type: 'lemma:mirror-move',
+          type: 'thallo:mirror-move',
           id: 'sec-b-000002',
           beforeId: 'sec-a-000001',
           nonce: NONCE,
@@ -243,7 +243,7 @@ describe('preview bridge (direct eval)', () => {
         origin: 'https://evil.test',
       }),
     )
-    expect([...list.children].map((el) => el.getAttribute('data-lemma-block'))).toEqual([
+    expect([...list.children].map((el) => el.getAttribute('data-thallo-block'))).toEqual([
       'sec-a-000001',
       'sec-b-000002',
     ])
@@ -253,8 +253,8 @@ describe('preview bridge (direct eval)', () => {
 function proseWrapper(id: string, field = 'body', html = '<p>hello</p>'): HTMLElement {
   return wrapper(
     id,
-    `<section><div class="lemma-edit-region" data-lemma-edit-block="${id}" ` +
-      `data-lemma-edit-field="${field}">${html}</div></section>`,
+    `<section><div class="thallo-edit-region" data-thallo-edit-block="${id}" ` +
+      `data-thallo-edit-field="${field}">${html}</div></section>`,
   )
 }
 
@@ -263,22 +263,22 @@ describe('edit-in-place session', () => {
     const w = proseWrapper('eip-a-000001')
     document.body.appendChild(w)
     w.querySelector('p')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
-    expect(lastPost('lemma:edit-request')).toMatchObject({ id: 'eip-a-000001', field: 'body' })
+    expect(lastPost('thallo:edit-request')).toMatchObject({ id: 'eip-a-000001', field: 'body' })
 
-    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-a-000001', field: 'body', kind: 'rich' })
-    const region = w.querySelector('.lemma-edit-region')!
+    sendToBridge({ type: 'thallo:edit-grant', id: 'eip-a-000001', field: 'body', kind: 'rich' })
+    const region = w.querySelector('.thallo-edit-region')!
     expect(region.getAttribute('contenteditable')).toBe('true')
-    expect(region.classList.contains('lemma-canvas-editing')).toBe(true)
+    expect(region.classList.contains('thallo-canvas-editing')).toBe(true)
     // Toolbar detached for the duration (block may have been selected before).
-    expect(w.querySelector('.lemma-canvas-toolbar')).toBeNull()
+    expect(w.querySelector('.thallo-canvas-toolbar')).toBeNull()
     // Escape commits and ends.
     region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    expect(lastPost('lemma:text-changed')).toMatchObject({
+    expect(lastPost('thallo:text-changed')).toMatchObject({
       id: 'eip-a-000001',
       field: 'body',
       html: '<p>hello</p>',
     })
-    expect(lastPost('lemma:edit-end')).toMatchObject({ id: 'eip-a-000001' })
+    expect(lastPost('thallo:edit-end')).toMatchObject({ id: 'eip-a-000001' })
     expect(region.getAttribute('contenteditable')).toBeNull()
   })
 
@@ -290,14 +290,14 @@ describe('edit-in-place session', () => {
     // inspector-driven auto-apply.
     const w = proseWrapper('wb-a-000001')
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'wb-a-000001', field: 'body', kind: 'rich' })
-    const region = w.querySelector('.lemma-edit-region')!
+    sendToBridge({ type: 'thallo:edit-grant', id: 'wb-a-000001', field: 'body', kind: 'rich' })
+    const region = w.querySelector('.thallo-edit-region')!
     expect(region.getAttribute('contenteditable')).toBe('true')
     posted.mockClear()
 
     window.dispatchEvent(new Event('blur'))
-    expect(lastPost('lemma:text-changed')).toMatchObject({ id: 'wb-a-000001' })
-    expect(lastPost('lemma:edit-end')).toMatchObject({ id: 'wb-a-000001' })
+    expect(lastPost('thallo:text-changed')).toMatchObject({ id: 'wb-a-000001' })
+    expect(lastPost('thallo:edit-end')).toMatchObject({ id: 'wb-a-000001' })
     expect(region.getAttribute('contenteditable')).toBeNull()
 
     // And with no session, a later window blur is inert (listener removed).
@@ -309,18 +309,18 @@ describe('edit-in-place session', () => {
   it('grant field mismatch or multiple regions -> no editing (fail-safe)', () => {
     const w = proseWrapper('eip-b-000001')
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-b-000001', field: 'other', kind: 'rich' })
+    sendToBridge({ type: 'thallo:edit-grant', id: 'eip-b-000001', field: 'other', kind: 'rich' })
     expect(w.querySelector('[contenteditable]')).toBeNull()
 
     const two = wrapper(
       'eip-c-000001',
       '<section>' +
-        '<div class="lemma-edit-region" data-lemma-edit-block="eip-c-000001" data-lemma-edit-field="body">a</div>' +
-        '<div class="lemma-edit-region" data-lemma-edit-block="eip-c-000001" data-lemma-edit-field="body">b</div>' +
+        '<div class="thallo-edit-region" data-thallo-edit-block="eip-c-000001" data-thallo-edit-field="body">a</div>' +
+        '<div class="thallo-edit-region" data-thallo-edit-block="eip-c-000001" data-thallo-edit-field="body">b</div>' +
         '</section>',
     )
     document.body.appendChild(two)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-c-000001', field: 'body', kind: 'rich' })
+    sendToBridge({ type: 'thallo:edit-grant', id: 'eip-c-000001', field: 'body', kind: 'rich' })
     expect(two.querySelector('[contenteditable]')).toBeNull()
   })
 
@@ -329,12 +329,12 @@ describe('edit-in-place session', () => {
     try {
       const w = proseWrapper('eip-d-000001')
       document.body.appendChild(w)
-      sendToBridge({ type: 'lemma:edit-grant', id: 'eip-d-000001', field: 'body', kind: 'rich' })
-      const region = w.querySelector('.lemma-edit-region')!
+      sendToBridge({ type: 'thallo:edit-grant', id: 'eip-d-000001', field: 'body', kind: 'rich' })
+      const region = w.querySelector('.thallo-edit-region')!
       region.innerHTML = '<p>typed</p>'
       region.dispatchEvent(new Event('input', { bubbles: true }))
       vi.advanceTimersByTime(450)
-      expect(lastPost('lemma:text-changed')).toMatchObject({ html: '<p>typed</p>' })
+      expect(lastPost('thallo:text-changed')).toMatchObject({ html: '<p>typed</p>' })
 
       // Caret-placement click inside the ACTIVE region passes through.
       const inside = new MouseEvent('click', { bubbles: true, cancelable: true })
@@ -348,8 +348,8 @@ describe('edit-in-place session', () => {
       other
         .querySelector('a')!
         .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-      expect(lastPost('lemma:edit-end')).toMatchObject({ id: 'eip-d-000001' })
-      expect(lastPost('lemma:block-select')).toMatchObject({ id: 'eip-e-000001' })
+      expect(lastPost('thallo:edit-end')).toMatchObject({ id: 'eip-d-000001' })
+      expect(lastPost('thallo:block-select')).toMatchObject({ id: 'eip-e-000001' })
       expect(region.getAttribute('contenteditable')).toBeNull()
     } finally {
       vi.useRealTimers()
@@ -359,67 +359,67 @@ describe('edit-in-place session', () => {
   it('edit-flush commits an active session and ALWAYS acks with edit-flushed', () => {
     // No active session: ack only.
     posted.mockClear()
-    sendToBridge({ type: 'lemma:edit-flush' })
-    expect(lastPost('lemma:edit-flushed')).toBeDefined()
-    expect(lastPost('lemma:text-changed')).toBeUndefined()
+    sendToBridge({ type: 'thallo:edit-flush' })
+    expect(lastPost('thallo:edit-flushed')).toBeDefined()
+    expect(lastPost('thallo:text-changed')).toBeUndefined()
 
     // Active session: final text-changed + edit-end BEFORE the ack.
     const w = proseWrapper('eip-f-000001')
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-f-000001', field: 'body', kind: 'rich' })
-    const region = w.querySelector('.lemma-edit-region')!
+    sendToBridge({ type: 'thallo:edit-grant', id: 'eip-f-000001', field: 'body', kind: 'rich' })
+    const region = w.querySelector('.thallo-edit-region')!
     region.innerHTML = '<p>flush me</p>'
     posted.mockClear()
-    sendToBridge({ type: 'lemma:edit-flush' })
+    sendToBridge({ type: 'thallo:edit-flush' })
     const types = posted.mock.calls.map((c) => (c[0] as { type: string }).type)
-    expect(types).toEqual(['lemma:text-changed', 'lemma:edit-end', 'lemma:edit-flushed'])
+    expect(types).toEqual(['thallo:text-changed', 'thallo:edit-end', 'thallo:edit-flushed'])
     expect(region.getAttribute('contenteditable')).toBeNull()
   })
 
   it('mirror-duplicate clones never carry contenteditable or the editing class', () => {
     const w = proseWrapper('eip-g-000001')
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-g-000001', field: 'body', kind: 'rich' })
+    sendToBridge({ type: 'thallo:edit-grant', id: 'eip-g-000001', field: 'body', kind: 'rich' })
     sendToBridge({
-      type: 'lemma:mirror-duplicate',
+      type: 'thallo:mirror-duplicate',
       sourceId: 'eip-g-000001',
       idMap: { 'eip-g-000001': 'eip-h-000002' },
     })
-    const copy = document.querySelector('[data-lemma-block="eip-h-000002"]')!
+    const copy = document.querySelector('[data-thallo-block="eip-h-000002"]')!
     expect(copy.querySelector('[contenteditable]')).toBeNull()
-    expect(copy.querySelector('.lemma-canvas-editing')).toBeNull()
-    sendToBridge({ type: 'lemma:edit-flush' }) // clean up the session for later tests
+    expect(copy.querySelector('.thallo-canvas-editing')).toBeNull()
+    sendToBridge({ type: 'thallo:edit-flush' }) // clean up the session for later tests
   })
 
   it('a DUPLICATED prose block is immediately editable under its NEW id (review P1)', () => {
     const w = proseWrapper('eip-i-000001')
     document.body.appendChild(w)
     sendToBridge({
-      type: 'lemma:mirror-duplicate',
+      type: 'thallo:mirror-duplicate',
       sourceId: 'eip-i-000001',
       idMap: { 'eip-i-000001': 'eip-j-000002' },
     })
-    const copy = document.querySelector('[data-lemma-block="eip-j-000002"]')!
+    const copy = document.querySelector('[data-thallo-block="eip-j-000002"]')!
     // The edit region's id was rewritten alongside the wrapper's — without
     // this, edit-grant for the new id can never find its region until the
     // next Apply re-renders truth.
-    const region = copy.querySelector('.lemma-edit-region')!
-    expect(region.getAttribute('data-lemma-edit-block')).toBe('eip-j-000002')
-    sendToBridge({ type: 'lemma:edit-grant', id: 'eip-j-000002', field: 'body', kind: 'rich' })
+    const region = copy.querySelector('.thallo-edit-region')!
+    expect(region.getAttribute('data-thallo-edit-block')).toBe('eip-j-000002')
+    sendToBridge({ type: 'thallo:edit-grant', id: 'eip-j-000002', field: 'body', kind: 'rich' })
     expect(region.getAttribute('contenteditable')).toBe('true')
-    sendToBridge({ type: 'lemma:edit-flush' }) // clean up the session for later tests
+    sendToBridge({ type: 'thallo:edit-flush' }) // clean up the session for later tests
 
     // v4: the field-addressed request from the CLONE emits the NEW id.
     posted.mockClear()
     region.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
-    expect(lastPost('lemma:edit-request')).toMatchObject({ id: 'eip-j-000002', field: 'body' })
+    expect(lastPost('thallo:edit-request')).toMatchObject({ id: 'eip-j-000002', field: 'body' })
   })
 
   function stringWrapper(id: string, field = 'heading', value = 'Hello'): HTMLElement {
     return wrapper(
       id,
-      `<section><h1><span class="lemma-edit-region" data-lemma-edit-block="${id}" ` +
-        `data-lemma-edit-field="${field}">${value}</span></h1></section>`,
+      `<section><h1><span class="thallo-edit-region" data-thallo-edit-block="${id}" ` +
+        `data-thallo-edit-field="${field}">${value}</span></h1></section>`,
     )
   }
 
@@ -427,24 +427,24 @@ describe('edit-in-place session', () => {
     const w = wrapper(
       'es-a-0000001',
       '<section>' +
-        '<h1><span class="lemma-edit-region" data-lemma-edit-block="es-a-0000001" data-lemma-edit-field="heading">H</span></h1>' +
-        '<p><span class="lemma-edit-region" data-lemma-edit-block="es-a-0000001" data-lemma-edit-field="body_text">B</span></p>' +
+        '<h1><span class="thallo-edit-region" data-thallo-edit-block="es-a-0000001" data-thallo-edit-field="heading">H</span></h1>' +
+        '<p><span class="thallo-edit-region" data-thallo-edit-block="es-a-0000001" data-thallo-edit-field="body_text">B</span></p>' +
         '</section>',
     )
     document.body.appendChild(w)
-    w.querySelector('p .lemma-edit-region')!.dispatchEvent(
+    w.querySelector('p .thallo-edit-region')!.dispatchEvent(
       new MouseEvent('dblclick', { bubbles: true }),
     )
-    expect(lastPost('lemma:edit-request')).toMatchObject({ id: 'es-a-0000001', field: 'body_text' })
+    expect(lastPost('thallo:edit-request')).toMatchObject({ id: 'es-a-0000001', field: 'body_text' })
 
     // Grant for ONE of two same-block regions edits exactly that region.
-    sendToBridge({ type: 'lemma:edit-grant', id: 'es-a-0000001', field: 'body_text', kind: 'text' })
-    const region = w.querySelector('[data-lemma-edit-field="body_text"]')!
+    sendToBridge({ type: 'thallo:edit-grant', id: 'es-a-0000001', field: 'body_text', kind: 'text' })
+    const region = w.querySelector('[data-thallo-edit-field="body_text"]')!
     expect(region.getAttribute('contenteditable')).not.toBeNull()
     expect(
-      w.querySelector('[data-lemma-edit-field="heading"]')!.getAttribute('contenteditable'),
+      w.querySelector('[data-thallo-edit-field="heading"]')!.getAttribute('contenteditable'),
     ).toBeNull()
-    sendToBridge({ type: 'lemma:edit-flush' })
+    sendToBridge({ type: 'thallo:edit-flush' })
   })
 
   it('wrapper-level double-click falls back to the SINGLE region; none with two', () => {
@@ -452,36 +452,36 @@ describe('edit-in-place session', () => {
     document.body.appendChild(single)
     posted.mockClear()
     single.querySelector('section')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
-    expect(lastPost('lemma:edit-request')).toMatchObject({ id: 'es-b-0000001', field: 'heading' })
+    expect(lastPost('thallo:edit-request')).toMatchObject({ id: 'es-b-0000001', field: 'heading' })
 
     const two = wrapper(
       'es-c-0000001',
       '<section>' +
-        '<span class="lemma-edit-region" data-lemma-edit-block="es-c-0000001" data-lemma-edit-field="a">1</span>' +
-        '<span class="lemma-edit-region" data-lemma-edit-block="es-c-0000001" data-lemma-edit-field="b">2</span>' +
+        '<span class="thallo-edit-region" data-thallo-edit-block="es-c-0000001" data-thallo-edit-field="a">1</span>' +
+        '<span class="thallo-edit-region" data-thallo-edit-block="es-c-0000001" data-thallo-edit-field="b">2</span>' +
         '</section>',
     )
     document.body.appendChild(two)
     posted.mockClear()
     two.querySelector('section')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
-    expect(lastPost('lemma:edit-request')).toBeUndefined()
+    expect(lastPost('thallo:edit-request')).toBeUndefined()
   })
 
   it('string kind: Enter commits-and-exits with the TEXT payload (markup never persists)', () => {
     const w = stringWrapper('es-d-0000001')
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'es-d-0000001', field: 'heading', kind: 'string' })
-    const region = w.querySelector('.lemma-edit-region')!
+    sendToBridge({ type: 'thallo:edit-grant', id: 'es-d-0000001', field: 'heading', kind: 'string' })
+    const region = w.querySelector('.thallo-edit-region')!
     expect(['plaintext-only', 'true']).toContain(region.getAttribute('contenteditable'))
 
     region.innerHTML = 'New <b>title</b>'
     const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
     region.dispatchEvent(enter)
     expect(enter.defaultPrevented).toBe(true) // single-line convention
-    const commit = lastPost('lemma:text-changed')!
+    const commit = lastPost('thallo:text-changed')!
     expect(commit).toMatchObject({ id: 'es-d-0000001', field: 'heading', text: 'New title' })
     expect(commit.html).toBeUndefined()
-    expect(lastPost('lemma:edit-end')).toMatchObject({ id: 'es-d-0000001' })
+    expect(lastPost('thallo:edit-end')).toMatchObject({ id: 'es-d-0000001' })
     expect(region.getAttribute('contenteditable')).toBeNull()
   })
 
@@ -489,27 +489,27 @@ describe('edit-in-place session', () => {
     const w = proseWrapper('sc-a-0000001')
     document.body.appendChild(w)
     posted.mockClear()
-    sendToBridge({ type: 'lemma:edit-grant', id: 'sc-a-0000001', field: 'body', kind: 'rich' })
-    expect(lastPost('lemma:edit-start')).toMatchObject({ id: 'sc-a-0000001' })
-    sendToBridge({ type: 'lemma:edit-flush' })
+    sendToBridge({ type: 'thallo:edit-grant', id: 'sc-a-0000001', field: 'body', kind: 'rich' })
+    expect(lastPost('thallo:edit-start')).toMatchObject({ id: 'sc-a-0000001' })
+    sendToBridge({ type: 'thallo:edit-flush' })
 
     // Grant for a block with NO matching region: no session, no edit-start.
     posted.mockClear()
-    sendToBridge({ type: 'lemma:edit-grant', id: 'sc-a-0000001', field: 'nope', kind: 'string' })
-    expect(lastPost('lemma:edit-start')).toBeUndefined()
+    sendToBridge({ type: 'thallo:edit-grant', id: 'sc-a-0000001', field: 'nope', kind: 'string' })
+    expect(lastPost('thallo:edit-start')).toBeUndefined()
   })
 
   it('text kind: Enter does NOT exit; commit carries the text payload', () => {
     const w = stringWrapper('es-e-0000001', 'body_text', 'line')
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'es-e-0000001', field: 'body_text', kind: 'text' })
-    const region = w.querySelector('.lemma-edit-region')!
+    sendToBridge({ type: 'thallo:edit-grant', id: 'es-e-0000001', field: 'body_text', kind: 'text' })
+    const region = w.querySelector('.thallo-edit-region')!
     const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
     region.dispatchEvent(enter)
     expect(enter.defaultPrevented).toBe(false)
     expect(region.getAttribute('contenteditable')).not.toBeNull() // still editing
     region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    expect(lastPost('lemma:text-changed')).toMatchObject({
+    expect(lastPost('thallo:text-changed')).toMatchObject({
       id: 'es-e-0000001',
       field: 'body_text',
       text: 'line',
@@ -527,12 +527,12 @@ describe('scroll preservation', () => {
       Object.defineProperty(window, 'scrollY', { value: 340, configurable: true })
       window.dispatchEvent(new Event('scroll'))
       // Nothing posted before the throttle window closes.
-      expect(lastPost('lemma:scroll')).toBeUndefined()
+      expect(lastPost('thallo:scroll')).toBeUndefined()
       vi.advanceTimersByTime(300)
       // ONE post, carrying the latest y.
       const scrolls = posted.mock.calls
         .map((c) => c[0] as { type: string; y?: number })
-        .filter((m) => m.type === 'lemma:scroll')
+        .filter((m) => m.type === 'thallo:scroll')
       expect(scrolls).toHaveLength(1)
       expect(scrolls[0]!.y).toBe(340)
     } finally {
@@ -543,11 +543,11 @@ describe('scroll preservation', () => {
   it('restore-scroll jumps instantly via window.scrollTo', () => {
     const scrollTo = vi.fn()
     window.scrollTo = scrollTo as unknown as typeof window.scrollTo
-    sendToBridge({ type: 'lemma:restore-scroll', y: 480 })
+    sendToBridge({ type: 'thallo:restore-scroll', y: 480 })
     expect(scrollTo).toHaveBeenCalledWith(0, 480)
     // Non-number y is dropped.
     scrollTo.mockClear()
-    sendToBridge({ type: 'lemma:restore-scroll', y: 'x' })
+    sendToBridge({ type: 'thallo:restore-scroll', y: 'x' })
     expect(scrollTo).not.toHaveBeenCalled()
   })
 })
@@ -606,8 +606,8 @@ describe('free drag', () => {
 
   function order(list: HTMLElement): (string | null)[] {
     return [...list.children]
-      .filter((el) => el.hasAttribute('data-lemma-block'))
-      .map((el) => el.getAttribute('data-lemma-block'))
+      .filter((el) => el.hasAttribute('data-thallo-block'))
+      .map((el) => el.getAttribute('data-thallo-block'))
   }
 
   it('live-reorders on pointermove WITHOUT posting; pointerup posts ONE block-move-to', () => {
@@ -617,12 +617,12 @@ describe('free drag', () => {
 
     pointerMove(160) // past b's midpoint (150) -> a moves after b
     expect(order(list)).toEqual(['fd-b-0000002', 'fd-a-0000001', 'fd-c-0000003'])
-    expect(lastPost('lemma:block-move-to')).toBeUndefined() // visual only
+    expect(lastPost('thallo:block-move-to')).toBeUndefined() // visual only
 
     document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
     const moves = posted.mock.calls
       .map((c) => c[0] as { type: string })
-      .filter((m) => m.type === 'lemma:block-move-to')
+      .filter((m) => m.type === 'thallo:block-move-to')
     expect(moves).toHaveLength(1)
     expect(moves[0]).toMatchObject({ id: 'fd-a-0000001', beforeId: 'fd-c-0000003' })
   })
@@ -634,7 +634,7 @@ describe('free drag', () => {
     pointerMove(500) // below every midpoint -> a moves to the end
     expect(order(list)).toEqual(['fd-b-0000002', 'fd-c-0000003', 'fd-a-0000001'])
     document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
-    expect(lastPost('lemma:block-move-to')).toMatchObject({
+    expect(lastPost('thallo:block-move-to')).toMatchObject({
       id: 'fd-a-0000001',
       afterId: 'fd-c-0000003',
     })
@@ -647,7 +647,7 @@ describe('free drag', () => {
     pointerMove(160)
     pointerMove(10) // back above -> restored to first
     document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
-    expect(lastPost('lemma:block-move-to')).toBeUndefined()
+    expect(lastPost('thallo:block-move-to')).toBeUndefined()
   })
 
   it('Escape rolls back the order, posts nothing, and does NOT swallow the next click', () => {
@@ -659,14 +659,14 @@ describe('free drag', () => {
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     expect(order(list)).toEqual(['fd-a-0000001', 'fd-b-0000002', 'fd-c-0000003'])
-    expect(a.classList.contains('lemma-canvas-dragging')).toBe(false)
-    expect(lastPost('lemma:block-move-to')).toBeUndefined()
+    expect(a.classList.contains('thallo-canvas-dragging')).toBe(false)
+    expect(lastPost('thallo:block-move-to')).toBeUndefined()
 
     // Rollback must not arm the click suppressor: the next click still selects.
     const other = wrapper('fd-d-0000004')
     document.body.appendChild(other)
     other.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    expect(lastPost('lemma:block-select')).toMatchObject({ id: 'fd-d-0000004' })
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'fd-d-0000004' })
   })
 
   it('keyboard shortcuts are inert while dragging; Escape means rollback, never deselect', () => {
@@ -684,9 +684,9 @@ describe('free drag', () => {
     press({ key: 'ArrowDown', altKey: true })
     press({ key: 'Backspace' })
     press({ key: 'd', metaKey: true })
-    expect(lastPost('lemma:block-move')).toBeUndefined()
-    expect(lastPost('lemma:block-delete-request')).toBeUndefined()
-    expect(lastPost('lemma:block-duplicate')).toBeUndefined()
+    expect(lastPost('thallo:block-move')).toBeUndefined()
+    expect(lastPost('thallo:block-delete-request')).toBeUndefined()
+    expect(lastPost('thallo:block-duplicate')).toBeUndefined()
 
     // Escape belongs to the DRAG while one is active: order rolls back, the
     // block STAYS selected, and no block-deselect posts.
@@ -694,8 +694,8 @@ describe('free drag', () => {
       new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
     )
     expect(order(list)).toEqual(['fd-a-0000001', 'fd-b-0000002', 'fd-c-0000003'])
-    expect(lastPost('lemma:block-deselect')).toBeUndefined()
-    expect(a.classList.contains('lemma-canvas-selected')).toBe(true)
+    expect(lastPost('thallo:block-deselect')).toBeUndefined()
+    expect(a.classList.contains('thallo-canvas-selected')).toBe(true)
   })
 
   it('swaps are direction-gated: an against-direction slot never triggers (no oscillation)', () => {
@@ -764,9 +764,9 @@ describe('free drag', () => {
 
     // The post-drag click: swallowed (no select), exactly once.
     a.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-    expect(lastPost('lemma:block-select')).toBeUndefined()
+    expect(lastPost('thallo:block-select')).toBeUndefined()
     a.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-    expect(lastPost('lemma:block-select')).toMatchObject({ id: 'fd-a-0000001' })
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'fd-a-0000001' })
   })
 })
 
@@ -800,11 +800,11 @@ describe('stage keyboard shortcuts', () => {
     posted.mockClear()
 
     const up = pressKey({ key: 'ArrowUp', altKey: true })
-    expect(lastPost('lemma:block-move')).toMatchObject({ id: 'kb-mv-000001', delta: -1 })
+    expect(lastPost('thallo:block-move')).toMatchObject({ id: 'kb-mv-000001', delta: -1 })
     expect(up.defaultPrevented).toBe(true)
 
     pressKey({ key: 'ArrowDown', altKey: true })
-    expect(lastPost('lemma:block-move')).toMatchObject({ id: 'kb-mv-000001', delta: 1 })
+    expect(lastPost('thallo:block-move')).toMatchObject({ id: 'kb-mv-000001', delta: 1 })
 
     posted.mockClear()
     const plain = pressKey({ key: 'ArrowDown' }) // no Alt: scrolling stays native
@@ -819,13 +819,13 @@ describe('stage keyboard shortcuts', () => {
     posted.mockClear()
 
     pressKey({ key: 'Backspace' })
-    const req = lastPost('lemma:block-delete-request')!
+    const req = lastPost('thallo:block-delete-request')!
     expect(req).toMatchObject({ id: 'kb-del-00001' })
     expect(req.rect).toBeUndefined()
 
     posted.mockClear()
     pressKey({ key: 'Delete' })
-    expect(lastPost('lemma:block-delete-request')).toMatchObject({ id: 'kb-del-00001' })
+    expect(lastPost('thallo:block-delete-request')).toMatchObject({ id: 'kb-del-00001' })
   })
 
   it('Cmd/Ctrl+D posts block-duplicate and beats the browser bookmark', () => {
@@ -835,12 +835,12 @@ describe('stage keyboard shortcuts', () => {
     posted.mockClear()
 
     const meta = pressKey({ key: 'd', metaKey: true })
-    expect(lastPost('lemma:block-duplicate')).toMatchObject({ id: 'kb-dup-00001' })
+    expect(lastPost('thallo:block-duplicate')).toMatchObject({ id: 'kb-dup-00001' })
     expect(meta.defaultPrevented).toBe(true)
 
     posted.mockClear()
     pressKey({ key: 'D', ctrlKey: true })
-    expect(lastPost('lemma:block-duplicate')).toMatchObject({ id: 'kb-dup-00001' })
+    expect(lastPost('thallo:block-duplicate')).toMatchObject({ id: 'kb-dup-00001' })
 
     posted.mockClear()
     pressKey({ key: 'd' }) // unmodified d: plain typing, no intent
@@ -853,7 +853,7 @@ describe('stage keyboard shortcuts', () => {
     selectByClick(one)
     posted.mockClear()
     pressKey({ key: 'Enter' })
-    expect(lastPost('lemma:edit-request')).toMatchObject({ id: 'kb-ent-00001', field: 'body' })
+    expect(lastPost('thallo:edit-request')).toMatchObject({ id: 'kb-ent-00001', field: 'body' })
 
     // Zero regions: ignored.
     const zero = wrapper('kb-ent-00002')
@@ -868,29 +868,29 @@ describe('stage keyboard shortcuts', () => {
     const two = wrapper(
       'kb-ent-00003',
       '<section>' +
-        '<span class="lemma-edit-region" data-lemma-edit-block="kb-ent-00003" data-lemma-edit-field="heading">H</span>' +
-        '<span class="lemma-edit-region" data-lemma-edit-block="kb-ent-00003" data-lemma-edit-field="label">L</span>' +
+        '<span class="thallo-edit-region" data-thallo-edit-block="kb-ent-00003" data-thallo-edit-field="heading">H</span>' +
+        '<span class="thallo-edit-region" data-thallo-edit-block="kb-ent-00003" data-thallo-edit-field="label">L</span>' +
         '</section>',
     )
     document.body.appendChild(two)
     selectByClick(two)
     posted.mockClear()
     pressKey({ key: 'Enter' })
-    expect(lastPost('lemma:edit-request')).toBeUndefined()
+    expect(lastPost('thallo:edit-request')).toBeUndefined()
 
     // Container block (nested blocks()): the CHILD's region does not count as
     // the parent's — Enter on the selected parent stays inert (review P1).
     const parent = wrapper(
       'kb-ent-00004',
-      '<section><div class="lemma-preview-block" data-lemma-block="kb-ent-child1">' +
-        '<section><div class="lemma-edit-region" data-lemma-edit-block="kb-ent-child1" ' +
-        'data-lemma-edit-field="body"><p>child</p></div></section></div></section>',
+      '<section><div class="thallo-preview-block" data-thallo-block="kb-ent-child1">' +
+        '<section><div class="thallo-edit-region" data-thallo-edit-block="kb-ent-child1" ' +
+        'data-thallo-edit-field="body"><p>child</p></div></section></div></section>',
     )
     document.body.appendChild(parent)
     selectByClick(parent) // querySelector('section') hits the OUTER section -> parent selected
     posted.mockClear()
     pressKey({ key: 'Enter' })
-    expect(lastPost('lemma:edit-request')).toBeUndefined()
+    expect(lastPost('thallo:edit-request')).toBeUndefined()
   })
 
   it('wrapper-level double-click on a container no longer adopts a CHILD region', () => {
@@ -899,18 +899,18 @@ describe('stage keyboard shortcuts', () => {
     // for the child block while the parent was the click target.
     const parent = wrapper(
       'kb-dbl-00001',
-      '<section><div class="lemma-preview-block" data-lemma-block="kb-dbl-child1">' +
-        '<section><div class="lemma-edit-region" data-lemma-edit-block="kb-dbl-child1" ' +
-        'data-lemma-edit-field="body"><p>child</p></div></section></div></section>',
+      '<section><div class="thallo-preview-block" data-thallo-block="kb-dbl-child1">' +
+        '<section><div class="thallo-edit-region" data-thallo-edit-block="kb-dbl-child1" ' +
+        'data-thallo-edit-field="body"><p>child</p></div></section></div></section>',
     )
     document.body.appendChild(parent)
     posted.mockClear()
     parent.querySelector('section')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
-    expect(lastPost('lemma:edit-request')).toBeUndefined()
+    expect(lastPost('thallo:edit-request')).toBeUndefined()
 
     // Double-click INSIDE the child's region still addresses the child directly.
     parent.querySelector('p')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
-    expect(lastPost('lemma:edit-request')).toMatchObject({
+    expect(lastPost('thallo:edit-request')).toMatchObject({
       id: 'kb-dbl-child1',
       field: 'body',
     })
@@ -920,13 +920,13 @@ describe('stage keyboard shortcuts', () => {
     const w = wrapper('kb-esc-00001')
     document.body.appendChild(w)
     selectByClick(w)
-    expect(w.querySelector('.lemma-canvas-toolbar')).not.toBeNull()
+    expect(w.querySelector('.thallo-canvas-toolbar')).not.toBeNull()
     posted.mockClear()
 
     pressKey({ key: 'Escape' })
-    expect(lastPost('lemma:block-deselect')).toMatchObject({ id: 'kb-esc-00001' })
-    expect(w.classList.contains('lemma-canvas-selected')).toBe(false)
-    expect(w.querySelector('.lemma-canvas-toolbar')).toBeNull()
+    expect(lastPost('thallo:block-deselect')).toMatchObject({ id: 'kb-esc-00001' })
+    expect(w.classList.contains('thallo-canvas-selected')).toBe(false)
+    expect(w.querySelector('.thallo-canvas-toolbar')).toBeNull()
 
     // Deselected: further shortcuts are inert.
     posted.mockClear()
@@ -942,12 +942,12 @@ describe('stage keyboard shortcuts', () => {
     // Toolbar guard (review pin): Enter on a focused toolbar button keeps its
     // native activation — the handler must not intercept it as "edit block".
     posted.mockClear()
-    const dupBtn = w.querySelector('.lemma-canvas-toolbar [data-action="duplicate"]')!
+    const dupBtn = w.querySelector('.thallo-canvas-toolbar [data-action="duplicate"]')!
     const tev = pressKey({ key: 'Enter' }, dupBtn)
-    expect(lastPost('lemma:edit-request')).toBeUndefined()
+    expect(lastPost('thallo:edit-request')).toBeUndefined()
     expect(tev.defaultPrevented).toBe(false)
     pressKey({ key: 'Backspace' }, dupBtn)
-    expect(lastPost('lemma:block-delete-request')).toBeUndefined()
+    expect(lastPost('thallo:block-delete-request')).toBeUndefined()
 
     // Theme form control guard: Backspace in an input is typing, not delete.
     const formW = wrapper('kb-grd-00002', '<section><input type="text"></section>')
@@ -955,25 +955,25 @@ describe('stage keyboard shortcuts', () => {
     selectByClick(formW)
     posted.mockClear()
     pressKey({ key: 'Backspace' }, formW.querySelector('input')!)
-    expect(lastPost('lemma:block-delete-request')).toBeUndefined()
+    expect(lastPost('thallo:block-delete-request')).toBeUndefined()
 
     // Edit-session guard: typing must never move/delete blocks. Re-select the
     // prose wrapper, grant an edit, then hammer the shortcuts.
     selectByClick(w)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'kb-grd-00001', field: 'body', kind: 'rich' })
-    const region = w.querySelector('.lemma-edit-region')!
+    sendToBridge({ type: 'thallo:edit-grant', id: 'kb-grd-00001', field: 'body', kind: 'rich' })
+    const region = w.querySelector('.thallo-edit-region')!
     expect(region.getAttribute('contenteditable')).toBe('true')
     posted.mockClear()
     pressKey({ key: 'ArrowUp', altKey: true }, region)
     pressKey({ key: 'Backspace' }, region)
     pressKey({ key: 'd', metaKey: true }, region)
-    expect(lastPost('lemma:block-move')).toBeUndefined()
-    expect(lastPost('lemma:block-delete-request')).toBeUndefined()
-    expect(lastPost('lemma:block-duplicate')).toBeUndefined()
+    expect(lastPost('thallo:block-move')).toBeUndefined()
+    expect(lastPost('thallo:block-delete-request')).toBeUndefined()
+    expect(lastPost('thallo:block-duplicate')).toBeUndefined()
     // Escape during editing keeps its commit-and-exit meaning (region handler).
     region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    expect(lastPost('lemma:edit-end')).toMatchObject({ id: 'kb-grd-00001' })
-    expect(lastPost('lemma:block-deselect')).toBeUndefined()
+    expect(lastPost('thallo:edit-end')).toMatchObject({ id: 'kb-grd-00001' })
+    expect(lastPost('thallo:block-deselect')).toBeUndefined()
   })
 })
 
@@ -984,14 +984,14 @@ describe('rich-region normalization (format-bar spec §2)', () => {
     // next apply. The commit-time pass must fix this with NO bar interaction.
     const w = proseWrapper('nm-a-000001')
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'nm-a-000001', field: 'body', kind: 'rich' })
-    const region = w.querySelector('.lemma-edit-region')!
+    sendToBridge({ type: 'thallo:edit-grant', id: 'nm-a-000001', field: 'body', kind: 'rich' })
+    const region = w.querySelector('.thallo-edit-region')!
     expect(region.getAttribute('contenteditable')).toBe('true')
 
     region.innerHTML = '<p><b>Bold</b> and <i>Italic</i></p>'
     posted.mockClear()
     region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    expect(lastPost('lemma:text-changed')).toMatchObject({
+    expect(lastPost('thallo:text-changed')).toMatchObject({
       id: 'nm-a-000001',
       field: 'body',
       html: '<p><strong>Bold</strong> and <em>Italic</em></p>',
@@ -1001,14 +1001,14 @@ describe('rich-region normalization (format-bar spec §2)', () => {
   it('commit unwraps styled spans and handles nesting; the LIVE region is untouched', () => {
     const w = proseWrapper('nm-b-000001')
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'nm-b-000001', field: 'body', kind: 'rich' })
-    const region = w.querySelector('.lemma-edit-region')!
+    sendToBridge({ type: 'thallo:edit-grant', id: 'nm-b-000001', field: 'body', kind: 'rich' })
+    const region = w.querySelector('.thallo-edit-region')!
 
     const dirty = '<p><span style="font-weight:700">kept text</span> <b>outer <i>inner</i></b></p>'
     region.innerHTML = dirty
     posted.mockClear()
     region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    expect(lastPost('lemma:text-changed')).toMatchObject({
+    expect(lastPost('thallo:text-changed')).toMatchObject({
       html: '<p>kept text <strong>outer <em>inner</em></strong></p>',
     })
     // Commit normalizes a DETACHED CLONE (no live-DOM caret risk): the live
@@ -1023,16 +1023,16 @@ describe('rich-region normalization (format-bar spec §2)', () => {
     const w = wrapper(
       'nm-c-000001',
       '<section><b class="theme-bold">theme</b><span style="color:red">styled</span>' +
-        '<div class="lemma-edit-region" data-lemma-edit-block="nm-c-000001" ' +
-        'data-lemma-edit-field="body"><p><b>mine</b></p></div></section>',
+        '<div class="thallo-edit-region" data-thallo-edit-block="nm-c-000001" ' +
+        'data-thallo-edit-field="body"><p><b>mine</b></p></div></section>',
     )
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'nm-c-000001', field: 'body', kind: 'rich' })
-    const region = w.querySelector('.lemma-edit-region')!
+    sendToBridge({ type: 'thallo:edit-grant', id: 'nm-c-000001', field: 'body', kind: 'rich' })
+    const region = w.querySelector('.thallo-edit-region')!
     posted.mockClear()
     region.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
 
-    expect(lastPost('lemma:text-changed')).toMatchObject({ html: '<p><strong>mine</strong></p>' })
+    expect(lastPost('thallo:text-changed')).toMatchObject({ html: '<p><strong>mine</strong></p>' })
     expect(w.querySelector('b.theme-bold')).not.toBeNull()
     expect(w.querySelector('span[style]')).not.toBeNull()
   })
@@ -1042,12 +1042,12 @@ describe('selection-following format bubble (format-bubble spec §1/§2)', () =>
   function grantRich(id: string): HTMLElement {
     const w = proseWrapper(id)
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id, field: 'body', kind: 'rich' })
+    sendToBridge({ type: 'thallo:edit-grant', id, field: 'body', kind: 'rich' })
     return w
   }
 
   function endSession(w: HTMLElement): void {
-    const region = w.querySelector('.lemma-edit-region')
+    const region = w.querySelector('.thallo-edit-region')
     region?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   }
 
@@ -1079,14 +1079,14 @@ describe('selection-following format bubble (format-bubble spec §1/§2)', () =>
   }
 
   function bubble(): HTMLElement | null {
-    return document.querySelector('body > .lemma-canvas-format-bar')
+    return document.querySelector('body > .thallo-canvas-format-bar')
   }
 
   it('a rich grant creates a hidden bubble on body; plain kinds get none; end removes it', () => {
     const w = grantRich('fb-a-000001')
     const bar = bubble()!
     expect(bar).not.toBeNull()
-    expect(bar.classList.contains('lemma-canvas-format-visible')).toBe(false)
+    expect(bar.classList.contains('thallo-canvas-format-visible')).toBe(false)
     const formats = [...bar.querySelectorAll('[data-format]')].map((b) =>
       b.getAttribute('data-format'),
     )
@@ -1097,11 +1097,11 @@ describe('selection-following format bubble (format-bubble spec §1/§2)', () =>
 
     const s = wrapper(
       'fb-b-000001',
-      '<section><h2><span class="lemma-edit-region" data-lemma-edit-block="fb-b-000001" ' +
-        'data-lemma-edit-field="heading">Hello</span></h2></section>',
+      '<section><h2><span class="thallo-edit-region" data-thallo-edit-block="fb-b-000001" ' +
+        'data-thallo-edit-field="heading">Hello</span></h2></section>',
     )
     document.body.appendChild(s)
-    sendToBridge({ type: 'lemma:edit-grant', id: 'fb-b-000001', field: 'heading', kind: 'string' })
+    sendToBridge({ type: 'thallo:edit-grant', id: 'fb-b-000001', field: 'heading', kind: 'string' })
     expect(s.querySelector('[contenteditable]')).not.toBeNull()
     expect(bubble()).toBeNull()
     endSession(s)
@@ -1110,27 +1110,27 @@ describe('selection-following format bubble (format-bubble spec §1/§2)', () =>
   it('shows over a non-collapsed in-region selection, positioned off the selection rect', () => {
     try {
       const w = grantRich('fb-c-000001')
-      const region = w.querySelector('.lemma-edit-region')!
+      const region = w.querySelector('.thallo-edit-region')!
       const bar = bubble()!
 
       // In-region, non-collapsed: visible, centered above the rect (jsdom
       // bubble rect is all zeros, so x = left + width/2, y = top - 8).
       stubSelection({ collapsed: false, container: region.querySelector('p')! })
       fireSelectionChange()
-      expect(bar.classList.contains('lemma-canvas-format-visible')).toBe(true)
+      expect(bar.classList.contains('thallo-canvas-format-visible')).toBe(true)
       expect(bar.style.transform).toBe('translate(125px, 192px)')
 
       // Collapsed: hidden.
       stubSelection({ collapsed: true, container: region.querySelector('p')! })
       fireSelectionChange()
-      expect(bar.classList.contains('lemma-canvas-format-visible')).toBe(false)
+      expect(bar.classList.contains('thallo-canvas-format-visible')).toBe(false)
 
       // Non-collapsed but OUTSIDE the region (strict containment — review
       // caution: a partially-outside selection resolves its common ancestor
       // above the region and must hide).
       stubSelection({ collapsed: false, container: document.body })
       fireSelectionChange()
-      expect(bar.classList.contains('lemma-canvas-format-visible')).toBe(false)
+      expect(bar.classList.contains('thallo-canvas-format-visible')).toBe(false)
 
       endSession(w)
       // Listeners removed with the session: a later selectionchange is inert.
@@ -1144,7 +1144,7 @@ describe('selection-following format bubble (format-bubble spec §1/§2)', () =>
   it('flips below when there is no headroom and clamps to the viewport edge', () => {
     try {
       const w = grantRich('fb-d-000001')
-      const region = w.querySelector('.lemma-edit-region')!
+      const region = w.querySelector('.thallo-edit-region')!
       const bar = bubble()!
 
       // top=4 -> above would be y=-4 (<4) -> flip below: bottom + 8 = 32.
@@ -1176,7 +1176,7 @@ describe('selection-following format bubble (format-bubble spec §1/§2)', () =>
       })
       document.execCommand = exec as unknown as typeof document.execCommand
       const w = grantRich('fb-e-000001')
-      region = w.querySelector('.lemma-edit-region')!
+      region = w.querySelector('.thallo-edit-region')!
       stubSelection({ collapsed: false, container: region })
 
       const bar = bubble()!
@@ -1187,7 +1187,7 @@ describe('selection-following format bubble (format-bubble spec §1/§2)', () =>
       expect(region.innerHTML).toBe('<p><strong>sel</strong> rest</p>')
       // Post-action re-anchor (review caution): the bubble repositioned from
       // the stubbed selection WITHOUT a selectionchange event.
-      expect(bar.classList.contains('lemma-canvas-format-visible')).toBe(true)
+      expect(bar.classList.contains('thallo-canvas-format-visible')).toBe(true)
       expect(bar.style.transform).toBe('translate(125px, 192px)')
 
       bar
@@ -1209,7 +1209,7 @@ describe('selection-following format bubble (format-bubble spec §1/§2)', () =>
 
       // The click landed on the bubble (outside the region) but the session
       // survives: no edit-end, contenteditable intact.
-      expect(lastPost('lemma:edit-end')).toBeUndefined()
+      expect(lastPost('thallo:edit-end')).toBeUndefined()
       expect(region.getAttribute('contenteditable')).toBe('true')
       endSession(w)
     } finally {
@@ -1234,16 +1234,16 @@ describe('selection-following format bubble (format-bubble spec §1/§2)', () =>
     try {
       document.execCommand = vi.fn(() => true) as unknown as typeof document.execCommand
       const w = grantRich('fb-g-000001')
-      const region = w.querySelector('.lemma-edit-region')!
+      const region = w.querySelector('.thallo-edit-region')!
       region.innerHTML = '<p><b>x</b></p>' // pretend the engine mutated on execCommand
       posted.mockClear()
 
       bubble()!
         .querySelector('[data-format="bold"]')!
         .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-      expect(lastPost('lemma:text-changed')).toBeUndefined() // debounced, not instant
+      expect(lastPost('thallo:text-changed')).toBeUndefined() // debounced, not instant
       vi.advanceTimersByTime(450)
-      expect(lastPost('lemma:text-changed')).toMatchObject({
+      expect(lastPost('thallo:text-changed')).toMatchObject({
         id: 'fb-g-000001',
         field: 'body',
         html: '<p><strong>x</strong></p>',
@@ -1270,20 +1270,20 @@ describe('selection-following format bubble (format-bubble spec §1/§2)', () =>
     const w = grantRich('fb-i-000001')
     posted.mockClear()
     endSession(w) // commit + end
-    const committed = lastPost('lemma:text-changed')!
-    expect(String(committed.html)).not.toContain('lemma-canvas-format')
+    const committed = lastPost('thallo:text-changed')!
+    expect(String(committed.html)).not.toContain('thallo-canvas-format')
 
     // The bubble lives on document.body — structurally outside every wrapper —
     // so a duplicate clone can never carry it.
-    sendToBridge({ type: 'lemma:edit-grant', id: 'fb-i-000001', field: 'body', kind: 'rich' })
+    sendToBridge({ type: 'thallo:edit-grant', id: 'fb-i-000001', field: 'body', kind: 'rich' })
     expect(bubble()).not.toBeNull()
     sendToBridge({
-      type: 'lemma:mirror-duplicate',
+      type: 'thallo:mirror-duplicate',
       sourceId: 'fb-i-000001',
       idMap: { 'fb-i-000001': 'fb-i-000002' },
     })
-    const clone = document.querySelector('[data-lemma-block="fb-i-000002"]')!
-    expect(clone.querySelector('.lemma-canvas-format-bar')).toBeNull()
+    const clone = document.querySelector('[data-thallo-block="fb-i-000002"]')!
+    expect(clone.querySelector('.thallo-canvas-format-bar')).toBeNull()
     endSession(w)
   })
 })
@@ -1294,21 +1294,21 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
   function grantRich(id: string, inner?: string): HTMLElement {
     const w = inner ? wrapper(id, inner) : proseWrapper(id)
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id, field: 'body', kind: 'rich' })
+    sendToBridge({ type: 'thallo:edit-grant', id, field: 'body', kind: 'rich' })
     return w
   }
 
   function endSession(w: HTMLElement): void {
-    const region = w.querySelector('.lemma-edit-region')
+    const region = w.querySelector('.thallo-edit-region')
     region?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   }
 
   function bubble(): HTMLElement {
-    return document.querySelector('body > .lemma-canvas-format-bar') as HTMLElement
+    return document.querySelector('body > .thallo-canvas-format-bar') as HTMLElement
   }
 
   function panelEl(): Element {
-    return bubble().querySelector('.lemma-canvas-link-panel')!
+    return bubble().querySelector('.thallo-canvas-link-panel')!
   }
 
   interface SelectionSpies {
@@ -1359,7 +1359,7 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
     bubble()
       .querySelector('[data-format="link"]')!
       .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-    return bubble().querySelector('.lemma-canvas-link-panel input') as HTMLInputElement
+    return bubble().querySelector('.thallo-canvas-link-panel input') as HTMLInputElement
   }
 
   it('opens on link click, prefills from a REGION-contained <a> only, and freezes visibility', () => {
@@ -1367,43 +1367,43 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
       // Region wrapped by a theme-level <a> OUTSIDE it: prefill must ignore it.
       const wOutside = grantRich(
         'lp-a-000001',
-        '<section><a href="https://theme.test/outer"><div class="lemma-edit-region" ' +
-          'data-lemma-edit-block="lp-a-000001" data-lemma-edit-field="body">' +
+        '<section><a href="https://theme.test/outer"><div class="thallo-edit-region" ' +
+          'data-thallo-edit-block="lp-a-000001" data-thallo-edit-field="body">' +
           '<p>text</p></div></a></section>',
       )
-      const regionA = wOutside.querySelector('.lemma-edit-region')!
+      const regionA = wOutside.querySelector('.thallo-edit-region')!
       const spiesA = stubRichSelection(regionA.querySelector('p')!)
       // Make the bubble visible the way a real selection does, THEN open.
       document.dispatchEvent(new Event('selectionchange'))
-      expect(bubble().classList.contains('lemma-canvas-format-visible')).toBe(true)
+      expect(bubble().classList.contains('thallo-canvas-format-visible')).toBe(true)
       const inputA = openPanel()
       expect(inputA).not.toBeNull()
       expect(inputA.value).toBe('') // outside link ignored (spec pin)
-      expect(panelEl().classList.contains('lemma-canvas-link-open')).toBe(true)
+      expect(panelEl().classList.contains('thallo-canvas-link-open')).toBe(true)
 
       // Freeze (spec §4): a COLLAPSED selectionchange while the panel is open
       // must neither hide the bubble nor close the panel — that is exactly
       // what happens when focus enters the input.
       spiesA.collapse(true)
       document.dispatchEvent(new Event('selectionchange'))
-      expect(bubble().classList.contains('lemma-canvas-format-visible')).toBe(true)
-      expect(panelEl().classList.contains('lemma-canvas-link-open')).toBe(true)
+      expect(bubble().classList.contains('thallo-canvas-format-visible')).toBe(true)
+      expect(panelEl().classList.contains('thallo-canvas-link-open')).toBe(true)
 
       // After close, the same collapsed selection hides the bubble.
       inputA.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
       )
       document.dispatchEvent(new Event('selectionchange'))
-      expect(bubble().classList.contains('lemma-canvas-format-visible')).toBe(false)
+      expect(bubble().classList.contains('thallo-canvas-format-visible')).toBe(false)
       endSession(wOutside)
 
       // Region-contained <a>: prefill picks up its href.
       const wInside = grantRich(
         'lp-b-000001',
-        '<section><div class="lemma-edit-region" data-lemma-edit-block="lp-b-000001" ' +
-          'data-lemma-edit-field="body"><p><a href="https://x.test/old">old</a></p></div></section>',
+        '<section><div class="thallo-edit-region" data-thallo-edit-block="lp-b-000001" ' +
+          'data-thallo-edit-field="body"><p><a href="https://x.test/old">old</a></p></div></section>',
       )
-      const anchor = wInside.querySelector('.lemma-edit-region a')!
+      const anchor = wInside.querySelector('.thallo-edit-region a')!
       stubRichSelection(anchor.firstChild!)
       const inputB = openPanel()
       expect(inputB.value).toBe('https://x.test/old')
@@ -1416,7 +1416,7 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
   it('input mousedown is allowed to focus; format-button mousedown is still cancelled', () => {
     try {
       const w = grantRich('lp-c-000001')
-      stubRichSelection(w.querySelector('.lemma-edit-region p')!)
+      stubRichSelection(w.querySelector('.thallo-edit-region p')!)
       const input = openPanel()
 
       const onInput = new MouseEvent('mousedown', { bubbles: true, cancelable: true })
@@ -1435,18 +1435,18 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
   it('region blur with relatedTarget in the bubble keeps the session; null relatedTarget ends it', () => {
     try {
       const w = grantRich('lp-d-000001')
-      const region = w.querySelector('.lemma-edit-region')!
+      const region = w.querySelector('.thallo-edit-region')!
       stubRichSelection(region.querySelector('p')!)
       const input = openPanel()
       posted.mockClear()
 
       region.dispatchEvent(new FocusEvent('blur', { relatedTarget: input }))
-      expect(lastPost('lemma:edit-end')).toBeUndefined()
+      expect(lastPost('thallo:edit-end')).toBeUndefined()
       expect(region.getAttribute('contenteditable')).toBe('true')
 
       // Null relatedTarget = REAL outside blur (review caution): commit-and-exit.
       region.dispatchEvent(new FocusEvent('blur'))
-      expect(lastPost('lemma:edit-end')).toMatchObject({ id: 'lp-d-000001' })
+      expect(lastPost('thallo:edit-end')).toMatchObject({ id: 'lp-d-000001' })
     } finally {
       window.getSelection = realGetSelection
     }
@@ -1458,7 +1458,7 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
       const exec = vi.fn(() => true)
       document.execCommand = exec as unknown as typeof document.execCommand
       const w = grantRich('lp-e-000001')
-      const region = w.querySelector('.lemma-edit-region')!
+      const region = w.querySelector('.thallo-edit-region')!
       const spies = stubRichSelection(region.querySelector('p')!)
       const input = openPanel()
 
@@ -1475,9 +1475,9 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
         exec.mock.invocationCallOrder[0],
       )
       // Success closes the panel AFTER command/normalize/commit scheduling.
-      expect(panelEl().classList.contains('lemma-canvas-link-open')).toBe(false)
+      expect(panelEl().classList.contains('thallo-canvas-link-open')).toBe(false)
       vi.advanceTimersByTime(450)
-      expect(lastPost('lemma:text-changed')).toMatchObject({ id: 'lp-e-000001' })
+      expect(lastPost('thallo:text-changed')).toMatchObject({ id: 'lp-e-000001' })
       endSession(w)
     } finally {
       vi.useRealTimers()
@@ -1490,7 +1490,7 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
       const exec = vi.fn(() => true)
       document.execCommand = exec as unknown as typeof document.execCommand
       const w = grantRich('lp-f-000001')
-      stubRichSelection(w.querySelector('.lemma-edit-region p')!)
+      stubRichSelection(w.querySelector('.thallo-edit-region p')!)
       const input = openPanel()
 
       for (const value of ['', '   ', '//evil.test/x', 'javascript:alert(1)', 'data:text/html,x']) {
@@ -1498,15 +1498,15 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
         input.dispatchEvent(
           new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
         )
-        expect(panelEl().classList.contains('lemma-canvas-link-open')).toBe(true)
-        expect(panelEl().classList.contains('lemma-canvas-link-invalid')).toBe(true)
+        expect(panelEl().classList.contains('thallo-canvas-link-open')).toBe(true)
+        expect(panelEl().classList.contains('thallo-canvas-link-invalid')).toBe(true)
         expect(input.value).toBe(value) // preserved (review caution)
       }
       expect(exec).not.toHaveBeenCalled()
 
       // The next keystroke clears the invalid mark.
       input.dispatchEvent(new Event('input', { bubbles: true }))
-      expect(panelEl().classList.contains('lemma-canvas-link-invalid')).toBe(false)
+      expect(panelEl().classList.contains('thallo-canvas-link-invalid')).toBe(false)
       endSession(w)
     } finally {
       window.getSelection = realGetSelection
@@ -1516,14 +1516,14 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
   it('Escape closes the panel, refocuses the region, and the session survives', () => {
     try {
       const w = grantRich('lp-g-000001')
-      const region = w.querySelector('.lemma-edit-region') as HTMLElement
+      const region = w.querySelector('.thallo-edit-region') as HTMLElement
       stubRichSelection(region.querySelector('p')!)
       const input = openPanel()
 
       input.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
       )
-      expect(panelEl().classList.contains('lemma-canvas-link-open')).toBe(false)
+      expect(panelEl().classList.contains('thallo-canvas-link-open')).toBe(false)
       expect(document.activeElement).toBe(region)
       expect(region.getAttribute('contenteditable')).toBe('true') // session alive
       endSession(w)
@@ -1538,12 +1538,12 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
       document.execCommand = exec as unknown as typeof document.execCommand
 
       const w1 = grantRich('lp-h-000001')
-      const spies1 = stubRichSelection(w1.querySelector('.lemma-edit-region p')!)
+      const spies1 = stubRichSelection(w1.querySelector('.thallo-edit-region p')!)
       openPanel()
       endSession(w1) // closes panel via endEditing -> closeLinkPanel
 
       const w2 = grantRich('lp-i-000001')
-      const spies2 = stubRichSelection(w2.querySelector('.lemma-edit-region p')!)
+      const spies2 = stubRichSelection(w2.querySelector('.thallo-edit-region p')!)
       const input2 = openPanel()
       input2.value = 'https://x.test/two'
       input2.dispatchEvent(
@@ -1560,13 +1560,13 @@ describe('inline link panel (link-panel spec §1–§4)', () => {
   it('typing in the input never triggers stage shortcuts', () => {
     try {
       const w = grantRich('lp-j-000001')
-      stubRichSelection(w.querySelector('.lemma-edit-region p')!)
+      stubRichSelection(w.querySelector('.thallo-edit-region p')!)
       const input = openPanel()
       posted.mockClear()
       input.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Backspace', bubbles: true, cancelable: true }),
       )
-      expect(lastPost('lemma:block-delete-request')).toBeUndefined()
+      expect(lastPost('thallo:block-delete-request')).toBeUndefined()
       endSession(w)
     } finally {
       window.getSelection = realGetSelection
@@ -1581,17 +1581,17 @@ describe('bubble active-state (polish batch §1)', () => {
   function grantRich(id: string, inner?: string): HTMLElement {
     const w = inner ? wrapper(id, inner) : proseWrapper(id)
     document.body.appendChild(w)
-    sendToBridge({ type: 'lemma:edit-grant', id, field: 'body', kind: 'rich' })
+    sendToBridge({ type: 'thallo:edit-grant', id, field: 'body', kind: 'rich' })
     return w
   }
 
   function endSession(w: HTMLElement): void {
-    const region = w.querySelector('.lemma-edit-region')
+    const region = w.querySelector('.thallo-edit-region')
     region?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
   }
 
   function bubble(): HTMLElement {
-    return document.querySelector('body > .lemma-canvas-format-bar') as HTMLElement
+    return document.querySelector('body > .thallo-canvas-format-bar') as HTMLElement
   }
 
   function stubSel(container: Node, collapsed = false): { collapse: (c: boolean) => void } {
@@ -1617,7 +1617,7 @@ describe('bubble active-state (polish batch §1)', () => {
   function active(format: string): boolean {
     return bubble()
       .querySelector(`[data-format="${format}"]`)!
-      .classList.contains('lemma-canvas-format-active')
+      .classList.contains('thallo-canvas-format-active')
   }
 
   it('marks buttons from queryCommandState; link/unlink from region <a> containment', () => {
@@ -1627,10 +1627,10 @@ describe('bubble active-state (polish batch §1)', () => {
       ) as unknown as typeof document.queryCommandState
       const w = grantRich(
         'as-a-000001',
-        '<section><div class="lemma-edit-region" data-lemma-edit-block="as-a-000001" ' +
-          'data-lemma-edit-field="body"><p><a href="/x">linked</a></p></div></section>',
+        '<section><div class="thallo-edit-region" data-thallo-edit-block="as-a-000001" ' +
+          'data-thallo-edit-field="body"><p><a href="/x">linked</a></p></div></section>',
       )
-      const anchor = w.querySelector('.lemma-edit-region a')!
+      const anchor = w.querySelector('.thallo-edit-region a')!
       stubSel(anchor.firstChild!)
       document.dispatchEvent(new Event('selectionchange'))
 
@@ -1654,21 +1654,21 @@ describe('bubble active-state (polish batch §1)', () => {
         (cmd: string) => cmd === 'bold' && boldState,
       ) as unknown as typeof document.queryCommandState
       const w = grantRich('as-b-000001')
-      const sel = stubSel(w.querySelector('.lemma-edit-region p')!)
+      const sel = stubSel(w.querySelector('.thallo-edit-region p')!)
       document.dispatchEvent(new Event('selectionchange'))
       expect(active('bold')).toBe(true)
 
       // Collapse -> hidden -> classes CLEARED (review P2).
       sel.collapse(true)
       document.dispatchEvent(new Event('selectionchange'))
-      expect(bubble().classList.contains('lemma-canvas-format-visible')).toBe(false)
-      expect(bubble().querySelector('.lemma-canvas-format-active')).toBeNull()
+      expect(bubble().classList.contains('thallo-canvas-format-visible')).toBe(false)
+      expect(bubble().querySelector('.thallo-canvas-format-active')).toBeNull()
 
       // Reopen over plain text: recomputed, stays inactive.
       boldState = false
       sel.collapse(false)
       document.dispatchEvent(new Event('selectionchange'))
-      expect(bubble().classList.contains('lemma-canvas-format-visible')).toBe(true)
+      expect(bubble().classList.contains('thallo-canvas-format-visible')).toBe(true)
       expect(active('bold')).toBe(false)
       endSession(w)
     } finally {
@@ -1680,18 +1680,18 @@ describe('bubble active-state (polish batch §1)', () => {
   it('a missing or throwing queryCommandState leaves buttons inactive without crashing', () => {
     try {
       const w = grantRich('as-c-000001')
-      stubSel(w.querySelector('.lemma-edit-region p')!)
+      stubSel(w.querySelector('.thallo-edit-region p')!)
 
       document.queryCommandState = undefined as unknown as typeof document.queryCommandState
       document.dispatchEvent(new Event('selectionchange'))
-      expect(bubble().classList.contains('lemma-canvas-format-visible')).toBe(true)
-      expect(bubble().querySelector('.lemma-canvas-format-active')).toBeNull()
+      expect(bubble().classList.contains('thallo-canvas-format-visible')).toBe(true)
+      expect(bubble().querySelector('.thallo-canvas-format-active')).toBeNull()
 
       document.queryCommandState = vi.fn(() => {
         throw new Error('detached selection')
       }) as unknown as typeof document.queryCommandState
       document.dispatchEvent(new Event('selectionchange'))
-      expect(bubble().querySelector('.lemma-canvas-format-active')).toBeNull()
+      expect(bubble().querySelector('.thallo-canvas-format-active')).toBeNull()
       endSession(w)
     } finally {
       window.getSelection = realGetSelection
@@ -1747,7 +1747,7 @@ describe('drag ghost + edge auto-scroll (polish batch §2/§3)', () => {
   }
 
   function ghost(): HTMLElement | null {
-    return document.querySelector('body > .lemma-canvas-drag-ghost')
+    return document.querySelector('body > .thallo-canvas-drag-ghost')
   }
 
   it('a ghost appears on the first move, follows the pointer, and dies with the drag', () => {
@@ -1760,8 +1760,8 @@ describe('drag ghost + edge auto-scroll (polish batch §2/§3)', () => {
     expect(g).not.toBeNull()
     expect(g.style.transform).toBe('translate(52px, 172px)') // pointer + 12px offset
     // Strip applied: the selected host's toolbar never rides the ghost.
-    expect(g.querySelector('.lemma-canvas-toolbar')).toBeNull()
-    expect(g.querySelector('.lemma-canvas-anchor')).toBeNull()
+    expect(g.querySelector('.thallo-canvas-toolbar')).toBeNull()
+    expect(g.querySelector('.thallo-canvas-anchor')).toBeNull()
 
     move(200, 60)
     expect(g.style.transform).toBe('translate(72px, 212px)')
@@ -1820,7 +1820,7 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
   const realFetch = window.fetch
 
   function acked(): { refresh_id?: string; mode?: string } | undefined {
-    return lastPost('lemma:stage-refreshed') as { refresh_id?: string; mode?: string } | undefined
+    return lastPost('thallo:stage-refreshed') as { refresh_id?: string; mode?: string } | undefined
   }
 
   function stubFetch(html: string, opts: { ok?: boolean; redirected?: boolean } = {}): void {
@@ -1845,14 +1845,14 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
   function renderedHtml(alpha: string, beta: string, shellTitle = 'Shell title'): string {
     return (
       `<html><body><header><h1>${shellTitle}</h1></header><main>` +
-      `<div class="lemma-preview-block" data-lemma-block="pd-a-0000001"><section><p>${alpha}</p></section></div>` +
-      `<div class="lemma-preview-block" data-lemma-block="pd-b-0000002"><section><p>${beta}</p></section></div>` +
+      `<div class="thallo-preview-block" data-thallo-block="pd-a-0000001"><section><p>${alpha}</p></section></div>` +
+      `<div class="thallo-preview-block" data-thallo-block="pd-b-0000002"><section><p>${beta}</p></section></div>` +
       `</main></body></html>`
     )
   }
 
   async function refresh(id = 'r1'): Promise<void> {
-    sendToBridge({ type: 'lemma:stage-refresh', refresh_id: id })
+    sendToBridge({ type: 'thallo:stage-refresh', refresh_id: id })
     await new Promise((r) => setTimeout(r, 0)) // let the fetch promise chain settle
     await new Promise((r) => setTimeout(r, 0))
     await new Promise((r) => setTimeout(r, 0))
@@ -1866,10 +1866,10 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
       await refresh('r-alpha')
 
       expect(acked()).toMatchObject({ refresh_id: 'r-alpha', mode: 'patched' })
-      const newA = document.querySelector('[data-lemma-block="pd-a-0000001"]')!
+      const newA = document.querySelector('[data-thallo-block="pd-a-0000001"]')!
       expect(newA.textContent).toContain('Alpha v2')
       expect(newA).not.toBe(a) // swapped
-      expect(document.querySelector('[data-lemma-block="pd-b-0000002"]')).toBe(b) // identity kept
+      expect(document.querySelector('[data-thallo-block="pd-b-0000002"]')).toBe(b) // identity kept
       expect(document.querySelector('h1')!.textContent).toBe('Shell title')
     } finally {
       window.fetch = realFetch
@@ -1883,7 +1883,7 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
       posted.mockClear()
       await refresh()
       expect(acked()).toMatchObject({ mode: 'reload' })
-      expect(document.querySelector('[data-lemma-block="pd-a-0000001"]')).toBe(a) // untouched
+      expect(document.querySelector('[data-thallo-block="pd-a-0000001"]')).toBe(a) // untouched
       expect(a.textContent).toContain('Alpha v1')
     } finally {
       window.fetch = realFetch
@@ -1897,7 +1897,7 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
       stubFetch(
         renderedHtml('Alpha v1', 'Beta v1').replace(
           '</main>',
-          '<div class="lemma-preview-block" data-lemma-block="pd-c-0000003"><p>New</p></div></main>',
+          '<div class="thallo-preview-block" data-thallo-block="pd-c-0000003"><p>New</p></div></main>',
         ),
       )
       posted.mockClear()
@@ -1907,8 +1907,8 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
       // Duplicate id on the fetched side.
       stubFetch(
         renderedHtml('Alpha v1', 'Beta v1').replace(
-          'data-lemma-block="pd-b-0000002"',
-          'data-lemma-block="pd-a-0000001"',
+          'data-thallo-block="pd-b-0000002"',
+          'data-thallo-block="pd-a-0000001"',
         ),
       )
       posted.mockClear()
@@ -1923,23 +1923,23 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
     try {
       const { a, b } = liveStage()
       // Mirror a move (b before a) the way the parent would after a commit.
-      sendToBridge({ type: 'lemma:mirror-move', id: 'pd-b-0000002', beforeId: 'pd-a-0000001' })
+      sendToBridge({ type: 'thallo:mirror-move', id: 'pd-b-0000002', beforeId: 'pd-a-0000001' })
       expect(b.nextElementSibling).toBe(a)
       // The render agrees with the mirrored order.
       stubFetch(
         `<html><body><header><h1>Shell title</h1></header><main>` +
-          `<div class="lemma-preview-block" data-lemma-block="pd-b-0000002"><section><p>Beta SERVER</p></section></div>` +
-          `<div class="lemma-preview-block" data-lemma-block="pd-a-0000001"><section><p>Alpha v1</p></section></div>` +
+          `<div class="thallo-preview-block" data-thallo-block="pd-b-0000002"><section><p>Beta SERVER</p></section></div>` +
+          `<div class="thallo-preview-block" data-thallo-block="pd-a-0000001"><section><p>Alpha v1</p></section></div>` +
           `</main></body></html>`,
       )
       posted.mockClear()
       await refresh()
       expect(acked()).toMatchObject({ mode: 'patched' })
       // The optimistic mirror's content is swapped to the RENDERED truth.
-      expect(document.querySelector('[data-lemma-block="pd-b-0000002"]')!.textContent).toContain(
+      expect(document.querySelector('[data-thallo-block="pd-b-0000002"]')!.textContent).toContain(
         'Beta SERVER',
       )
-      expect(document.querySelector('[data-lemma-block="pd-a-0000001"]')).toBe(a)
+      expect(document.querySelector('[data-thallo-block="pd-a-0000001"]')).toBe(a)
     } finally {
       window.fetch = realFetch
     }
@@ -1949,17 +1949,17 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
     try {
       const { a } = liveStage()
       a.querySelector('section')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-      expect(a.querySelector('.lemma-canvas-toolbar')).not.toBeNull() // live UI present
+      expect(a.querySelector('.thallo-canvas-toolbar')).not.toBeNull() // live UI present
       stubFetch(renderedHtml('Alpha v2', 'Beta v1'))
       posted.mockClear()
       await refresh()
 
       expect(acked()).toMatchObject({ mode: 'patched' })
-      const newA = document.querySelector('[data-lemma-block="pd-a-0000001"]')!
+      const newA = document.querySelector('[data-thallo-block="pd-a-0000001"]')!
       expect(newA.textContent).toContain('Alpha v2')
       // Selection survived the swap: ring + toolbar re-anchored on the NEW wrapper.
-      expect(newA.classList.contains('lemma-canvas-selected')).toBe(true)
-      expect(newA.querySelector('.lemma-canvas-toolbar')).not.toBeNull()
+      expect(newA.classList.contains('thallo-canvas-selected')).toBe(true)
+      expect(newA.querySelector('.thallo-canvas-toolbar')).not.toBeNull()
       // Deselect cleanly for later tests.
       document.body.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
@@ -1977,23 +1977,23 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
       document.body.innerHTML = '<main></main>'
       const parent = wrapper(
         'pd-vp-00001',
-        '<section><div class="lemma-preview-block" data-lemma-block="pd-vc-00001"><p>child</p></div></section>',
+        '<section><div class="thallo-preview-block" data-thallo-block="pd-vc-00001"><p>child</p></div></section>',
       )
       document.body.querySelector('main')!.appendChild(parent)
-      const child = document.querySelector('[data-lemma-block="pd-vc-00001"]')!
+      const child = document.querySelector('[data-thallo-block="pd-vc-00001"]')!
       child.querySelector('p')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-      expect(lastPost('lemma:block-select')).toMatchObject({ id: 'pd-vc-00001' })
+      expect(lastPost('thallo:block-select')).toMatchObject({ id: 'pd-vc-00001' })
 
       stubFetch(
         `<html><body><main>` +
-          `<div class="lemma-preview-block" data-lemma-block="pd-vp-00001"><section><p>childless now</p></section></div>` +
+          `<div class="thallo-preview-block" data-thallo-block="pd-vp-00001"><section><p>childless now</p></section></div>` +
           `</main></body></html>`,
       )
       posted.mockClear()
       await refresh()
       expect(acked()).toMatchObject({ mode: 'patched' })
-      expect(lastPost('lemma:block-deselect')).toMatchObject({ id: 'pd-vc-00001' })
-      expect(document.querySelector('.lemma-canvas-toolbar')).toBeNull()
+      expect(lastPost('thallo:block-deselect')).toMatchObject({ id: 'pd-vc-00001' })
+      expect(document.querySelector('.thallo-canvas-toolbar')).toBeNull()
     } finally {
       window.fetch = realFetch
     }
@@ -2004,12 +2004,12 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
       // Edit session.
       const w = proseWrapper('pd-ed-00001')
       document.body.appendChild(w)
-      sendToBridge({ type: 'lemma:edit-grant', id: 'pd-ed-00001', field: 'body', kind: 'rich' })
+      sendToBridge({ type: 'thallo:edit-grant', id: 'pd-ed-00001', field: 'body', kind: 'rich' })
       stubFetch(renderedHtml('x', 'y'))
       posted.mockClear()
       await refresh('r-busy')
       expect(acked()).toMatchObject({ refresh_id: 'r-busy', mode: 'busy' })
-      w.querySelector('.lemma-edit-region')!.dispatchEvent(
+      w.querySelector('.thallo-edit-region')!.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
       )
 
@@ -2053,7 +2053,7 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
         posted.mockClear()
         await refresh()
         expect(acked()).toMatchObject({ mode: 'reload' })
-        expect(document.querySelector('[data-lemma-block="pd-a-0000001"]')).toBe(a)
+        expect(document.querySelector('[data-thallo-block="pd-a-0000001"]')).toBe(a)
       }
     } finally {
       window.fetch = realFetch
@@ -2065,23 +2065,23 @@ describe('stage refresh / partial DOM patching (dom-patching spec §2)', () => {
       document.body.innerHTML = '<main></main>'
       const parent = wrapper(
         'pd-np-00001',
-        '<section><div class="lemma-preview-block" data-lemma-block="pd-nc-00001"><p>child v1</p></div></section>',
+        '<section><div class="thallo-preview-block" data-thallo-block="pd-nc-00001"><p>child v1</p></div></section>',
       )
       document.body.querySelector('main')!.appendChild(parent)
       stubFetch(
         `<html><body><main>` +
-          `<div class="lemma-preview-block" data-lemma-block="pd-np-00001"><section>` +
-          `<div class="lemma-preview-block" data-lemma-block="pd-nc-00001"><p>child v2</p></div>` +
+          `<div class="thallo-preview-block" data-thallo-block="pd-np-00001"><section>` +
+          `<div class="thallo-preview-block" data-thallo-block="pd-nc-00001"><p>child v2</p></div>` +
           `</section></div></main></body></html>`,
       )
       posted.mockClear()
       await refresh()
       expect(acked()).toMatchObject({ mode: 'patched' })
-      expect(document.querySelector('[data-lemma-block="pd-nc-00001"]')!.textContent).toContain(
+      expect(document.querySelector('[data-thallo-block="pd-nc-00001"]')!.textContent).toContain(
         'child v2',
       )
       // ONE top-level wrapper for the id in the document (no double insert).
-      expect(document.querySelectorAll('[data-lemma-block="pd-np-00001"]')).toHaveLength(1)
+      expect(document.querySelectorAll('[data-thallo-block="pd-np-00001"]')).toHaveLength(1)
     } finally {
       window.fetch = realFetch
     }

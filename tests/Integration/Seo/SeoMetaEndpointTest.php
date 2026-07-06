@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Seo;
 
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
-use Glueful\Lemma\Seo\Http\Controllers\AdminSeoMetaController;
-use Glueful\Lemma\Seo\Http\Controllers\SeoMetaController;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Capability\CapabilityRegistry;
+use Thallo\Seo\Http\Controllers\AdminSeoMetaController;
+use Thallo\Seo\Http\Controllers\SeoMetaController;
 use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;
 
-final class SeoMetaEndpointTest extends LemmaTestCase
+final class SeoMetaEndpointTest extends AppTestCase
 {
     use SeedsPublishedContent;
 
@@ -22,7 +22,7 @@ final class SeoMetaEndpointTest extends LemmaTestCase
         // The pack is enabled by default in the test env (config/extensions.php), so
         // isEnabled() being true also proves it was registered.
         $registry = $this->container()->get(CapabilityRegistry::class);
-        self::assertTrue($registry->isEnabled('lemma.seo'), 'lemma.seo registered + enabled');
+        self::assertTrue($registry->isEnabled('thallo.seo'), 'thallo.seo registered + enabled');
 
         $table = $this->connection()->getPDO()
             ->query("SELECT to_regclass('public.seo_meta')")->fetchColumn();
@@ -196,7 +196,7 @@ final class SeoMetaEndpointTest extends LemmaTestCase
             $route = $this->findRoute($method, '/v1/admin/seo/meta/{entryUuid}');
             self::assertNotNull($route, "admin meta {$method} route must be registered");
             self::assertContains(
-                'lemma_permission:seo.manage',
+                'content_permission:seo.manage',
                 (array) ($route['middleware'] ?? []),
                 "admin meta {$method} must require seo.manage",
             );

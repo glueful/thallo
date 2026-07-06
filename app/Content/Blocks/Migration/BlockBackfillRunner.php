@@ -313,7 +313,7 @@ final class BlockBackfillRunner
         /** @var CacheStore $cache */
         $cache = $this->container->get(CacheStore::class);
         $cache->invalidateTags(array_map(
-            static fn(string $slug): string => 'lemma:type:' . $slug,
+            static fn(string $slug): string => 'thallo:type:' . $slug,
             $typeSlugs,
         ));
     }

@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
-use Glueful\Lemma\Collections\Exceptions\PreflightFailedException;
-use Glueful\Lemma\Collections\Schema\CollectionDefinition;
-use Glueful\Lemma\Collections\Schema\CollectionField;
-use Glueful\Lemma\Collections\Schema\DdlPlanner;
-use Glueful\Lemma\Collections\Schema\SchemaChange;
-use Glueful\Lemma\Collections\Schema\SchemaMaterializer;
+use Thallo\Collections\Exceptions\PreflightFailedException;
+use Thallo\Collections\Schema\CollectionDefinition;
+use Thallo\Collections\Schema\CollectionField;
+use Thallo\Collections\Schema\DdlPlanner;
+use Thallo\Collections\Schema\SchemaChange;
+use Thallo\Collections\Schema\SchemaMaterializer;
 
-final class SchemaMaterializerTest extends LemmaTestCase
+final class SchemaMaterializerTest extends AppTestCase
 {
     private const TEST_TABLE = 'collection_clx1';
 
@@ -31,7 +31,7 @@ final class SchemaMaterializerTest extends LemmaTestCase
             $schema->dropTableIfExists(self::TEST_TABLE);
         }
 
-        // collection_schema_changes is not in LemmaTestCase::TABLES; purge it here.
+        // collection_schema_changes is not in AppTestCase::TABLES; purge it here.
         $this->connection()->table('collection_schema_changes')->where('id', '>', 0)->delete();
     }
 

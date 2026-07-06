@@ -14,7 +14,7 @@ use Glueful\Extensions\Aegis\Repositories\RoleRepository;
  * model needs.
  *
  * Aegis's own {@see \Glueful\Extensions\Aegis\Services\RoleService} rejects cross-role assignment
- * for Lemma because its guard walks the `parent_uuid` hierarchy, and Lemma roles are flat. So the
+ * for Thallo because its guard walks the `parent_uuid` hierarchy, and Thallo roles are flat. So the
  * app owns the rule instead, keyed on the numeric role `level` (Aegis: superuser 100, administrator
  * 80, editor 50, user 10):
  *
@@ -89,7 +89,7 @@ final class UserRoleAssignmentPolicy
     private function canManageRoles(string $actorUuid): bool
     {
         try {
-            return $this->aegis->can($actorUuid, self::MANAGE_PERMISSION, 'lemma');
+            return $this->aegis->can($actorUuid, self::MANAGE_PERMISSION, 'thallo');
         } catch (\Throwable) {
             return false;
         }

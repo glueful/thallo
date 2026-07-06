@@ -9,11 +9,11 @@ use App\Content\Blocks\StarterBlockTypes;
 use App\Content\Regions\RegionRepository;
 use App\Http\Controllers\RegionAdminController;
 use App\Http\DTOs\UpdateRegionData;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use App\Content\Validation\ValidationException;
 use Glueful\Validation\RequestDataHydrator;
 
-final class RegionAdminApiTest extends LemmaTestCase
+final class RegionAdminApiTest extends AppTestCase
 {
     private function controller(): RegionAdminController
     {
@@ -105,14 +105,14 @@ final class RegionAdminApiTest extends LemmaTestCase
         ]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/v1/admin/regions/preview'));
         self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
         $html = json_decode((string) $resp->getContent(), true)['data']['html'];
-        self::assertStringContainsString('lemma-block-navigation', $html);
-        self::assertStringContainsString('lemma-region-header--sticky', $html);
-        self::assertStringContainsString('lemma-region-header--full', $html);
+        self::assertStringContainsString('thallo-block-navigation', $html);
+        self::assertStringContainsString('thallo-region-header--sticky', $html);
+        self::assertStringContainsString('thallo-region-header--full', $html);
         self::assertStringContainsString('/theme-assets/site.css', $html);
         self::assertStringContainsString('/theme-assets/blocks.css', $html);
         // Blob-doc anchor (P1): absolute base so host-relative assets resolve.
         self::assertStringContainsString('<base href="https://admin.test/">', $html);
-        self::assertStringNotContainsString('lemma-preview-block', $html); // never annotated
+        self::assertStringNotContainsString('thallo-preview-block', $html); // never annotated
         self::assertStringNotContainsString('<footer', $html);            // no footer posted, none saved
 
         // NOTHING was written.
@@ -158,16 +158,16 @@ final class RegionAdminApiTest extends LemmaTestCase
         $store->set('probe:region:page', 'stale');
         // Tag a probe entry the way RenderPageCache tags pages.
         if (method_exists($store, 'setWithTags')) {
-            $store->setWithTags('probe:region:tagged', 'stale', ['lemma:render:page']);
+            $store->setWithTags('probe:region:tagged', 'stale', ['thallo:render:page']);
         } else {
             $store->set('probe:region:tagged', 'stale');
-            $store->addTags('probe:region:tagged', ['lemma:render:page']);
+            $store->addTags('probe:region:tagged', ['thallo:render:page']);
         }
         self::assertSame('stale', $store->get('probe:region:tagged'));
 
         $this->controller()->update($this->dto(['blocks' => [], 'settings' => []]), 'footer');
 
-        self::assertNull($store->get('probe:region:tagged'), 'region save must broad-purge lemma:render:page');
+        self::assertNull($store->get('probe:region:tagged'), 'region save must broad-purge thallo:render:page');
         self::assertSame('stale', $store->get('probe:region:page'), 'untagged keys are untouched');
     }
 }

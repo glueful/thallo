@@ -17,8 +17,8 @@ use Glueful\Helpers\Utils;
  * Single source of truth for first-run installation.
  *
  * Creates the first admin user, writes site settings, and marks the instance as
- * installed by setting the `installed` key in `lemma_settings`. Intentionally
- * HTTP-agnostic: both the web setup endpoint and the `lemma:setup` CLI command
+ * installed by setting the `installed` key in `settings`. Intentionally
+ * HTTP-agnostic: both the web setup endpoint and the `thallo:setup` CLI command
  * call this service directly.
  */
 final class SetupService
@@ -33,11 +33,11 @@ final class SetupService
     }
 
     /**
-     * Returns true when the `installed` marker has been written to `lemma_settings`.
+     * Returns true when the `installed` marker has been written to `settings`.
      */
     public function isInstalled(): bool
     {
-        $row = $this->db->table('lemma_settings')
+        $row = $this->db->table('settings')
             ->where(['key' => 'installed'])
             ->first();
 
@@ -51,14 +51,14 @@ final class SetupService
      *   1. Re-checks isInstalled() to guard against races.
      *   2. Creates the admin user via UserRepository.
      *   3. Assigns the configured admin role slug to the new user via AegisPermissionProvider.
-     *   4. Writes site_name and default_locale to lemma_settings.
+     *   4. Writes site_name and default_locale to settings.
      *   5. Seeds "Pages" (publicly delivered, mounted at root), "Posts"
      *      (publicly delivered, prefixed) and "Categories" (the taxonomy
      *      worked-example: posts carry a filterable `categories` reference, so
      *      /post/categories/{slug} archives work) content types, and writes
      *      the `listing_types` setting (post) so listings/archives resolve —
      *      a fresh instance is immediately editable AND renderable.
-     *   6. Writes the `installed` marker to lemma_settings.
+     *   6. Writes the `installed` marker to settings.
      *
      * @throws \RuntimeException  When the instance is already installed.
      * @throws \InvalidArgumentException When user creation fails validation.
@@ -81,7 +81,7 @@ final class SetupService
             // the caller's isInstalled() check and this point will be caught here. This does
             // not fully close the race (no row lock), but avoids the common double-install case.
             if ($this->isInstalled()) {
-                throw new \RuntimeException('Lemma is already installed.');
+                throw new \RuntimeException('Thallo is already installed.');
             }
 
             $hashed = (new PasswordHasher())->hash($adminPassword);
@@ -99,7 +99,7 @@ final class SetupService
                 'email_verified_at' => date('Y-m-d H:i:s'),
             ]);
 
-            $adminRoleSlug = (string) config($this->context, 'lemma.roles.admin', 'administrator');
+            $adminRoleSlug = (string) config($this->context, 'thallo.roles.admin', 'administrator');
 
             $this->aegis->assignRole($userUuid, $adminRoleSlug);
 
@@ -115,7 +115,7 @@ final class SetupService
             // working editorial loop on day one. These are ORDINARY content-type
             // rows — fully editable, renameable, and deletable like any
             // user-defined type, not hardcoded/system types — which keeps
-            // Lemma's "define your own types" model intact. Both are publicly
+            // Thallo's "define your own types" model intact. Both are publicly
             // deliverable out of the box; pages mount at root (/about), posts
             // keep the prefixed grammar (/post/hello) like a blog.
             // Shares this transaction via the singleton Connection.
@@ -195,7 +195,7 @@ final class SetupService
     }
 
     /**
-     * Inserts or updates a single key in `lemma_settings`.
+     * Inserts or updates a single key in `settings`.
      *
      * Because the PostgreSQL upsert helper targets `ON CONFLICT (id)` and our primary
      * key is the varchar `key` column, we perform a manual check-then-write instead.
@@ -205,18 +205,18 @@ final class SetupService
     {
         $now = date('Y-m-d H:i:s');
 
-        $existing = $this->db->table('lemma_settings')
+        $existing = $this->db->table('settings')
             ->where(['key' => $key])
             ->first();
 
         if ($existing === null) {
-            $this->db->table('lemma_settings')->insert([
+            $this->db->table('settings')->insert([
                 'key'        => $key,
                 'value'      => $value,
                 'updated_at' => $now,
             ]);
         } else {
-            $this->db->table('lemma_settings')
+            $this->db->table('settings')
                 ->where(['key' => $key])
                 ->update([
                     'value'      => $value,

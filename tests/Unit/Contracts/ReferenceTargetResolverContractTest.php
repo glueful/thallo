@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Contracts;
 
-use Glueful\Lemma\Contracts\Delivery\ReferenceTargetResolver;
-use Glueful\Lemma\Contracts\Schema\FieldDescriptor;
+use Thallo\Contracts\Delivery\ReferenceTargetResolver;
+use Thallo\Contracts\Schema\FieldDescriptor;
 use PHPUnit\Framework\TestCase;
 
 final class ReferenceTargetResolverContractTest extends TestCase

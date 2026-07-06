@@ -20,12 +20,12 @@ use Symfony\Component\HttpFoundation\Request;
  * Media-library admin API over the framework `blobs` store.
  *
  * The framework ships only per-uuid blob ops (upload/show/delete); this adds the library view the
- * SPA needs — a paginated, type-filtered, searchable list — plus Lemma's CMS sidecars:
+ * SPA needs — a paginated, type-filtered, searchable list — plus Thallo's CMS sidecars:
  *  - media_meta  (alt text / caption / tags), edited via {@see update()};
  *  - media_usage (which entries reference a blob), surfaced via {@see usage()} and maintained by
  *    {@see \App\Content\Pipeline\Listeners\MediaUsageProjector} off the asset events.
  *
- * Gated by `content.view` (read) / `content.manage` (write) — see routes/lemma_admin.php.
+ * Gated by `content.view` (read) / `content.manage` (write) — see routes/admin.php.
  */
 final class MediaAdminController
 {

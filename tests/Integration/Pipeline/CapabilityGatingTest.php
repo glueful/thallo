@@ -9,9 +9,9 @@ use App\Content\Pipeline\Listeners\PurgeCdnListener;
 use App\Content\Pipeline\Listeners\ReindexSearchListener;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
-use Glueful\Lemma\Contracts\Search\ContentReindexer;
+use Thallo\Contracts\Search\ContentReindexer;
 use App\Content\Services\PublishService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use App\Tests\Support\RecordingContentReindexer;
 use App\Tests\Support\RecordingEdgeCache;
 use Glueful\Cache\Contracts\EdgeCacheInterface;
@@ -19,7 +19,7 @@ use Glueful\Cache\NullEdgeCache;
 
 /**
  * Proves the two capability-gated listeners (V1_DESIGN §5) are a CLEAN NO-OP in the
- * default Lemma install — which enables users/aegis/media/email but NOT glueful/cdn or a
+ * default Thallo install — which enables users/aegis/media/email but NOT glueful/cdn or a
  * search reindexer — while the rest of the pipeline (cache/webhook) still runs.
  *
  * This is the headline behaviour: a lean install must publish with cache + webhook effects
@@ -34,7 +34,7 @@ use Glueful\Cache\NullEdgeCache;
  * The container-substitution (reflection on the compiled container's `singletons`) mirrors
  * CacheInvalidationTest / WebhookDispatchTest.
  */
-final class CapabilityGatingTest extends LemmaTestCase
+final class CapabilityGatingTest extends AppTestCase
 {
     private string $type;
     private string $entry;
@@ -116,10 +116,10 @@ final class CapabilityGatingTest extends LemmaTestCase
         $listener(new EntryPublished($this->entry, $this->type, 'en', 1, 'user00000001'));
 
         // Same surrogate tags the cache listener invalidates + the delivery layer emits.
-        self::assertContains('lemma:entry:' . $this->entry, $edge->purgedTags, 'must purge the entry tag');
-        self::assertContains('lemma:type:post', $edge->purgedTags, 'must purge the type SLUG tag');
+        self::assertContains('thallo:entry:' . $this->entry, $edge->purgedTags, 'must purge the entry tag');
+        self::assertContains('thallo:type:post', $edge->purgedTags, 'must purge the type SLUG tag');
         self::assertNotContains(
-            'lemma:type:' . $this->type,
+            'thallo:type:' . $this->type,
             $edge->purgedTags,
             'the type tag must use the slug, never the content-type UUID'
         );

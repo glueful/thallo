@@ -26,19 +26,19 @@ describe('useCanvasBridge', () => {
     bridge.onBlockSelect((id) => seen.push(id))
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-select', nonce: 'WRONG', id: 'b1' },
+        data: { type: 'thallo:block-select', nonce: 'WRONG', id: 'b1' },
       }),
     )
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-select', nonce: bridge.nonce, id: 'b2' },
+        data: { type: 'thallo:block-select', nonce: bridge.nonce, id: 'b2' },
       }),
     )
     expect(seen).toEqual(['b2'])
     bridge.dispose()
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-select', nonce: bridge.nonce, id: 'b3' },
+        data: { type: 'thallo:block-select', nonce: bridge.nonce, id: 'b3' },
       }),
     )
     expect(seen).toEqual(['b2']) // disposed: listener removed
@@ -56,17 +56,17 @@ describe('useCanvasBridge', () => {
     bridge.hello()
     expect(postMessage).toHaveBeenNthCalledWith(
       1,
-      { type: 'lemma:highlight', id: 'b1', nonce: bridge.nonce },
+      { type: 'thallo:highlight', id: 'b1', nonce: bridge.nonce },
       'https://site.test',
     )
     expect(postMessage).toHaveBeenNthCalledWith(
       2,
-      { type: 'lemma:scroll-to', id: 'b2', nonce: bridge.nonce },
+      { type: 'thallo:scroll-to', id: 'b2', nonce: bridge.nonce },
       'https://site.test',
     )
     expect(postMessage).toHaveBeenNthCalledWith(
       3,
-      { type: 'lemma:canvas-hello', nonce: bridge.nonce },
+      { type: 'thallo:canvas-hello', nonce: bridge.nonce },
       'https://site.test',
     )
     bridge.dispose()
@@ -85,27 +85,27 @@ describe('useCanvasBridge', () => {
 
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-move', id: 'b1', delta: -1, nonce: bridge.nonce },
+        data: { type: 'thallo:block-move', id: 'b1', delta: -1, nonce: bridge.nonce },
       }),
     )
     expect(move).toHaveBeenCalledWith('b1', -1)
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-move', id: 'b1', delta: 1, nonce: 'wrong' },
+        data: { type: 'thallo:block-move', id: 'b1', delta: 1, nonce: 'wrong' },
       }),
     )
     expect(move).toHaveBeenCalledTimes(1)
     // Malformed delta dropped.
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-move', id: 'b1', delta: 5, nonce: bridge.nonce },
+        data: { type: 'thallo:block-move', id: 'b1', delta: 5, nonce: bridge.nonce },
       }),
     )
     expect(move).toHaveBeenCalledTimes(1)
 
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-duplicate', id: 'b2', nonce: bridge.nonce },
+        data: { type: 'thallo:block-duplicate', id: 'b2', nonce: bridge.nonce },
       }),
     )
     expect(dup).toHaveBeenCalledWith('b2')
@@ -114,14 +114,14 @@ describe('useCanvasBridge', () => {
     // same shape as add-after: null when absent, {x, y} when present.
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-delete-request', id: 'b2', nonce: bridge.nonce },
+        data: { type: 'thallo:block-delete-request', id: 'b2', nonce: bridge.nonce },
       }),
     )
     expect(del).toHaveBeenCalledWith('b2', null)
     window.dispatchEvent(
       new MessageEvent('message', {
         data: {
-          type: 'lemma:block-delete-request',
+          type: 'thallo:block-delete-request',
           id: 'b3',
           rect: { x: 5, y: 6 },
           nonce: bridge.nonce,
@@ -134,13 +134,13 @@ describe('useCanvasBridge', () => {
     // absent/malformed, {x, y} when both numbers are present.
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-add-after', id: 'b2', nonce: bridge.nonce },
+        data: { type: 'thallo:block-add-after', id: 'b2', nonce: bridge.nonce },
       }),
     )
     expect(add).toHaveBeenCalledWith('b2', null)
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-add-after', id: 'b3', rect: { x: 12, y: 34 }, nonce: bridge.nonce },
+        data: { type: 'thallo:block-add-after', id: 'b3', rect: { x: 12, y: 34 }, nonce: bridge.nonce },
       }),
     )
     expect(add).toHaveBeenCalledWith('b3', { x: 12, y: 34 })
@@ -158,22 +158,22 @@ describe('useCanvasBridge', () => {
 
     bridge.mirrorMove('b1', { beforeId: 'b2' })
     expect(postSpy).toHaveBeenCalledWith(
-      { type: 'lemma:mirror-move', id: 'b1', beforeId: 'b2', nonce: bridge.nonce },
+      { type: 'thallo:mirror-move', id: 'b1', beforeId: 'b2', nonce: bridge.nonce },
       'https://site.test',
     )
     bridge.mirrorMove('b1', { afterId: 'b3' })
     expect(postSpy).toHaveBeenCalledWith(
-      { type: 'lemma:mirror-move', id: 'b1', afterId: 'b3', nonce: bridge.nonce },
+      { type: 'thallo:mirror-move', id: 'b1', afterId: 'b3', nonce: bridge.nonce },
       'https://site.test',
     )
     bridge.mirrorRemove('b1')
     expect(postSpy).toHaveBeenCalledWith(
-      { type: 'lemma:mirror-remove', id: 'b1', nonce: bridge.nonce },
+      { type: 'thallo:mirror-remove', id: 'b1', nonce: bridge.nonce },
       'https://site.test',
     )
     bridge.mirrorDuplicate('b1', { b1: 'b9' })
     expect(postSpy).toHaveBeenCalledWith(
-      { type: 'lemma:mirror-duplicate', sourceId: 'b1', idMap: { b1: 'b9' }, nonce: bridge.nonce },
+      { type: 'thallo:mirror-duplicate', sourceId: 'b1', idMap: { b1: 'b9' }, nonce: bridge.nonce },
       'https://site.test',
     )
     bridge.dispose()
@@ -193,28 +193,28 @@ describe('useCanvasBridge', () => {
 
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:edit-request', id: 'b1', field: 'heading', nonce: bridge.nonce },
+        data: { type: 'thallo:edit-request', id: 'b1', field: 'heading', nonce: bridge.nonce },
       }),
     )
     expect(req).toHaveBeenCalledWith('b1', 'heading')
     // A request WITHOUT a field never dispatches (v4 shape is required).
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:edit-request', id: 'b1', nonce: bridge.nonce },
+        data: { type: 'thallo:edit-request', id: 'b1', nonce: bridge.nonce },
       }),
     )
     expect(req).toHaveBeenCalledTimes(1)
 
     bridge.editGrant('b1', 'heading', 'string')
     expect(postSpy).toHaveBeenCalledWith(
-      { type: 'lemma:edit-grant', id: 'b1', field: 'heading', kind: 'string', nonce: bridge.nonce },
+      { type: 'thallo:edit-grant', id: 'b1', field: 'heading', kind: 'string', nonce: bridge.nonce },
       'https://site.test',
     )
 
     window.dispatchEvent(
       new MessageEvent('message', {
         data: {
-          type: 'lemma:text-changed',
+          type: 'thallo:text-changed',
           id: 'b1',
           field: 'heading',
           text: 'plain',
@@ -226,7 +226,7 @@ describe('useCanvasBridge', () => {
     window.dispatchEvent(
       new MessageEvent('message', {
         data: {
-          type: 'lemma:text-changed',
+          type: 'thallo:text-changed',
           id: 'b1',
           field: 'body',
           html: '<p>x</p>',
@@ -239,7 +239,7 @@ describe('useCanvasBridge', () => {
     // Flush resolves on the ack (no timers needed).
     const flushed = bridge.editFlush()
     window.dispatchEvent(
-      new MessageEvent('message', { data: { type: 'lemma:edit-flushed', nonce: bridge.nonce } }),
+      new MessageEvent('message', { data: { type: 'thallo:edit-flushed', nonce: bridge.nonce } }),
     )
     await expect(flushed).resolves.toBeUndefined()
     bridge.dispose()
@@ -252,13 +252,13 @@ describe('useCanvasBridge', () => {
 
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-move-to', id: 'b1', beforeId: 'b2', nonce: bridge.nonce },
+        data: { type: 'thallo:block-move-to', id: 'b1', beforeId: 'b2', nonce: bridge.nonce },
       }),
     )
     expect(moveTo).toHaveBeenCalledWith('b1', { beforeId: 'b2' })
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-move-to', id: 'b1', afterId: 'b3', nonce: bridge.nonce },
+        data: { type: 'thallo:block-move-to', id: 'b1', afterId: 'b3', nonce: bridge.nonce },
       }),
     )
     expect(moveTo).toHaveBeenCalledWith('b1', { afterId: 'b3' })
@@ -266,13 +266,13 @@ describe('useCanvasBridge', () => {
     // never silently prefer one of two contradictory claims).
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-move-to', id: 'b1', nonce: bridge.nonce },
+        data: { type: 'thallo:block-move-to', id: 'b1', nonce: bridge.nonce },
       }),
     )
     window.dispatchEvent(
       new MessageEvent('message', {
         data: {
-          type: 'lemma:block-move-to',
+          type: 'thallo:block-move-to',
           id: 'b1',
           beforeId: 'b2',
           afterId: 'b3',
@@ -299,30 +299,30 @@ describe('useCanvasBridge', () => {
     bridge.onEditEnd(end)
 
     window.dispatchEvent(
-      new MessageEvent('message', { data: { type: 'lemma:scroll', y: 120, nonce: bridge.nonce } }),
+      new MessageEvent('message', { data: { type: 'thallo:scroll', y: 120, nonce: bridge.nonce } }),
     )
     expect(scroll).toHaveBeenCalledWith(120)
     window.dispatchEvent(
-      new MessageEvent('message', { data: { type: 'lemma:scroll', y: 'x', nonce: bridge.nonce } }),
+      new MessageEvent('message', { data: { type: 'thallo:scroll', y: 'x', nonce: bridge.nonce } }),
     )
     expect(scroll).toHaveBeenCalledTimes(1) // non-number dropped
 
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:edit-start', id: 'b1', nonce: bridge.nonce },
+        data: { type: 'thallo:edit-start', id: 'b1', nonce: bridge.nonce },
       }),
     )
     expect(start).toHaveBeenCalledWith('b1')
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:edit-end', id: 'b1', nonce: bridge.nonce },
+        data: { type: 'thallo:edit-end', id: 'b1', nonce: bridge.nonce },
       }),
     )
     expect(end).toHaveBeenCalledWith('b1')
 
     bridge.restoreScroll(480)
     expect(postSpy).toHaveBeenCalledWith(
-      { type: 'lemma:restore-scroll', y: 480, nonce: bridge.nonce },
+      { type: 'thallo:restore-scroll', y: 480, nonce: bridge.nonce },
       'https://site.test',
     )
     bridge.dispose()
@@ -348,19 +348,19 @@ describe('useCanvasBridge', () => {
 
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-deselect', id: 'b1', nonce: bridge.nonce },
+        data: { type: 'thallo:block-deselect', id: 'b1', nonce: bridge.nonce },
       }),
     )
     expect(deselect).toHaveBeenCalledWith('b1')
 
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-deselect', nonce: bridge.nonce },
+        data: { type: 'thallo:block-deselect', nonce: bridge.nonce },
       }),
     )
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:block-deselect', id: 'b2', nonce: 'wrong' },
+        data: { type: 'thallo:block-deselect', id: 'b2', nonce: 'wrong' },
       }),
     )
     expect(deselect).toHaveBeenCalledTimes(1)
@@ -379,14 +379,14 @@ describe('useCanvasBridge', () => {
 
       const p = bridge.stageRefresh()
       const sent = postSpy.mock.calls[0][0] as { type: string; refresh_id: string }
-      expect(sent.type).toBe('lemma:stage-refresh')
+      expect(sent.type).toBe('thallo:stage-refresh')
       expect(typeof sent.refresh_id).toBe('string')
 
       // A foreign ack must not resolve it.
       window.dispatchEvent(
         new MessageEvent('message', {
           data: {
-            type: 'lemma:stage-refreshed',
+            type: 'thallo:stage-refreshed',
             refresh_id: 'someone-else',
             mode: 'patched',
             nonce: bridge.nonce,
@@ -397,7 +397,7 @@ describe('useCanvasBridge', () => {
       window.dispatchEvent(
         new MessageEvent('message', {
           data: {
-            type: 'lemma:stage-refreshed',
+            type: 'thallo:stage-refreshed',
             refresh_id: sent.refresh_id,
             mode: 'busy',
             nonce: bridge.nonce,
@@ -415,7 +415,7 @@ describe('useCanvasBridge', () => {
       window.dispatchEvent(
         new MessageEvent('message', {
           data: {
-            type: 'lemma:stage-refreshed',
+            type: 'thallo:stage-refreshed',
             refresh_id: sent2.refresh_id,
             mode: 'patched',
             nonce: bridge.nonce,
@@ -429,7 +429,7 @@ describe('useCanvasBridge', () => {
       window.dispatchEvent(
         new MessageEvent('message', {
           data: {
-            type: 'lemma:stage-refreshed',
+            type: 'thallo:stage-refreshed',
             refresh_id: sent3.refresh_id,
             mode: 'garbage',
             nonce: bridge.nonce,
@@ -449,7 +449,7 @@ describe('useCanvasBridge', () => {
     bridge.onBlocksIndex((v) => (ids = v))
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'lemma:blocks-index', nonce: bridge.nonce, ids: ['a', 1, 'b', null] },
+        data: { type: 'thallo:blocks-index', nonce: bridge.nonce, ids: ['a', 1, 'b', null] },
       }),
     )
     expect(ids).toEqual(['a', 'b'])

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Analytics;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Analytics\Facts\ActorHasher;
+use App\Tests\Support\AppTestCase;
+use Thallo\Analytics\Facts\ActorHasher;
 
-final class ActorHasherTest extends LemmaTestCase
+final class ActorHasherTest extends AppTestCase
 {
     public function testHashIsStableAndSalted(): void
     {

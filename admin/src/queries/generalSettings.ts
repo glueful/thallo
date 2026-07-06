@@ -4,7 +4,7 @@ import { toApiError } from '@/api/errors'
 
 // ── General settings (App\Http\Controllers\GeneralSettingsController, /v1/admin/settings/general) ──
 //
-// Instance settings persisted as LEMMA_* keys in .env. Calls go through the typed `client`; the
+// Instance settings persisted as env keys in .env. Calls go through the typed `client`; the
 // `{ success, message, data: { settings } }` envelope is unwrapped to the flat settings object.
 
 export interface GeneralSettings {

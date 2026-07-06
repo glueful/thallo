@@ -8,14 +8,14 @@ use App\Capabilities\DefaultCapabilityRegistry;
 use App\Content\Services\PublishService;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
 use App\Tests\Integration\Workflow\Concerns\GrantsPermissions;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Authoring\PublishBlocked;
-use Glueful\Lemma\Contracts\Capability\Capability;
-use Glueful\Lemma\Workflow\WorkflowPublishGate;
-use Glueful\Lemma\Workflow\WorkflowService;
-use Glueful\Lemma\Workflow\WorkflowStateRepository;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Authoring\PublishBlocked;
+use Thallo\Contracts\Capability\Capability;
+use Thallo\Workflow\WorkflowPublishGate;
+use Thallo\Workflow\WorkflowService;
+use Thallo\Workflow\WorkflowStateRepository;
 
-final class WorkflowPublishGateTest extends LemmaTestCase
+final class WorkflowPublishGateTest extends AppTestCase
 {
     use GrantsPermissions;
     use SeedsPublishedContent;
@@ -30,7 +30,7 @@ final class WorkflowPublishGateTest extends LemmaTestCase
 
     public function testUnapprovedPublishIsBlocked(): void
     {
-        // The seed actor holds workflow.bypass suite-wide (LemmaTestCase bootstrap) so fixture
+        // The seed actor holds workflow.bypass suite-wide (AppTestCase bootstrap) so fixture
         // publishes pass the gate; the blocking assertion uses a bypass-less actor.
         $entry = $this->seedBilingualPublishedEntry();
         try {
@@ -64,8 +64,8 @@ final class WorkflowPublishGateTest extends LemmaTestCase
     {
         // Simulate the switchboard-disabled capability: the gate must short-circuit (tags are
         // compile-time, so it is collected even when disabled — the check lives inside).
-        $registry = new DefaultCapabilityRegistry(['lemma.workflow' => false]);
-        $registry->register(new Capability('lemma.workflow'));
+        $registry = new DefaultCapabilityRegistry(['thallo.workflow' => false]);
+        $registry->register(new Capability('thallo.workflow'));
         $gate = new WorkflowPublishGate(
             $registry,
             $this->container()->get(WorkflowStateRepository::class),

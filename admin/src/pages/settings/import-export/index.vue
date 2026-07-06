@@ -66,12 +66,12 @@ async function onExport() {
 
 // ── Import ──────────────────────────────────────────────────────────────────
 const importAdapter = ref('')
-// Format-adapter keys belong to the lemma.importers pack; the core snapshot
-// importer (lemma.content) is always available regardless of the capability.
+// Format-adapter keys belong to the thallo.importers pack; the core snapshot
+// importer (thallo.content) is always available regardless of the capability.
 const FORMAT_ADAPTER_KEYS = ['csv.content', 'markdown.content', 'wordpress.content']
 const importerItems = computed(() =>
   (adapters.value?.importers ?? [])
-    .filter((a) => caps.isEnabled('lemma.importers') || !FORMAT_ADAPTER_KEYS.includes(a.key))
+    .filter((a) => caps.isEnabled('thallo.importers') || !FORMAT_ADAPTER_KEYS.includes(a.key))
     .map((a) => ({ label: a.label, value: a.key })),
 )
 watchEffect(() => {
@@ -353,7 +353,7 @@ function fmtTime(v?: string | null): string {
             </div>
           </UCard>
 
-          <!-- Import: core snapshot always visible; format adapters gated by lemma.importers -->
+          <!-- Import: core snapshot always visible; format adapters gated by thallo.importers -->
           <UCard>
             <template #header><h2 class="font-semibold text-default">Import</h2></template>
             <div class="space-y-4">
@@ -368,11 +368,11 @@ function fmtTime(v?: string | null): string {
 
               <!--
                 Format-adapter wizard section: content-type selector, body-field routing,
-                field mapping, and publish toggle. Only present when the lemma.importers
+                field mapping, and publish toggle. Only present when the thallo.importers
                 capability is on (format adapters are also filtered from the dropdown above
                 when the capability is off, so needsWizard will always be false then too).
               -->
-              <div v-if="caps.isEnabled('lemma.importers')" data-test="format-import" class="space-y-4">
+              <div v-if="caps.isEnabled('thallo.importers')" data-test="format-import" class="space-y-4">
                 <UFormField
                   v-if="needsWizard"
                   label="Content type"
@@ -438,7 +438,7 @@ function fmtTime(v?: string | null): string {
                       ? 'A .md / .mdx file with optional front matter'
                       : isCsv
                         ? 'CSV with a header row'
-                        : 'NDJSON exported from Lemma'
+                        : 'NDJSON exported from Thallo'
                 "
               >
                 <div class="flex items-center gap-2">

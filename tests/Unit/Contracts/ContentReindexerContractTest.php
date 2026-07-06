@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Contracts;
 
-use Glueful\Lemma\Contracts\Search\ContentReindexer;
+use Thallo\Contracts\Search\ContentReindexer;
 use PHPUnit\Framework\TestCase;
 
 final class ContentReindexerContractTest extends TestCase
