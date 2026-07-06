@@ -1,4 +1,4 @@
-# What's Next — Lemma forward-work index
+# What's Next — Thallo forward-work index
 
 > A **pointer page**, not a design doc or a backlog. It records that the POST‑V1 backlog is
 > closed and links each remaining thread to where it is *already* documented, so nothing has
@@ -34,24 +34,24 @@ decisions); the next phases derive from the same APPROACH.
 
 ## Composable‑core: pack vs. core (extraction boundary — settled)
 
-Lemma is a **composable core** — a canonical content engine + `glueful/lemma-contracts` (thin
+Thallo is a **composable core** — a canonical content engine + `glueful/thallo-contracts` (thin
 interfaces/DTOs) + **removable capability packs** that depend only on contracts/framework, never on
-`glueful/lemma`. Spec: [composable‑core design](superpowers/specs/2026-06-28-lemma-composable-core-design.md).
+`glueful/thallo`. Spec: [composable‑core design](superpowers/specs/2026-06-28-thallo-composable-core-design.md).
 
-- **Shipped extraction:** `glueful/lemma-importers` (the four format adapters: `csv.content`,
+- **Shipped extraction:** `glueful/thallo-importers` (the four format adapters: `csv.content`,
   `markdown.content`, `wordpress.content`, `csv.users`) — the proven reference pack. It registers the
-  `lemma.importers` capability, writes content only through the `ContentWriter` contract, is backend +
+  `thallo.importers` capability, writes content only through the `ContentWriter` contract, is backend +
   UI gated, and `composer boundaries` enforces the boundary.
-- **Stays core — do NOT re‑litigate as `lemma-seo`:** `app/Content/Seo/` (the routing/addressability
+- **Stays core — do NOT re‑litigate as `thallo-seo`:** `app/Content/Seo/` (the routing/addressability
   layer — `RouteResolver`, `PathRenderer`, `CanonicalProjector`, `RedirectRepository`) is **not** an
   extraction candidate. It's woven into three core seams at once: `PathRenderer` backs the
-  `LemmaContext::renderPath()` contract that *other packs consume*; route resolution + canonical
+  `Context::renderPath()` contract that *other packs consume*; route resolution + canonical
   projection are constructor deps of the core `DeliveryController` and are stamped into every delivery
   response (`$item['seo']`); and route assignment is part of the entry authoring lifecycle
   (`EntryController` → `RouteRepository`). Extracting it would invert the dependency (core → pack),
   which the architecture forbids. Public addressability is a core delivery feature of a headless CMS.
-- **The remaining packs are NEW BUILDS, not extractions.** A future `lemma-seo` pack is the *additive*
-  SEO toolkit (sitemaps, SEO meta‑fields, redirect import/export, `lemma:seo:check`) built on the
+- **The remaining packs are NEW BUILDS, not extractions.** A future `thallo-seo` pack is the *additive*
+  SEO toolkit (sitemaps, SEO meta‑fields, redirect import/export, `thallo:seo:check`) built on the
   delivery‑reader contract — distinct from the core routing above. Same for **Render / Forms /
   Collections / Search / Analytics**: the contract seams already exist (`ContentDeliveryReader`,
   lifecycle events, `ContentReindexer`, `ContentWriter`), but core holds **no extractable code** for
@@ -86,12 +86,12 @@ The six shipped features each deferred a smaller follow‑up; they are tracked *
 | Field‑localization | **copy‑on‑change** sync of non‑localized fields | [spec](superpowers/specs/2026-06-16-field-localization-design.md) |
 | Version pruning | **scheduled pruning** + an export‑before‑prune interlock | [spec](superpowers/specs/2026-06-16-version-pruning-design.md) |
 | Per‑locale RBAC | **per‑content‑type** scoping (same Aegis mechanism) | [spec](superpowers/specs/2026-06-16-per-locale-rbac-design.md) |
-| SEO / routing | **sitemaps**, SEO **meta‑fields** (title/description/OG), redirect **import/export**, `lemma:seo:check`/`redirects:prune` | [spec](superpowers/specs/2026-06-16-seo-routing-module-design.md) |
+| SEO / routing | **sitemaps**, SEO **meta‑fields** (title/description/OG), redirect **import/export**, `thallo:seo:check`/`redirects:prune` | [spec](superpowers/specs/2026-06-16-seo-routing-module-design.md) |
 | Scheduled publish | **auto‑retry** of failed schedules, **recurring** schedules, failure notifications | [spec](superpowers/specs/2026-06-16-scheduled-publish-design.md) |
 
 ## Larger product surface still in the vision (no design yet)
 
-These are named in [APPROACH.md](APPROACH.md) §"Lemma‑Specific Domain" / §"Initial Product
+These are named in [APPROACH.md](APPROACH.md) §"Thallo‑Specific Domain" / §"Initial Product
 Shape" as post‑V1 and have **no** design doc yet:
 
 - **Rendered delivery** — templates/themes/page rendering (the "rendered" half of the hybrid
@@ -101,7 +101,7 @@ Shape" as post‑V1 and have **no** design doc yet:
   (navigation, render core, render caching) shipped 2026‑07‑02 — see "Recommended
   sequencing" below.
 - **Block / page builder** — architectural (how blocks compose + persist).
-- **Approval / review workflow** — ✅ **shipped** (2026‑07‑02) as the `glueful/lemma-workflow`
+- **Approval / review workflow** — ✅ **shipped** (2026‑07‑02) as the `glueful/thallo-workflow`
   capability pack: single-stage state machine (draft → in_review → approved/changes_requested)
   over draft/publish, `PublishGate` core seam, `workflow.review`/`workflow.bypass` permissions,
   review-queue + editor panel in the admin SPA. Spec:
@@ -112,11 +112,11 @@ Shape" as post‑V1 and have **no** design doc yet:
 - **Taxonomies / collections** — the underlying **reference primitive shipped** (multi-valued +
   filterable references, above), and ✅ the **delivery surface shipped** (2026‑07‑02):
   `GET /v1/content/{type}/facets` + `/{type}/archive/{field}/{term}` over the new
-  `published_entry_references` projection (listener‑maintained, `lemma:resync` re‑drivable).
+  `published_entry_references` projection (listener‑maintained, `thallo:resync` re‑drivable).
   Spec: `docs/superpowers/specs/2026-07-02-term-archives-facets-design.md`. This unblocks the
   rendered listing/archive follow‑up track in V2_DESIGN.md.
 - **Forms** — feature module. **Navigation / menu builder** — ✅ **shipped** (2026‑07‑02) as
-  `glueful/lemma-navigation` (V2 sub‑project 1): menu trees with per‑locale labels,
+  `glueful/thallo-navigation` (V2 sub‑project 1): menu trees with per‑locale labels,
   published‑only resolution via the new `MenuReader` + `EntryTargetResolver` contracts,
   lock_version‑guarded tree writes, admin SPA tree editor.
 - **Ecommerce content integration**, **personalization / segmentation** — later, per APPROACH.
@@ -126,13 +126,13 @@ Shape" as post‑V1 and have **no** design doc yet:
 ## Recommended sequencing (opinion, not a commitment)
 
 1. **Rendered delivery** — ✅ design done ([V2_DESIGN.md](V2_DESIGN.md)), ✅ sub‑project 1
-   (`lemma-navigation`) and ✅ sub‑project 2 (`lemma-render` core) **shipped** (2026‑07‑02):
-   Lemma serves real HTML pages from published content through filesystem Twig themes
+   (`thallo-navigation`) and ✅ sub‑project 2 (`thallo-render` core) **shipped** (2026‑07‑02):
+   Thallo serves real HTML pages from published content through filesystem Twig themes
    (catch‑all → `PublicRouteResolver`, pack‑embedded default theme + app override).
    ✅ sub‑project 3 (render caching) **shipped** (2026‑07‑02): full‑page cache keyed
    `render:{theme}:{normalizedPath}`, surrogate‑tag invalidation through the existing
    lifecycle/`MenuUpdated` seams, ETag/304, `php glueful render:cache:clear`. Spec:
-   `docs/superpowers/specs/2026-07-02-lemma-render-caching-design.md`.
+   `docs/superpowers/specs/2026-07-02-thallo-render-caching-design.md`.
 2. **Taxonomies → term‑archives + facets** — ✅ **shipped** (2026‑07‑02): facet counts and
    term‑archive endpoints over the `published_entry_references` projection (spec:
    `docs/superpowers/specs/2026-07-02-term-archives-facets-design.md`).

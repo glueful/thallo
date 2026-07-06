@@ -1,4 +1,4 @@
-# Lemma Admin — Information Architecture
+# Thallo Admin — Information Architecture
 
 > Reference for the admin SPA navigation. Captures the top-level sections, their
 > sub-items, the backend each maps to, and the persona it serves. Phase 1 ships the
@@ -13,7 +13,7 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
 
 ```
 ┌────────────────────────────────────────────┐
-│  Lemma                                      │
+│  Thallo                                      │
 ├────────────────────────────────────────────┤
 │  Home                                       │  ← default landing (dashboard)
 │                                             │
@@ -85,7 +85,7 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
 - **Persona:** site owner (product feature — like WP Plugins / Shopify Apps / Statamic Addons)
 - Top-level, **not** an ops/dev concern.
 - Ships as **browse + enable/disable + configure** (works on already-installed packages today).
-- **Install from UI → later.** Lemma extensions are Composer packages, so one-click
+- **Install from UI → later.** Thallo extensions are Composer packages, so one-click
   install isn't WordPress's drop-a-file — it needs a real mechanism (a managed/hosted
   control plane that runs `composer require` + redeploys, or a curated registry + apply
   step). A possible in-UI console to run commands is the highest-privilege surface in the
@@ -100,11 +100,11 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
 
 ### Developers
 - **Persona:** integrator (Stripe-style "Developers" section)
-- **API Reference** — internal **Scalar** viewer over **Lemma's own `openapi.json`**
-  (bundled into the admin build or served from a Lemma-owned route — does **not** depend
+- **API Reference** — internal **Scalar** viewer over **Thallo's own `openapi.json`**
+  (bundled into the admin build or served from a Thallo-owned route — does **not** depend
   on the framework's `/docs` route or `documentation.enabled`). Gate the menu item on
   whether the spec is reachable.
-- **Documentation** — Lemma's own guides (separate from the API reference).
+- **Documentation** — Thallo's own guides (separate from the API reference).
 - **API Keys** — delivery keys (create / rotate / revoke); `api_keys` + `ApiKeyService`.
 - **Webhooks** — outbound event subscriptions (core `Api\Webhooks`).
 
@@ -113,7 +113,7 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
 - **Content Types** — the type builder (create/edit content-type schemas). Schema =
   configuration, so it lives here (Directus "Data Model under Settings" pattern); also
   reachable via "+ New type" in the Content nav. Builder UI is a later phase.
-- **General** — site name, default locale, base URL (`lemma_settings`)
+- **General** — site name, default locale, base URL (`settings`)
 - **Languages** — `glueful/i18n`
 - **Redirects** — SEO redirects (endpoints exist)
 - **Email** — notifications / sender (`glueful/email-notification`)
@@ -121,7 +121,7 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
 
 ### Utilities
 - **Persona:** ops
-- **Scheduled Tasks** — queue + publish schedules (`lemma:schedules`, queue)
+- **Scheduled Tasks** — queue + publish schedules (`thallo:schedules`, queue)
 - **Health** — diagnostics (framework health endpoints)
 - **Cache** — status / clear (`cache:status` / `cache:clear`)
 
@@ -137,15 +137,15 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
 - **Utilities** (not "System") — Statamic-standard for cache/health/maintenance; "System"
   sounds like infrastructure plumbing. ("Tools", à la WordPress, is the mainstream
   alternative.)
-- **Extensions** is a top-level product feature, **not** dev-only — Lemma is a product,
+- **Extensions** is a top-level product feature, **not** dev-only — Thallo is a product,
   not a dev-only tool.
 
 ## Production / docs note
 
 The framework defaults `documentation.enabled` **off in production** (secure default for a
-generic framework; overridable via `API_DOCS_ENABLED`). Lemma's in-SPA **API Reference**
+generic framework; overridable via `API_DOCS_ENABLED`). Thallo's in-SPA **API Reference**
 renders its **own** spec, so it's independent of that flag — no framework change needed.
-Lemma decides for itself whether to expose its API reference (it should — the API is a
+Thallo decides for itself whether to expose its API reference (it should — the API is a
 product surface).
 
 ## Phase 1 scope

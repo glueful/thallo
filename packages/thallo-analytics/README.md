@@ -1,9 +1,9 @@
-# glueful/lemma-analytics
+# glueful/thallo-analytics
 
-A self-contained **product-analytics fact store** for [Lemma](https://getlemma.dev). It consumes
+A self-contained **product-analytics fact store** for [Thallo](https://thallo.dev). It consumes
 content, collection, and auth **lifecycle events**, owns its own privacy-minimized facts (raw facts
 + daily rollups + distinct-actor presence), and exposes a gated admin read API — packaged as a
-**removable capability pack** that depends only on the framework and `glueful/lemma-contracts`.
+**removable capability pack** that depends only on the framework and `glueful/thallo-contracts`.
 
 It answers "what's happening in the content/data" and "who's using it," and is deliberately distinct
 from two things that already capture data: the framework's `metrics` capability (raw HTTP traffic —
@@ -23,14 +23,14 @@ trends**; audit and analytics are independent consumers of the same pure events.
   a distinct active user (humans only — `admin` normalized to `user`, api-keys/system excluded).
 - **Ingestion** — the pack subscribes framework **auth** events (`login`/`logout`/`login_failed`)
   under a strict token/PII allow-list (never reads token accessors; failed logins are count-only). An
-  App-side **bridge listener** maps the events the pack can't depend on — `lemma-collections`
+  App-side **bridge listener** maps the events the pack can't depend on — `thallo-collections`
   `Collection*`/`CollectionRow*` and content `Entry*` events — into the recorder (the audit-listener
   pattern).
 - **Read API** — `GET /v1/admin/analytics/series` (zero-filled daily time-series for a metric,
   optionally by subject), `GET /v1/admin/analytics/summary` (KPI totals + distinct active users
   over a range), and `GET /v1/admin/analytics/breakdown` (top subjects for one event over a range),
-  behind `auth` + `lemma_permission:analytics.read`.
-- **Retention** — `./lemma analytics:prune` deletes raw `analytics_facts` past
+  behind `auth` + `content_permission:analytics.read`.
+- **Retention** — `./thallo analytics:prune` deletes raw `analytics_facts` past
   `analytics.retention_days` (default 90); the rollups and the distinct-actor table are never pruned.
 
 ## The capability
@@ -38,10 +38,10 @@ trends**; audit and analytics are independent consumers of the same pure events.
 The provider registers a single capability in `boot()`:
 
 ```php
-new Capability('lemma.analytics', label: 'Analytics', description: '…');
+new Capability('thallo.analytics', label: 'Analytics', description: '…');
 ```
 
-- **Enabled by default.** Disable it by setting `'lemma.analytics' => false` in `config/lemma.php`'s
+- **Enabled by default.** Disable it by setting `'thallo.analytics' => false` in `config/thallo.php`'s
   `capabilities` switchboard.
 - **Gated end-to-end.** When disabled, the read API routes are never registered (`404`) **and all
   ingestion stops** — the auth listeners and the App bridge only subscribe when the capability is
@@ -60,27 +60,27 @@ failed logins record no attempted username.
 
 ## Boundary
 
-Depends on `glueful/lemma-contracts` and `glueful/framework` — and **never** on `glueful/lemma` (the
-application), the audit extension, or `glueful/lemma-collections`. The collection/content event bridge
+Depends on `glueful/thallo-contracts` and `glueful/framework` — and **never** on `glueful/thallo` (the
+application), the audit extension, or `glueful/thallo-collections`. The collection/content event bridge
 lives App-side (`app/Analytics/`) precisely so the pack stays dependency-pure; the repo's
 `composer boundaries` check enforces this (no `App\` references in `src/`).
 
 ## Install
 
-The pack is **bundled by default** in the Lemma create-project template. To add it to an existing app
+The pack is **bundled by default** in the Thallo create-project template. To add it to an existing app
 (it lives as a path package in this monorepo):
 
-1. `composer require glueful/lemma-analytics`
-2. `./lemma extensions:enable lemma-analytics` (writes the provider into the
+1. `composer require glueful/thallo-analytics`
+2. `./thallo extensions:enable thallo-analytics` (writes the provider into the
    `config/extensions.php` allow-list and recompiles the extension cache)
-3. `./lemma migrate:run` to create the tables.
+3. `./thallo migrate:run` to create the tables.
 
 Optionally set `ANALYTICS_HASH_KEY` (falls back to `APP_KEY`) and `ANALYTICS_RETENTION_DAYS`.
 
 ## Remove
 
-`./lemma extensions:disable lemma-analytics`, then `composer remove glueful/lemma-analytics`. The CMS
-core boots unchanged. The `lemma.analytics` capability disappears from `GET /v1/admin/capabilities`,
+`./thallo extensions:disable thallo-analytics`, then `composer remove glueful/thallo-analytics`. The CMS
+core boots unchanged. The `thallo.analytics` capability disappears from `GET /v1/admin/capabilities`,
 so the read API is gone and ingestion stops. The analytics tables remain on disk (drop them manually
 if you want the data gone).
 

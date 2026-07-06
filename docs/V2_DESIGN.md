@@ -1,4 +1,4 @@
-# Lemma V2 Technical Design — Rendered Delivery
+# Thallo V2 Technical Design — Rendered Delivery
 
 This document makes the architecture decisions for the rendered half of the
 hybrid CMS that [APPROACH.md](APPROACH.md) deliberately deferred: *"The
@@ -16,9 +16,9 @@ their own spec → plan → build cycle (`docs/superpowers/specs/`).
 ## 1. Rendering model: in-process SSR as capability packs
 
 **Decision:** HTML is produced inside the same Glueful application, by a
-removable capability pack — `glueful/lemma-render` — with a sibling
-`glueful/lemma-navigation` pack for menus. Core stays render-agnostic; the
-packs depend on `lemma-contracts` + framework only, like every other pack.
+removable capability pack — `glueful/thallo-render` — with a sibling
+`glueful/thallo-navigation` pack for menus. Core stays render-agnostic; the
+packs depend on `thallo-contracts` + framework only, like every other pack.
 
 **Rejected alternatives:**
 
@@ -30,7 +30,7 @@ packs depend on `lemma-contracts` + framework only, like every other pack.
 
 **Rationale:** the classic CMS deployment (one app serves admin + API + site)
 is the strongest form of "rendered directly", and the pack architecture keeps
-it fully removable — with `lemma.render` disabled or the pack absent, the
+it fully removable — with `thallo.render` disabled or the pack absent, the
 install is exactly the headless product that exists today. The proven pack
 invariants apply unchanged: capability-gated routes/listeners, no `App\*`
 references (`composer boundaries`), permissions seeded by the pack and granted
@@ -45,11 +45,11 @@ catch-all hands the raw path to a **`PublicRouteResolver` contract** which
 returns one of: *redirect* (honored as a real 30x), *published entry target*,
 or *not found* (themed 404).
 
-**The contract is a required seam, not an optimization.** `lemma-render`
+**The contract is a required seam, not an optimization.** `thallo-render`
 never imports `App\*`, so it cannot consume the engine's `RouteResolver`
 directly:
 
-- `lemma-contracts` adds `Delivery\PublicRouteResolver` (+ a small resolution
+- `thallo-contracts` adds `Delivery\PublicRouteResolver` (+ a small resolution
   result shape: kind, entry identity, locale, redirect target/status,
   canonical path).
 - Core implements it by wrapping the existing `RouteResolver` /
@@ -80,7 +80,7 @@ architecture is *"catch-all into resolver"* — not a route list.
 **Decision:** Twig is the v2 theme engine. A theme is a directory —
 `themes/{name}/` with `theme.json` (name, version, declared menu regions),
 `templates/`, and `assets/` — git-versioned and composer/path-distributable.
-The active theme is selected in settings (`lemma_settings`). No DB-edited
+The active theme is selected in settings (`settings`). No DB-edited
 templates in v2; Twig's sandbox keeps that door open as a follow-up.
 
 **Rejected alternatives:**
@@ -109,7 +109,7 @@ entry.twig                  -- ...falling back to the generic entry template
 object — the same shape the headless API serves), `site` (name, locale,
 locales), and functions: `menu('main')` (**optional** — via `MenuReader` when
 available, `[]` otherwise; see §5), `path(entry)` (via
-`LemmaContext::renderPath()`), `asset('css/site.css')` (theme assets served
+`Context::renderPath()`), `asset('css/site.css')` (theme assets served
 through the extension `serveFrontend()` static-serving mechanism). Twig
 auto-escaping is on. V2 ships one minimal default theme as the reference
 implementation.
@@ -130,25 +130,25 @@ responses; TTL as a safety net (config, default 1h). *User/preview cache
 bypass is deferred to preview-through-theme* (amended: an anonymous page GET
 carries nothing to detect, and event-driven purges make editor staleness
 moot). CDN purge composes via the existing `PurgeCdnListener` seam. Full
-detail: `docs/superpowers/specs/2026-07-02-lemma-render-caching-design.md`.
+detail: `docs/superpowers/specs/2026-07-02-thallo-render-caching-design.md`.
 
-## 5. Navigation: `lemma-navigation` pack, soft-consumed by render
+## 5. Navigation: `thallo-navigation` pack, soft-consumed by render
 
 **Decision:** menus are data, owned by a small standalone pack built *before*
 render: `navigation_menus` + tree items (linking to entries or raw URLs),
 admin CRUD API + SPA editor, a public delivery endpoint (menus are valuable
-headless), and a **`MenuReader` contract in `lemma-contracts`**.
+headless), and a **`MenuReader` contract in `thallo-contracts`**.
 
-**`lemma-render` does NOT hard-depend on `lemma-navigation`.** `menu('main')`
+**`thallo-render` does NOT hard-depend on `thallo-navigation`.** `menu('main')`
 returns `[]` when no `MenuReader` implementation is available; the default
-theme renders without a menu. If lemma-navigation is installed and enabled,
+theme renders without a menu. If thallo-navigation is installed and enabled,
 menus appear. This keeps each pack independently removable and composable.
 Building navigation first is still correct: it proves the menu seam and gives
 render a real integration on day one.
 
 ## 6. V2 render-core scope (pinned)
 
-The first render milestone is sharp: **"Lemma can serve real HTML pages from
+The first render milestone is sharp: **"Thallo can serve real HTML pages from
 published content using a filesystem theme."**
 
 **In scope for render core:**
@@ -181,9 +181,9 @@ published content using a filesystem theme."**
 
 Each is its own spec → plan → build cycle:
 
-1. **`lemma-navigation`** — menus pack + SPA editor + `MenuReader` contract.
+1. **`thallo-navigation`** — menus pack + SPA editor + `MenuReader` contract.
    Independently shippable; proves the seam render consumes.
-2. **`lemma-render` core** — `PublicRouteResolver` contract + core wrapper,
+2. **`thallo-render` core** — `PublicRouteResolver` contract + core wrapper,
    catch-all mechanism, Twig pipeline, themes, default theme, error pages.
 3. **Render caching** — full-page cache + invalidation + CDN composition
    (§4).

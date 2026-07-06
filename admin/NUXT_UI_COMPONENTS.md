@@ -67,7 +67,7 @@ the docs at <https://ui.nuxt.com>.
 
 ---
 
-## Notes for the Lemma admin
+## Notes for the Thallo admin
 
 - **Rich text for entry `body`** — `UEditor` (+ `UEditorToolbar`, and the slash/mention/
   emoji menus) is the rich-text editor; outputs JSON/HTML/Markdown. Good fit for the

@@ -1,4 +1,4 @@
-# Lemma Post‑V1 Backend Backlog
+# Thallo Post‑V1 Backend Backlog
 
 The V1 headless backend is complete (see [V1_DESIGN.md](V1_DESIGN.md), §§1–10).
 This document consolidates the backend features V1 **deliberately deferred** — each
@@ -11,7 +11,7 @@ Ordering here is rough priority, not a committed sequence. The Admin SPA
 
 **Status (2026-06-17): ✅ COMPLETE — all six backlog items have shipped.** Each went the
 full distance: brainstorm → spec → spec review → plan → plan review → implementation →
-review, grounded against the real framework/Lemma/Aegis code. The per-item entries below are
+review, grounded against the real framework/Thallo/Aegis code. The per-item entries below are
 retained for history (with their settled specs + implementation plans); this backlog is
 closed. New post-V1 work should start a fresh document.
 
@@ -83,19 +83,19 @@ closed. New post-V1 work should start a fresh document.
   source/default locale so editors only translate what's marked localized.
 - **Hard parts:** copy‑on‑create vs copy‑on‑change semantics, and not clobbering an
   intentional per‑locale override of a non‑localized field.
-- **Depends on:** `glueful/i18n` (now Lemma core) and the locale‑variant endpoints
+- **Depends on:** `glueful/i18n` (now Thallo core) and the locale‑variant endpoints
   (present).
 
 ## 6. Per‑locale RBAC
 
 - **Status:** ✅ shipped (2026-06-17).
 - **V1 behavior:** coarse, namespaced permissions checked with **no resource argument**
-  (`lemma.entries.publish`, etc.); no per‑locale or per‑content‑type rules.
+  (`thallo.entries.publish`, etc.); no per‑locale or per‑content‑type rules.
 - **Reference:** V1_DESIGN §3 ("does not add per‑locale RBAC", line ~225) + §7.
 - **Spec:** [`superpowers/specs/2026-06-16-per-locale-rbac-design.md`](superpowers/specs/2026-06-16-per-locale-rbac-design.md) — shipped (per-locale via Aegis resource filters; per-content-type deferred).
 - **Scope sketch:** per‑locale (and, on the same mechanism, per‑content‑type)
   permission checks — e.g. an editor may publish `fr` but not `de` — via Aegis's
-  native resource‑level filters (`can($user, 'lemma.entries.publish', 'locale:fr')`),
+  native resource‑level filters (`can($user, 'thallo.entries.publish', 'locale:fr')`),
   so the V1 permission names never have to be renamed.
 - **Hard parts:** the resource‑argument convention and the admin UX for assigning
   per‑locale grants; deciding the resource taxonomy (locale, content‑type, both).

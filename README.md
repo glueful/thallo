@@ -1,10 +1,10 @@
-# Lemma
+# Thallo
 
 **The canonical source for your content.** Model it once with flexible schemas, manage it with
 real editorial workflows, and deliver it anywhere — through headless APIs today, rendered
 pages later.
 
-Lemma is a hybrid CMS built as a [Glueful](https://github.com/glueful/framework) application
+Thallo is a hybrid CMS built as a [Glueful](https://github.com/glueful/framework) application
 (it starts from `glueful/api-skeleton` and dogfoods the framework's onboarding path). It owns
 the **content domain** — content models, entries, versioning, publishing, delivery — and
 integrates with Glueful core + extensions for the platform layer (storage, queue, scheduler,
@@ -36,7 +36,7 @@ webhooks, OpenAPI, auth).
   webhooks, and search reindex; **scheduled** publish/unpublish at a future time.
 - **SEO / routing** — auto‑captured + manual redirects (301/302/308, chain‑free), plus
   canonical / hreflang metadata on delivery.
-- **Permissions** — coarse Lemma RBAC over `glueful/aegis`, with optional **per‑locale** scoping
+- **Permissions** — coarse Thallo RBAC over `glueful/aegis`, with optional **per‑locale** scoping
   via Aegis resource filters (see [docs/PER_LOCALE_RBAC.md](docs/PER_LOCALE_RBAC.md)).
 - **Portability** — content‑model + entry + asset‑manifest export/import adapters over
   `glueful/import-export` (see [docs/ADAPTER_NOTES.md](docs/ADAPTER_NOTES.md)); configurable
@@ -45,7 +45,7 @@ webhooks, OpenAPI, auth).
 ## Requirements
 
 - **PHP 8.3+**
-- **PostgreSQL** — required, not optional. Lemma relies on JSONB, expression indexes,
+- **PostgreSQL** — required, not optional. Thallo relies on JSONB, expression indexes,
   `FOR UPDATE SKIP LOCKED`, partial‑unique indexes, and `CHECK` constraints throughout.
 - Composer
 
@@ -59,7 +59,7 @@ cp .env.example .env
 #  set DB_DRIVER=pgsql and the DB_PGSQL_* connection vars
 composer key:generate               # APP_KEY (encryption) + JWT_KEY
 
-# Apply the schema (core auth/queue/scheduler + Lemma content engine + extensions)
+# Apply the schema (core auth/queue/scheduler + Thallo content engine + extensions)
 php glueful migrate:run
 
 # Run it
@@ -78,7 +78,7 @@ Key endpoints once running:
 ## Project layout
 
 ```
-app/Content/            # the content engine (Lemma's domain)
+app/Content/            # the content engine (Thallo's domain)
   Schema/               # field definitions, content-type schema, migration op model
   Repositories/         # entries, drafts, versions, publications, routes, references, schedules
   Services/             # PublishService (publish/unpublish/rollback), MigrationService, …
@@ -86,10 +86,10 @@ app/Content/            # the content engine (Lemma's domain)
   Delivery/             # published read path, field projection, ETags
   Scheduling/ Backfill/ Seo/ Retention/ Localization/ Indexing/   # feature modules
   Console/ Jobs/        # CLI commands + queue jobs
-config/                 # lemma.php (+ schedule.php, queue.php, …)
+config/                 # thallo.php (+ schedule.php, queue.php, …)
 database/migrations/    # content-engine schema (001 → 012)
-routes/                 # lemma_admin.php, lemma_content.php, lemma_preview.php
-tests/                  # Unit / Integration / Feature (PostgreSQL via LemmaTestCase)
+routes/                 # admin.php, content.php, preview.php
+tests/                  # Unit / Integration / Feature (PostgreSQL via AppTestCase)
 docs/                   # design + product docs (see below)
 ```
 
@@ -119,8 +119,8 @@ before running. See `CLAUDE.md` for the full developer workflow and conventions.
 
 ## Built on Glueful
 
-Lemma deliberately does **not** rebuild platform infrastructure. Storage/uploads, webhooks,
+Thallo deliberately does **not** rebuild platform infrastructure. Storage/uploads, webhooks,
 scheduler, OpenAPI/docs, queue, and basic audit logging come from Glueful core and its
 extensions (`glueful/users`, `glueful/aegis`, `glueful/i18n`, `glueful/import-export`,
-`glueful/media`, `glueful/cdn`, …). Lemma focuses on the content domain and integrates with the
+`glueful/media`, `glueful/cdn`, …). Thallo focuses on the content domain and integrates with the
 rest.

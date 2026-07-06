@@ -4,7 +4,7 @@ Extracted verbatim from the **installed** `@nuxt/ui` **v4.9.0** package
 (`admin/node_modules/@nuxt/ui/dist`): component sources
 (`runtime/components/*.vue`), typed props/slots (`*.d.vue.ts`), and the
 bundled theme definitions (`shared/ui.*.mjs`). Purpose: reference material
-for designing Lemma starter blocks (server-rendered Twig + plain CSS — the
+for designing Thallo starter blocks (server-rendered Twig + plain CSS — the
 semantic structure and Tailwind styling recipes are what transfer, not the
 Vue mechanics).
 
@@ -22,7 +22,7 @@ Vue mechanics).
   (treat as plain space-joined classes).
 - Semantic color utilities (`text-muted`, `bg-elevated`, `ring-default`,
   `text-highlighted`, `bg-inverted`, `text-dimmed`, `text-toned`,
-  `bg-accented`) are Nuxt UI design tokens — map these to Lemma theme
+  `bg-accented`) are Nuxt UI design tokens — map these to Thallo theme
   tokens (`--ink`, `--surface`, …) when porting.
 
 **Contents**

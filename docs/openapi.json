@@ -1,9 +1,9 @@
 {
     "openapi": "3.1.0",
     "info": {
-        "title": "Lemma CMS API",
+        "title": "Thallo CMS API",
         "version": "1.0.0",
-        "description": "The Lemma headless CMS API.\n\n## Authentication\n\n- **Delivery API** (`\/v1\/content\/*`) \u2014 send an API key in the `X-API-Key` header. The key must carry `read:content` or `read:content:{type}` unless the content type explicitly opts into public delivery. Keys are environment-prefixed (`gf_live_*` \/ `gf_test_*`) and provisioned out of band.\n- **Admin API** (`\/v1\/admin\/*`) \u2014 send a bearer JWT in the `Authorization` header (`Authorization: Bearer <token>`). Each route also enforces a `lemma.*` permission (named in the operation description). Obtain a token from your Glueful auth endpoint (e.g. `POST \/v1\/auth\/login`).\n- **Preview** (`GET \/v1\/preview\/{token}`) \u2014 unauthenticated: the signed, short-lived token in the path is itself the capability.\n\nOnly published content is ever returned by the delivery API; drafts are reachable only through a valid preview token."
+        "description": "The Thallo headless CMS API.\n\n## Authentication\n\n- **Delivery API** (`\/v1\/content\/*`) \u2014 send an API key in the `X-API-Key` header. The key must carry `read:content` or `read:content:{type}` unless the content type explicitly opts into public delivery. Keys are environment-prefixed (`gf_live_*` \/ `gf_test_*`) and provisioned out of band.\n- **Admin API** (`\/v1\/admin\/*`) \u2014 send a bearer JWT in the `Authorization` header (`Authorization: Bearer <token>`). Each route also enforces a `thallo.*` permission (named in the operation description). Obtain a token from your Glueful auth endpoint (e.g. `POST \/v1\/auth\/login`).\n- **Preview** (`GET \/v1\/preview\/{token}`) \u2014 unauthenticated: the signed, short-lived token in the path is itself the capability.\n\nOnly published content is ever returned by the delivery API; drafts are reachable only through a valid preview token."
     },
     "servers": [
         {
@@ -21,7 +21,7 @@
                 "type": "http",
                 "scheme": "bearer",
                 "bearerFormat": "JWT",
-                "description": "JWT bearer token. Used by the admin authoring API (\/v1\/admin\/*), combined with a per-route lemma_permission RBAC check."
+                "description": "JWT bearer token. Used by the admin authoring API (\/v1\/admin\/*), combined with a per-route content_permission RBAC check."
             },
             "ApiKeyAuth": {
                 "type": "apiKey",
@@ -6041,7 +6041,7 @@
                 "operationId": "getV1AdminNavigationMenus",
                 "summary": "List navigation menus",
                 "tags": [
-                    "Lemma Navigation"
+                    "Thallo Navigation"
                 ],
                 "security": [
                     {
@@ -6154,7 +6154,7 @@
                 "operationId": "postV1AdminNavigationMenus",
                 "summary": "Create a navigation menu",
                 "tags": [
-                    "Lemma Navigation"
+                    "Thallo Navigation"
                 ],
                 "security": [
                     {
@@ -6324,7 +6324,7 @@
                 "operationId": "getV1AdminRenderThemes",
                 "summary": "List selectable themes (validator-accepted) and the active one",
                 "tags": [
-                    "Lemma Templates"
+                    "Thallo Templates"
                 ],
                 "security": [
                     {
@@ -6437,7 +6437,7 @@
                 "operationId": "postV1AdminRenderThemes",
                 "summary": "Clone a theme into a new app theme directory (themes\/{name})",
                 "tags": [
-                    "Lemma Templates"
+                    "Thallo Templates"
                 ],
                 "security": [
                     {
@@ -6555,7 +6555,7 @@
                 "operationId": "getV1AdminRenderTemplates",
                 "summary": "List resolvable templates (filesystem + DB) for a theme",
                 "tags": [
-                    "Lemma Templates"
+                    "Thallo Templates"
                 ],
                 "security": [
                     {
@@ -6670,7 +6670,7 @@
                 "operationId": "getSitemapxml",
                 "summary": "sitemap.xml (adaptive urlset\/index)",
                 "tags": [
-                    "Lemma SEO"
+                    "Thallo SEO"
                 ],
                 "responses": {
                     "200": {
@@ -6733,7 +6733,7 @@
                 "operationId": "getRobotstxt",
                 "summary": "robots.txt",
                 "tags": [
-                    "Lemma SEO"
+                    "Thallo SEO"
                 ],
                 "responses": {
                     "200": {
@@ -6796,7 +6796,7 @@
                 "operationId": "getV1AdminWorkflowQueue",
                 "summary": "Review queue (in_review submissions)",
                 "tags": [
-                    "Lemma Workflow"
+                    "Thallo Workflow"
                 ],
                 "security": [
                     {
@@ -6911,7 +6911,7 @@
                 "operationId": "getV1AdminContenttypes",
                 "summary": "List content types",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "security": [
                     {
@@ -7221,7 +7221,7 @@
                 "operationId": "postV1AdminContenttypes",
                 "summary": "Create a content type",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "security": [
                     {
@@ -7722,7 +7722,7 @@
                 "operationId": "getV1AdminBlocktypes",
                 "summary": "List block types",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "security": [
                     {
@@ -8008,7 +8008,7 @@
                 "operationId": "postV1AdminBlocktypes",
                 "summary": "Create a block type",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "security": [
                     {
@@ -8482,7 +8482,7 @@
                 "operationId": "getV1AdminEntries",
                 "summary": "List entries of a content type (draft-inclusive)",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -8516,7 +8516,7 @@
                         "name": "perPage",
                         "in": "query",
                         "required": false,
-                        "description": "Items per page (clamped to lemma.delivery.max_per_page; default default_per_page).",
+                        "description": "Items per page (clamped to thallo.delivery.max_per_page; default default_per_page).",
                         "schema": {
                             "type": "number"
                         }
@@ -8736,7 +8736,7 @@
                 "operationId": "postV1AdminEntries",
                 "summary": "Create an entry",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "security": [
                     {
@@ -9023,7 +9023,7 @@
                 "operationId": "getV1AdminIcons",
                 "summary": "List vendored icons",
                 "tags": [
-                    "Lemma Icons"
+                    "Thallo Icons"
                 ],
                 "security": [
                     {
@@ -9145,7 +9145,7 @@
                 "operationId": "getV1AdminRegions",
                 "summary": "List chrome regions",
                 "tags": [
-                    "Lemma Regions"
+                    "Thallo Regions"
                 ],
                 "security": [
                     {
@@ -9261,7 +9261,7 @@
                 "operationId": "postV1AdminRegionsPreview",
                 "summary": "Preview chrome regions",
                 "tags": [
-                    "Lemma Regions"
+                    "Thallo Regions"
                 ],
                 "security": [
                     {
@@ -9403,14 +9403,14 @@
                 "operationId": "getV1AdminSettingsGeneral",
                 "summary": "Get general settings",
                 "tags": [
-                    "Lemma Settings"
+                    "Thallo Settings"
                 ],
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Effective instance settings (site identity, default locale, delivery defaults, feature toggles): a lemma_settings override, else the config\/.env default. Requires `content.manage`.",
+                "description": "Effective instance settings (site identity, default locale, delivery defaults, feature toggles): a settings override, else the config\/.env default. Requires `content.manage`.",
                 "responses": {
                     "200": {
                         "description": "Current general settings.",
@@ -9587,14 +9587,14 @@
                 "operationId": "putV1AdminSettingsGeneral",
                 "summary": "Update general settings",
                 "tags": [
-                    "Lemma Settings"
+                    "Thallo Settings"
                 ],
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Persists the submitted settings to lemma_settings (only supplied fields change). Applies on the next request \u2014 no restart. Requires `content.manage`.",
+                "description": "Persists the submitted settings to settings (only supplied fields change). Applies on the next request \u2014 no restart. Requires `content.manage`.",
                 "requestBody": {
                     "required": false,
                     "content": {
@@ -10445,6 +10445,99 @@
                                 }
                             }
                         }
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/extensions\/install": {
+            "post": {
+                "operationId": "postV1AdminExtensionsInstall",
+                "summary": "Install a glueful extension",
+                "tags": [
+                    "Extensions"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Runs `composer require` for a catalog extension SYNCHRONOUSLY (the request blocks until composer finishes). On success the extension is installed but DISABLED \u2014 enable it with the toggle. Dev only (composer cannot write on immutable production hosts). Requires the `system.access` permission.",
+                "responses": {
+                    "200": {
+                        "description": "Installed \u2014 enable it to activate."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Installer disabled (production\/kill-switch)."
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Host filesystem is not writable (immutable deploy)."
+                    },
+                    "422": {
+                        "description": "Not an installable glueful extension, or composer failed."
                     }
                 }
             }
@@ -11680,7 +11773,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Capabilities provided by installed packs and not disabled by the lemma.capabilities switchboard. Requires the `system.access` permission.",
+                "description": "Capabilities provided by installed packs and not disabled by the thallo.capabilities switchboard. Requires the `system.access` permission.",
                 "responses": {
                     "200": {
                         "description": "Enabled capabilities.",
@@ -12167,7 +12260,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Clears the cache. With `content_type`, only that type's delivery cache (the `lemma:type:<slug>` tag) is invalidated; otherwise the whole cache is flushed. Requires `system.access`.",
+                "description": "Clears the cache. With `content_type`, only that type's delivery cache (the `thallo:type:<slug>` tag) is invalidated; otherwise the whole cache is flushed. Requires `system.access`.",
                 "requestBody": {
                     "required": false,
                     "content": {
@@ -12643,7 +12736,7 @@
                 "operationId": "getAdminConfig",
                 "summary": "Admin SPA runtime config",
                 "tags": [
-                    "Lemma Setup"
+                    "Thallo Setup"
                 ],
                 "description": "Unauthenticated bootstrap config the admin SPA fetches at startup: `apiBase`, `sitePreviewUrl`, `defaultLocale`, and whether first-run setup has completed (`installed`). A plain JSON document (no `data` envelope) so one compiled bundle works across installs.",
                 "responses": {
@@ -12690,7 +12783,7 @@
                 "operationId": "postAdminSetup",
                 "summary": "First-run web setup",
                 "tags": [
-                    "Lemma Setup"
+                    "Thallo Setup"
                 ],
                 "description": "Unauthenticated, self-locking first-run setup: creates the first admin and writes site settings. Returns 409 forever once the instance is installed \u2014 a second \"first\" admin can never be created.",
                 "requestBody": {
@@ -13571,6 +13664,746 @@
                     },
                     "415": {
                         "description": "Unsupported file type"
+                    }
+                }
+            }
+        },
+        "\/v1\/extensions": {
+            "get": {
+                "operationId": "getV1Extensions",
+                "summary": "GET \/v1\/extensions",
+                "tags": [
+                    "Extensions"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "\/v1\/extensions\/catalog": {
+            "get": {
+                "operationId": "getV1ExtensionsCatalog",
+                "summary": "GET \/v1\/extensions\/catalog",
+                "tags": [
+                    "Extensions"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "\/v1\/extensions\/install": {
+            "post": {
+                "operationId": "postV1ExtensionsInstall",
+                "summary": "POST \/v1\/extensions\/install",
+                "tags": [
+                    "Extensions"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "package": {
+                                        "type": "string",
+                                        "maxLength": 150
+                                    }
+                                },
+                                "required": [
+                                    "package"
+                                ]
+                            },
+                            "example": {
+                                "package": "example"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "message",
+                                        "errors"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "\/v1\/extensions\/enable": {
+            "post": {
+                "operationId": "postV1ExtensionsEnable",
+                "summary": "POST \/v1\/extensions\/enable",
+                "tags": [
+                    "Extensions"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "package": {
+                                        "type": "string",
+                                        "maxLength": 150
+                                    }
+                                },
+                                "required": [
+                                    "package"
+                                ]
+                            },
+                            "example": {
+                                "package": "example"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "message",
+                                        "errors"
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "\/v1\/extensions\/disable": {
+            "post": {
+                "operationId": "postV1ExtensionsDisable",
+                "summary": "POST \/v1\/extensions\/disable",
+                "tags": [
+                    "Extensions"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "package": {
+                                        "type": "string",
+                                        "maxLength": 150
+                                    }
+                                },
+                                "required": [
+                                    "package"
+                                ]
+                            },
+                            "example": {
+                                "package": "example"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "message",
+                                        "errors"
+                                    ]
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -18467,7 +19300,7 @@
                 "operationId": "getV1AdminNavigationMenusBySlug",
                 "summary": "Menu editor payload: full unfiltered tree for a locale",
                 "tags": [
-                    "Lemma Navigation"
+                    "Thallo Navigation"
                 ],
                 "parameters": [
                     {
@@ -18595,7 +19428,7 @@
                 "operationId": "putV1AdminNavigationMenusBySlug",
                 "summary": "Rename a navigation menu",
                 "tags": [
-                    "Lemma Navigation"
+                    "Thallo Navigation"
                 ],
                 "parameters": [
                     {
@@ -18722,7 +19555,7 @@
                 "operationId": "deleteV1AdminNavigationMenusBySlug",
                 "summary": "Delete a navigation menu (and its items)",
                 "tags": [
-                    "Lemma Navigation"
+                    "Thallo Navigation"
                 ],
                 "parameters": [
                     {
@@ -18851,7 +19684,7 @@
                 "operationId": "getV1MenusBySlug",
                 "summary": "Resolved navigation menu",
                 "tags": [
-                    "Lemma Navigation"
+                    "Thallo Navigation"
                 ],
                 "parameters": [
                     {
@@ -18979,7 +19812,7 @@
                 "operationId": "getV1AdminRenderTemplatesByPathVersionsByUuid",
                 "summary": "One version's source",
                 "tags": [
-                    "Lemma Templates"
+                    "Thallo Templates"
                 ],
                 "parameters": [
                     {
@@ -19119,7 +19952,7 @@
                 "operationId": "getV1AdminRenderTemplatesByPathVersions",
                 "summary": "Version history (newest first; survives delete)",
                 "tags": [
-                    "Lemma Templates"
+                    "Thallo Templates"
                 ],
                 "parameters": [
                     {
@@ -19249,7 +20082,7 @@
                 "operationId": "getV1AdminRenderTemplatesByPath",
                 "summary": "Current template source (DB override or filesystem)",
                 "tags": [
-                    "Lemma Templates"
+                    "Thallo Templates"
                 ],
                 "parameters": [
                     {
@@ -19377,7 +20210,7 @@
                 "operationId": "putV1AdminRenderTemplatesByPath",
                 "summary": "Save a template override (create or update; DB-only paths allowed)",
                 "tags": [
-                    "Lemma Templates"
+                    "Thallo Templates"
                 ],
                 "parameters": [
                     {
@@ -19524,7 +20357,7 @@
                 "operationId": "deleteV1AdminRenderTemplatesByPath",
                 "summary": "Delete the override (deactivate \u2014 history preserved), fall back to filesystem",
                 "tags": [
-                    "Lemma Templates"
+                    "Thallo Templates"
                 ],
                 "parameters": [
                     {
@@ -19654,7 +20487,7 @@
                 "operationId": "getV1SeoMetaByTypeBySlug",
                 "summary": "Resolved SEO meta for a published entry",
                 "tags": [
-                    "Lemma SEO"
+                    "Thallo SEO"
                 ],
                 "parameters": [
                     {
@@ -19724,7 +20557,7 @@
                 "operationId": "getSitemapNxml",
                 "summary": "sitemap page file",
                 "tags": [
-                    "Lemma SEO"
+                    "Thallo SEO"
                 ],
                 "parameters": [
                     {
@@ -19809,7 +20642,7 @@
                 "operationId": "getV1AdminSeoMetaByEntryuuid",
                 "summary": "Read SEO meta overrides for an entry",
                 "tags": [
-                    "Lemma SEO"
+                    "Thallo SEO"
                 ],
                 "parameters": [
                     {
@@ -19933,7 +20766,7 @@
                 "operationId": "putV1AdminSeoMetaByEntryuuid",
                 "summary": "Upsert SEO meta overrides for an entry",
                 "tags": [
-                    "Lemma SEO"
+                    "Thallo SEO"
                 ],
                 "parameters": [
                     {
@@ -20062,7 +20895,7 @@
                 "operationId": "getV1AdminWorkflowEntriesByUuidByLocale",
                 "summary": "Review state + history for an entry\/locale",
                 "tags": [
-                    "Lemma Workflow"
+                    "Thallo Workflow"
                 ],
                 "parameters": [
                     {
@@ -20197,7 +21030,7 @@
                 "operationId": "getV1AdminContenttypesBySlug",
                 "summary": "Get a content type by slug",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -20547,7 +21380,7 @@
                 "operationId": "deleteV1AdminContenttypesBySlug",
                 "summary": "Delete a content type",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -20704,7 +21537,7 @@
                 "operationId": "patchV1AdminContenttypesBySlug",
                 "summary": "Update content-type metadata",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -21138,7 +21971,7 @@
                 "operationId": "getV1AdminContenttypesBySlugMigrations",
                 "summary": "List schema migrations for a content type",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -21294,7 +22127,7 @@
                 "operationId": "postV1AdminContenttypesBySlugMigrations",
                 "summary": "Start a destructive schema migration",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -21542,7 +22375,7 @@
                 "operationId": "getV1AdminContenttypesBySlugMigrationsByMigrationuuid",
                 "summary": "Get one schema migration",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -21709,7 +22542,7 @@
                 "operationId": "getV1AdminBlocktypesBySlug",
                 "summary": "One block type",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -22035,7 +22868,7 @@
                 "operationId": "deleteV1AdminBlocktypesBySlug",
                 "summary": "Hard-delete an UNUSED block type",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -22224,7 +23057,7 @@
                 "operationId": "patchV1AdminBlocktypesBySlug",
                 "summary": "Update a block type (slug is immutable)",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -22731,7 +23564,7 @@
                 "operationId": "getV1AdminBlocktypesBySlugMigrations",
                 "summary": "List schema migrations for a block type",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -22887,7 +23720,7 @@
                 "operationId": "postV1AdminBlocktypesBySlugMigrations",
                 "summary": "Start a block-type schema migration",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -23135,7 +23968,7 @@
                 "operationId": "getV1AdminBlocktypesBySlugMigrationsByMigrationuuid",
                 "summary": "Get one block-type schema migration",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -23302,7 +24135,7 @@
                 "operationId": "getV1AdminBlocktypesBySlugUsage",
                 "summary": "Block type usage across current content",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -23461,7 +24294,7 @@
                 "operationId": "getV1AdminEntriesByUuid",
                 "summary": "Get an entry",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -23691,7 +24524,7 @@
                 "operationId": "deleteV1AdminEntriesByUuid",
                 "summary": "Delete an entry",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -23882,7 +24715,7 @@
                 "operationId": "getV1AdminEntriesByUuidDraftByLocale",
                 "summary": "Get an entry's draft for a locale",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -24106,7 +24939,7 @@
                 "operationId": "putV1AdminEntriesByUuidDraftByLocale",
                 "summary": "Save an entry's draft (optimistic-locked)",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -24422,7 +25255,7 @@
                 "operationId": "deleteV1AdminEntriesByUuidDraftByLocale",
                 "summary": "Discard an entry draft",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -24590,7 +25423,7 @@
                 "operationId": "getV1AdminEntriesByUuidLocales",
                 "summary": "List entry locale variants",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -24851,7 +25684,7 @@
                 "operationId": "getV1AdminLocalesByLocaleUsage",
                 "summary": "Get locale content usage counts",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -25009,7 +25842,7 @@
                 "operationId": "getV1AdminEntriesByUuidVersionsByLocale",
                 "summary": "List entry versions",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -25145,7 +25978,7 @@
                 "operationId": "getV1AdminEntriesByUuidRoutes",
                 "summary": "List entry routes",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -25272,7 +26105,7 @@
                 "operationId": "getV1AdminContenttypesBySlugRedirects",
                 "summary": "List redirects for a content type",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -25429,7 +26262,7 @@
                 "operationId": "postV1AdminContenttypesBySlugRedirects",
                 "summary": "Create a redirect for a content type",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -25690,7 +26523,7 @@
                 "operationId": "getV1AdminEntriesByUuidSchedules",
                 "summary": "List an entry's schedules",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -27923,7 +28756,7 @@
                 "operationId": "getV1ContentByType",
                 "summary": "List published entries of a content type",
                 "tags": [
-                    "Lemma Delivery"
+                    "Thallo Delivery"
                 ],
                 "parameters": [
                     {
@@ -28528,7 +29361,7 @@
                 "operationId": "getV1ContentByTypeBySlugoruuid",
                 "summary": "Get a single published entry by slug or UUID",
                 "tags": [
-                    "Lemma Delivery"
+                    "Thallo Delivery"
                 ],
                 "parameters": [
                     {
@@ -29135,7 +29968,7 @@
                 "operationId": "getV1PreviewByToken",
                 "summary": "Read a draft via a signed preview token",
                 "tags": [
-                    "Lemma Preview"
+                    "Thallo Preview"
                 ],
                 "parameters": [
                     {
@@ -29942,7 +30775,7 @@
                 "operationId": "putV1AdminNavigationMenusBySlugItems",
                 "summary": "Replace a menu tree atomically",
                 "tags": [
-                    "Lemma Navigation"
+                    "Thallo Navigation"
                 ],
                 "parameters": [
                     {
@@ -30078,7 +30911,7 @@
                 "operationId": "putV1AdminEntriesByUuidRoutesByLocale",
                 "summary": "Assign an entry route",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -30330,7 +31163,7 @@
                 "operationId": "deleteV1AdminEntriesByUuidRoutesByLocale",
                 "summary": "Remove an entry route",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -30466,7 +31299,7 @@
                 "operationId": "putV1AdminRegionsBySlug",
                 "summary": "Save a chrome region",
                 "tags": [
-                    "Lemma Regions"
+                    "Thallo Regions"
                 ],
                 "parameters": [
                     {
@@ -31526,7 +32359,7 @@
                 "operationId": "deleteV1AdminRedirectsByUuid",
                 "summary": "Delete a redirect",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -31685,7 +32518,7 @@
                 "operationId": "deleteV1AdminEntriesByUuidSchedulesByScheduleuuid",
                 "summary": "Cancel a pending schedule",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -33849,7 +34682,7 @@
                 "operationId": "postV1AdminRenderTemplatesByPathVersionsByUuidRestore",
                 "summary": "Restore a version (append-as-new-current; reactivates a deleted override)",
                 "tags": [
-                    "Lemma Templates"
+                    "Thallo Templates"
                 ],
                 "parameters": [
                     {
@@ -33992,7 +34825,7 @@
                 "operationId": "postV1AdminWorkflowEntriesByUuidByLocaleSubmit",
                 "summary": "Submit a draft for review",
                 "tags": [
-                    "Lemma Workflow"
+                    "Thallo Workflow"
                 ],
                 "parameters": [
                     {
@@ -34133,7 +34966,7 @@
                 "operationId": "postV1AdminWorkflowEntriesByUuidByLocaleApprove",
                 "summary": "Approve a submission",
                 "tags": [
-                    "Lemma Workflow"
+                    "Thallo Workflow"
                 ],
                 "parameters": [
                     {
@@ -34242,7 +35075,7 @@
                 "operationId": "postV1AdminWorkflowEntriesByUuidByLocaleRequestchanges",
                 "summary": "Request changes on a submission",
                 "tags": [
-                    "Lemma Workflow"
+                    "Thallo Workflow"
                 ],
                 "parameters": [
                     {
@@ -34383,7 +35216,7 @@
                 "operationId": "postV1AdminWorkflowEntriesByUuidByLocaleWithdraw",
                 "summary": "Withdraw a submission",
                 "tags": [
-                    "Lemma Workflow"
+                    "Thallo Workflow"
                 ],
                 "parameters": [
                     {
@@ -34492,7 +35325,7 @@
                 "operationId": "postV1AdminBlocktypesBySlugActivate",
                 "summary": "Reactivate a block type",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -34820,7 +35653,7 @@
                 "operationId": "postV1AdminBlocktypesBySlugDeactivate",
                 "summary": "Deactivate a block type (existing content keeps rendering\/editing)",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -35148,7 +35981,7 @@
                 "operationId": "postV1AdminEntriesByUuidLocalesByLocale",
                 "summary": "Create an entry locale draft",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -35466,7 +36299,7 @@
                 "operationId": "postV1AdminEntriesByUuidPreviewByLocale",
                 "summary": "Mint a short-lived preview token",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -35706,7 +36539,7 @@
                 "operationId": "postV1AdminEntriesByUuidPreviewByLocaleApply",
                 "summary": "Apply working fields as an ephemeral preview",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -35965,7 +36798,7 @@
                 "operationId": "postV1AdminEntriesByUuidSchedulesByLocale",
                 "summary": "Schedule a publish\/unpublish",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -36193,7 +37026,7 @@
                 "operationId": "postV1AdminEntriesByUuidPublishByLocale",
                 "summary": "Publish an entry's draft",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -36456,7 +37289,7 @@
                 "operationId": "postV1AdminEntriesByUuidUnpublishByLocale",
                 "summary": "Unpublish an entry",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -36592,7 +37425,7 @@
                 "operationId": "postV1AdminEntriesByUuidRollbackByLocale",
                 "summary": "Roll back to a previous version",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -38628,7 +39461,7 @@
                 "operationId": "patchV1AdminContenttypesBySlugSchema",
                 "summary": "Update a content type's field schema",
                 "tags": [
-                    "Lemma Admin"
+                    "Thallo Admin"
                 ],
                 "parameters": [
                     {
@@ -39481,50 +40314,6 @@
             "description": "Operations related to Import Export"
         },
         {
-            "name": "Lemma Admin",
-            "description": "Operations related to Lemma Admin"
-        },
-        {
-            "name": "Lemma Delivery",
-            "description": "Operations related to Lemma Delivery"
-        },
-        {
-            "name": "Lemma Icons",
-            "description": "Operations related to Lemma Icons"
-        },
-        {
-            "name": "Lemma Navigation",
-            "description": "Operations related to Lemma Navigation"
-        },
-        {
-            "name": "Lemma Preview",
-            "description": "Operations related to Lemma Preview"
-        },
-        {
-            "name": "Lemma Regions",
-            "description": "Operations related to Lemma Regions"
-        },
-        {
-            "name": "Lemma SEO",
-            "description": "Operations related to Lemma SEO"
-        },
-        {
-            "name": "Lemma Settings",
-            "description": "Operations related to Lemma Settings"
-        },
-        {
-            "name": "Lemma Setup",
-            "description": "Operations related to Lemma Setup"
-        },
-        {
-            "name": "Lemma Templates",
-            "description": "Operations related to Lemma Templates"
-        },
-        {
-            "name": "Lemma Workflow",
-            "description": "Operations related to Lemma Workflow"
-        },
-        {
             "name": "Media",
             "description": "Operations related to Media"
         },
@@ -39559,6 +40348,50 @@
         {
             "name": "Search Admin",
             "description": "Operations related to Search Admin"
+        },
+        {
+            "name": "Thallo Admin",
+            "description": "Operations related to Thallo Admin"
+        },
+        {
+            "name": "Thallo Delivery",
+            "description": "Operations related to Thallo Delivery"
+        },
+        {
+            "name": "Thallo Icons",
+            "description": "Operations related to Thallo Icons"
+        },
+        {
+            "name": "Thallo Navigation",
+            "description": "Operations related to Thallo Navigation"
+        },
+        {
+            "name": "Thallo Preview",
+            "description": "Operations related to Thallo Preview"
+        },
+        {
+            "name": "Thallo Regions",
+            "description": "Operations related to Thallo Regions"
+        },
+        {
+            "name": "Thallo SEO",
+            "description": "Operations related to Thallo SEO"
+        },
+        {
+            "name": "Thallo Settings",
+            "description": "Operations related to Thallo Settings"
+        },
+        {
+            "name": "Thallo Setup",
+            "description": "Operations related to Thallo Setup"
+        },
+        {
+            "name": "Thallo Templates",
+            "description": "Operations related to Thallo Templates"
+        },
+        {
+            "name": "Thallo Workflow",
+            "description": "Operations related to Thallo Workflow"
         },
         {
             "name": "Users",

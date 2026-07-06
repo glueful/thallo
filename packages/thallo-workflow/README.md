@@ -1,10 +1,10 @@
-# glueful/lemma-workflow
+# glueful/thallo-workflow
 
-A single-stage **editorial approval workflow** for [Lemma](https://getlemma.dev) — submit →
+A single-stage **editorial approval workflow** for [Thallo](https://thallo.dev) — submit →
 review → approve/request-changes over the draft/publish lifecycle — packaged as a
 **removable capability pack**. Core stays workflow-agnostic behind one tiny seam: the
 `PublishGate` contract. With the pack absent or disabled, publishing behaves exactly as
-stock Lemma.
+stock Thallo.
 
 ## The state machine
 
@@ -20,7 +20,7 @@ means `draft`.
 | *(edit)* | in_review, approved → draft | automatic (`entry.updated`) |
 | *(publish)* | any → draft (approval consumed) | automatic (`entry.published`) |
 
-¹ Self-review is blocked by default; `lemma_workflow.allow_self_review`
+¹ Self-review is blocked by default; `workflow.allow_self_review`
 (`WORKFLOW_ALLOW_SELF_REVIEW`, default `false`) is the tiny-team escape hatch.
 
 **Edits invalidate active review or approval** — editing an `in_review` or `approved`
@@ -30,7 +30,7 @@ Submit is the only transition that clears it.
 
 ## The publish gate
 
-`PublishService` asks every container-tagged `lemma.publish_gate` service before any
+`PublishService` asks every container-tagged `thallo.publish_gate` service before any
 write. This pack's gate allows a publish when the state is **`approved`**, or when the
 actor holds **`workflow.bypass`** — otherwise it throws `PublishBlocked`, which the
 publish endpoint maps to **409** with `details.workflow_state`. One rule, every path:
@@ -48,7 +48,7 @@ emergency publishes never vanish from governance history.
 - The pack seeds `workflow.review` and `workflow.bypass` permission rows; the host app
   grants both to `administrator` in its own dependent migration. Submitting reuses
   `content.edit`.
-- Routes (capability → `auth` → `lemma_permission`), under `/v1/admin/workflow`:
+- Routes (capability → `auth` → `content_permission`), under `/v1/admin/workflow`:
   `POST /entries/{uuid}/{locale}/submit|approve|request-changes|withdraw`,
   `GET /entries/{uuid}/{locale}` (state + history), `GET /queue` (paginated in-review
   list, enriched with draft title/type via the `DraftSummaryReader` contract).
@@ -57,24 +57,24 @@ emergency publishes never vanish from governance history.
 
 ## The capability
 
-`lemma.workflow`, **enabled by default** when installed. Disable via the app's
-`config/lemma.php` switchboard (`'capabilities' => ['lemma.workflow' => false]`): routes
+`thallo.workflow`, **enabled by default** when installed. Disable via the app's
+`config/thallo.php` switchboard (`'capabilities' => ['thallo.workflow' => false]`): routes
 404, the lifecycle listener is not wired, and the gate short-circuits — publish behaves
 exactly as current core. There is deliberately no `enabled` config key in the pack.
 
 ## Boundary
 
-Depends on `glueful/lemma-contracts` + `glueful/framework` only. Permission checks use the
-framework's `PermissionManager` (Aegis is the expected provider in Lemma but is never
+Depends on `glueful/thallo-contracts` + `glueful/framework` only. Permission checks use the
+framework's `PermissionManager` (Aegis is the expected provider in Thallo but is never
 imported). Lifecycle reactions subscribe to the `ContentLifecycleEvent` contract
 (`name()`/`payload()`), never the engine's concrete event classes. The repo's
 `composer boundaries` check enforces this.
 
 ## Install / remove
 
-Bundled by default in the Lemma create-project template. To add to an existing app:
-`composer require glueful/lemma-workflow`, `./lemma extensions:enable lemma-workflow`,
-`./lemma migrate:run`. To remove: disable + `composer remove` — core boots and publishes
+Bundled by default in the Thallo create-project template. To add to an existing app:
+`composer require glueful/thallo-workflow`, `./thallo extensions:enable thallo-workflow`,
+`./thallo migrate:run`. To remove: disable + `composer remove` — core boots and publishes
 unchanged; the workflow tables remain on disk (drop manually if you want the data gone).
 
 ## Out of scope (v1)

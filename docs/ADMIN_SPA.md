@@ -1,6 +1,6 @@
-# Lemma Admin SPA
+# Thallo Admin SPA
 
-The first-party editor for Lemma lives in `admin/` — a Vue 3.5 + Vite 8 + Nuxt UI 4 SPA. Its
+The first-party editor for Thallo lives in `admin/` — a Vue 3.5 + Vite 8 + Nuxt UI 4 SPA. Its
 compiled output ships as `public/admin/` and is mounted by the PHP app at `/admin` via the
 framework `serveFrontend()` seam.
 
@@ -48,7 +48,7 @@ the distribution archive (`.gitattributes`).
 
 The SPA fetches `GET /admin/config.json` at boot (before mount) for `apiBase`, `sitePreviewUrl`,
 `defaultLocale`, and `installed`. This keeps one compiled bundle env-agnostic across installs (see
-`config/lemma.php` → `lemma.admin.*`).
+`config/thallo.php` → `thallo.admin.*`).
 
 ## Boundary
 

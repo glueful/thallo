@@ -1,6 +1,6 @@
-# glueful/lemma-contracts
+# glueful/thallo-contracts
 
-Thin, stable contracts (interfaces, DTOs, events, VOs) that Lemma capability packs
+Thin, stable contracts (interfaces, DTOs, events, VOs) that Thallo capability packs
 compile against. **No engine logic, storage, or I/O.**
 
 ## Stability policy
@@ -13,6 +13,6 @@ compile against. **No engine logic, storage, or I/O.**
 
 ## Boundary rule
 
-A pack may depend on `glueful/lemma-contracts`, `glueful/framework`, and pack-specific
-deps — **never on `glueful/lemma`** (the engine app). Enforced by
+A pack may depend on `glueful/thallo-contracts`, `glueful/framework`, and pack-specific
+deps — **never on `glueful/thallo`** (the engine app). Enforced by
 `composer boundaries` (`scripts/check-pack-boundaries.php`).
