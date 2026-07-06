@@ -24,8 +24,8 @@ final class WorkflowRemovabilityTest extends AppTestCase
     {
         parent::setUpBeforeClass();
 
-        self::$disabledApp ??= self::bootAppWithConfigOverride('lemma', [
-            'capabilities' => ['lemma.workflow' => false],
+        self::$disabledApp ??= self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.workflow' => false],
         ]);
     }
 

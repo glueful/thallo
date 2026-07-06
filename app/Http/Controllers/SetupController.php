@@ -90,7 +90,7 @@ final class SetupController
      *   - When a setup token is configured, the request MUST present it in the X-Setup-Token header
      *     (constant-time compare); a missing/wrong token is refused.
      *   - With no token configured, setup is allowed only outside production; in production it is
-     *     refused so the operator must set LEMMA_SETUP_TOKEN (or use the CLI) to provision.
+     *     refused so the operator must set SETUP_TOKEN (or use the CLI) to provision.
      */
     private function assertSetupAllowed(?Request $request): ?Response
     {
@@ -98,7 +98,7 @@ final class SetupController
             return null; // CLI/trusted path — no HTTP caller to gate.
         }
 
-        $expected = (string) config($this->context, 'lemma.setup.token', '');
+        $expected = (string) config($this->context, 'thallo.setup.token', '');
         if ($expected !== '') {
             $provided = (string) ($request->headers->get('X-Setup-Token') ?? '');
             if (!hash_equals($expected, $provided)) {
@@ -109,7 +109,7 @@ final class SetupController
 
         if (env('APP_ENV') === 'production') {
             return Response::error(
-                'First-run setup is disabled. Set LEMMA_SETUP_TOKEN (or provision via the CLI).',
+                'First-run setup is disabled. Set SETUP_TOKEN (or provision via the CLI).',
                 403,
             );
         }

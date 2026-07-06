@@ -207,7 +207,7 @@ final class ListingArchivePagesTest extends AppTestCase
         self::assertSame(200, $res->getStatusCode());
         $html = (string) $res->getContent();
         self::assertStringContainsString('Kernel post', $html);
-        // Ready hrefs, no path() loop (absolute here: suite sets LEMMA_PUBLIC_URL_BASE).
+        // Ready hrefs, no path() loop (absolute here: suite sets PUBLIC_URL_BASE).
         self::assertStringContainsString('href="https://site.test/post/kernel-post"', $html);
         // The broad type tag is on the response (the §4 purge pin).
         self::assertStringContainsString('lemma:type:post', (string) $res->headers->get('Cache-Tag'));

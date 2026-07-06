@@ -27,7 +27,7 @@ final class SitemapEndpointTest extends AppTestCase
 
     public function testSitemapServesUrlsetWhenOriginConfigured(): void
     {
-        $this->seedBilingualPublishedEntry(); // origin from LEMMA_PUBLIC_URL_BASE=https://site.test
+        $this->seedBilingualPublishedEntry(); // origin from PUBLIC_URL_BASE=https://site.test
         $resp = $this->container()->get(SitemapController::class)->index(new Request());
 
         self::assertSame(200, $resp->getStatusCode());

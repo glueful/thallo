@@ -12,8 +12,8 @@ final class NavigationCapabilityTest extends AppTestCase
     public function testCapabilityRegisteredAndEnabledByDefault(): void
     {
         self::assertTrue(
-            $this->container()->get(CapabilityRegistry::class)->isEnabled('lemma.navigation'),
-            'lemma.navigation must be registered and enabled by default',
+            $this->container()->get(CapabilityRegistry::class)->isEnabled('thallo.navigation'),
+            'thallo.navigation must be registered and enabled by default',
         );
     }
 }

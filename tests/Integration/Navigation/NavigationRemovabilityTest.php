@@ -24,8 +24,8 @@ final class NavigationRemovabilityTest extends AppTestCase
     {
         parent::setUpBeforeClass();
 
-        self::$disabledApp ??= self::bootAppWithConfigOverride('lemma', [
-            'capabilities' => ['lemma.navigation' => false],
+        self::$disabledApp ??= self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.navigation' => false],
         ]);
     }
 

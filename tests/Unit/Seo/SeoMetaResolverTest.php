@@ -40,7 +40,7 @@ final class SeoMetaResolverTest extends TestCase
                 'blog' => ['title_field' => 'title', 'description_field' => 'excerpt', 'image_field' => 'cover'],
             ],
             defaults: [
-                'site_name' => 'Lemma',
+                'site_name' => 'Thallo',
                 'default_og_image' => 'https://site.test/og.png',
                 'title_template' => '{title} — {site_name}',
             ],
@@ -66,7 +66,7 @@ final class SeoMetaResolverTest extends TestCase
         $r = $this->resolver($this->reader(['title' => 'Field Title', 'excerpt' => 'From field']), null);
         $meta = $r->resolve('t-1', 'blog', 'hello', 'en');
         // title falls back to the mapped field, then title_template applied.
-        self::assertSame('Field Title — Lemma', $meta['title']);
+        self::assertSame('Field Title — Thallo', $meta['title']);
         self::assertSame('From field', $meta['description']);
         // no override + no og image field mapped value → site default og image.
         self::assertSame('https://site.test/og.png', $meta['og']['image']);

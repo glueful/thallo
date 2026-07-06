@@ -19,7 +19,7 @@ final class ReadmeRendererTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->renderer = new ReadmeRenderer('lemma.test');
+        $this->renderer = new ReadmeRenderer('thallo.test');
     }
 
     public function testRendersBasicMarkdown(): void

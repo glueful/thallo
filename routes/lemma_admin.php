@@ -208,7 +208,7 @@ $router->group(['prefix' => '/v1/admin', 'middleware' => ['auth']], function (Ro
         ->middleware('lemma_permission:content.manage');
 
     // Instance General settings — site identity, default locale, delivery defaults, feature toggles
-    // (persisted as LEMMA_* keys in .env).
+    // (persisted as env keys in .env).
     $router->get('/settings/general', [GeneralSettingsController::class, 'show'])
         ->middleware('lemma_permission:content.manage');
 

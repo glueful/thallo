@@ -18,7 +18,7 @@ use Thallo\Contracts\Delivery\PublicRouteResolver;
  * The root-mounted URL grammar (root-mounted-types spec §2/§4/§8): root hits,
  * locale behavior, type precedence, canonical 301s, rename redirects, and the
  * flag lifecycle — all through resolvePath, the real parser.
- * (phpunit.xml sets LEMMA_PUBLIC_URL_BASE=https://site.test.)
+ * (phpunit.xml sets PUBLIC_URL_BASE=https://site.test.)
  */
 final class RootMountResolutionTest extends AppTestCase
 {

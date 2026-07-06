@@ -150,7 +150,7 @@ final class BlockLibraryRenderTest extends AppTestCase
             'list' => [['id' => 'cw1', 'type' => 'shortcode', 'data' => [
                 'name' => 'copyright', 'params' => ['name' => 'Acme Co', 'since' => '2020'],
             ]]],
-            'site' => ['name' => 'Lemma'],
+            'site' => ['name' => 'Thallo'],
         ]);
         self::assertStringContainsString("© 2020–{$year} Acme Co", $out);
 
@@ -159,9 +159,9 @@ final class BlockLibraryRenderTest extends AppTestCase
             'list' => [['id' => 'cw2', 'type' => 'shortcode', 'data' => [
                 'name' => 'copyright', 'params' => [],
             ]]],
-            'site' => ['name' => 'Lemma'],
+            'site' => ['name' => 'Thallo'],
         ]);
-        self::assertStringContainsString("© {$year} Lemma", $plain);
+        self::assertStringContainsString("© {$year} Thallo", $plain);
     }
 
     public function testShortcodeRendersThemeTemplateWithParamsOrNothing(): void

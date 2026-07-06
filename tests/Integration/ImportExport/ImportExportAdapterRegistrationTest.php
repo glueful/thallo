@@ -16,13 +16,13 @@ final class ImportExportAdapterRegistrationTest extends AppTestCase
     {
         $registry = $this->container()->get(ExporterRegistry::class);
 
-        self::assertInstanceOf(ContentExporter::class, $registry->get('lemma.content'));
+        self::assertInstanceOf(ContentExporter::class, $registry->get('thallo.content'));
     }
 
     public function testContentImporterIsRegisteredWithImportExportRegistry(): void
     {
         $registry = $this->container()->get(ImporterRegistry::class);
 
-        self::assertInstanceOf(ContentImporter::class, $registry->get('lemma.content'));
+        self::assertInstanceOf(ContentImporter::class, $registry->get('thallo.content'));
     }
 }

@@ -307,7 +307,7 @@ final class DeliveryController
 
     private function redirectTtl(): int
     {
-        return max(0, (int) config($this->context, 'lemma.seo.redirect_ttl', 60));
+        return max(0, (int) config($this->context, 'thallo.seo.redirect_ttl', 60));
     }
 
     /**

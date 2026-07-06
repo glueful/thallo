@@ -44,6 +44,6 @@ final class EngineHomepageEntryProvider implements HomepageEntryProvider
                 ['entry' => $override],
             );
         }
-        return (string) config($this->context, 'lemma_render.homepage_entry', '');
+        return (string) config($this->context, 'render.homepage_entry', '');
     }
 }

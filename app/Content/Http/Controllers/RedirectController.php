@@ -29,7 +29,7 @@ final class RedirectController
         summary: 'Create a redirect for a content type',
         description: 'Adds a manual SEO redirect (301/302/308) from a source slug to a target URL or '
             . 'entry, scoped to the content type named by `slug`.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(201, description: 'Redirect created.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'Unknown content type or target.')]
@@ -86,7 +86,7 @@ final class RedirectController
         summary: 'List redirects for a content type',
         description: 'Returns the manual redirects defined for the content type named by `slug` '
             . '(optionally filtered by `?locale=`), each with its resolved target state (live/broken).',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, description: 'Redirects retrieved.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'Unknown content type slug.')]
@@ -112,7 +112,7 @@ final class RedirectController
     #[ApiOperation(
         summary: 'Delete a redirect',
         description: 'Removes the manual redirect identified by `uuid`.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, description: 'Redirect deleted.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No redirect with that UUID.')]

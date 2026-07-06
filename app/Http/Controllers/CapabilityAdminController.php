@@ -26,7 +26,7 @@ final class CapabilityAdminController
     #[ApiOperation(
         summary: 'List enabled capabilities',
         description: 'Capabilities provided by installed packs and not disabled by the '
-            . 'lemma.capabilities switchboard. Requires the `system.access` permission.',
+            . 'thallo.capabilities switchboard. Requires the `system.access` permission.',
         tags: ['Capabilities'],
     )]
     #[ApiResponse(200, schema: CapabilityListData::class, description: 'Enabled capabilities.')]

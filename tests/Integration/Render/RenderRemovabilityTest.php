@@ -24,8 +24,8 @@ final class RenderRemovabilityTest extends AppTestCase
     {
         parent::setUpBeforeClass();
 
-        self::$disabledApp ??= self::bootAppWithConfigOverride('lemma', [
-            'capabilities' => ['lemma.render' => false],
+        self::$disabledApp ??= self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.render' => false],
         ]);
     }
 

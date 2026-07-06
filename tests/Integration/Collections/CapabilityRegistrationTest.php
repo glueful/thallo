@@ -12,6 +12,6 @@ final class CapabilityRegistrationTest extends AppTestCase
     public function testCollectionsCapabilityIsRegisteredAndEnabled(): void
     {
         $caps = $this->container()->get(CapabilityRegistry::class);
-        self::assertTrue($caps->isEnabled('lemma.collections'));
+        self::assertTrue($caps->isEnabled('thallo.collections'));
     }
 }

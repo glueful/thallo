@@ -109,7 +109,7 @@ final class MultiValueReferenceRoundTripTest extends AppTestCase
         $this->connection()->table('import_export_jobs')->insert([
             'uuid' => 'job000000001',
             'type' => 'import',
-            'adapter' => 'lemma.content',
+            'adapter' => 'thallo.content',
             'status' => 'queued',
             'mode' => 'commit',
             'source_disk' => 'storage',

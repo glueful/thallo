@@ -31,7 +31,7 @@ final class WorkflowServiceProvider extends ServiceProvider
             WorkflowPublishGate::class => [
                 'shared' => true,
                 'factory' => [self::class, 'makeWorkflowPublishGate'],
-                'tags' => ['lemma.publish_gate'],
+                'tags' => ['thallo.publish_gate'],
             ],
             WorkflowLifecycleListener::class => [
                 'class' => WorkflowLifecycleListener::class, 'shared' => true, 'autowire' => true,
@@ -75,8 +75,8 @@ final class WorkflowServiceProvider extends ServiceProvider
 
     public function register(ApplicationContext $context): void
     {
-        // Package configs are NOT auto-loaded — merge the pack's tree under 'lemma_workflow'.
-        $this->mergeConfig('lemma_workflow', require __DIR__ . '/../config/lemma-workflow.php');
+        // Package configs are NOT auto-loaded — merge the pack's tree under 'workflow'.
+        $this->mergeConfig('workflow', require __DIR__ . '/../config/workflow.php');
     }
 
     public function boot(ApplicationContext $context): void
@@ -84,7 +84,7 @@ final class WorkflowServiceProvider extends ServiceProvider
         $registry = app($context, CapabilityRegistry::class);
 
         $registry->register(new Capability(
-            'lemma.workflow',
+            'thallo.workflow',
             label: 'Approval workflow',
             description: 'Single-stage editorial review over draft/publish.',
         ));
@@ -95,7 +95,7 @@ final class WorkflowServiceProvider extends ServiceProvider
             'thallo-workflow',
         );
 
-        if ($registry->isEnabled('lemma.workflow')) {
+        if ($registry->isEnabled('thallo.workflow')) {
             // Automatic transitions ride the CONTRACT lifecycle events (interface-typed
             // listener — the thallo-seo invalidator pattern). Wired only when enabled:
             // disabled means no state mutations at all.

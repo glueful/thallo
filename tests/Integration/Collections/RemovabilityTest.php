@@ -61,10 +61,10 @@ final class RemovabilityTest extends AppTestCase
         parent::setUpBeforeClass();
 
         // Boot the disabled app: ConfigurationLoader merges config/testing/lemma.php on
-        // top of config/lemma.php, so DefaultCapabilityRegistry sees lemma.collections=>false
+        // top of config/thallo.php, so DefaultCapabilityRegistry sees lemma.collections=>false
         // and CollectionsServiceProvider::boot() skips loadRoutesFrom().
-        self::$disabledApp ??= self::bootAppWithConfigOverride('lemma', [
-            'capabilities' => ['lemma.collections' => false],
+        self::$disabledApp ??= self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.collections' => false],
         ]);
     }
 

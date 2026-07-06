@@ -33,13 +33,13 @@ final class CapabilityRegistryWiringTest extends AppTestCase
     public function testFactoryReadsTheWholeCapabilitiesMapNotDottedKeys(): void
     {
         // Seed a disabled override for a DOTTED id via the public config-defaults seam.
-        // config/lemma.php's `capabilities` is empty, so this default surfaces (defaults
+        // config/thallo.php's `capabilities` is empty, so this default surfaces (defaults
         // merge UNDER file config). A correct factory reads the whole `lemma.capabilities`
         // map and sees `test.fake => false`. A buggy dotted-access impl
-        // (config('lemma.capabilities.test.fake')) would walk capabilities['test']['fake'],
+        // (config('thallo.capabilities.test.fake')) would walk capabilities['test']['fake'],
         // never find the literal-key 'test.fake', fall back to the default, and wrongly
         // ENABLE it — failing this test.
-        $this->appContext()->mergeConfigDefaults('lemma', ['capabilities' => ['test.fake' => false]]);
+        $this->appContext()->mergeConfigDefaults('thallo', ['capabilities' => ['test.fake' => false]]);
 
         // Call the factory directly to build a FRESH registry from the (now-seeded) config,
         // bypassing the shared singleton.

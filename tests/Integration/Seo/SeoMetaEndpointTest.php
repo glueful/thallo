@@ -22,7 +22,7 @@ final class SeoMetaEndpointTest extends AppTestCase
         // The pack is enabled by default in the test env (config/extensions.php), so
         // isEnabled() being true also proves it was registered.
         $registry = $this->container()->get(CapabilityRegistry::class);
-        self::assertTrue($registry->isEnabled('lemma.seo'), 'lemma.seo registered + enabled');
+        self::assertTrue($registry->isEnabled('thallo.seo'), 'thallo.seo registered + enabled');
 
         $table = $this->connection()->getPDO()
             ->query("SELECT to_regclass('public.seo_meta')")->fetchColumn();

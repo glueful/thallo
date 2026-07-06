@@ -121,7 +121,7 @@ final class PreviewFlowTest extends AppTestCase
         $uuid = $this->seedDraft('No theme', 'no-theme-preview');
         // Override boots lose extension routes (loadRoutesFrom latch) — drive the
         // controller from the override container directly (established precedent).
-        $app = self::bootAppWithConfigOverride('lemma', ['capabilities' => ['lemma.render' => false]]);
+        $app = self::bootAppWithConfigOverride('thallo', ['capabilities' => ['thallo.render' => false]]);
         $controller = $app->getContainer()
             ->get(\App\Content\Http\Controllers\PreviewController::class);
         $res = $controller->mint(

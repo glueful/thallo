@@ -73,7 +73,7 @@ final class MenuResolutionTest extends AppTestCase
         self::assertNull($tree[0]['entry']);
         // The default locale collapses (no /en/ prefix) — the CanonicalProjector
         // rule; a prefixed default here would render off-canonical nav links.
-        // (phpunit.xml sets LEMMA_PUBLIC_URL_BASE=https://site.test.)
+        // (phpunit.xml sets PUBLIC_URL_BASE=https://site.test.)
         self::assertSame('https://site.test/blog/hello', $tree[1]['url']);
         self::assertSame($entry, $tree[1]['entry']);
 

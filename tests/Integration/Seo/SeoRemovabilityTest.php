@@ -22,8 +22,8 @@ final class SeoRemovabilityTest extends AppTestCase
     {
         parent::setUpBeforeClass();
 
-        self::$disabledApp ??= self::bootAppWithConfigOverride('lemma', [
-            'capabilities' => ['lemma.seo' => false],
+        self::$disabledApp ??= self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.seo' => false],
         ]);
     }
 

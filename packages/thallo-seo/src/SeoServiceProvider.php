@@ -69,8 +69,8 @@ final class SeoServiceProvider extends ServiceProvider
     {
         $context = $container->get(ApplicationContext::class);
         return new RobotsBuilder(
-            (array) config($context, 'lemma_seo.robots', []),
-            (string) config($context, 'lemma.seo.public_url_base', ''),
+            (array) config($context, 'seo.robots', []),
+            (string) config($context, 'thallo.seo.public_url_base', ''),
         );
     }
 
@@ -85,7 +85,7 @@ final class SeoServiceProvider extends ServiceProvider
         return new SitemapBuilder(
             $container->get(ContentDeliveryReader::class),
             $container->get(SitemapCache::class),
-            (string) config($context, 'lemma.seo.public_url_base', ''),
+            (string) config($context, 'thallo.seo.public_url_base', ''),
         );
     }
 
@@ -94,13 +94,13 @@ final class SeoServiceProvider extends ServiceProvider
         $context = $container->get(ApplicationContext::class);
         $repo = $container->get(SeoMetaRepository::class);
         /** @var array<string,mixed> $defaults */
-        $defaults = (array) config($context, 'lemma_seo.defaults', []);
+        $defaults = (array) config($context, 'seo.defaults', []);
         return new SeoMetaResolver(
             $container->get(ContentDeliveryReader::class),
             static fn (string $entryUuid, string $locale): ?array => $repo->find($entryUuid, $locale),
-            fallbacks: (array) config($context, 'lemma_seo.fallbacks', []),
+            fallbacks: (array) config($context, 'seo.fallbacks', []),
             defaults: [
-                'site_name' => (string) ($defaults['site_name'] ?? 'Lemma'),
+                'site_name' => (string) ($defaults['site_name'] ?? 'Thallo'),
                 'default_og_image' => (string) ($defaults['default_og_image'] ?? ''),
                 'title_template' => (string) ($defaults['title_template'] ?? '{title} — {site_name}'),
             ],
@@ -109,8 +109,8 @@ final class SeoServiceProvider extends ServiceProvider
 
     public function register(ApplicationContext $context): void
     {
-        // Package configs are NOT auto-loaded — merge the pack's own tree under 'lemma_seo'.
-        $this->mergeConfig('lemma_seo', require __DIR__ . '/../config/lemma-seo.php');
+        // Package configs are NOT auto-loaded — merge the pack's own tree under 'seo'.
+        $this->mergeConfig('seo', require __DIR__ . '/../config/seo.php');
     }
 
     public function boot(ApplicationContext $context): void
@@ -118,7 +118,7 @@ final class SeoServiceProvider extends ServiceProvider
         $registry = app($context, CapabilityRegistry::class);
 
         $registry->register(new Capability(
-            'lemma.seo',
+            'thallo.seo',
             label: 'SEO',
             description: 'Sitemaps, per-entry SEO meta, and robots.txt.',
         ));
@@ -129,7 +129,7 @@ final class SeoServiceProvider extends ServiceProvider
             'thallo-seo',
         );
 
-        if ($registry->isEnabled('lemma.seo')) {
+        if ($registry->isEnabled('thallo.seo')) {
             $this->loadRoutesFrom(__DIR__ . '/../routes/public-routes.php');
             $this->loadRoutesFrom(__DIR__ . '/../routes/admin-routes.php');
 

@@ -65,7 +65,7 @@ final class WorkflowService
     public function approve(string $entryUuid, string $locale, string $actor, ?string $note): array
     {
         $row = $this->requireState($entryUuid, $locale, 'in_review', 'approve');
-        $allowSelf = (bool) config($this->context, 'lemma_workflow.allow_self_review', false);
+        $allowSelf = (bool) config($this->context, 'workflow.allow_self_review', false);
         if (!$allowSelf && (string) ($row['submitted_by'] ?? '') === $actor) {
             throw new WorkflowForbidden('The submitter cannot approve their own submission.');
         }

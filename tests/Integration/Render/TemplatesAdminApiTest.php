@@ -179,7 +179,7 @@ final class TemplatesAdminApiTest extends AppTestCase
 
     public function testCustomCssSizeCapAndEncoding(): void
     {
-        $max = (int) config($this->appContext(), 'lemma_render.custom_css.max_bytes', 262144);
+        $max = (int) config($this->appContext(), 'render.custom_css.max_bytes', 262144);
         $over = str_repeat('a', $max + 1);
         self::assertSame(422, $this->api()->save($this->putReq($over), 'custom.css')->getStatusCode());
         self::assertSame(422, $this->api()->save($this->putReq("\xC3\x28"), 'custom.css')->getStatusCode());

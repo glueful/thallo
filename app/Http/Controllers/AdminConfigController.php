@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
  * Serves the admin SPA's runtime config as raw JSON at the UNAUTHENTICATED
  * `GET /admin/config`. This must NOT sit behind the `/v1/admin` auth group: the SPA
  * fetches it at boot, before it has a token, to learn the API base and whether first-run setup
- * has run. Values come from `config('lemma.admin.*')` (env-overridable), so one compiled bundle
+ * has run. Values come from `config('thallo.admin.*')` (env-overridable), so one compiled bundle
  * works across installs.
  *
  * Returns a bare JSON object (NOT the framework `data`-envelope) because the SPA reads
@@ -43,7 +43,7 @@ final class AdminConfigController
     public function config(): JsonResponse
     {
         $payload = [
-            'apiBase' => (string) config($this->context, 'lemma.admin.api_base', '/v1/admin'),
+            'apiBase' => (string) config($this->context, 'thallo.admin.api_base', '/v1/admin'),
             'sitePreviewUrl' => app($this->context, GeneralSettings::class)->sitePreviewUrl(),
             'defaultLocale' => app($this->context, GeneralSettings::class)->defaultLocale(),
             // Whether first-run setup has run. The SPA boot guard routes to /setup when false.

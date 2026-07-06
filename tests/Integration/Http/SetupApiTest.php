@@ -185,7 +185,7 @@ final class SetupApiTest extends AppTestCase
         $previous = $ref->getValue($context);
 
         $patched = $previous;
-        $patched['lemma.setup.token'] = $token;
+        $patched['thallo.setup.token'] = $token;
         $ref->setValue($context, $patched);
 
         return static function () use ($ref, $context, $previous): void {

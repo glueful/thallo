@@ -35,7 +35,7 @@ final class BlockTypeController
     ) {
     }
 
-    #[ApiOperation(summary: 'List block types', tags: ['Lemma Admin'])]
+    #[ApiOperation(summary: 'List block types', tags: ['Thallo Admin'])]
     #[ApiResponse(200, schema: BlockTypeListData::class, description: 'All block types, active first.')]
     public function index(Request $request): Response
     {
@@ -46,7 +46,7 @@ final class BlockTypeController
         summary: 'Create a block type',
         description: '`slug` is a unique lowercase identifier and IMMUTABLE after creation — it is the '
             . 'blocks/{slug}.twig template contract.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(201, schema: BlockTypeResultData::class, description: 'Block type created.')]
     #[ApiResponse(
@@ -81,7 +81,7 @@ final class BlockTypeController
         );
     }
 
-    #[ApiOperation(summary: 'One block type', tags: ['Lemma Admin'])]
+    #[ApiOperation(summary: 'One block type', tags: ['Thallo Admin'])]
     #[ApiResponse(200, schema: BlockTypeResultData::class, description: 'The block type with its schema.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'Unknown slug.')]
     public function show(Request $request, string $slug): Response
@@ -92,7 +92,7 @@ final class BlockTypeController
             : Response::success(['block_type' => $row]);
     }
 
-    #[ApiOperation(summary: 'Update a block type (slug is immutable)', tags: ['Lemma Admin'])]
+    #[ApiOperation(summary: 'Update a block type (slug is immutable)', tags: ['Thallo Admin'])]
     #[ApiResponse(200, schema: BlockTypeResultData::class, description: 'Updated.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'Unknown slug.')]
     #[ApiResponse(
@@ -125,7 +125,7 @@ final class BlockTypeController
         );
     }
 
-    #[ApiOperation(summary: 'Reactivate a block type', tags: ['Lemma Admin'])]
+    #[ApiOperation(summary: 'Reactivate a block type', tags: ['Thallo Admin'])]
     #[ApiResponse(200, schema: BlockTypeResultData::class, description: 'Active — back in the block picker.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'Unknown slug.')]
     public function activate(string $slug): Response
@@ -135,7 +135,7 @@ final class BlockTypeController
 
     #[ApiOperation(
         summary: 'Deactivate a block type (existing content keeps rendering/editing)',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: BlockTypeResultData::class, description: 'Inactive — hidden from the picker.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'Unknown slug.')]
@@ -162,7 +162,7 @@ final class BlockTypeController
         description: 'On-demand scan of current drafts + pinned publications (non-deleted entries, '
             . 'archived included, nested blocks counted). Historical versions never count. '
             . 'Content-type blockTypes picker allowlists are reported but never gate deletion.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, description: 'Usage counts per content type, samples, and allowlist appearances.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'Unknown slug.')]
@@ -180,7 +180,7 @@ final class BlockTypeController
             . 'refuses while any current draft/publication uses the type (the usage scan re-runs '
             . 'server-side) or while a migration is active. No force flag — deactivate is the '
             . 'editorial path.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, description: 'Block type deleted.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'Unknown slug.')]

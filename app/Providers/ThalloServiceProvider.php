@@ -185,8 +185,8 @@ use Psr\Container\ContainerInterface;
  * in boot() would load the file a second time and the Router throws LogicException on a
  * duplicate static route. Auto-discovery is the framework's real mechanism for app routes.
  *
- * Config: config/lemma.php lives in the app config directory and is loaded by the
- * file-based config system, so it is already available as config('lemma.*'); mergeConfig
+ * Config: config/thallo.php lives in the app config directory and is loaded by the
+ * file-based config system, so it is already available as config('thallo.*'); mergeConfig
  * is therefore unnecessary (it would only re-supply the same values as defaults).
  */
 final class ThalloServiceProvider extends ServiceProvider
@@ -981,7 +981,7 @@ final class ThalloServiceProvider extends ServiceProvider
 
     public function register(ApplicationContext $context): void
     {
-        // No-op: config/lemma.php is auto-loaded by the app config system, and DI
+        // No-op: config/thallo.php is auto-loaded by the app config system, and DI
         // bindings are contributed declaratively via services(). Kept for lifecycle
         // symmetry and as the seam for future runtime registration.
     }
@@ -990,7 +990,7 @@ final class ThalloServiceProvider extends ServiceProvider
     {
         $context = $container->get(ApplicationContext::class);
         /** @var array<string,bool> $overrides */
-        $overrides = (array) config($context, 'lemma.capabilities', []);
+        $overrides = (array) config($context, 'thallo.capabilities', []);
 
         return new DefaultCapabilityRegistry($overrides);
     }
@@ -1000,17 +1000,17 @@ final class ThalloServiceProvider extends ServiceProvider
         $context = $container->get(ApplicationContext::class);
 
         return new PathRenderer(
-            (string) config($context, 'lemma.seo.route_template', '/{locale}/{type}/{slug}'),
-            config($context, 'lemma.seo.public_url_base') === null
+            (string) config($context, 'thallo.seo.route_template', '/{locale}/{type}/{slug}'),
+            config($context, 'thallo.seo.public_url_base') === null
                 ? null
-                : (string) config($context, 'lemma.seo.public_url_base'),
+                : (string) config($context, 'thallo.seo.public_url_base'),
             (string) config($context, 'i18n.default_locale', 'en')
         );
     }
 
     public static function makePublishService(ContainerInterface $c): PublishService
     {
-        $gates = $c->has('lemma.publish_gate') ? $c->get('lemma.publish_gate') : [];
+        $gates = $c->has('thallo.publish_gate') ? $c->get('thallo.publish_gate') : [];
         if ($gates instanceof \Traversable) {
             $gates = iterator_to_array($gates);
         }
@@ -1079,11 +1079,11 @@ final class ThalloServiceProvider extends ServiceProvider
         // keep precedence over the SPA catch-all via the router's static-first lookup.
         // Gated by lemma.admin.enabled so an operator can disable the default admin and bring
         // their own (the admin is a replaceable client of the /v1/admin API).
-        if ((bool) config($context, 'lemma.admin.enabled', true)) {
+        if ((bool) config($context, 'thallo.admin.enabled', true)) {
             $this->serveFrontend(
                 '/admin',
-                (string) config($context, 'lemma.admin.bundle_path', dirname(__DIR__, 2) . '/public/admin'),
-                ['name' => 'Lemma Admin'],
+                (string) config($context, 'thallo.admin.bundle_path', dirname(__DIR__, 2) . '/public/admin'),
+                ['name' => 'Thallo Admin'],
             );
         }
 
@@ -1127,11 +1127,11 @@ final class ThalloServiceProvider extends ServiceProvider
 
         // `ThalloServiceProvider` (app provider) boots before `AnalyticsServiceProvider`
         // (pack provider), so CapabilityRegistry::isEnabled() would return false for
-        // 'lemma.analytics' at this point (the capability is only registered during the pack's
+        // 'thallo.analytics' at this point (the capability is only registered during the pack's
         // own boot()). Read the capabilities override config directly instead — same semantics as
         // DefaultCapabilityRegistry::isEnabled() but without the "must be registered" prerequisite.
-        $capOverrides = (array) config($context, 'lemma.capabilities', []);
-        $analyticsOn = ($capOverrides['lemma.analytics'] ?? true) === true;
+        $capOverrides = (array) config($context, 'thallo.capabilities', []);
+        $analyticsOn = ($capOverrides['thallo.analytics'] ?? true) === true;
 
         // event class => list of listener service ids (lazy '@' form).
         //

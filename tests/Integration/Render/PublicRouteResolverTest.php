@@ -183,7 +183,7 @@ final class PublicRouteResolverTest extends AppTestCase
         self::assertCount(1, $r['listing']['items']);
         $item = $r['listing']['items'][0];
         // hrefs are whatever PathRenderer returns — absolute here because the suite
-        // sets LEMMA_PUBLIC_URL_BASE (matching path()/canonicals); default-locale
+        // sets PUBLIC_URL_BASE (matching path()/canonicals); default-locale
         // collapse (no /en/ segment) is the assertion that matters.
         self::assertSame('https://site.test/blog/hello', $item['href']);
         self::assertArrayNotHasKey('seo', $item);             // LIST shape, not shapePublic

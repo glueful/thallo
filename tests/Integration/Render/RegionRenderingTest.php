@@ -37,7 +37,7 @@ final class RegionRenderingTest extends AppTestCase
     /** Render the homepage through the real controller with homepage_entry set. */
     private function renderHome(string $entry, ?array $presentation = null): string
     {
-        $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $entry]);
+        $app = self::bootAppWithConfigOverride('render', ['homepage_entry' => $entry]);
         $controller = $app->getContainer()
             ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $res = $controller->home(Request::create('/', 'GET'));

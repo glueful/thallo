@@ -37,7 +37,7 @@ final class ContentExporter implements ExporterInterface
 
     public function key(): string
     {
-        return 'lemma.content';
+        return 'thallo.content';
     }
 
     public function label(): string

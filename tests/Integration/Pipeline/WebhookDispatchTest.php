@@ -87,7 +87,7 @@ final class WebhookDispatchTest extends AppTestCase
     {
         // Flip lemma.pipeline.webhooks_enabled off via the context's config cache (getConfig
         // checks the cache first). Restored in tearDown via clearConfigCache().
-        $this->setConfig('lemma.pipeline.webhooks_enabled', false);
+        $this->setConfig('thallo.pipeline.webhooks_enabled', false);
 
         // setUp's createEntry/saveDraft already emitted (enabled) events; only the publish
         // below is exercised under the disabled gate.

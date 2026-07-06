@@ -106,8 +106,8 @@ final class CsvContentImporterTest extends AppTestCase
     public function testProcessFailsClosedWhenTheCapabilityIsDisabled(): void
     {
         // A job retried after lemma.importers was disabled must not run its remaining batches.
-        $disabled = new DefaultCapabilityRegistry(['lemma.importers' => false]);
-        $disabled->register(new Capability('lemma.importers'));
+        $disabled = new DefaultCapabilityRegistry(['thallo.importers' => false]);
+        $disabled->register(new Capability('thallo.importers'));
 
         $importer = new CsvContentImporter(
             $this->appContext(),

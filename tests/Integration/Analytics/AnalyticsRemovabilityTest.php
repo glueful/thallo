@@ -25,8 +25,8 @@ final class AnalyticsRemovabilityTest extends AppTestCase
     {
         parent::setUpBeforeClass(); // shared ENABLED app
 
-        self::$disabledApp ??= self::bootAppWithConfigOverride('lemma', [
-            'capabilities' => ['lemma.analytics' => false],
+        self::$disabledApp ??= self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.analytics' => false],
         ]);
     }
 

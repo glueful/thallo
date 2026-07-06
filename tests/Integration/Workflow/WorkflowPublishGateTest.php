@@ -64,8 +64,8 @@ final class WorkflowPublishGateTest extends AppTestCase
     {
         // Simulate the switchboard-disabled capability: the gate must short-circuit (tags are
         // compile-time, so it is collected even when disabled — the check lives inside).
-        $registry = new DefaultCapabilityRegistry(['lemma.workflow' => false]);
-        $registry->register(new Capability('lemma.workflow'));
+        $registry = new DefaultCapabilityRegistry(['thallo.workflow' => false]);
+        $registry->register(new Capability('thallo.workflow'));
         $gate = new WorkflowPublishGate(
             $registry,
             $this->container()->get(WorkflowStateRepository::class),

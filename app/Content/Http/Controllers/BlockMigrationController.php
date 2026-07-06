@@ -37,7 +37,7 @@ final class BlockMigrationController
         description: 'Runs asynchronously. `ops` is a list of `{op:"rename",from,to}` / '
             . '`{op:"delete",name}`; one active migration per block type (409 — failed '
             . 'migrations stay active until re-driven to completion).',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(201, description: 'Migration started; poll the returned migration row for progress.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No block type with that slug.')]
@@ -61,7 +61,7 @@ final class BlockMigrationController
         return Response::created(['migration' => $this->migrations->find($uuid)], 'Migration started.');
     }
 
-    #[ApiOperation(summary: 'List schema migrations for a block type', tags: ['Lemma Admin'])]
+    #[ApiOperation(summary: 'List schema migrations for a block type', tags: ['Thallo Admin'])]
     #[ApiResponse(200, description: 'Schema migrations for the block type.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No block type with that slug.')]
     public function index(Request $request, string $slug): Response
@@ -77,7 +77,7 @@ final class BlockMigrationController
         );
     }
 
-    #[ApiOperation(summary: 'Get one block-type schema migration', tags: ['Lemma Admin'])]
+    #[ApiOperation(summary: 'Get one block-type schema migration', tags: ['Thallo Admin'])]
     #[ApiResponse(200, description: 'The migration row with progress counters and failure report.')]
     #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No such migration.')]
     public function show(Request $request, string $slug, string $migrationUuid): Response

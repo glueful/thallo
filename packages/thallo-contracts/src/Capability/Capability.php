@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Contracts\Capability;
 
 /**
- * A capability a pack provides — an id (e.g. "lemma.forms"), the capability ids it
+ * A capability a pack provides — an id (e.g. "thallo.forms"), the capability ids it
  * requires, and human-readable metadata. Pure value object; carries no behavior.
  */
 final class Capability

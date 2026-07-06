@@ -381,7 +381,7 @@ final class PreviewSessionTest extends AppTestCase
         // the process-global loadRoutesFrom latch). Writing the stash through
         // the shared kernel could miss the override resolver's wiring.
         [$entry, $token] = $this->seedRoutedEntryWithDraft();
-        $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $entry]);
+        $app = self::bootAppWithConfigOverride('render', ['homepage_entry' => $entry]);
         $controller = $app->getContainer()
             ->get(\Thallo\Render\Http\Controllers\RenderController::class);
 
@@ -421,7 +421,7 @@ final class PreviewSessionTest extends AppTestCase
     {
         $home = $this->seedPublishedEntryInType('landing', true, 'en', 'home', 'Published home');
         [, $token] = $this->seedRoutedEntryWithDraft(); // session for the BLOG entry
-        $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $home]);
+        $app = self::bootAppWithConfigOverride('render', ['homepage_entry' => $home]);
         $controller = $app->getContainer()
             ->get(\Thallo\Render\Http\Controllers\RenderController::class);
 

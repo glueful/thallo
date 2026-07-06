@@ -14,6 +14,6 @@ final class ImportersCapabilityTest extends AppTestCase
     {
         $reg = $this->container()->get(CapabilityRegistry::class);
         $ids = array_map(fn (Capability $c) => $c->id, $reg->enabled());
-        self::assertContains('lemma.importers', $ids, 'the thallo-importers pack must register its capability');
+        self::assertContains('thallo.importers', $ids, 'the thallo-importers pack must register its capability');
     }
 }

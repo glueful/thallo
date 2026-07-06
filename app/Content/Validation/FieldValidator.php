@@ -435,7 +435,7 @@ final class FieldValidator
             return true;
         }
 
-        $disk = (string) config($this->context, 'lemma.media_disk', 'local');
+        $disk = (string) config($this->context, 'thallo.media_disk', 'local');
         try {
             return $this->db->table('blobs')
                 ->where('uuid', '=', $uuid)

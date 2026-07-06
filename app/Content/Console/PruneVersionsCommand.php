@@ -48,9 +48,9 @@ final class PruneVersionsCommand extends BaseCommand
     {
         $dryRun = (bool) $input->getOption('dry-run');
         $keep = $input->getOption('keep')
-            ?? config($this->context, 'lemma.versions.retention.keep');
+            ?? config($this->context, 'thallo.versions.retention.keep');
         $maxAge = $input->getOption('max-age-days')
-            ?? config($this->context, 'lemma.versions.retention.max_age_days');
+            ?? config($this->context, 'thallo.versions.retention.max_age_days');
 
         try {
             $policy = RetentionPolicy::fromValues($keep, $maxAge);
@@ -61,7 +61,7 @@ final class PruneVersionsCommand extends BaseCommand
 
         if (!$policy->isEnabled()) {
             $this->warning(
-                'No retention policy configured (LEMMA_VERSION_KEEP / LEMMA_VERSION_MAX_AGE_DAYS) '
+                'No retention policy configured (VERSION_KEEP / VERSION_MAX_AGE_DAYS) '
                 . 'and no --keep/--max-age-days override; nothing to prune (unlimited history).',
             );
             return self::SUCCESS;

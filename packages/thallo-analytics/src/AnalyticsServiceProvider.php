@@ -88,7 +88,7 @@ final class AnalyticsServiceProvider extends ServiceProvider
         $registry = app($context, CapabilityRegistry::class);
 
         $registry->register(new Capability(
-            'lemma.analytics',
+            'thallo.analytics',
             label: 'Analytics',
             description: 'Product-analytics fact store fed by lifecycle events.',
         ));
@@ -99,7 +99,7 @@ final class AnalyticsServiceProvider extends ServiceProvider
             'thallo-analytics',
         );
 
-        if ($registry->isEnabled('lemma.analytics')) {
+        if ($registry->isEnabled('thallo.analytics')) {
             $events = app($context, EventService::class);
             $listener = app($context, AuthAnalyticsListener::class);
             $events->addListener(SessionCreatedEvent::class, [$listener, 'onLogin']);

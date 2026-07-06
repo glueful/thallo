@@ -47,7 +47,7 @@ final class ContentImporter implements ImporterInterface, RetryableAdapterInterf
 
     public function key(): string
     {
-        return 'lemma.content';
+        return 'thallo.content';
     }
 
     public function label(): string

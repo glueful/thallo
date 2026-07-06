@@ -28,8 +28,8 @@ final class RequiresImportersCapabilityTest extends TestCase
 
     public function testThrowsWhenDisabled(): void
     {
-        $reg = new DefaultCapabilityRegistry(['lemma.importers' => false]);
-        $reg->register(new Capability('lemma.importers'));
+        $reg = new DefaultCapabilityRegistry(['thallo.importers' => false]);
+        $reg->register(new Capability('thallo.importers'));
         $this->expectException(ForbiddenException::class);
         $this->gate()->run($reg);
     }
@@ -37,7 +37,7 @@ final class RequiresImportersCapabilityTest extends TestCase
     public function testPassesWhenEnabled(): void
     {
         $reg = new DefaultCapabilityRegistry();
-        $reg->register(new Capability('lemma.importers'));
+        $reg->register(new Capability('thallo.importers'));
         $this->gate()->run($reg);
         self::assertTrue(true); // no exception
     }

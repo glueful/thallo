@@ -28,7 +28,7 @@ final class WorkflowPublishGate implements PublishGate
 
     public function assertCanPublish(string $entryUuid, string $locale, ?string $actorUuid): void
     {
-        if (!$this->capabilities->isEnabled('lemma.workflow')) {
+        if (!$this->capabilities->isEnabled('thallo.workflow')) {
             return;
         }
         $state = $this->states->stateOf($entryUuid, $locale);

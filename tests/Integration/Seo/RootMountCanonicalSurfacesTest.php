@@ -20,7 +20,7 @@ use Thallo\Contracts\Search\IndexableContentReader;
  * unchanged for a prefixed type IN THE SAME RUN (root-mounted-types spec §5/§8):
  * nav targets, sitemap, search index, SEO canonical + hreflang alternates.
  * All surfaces go through the one CanonicalPathBuilder — this test is the
- * drift alarm. (phpunit.xml sets LEMMA_PUBLIC_URL_BASE=https://site.test.)
+ * drift alarm. (phpunit.xml sets PUBLIC_URL_BASE=https://site.test.)
  *
  * Mixed-type hreflang alternates are NOT representable in fixtures — an
  * entry's publication pins always carry its own type — so the per-pin flag

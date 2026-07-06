@@ -66,7 +66,7 @@ final class PreviewController
         description: 'The returned token is the bearer capability for the unauthenticated '
             . '`GET /v1/preview/{token}`. An optional `version_uuid` pins a historical version instead of '
             . 'the current draft.',
-        tags: ['Lemma Admin'],
+        tags: ['Thallo Admin'],
     )]
     #[ApiResponse(200, schema: PreviewMintData::class, description: 'Preview token minted.')]
     // 401/403/429/500 inferred from middleware + documentation.errors config.
@@ -96,7 +96,7 @@ final class PreviewController
         // theme_url: the SERVER decides (preview spec §4) — null when lemma.render is
         // disabled or the pack is absent (isEnabled covers both); the JSON preview URL
         // is unaffected either way. The SPA never builds theme URLs.
-        $renderEnabled = app($this->context, CapabilityRegistry::class)->isEnabled('lemma.render');
+        $renderEnabled = app($this->context, CapabilityRegistry::class)->isEnabled('thallo.render');
 
         return Response::success([
             'token' => $token,

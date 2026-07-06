@@ -317,7 +317,7 @@ final class DeliveryFlowTest extends AppTestCase
         $previous = $ref->getValue($context);
 
         $patched = $previous;
-        $patched['lemma.delivery.default_per_page'] = $perPage;
+        $patched['thallo.delivery.default_per_page'] = $perPage;
         $ref->setValue($context, $patched);
 
         return static function () use ($ref, $context, $previous): void {

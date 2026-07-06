@@ -281,7 +281,7 @@ final class RenderPageCacheTest extends AppTestCase
         $root = $this->cache()->get('render:default:%2F');
         self::assertIsArray($root);
         // Precondition, asserted rather than assumed: the test env runs the STANDALONE
-        // homepage (lemma_render.homepage_entry unset), so the root entry carries no
+        // homepage (render.homepage_entry unset), so the root entry carries no
         // entry/type surrogate tags — only lemma:render:page. If the homepage were
         // configured to entry A, publishing A SHOULD purge it too and this test's
         // "B still hit" assertion would be wrong by setup.

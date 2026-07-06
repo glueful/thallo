@@ -143,8 +143,8 @@ final class RootMountGuard
         }
 
         $reserved = array_merge(
-            array_map(strval(...), (array) config($this->context, 'lemma_render.reserved_prefixes', [])),
-            array_map(strval(...), (array) config($this->context, 'lemma_render.reserved_exact', [])),
+            array_map(strval(...), (array) config($this->context, 'render.reserved_prefixes', [])),
+            array_map(strval(...), (array) config($this->context, 'render.reserved_exact', [])),
             self::APP_PREFIXES,
             self::RESERVED_SEGMENTS,
         );

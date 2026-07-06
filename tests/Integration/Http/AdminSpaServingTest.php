@@ -11,7 +11,7 @@ final class AdminSpaServingTest extends AppTestCase
     public function testAdminBundleIsMountedAtAdmin(): void
     {
         // serveFrontend() registers the SPA root route only when bundle_path exists and holds
-        // index.html. phpunit.xml points LEMMA_ADMIN_BUNDLE_PATH at tests/fixtures/admin (Step 1b),
+        // index.html. phpunit.xml points ADMIN_BUNDLE_PATH at tests/fixtures/admin (Step 1b),
         // which holds a committed index.html, so the mount is wired during the process-global boot.
         $route = $this->findRoute('GET', '/admin');
         self::assertNotNull($route, '/admin must be mounted by serveFrontend()');

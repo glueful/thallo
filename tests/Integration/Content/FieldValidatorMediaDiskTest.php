@@ -20,13 +20,13 @@ final class FieldValidatorMediaDiskTest extends AppTestCase
     protected function tearDown(): void
     {
         $this->deleteBlobFixtures();
-        $this->setConfig('lemma.media_disk', 'local');
+        $this->setConfig('thallo.media_disk', 'local');
         parent::tearDown();
     }
 
     public function testAssetFieldRequiresActiveBlobOnConfiguredMediaDisk(): void
     {
-        $this->setConfig('lemma.media_disk', 'media');
+        $this->setConfig('thallo.media_disk', 'media');
         $this->insertBlob('assetmedia01', 'media');
         $this->insertBlob('assetlocal01', 'local');
 

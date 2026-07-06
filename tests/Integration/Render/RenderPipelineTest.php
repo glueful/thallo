@@ -112,14 +112,14 @@ final class RenderPipelineTest extends AppTestCase
         // testHomepageStandaloneMode through the shared kernel.
         $entry = $this->seedBilingualPublishedEntry();
 
-        $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $entry]);
+        $app = self::bootAppWithConfigOverride('render', ['homepage_entry' => $entry]);
         $controller = $app->getContainer()
             ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $res = $controller->home(Request::create('/', 'GET'));
         self::assertSame(200, $res->getStatusCode());
         self::assertStringContainsString('<h1>Hello</h1>', (string) $res->getContent());
 
-        $bad = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => 'nope00000000']);
+        $bad = self::bootAppWithConfigOverride('render', ['homepage_entry' => 'nope00000000']);
         $controller = $bad->getContainer()
             ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $res = $controller->home(Request::create('/', 'GET'));
@@ -326,7 +326,7 @@ final class RenderPipelineTest extends AppTestCase
         self::assertStringContainsString('layout--full', $html);
 
         // Homepage honors the same override (override-app controller pattern).
-        $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $entry]);
+        $app = self::bootAppWithConfigOverride('render', ['homepage_entry' => $entry]);
         $controller = $app->getContainer()
             ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $home = $controller->home(Request::create('/', 'GET'));
@@ -397,7 +397,7 @@ final class RenderPipelineTest extends AppTestCase
         $envHome = $this->seedBilingualPublishedEntry(); // 'Hello' at /blog/hello
 
         // Env configured, DB set: DB wins.
-        $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $envHome]);
+        $app = self::bootAppWithConfigOverride('render', ['homepage_entry' => $envHome]);
         $app->getContainer()->get(\App\Settings\SettingsStore::class)
             ->putMany(['homepage_entry' => $dbHome]);
         $controller = $app->getContainer()
@@ -411,7 +411,7 @@ final class RenderPipelineTest extends AppTestCase
         self::assertStringContainsString('Hello', $home());
 
         // Both empty: the standalone index.
-        $bare = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => '']);
+        $bare = self::bootAppWithConfigOverride('render', ['homepage_entry' => '']);
         $bareController = $bare->getContainer()
             ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         self::assertStringContainsString(
@@ -425,7 +425,7 @@ final class RenderPipelineTest extends AppTestCase
         // Valid-at-write, broken later (spec pin): the provider re-validates per
         // request, logs, and falls back — never a runtime 500.
         $envHome = $this->seedBilingualPublishedEntry();
-        $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $envHome]);
+        $app = self::bootAppWithConfigOverride('render', ['homepage_entry' => $envHome]);
         $app->getContainer()->get(\App\Settings\SettingsStore::class)
             ->putMany(['homepage_entry' => 'gone00000000']); // simulates a later-deleted entry
         $controller = $app->getContainer()
@@ -435,7 +435,7 @@ final class RenderPipelineTest extends AppTestCase
         self::assertStringContainsString('Hello', (string) $res->getContent()); // env fallback
 
         // The env-invalid posture is UNCHANGED: loud 500 (deploy config error).
-        $bad = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => 'nope00000000']);
+        $bad = self::bootAppWithConfigOverride('render', ['homepage_entry' => 'nope00000000']);
         $badController = $bad->getContainer()
             ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         self::assertSame(500, $badController->home(Request::create('/', 'GET'))->getStatusCode());
