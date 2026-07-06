@@ -9,7 +9,7 @@ use App\Tests\Support\AppTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
- * Drives lemma:doctor through Symfony's CommandTester. The test repo's own runtime satisfies the
+ * Drives thallo:doctor through Symfony's CommandTester. The test repo's own runtime satisfies the
  * pre-prompt checks (PHP 8.3, pdo_pgsql, writable .env/storage), so doctor reports success.
  */
 final class DoctorCommandTest extends AppTestCase

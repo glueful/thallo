@@ -19,7 +19,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use function base_path;
 
 #[AsCommand(
-    name: 'lemma:doctor',
+    name: 'thallo:doctor',
     description: 'Check that this host can run a Lemma instance (PHP, extensions, paths, database)',
 )]
 final class DoctorCommand extends BaseCommand

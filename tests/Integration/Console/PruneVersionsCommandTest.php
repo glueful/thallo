@@ -110,7 +110,7 @@ final class PruneVersionsCommandTest extends AppTestCase
     public function testCommandIsNamedForCliRegistration(): void
     {
         self::assertSame(
-            'lemma:versions:prune',
+            'thallo:versions:prune',
             (new PruneVersionsCommand($this->container(), $this->appContext()))->getName(),
         );
     }

@@ -18,7 +18,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * should export first if they need a recoverable archive.
  */
 #[AsCommand(
-    name: 'lemma:versions:prune',
+    name: 'thallo:versions:prune',
     description: 'Delete out-of-policy, non-pinned entry_versions history',
 )]
 final class PruneVersionsCommand extends BaseCommand
@@ -29,9 +29,9 @@ final class PruneVersionsCommand extends BaseCommand
             ->setHelp(
                 "Deletes old, non-pinned version snapshots per (entry, locale) lineage.\n"
                 . "The pinned version always survives. Deletion is permanent; export first.\n\n"
-                . "  lemma:versions:prune --dry-run\n"
-                . "  lemma:versions:prune --keep=10\n"
-                . "  lemma:versions:prune --max-age-days=90\n"
+                . "  thallo:versions:prune --dry-run\n"
+                . "  thallo:versions:prune --keep=10\n"
+                . "  thallo:versions:prune --max-age-days=90\n"
                 . 'With no configured or passed policy, pruning is a no-op.'
             )
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Report what would be deleted; delete nothing')

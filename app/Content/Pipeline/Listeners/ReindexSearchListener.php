@@ -37,7 +37,7 @@ use Psr\Container\ContainerInterface;
  * Registered via EventService::addListener(..., '@' . self::class) — the '@serviceId' form
  * resolves this service lazily and invokes it as a callable, so the entry point is
  * __invoke(object $event). Idempotent + re-drivable: re-pushing a reindex job re-derives the
- * same document, so `lemma:resync` can safely re-run it.
+ * same document, so `thallo:resync` can safely re-run it.
  */
 final class ReindexSearchListener
 {

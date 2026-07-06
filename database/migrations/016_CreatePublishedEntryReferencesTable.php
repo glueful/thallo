@@ -9,7 +9,7 @@ use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
  * The PUBLISHED-reference projection (term-archives/facets spec §1) — one row per
  * (source entry, locale, field, target) where the SOURCE side is published. Maintained
  * by ProjectPublishedReferencesListener on publish/unpublish/delete; re-driven by
- * `lemma:resync`. Distinct from entry_references (draft-based admin reverse index).
+ * `thallo:resync`. Distinct from entry_references (draft-based admin reverse index).
  *
  * Target liveness is NOT tracked here — facet/archive queries join the target's
  * publication at read time, because a term can be unpublished without being deleted.

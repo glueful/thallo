@@ -404,7 +404,7 @@ final class DeliveryRepository
      *
      * Reads the publication spine (only published rows exist there) joined to `entries`
      * for the type filter + the active-status guard, so the result can never include a
-     * locale that only exists as a draft. Used by `lemma:resync` to enumerate every
+     * locale that only exists as a draft. Used by `thallo:resync` to enumerate every
      * (type, locale) read scope through this leak-proof repository rather than touching
      * tables directly.
      *
@@ -424,7 +424,7 @@ final class DeliveryRepository
 
     /**
      * The published pin(s) for a single entry, identity-only (entry uuid, content type,
-     * locale, version) — used by `lemma:resync --entry={uuid}` to rebuild the publish
+     * locale, version) — used by `thallo:resync --entry={uuid}` to rebuild the publish
      * event without leaking field values or touching drafts.
      *
      * An entry may be published in several locales (one publication row per locale), so

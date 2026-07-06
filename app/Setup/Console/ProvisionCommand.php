@@ -21,7 +21,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use function base_path;
 
 #[AsCommand(
-    name: 'lemma:provision',
+    name: 'thallo:provision',
     description: 'Configure the database + security keys and run migrations (Layer 1; no admin)',
 )]
 final class ProvisionCommand extends BaseCommand

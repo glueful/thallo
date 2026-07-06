@@ -17,7 +17,7 @@ use Symfony\Component\HttpFoundation\Request;
  * First-run web setup — UNAUTHENTICATED by design (there is no admin yet to authenticate), but
  * SELF-LOCKING: once SetupService::isInstalled() is true it returns 409 forever, so a second
  * "first" admin can never be created. The heavy lifting (and the race-safety) lives in
- * SetupService::install(), which the future `php glueful lemma:setup` CLI shares.
+ * SetupService::install(), which the future `php glueful thallo:setup` CLI shares.
  *
  * Responses use the framework's standard envelope via Glueful\Http\Response (success / error),
  * matching the rest of the API.

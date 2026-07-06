@@ -36,7 +36,7 @@ use Psr\Container\ContainerInterface;
  * Registered via EventService::addListener(..., '@' . self::class) — the '@serviceId' form
  * resolves this service lazily and invokes it as a callable, so the entry point is
  * __invoke(object $event). Idempotent + re-drivable: purging an already-fresh tag is a no-op,
- * so `lemma:resync` can safely re-run it.
+ * so `thallo:resync` can safely re-run it.
  */
 final class PurgeCdnListener
 {

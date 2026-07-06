@@ -14,7 +14,7 @@ use Glueful\Database\Connection;
  * The PUBLISHED-reference projection (term-archives/facets spec §1) — the single source
  * of "published source references published term". Rebuilt per (entry, locale) from the
  * PUBLISHED version's reference fields by ProjectPublishedReferencesListener; re-driven
- * by `lemma:resync`. Reference fields only (never asset), regardless of `filterable` —
+ * by `thallo:resync`. Reference fields only (never asset), regardless of `filterable` —
  * flipping `filterable` later must not require a backfill; endpoints gate at read time.
  *
  * The pinned version's fields are projected FORWARD through SchemaProjector (its

@@ -26,7 +26,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * WHY THIS EXISTS: the pipeline dispatches its effects from `db()->afterCommit(...)`, which
  * is in-process. A crash between the commit and the callback DROPS those effects — the entry
  * is published in the database but its cache was never invalidated and its search document was
- * never reindexed. `lemma:resync` walks the PUBLISHED set and re-fires the re-drivable
+ * never reindexed. `thallo:resync` walks the PUBLISHED set and re-fires the re-drivable
  * effects so the read side reconverges.
  *
  * SCOPE (mutually-narrowing, all published-only):
@@ -55,7 +55,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  * already-clear tag, re-pushing a reindex job that re-derives the same document).
  */
 #[AsCommand(
-    name: 'lemma:resync',
+    name: 'thallo:resync',
     description: 'Re-drive the publishing pipeline (projection + cache + search, optionally webhooks) '
         . 'for published content',
 )]
@@ -74,9 +74,9 @@ final class ResyncCommand extends BaseCommand
             ->setHelp(
                 'Re-fires the idempotent downstream effects for published content after a crash dropped '
                 . "the in-process afterCommit callbacks.\n\n"
-                . "  lemma:resync --entry=UUID   one published entry\n"
-                . "  lemma:resync --type=SLUG     every published entry of a type\n"
-                . "  lemma:resync                 every published entry across all types\n\n"
+                . "  thallo:resync --entry=UUID   one published entry\n"
+                . "  thallo:resync --type=SLUG     every published entry of a type\n"
+                . "  thallo:resync                 every published entry across all types\n\n"
                 . 'Webhooks are NOT re-fired unless --webhooks is given.'
             )
             ->addOption('entry', null, InputOption::VALUE_REQUIRED, 'Resync a single published entry by uuid')

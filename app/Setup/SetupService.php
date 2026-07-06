@@ -18,7 +18,7 @@ use Glueful\Helpers\Utils;
  *
  * Creates the first admin user, writes site settings, and marks the instance as
  * installed by setting the `installed` key in `settings`. Intentionally
- * HTTP-agnostic: both the web setup endpoint and the `lemma:setup` CLI command
+ * HTTP-agnostic: both the web setup endpoint and the `thallo:setup` CLI command
  * call this service directly.
  */
 final class SetupService

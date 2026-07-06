@@ -12,20 +12,20 @@ final class BinTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->bin = dirname(__DIR__, 3) . '/lemma';
+        $this->bin = dirname(__DIR__, 3) . '/thallo';
     }
 
     public function testBinExistsAndIsExecutable(): void
     {
         self::assertFileExists($this->bin);
-        self::assertTrue(is_executable($this->bin), 'lemma bin must be chmod +x');
+        self::assertTrue(is_executable($this->bin), 'thallo bin must be chmod +x');
     }
 
     public function testForwardsKnownCommands(): void
     {
         $src = (string) file_get_contents($this->bin);
-        // Branded setup verbs map to the lemma: namespace.
-        self::assertStringContainsString('lemma:', $src);
+        // Branded setup verbs map to the thallo: namespace.
+        self::assertStringContainsString('thallo:', $src);
         // It has the special two-process setup verb.
         self::assertStringContainsString('setup', $src);
         // It invokes the app's own glueful console, not a global binary.
@@ -42,35 +42,35 @@ final class BinTest extends TestCase
             self::markTestSkipped('POSIX sh launcher');
         }
 
-        $dir = sys_get_temp_dir() . '/lemma bin ' . uniqid('', true);
+        $dir = sys_get_temp_dir() . '/thallo bin ' . uniqid('', true);
         mkdir($dir, 0755, true);
-        copy($this->bin, $dir . '/lemma');
-        chmod($dir . '/lemma', 0755);
+        copy($this->bin, $dir . '/thallo');
+        chmod($dir . '/thallo', 0755);
         file_put_contents(
             $dir . '/glueful',
             "<?php\nforeach (array_slice(\$argv, 1) as \$a) { echo \$a, \"\\n\"; }\n",
         );
 
         $run = static function (string $argline) use ($dir): string {
-            return (string) shell_exec('"' . $dir . '/lemma" ' . $argline . ' 2>&1');
+            return (string) shell_exec('"' . $dir . '/thallo" ' . $argline . ' 2>&1');
         };
 
         // `setup` runs the two layers as two processes: provision then create-admin.
-        self::assertSame("lemma:provision\nlemma:create-admin\n", $run('setup'));
-        // Branded shortcuts: a bare setup verb maps to its lemma: command.
-        self::assertSame("lemma:doctor\n", $run('doctor'));
-        self::assertSame("lemma:provision\nfoo\n", $run('provision foo'));
+        self::assertSame("thallo:provision\nthallo:create-admin\n", $run('setup'));
+        // Branded shortcuts: a bare setup verb maps to its thallo: command.
+        self::assertSame("thallo:doctor\n", $run('doctor'));
+        self::assertSame("thallo:provision\nfoo\n", $run('provision foo'));
         // Everything else passes straight through to the full framework console.
-        self::assertSame("lemma:doctor\n", $run('lemma:doctor'));
+        self::assertSame("thallo:doctor\n", $run('thallo:doctor'));
         self::assertSame("cache:clear\n", $run('cache:clear'));
         self::assertSame("migrate:run\n--limit=5\n", $run('migrate:run --limit=5'));
 
-        array_map('unlink', [$dir . '/lemma', $dir . '/glueful']);
+        array_map('unlink', [$dir . '/thallo', $dir . '/glueful']);
         rmdir($dir);
     }
 
     /**
-     * Running the launcher with PHP by mistake (`php lemma`) must NOT dump the script source —
+     * Running the launcher with PHP by mistake (`php thallo`) must NOT dump the script source —
      * the sh/PHP polyglot guard prints a hint and exits non-zero instead.
      */
     public function testRunningWithPhpPrintsHintNotTheScript(): void
@@ -83,14 +83,14 @@ final class BinTest extends TestCase
             escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg($this->bin) . ' doctor 2>&1',
         );
 
-        self::assertStringContainsString('shell launcher', $out, 'should print the use-./lemma hint');
+        self::assertStringContainsString('shell launcher', $out, 'should print the use-./thallo hint');
         self::assertStringNotContainsString('case "$cmd"', $out, 'must not dump the launcher logic');
         self::assertStringNotContainsString('Parse error', $out, 'no PHP parse error should surface');
     }
 
     /**
      * The launcher must resolve its OWN real location through a symlink, so it can be linked
-     * onto $PATH (e.g. /usr/local/bin/lemma) and still find its sibling `glueful` — not look
+     * onto $PATH (e.g. /usr/local/bin/thallo) and still find its sibling `glueful` — not look
      * for a `glueful` next to the symlink.
      */
     public function testResolvesSiblingGluefulThroughASymlink(): void
@@ -100,27 +100,27 @@ final class BinTest extends TestCase
         }
 
         // A "project" dir holds the real launcher + a fake glueful that echoes its argv.
-        $project = sys_get_temp_dir() . '/lemma proj ' . uniqid('', true);
+        $project = sys_get_temp_dir() . '/thallo proj ' . uniqid('', true);
         mkdir($project, 0755, true);
-        copy($this->bin, $project . '/lemma');
-        chmod($project . '/lemma', 0755);
+        copy($this->bin, $project . '/thallo');
+        chmod($project . '/thallo', 0755);
         file_put_contents(
             $project . '/glueful',
             "<?php\nforeach (array_slice(\$argv, 1) as \$a) { echo \$a, \"\\n\"; }\n",
         );
 
         // A separate "bin" dir (with NO glueful) holds only a symlink to the launcher.
-        $binDir = sys_get_temp_dir() . '/lemma path ' . uniqid('', true);
+        $binDir = sys_get_temp_dir() . '/thallo path ' . uniqid('', true);
         mkdir($binDir, 0755, true);
-        symlink($project . '/lemma', $binDir . '/lemma');
+        symlink($project . '/thallo', $binDir . '/thallo');
 
         // Invoking via the symlink must still run the PROJECT's glueful.
-        $out = (string) shell_exec('"' . $binDir . '/lemma" doctor 2>&1');
-        self::assertSame("lemma:doctor\n", $out);
+        $out = (string) shell_exec('"' . $binDir . '/thallo" doctor 2>&1');
+        self::assertSame("thallo:doctor\n", $out);
 
-        unlink($binDir . '/lemma');
+        unlink($binDir . '/thallo');
         rmdir($binDir);
-        array_map('unlink', [$project . '/lemma', $project . '/glueful']);
+        array_map('unlink', [$project . '/thallo', $project . '/glueful']);
         rmdir($project);
     }
 }

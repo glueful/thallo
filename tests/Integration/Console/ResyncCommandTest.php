@@ -17,12 +17,12 @@ use Glueful\Api\Webhooks\WebhookDispatcher;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
- * Proves `lemma:resync` re-drives the idempotent publishing-pipeline effects (V1_DESIGN §5)
+ * Proves `thallo:resync` re-drives the idempotent publishing-pipeline effects (V1_DESIGN §5)
  * for content that was published while a crash dropped the in-process afterCommit callbacks.
  *
  * The test SIMULATES a dropped afterCommit by publishing first, then swapping the cache /
  * search / webhook singletons for recording spies AFTER the publish — so the spies
- * captured NOTHING from the original publish. Running `lemma:resync` must then re-drive the
+ * captured NOTHING from the original publish. Running `thallo:resync` must then re-drive the
  * cache invalidation + search reindex (the re-drivable effects), prove the cache tags get
  * invalidated, and prove webhooks DO NOT re-fire unless `--webhooks` is passed.
  *

@@ -18,7 +18,7 @@ use Symfony\Component\Console\Tester\CommandTester;
 /**
  * The published-reference projection (term-archives/facets spec §1): write-side rebuild
  * semantics (incl. schema-migration projection for rolled-back versions), listener
- * wiring through real events, and the lemma:resync re-drive.
+ * wiring through real events, and the thallo:resync re-drive.
  */
 final class PublishedReferenceProjectionTest extends AppTestCase
 {

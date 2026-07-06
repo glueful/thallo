@@ -14,8 +14,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 use function config;
 
 #[AsCommand(
-    name: 'lemma:create-admin',
-    description: 'Create the first admin + site settings (Layer 2). Run after lemma:provision.',
+    name: 'thallo:create-admin',
+    description: 'Create the first admin + site settings (Layer 2). Run after thallo:provision.',
 )]
 final class CreateAdminCommand extends BaseCommand
 {

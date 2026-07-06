@@ -12,7 +12,7 @@ use App\Content\Repositories\PublishedReferenceRepository;
 /**
  * Maintains the published-reference projection (term-archives/facets spec §1) on the
  * publishing pipeline's after-commit events. Idempotent delete-then-insert per
- * (entry, locale), so `lemma:resync` re-drives it exactly like the other effects.
+ * (entry, locale), so `thallo:resync` re-drives it exactly like the other effects.
  *
  * Wired BEFORE InvalidateCacheTagsListener in the listener map: the cache purge must
  * see a CURRENT projection, or a request racing the purge could re-cache stale facet
