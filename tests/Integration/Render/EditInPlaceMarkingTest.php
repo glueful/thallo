@@ -168,7 +168,10 @@ final class EditInPlaceMarkingTest extends AppTestCase
         // — but with editable_text adoption its TITLE region legitimately may;
         // assert the absence of a safe_html-style rich region specifically by
         // checking no marker carries the section id with the rich field name.
-        self::assertStringNotContainsString('data-thallo-edit-block="sectionb0001" data-thallo-edit-field="body"', $html);
+        self::assertStringNotContainsString(
+            'data-thallo-edit-block="sectionb0001" data-thallo-edit-field="body"',
+            $html,
+        );
     }
 
     /** Seed a page whose body holds one `hero` block with the given data. */
