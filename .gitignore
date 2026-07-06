@@ -37,3 +37,4 @@ bootstrap/cache/
 !/storage/import-export/imports/.gitkeep
 /storage/uploads/*
 !/storage/uploads/.gitkeep
+storage/framework/*
