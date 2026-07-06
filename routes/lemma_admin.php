@@ -15,7 +15,6 @@ use App\Content\Http\Controllers\ScheduleController;
 use App\Http\Controllers\ApiKeyAdminController;
 use App\Http\Controllers\CacheAdminController;
 use App\Http\Controllers\CapabilityAdminController;
-use App\Http\Controllers\EmailSettingsController;
 use App\Http\Controllers\ExtensionAdminController;
 use App\Http\Controllers\GeneralSettingsController;
 use App\Http\Controllers\HealthAdminController;
@@ -189,18 +188,9 @@ $router->group(['prefix' => '/v1/admin', 'middleware' => ['auth']], function (Ro
     $router->post('/entries/{uuid}/rollback/{locale}', [PublicationController::class, 'rollback'])
         ->middleware('lemma_permission:content.publish');
 
-    // Instance settings — mailer config persisted to .env. Gated on `system.config` (superuser
-    // only, per Aegis' seeded roles): these routes write MAIL_* to .env and the test action opens
-    // an SMTP connection with the stored credentials, so they carry the same infrastructure-config
-    // authority as the permission catalog — not day-to-day `content.manage`.
-    $router->get('/settings/email', [EmailSettingsController::class, 'show'])
-        ->middleware('lemma_permission:system.config');
-
-    $router->put('/settings/email', [EmailSettingsController::class, 'update'])
-        ->middleware('lemma_permission:system.config');
-
-    $router->post('/settings/email/test', [EmailSettingsController::class, 'test'])
-        ->middleware('lemma_permission:system.config');
+    // Email settings + templates moved to the glueful/email-notification extension's own
+    // API (/email/settings, /email/templates — root-mounted, gated email.templates.manage).
+    // The old .env-writing controller retired with the DB-backed settings store.
 
     // Vendored icon inventory for the admin icon picker.
     $router->get('/icons', [IconInventoryController::class, 'index'])
@@ -248,6 +238,10 @@ $router->group(['prefix' => '/v1/admin', 'middleware' => ['auth']], function (Ro
         ->middleware('lemma_permission:system.access');
 
     $router->post('/extensions/disable', [ExtensionAdminController::class, 'disable'])
+        ->middleware('lemma_permission:system.access');
+
+    // Install a new extension via composer (synchronous; the request blocks until composer finishes).
+    $router->post('/extensions/install', [ExtensionAdminController::class, 'install'])
         ->middleware('lemma_permission:system.access');
 
     $router->get('/extensions/{vendor}/{name}/readme', [ExtensionAdminController::class, 'readme'])

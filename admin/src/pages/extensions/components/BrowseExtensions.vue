@@ -1,13 +1,24 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { refDebounced } from '@vueuse/core'
-import { useExtensionCatalog, extensionShortName } from '@/queries/extensions'
+import {
+  useExtensionCatalog,
+  useExtensionInstall,
+  useExtensionMutations,
+  extensionShortName,
+  type CatalogExtension,
+} from '@/queries/extensions'
 import { useNotify } from '@/composables/useNotify'
 
 const search = ref('')
 const debounced = refDebounced(search, 350)
 const { data, status } = useExtensionCatalog(debounced)
-const { success } = useNotify()
+const { success, error } = useNotify()
+const { install, installing } = useExtensionInstall()
+const { enable, disable } = useExtensionMutations()
+
+// Per-card busy state for the enable/disable toggle (the mutations are shared).
+const togglingName = ref<string | null>(null)
 
 const results = computed(() => data.value?.results ?? [])
 const available = computed(() => data.value?.available !== false)
@@ -15,9 +26,36 @@ const available = computed(() => data.value?.available !== false)
 const numberFmt = new Intl.NumberFormat(undefined, { notation: 'compact' })
 const fmt = (n: number) => numberFmt.format(n)
 
-async function copyInstall(name: string) {
-  await navigator.clipboard.writeText(`composer require ${name}`)
-  success('Copied to clipboard', `composer require ${name}`)
+// Install in-place: composer require runs on the server synchronously (the request
+// blocks until it finishes); on success the catalog refetches and this card flips to
+// "Installed". The extension installs DISABLED — enable it from the Installed tab.
+async function onInstall(name: string) {
+  const short = extensionShortName(name)
+  const result = await install(name)
+  if (result.status === 'installed') {
+    success('Extension installed', `${short} is installed. Enable it to activate.`)
+  } else {
+    error(new Error('Install failed'), result.error ? `${short}: ${result.error}` : `Couldn't install ${short}`)
+  }
+}
+
+// Enable/disable an already-installed extension without leaving the Browse tab.
+async function onToggle(pkg: CatalogExtension) {
+  const short = extensionShortName(pkg.name)
+  togglingName.value = pkg.name
+  try {
+    if (pkg.enabled) {
+      await disable.mutateAsync(pkg.name)
+      success('Extension disabled', short)
+    } else {
+      await enable.mutateAsync(pkg.name)
+      success('Extension enabled', short)
+    }
+  } catch (e) {
+    error(e instanceof Error ? e : new Error('Toggle failed'), `Couldn't update ${short}`)
+  } finally {
+    togglingName.value = null
+  }
 }
 </script>
 
@@ -67,8 +105,8 @@ async function copyInstall(name: string) {
             </div>
             <UBadge
               v-if="pkg.installed"
-              label="Installed"
-              color="success"
+              :label="pkg.enabled ? 'Enabled' : 'Disabled'"
+              :color="pkg.enabled ? 'success' : 'neutral'"
               variant="subtle"
               size="xs"
               class="shrink-0"
@@ -91,12 +129,25 @@ async function copyInstall(name: string) {
             <div class="flex items-center gap-1">
               <UButton
                 v-if="!pkg.installed"
-                icon="i-lucide-clipboard-copy"
-                label="Install"
-                color="neutral"
-                variant="outline"
+                icon="i-lucide-download"
+                :label="installing(pkg.name) ? 'Installing…' : 'Install'"
+                color="primary"
+                variant="solid"
                 size="xs"
-                @click="copyInstall(pkg.name)"
+                :loading="installing(pkg.name)"
+                :data-test="`install-${pkg.name}`"
+                @click="onInstall(pkg.name)"
+              />
+              <UButton
+                v-else
+                :icon="pkg.enabled ? 'i-lucide-power-off' : 'i-lucide-power'"
+                :label="pkg.enabled ? 'Disable' : 'Enable'"
+                :color="pkg.enabled ? 'neutral' : 'primary'"
+                :variant="pkg.enabled ? 'outline' : 'solid'"
+                size="xs"
+                :loading="togglingName === pkg.name"
+                :data-test="`toggle-${pkg.name}`"
+                @click="onToggle(pkg)"
               />
               <UButton
                 icon="i-lucide-external-link"

@@ -102,6 +102,11 @@ $manager->addMigrationPath(
     'glueful/aegis'
 );
 $manager->addMigrationPath(
+    $root . '/vendor/glueful/email-notification/migrations',
+    MigrationPriority::DEPENDENT,
+    'glueful/email-notification'
+);
+$manager->addMigrationPath(
     $root . '/packages/lemma-analytics/migrations',
     MigrationPriority::DEPENDENT,
     'lemma-analytics'

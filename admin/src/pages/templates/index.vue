@@ -198,7 +198,7 @@ onMounted(loadList)
 <template>
   <UDashboardPanel id="templates">
     <template #header>
-      <UDashboardNavbar title="Templates" />
+      <UDashboardNavbar title="Theme editor" />
     </template>
 
     <template #body>

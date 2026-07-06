@@ -183,7 +183,10 @@ async function onSave() {
                identity in the LEFT rail; logos/site icon, homepage + operational
                settings own the wide RIGHT column. -->
           <div class="grid gap-6 lg:grid-cols-3 pb-5">
-            <div class="space-y-6 lg:self-start">
+            <!-- Sticky left rail: Site identity stays in view while the tall
+                 right column scrolls (its top drifting from the right cards
+                 during scroll is the pinning, not a layout bug). -->
+            <div class="space-y-6 lg:sticky lg:top-0 lg:self-start">
               <UCard>
                 <template #header><h2 class="font-semibold text-default">Site identity</h2></template>
                 <div class="space-y-4">
@@ -223,7 +226,7 @@ async function onSave() {
                 <template #header><h2 class="font-semibold text-default">Theme</h2></template>
                 <UFormField
                   label="Live theme"
-                  description="Applies on the next page view — no restart. Preview a theme first via a preview session; duplicate one from the Templates page."
+                  description="Applies on the next page view — no restart. Preview a theme first via a preview session; duplicate one from the Theme editor."
                 >
                   <USelect
                     v-model="form.theme"

@@ -9,6 +9,10 @@ use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\EnabledProviders;
 use Glueful\Extensions\ExtensionManager;
 use Glueful\Extensions\ExtensionStateWriter;
+use Glueful\Extensions\Install\ExtensionInstaller;
+use Glueful\Extensions\Install\HostNotWritableException;
+use Glueful\Extensions\Install\InstallDisabledException;
+use Glueful\Extensions\Install\PackageNotAllowedException;
 use Glueful\Extensions\PackageManifest;
 use Glueful\Helpers\RequestHelper;
 use Glueful\Http\Response;
@@ -69,10 +73,12 @@ final class ExtensionAdminController
     public function registry(Request $request): Response
     {
         $query = trim((string) $request->query->get('q', ''));
-        $installed = array_fill_keys(
-            array_map(static fn (array $e): string => (string) $e['name'], $this->installed()),
-            true,
-        );
+        // name => enabled, so a Browse card for an installed package can show a live
+        // Enable/Disable toggle instead of a dead "Installed" badge.
+        $enabledByName = [];
+        foreach ($this->installed() as $e) {
+            $enabledByName[(string) $e['name']] = (bool) ($e['enabled'] ?? false);
+        }
 
         $params = ['type' => 'glueful-extension', 'per_page' => 30];
         if ($query !== '') {
@@ -101,7 +107,8 @@ final class ExtensionAdminController
                 'repository' => is_string($pkg['repository'] ?? null) ? $pkg['repository'] : null,
                 'downloads' => (int) ($pkg['downloads'] ?? 0),
                 'favers' => (int) ($pkg['favers'] ?? 0),
-                'installed' => isset($installed[$pkg['name']]),
+                'installed' => array_key_exists($pkg['name'], $enabledByName),
+                'enabled' => $enabledByName[$pkg['name']] ?? false,
             ];
         }
 
@@ -132,6 +139,45 @@ final class ExtensionAdminController
     public function disable(Request $request): Response
     {
         return $this->toggle($request, false);
+    }
+
+    /** POST /v1/admin/extensions/install — composer require a new glueful extension (dev only). */
+    #[ApiOperation(
+        summary: 'Install a glueful extension',
+        description: 'Runs `composer require` for a catalog extension SYNCHRONOUSLY (the request '
+            . 'blocks until composer finishes). On success the extension is installed but DISABLED '
+            . '— enable it with the toggle. Dev only (composer cannot write on immutable production '
+            . 'hosts). Requires the `system.access` permission.',
+        tags: ['Extensions'],
+    )]
+    #[ApiResponse(200, description: 'Installed — enable it to activate.')]
+    #[ApiResponse(403, description: 'Installer disabled (production/kill-switch).')]
+    #[ApiResponse(409, description: 'Host filesystem is not writable (immutable deploy).')]
+    #[ApiResponse(422, description: 'Not an installable glueful extension, or composer failed.')]
+    public function install(Request $request): Response
+    {
+        $raw = RequestHelper::getRequestData($request)['name'] ?? null;
+        $name = is_string($raw) ? trim($raw) : '';
+
+        try {
+            $result = app($this->context, ExtensionInstaller::class)->install($name);
+        } catch (InstallDisabledException $e) {
+            return Response::forbidden($e->getMessage());
+        } catch (HostNotWritableException $e) {
+            return Response::error($e->getMessage(), 409, ['reason' => $e->reason]);
+        } catch (PackageNotAllowedException $e) {
+            return Response::error($e->getMessage(), 422);
+        }
+
+        if (($result['status'] ?? null) !== 'installed') {
+            return Response::error(
+                is_string($result['error'] ?? null) ? $result['error'] : 'Install failed.',
+                422,
+                ['output' => is_string($result['output'] ?? null) ? $result['output'] : ''],
+            );
+        }
+
+        return Response::success($result, 'Extension installed — enable it to activate.');
     }
 
     /** GET /v1/admin/extensions/{vendor}/{name}/readme — rendered README for an installed extension. */
