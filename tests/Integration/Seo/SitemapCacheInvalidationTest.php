@@ -21,7 +21,7 @@ final class SitemapCacheInvalidationTest extends AppTestCase
     {
         $cache = $this->container()->get(SitemapCache::class);
         // Prime a sitemap cache entry.
-        $cache->remember('lemma_seo:sitemap:root', static fn (): string => '<urlset/>');
+        $cache->remember('thallo:seo:sitemap:root', static fn (): string => '<urlset/>');
 
         // Dispatch a real content-lifecycle event (EntryPublished implements
         // ContentLifecycleEvent via BaseContentEvent) through the booted EventService.
@@ -30,7 +30,7 @@ final class SitemapCacheInvalidationTest extends AppTestCase
         );
 
         // The primed entry must be gone → remember() reproduces from the new producer.
-        $reproduced = $cache->remember('lemma_seo:sitemap:root', static fn (): string => 'REBUILT');
+        $reproduced = $cache->remember('thallo:seo:sitemap:root', static fn (): string => 'REBUILT');
         self::assertSame('REBUILT', $reproduced);
     }
 }

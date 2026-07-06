@@ -93,7 +93,7 @@ final class PreviewController
         $ttl = $this->minter->ttlSeconds();
         $exp = time() + $ttl;
 
-        // theme_url: the SERVER decides (preview spec §4) — null when lemma.render is
+        // theme_url: the SERVER decides (preview spec §4) — null when thallo.render is
         // disabled or the pack is absent (isEnabled covers both); the JSON preview URL
         // is unaffected either way. The SPA never builds theme URLs.
         $renderEnabled = app($this->context, CapabilityRegistry::class)->isEnabled('thallo.render');

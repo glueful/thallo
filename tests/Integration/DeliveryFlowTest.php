@@ -262,7 +262,7 @@ final class DeliveryFlowTest extends AppTestCase
         //
         // The cursor/keyset branch is the one we want to exercise — so we must NOT send
         // ?page/?perPage (those force the offset-pagination branch). The cursor branch's
-        // page size is `lemma.delivery.default_per_page`; force it to 2 for this test so a
+        // page size is `thallo.delivery.default_per_page`; force it to 2 for this test so a
         // 4-row dataset spans multiple pages and the boundary tiebreaker is actually hit.
         $restore = $this->forceDefaultPerPage(2);
 

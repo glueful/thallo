@@ -38,7 +38,7 @@ final class SitemapBuilder
      */
     public function pageCount(): int
     {
-        $raw = $this->cache->remember('lemma_seo:sitemap:pages', function (): string {
+        $raw = $this->cache->remember('thallo:seo:sitemap:pages', function (): string {
             $first = $this->reader->enumeratePublishedForSitemap(1, 0);
             return (string) max(1, intdiv((int) $first['total'] + self::PAGE_SIZE - 1, self::PAGE_SIZE));
         });
@@ -47,7 +47,7 @@ final class SitemapBuilder
 
     public function rootXml(): string
     {
-        return $this->cache->remember('lemma_seo:sitemap:root', function (): string {
+        return $this->cache->remember('thallo:seo:sitemap:root', function (): string {
             $first = $this->reader->enumeratePublishedForSitemap(self::PAGE_SIZE, 0);
             if ((int) $first['total'] <= self::PAGE_SIZE) {
                 return $this->urlset($first['items']);
@@ -60,7 +60,7 @@ final class SitemapBuilder
     public function pageXml(int $n): string
     {
         $n = max(1, $n);
-        return $this->cache->remember('lemma_seo:sitemap:page:' . $n, function () use ($n): string {
+        return $this->cache->remember('thallo:seo:sitemap:page:' . $n, function () use ($n): string {
             $page = $this->reader->enumeratePublishedForSitemap(self::PAGE_SIZE, ($n - 1) * self::PAGE_SIZE);
             return $this->urlset($page['items']);
         });

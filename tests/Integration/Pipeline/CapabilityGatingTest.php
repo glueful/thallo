@@ -116,10 +116,10 @@ final class CapabilityGatingTest extends AppTestCase
         $listener(new EntryPublished($this->entry, $this->type, 'en', 1, 'user00000001'));
 
         // Same surrogate tags the cache listener invalidates + the delivery layer emits.
-        self::assertContains('lemma:entry:' . $this->entry, $edge->purgedTags, 'must purge the entry tag');
-        self::assertContains('lemma:type:post', $edge->purgedTags, 'must purge the type SLUG tag');
+        self::assertContains('thallo:entry:' . $this->entry, $edge->purgedTags, 'must purge the entry tag');
+        self::assertContains('thallo:type:post', $edge->purgedTags, 'must purge the type SLUG tag');
         self::assertNotContains(
-            'lemma:type:' . $this->type,
+            'thallo:type:' . $this->type,
             $edge->purgedTags,
             'the type tag must use the slug, never the content-type UUID'
         );

@@ -85,7 +85,7 @@ final class WebhookDispatchTest extends AppTestCase
 
     public function testWebhooksDisabledGateSuppressesDispatch(): void
     {
-        // Flip lemma.pipeline.webhooks_enabled off via the context's config cache (getConfig
+        // Flip thallo.pipeline.webhooks_enabled off via the context's config cache (getConfig
         // checks the cache first). Restored in tearDown via clearConfigCache().
         $this->setConfig('thallo.pipeline.webhooks_enabled', false);
 

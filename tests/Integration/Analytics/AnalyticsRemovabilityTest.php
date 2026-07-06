@@ -13,7 +13,7 @@ use Thallo\Collections\Events\CollectionCreated;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Removability contract: with lemma.analytics DISABLED at boot, the admin route surface is entirely
+ * Removability contract: with thallo.analytics DISABLED at boot, the admin route surface is entirely
  * absent — GET /v1/admin/analytics/summary returns 404 (route unregistered), not 401 from a
  * live-but-disabled auth gate.
  */

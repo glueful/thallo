@@ -47,8 +47,8 @@ final class RenderPageCacheTest extends AppTestCase
         $res = $this->handle(Request::create('/blog/hello', 'GET'));
         self::assertSame(200, $res->getStatusCode());
         $cacheTag = (string) $res->headers->get('Cache-Tag');
-        self::assertStringContainsString('lemma:entry:' . $entry, $cacheTag);
-        self::assertStringContainsString('lemma:type:blog', $cacheTag);
+        self::assertStringContainsString('thallo:entry:' . $entry, $cacheTag);
+        self::assertStringContainsString('thallo:type:blog', $cacheTag);
     }
 
     public function testSecondRequestServesFromCacheWithEtagAndCacheControl(): void
@@ -176,8 +176,8 @@ final class RenderPageCacheTest extends AppTestCase
         $first = $this->handle(Request::create('/no/such-page', 'GET'));
         self::assertSame(404, $first->getStatusCode());
         // The fixed body's Cache-Tag reaches the client/CDN too, so edge purges on
-        // lemma:render:page compose for themed 404s.
-        self::assertSame('lemma:render:page', $first->headers->get('Cache-Tag'));
+        // thallo:render:page compose for themed 404s.
+        self::assertSame('thallo:render:page', $first->headers->get('Cache-Tag'));
         self::assertIsArray($this->cache()->get('render:default:404'));
 
         // Overwrite the stored body: a DIFFERENT bogus path serving the sentinel proves
@@ -210,7 +210,7 @@ final class RenderPageCacheTest extends AppTestCase
         self::assertSame(1, $calls);
         self::assertSame(404, $second->getStatusCode());
         self::assertSame('<html>404</html>', (string) $second->getContent());
-        self::assertSame('lemma:render:page', $second->headers->get('Cache-Tag'));
+        self::assertSame('thallo:render:page', $second->headers->get('Cache-Tag'));
     }
 
     public function testFailedErrorRenderIsNeverStored(): void
@@ -249,7 +249,7 @@ final class RenderPageCacheTest extends AppTestCase
 
         $res = $this->handle(Request::create('/blog/moved-away', 'GET'));
         self::assertSame(410, $res->getStatusCode());
-        self::assertSame('lemma:render:page', $res->headers->get('Cache-Tag'));
+        self::assertSame('thallo:render:page', $res->headers->get('Cache-Tag'));
         self::assertIsArray($this->cache()->get('render:default:410'));
     }
 
@@ -282,7 +282,7 @@ final class RenderPageCacheTest extends AppTestCase
         self::assertIsArray($root);
         // Precondition, asserted rather than assumed: the test env runs the STANDALONE
         // homepage (render.homepage_entry unset), so the root entry carries no
-        // entry/type surrogate tags — only lemma:render:page. If the homepage were
+        // entry/type surrogate tags — only thallo:render:page. If the homepage were
         // configured to entry A, publishing A SHOULD purge it too and this test's
         // "B still hit" assertion would be wrong by setup.
         self::assertSame('', $root['cacheTag']);
@@ -297,13 +297,13 @@ final class RenderPageCacheTest extends AppTestCase
     public function testRenderPageTagInvalidationDropsEverything(): void
     {
         // Every stored entry — per-path pages AND the fixed 404 body — carries
-        // lemma:render:page, so a broad invalidation empties the namespace.
+        // thallo:render:page, so a broad invalidation empties the namespace.
         $this->seedBilingualPublishedEntry();
         $this->handle(Request::create('/blog/hello', 'GET'));
         $this->handle(Request::create('/no/such-page', 'GET'));
         self::assertCount(2, $this->cache()->getKeys('render:*'));
 
-        $this->cache()->invalidateTags(['lemma:render:page']);
+        $this->cache()->invalidateTags(['thallo:render:page']);
         self::assertSame([], $this->cache()->getKeys('render:*'));
     }
 

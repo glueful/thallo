@@ -91,7 +91,7 @@ final class FacetsTwigTest extends AppTestCase
             [['uuid' => 'ftwterm00001', 'slug' => 'php', 'count' => 1]],
             $r['items'],
         );
-        self::assertSame(['lemma:type:post', 'lemma:type:category'], $r['cache_tags']);
+        self::assertSame(['thallo:type:post', 'thallo:type:category'], $r['cache_tags']);
     }
 
     public function testValidEmptyFacetStillCarriesTags(): void
@@ -100,7 +100,7 @@ final class FacetsTwigTest extends AppTestCase
         // showing this facet purges when the first matching entry publishes (review P1).
         $r = $this->reader()->counts('post', 'category', 'en');
         self::assertSame([], $r['items']);
-        self::assertSame(['lemma:type:post', 'lemma:type:category'], $r['cache_tags']);
+        self::assertSame(['thallo:type:post', 'thallo:type:category'], $r['cache_tags']);
     }
 
     public function testGateFailuresReturnEmptyItemsAndEmptyTags(): void
@@ -135,7 +135,7 @@ final class FacetsTwigTest extends AppTestCase
         // Successful render: items in output, tags in the collector.
         $extension->resetTags();
         self::assertSame('php:1', $twig->render('ok.twig'));
-        self::assertSame(['lemma:type:post', 'lemma:type:category'], $extension->drainTags());
+        self::assertSame(['thallo:type:post', 'thallo:type:category'], $extension->drainTags());
         self::assertSame([], $extension->drainTags()); // drain clears
 
         // A failing render must not leak tags into the NEXT render (review pin):

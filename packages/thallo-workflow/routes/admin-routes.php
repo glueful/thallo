@@ -9,7 +9,7 @@ use Glueful\Routing\Router;
 
 /*
  * Admin review-workflow API. Triple-gated like the other packs:
- *   1. capability       — this file loads only when lemma.workflow is enabled (else 404).
+ *   1. capability       — this file loads only when thallo.workflow is enabled (else 404).
  *   2. auth             — group middleware.
  *   3. content_permission — per-route slug. Withdraw is gated content.view only: a reviewer
  *      may lack content.edit; the submitter-or-reviewer rule is enforced in the service (403).

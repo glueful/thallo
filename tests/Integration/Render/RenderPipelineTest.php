@@ -211,7 +211,7 @@ final class RenderPipelineTest extends AppTestCase
         $response = $this->handle(Request::create('/page/source', 'GET'));
         self::assertSame(200, $response->getStatusCode());
         self::assertStringContainsString(
-            'lemma:entry:' . $target,
+            'thallo:entry:' . $target,
             (string) $response->headers->get('Cache-Tag'),
         );
         self::assertStringNotContainsString('cache_tags', (string) $response->getContent());

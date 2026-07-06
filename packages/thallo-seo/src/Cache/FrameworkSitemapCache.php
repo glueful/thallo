@@ -9,7 +9,7 @@ use Glueful\Cache\CacheStore;
 /** SitemapCache backed by the framework cache. No TTL — entries live until invalidated. */
 final class FrameworkSitemapCache implements SitemapCache
 {
-    private const PATTERN = 'lemma_seo:sitemap:*';
+    private const PATTERN = 'thallo:seo:sitemap:*';
 
     public function __construct(private readonly CacheStore $cache)
     {

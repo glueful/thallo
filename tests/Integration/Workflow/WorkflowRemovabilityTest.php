@@ -11,7 +11,7 @@ use Thallo\Contracts\Authoring\PublishBlocked;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Proves thallo-workflow is cleanly disable-able: with lemma.workflow disabled, the boot
+ * Proves thallo-workflow is cleanly disable-able: with thallo.workflow disabled, the boot
  * gate skips routes + listeners entirely (404s, no state mutations), and the publish gate
  * short-circuits so publish behaves as current core. Also guards the pack boundary: no
  * App\ references in packages/thallo-workflow/src.
@@ -67,7 +67,7 @@ final class WorkflowRemovabilityTest extends AppTestCase
                 ->publish($entry, 'en', 'nobypass0009');
             self::assertNotSame('', $version);
         } catch (PublishBlocked $e) {
-            self::fail('publish must be UNGATED when lemma.workflow is disabled');
+            self::fail('publish must be UNGATED when thallo.workflow is disabled');
         }
     }
 

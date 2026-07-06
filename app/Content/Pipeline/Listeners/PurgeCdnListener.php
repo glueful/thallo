@@ -23,8 +23,8 @@ use Psr\Container\ContainerInterface;
  *
  * When a real CDN IS present, it purges the SAME surrogate tags the delivery layer emits and
  * the cache-invalidation listener invalidates:
- *   - entry events -> [lemma:entry:{uuid}, lemma:type:{slug}]
- *   - model events -> [lemma:type:{slug}]
+ *   - entry events -> [thallo:entry:{uuid}, thallo:type:{slug}]
+ *   - model events -> [thallo:type:{slug}]
  * Entry events carry the content-type UUID (not the slug), so the type tag is resolved
  * uuid -> slug via ContentTypeRepository (memoised) — mirroring InvalidateCacheTagsListener.
  *
@@ -83,16 +83,16 @@ final class PurgeCdnListener
     {
         if ($event instanceof BaseEntryEvent) {
             $slug = $this->resolveSlug($event->type);
-            $tags = ['lemma:entry:' . $event->entry];
+            $tags = ['thallo:entry:' . $event->entry];
             if ($slug !== null) {
-                $tags[] = 'lemma:type:' . $slug;
+                $tags[] = 'thallo:type:' . $slug;
             }
             return $tags;
         }
 
         if ($event instanceof BaseModelEvent) {
             // Model events carry the slug directly.
-            return ['lemma:type:' . $event->type];
+            return ['thallo:type:' . $event->type];
         }
 
         return [];

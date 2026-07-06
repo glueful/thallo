@@ -24,7 +24,7 @@ final class DoctorTest extends TestCase
 
     private function tempProject(bool $withEnv, bool $withExample): string
     {
-        $dir = sys_get_temp_dir() . '/lemma_doctor_' . uniqid('', true);
+        $dir = sys_get_temp_dir() . '/doctor_' . uniqid('', true);
         mkdir($dir . '/storage', 0755, true);
         if ($withEnv) {
             file_put_contents($dir . '/.env', "APP_ENV=testing\n");

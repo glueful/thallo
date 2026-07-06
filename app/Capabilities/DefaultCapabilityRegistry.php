@@ -9,7 +9,7 @@ use Thallo\Contracts\Capability\CapabilityRegistry;
 
 /**
  * In-memory capability registry. Packs register their Capability during boot; the host's
- * switchboard ($overrides, the `lemma.capabilities` config map keyed by full capability id)
+ * switchboard ($overrides, the `thallo.capabilities` config map keyed by full capability id)
  * decides which installed capabilities are enabled. Absent id => enabled (default-on);
  * `false` => disabled.
  */

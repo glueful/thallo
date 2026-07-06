@@ -99,7 +99,7 @@ final class ContentImporter implements ImporterInterface, RetryableAdapterInterf
                 $errors[] = [
                     'record_number' => $line,
                     'severity' => 'error',
-                    'code' => 'lemma_content_import_failed',
+                    'code' => 'content_import_failed',
                     'message' => $e->getMessage(),
                 ];
             }

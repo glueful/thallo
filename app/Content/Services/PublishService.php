@@ -29,7 +29,7 @@ final class PublishService
         private readonly ReferenceProjectionRepository $references,
         private readonly ?PublishEventEmitter $events = null,
         private readonly ?SchemaProjector $projector = null,
-        /** @var list<PublishGate> Tag-discovered (`lemma.publish_gate`); empty = ungated. */
+        /** @var list<PublishGate> Tag-discovered (`thallo.publish_gate`); empty = ungated. */
         private readonly array $publishGates = [],
         /** Block-migration write gate (spec §3); null = ungated (tests, minimal wiring). */
         private readonly ?BlockMigrationGate $blockGate = null,

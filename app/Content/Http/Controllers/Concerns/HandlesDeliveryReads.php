@@ -69,7 +69,7 @@ trait HandlesDeliveryReads
 
     /**
      * Clamp a requested page size into the safe range: a non-positive value falls back to the
-     * default, and the result is capped at `lemma.delivery.max_per_page` so a client cannot
+     * default, and the result is capped at `thallo.delivery.max_per_page` so a client cannot
      * request an unbounded page.
      */
     private function clampPerPage(int $perPage): int
@@ -81,7 +81,7 @@ trait HandlesDeliveryReads
         return min($perPage, $max);
     }
 
-    /** The configured default page size (`lemma.delivery.default_per_page`, fallback 20). */
+    /** The configured default page size (`thallo.delivery.default_per_page`, fallback 20). */
     private function defaultPerPage(): int
     {
         return app($this->context, GeneralSettings::class)->defaultPerPage();
@@ -89,7 +89,7 @@ trait HandlesDeliveryReads
 
     /**
      * The Cache-Control max-age (seconds) advertised on delivery responses. A content
-     * type's `cache_ttl` overrides the global `lemma.delivery.cache_ttl`; null falls back.
+     * type's `cache_ttl` overrides the global `thallo.delivery.cache_ttl`; null falls back.
      *
      * @param array<string,mixed> $typeRow
      */

@@ -34,7 +34,7 @@ final class CapabilityRegistryWiringTest extends AppTestCase
     {
         // Seed a disabled override for a DOTTED id via the public config-defaults seam.
         // config/thallo.php's `capabilities` is empty, so this default surfaces (defaults
-        // merge UNDER file config). A correct factory reads the whole `lemma.capabilities`
+        // merge UNDER file config). A correct factory reads the whole `thallo.capabilities`
         // map and sees `test.fake => false`. A buggy dotted-access impl
         // (config('thallo.capabilities.test.fake')) would walk capabilities['test']['fake'],
         // never find the literal-key 'test.fake', fall back to the default, and wrongly
@@ -48,7 +48,7 @@ final class CapabilityRegistryWiringTest extends AppTestCase
 
         self::assertFalse(
             $reg->isEnabled('test.fake'),
-            'factory must read the whole lemma.capabilities map (full id key), not via dotted access',
+            'factory must read the whole thallo.capabilities map (full id key), not via dotted access',
         );
     }
 }

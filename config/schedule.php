@@ -79,7 +79,7 @@ return [
             'retry_attempts' => 2,
         ],
         [
-            'name' => 'lemma_schedules_run',
+            'name' => 'schedules_run',
             'schedule' => '* * * * *',
             'handler_class' => \App\Content\Jobs\RunDueSchedulesJob::class,
             'parameters' => [],

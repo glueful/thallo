@@ -10,6 +10,6 @@ interface SitemapCache
     /** Return the cached string for $key, or produce+store it. */
     public function remember(string $key, callable $producer): string;
 
-    /** Drop every sitemap cache entry (lemma_seo:sitemap:*). */
+    /** Drop every sitemap cache entry (thallo:seo:sitemap:*). */
     public function forgetAll(): void;
 }

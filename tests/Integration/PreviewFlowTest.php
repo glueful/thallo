@@ -101,7 +101,7 @@ final class PreviewFlowTest extends AppTestCase
         $token = $data['token'];
         self::assertIsString($token);
         // theme_url is SERVER-decided (preview spec §4): the suite runs with
-        // lemma.render enabled, so it must be present and token-bound.
+        // thallo.render enabled, so it must be present and token-bound.
         self::assertSame('/_preview/' . $token, $data['theme_url']);
 
         // READ through the kernel with NO auth header at all — the token is the capability.

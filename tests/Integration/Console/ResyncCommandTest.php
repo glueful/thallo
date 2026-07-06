@@ -106,8 +106,8 @@ final class ResyncCommandTest extends AppTestCase
         self::assertSame(0, $exit, 'resync must exit 0');
 
         $invalidated = $this->cache->allInvalidatedTags();
-        self::assertContains('lemma:entry:' . $entry, $invalidated, 'entry tag must be re-invalidated');
-        self::assertContains('lemma:type:post', $invalidated, 'type slug tag must be re-invalidated');
+        self::assertContains('thallo:entry:' . $entry, $invalidated, 'entry tag must be re-invalidated');
+        self::assertContains('thallo:type:post', $invalidated, 'type slug tag must be re-invalidated');
 
         self::assertCount(1, $this->reindexer->requests, 'one reindex request must be recorded for the entry');
         self::assertSame($entry, $this->reindexer->requests[0]['entry']);
@@ -137,9 +137,9 @@ final class ResyncCommandTest extends AppTestCase
         // Each entry tag invalidated + the type tag.
         $invalidated = $this->cache->allInvalidatedTags();
         foreach ([$a, $b, $c] as $uuid) {
-            self::assertContains('lemma:entry:' . $uuid, $invalidated);
+            self::assertContains('thallo:entry:' . $uuid, $invalidated);
         }
-        self::assertContains('lemma:type:post', $invalidated);
+        self::assertContains('thallo:type:post', $invalidated);
 
         self::assertSame([], $this->webhooks->calls, 'default resync must NOT dispatch webhooks');
     }
@@ -171,10 +171,10 @@ final class ResyncCommandTest extends AppTestCase
         self::assertEqualsCanonicalizing([$post, $page], $reindexed, 'no-args resync covers all types');
 
         $invalidated = $this->cache->allInvalidatedTags();
-        self::assertContains('lemma:entry:' . $post, $invalidated);
-        self::assertContains('lemma:entry:' . $page, $invalidated);
-        self::assertContains('lemma:type:post', $invalidated);
-        self::assertContains('lemma:type:page', $invalidated);
+        self::assertContains('thallo:entry:' . $post, $invalidated);
+        self::assertContains('thallo:entry:' . $page, $invalidated);
+        self::assertContains('thallo:type:post', $invalidated);
+        self::assertContains('thallo:type:page', $invalidated);
     }
 
     // ---- never touches drafts ---------------------------------------------------------
@@ -196,7 +196,7 @@ final class ResyncCommandTest extends AppTestCase
         self::assertContains($published, $reindexed, 'the published entry is re-driven');
         self::assertNotContains($draftOnly, $reindexed, 'a draft-only entry must NEVER be re-driven');
         self::assertNotContains(
-            'lemma:entry:' . $draftOnly,
+            'thallo:entry:' . $draftOnly,
             $this->cache->allInvalidatedTags(),
             'a draft-only entry tag must never be invalidated'
         );

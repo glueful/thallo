@@ -158,16 +158,16 @@ final class RegionAdminApiTest extends AppTestCase
         $store->set('probe:region:page', 'stale');
         // Tag a probe entry the way RenderPageCache tags pages.
         if (method_exists($store, 'setWithTags')) {
-            $store->setWithTags('probe:region:tagged', 'stale', ['lemma:render:page']);
+            $store->setWithTags('probe:region:tagged', 'stale', ['thallo:render:page']);
         } else {
             $store->set('probe:region:tagged', 'stale');
-            $store->addTags('probe:region:tagged', ['lemma:render:page']);
+            $store->addTags('probe:region:tagged', ['thallo:render:page']);
         }
         self::assertSame('stale', $store->get('probe:region:tagged'));
 
         $this->controller()->update($this->dto(['blocks' => [], 'settings' => []]), 'footer');
 
-        self::assertNull($store->get('probe:region:tagged'), 'region save must broad-purge lemma:render:page');
+        self::assertNull($store->get('probe:region:tagged'), 'region save must broad-purge thallo:render:page');
         self::assertSame('stale', $store->get('probe:region:page'), 'untagged keys are untouched');
     }
 }

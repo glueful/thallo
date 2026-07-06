@@ -722,7 +722,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
     private function expansionTags(ExpandedTargets $expanded): array
     {
         return array_map(
-            static fn(string $uuid): string => 'lemma:entry:' . $uuid,
+            static fn(string $uuid): string => 'thallo:entry:' . $uuid,
             $expanded->entryUuids(),
         );
     }

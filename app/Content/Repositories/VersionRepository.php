@@ -23,7 +23,7 @@ final class VersionRepository
 
     public function reserveNextVersionNumber(string $entryUuid, string $locale): int
     {
-        $lockKey = "lemma:entry_versions:{$entryUuid}:{$locale}";
+        $lockKey = "thallo:entry_versions:{$entryUuid}:{$locale}";
         $stmt = $this->db->getPDO()->prepare('SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))');
         $stmt->execute(['lock_key' => $lockKey]);
 

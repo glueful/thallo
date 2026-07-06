@@ -181,7 +181,7 @@ final class ExpansionCacheValidatorsTest extends AppTestCase
 
         $first = $this->deliverShow('page', 'source');
         self::assertStringContainsString(
-            'lemma:entry:' . $target,
+            'thallo:entry:' . $target,
             (string) $first->headers->get('Cache-Tag'),
         );
         $etagBefore = (string) $first->headers->get('ETag');
@@ -213,7 +213,7 @@ final class ExpansionCacheValidatorsTest extends AppTestCase
         $first = $this->deliverList('page');
         $etagBefore = (string) $first->headers->get('ETag');
         self::assertStringContainsString(
-            'lemma:entry:' . $target,
+            'thallo:entry:' . $target,
             (string) $first->headers->get('Cache-Tag'),
         );
 

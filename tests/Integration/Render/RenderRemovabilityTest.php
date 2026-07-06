@@ -10,7 +10,7 @@ use Glueful\Bootstrap\ApplicationContext;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Proves thallo-render is cleanly disable-able: with lemma.render disabled the boot gate
+ * Proves thallo-render is cleanly disable-able: with thallo.render disabled the boot gate
  * skips the routes entirely, so unmatched public paths behave EXACTLY as pre-render
  * (the router's standard JSON 404 — this is also the byte-compat source the pipeline
  * test's reserved-guard responses are shaped after). Boundary: no app-engine references

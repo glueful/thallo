@@ -175,7 +175,7 @@ final class SetupApiTest extends AppTestCase
         }
     }
 
-    /** Set config `lemma.setup.token` in the process-shared context cache; returns a restore closure. */
+    /** Set config `thallo.setup.token` in the process-shared context cache; returns a restore closure. */
     private function forceSetupToken(string $token): \Closure
     {
         $context = $this->appContext();

@@ -10,7 +10,7 @@ use Glueful\Bootstrap\ApplicationContext;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Proves thallo-seo is cleanly disable-able: with lemma.seo disabled, the Task-4/5/6 boot
+ * Proves thallo-seo is cleanly disable-able: with thallo.seo disabled, the Task-4/5/6 boot
  * gate skips loadRoutesFrom() entirely, so every SEO surface (public meta, sitemap, robots,
  * admin meta) returns 404 — route unregistered, not a live-but-disabled handler.
  */

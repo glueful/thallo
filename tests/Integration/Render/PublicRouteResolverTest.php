@@ -360,7 +360,7 @@ final class PublicRouteResolverTest extends AppTestCase
 
         $result = $this->resolver()->resolvePath('/page/source');
         self::assertSame('content', $result['kind']);
-        self::assertContains('lemma:entry:' . $target, $result['cache_tags']);
+        self::assertContains('thallo:entry:' . $target, $result['cache_tags']);
         // Privacy: the tags never ride inside the content payload.
         self::assertArrayNotHasKey('cache_tags', $result['content']);
     }

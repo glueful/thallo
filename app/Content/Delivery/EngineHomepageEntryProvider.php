@@ -39,7 +39,7 @@ final class EngineHomepageEntryProvider implements HomepageEntryProvider
                 return $override;
             }
             $this->logger->warning(
-                'lemma: the homepage_entry site setting no longer resolves to published '
+                'thallo: the homepage_entry site setting no longer resolves to published '
                 . 'public content — falling back to the deploy default',
                 ['entry' => $override],
             );

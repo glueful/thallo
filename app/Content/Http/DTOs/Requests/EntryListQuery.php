@@ -28,7 +28,7 @@ final class EntryListQuery implements RequestData
         #[FromQuery(description: 'Page number (default 1).')]
         #[Rule('numeric')]
         public readonly ?int $page = null,
-        #[FromQuery(description: 'Items per page (clamped to lemma.delivery.max_per_page; default default_per_page).')]
+        #[FromQuery(description: 'Items per page (clamped to thallo.delivery.max_per_page; default default_per_page).')]
         #[Rule('numeric')]
         public readonly ?int $perPage = null,
     ) {

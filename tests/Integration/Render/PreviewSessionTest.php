@@ -142,7 +142,7 @@ final class PreviewSessionTest extends AppTestCase
 
     private function sessionRequest(string $uri, string $token): Request
     {
-        return Request::create($uri, 'GET', [], ['lemma_preview' => $token]);
+        return Request::create($uri, 'GET', [], ['thallo_preview' => $token]);
     }
 
     public function testPreviewSetsSessionCookieWithRemainingTtl(): void
@@ -154,7 +154,7 @@ final class PreviewSessionTest extends AppTestCase
         self::assertSame(200, $res->getStatusCode());
         $cookie = null;
         foreach ($res->headers->getCookies() as $c) {
-            if ($c->getName() === 'lemma_preview') {
+            if ($c->getName() === 'thallo_preview') {
                 $cookie = $c;
             }
         }
@@ -169,7 +169,7 @@ final class PreviewSessionTest extends AppTestCase
         $bad = $this->handle(Request::create('/_preview/garbage', 'GET'));
         self::assertSame([], array_filter(
             $bad->headers->getCookies(),
-            static fn($c) => $c->getName() === 'lemma_preview',
+            static fn($c) => $c->getName() === 'thallo_preview',
         ));
     }
 
@@ -205,7 +205,7 @@ final class PreviewSessionTest extends AppTestCase
         self::assertSame('/', $res->headers->get('Location'));
         $cleared = null;
         foreach ($res->headers->getCookies() as $c) {
-            if ($c->getName() === 'lemma_preview') {
+            if ($c->getName() === 'thallo_preview') {
                 $cleared = $c;
             }
         }
@@ -226,7 +226,7 @@ final class PreviewSessionTest extends AppTestCase
             $request,
             static fn ($r) => new \Symfony\Component\HttpFoundation\Response('ok'),
         );
-        $session = $request->attributes->get('lemma_preview_session');
+        $session = $request->attributes->get('thallo_preview_session');
         self::assertNotNull($session);
         self::assertSame($entry, $session->entry);
 

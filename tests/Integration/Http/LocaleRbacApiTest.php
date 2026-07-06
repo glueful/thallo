@@ -53,7 +53,7 @@ final class LocaleRbacApiTest extends AppTestCase
     public function testLocaleScopedPublishAllowsTargetLocale(): void
     {
         $user = $this->newUser();
-        $this->assignLocaleRole($user, 'lemma_editor_fr', ['content.publish'], 'fr');
+        $this->assignLocaleRole($user, 'editor_fr', ['content.publish'], 'fr');
 
         self::assertTrue($this->allows($user, 'content.publish', '/entries/{uuid}/publish/{locale}', [
             'locale' => 'fr',
@@ -63,7 +63,7 @@ final class LocaleRbacApiTest extends AppTestCase
     public function testLocaleScopedPublishDeniesOtherLocale(): void
     {
         $user = $this->newUser();
-        $this->assignLocaleRole($user, 'lemma_editor_fr', ['content.publish'], 'fr');
+        $this->assignLocaleRole($user, 'editor_fr', ['content.publish'], 'fr');
 
         self::assertFalse($this->allows($user, 'content.publish', '/entries/{uuid}/publish/{locale}', [
             'locale' => 'de',
@@ -73,7 +73,7 @@ final class LocaleRbacApiTest extends AppTestCase
     public function testLocaleScopedReadAllowsOwnLocaleDraft(): void
     {
         $user = $this->newUser();
-        $this->assignLocaleRole($user, 'lemma_editor_fr', ['content.view'], 'fr');
+        $this->assignLocaleRole($user, 'editor_fr', ['content.view'], 'fr');
 
         self::assertTrue($this->allows($user, 'content.view', '/entries/{uuid}/draft/{locale}', [
             'locale' => 'fr',
@@ -86,7 +86,7 @@ final class LocaleRbacApiTest extends AppTestCase
     public function testLocaleScopedReadCannotDiscoverCoarseInventory(): void
     {
         $user = $this->newUser();
-        $this->assignLocaleRole($user, 'lemma_editor_fr', ['content.view'], 'fr');
+        $this->assignLocaleRole($user, 'editor_fr', ['content.view'], 'fr');
 
         self::assertFalse($this->allows($user, 'content.view', '/entries/{uuid}/locales', []));
         self::assertFalse($this->allows($user, 'content.view', '/entries/{uuid}', []));
@@ -95,7 +95,7 @@ final class LocaleRbacApiTest extends AppTestCase
     public function testCoarseReadRestoresDiscovery(): void
     {
         $user = $this->newUser();
-        $this->assignLocaleRole($user, 'lemma_reader_global', ['content.view'], '*');
+        $this->assignLocaleRole($user, 'reader_global', ['content.view'], '*');
 
         self::assertTrue($this->allows($user, 'content.view', '/entries/{uuid}/locales', []));
         self::assertTrue($this->allows($user, 'content.view', '/entries/{uuid}', []));
@@ -104,7 +104,7 @@ final class LocaleRbacApiTest extends AppTestCase
     public function testLocaleOnlyUserIsDeniedLocaleAgnosticDestroy(): void
     {
         $user = $this->newUser();
-        $this->assignLocaleRole($user, 'lemma_editor_fr', ['content.edit'], 'fr');
+        $this->assignLocaleRole($user, 'editor_fr', ['content.edit'], 'fr');
 
         self::assertFalse($this->allows($user, 'content.edit', '/entries/{uuid}', []));
     }
@@ -121,7 +121,7 @@ final class LocaleRbacApiTest extends AppTestCase
     {
         $user = $this->newUser();
         self::assertTrue($this->provider()->assignRole($user, 'editor'));
-        $this->assignLocaleRole($user, 'lemma_editor_fr', ['content.publish'], 'fr');
+        $this->assignLocaleRole($user, 'editor_fr', ['content.publish'], 'fr');
 
         self::assertTrue($this->allows($user, 'content.publish', '/entries/{uuid}/publish/{locale}', [
             'locale' => 'de',
@@ -246,7 +246,7 @@ final class LocaleRbacApiTest extends AppTestCase
         }
 
         $testRoles = $db->table('roles')->select(['uuid'])
-            ->whereIn('slug', ['lemma_editor_fr', 'lemma_editor_de', 'lemma_reader_global'])
+            ->whereIn('slug', ['editor_fr', 'editor_de', 'reader_global'])
             ->get();
         $roleUuids = array_map(static fn (array $row): string => (string) $row['uuid'], $testRoles);
 

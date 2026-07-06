@@ -23,7 +23,7 @@ use Symfony\Component\HttpFoundation\Request;
  *
  *   1. Route surface gone: GET /v1/collections/{name} returns 404 (not 403 from a
  *      live-but-disabled handler) because the Task-2 boot gate skips loadRoutesFrom()
- *      entirely when lemma.collections is disabled.
+ *      entirely when thallo.collections is disabled.
  *
  *   2. Data preserved: collection_definitions and any materialized collection_* data
  *      table survive the disable — the pack migrations run on INSTALL, not on enable/
@@ -37,14 +37,14 @@ use Symfony\Component\HttpFoundation\Request;
  *   - The SHARED enabled boot (AppTestCase::$app) — used in setUp to create a real
  *     collection so the data-persistence assertions are non-trivial.
  *   - A DEDICATED disabled boot ($disabledApp, see setUpBeforeClass) — booted with a
- *     temporary config/testing/lemma.php that sets capabilities.lemma.collections=false,
+ *     temporary config/testing/lemma.php that sets capabilities.thallo.collections=false,
  *     which the DefaultCapabilityRegistry factory reads before CollectionsServiceProvider
  *     registers routes. After the second boot the override file is deleted and RouteManifest
  *     is reset so subsequent test classes re-use the shared enabled context unaffected.
  */
 final class RemovabilityTest extends AppTestCase
 {
-    /** Boot-level disabled context: fresh Framework boot with lemma.collections=false. */
+    /** Boot-level disabled context: fresh Framework boot with thallo.collections=false. */
     private static ?ApplicationContext $disabledApp = null;
 
     /** Name of the collection created during setUp for persistence assertions. */
@@ -61,7 +61,7 @@ final class RemovabilityTest extends AppTestCase
         parent::setUpBeforeClass();
 
         // Boot the disabled app: ConfigurationLoader merges config/testing/lemma.php on
-        // top of config/thallo.php, so DefaultCapabilityRegistry sees lemma.collections=>false
+        // top of config/thallo.php, so DefaultCapabilityRegistry sees thallo.collections=>false
         // and CollectionsServiceProvider::boot() skips loadRoutesFrom().
         self::$disabledApp ??= self::bootAppWithConfigOverride('thallo', [
             'capabilities' => ['thallo.collections' => false],

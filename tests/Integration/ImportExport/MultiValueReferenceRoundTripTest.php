@@ -91,11 +91,11 @@ final class MultiValueReferenceRoundTripTest extends AppTestCase
      */
     private function writeBundle(array $records): string
     {
-        $dir = sys_get_temp_dir() . '/lemma-import-export-tests';
+        $dir = sys_get_temp_dir() . '/import-export-tests';
         if (!is_dir($dir)) {
             mkdir($dir, 0770, true);
         }
-        $path = $dir . '/lemma-multival-ref.ndjson';
+        $path = $dir . '/multival-ref.ndjson';
         file_put_contents($path, implode("\n", array_map(
             static fn(array $record): string => json_encode($record, JSON_THROW_ON_ERROR),
             $records
@@ -113,7 +113,7 @@ final class MultiValueReferenceRoundTripTest extends AppTestCase
             'status' => 'queued',
             'mode' => 'commit',
             'source_disk' => 'storage',
-            'source_path' => 'imports/lemma-multival-ref.ndjson',
+            'source_path' => 'imports/multival-ref.ndjson',
             'total_records' => 7,
             'created_at' => '2026-06-16 00:00:00',
             'updated_at' => '2026-06-16 00:00:00',

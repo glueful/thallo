@@ -42,7 +42,7 @@ use Symfony\Component\Console\Output\OutputInterface;
  *
  * RE-DRIVEN EFFECTS (Option A — direct listener invocation, for precise control):
  *   - ProjectPublishedReferencesListener (always) rebuild published-reference projection rows
- *   - InvalidateCacheTagsListener  (always)  drop lemma:entry:{uuid} + lemma:type:{slug}
+ *   - InvalidateCacheTagsListener  (always)  drop thallo:entry:{uuid} + thallo:type:{slug}
  *   - PurgeCdnListener             (always)  idempotent + capability-gated (no-ops without cdn)
  *   - ReindexSearchListener        (always)  idempotent + capability-gated (no-ops without search)
  *   - DispatchWebhookListener      (ONLY with --webhooks)

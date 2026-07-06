@@ -242,7 +242,7 @@ final class DeliveryApiTest extends AppTestCase
         self::assertSame('/post/new', $body['data']['redirect']['to']);
         self::assertSame(301, $body['data']['redirect']['status']);
         self::assertSame('max-age=60, public', $resp->headers->get('Cache-Control'));
-        self::assertStringContainsString('lemma:entry:' . $uuid, (string) $resp->headers->get('Cache-Tag'));
+        self::assertStringContainsString('thallo:entry:' . $uuid, (string) $resp->headers->get('Cache-Tag'));
     }
 
     public function testShowReturns404ForBrokenInternalRedirectTarget(): void

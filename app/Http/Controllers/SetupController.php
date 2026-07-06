@@ -53,7 +53,7 @@ final class SetupController
         }
 
         // Guard the unauthenticated first-run endpoint so a random first caller can't claim the
-        // instance on a public deploy (see config lemma.setup.token).
+        // instance on a public deploy (see config thallo.setup.token).
         $denied = $this->assertSetupAllowed($request);
         if ($denied !== null) {
             return $denied;

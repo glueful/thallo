@@ -9,7 +9,7 @@ use Glueful\Routing\Router;
 
 /*
  * Admin analytics read API. Triple-gated like collections:
- *   1. capability       — this file loads only when lemma.analytics is enabled (boot gate; else 404).
+ *   1. capability       — this file loads only when thallo.analytics is enabled (boot gate; else 404).
  *   2. auth             — group middleware: an authenticated session is required (401 otherwise).
  *   3. content_permission — per-route Aegis permission: analytics.read.
  */

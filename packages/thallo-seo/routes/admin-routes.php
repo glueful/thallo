@@ -9,7 +9,7 @@ use Glueful\Routing\Router;
 
 /*
  * Admin SEO meta overrides. Triple-gated like analytics:
- *   1. capability       — this file loads only when lemma.seo is enabled (else 404).
+ *   1. capability       — this file loads only when thallo.seo is enabled (else 404).
  *   2. auth             — group middleware.
  *   3. content_permission — per-route seo.manage.
  */

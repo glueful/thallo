@@ -15,7 +15,7 @@ use Glueful\Permissions\PermissionManager;
  *
  * The capability check lives HERE (not in registration): container tags come from the
  * compile-time services() map, so this gate is collected by PublishService even when
- * lemma.workflow is disabled — disabled must mean "publish behaves as current core".
+ * thallo.workflow is disabled — disabled must mean "publish behaves as current core".
  */
 final class WorkflowPublishGate implements PublishGate
 {

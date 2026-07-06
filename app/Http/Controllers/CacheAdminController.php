@@ -16,7 +16,7 @@ use Glueful\Routing\Attributes\ApiResponse;
  * Cache status + clear operations for the admin Utilities › Cache page.
  *
  * Wraps the framework {@see CacheStore} (driver, stats, key count, flush, tag invalidation). Lemma
- * tags delivery cache by `lemma:type:<slug>` and `lemma:entry:<uuid>`, so a per-content-type clear
+ * tags delivery cache by `thallo:type:<slug>` and `thallo:entry:<uuid>`, so a per-content-type clear
  * is a targeted tag invalidation; an empty clear flushes everything. Gated by `system.access`.
  */
 final class CacheAdminController
@@ -42,7 +42,7 @@ final class CacheAdminController
     #[ApiOperation(
         summary: 'Clear cache',
         description: 'Clears the cache. With `content_type`, only that type\'s delivery cache '
-            . '(the `lemma:type:<slug>` tag) is invalidated; otherwise the whole cache is flushed. '
+            . '(the `thallo:type:<slug>` tag) is invalidated; otherwise the whole cache is flushed. '
             . 'Requires `system.access`.',
         tags: ['Utilities'],
     )]
@@ -53,7 +53,7 @@ final class CacheAdminController
         $type = $input->content_type !== null ? trim($input->content_type) : '';
 
         if ($type !== '') {
-            $cache->invalidateTags(['lemma:type:' . $type]);
+            $cache->invalidateTags(['thallo:type:' . $type]);
             $message = "Cleared the delivery cache for content type “{$type}”.";
         } else {
             $cache->flush();

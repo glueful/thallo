@@ -196,8 +196,8 @@ final class TermFacetsArchiveTest extends AppTestCase
             $cats, // count DESC, slug ASC
         );
         // Surrogate tags: source AND target type (zero new purge code rides these).
-        self::assertStringContainsString('lemma:type:post', (string) $r['headers']->get('Cache-Tag'));
-        self::assertStringContainsString('lemma:type:category', (string) $r['headers']->get('Cache-Tag'));
+        self::assertStringContainsString('thallo:type:post', (string) $r['headers']->get('Cache-Tag'));
+        self::assertStringContainsString('thallo:type:category', (string) $r['headers']->get('Cache-Tag'));
     }
 
     public function testUnpublishedTermDropsOutOfFacetsWhileProjectionRowsRemain(): void
@@ -299,10 +299,10 @@ final class TermFacetsArchiveTest extends AppTestCase
         // Surrogate tags: member entries + term entry + both types.
         $r = $this->archive('post', 'category', 'news');
         $cacheTag = (string) $r['headers']->get('Cache-Tag');
-        self::assertStringContainsString('lemma:entry:apost0000001', $cacheTag);
-        self::assertStringContainsString('lemma:entry:catarc000001', $cacheTag);
-        self::assertStringContainsString('lemma:type:post', $cacheTag);
-        self::assertStringContainsString('lemma:type:category', $cacheTag);
+        self::assertStringContainsString('thallo:entry:apost0000001', $cacheTag);
+        self::assertStringContainsString('thallo:entry:catarc000001', $cacheTag);
+        self::assertStringContainsString('thallo:type:post', $cacheTag);
+        self::assertStringContainsString('thallo:type:category', $cacheTag);
     }
 
     public function testArchiveMembershipComesFromTheProjectionNotJsonb(): void

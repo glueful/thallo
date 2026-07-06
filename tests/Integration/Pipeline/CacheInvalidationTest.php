@@ -15,7 +15,7 @@ use Glueful\Events\EventService;
 /**
  * Proves the cache-tag invalidation listener (V1_DESIGN §5) wired in
  * ThalloServiceProvider::boot() invalidates the SAME surrogate keys the delivery layer
- * emits (App\Content\Http\DeliveryEtag): `lemma:entry:{uuid}` and `lemma:type:{slug}`.
+ * emits (App\Content\Http\DeliveryEtag): `thallo:entry:{uuid}` and `thallo:type:{slug}`.
  *
  * A byte-for-byte match is the whole point — if delivery tags by slug but the listener
  * invalidates by uuid, caches go stale forever. Entry events carry the content-type
@@ -66,8 +66,8 @@ final class CacheInvalidationTest extends AppTestCase
 
     public function testPublishInvalidatesEntryAndTypeTagsExactlyAsDeliveryEmitsThem(): void
     {
-        $entryTag = 'lemma:entry:' . $this->entry;
-        $typeTag = 'lemma:type:post';
+        $entryTag = 'thallo:entry:' . $this->entry;
+        $typeTag = 'thallo:type:post';
 
         // Prime a value under each tag so we can prove the listener actually purges them.
         $this->cache->set('delivery:item:' . $this->entry, ['body' => 'cached']);
@@ -88,7 +88,7 @@ final class CacheInvalidationTest extends AppTestCase
         self::assertContains($entryTag, $invalidated, 'entry tag must be invalidated');
         self::assertContains($typeTag, $invalidated, 'type SLUG tag must be invalidated');
         self::assertNotContains(
-            'lemma:type:' . $this->type,
+            'thallo:type:' . $this->type,
             $invalidated,
             'the type tag must use the slug, never the content-type UUID'
         );
@@ -96,7 +96,7 @@ final class CacheInvalidationTest extends AppTestCase
 
     public function testModelChangeInvalidatesTypeSlugTag(): void
     {
-        $typeTag = 'lemma:type:post';
+        $typeTag = 'thallo:type:post';
         $this->cache->set('delivery:list:post', ['items' => []]);
         $this->cache->addTags('delivery:list:post', [$typeTag]);
 

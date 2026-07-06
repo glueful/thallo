@@ -340,7 +340,7 @@ final class ThalloServiceProvider extends ServiceProvider
                 'autowire' => true,
             ],
             PublishService::class => [
-                // Factory (not autowire): collects tag-registered lemma.publish_gate services
+                // Factory (not autowire): collects tag-registered thallo.publish_gate services
                 // (workflow pack etc.); the tag collection is priority-ordered by the compiler.
                 'factory' => [self::class, 'makePublishService'],
                 'shared' => true,
@@ -418,7 +418,7 @@ final class ThalloServiceProvider extends ServiceProvider
 
     /**
      * Headless SEO/routing: path rendering, route resolution, and canonical-URL
-     * projection (the factory-built services derive their config from lemma.seo.*).
+     * projection (the factory-built services derive their config from thallo.seo.*).
      *
      * @return array<string, array<string, mixed>>
      */
@@ -710,7 +710,7 @@ final class ThalloServiceProvider extends ServiceProvider
     }
 
     /**
-     * Full-graph snapshot export/import (the core `lemma.content` engine, tagged for the
+     * Full-graph snapshot export/import (the core `thallo.content` engine, tagged for the
      * import-export adapter registry) plus the admin import/export controller.
      *
      * @return array<string, array<string, mixed>>
@@ -1077,7 +1077,7 @@ final class ThalloServiceProvider extends ServiceProvider
         // + index.html deep-link fallback + cache split. No-ops (with a warning) if the bundle
         // is unbuilt. The /admin/config + /admin/setup static routes (routes/admin_spa.php)
         // keep precedence over the SPA catch-all via the router's static-first lookup.
-        // Gated by lemma.admin.enabled so an operator can disable the default admin and bring
+        // Gated by thallo.admin.enabled so an operator can disable the default admin and bring
         // their own (the admin is a replaceable client of the /v1/admin API).
         if ((bool) config($context, 'thallo.admin.enabled', true)) {
             $this->serveFrontend(
@@ -1138,7 +1138,7 @@ final class ThalloServiceProvider extends ServiceProvider
         // PurgeCdnListener and ReindexSearchListener are CAPABILITY-GATED no-ops in a lean
         // install (no glueful/cdn / content reindexer): they self-skip at invocation, so wiring
         // them broadly is safe. PurgeCdnListener mirrors the cache listener's tag scope (entry
-        // + model events, since both move lemma:type:{slug}). ReindexSearchListener is wired to
+        // + model events, since both move thallo:type:{slug}). ReindexSearchListener is wired to
         // entry LIFECYCLE events only (publish/unpublish/update/delete) — the ones that change a
         // single entry's published index document; model/asset events don't.
         $listeners = [
@@ -1204,7 +1204,7 @@ final class ThalloServiceProvider extends ServiceProvider
         // (class_exists) so removing the pack drops this wiring cleanly with no dangling reference.
         // CollectionAuditListener is unconditional (installed-gated only): a disabled-but-installed
         // analytics pack must still audit programmatic row mutations. AnalyticsBridgeListener is
-        // ENABLED-gated: disabling lemma.analytics hard-stops collection ingestion, consistent with
+        // ENABLED-gated: disabling thallo.analytics hard-stops collection ingestion, consistent with
         // the pack's auth listeners and the read API — no content or collection facts are written
         // while the capability is off (spec §7).
         if (class_exists(CollectionRowCreated::class)) {
@@ -1226,7 +1226,7 @@ final class ThalloServiceProvider extends ServiceProvider
         }
 
         // Content entry events → analytics facts. The analytics bridge is ENABLED-gated: disabling
-        // lemma.analytics hard-stops content ingestion, consistent with the pack's auth listeners,
+        // thallo.analytics hard-stops content ingestion, consistent with the pack's auth listeners,
         // the collection block above, and the read API (spec §7). The audit bridge (CollectionAuditListener)
         // remains unconditional/installed-gated and is unaffected by this gate.
         if ($analyticsOn) {

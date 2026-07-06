@@ -11,7 +11,7 @@ use Thallo\Contracts\Navigation\MenuReader;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Proves thallo-navigation is cleanly disable-able: with lemma.navigation disabled, the
+ * Proves thallo-navigation is cleanly disable-able: with thallo.navigation disabled, the
  * boot gate skips routes (404s) and MenuReader resolves null — indistinguishable from
  * "pack absent" for consumers. Also guards the pack boundary: no app-engine references
  * in packages/thallo-navigation/src.
