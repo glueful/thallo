@@ -32,7 +32,7 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * Roles are assigned by SLUG via the permission provider (the same path SetupService uses for the
  * first admin) — NOT via `RoleService::assignRoleToUser()`, whose actor must out-rank the target in
- * the role hierarchy. Lemma's roles are flat (no `parent_uuid`), so that hierarchy check would always
+ * the role hierarchy. Thallo's roles are flat (no `parent_uuid`), so that hierarchy check would always
  * reject an administrator assigning, say, `editor`.
  */
 final class UserAdminController

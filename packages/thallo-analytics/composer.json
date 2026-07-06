@@ -1,6 +1,6 @@
 {
   "name": "glueful/thallo-analytics",
-  "description": "Product-analytics fact store for Lemma: consumes lifecycle events, owns its own facts, as a removable capability pack.",
+  "description": "Product-analytics fact store for Thallo: consumes lifecycle events, owns its own facts, as a removable capability pack.",
   "type": "glueful-extension",
   "license": "MIT",
   "authors": [

@@ -39,7 +39,7 @@ final class SetupController
         description: 'Unauthenticated, self-locking first-run setup: creates the first admin and '
             . 'writes site settings. Returns 409 forever once the instance is installed — a second '
             . '"first" admin can never be created.',
-        tags: ['Lemma Setup'],
+        tags: ['Thallo Setup'],
     )]
     #[ApiResponse(200, description: 'Setup complete; the first admin was created.')]
     #[ApiResponse(409, description: 'Already installed — setup is permanently locked.')]

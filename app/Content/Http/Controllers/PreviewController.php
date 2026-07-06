@@ -114,7 +114,7 @@ final class PreviewController
         summary: 'Read a draft via a signed preview token',
         description: 'Unauthenticated — the token in the path is the only credential, and this is the only '
             . 'way to read unpublished content. Returns the draft, or the version the token pins.',
-        tags: ['Lemma Preview'],
+        tags: ['Thallo Preview'],
     )]
     #[ApiResponse(200, schema: PreviewResultData::class, description: 'The previewed draft (or pinned version).')]
     #[ApiResponse(

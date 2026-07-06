@@ -30,7 +30,7 @@ final class WorkflowController
     ) {
     }
 
-    #[ApiOperation(summary: 'Submit a draft for review', tags: ['Lemma Workflow'])]
+    #[ApiOperation(summary: 'Submit a draft for review', tags: ['Thallo Workflow'])]
     #[ApiResponse(200, description: 'The review state after the transition.')]
     #[ApiResponse(404, description: 'Unknown entry/locale (no draft).')]
     #[ApiResponse(409, description: 'Illegal transition from the current state.')]
@@ -45,7 +45,7 @@ final class WorkflowController
         );
     }
 
-    #[ApiOperation(summary: 'Approve a submission', tags: ['Lemma Workflow'])]
+    #[ApiOperation(summary: 'Approve a submission', tags: ['Thallo Workflow'])]
     #[ApiResponse(200, description: 'The review state after the transition.')]
     #[ApiResponse(403, description: 'Self-review blocked.')]
     #[ApiResponse(409, description: 'Illegal transition from the current state.')]
@@ -60,7 +60,7 @@ final class WorkflowController
         );
     }
 
-    #[ApiOperation(summary: 'Request changes on a submission', tags: ['Lemma Workflow'])]
+    #[ApiOperation(summary: 'Request changes on a submission', tags: ['Thallo Workflow'])]
     #[ApiResponse(200, description: 'The review state after the transition.')]
     #[ApiResponse(409, description: 'Illegal transition from the current state.')]
     #[ApiResponse(422, description: 'A note is required.')]
@@ -76,7 +76,7 @@ final class WorkflowController
         );
     }
 
-    #[ApiOperation(summary: 'Withdraw a submission', tags: ['Lemma Workflow'])]
+    #[ApiOperation(summary: 'Withdraw a submission', tags: ['Thallo Workflow'])]
     #[ApiResponse(200, description: 'The review state after the transition.')]
     #[ApiResponse(403, description: 'Only the submitter or a reviewer may withdraw.')]
     #[ApiResponse(409, description: 'Illegal transition from the current state.')]
@@ -95,14 +95,14 @@ final class WorkflowController
         );
     }
 
-    #[ApiOperation(summary: 'Review state + history for an entry/locale', tags: ['Lemma Workflow'])]
+    #[ApiOperation(summary: 'Review state + history for an entry/locale', tags: ['Thallo Workflow'])]
     #[ApiResponse(200, description: 'State row (draft default) + recent history.')]
     public function show(Request $request, string $uuid, string $locale): Response
     {
         return Response::success($this->workflow->overview($uuid, $locale));
     }
 
-    #[ApiOperation(summary: 'Review queue (in_review submissions)', tags: ['Lemma Workflow'])]
+    #[ApiOperation(summary: 'Review queue (in_review submissions)', tags: ['Thallo Workflow'])]
     #[ApiResponse(200, description: 'Paginated in-review items enriched with draft summaries.')]
     public function queue(Request $request): Response
     {

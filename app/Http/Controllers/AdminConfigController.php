@@ -37,7 +37,7 @@ final class AdminConfigController
             . '`sitePreviewUrl`, `defaultLocale`, and whether first-run setup has completed '
             . '(`installed`). A plain JSON document (no `data` envelope) so one compiled bundle '
             . 'works across installs.',
-        tags: ['Lemma Setup'],
+        tags: ['Thallo Setup'],
     )]
     #[ApiResponse(200, description: 'Runtime config: apiBase, sitePreviewUrl, defaultLocale, installed.')]
     public function config(): JsonResponse

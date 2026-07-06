@@ -33,7 +33,7 @@ final class SeoMetaController
         summary: 'Resolved SEO meta for a published entry',
         description: 'Resolution per field: per-entry override → per-type fallback field → site default. '
             . 'Canonical/hreflang are intentionally absent — they live on the core delivery `seo` object.',
-        tags: ['Lemma SEO'],
+        tags: ['Thallo SEO'],
     )]
     #[ApiResponse(200, description: 'Resolved meta descriptor for the entry+locale.')]
     #[ApiResponse(404, description: 'Unknown content type, or no published entry for the route.')]

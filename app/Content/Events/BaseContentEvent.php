@@ -9,7 +9,7 @@ use Glueful\Extensions\Audit\Contracts\AuditableEvent;
 use Thallo\Contracts\Events\ContentLifecycleEvent;
 
 /**
- * Base class for every Lemma content domain event.
+ * Base class for every Thallo content domain event.
  *
  * The string returned by {@see name()} is a FROZEN public API contract
  * (V1_DESIGN §5): downstream listeners, webhook subscribers and the

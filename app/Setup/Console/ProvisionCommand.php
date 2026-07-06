@@ -90,7 +90,7 @@ final class ProvisionCommand extends BaseCommand
 
         // Postgres is fixed; the password is never shown.
         $this->success(sprintf(
-            'Database configured: %s:%d/%s (migrations applied). Next: `lemma create-admin`.',
+            'Database configured: %s:%d/%s (migrations applied). Next: `thallo create-admin`.',
             $database->host,
             $database->port,
             $database->database,

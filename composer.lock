@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "48b549da2769c71272c84b87f6a74630",
+    "content-hash": "88ceaa6a5e5774c214a5ef933112fd7c",
     "packages": [
         {
             "name": "composer/semver",
@@ -1226,7 +1226,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-analytics",
-                "reference": "ae6a48d10217e330c80d6a73ce47831823c68090"
+                "reference": "43d839e5e8fba7076c4ad68bdd3a26fed86325a4"
             },
             "require": {
                 "glueful/framework": "^1.65.0",
@@ -1253,7 +1253,7 @@
                     "email": "michael@glueful.dev"
                 }
             ],
-            "description": "Product-analytics fact store for Lemma: consumes lifecycle events, owns its own facts, as a removable capability pack.",
+            "description": "Product-analytics fact store for Thallo: consumes lifecycle events, owns its own facts, as a removable capability pack.",
             "transport-options": {
                 "relative": true
             }
@@ -1264,7 +1264,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-collections",
-                "reference": "98df97dd78690370a390c06f07994aec6a48859d"
+                "reference": "d5f5669a9a0b81d1d072a06b8329db2abec540f1"
             },
             "require": {
                 "glueful/framework": "^1.64.0",
@@ -1291,7 +1291,7 @@
                     "email": "michael@glueful.dev"
                 }
             ],
-            "description": "Developer-defined data collections with a public CRUD/query API, as a removable Lemma capability pack.",
+            "description": "Developer-defined data collections with a public CRUD/query API, as a removable Thallo capability pack.",
             "transport-options": {
                 "relative": true
             }
@@ -1302,7 +1302,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-contracts",
-                "reference": "b833a982d9e6253572c9cbfcd19799632a8cb1f7"
+                "reference": "c431ede0bd226e060e08eec677830dec2cdd8ea5"
             },
             "require": {
                 "php": "^8.3"
@@ -1322,7 +1322,7 @@
                     "email": "michael@glueful.dev"
                 }
             ],
-            "description": "Thin, stable contracts (interfaces, DTOs, events, VOs) that Lemma capability packs compile against.",
+            "description": "Thin, stable contracts (interfaces, DTOs, events, VOs) that Thallo capability packs compile against.",
             "transport-options": {
                 "relative": true
             }
@@ -1333,7 +1333,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-importers",
-                "reference": "4dd130a295b6319ba5d6f89826ab2ff8dda8f675"
+                "reference": "85361cc97a119be1bb80aab926490e42ded8abc9"
             },
             "require": {
                 "glueful/aegis": "^1.13.1",
@@ -1365,7 +1365,7 @@
                     "email": "michael@glueful.dev"
                 }
             ],
-            "description": "Lemma content format importers (CSV / Markdown / WordPress) as a removable capability pack.",
+            "description": "Thallo content format importers (CSV / Markdown / WordPress) as a removable capability pack.",
             "transport-options": {
                 "relative": true
             }
@@ -1376,7 +1376,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-navigation",
-                "reference": "e90b3c08b31ef286dfa49e896d65c5352876278f"
+                "reference": "5bf698b5858771abf4729759f2036b2356e19db4"
             },
             "require": {
                 "glueful/framework": "^1.65.2",
@@ -1403,7 +1403,7 @@
                     "email": "michael@glueful.dev"
                 }
             ],
-            "description": "Navigation menus for Lemma: menu trees as data with published-only resolution, as a removable capability pack.",
+            "description": "Navigation menus for Thallo: menu trees as data with published-only resolution, as a removable capability pack.",
             "transport-options": {
                 "relative": true
             }
@@ -1414,7 +1414,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-render",
-                "reference": "a8609141b7f1a2aeaf337e49b00a461daf654baf"
+                "reference": "71a397b76875d2825a8358280bc80b2285e7fc5a"
             },
             "require": {
                 "glueful/framework": "^1.65.2",
@@ -1442,7 +1442,7 @@
                     "email": "michael@glueful.dev"
                 }
             ],
-            "description": "Rendered delivery for Lemma: server-rendered pages from published content via filesystem Twig themes, as a removable capability pack.",
+            "description": "Rendered delivery for Thallo: server-rendered pages from published content via filesystem Twig themes, as a removable capability pack.",
             "transport-options": {
                 "relative": true
             }
@@ -1453,7 +1453,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-search",
-                "reference": "2ce79d482cce207f4cb12625d7efb71180e89295"
+                "reference": "fd1969527b913d56a9a038ea96df130c20a08465"
             },
             "require": {
                 "glueful/framework": "^1.65.0",
@@ -1481,7 +1481,7 @@
                     "email": "michael@glueful.dev"
                 }
             ],
-            "description": "Search for Lemma: a public, delivery-parity content search API backed by Meilisearch, as a removable capability pack.",
+            "description": "Search for Thallo: a public, delivery-parity content search API backed by Meilisearch, as a removable capability pack.",
             "transport-options": {
                 "relative": true
             }
@@ -1492,7 +1492,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-seo",
-                "reference": "1338efccbf2e08505dee52612e38b6fd277386b3"
+                "reference": "e6965d2bf5f5cbfd9f5eefe88eedeaa8012bd7d6"
             },
             "require": {
                 "glueful/framework": "^1.65.0",
@@ -1519,7 +1519,7 @@
                     "email": "michael@glueful.dev"
                 }
             ],
-            "description": "SEO for Lemma: sitemaps, per-entry meta, and robots.txt as a removable capability pack.",
+            "description": "SEO for Thallo: sitemaps, per-entry meta, and robots.txt as a removable capability pack.",
             "transport-options": {
                 "relative": true
             }
@@ -1530,7 +1530,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-workflow",
-                "reference": "1d39e870741ee25c7b82721b792cf6f94040c9be"
+                "reference": "97f531992b8d9e81dc85404647b5b8c6dee1750c"
             },
             "require": {
                 "glueful/framework": "^1.65.0",
@@ -1557,7 +1557,7 @@
                     "email": "michael@glueful.dev"
                 }
             ],
-            "description": "Editorial approval workflow for Lemma: single-stage review state machine over draft/publish, as a removable capability pack.",
+            "description": "Editorial approval workflow for Thallo: single-stage review state machine over draft/publish, as a removable capability pack.",
             "transport-options": {
                 "relative": true
             }

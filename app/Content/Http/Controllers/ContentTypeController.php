@@ -52,7 +52,7 @@ final class ContentTypeController
     }
 
     /**
-     * List every content type defined in this Lemma instance, including each one's field
+     * List every content type defined in this Thallo instance, including each one's field
      * schema, straight from {@see ContentTypeRepository::all()}.
      */
     #[ApiOperation(

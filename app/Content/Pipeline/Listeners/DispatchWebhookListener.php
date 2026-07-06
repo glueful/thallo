@@ -12,9 +12,9 @@ use Glueful\Bootstrap\ApplicationContext;
 use Psr\Container\ContainerInterface;
 
 /**
- * Forwards Lemma content events to the core webhook dispatcher (V1_DESIGN §5).
+ * Forwards Thallo content events to the core webhook dispatcher (V1_DESIGN §5).
  *
- * Lemma builds no webhook infrastructure: it hands the event's frozen name() and its
+ * Thallo builds no webhook infrastructure: it hands the event's frozen name() and its
  * identity-only payload() to the core WebhookDispatcher, which owns signing, retries and
  * delivery tracking. The dispatcher only creates deliveries for subscriptions that listen
  * to that event name, so registering this listener broadly (every content event) is safe —
@@ -32,7 +32,7 @@ use Psr\Container\ContainerInterface;
  *
  * Registered via EventService::addListener(..., '@' . self::class) — the '@serviceId' form
  * resolves this service lazily and invokes it as a callable, so the entry point is
- * __invoke(object $event). Idempotent at Lemma's layer: it only ever dispatches once per
+ * __invoke(object $event). Idempotent at Thallo's layer: it only ever dispatches once per
  * invocation; the core dispatcher / receiver handle delivery-level dedup.
  */
 final class DispatchWebhookListener

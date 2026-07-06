@@ -6,9 +6,9 @@ use Glueful\Database\Migrations\MigrationInterface;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 
 /**
- * Lemma media-library sidecars over the framework-owned `blobs` table.
+ * Thallo media-library sidecars over the framework-owned `blobs` table.
  *
- *  - media_meta:  per-blob CMS metadata (alt text, caption, tags) that Lemma owns WITHOUT touching
+ *  - media_meta:  per-blob CMS metadata (alt text, caption, tags) that Thallo owns WITHOUT touching
  *                 the framework `blobs` schema. One row per blob, created on first metadata edit.
  *  - media_usage: a reverse index — "which entries reference this blob" — maintained by a listener
  *                 on the content AssetAttached/AssetDetached events (plus a one-off backfill).

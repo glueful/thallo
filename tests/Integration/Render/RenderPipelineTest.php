@@ -101,7 +101,7 @@ final class RenderPipelineTest extends AppTestCase
     {
         $res = $this->handle(Request::create('/', 'GET'));
         self::assertSame(200, $res->getStatusCode());
-        self::assertStringContainsString('powered by Lemma', (string) $res->getContent());
+        self::assertStringContainsString('powered by Thallo', (string) $res->getContent());
     }
 
     public function testHomepageEntryAndBadConfigModes(): void
@@ -415,7 +415,7 @@ final class RenderPipelineTest extends AppTestCase
         $bareController = $bare->getContainer()
             ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         self::assertStringContainsString(
-            'powered by Lemma',
+            'powered by Thallo',
             (string) $bareController->home(Request::create('/', 'GET'))->getContent(),
         );
     }

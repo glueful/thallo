@@ -1,6 +1,6 @@
 {
   "name": "glueful/thallo-contracts",
-  "description": "Thin, stable contracts (interfaces, DTOs, events, VOs) that Lemma capability packs compile against.",
+  "description": "Thin, stable contracts (interfaces, DTOs, events, VOs) that Thallo capability packs compile against.",
   "type": "library",
   "license": "MIT",
   "authors": [

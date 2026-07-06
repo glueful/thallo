@@ -52,7 +52,7 @@ final class ContentImporter implements ImporterInterface, RetryableAdapterInterf
 
     public function label(): string
     {
-        return 'Lemma Content Bundle';
+        return 'Thallo Content Bundle';
     }
 
     public function supports(ImportSource $source): bool
@@ -123,10 +123,10 @@ final class ContentImporter implements ImporterInterface, RetryableAdapterInterf
     {
         $kind = $record['kind'] ?? null;
         if (!is_string($kind) || !isset(self::KINDS[$kind])) {
-            throw new \InvalidArgumentException('Unknown Lemma content record kind.');
+            throw new \InvalidArgumentException('Unknown Thallo content record kind.');
         }
         if (!is_array($record['data'] ?? null) || array_is_list($record['data'])) {
-            throw new \InvalidArgumentException('Lemma content record data must be an object.');
+            throw new \InvalidArgumentException('Thallo content record data must be an object.');
         }
 
         $data = $record['data'];

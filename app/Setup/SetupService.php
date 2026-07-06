@@ -81,7 +81,7 @@ final class SetupService
             // the caller's isInstalled() check and this point will be caught here. This does
             // not fully close the race (no row lock), but avoids the common double-install case.
             if ($this->isInstalled()) {
-                throw new \RuntimeException('Lemma is already installed.');
+                throw new \RuntimeException('Thallo is already installed.');
             }
 
             $hashed = (new PasswordHasher())->hash($adminPassword);
@@ -115,7 +115,7 @@ final class SetupService
             // working editorial loop on day one. These are ORDINARY content-type
             // rows — fully editable, renameable, and deletable like any
             // user-defined type, not hardcoded/system types — which keeps
-            // Lemma's "define your own types" model intact. Both are publicly
+            // Thallo's "define your own types" model intact. Both are publicly
             // deliverable out of the box; pages mount at root (/about), posts
             // keep the prefixed grammar (/post/hello) like a blog.
             // Shares this transaction via the singleton Connection.

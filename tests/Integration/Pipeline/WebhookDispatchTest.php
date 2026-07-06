@@ -16,7 +16,7 @@ use Glueful\Api\Webhooks\WebhookDispatcher;
  * ThalloServiceProvider::boot() forwards content events to the core WebhookDispatcher
  * with the FROZEN event name + the identity-only payload.
  *
- * Lemma builds no webhook infra: it calls the core
+ * Thallo builds no webhook infra: it calls the core
  * WebhookDispatcher::dispatch(string $event, array $data): array (signing / retries /
  * delivery tracking are the core's). The whole security model is that the payload carries
  * identity ONLY — never a `fields` key — so receivers re-fetch through the delivery API

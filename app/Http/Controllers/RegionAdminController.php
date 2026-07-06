@@ -42,7 +42,7 @@ final class RegionAdminController
         description: 'Every global region (header, footer) with its saved blocks, settings, allowed '
             . 'block palette and settings keys. Absent rows surface as empty lists so the editor '
             . 'always round-trips. Requires `content.view`.',
-        tags: ['Lemma Regions'],
+        tags: ['Thallo Regions'],
     )]
     #[ApiResponse(200, description: 'Regions with palettes.')]
     public function index(): Response
@@ -68,7 +68,7 @@ final class RegionAdminController
             . 'their block-type schemas AND the region\'s server-enforced palette (out-of-palette '
             . 'types 422 with dot paths); settings are a fixed vocabulary. Applies immediately and '
             . 'purges the render page cache. Requires `content.manage`.',
-        tags: ['Lemma Regions'],
+        tags: ['Thallo Regions'],
     )]
     #[ApiResponse(200, description: 'Region saved.')]
     #[ApiResponse(404, description: 'Unknown region slug.')]
@@ -104,7 +104,7 @@ final class RegionAdminController
             . 'pipeline and returns a self-contained HTML document for an iframe. Validates exactly '
             . 'like a save (palette, schemas, settings) so errors surface BEFORE anything goes live. '
             . 'Never writes. Requires `content.view`.',
-        tags: ['Lemma Regions'],
+        tags: ['Thallo Regions'],
     )]
     #[ApiResponse(200, description: 'Rendered preview document.')]
     #[ApiResponse(409, description: 'Render pack unavailable.')]

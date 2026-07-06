@@ -4,7 +4,7 @@
  * App-level overrides for the glueful/audit extension.
  *
  * Keys here are deep-merged OVER the extension's own config/audit.php defaults,
- * so this file only needs to carry the values Lemma changes — everything else
+ * so this file only needs to carry the values Thallo changes — everything else
  * (capture toggles, ignore_tables, retention, …) keeps the extension defaults.
  */
 

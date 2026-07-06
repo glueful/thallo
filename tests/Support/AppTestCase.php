@@ -117,7 +117,7 @@ abstract class AppTestCase extends TestCase
         $this->grantSeedActorBypass();
 
         // QueryBuilder has no truncate(); delete-all via a tautological predicate
-        // (every Lemma table has an integer `id`). Deletes commit immediately.
+        // (every Thallo table has an integer `id`). Deletes commit immediately.
         // forceDelete, NOT delete: the framework's soft-delete handler turns plain
         // delete() into "UPDATE deleted_at" on tables that carry the column (blobs),
         // leaving soft-deleted rows whose uuids still occupy unique indexes.

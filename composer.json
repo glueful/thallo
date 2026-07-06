@@ -1,9 +1,9 @@
 {
-  "name": "glueful/lemma",
-  "description": "Lemma — a hybrid CMS and canonical content source, built on the Glueful framework.",
+  "name": "glueful/thallo",
+  "description": "Thallo — a hybrid CMS and canonical content source, built on the Glueful framework.",
   "type": "project",
-  "keywords": ["lemma", "cms", "hybrid-cms", "content", "glueful", "php"],
-  "homepage": "https://getlemma.dev",
+  "keywords": ["thallo", "cms", "hybrid-cms", "content", "glueful", "php"],
+  "homepage": "https://thallo.dev",
   "license": "MIT",
   "authors": [
     {

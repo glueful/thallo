@@ -13,7 +13,7 @@ use Psr\Container\ContainerInterface;
 /**
  * Purges the CDN edge cache by surrogate tag when content changes (V1_DESIGN §5).
  *
- * CAPABILITY-GATED. The default Lemma install enables users/aegis/media/email but NOT
+ * CAPABILITY-GATED. The default Thallo install enables users/aegis/media/email but NOT
  * glueful/cdn. Core always binds {@see EdgeCacheInterface} — to the no-op
  * {@see \Glueful\Cache\NullEdgeCache} when no CDN integration is installed — so a naive
  * container `has()` check is ALWAYS true and would call purge on the null cache. The real

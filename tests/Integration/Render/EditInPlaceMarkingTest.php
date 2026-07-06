@@ -184,7 +184,7 @@ final class EditInPlaceMarkingTest extends AppTestCase
                 ['name' => 'title', 'type' => 'string'],
                 ['name' => 'description', 'type' => 'text'],
                 ['name' => 'links', 'type' => 'blocks'],
-                ['name' => 'image', 'type' => 'asset'], // Lemma schema type is asset, not media
+                ['name' => 'image', 'type' => 'asset'], // Thallo schema type is asset, not media
                 ['name' => 'orientation', 'type' => 'enum', 'enum' => ['vertical', 'horizontal']],
                 ['name' => 'reverse', 'type' => 'boolean'],
             ],

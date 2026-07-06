@@ -40,7 +40,7 @@ final class DeliveryFlowTest extends AppTestCase
     {
         parent::setUp();
 
-        // AppTestCase only truncates the Lemma content tables; the users/api_keys rows
+        // AppTestCase only truncates the Thallo content tables; the users/api_keys rows
         // we seed for the kernel auth chain are ours to clean up.
         $this->purgeAuthFixtures();
 

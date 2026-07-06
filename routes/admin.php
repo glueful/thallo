@@ -345,7 +345,7 @@ $router->group(['prefix' => '/v1/admin', 'middleware' => ['auth']], function (Ro
         ->middleware('content_permission:system.access');
 
     // Import/Export: the glueful/import-export extension owns the job API (under /import-export), but
-    // ships no route to download an export result or upload an import file — these Lemma routes fill
+    // ships no route to download an export result or upload an import file — these Thallo routes fill
     // both gaps (the importer reads from the uploads disk; see config/import_export.php source_roots).
     $router->get('/import-export/jobs/{uuid}/download', [ImportExportController::class, 'download'])
         ->where('uuid', '[A-Za-z0-9_-]+')

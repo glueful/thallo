@@ -25,7 +25,7 @@ final class ContentTypeApiTest extends AppTestCase
 
     /**
      * Hydrate a request DTO exactly as the router would, so DTO validation is exercised
-     * before the controller sees it. (Lemma DTOs use only built-in rules, so no registry.)
+     * before the controller sees it. (Thallo DTOs use only built-in rules, so no registry.)
      *
      * @param  class-string<RequestData> $dtoClass
      * @param  array<string,mixed>       $body

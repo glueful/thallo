@@ -80,7 +80,7 @@ final class DoctorTest extends TestCase
     {
         $dir = $this->tempProject(withEnv: true, withExample: true);
         // RFC 5737 TEST-NET-1: guaranteed unroutable, so the short connect timeout trips quickly.
-        $cfg = new DatabaseConfig('pgsql', '192.0.2.1', 5432, 'lemma', 'u', 'p');
+        $cfg = new DatabaseConfig('pgsql', '192.0.2.1', 5432, 'thallo', 'u', 'p');
         $check = (new Doctor($dir, '8.3.0', ['pdo_pgsql']))->reachability($cfg, new ConnectionTester(null, 2));
 
         self::assertSame(Check::FAIL, $check->status);

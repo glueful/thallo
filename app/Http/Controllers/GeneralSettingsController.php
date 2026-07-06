@@ -43,7 +43,7 @@ final class GeneralSettingsController
         description: 'Effective instance settings (site identity, default locale, delivery defaults, '
             . 'feature toggles): a settings override, else the config/.env default. Requires '
             . '`content.manage`.',
-        tags: ['Lemma Settings'],
+        tags: ['Thallo Settings'],
     )]
     #[ApiResponse(200, schema: GeneralSettingsResultData::class, description: 'Current general settings.')]
     public function show(): Response
@@ -56,7 +56,7 @@ final class GeneralSettingsController
         summary: 'Update general settings',
         description: 'Persists the submitted settings to settings (only supplied fields change). '
             . 'Applies on the next request — no restart. Requires `content.manage`.',
-        tags: ['Lemma Settings'],
+        tags: ['Thallo Settings'],
     )]
     #[ApiResponse(200, schema: GeneralSettingsResultData::class, description: 'Settings saved.')]
     #[ApiResponse(422, description: 'Invalid value (non-positive page size, max < default, …).')]

@@ -26,7 +26,7 @@ final class SitemapController
      * The well-known sitemap entry. Adaptive: a `<urlset>` at or below 50 000 URLs, a
      * `<sitemapindex>` listing page files above it.
      */
-    #[ApiOperation(summary: 'sitemap.xml (adaptive urlset/index)', tags: ['Lemma SEO'])]
+    #[ApiOperation(summary: 'sitemap.xml (adaptive urlset/index)', tags: ['Thallo SEO'])]
     #[ApiResponse(
         200,
         envelope: false,
@@ -54,7 +54,7 @@ final class SitemapController
      * without the bound, every distinct {n} would mint a no-TTL cache entry plus a
      * deep-OFFSET enumeration, an anonymous cache-fill vector.
      */
-    #[ApiOperation(summary: 'sitemap page file', tags: ['Lemma SEO'])]
+    #[ApiOperation(summary: 'sitemap page file', tags: ['Thallo SEO'])]
     #[ApiResponse(
         200,
         envelope: false,

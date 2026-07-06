@@ -131,7 +131,7 @@ final class MultiValueReferenceRoundTripTest extends AppTestCase
     }
 
     /**
-     * Build a Lemma content NDJSON bundle whose entry has a `category` field
+     * Build a Thallo content NDJSON bundle whose entry has a `category` field
      * carrying a multi-valued reference array (two uuid strings, ordered).
      *
      * The bundle intentionally omits `entry_route` and `asset_manifest` because

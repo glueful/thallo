@@ -8,15 +8,15 @@ use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Glueful\Helpers\Utils;
 
 /**
- * Lemma's content permissions + the `editor` role, layered onto Aegis's standard roles.
+ * Thallo's content permissions + the `editor` role, layered onto Aegis's standard roles.
  *
  * Aegis (003) owns the role ladder (superuser / administrator / user) and the core `content.*`
- * permissions (view/create/edit/delete). Lemma does NOT define its own admin/viewer roles — the
+ * permissions (view/create/edit/delete). Thallo does NOT define its own admin/viewer roles — the
  * first admin uses Aegis's `administrator` and read-only users use Aegis's `user`. This migration
  * only:
- *   - adds the content-specific permissions Lemma gates on (`content.publish/manage/routes`),
+ *   - adds the content-specific permissions Thallo gates on (`content.publish/manage/routes`),
  *   - grants them onto the existing `administrator` role, and
- *   - seeds a Lemma-owned `editor` role (content view/create/edit/publish).
+ *   - seeds a Thallo-owned `editor` role (content view/create/edit/publish).
  *
  * Runs as a dependent migration, i.e. AFTER Aegis's 003, so `content.view/create/edit` already
  * exist when we reference them here.
@@ -25,7 +25,7 @@ final class SeedRolesAndPermissions implements MigrationInterface
 {
     /**
      * Permissions ENSURED by this migration (created if missing + removed on
-     * rollback). slug => [label, category]. Most are Lemma-owned; the email
+     * rollback). slug => [label, category]. Most are Thallo-owned; the email
      * one is DECLARED by glueful/email-notification's permissions() catalog —
      * but the Aegis catalog sync is CLI-driven, not part of migrations, so a
      * grant-only reference would silently no-op on a fresh database. The
@@ -39,14 +39,14 @@ final class SeedRolesAndPermissions implements MigrationInterface
         'email.templates.manage' => ['Manage email templates & settings', 'email'],
     ];
 
-    /** Lemma-owned roles. slug => [name, level, granted permission slugs (Aegis + Lemma)] */
+    /** Thallo-owned roles. slug => [name, level, granted permission slugs (Aegis + Thallo)] */
     private const ROLES = [
         'editor' => ['Editor', 50, [
             'content.view', 'content.create', 'content.edit', 'content.publish',
         ]],
     ];
 
-    /** Lemma permissions granted onto EXISTING Aegis roles. aegis role slug => [perm slugs] */
+    /** Thallo permissions granted onto EXISTING Aegis roles. aegis role slug => [perm slugs] */
     private const ROLE_GRANTS = [
         'administrator' => [
             'content.publish', 'content.manage', 'content.routes',
@@ -76,7 +76,7 @@ final class SeedRolesAndPermissions implements MigrationInterface
             array_values(self::PERMISSIONS),
         ));
 
-        // Create Lemma's editor role (idempotent), then resolve the existing Aegis roles we add to.
+        // Create Thallo's editor role (idempotent), then resolve the existing Aegis roles we add to.
         $roleUuids = $this->ensureRows('roles', array_map(
             static fn(string $slug, array $r): array => [
                 'slug' => $slug, 'name' => $r[0], 'description' => $r[0],
@@ -105,7 +105,7 @@ final class SeedRolesAndPermissions implements MigrationInterface
     {
         $this->db = new Connection();
 
-        // Remove Lemma's permissions from every role (incl. administrator), then the perms.
+        // Remove Thallo's permissions from every role (incl. administrator), then the perms.
         $permUuids = array_column(
             $this->db->table('permissions')->select(['uuid'])
                 ->whereIn('slug', array_keys(self::PERMISSIONS))->get(),
@@ -131,7 +131,7 @@ final class SeedRolesAndPermissions implements MigrationInterface
 
     public function getDescription(): string
     {
-        return 'Seed Lemma content permissions + the editor role onto Aegis standard roles.';
+        return 'Seed Thallo content permissions + the editor role onto Aegis standard roles.';
     }
 
     /**

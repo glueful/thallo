@@ -42,7 +42,7 @@ final class ContentExporter implements ExporterInterface
 
     public function label(): string
     {
-        return 'Lemma Content Bundle';
+        return 'Thallo Content Bundle';
     }
 
     public function plan(ExportOptions $options): ExportPlan

@@ -1,6 +1,6 @@
 {
   "name": "glueful/thallo-seo",
-  "description": "SEO for Lemma: sitemaps, per-entry meta, and robots.txt as a removable capability pack.",
+  "description": "SEO for Thallo: sitemaps, per-entry meta, and robots.txt as a removable capability pack.",
   "type": "glueful-extension",
   "license": "MIT",
   "authors": [

@@ -15,7 +15,7 @@ use Glueful\Routing\Attributes\ApiResponse;
 /**
  * Cache status + clear operations for the admin Utilities › Cache page.
  *
- * Wraps the framework {@see CacheStore} (driver, stats, key count, flush, tag invalidation). Lemma
+ * Wraps the framework {@see CacheStore} (driver, stats, key count, flush, tag invalidation). Thallo
  * tags delivery cache by `thallo:type:<slug>` and `thallo:entry:<uuid>`, so a per-content-type clear
  * is a targeted tag invalidation; an empty clear flushes everything. Gated by `system.access`.
  */

@@ -15,7 +15,7 @@ use Glueful\Helpers\Utils;
  * assigning a role is a control-plane action that can escalate access, so it is gated separately.
  * UserAdminController now requires `users.roles.manage` (plus a level ceiling) before it will
  * apply `role_slugs`. Aegis's 003 seeds the role ladder and grants `users.*` to superuser (all)
- * and administrator, but this permission is Lemma-owned and added later, so it must be created and
+ * and administrator, but this permission is Thallo-owned and added later, so it must be created and
  * granted explicitly here — a permission added after 003 is NOT retroactively granted to superuser.
  *
  * Runs AFTER Aegis's 003 (dependent priority), so the roles exist when we grant onto them.

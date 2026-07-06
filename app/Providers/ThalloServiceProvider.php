@@ -164,7 +164,7 @@ use Glueful\Support\FieldSelection\Projector;
 use Psr\Container\ContainerInterface;
 
 /**
- * Wires the Lemma content engine into the application container.
+ * Wires the Thallo content engine into the application container.
  *
  * Registered in config/serviceproviders.php. The framework's ProviderClassResolver
  * folds app providers into the same provider list as composer extensions, so this
@@ -1091,7 +1091,7 @@ final class ThalloServiceProvider extends ServiceProvider
 
         EditorialFieldTypes::register(app($context, FieldTypeRegistry::class));
 
-        // Console: register Lemma's app commands. commands() is a console-only no-op in
+        // Console: register Thallo's app commands. commands() is a console-only no-op in
         // the HTTP phase (runningInConsole() guards it), so this is free during requests.
         $this->commands([
             ResyncCommand::class,

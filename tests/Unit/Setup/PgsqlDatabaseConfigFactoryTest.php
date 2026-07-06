@@ -16,7 +16,7 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
         $cfg = (new PgsqlDatabaseConfigFactory())->fromInput(
             host: 'db.internal',
             port: 5433,
-            database: 'lemma',
+            database: 'thallo',
             username: 'app_user',
             password: 's3cr3t',
             schema: 'public',
@@ -26,7 +26,7 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
         self::assertSame('pgsql', $cfg->engine);
         self::assertSame('db.internal', $cfg->host);
         self::assertSame(5433, $cfg->port);
-        self::assertSame('lemma', $cfg->database);
+        self::assertSame('thallo', $cfg->database);
         self::assertSame('app_user', $cfg->username);
         self::assertSame('s3cr3t', $cfg->password);
         self::assertSame('public', $cfg->schema);
@@ -43,7 +43,7 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
             'DB_DRIVER' => 'pgsql',
             'DB_PGSQL_HOST' => 'localhost',
             'DB_PGSQL_PORT' => '5432',
-            'DB_PGSQL_DATABASE' => 'lemma',
+            'DB_PGSQL_DATABASE' => 'thallo',
             'DB_PGSQL_USERNAME' => 'app_user',
             'DB_PGSQL_PASSWORD' => 'pw with spaces',
             'DB_PGSQL_SCHEMA' => 'public',
@@ -55,7 +55,7 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
         self::assertSame('pgsql', $cfg->engine);
         self::assertSame('localhost', $cfg->host);
         self::assertSame(5432, $cfg->port);
-        self::assertSame('lemma', $cfg->database);
+        self::assertSame('thallo', $cfg->database);
         self::assertSame('app_user', $cfg->username);
         self::assertSame('pw with spaces', $cfg->password);
         self::assertSame('public', $cfg->schema);
@@ -72,7 +72,7 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
         $env = new EnvWriter($path);
         $env->setMany([
             'DB_PGSQL_HOST' => 'localhost',
-            'DB_PGSQL_DATABASE' => 'lemma',
+            'DB_PGSQL_DATABASE' => 'thallo',
             'DB_PGSQL_USERNAME' => 'u',
             'DB_PGSQL_PASSWORD' => 'p',
         ]);
@@ -88,7 +88,7 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
 
     public function testRequiredFieldErrorsIsEmptyForCompleteConfig(): void
     {
-        $cfg = new DatabaseConfig('pgsql', 'localhost', 5432, 'lemma', 'u', 'p');
+        $cfg = new DatabaseConfig('pgsql', 'localhost', 5432, 'thallo', 'u', 'p');
         self::assertSame([], (new PgsqlDatabaseConfigFactory())->requiredFieldErrors($cfg));
     }
 
@@ -116,7 +116,7 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
         $env->setMany([
             'DB_PGSQL_HOST' => 'localhost',
             'DB_PGSQL_PORT' => '5432abc',   // non-numeric: must NOT truncate to 5432
-            'DB_PGSQL_DATABASE' => 'lemma',
+            'DB_PGSQL_DATABASE' => 'thallo',
             'DB_PGSQL_USERNAME' => 'u',
             'DB_PGSQL_PASSWORD' => 'p',
         ]);

@@ -2,7 +2,7 @@
 
 /**
  * Fails if any first-party pack under packages/ declares a Composer dependency on
- * glueful/lemma (the engine app). Packs may depend on glueful/thallo-contracts,
+ * glueful/thallo (the engine app). Packs may depend on glueful/thallo-contracts,
  * glueful/framework, and pack-specific deps — never on the engine package.
  */
 
@@ -17,8 +17,8 @@ foreach (glob($root . '/packages/*/composer.json') ?: [] as $manifest) {
         continue; // the contracts package itself is exempt
     }
     $deps = array_merge($json['require'] ?? [], $json['require-dev'] ?? []);
-    if (array_key_exists('glueful/lemma', $deps)) {
-        $violations[] = "{$name} depends on glueful/lemma (forbidden — use glueful/thallo-contracts)";
+    if (array_key_exists('glueful/thallo', $deps)) {
+        $violations[] = "{$name} depends on glueful/thallo (forbidden — use glueful/thallo-contracts)";
     }
 }
 // Source-level boundary: no first-party pack (except the contracts package) may reference App\*.

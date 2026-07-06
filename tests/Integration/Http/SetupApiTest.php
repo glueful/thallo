@@ -57,8 +57,8 @@ final class SetupApiTest extends AppTestCase
     private function validBody(): array
     {
         return [
-            'site_name'      => 'getlemma.dev',
-            'admin_email'    => 'admin@getlemma.dev',
+            'site_name'      => 'thallo.dev',
+            'admin_email'    => 'admin@thallo.dev',
             'admin_password' => 'correct horse battery',
             'locale'         => 'en',
         ];
@@ -76,7 +76,7 @@ final class SetupApiTest extends AppTestCase
         // The admin now exists and can be looked up by email (created via glueful/users).
         $userRepo = $this->container()->get(UserRepository::class);
         self::assertNotNull(
-            $userRepo->findByEmail('admin@getlemma.dev'),
+            $userRepo->findByEmail('admin@thallo.dev'),
             'the first admin was created',
         );
 

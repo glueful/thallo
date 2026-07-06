@@ -101,7 +101,7 @@ final class DeliveryController
         summary: 'List published entries of a content type',
         description: 'Published entries only. Cursor pagination by default; `page`/`perPage` switches to '
             . 'offset. Filter and sort are accepted only on filterable fields.',
-        tags: ['Lemma Delivery'],
+        tags: ['Thallo Delivery'],
     )]
     #[ApiResponse(
         200,
@@ -184,7 +184,7 @@ final class DeliveryController
         summary: 'Get a single published entry by slug or UUID',
         description: 'Resolved by route slug or 12-char entry UUID; published only (draft/unpublished → 404). '
             . 'Supports `If-None-Match` → 304.',
-        tags: ['Lemma Delivery'],
+        tags: ['Thallo Delivery'],
     )]
     #[ApiResponse(200, schema: DeliveryShowItemData::class, description: 'The published entry with SEO metadata.')]
     #[ApiResponse(

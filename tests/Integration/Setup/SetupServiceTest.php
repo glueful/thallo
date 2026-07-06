@@ -39,7 +39,7 @@ final class SetupServiceTest extends AppTestCase
         $svc = $this->service();
 
         $svc->install(
-            siteName: 'Lemma Test Site',
+            siteName: 'Thallo Test Site',
             adminEmail: 'admin@example.com',
             adminPassword: 'S3cur3P@ssw0rd!',
             locale: 'en',
@@ -65,7 +65,7 @@ final class SetupServiceTest extends AppTestCase
             ->first();
 
         self::assertNotNull($row);
-        self::assertSame('Lemma Test Site', $row['value']);
+        self::assertSame('Thallo Test Site', $row['value']);
 
         // Verify default_locale was written.
         $localeRow = $this->connection()->table('settings')
@@ -81,7 +81,7 @@ final class SetupServiceTest extends AppTestCase
         $svc = $this->service();
 
         $svc->install(
-            siteName: 'Lemma Test Site',
+            siteName: 'Thallo Test Site',
             adminEmail: 'admin@example.com',
             adminPassword: 'S3cur3P@ssw0rd!',
             locale: 'en',
@@ -195,7 +195,7 @@ final class SetupServiceTest extends AppTestCase
         self::assertTrue($svc->isInstalled());
 
         $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('Lemma is already installed.');
+        $this->expectExceptionMessage('Thallo is already installed.');
 
         $svc->install(
             siteName: 'Second Attempt',

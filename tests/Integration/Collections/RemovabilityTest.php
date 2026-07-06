@@ -37,7 +37,7 @@ use Symfony\Component\HttpFoundation\Request;
  *   - The SHARED enabled boot (AppTestCase::$app) — used in setUp to create a real
  *     collection so the data-persistence assertions are non-trivial.
  *   - A DEDICATED disabled boot ($disabledApp, see setUpBeforeClass) — booted with a
- *     temporary config/testing/lemma.php that sets capabilities.thallo.collections=false,
+ *     temporary config/testing/thallo.php that sets capabilities.thallo.collections=false,
  *     which the DefaultCapabilityRegistry factory reads before CollectionsServiceProvider
  *     registers routes. After the second boot the override file is deleted and RouteManifest
  *     is reset so subsequent test classes re-use the shared enabled context unaffected.
@@ -60,7 +60,7 @@ final class RemovabilityTest extends AppTestCase
         // Boot (or reuse) the shared ENABLED app.
         parent::setUpBeforeClass();
 
-        // Boot the disabled app: ConfigurationLoader merges config/testing/lemma.php on
+        // Boot the disabled app: ConfigurationLoader merges config/testing/thallo.php on
         // top of config/thallo.php, so DefaultCapabilityRegistry sees thallo.collections=>false
         // and CollectionsServiceProvider::boot() skips loadRoutesFrom().
         self::$disabledApp ??= self::bootAppWithConfigOverride('thallo', [

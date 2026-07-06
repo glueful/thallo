@@ -28,7 +28,7 @@ final class IconInventoryController
         description: 'Bare icon names from the render pack\'s vendored set (lucide|brands), sorted. '
             . 'The icon picker\'s source of truth — parity with icon() by construction. '
             . 'Requires `content.view`.',
-        tags: ['Lemma Icons'],
+        tags: ['Thallo Icons'],
     )]
     #[ApiResponse(200, description: 'Sorted icon names.')]
     #[ApiResponse(409, description: 'Render pack unavailable.')]

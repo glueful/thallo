@@ -21,7 +21,7 @@ final class RobotsController
     /**
      * robots.txt from config groups, with the Sitemap: line appended from public_url_base.
      */
-    #[ApiOperation(summary: 'robots.txt', tags: ['Lemma SEO'])]
+    #[ApiOperation(summary: 'robots.txt', tags: ['Thallo SEO'])]
     #[ApiResponse(
         200,
         envelope: false,

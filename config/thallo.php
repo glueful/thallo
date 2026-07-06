@@ -19,7 +19,7 @@ return [
 
     // Seeded role names (see docs/V1_DESIGN.md §7).
     'roles' => [
-        // The first admin uses Aegis's standard `administrator` role; `editor` is Lemma-owned.
+        // The first admin uses Aegis's standard `administrator` role; `editor` is Thallo-owned.
         'admin' => 'administrator',
         'editor' => 'editor',
     ],
@@ -74,7 +74,7 @@ return [
     // compiled bundle is not env-baked — one build works across installs). See
     // docs/superpowers/specs/2026-06-17-admin-spa-phase-1-design.md §"Runtime config".
     'admin' => [
-        // The admin API base PATH the SPA calls. Lemma's admin routes are hardcoded /v1/admin.
+        // The admin API base PATH the SPA calls. Thallo's admin routes are hardcoded /v1/admin.
         // The admin is served same-origin (the PHP app serves both /admin and the API), so this is
         // a relative path.
         'api_base' => env('ADMIN_API_BASE', '/v1/admin'),

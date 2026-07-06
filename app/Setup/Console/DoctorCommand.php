@@ -20,7 +20,7 @@ use function base_path;
 
 #[AsCommand(
     name: 'thallo:doctor',
-    description: 'Check that this host can run a Lemma instance (PHP, extensions, paths, database)',
+    description: 'Check that this host can run a Thallo instance (PHP, extensions, paths, database)',
 )]
 final class DoctorCommand extends BaseCommand
 {
@@ -61,7 +61,7 @@ final class DoctorCommand extends BaseCommand
         $this->table(['', 'Check', 'Detail'], $rows);
 
         if ($failed) {
-            $this->error('Some checks failed. Resolve them, then run `lemma setup`.');
+            $this->error('Some checks failed. Resolve them, then run `thallo setup`.');
             return self::FAILURE;
         }
 

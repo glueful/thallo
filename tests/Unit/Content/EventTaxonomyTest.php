@@ -21,7 +21,7 @@ use Glueful\Extensions\Audit\Contracts\AuditableEvent;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Pins the Lemma content-event taxonomy as a frozen API contract.
+ * Pins the Thallo content-event taxonomy as a frozen API contract.
  *
  * The event names returned by name() are a public contract (V1_DESIGN §5):
  * any rename must break this test. Payloads NEVER carry a `fields` key —

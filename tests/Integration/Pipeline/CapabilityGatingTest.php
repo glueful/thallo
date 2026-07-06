@@ -19,7 +19,7 @@ use Glueful\Cache\NullEdgeCache;
 
 /**
  * Proves the two capability-gated listeners (V1_DESIGN §5) are a CLEAN NO-OP in the
- * default Lemma install — which enables users/aegis/media/email but NOT glueful/cdn or a
+ * default Thallo install — which enables users/aegis/media/email but NOT glueful/cdn or a
  * search reindexer — while the rest of the pipeline (cache/webhook) still runs.
  *
  * This is the headline behaviour: a lean install must publish with cache + webhook effects

@@ -25,7 +25,7 @@ final class AdminSeoMetaController
      *
      * @queryParam locale:string="Locale of the override; defaults to en."
      */
-    #[ApiOperation(summary: 'Read SEO meta overrides for an entry', tags: ['Lemma SEO'])]
+    #[ApiOperation(summary: 'Read SEO meta overrides for an entry', tags: ['Thallo SEO'])]
     #[ApiResponse(200, description: 'The override row, or an empty object when unset.')]
     public function show(Request $request, string $entryUuid): Response
     {
@@ -40,7 +40,7 @@ final class AdminSeoMetaController
      *
      * @queryParam locale:string="Locale of the override; defaults to en."
      */
-    #[ApiOperation(summary: 'Upsert SEO meta overrides for an entry', tags: ['Lemma SEO'])]
+    #[ApiOperation(summary: 'Upsert SEO meta overrides for an entry', tags: ['Thallo SEO'])]
     #[ApiResponse(200, description: 'The stored override row after the upsert.')]
     #[ApiResponse(422, description: 'Non-string field, over-length value, or unknown enum value.')]
     public function update(Request $request, string $entryUuid): Response

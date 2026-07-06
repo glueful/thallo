@@ -13,12 +13,12 @@ use Glueful\Routing\RouteMiddleware;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Requires the authenticated user to hold a specific Lemma RBAC permission.
+ * Requires the authenticated user to hold a specific Thallo RBAC permission.
  *
  * Registered under the `content_permission` alias and used on the fluent admin routes.
  * The required permission slug is the first middleware parameter; the check runs through
  * the same `PermissionManager::can()` that Aegis backs, scoped to the resource the route
- * targets: `locale:<code>` for routes carrying `{locale}`, else the coarse `lemma`.
+ * targets: `locale:<code>` for routes carrying `{locale}`, else the coarse `thallo`.
  *
  * Fails closed: a missing/empty permission parameter, no authenticated identity, an
  * unresolvable PermissionManager, or a denied check all return 403. API-key principals
@@ -87,7 +87,7 @@ final class RequirePermission implements RouteMiddleware
      * Derive the authorization resource from the matched route. Locale-specific routes
      * carry a `{locale}` parameter, set by the router as `_route_params` before the
      * middleware pipeline runs; those actions are scoped to `locale:<code>`. Routes
-     * without a locale keep the coarse `lemma` resource.
+     * without a locale keep the coarse `thallo` resource.
      */
     private function resourceFor(Request $request): string
     {

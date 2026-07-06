@@ -10,7 +10,7 @@ use Glueful\Routing\Router;
 /** @var Router $router */
 
 // Public SEO meta for the frontend <head>. No auth — published content only. Rate-limited
-// like every other anonymous Lemma surface (per-IP): the meta lookup is uncached DB work.
+// like every other anonymous Thallo surface (per-IP): the meta lookup is uncached DB work.
 $router->get('/v1/seo/meta/{type}/{slug}', [SeoMetaController::class, 'show'])
     ->middleware('rate_limit');
 
