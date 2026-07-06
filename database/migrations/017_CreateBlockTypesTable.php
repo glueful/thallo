@@ -5,14 +5,14 @@ declare(strict_types=1);
 use Glueful\Database\Migrations\MigrationInterface;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 
-final class CreateLemmaBlockTypesTable implements MigrationInterface
+final class CreateBlockTypesTable implements MigrationInterface
 {
     public function up(SchemaBuilderInterface $schema): void
     {
-        if ($schema->hasTable('lemma_block_types')) {
+        if ($schema->hasTable('block_types')) {
             return;
         }
-        $schema->createTable('lemma_block_types', function ($table) {
+        $schema->createTable('block_types', function ($table) {
             $table->bigInteger('id')->primary()->autoIncrement();
             $table->string('uuid', 12);
             // Immutable after create (spec §1): the blocks/{slug}.twig template contract.
@@ -29,18 +29,18 @@ final class CreateLemmaBlockTypesTable implements MigrationInterface
             $table->boolean('active')->default(true);
             $table->timestamp('created_at')->nullable();
             $table->timestamp('updated_at')->nullable();
-            $table->unique('slug', 'uniq_lemma_block_type_slug');
+            $table->unique('slug', 'uniq_block_type_slug');
             $table->unique('uuid');
         });
     }
 
     public function down(SchemaBuilderInterface $schema): void
     {
-        $schema->dropTableIfExists('lemma_block_types');
+        $schema->dropTableIfExists('block_types');
     }
 
     public function getDescription(): string
     {
-        return 'Create lemma_block_types (global block-type registry for blocks fields).';
+        return 'Create block_types (global block-type registry for blocks fields).';
     }
 }

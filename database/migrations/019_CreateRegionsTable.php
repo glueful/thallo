@@ -5,14 +5,14 @@ declare(strict_types=1);
 use Glueful\Database\Migrations\MigrationInterface;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 
-final class CreateLemmaRegionsTable implements MigrationInterface
+final class CreateRegionsTable implements MigrationInterface
 {
     public function up(SchemaBuilderInterface $schema): void
     {
-        if ($schema->hasTable('lemma_regions')) {
+        if ($schema->hasTable('regions')) {
             return;
         }
-        $schema->createTable('lemma_regions', function ($table) {
+        $schema->createTable('regions', function ($table) {
             // Slug-keyed chrome regions (global-regions spec): 'header', 'footer' in v1.
             // Deliberately no locale column (global in v1) and no draft state (saves
             // apply immediately) — both are additive later.
@@ -28,11 +28,11 @@ final class CreateLemmaRegionsTable implements MigrationInterface
 
     public function down(SchemaBuilderInterface $schema): void
     {
-        $schema->dropTableIfExists('lemma_regions');
+        $schema->dropTableIfExists('regions');
     }
 
     public function getDescription(): string
     {
-        return 'Create lemma_regions (global header/footer block regions).';
+        return 'Create regions (global header/footer block regions).';
     }
 }

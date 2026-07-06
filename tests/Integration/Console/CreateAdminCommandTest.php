@@ -15,7 +15,7 @@ final class CreateAdminCommandTest extends AppTestCase
     {
         parent::setUp();
         // uuid-keyed users table => TRUNCATE ... CASCADE is the reliable wipe.
-        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, lemma_settings CASCADE');
+        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, settings CASCADE');
     }
 
     private function tester(): CommandTester

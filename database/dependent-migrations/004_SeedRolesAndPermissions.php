@@ -21,7 +21,7 @@ use Glueful\Helpers\Utils;
  * Runs as a dependent migration, i.e. AFTER Aegis's 003, so `content.view/create/edit` already
  * exist when we reference them here.
  */
-final class SeedLemmaRolesAndPermissions implements MigrationInterface
+final class SeedRolesAndPermissions implements MigrationInterface
 {
     /**
      * Permissions ENSURED by this migration (created if missing + removed on

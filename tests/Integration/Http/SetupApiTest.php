@@ -22,7 +22,7 @@ use Symfony\Component\HttpFoundation\Request;
  * - /admin/config reports installed:false before and installed:true after.
  * - The gate reads the persisted installed invariant, not controller-local state.
  *
- * Requires `composer test:migrate` to have been run first (lemma_settings + users tables must exist).
+ * Requires `composer test:migrate` to have been run first (settings + users tables must exist).
  */
 final class SetupApiTest extends AppTestCase
 {
@@ -31,8 +31,8 @@ final class SetupApiTest extends AppTestCase
         parent::setUp();
 
         // Start from a clean slate on each test: wipe users, Aegis user_roles, and the
-        // lemma_settings markers so install() is always re-runnable.
-        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, lemma_settings CASCADE');
+        // settings markers so install() is always re-runnable.
+        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, settings CASCADE');
     }
 
     private function service(): SetupService

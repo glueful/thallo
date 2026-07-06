@@ -26,7 +26,7 @@ use Thallo\Search\Query\SearchRequest;
  */
 final class MeilisearchSmokeTest extends AppTestCase
 {
-    private const INDEX = 'lemma_smoke_test';
+    private const INDEX = 'app_smoke_test';
 
     private ?IndexManager $manager = null;
     private ?MeilisearchBackend $backend = null;

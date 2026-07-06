@@ -45,7 +45,7 @@ final class BlockTypeRepository
         $this->assertBlockSchema($data['schema']);
         $now = gmdate('Y-m-d H:i:s');
         $uuid = Utils::generateNanoID();
-        $this->db->table('lemma_block_types')->insert([
+        $this->db->table('block_types')->insert([
             'uuid' => $uuid,
             'slug' => $data['slug'],
             'label' => $data['label'],
@@ -66,14 +66,14 @@ final class BlockTypeRepository
     /** @return array<string,mixed>|null hydrated row (schema decoded) */
     public function findBySlug(string $slug): ?array
     {
-        $row = $this->db->table('lemma_block_types')->where('slug', '=', $slug)->first();
+        $row = $this->db->table('block_types')->where('slug', '=', $slug)->first();
         return $row === null ? null : $this->hydrate((array) $row);
     }
 
     /** @return array<string,mixed>|null */
     public function findByUuid(string $uuid): ?array
     {
-        $row = $this->db->table('lemma_block_types')->where('uuid', '=', $uuid)->first();
+        $row = $this->db->table('block_types')->where('uuid', '=', $uuid)->first();
         return $row === null ? null : $this->hydrate((array) $row);
     }
 
@@ -82,7 +82,7 @@ final class BlockTypeRepository
     {
         $out = [];
         foreach (
-            $this->db->table('lemma_block_types')
+            $this->db->table('block_types')
                 ->orderBy('active', 'DESC')
                 ->orderBy('label', 'ASC')
                 ->get() as $row
@@ -124,7 +124,7 @@ final class BlockTypeRepository
                 }
             }
         }
-        $this->db->table('lemma_block_types')->where('uuid', '=', $uuid)->update([
+        $this->db->table('block_types')->where('uuid', '=', $uuid)->update([
             'label' => $label,
             'icon' => $icon,
             'category' => $category,
@@ -145,7 +145,7 @@ final class BlockTypeRepository
     public function applyMigratedSchema(string $uuid, array $schema): void
     {
         $this->assertBlockSchema($schema);
-        $this->db->table('lemma_block_types')->where('uuid', '=', $uuid)->update([
+        $this->db->table('block_types')->where('uuid', '=', $uuid)->update([
             'schema' => (string) json_encode(array_values($schema)),
             'updated_at' => gmdate('Y-m-d H:i:s'),
         ]);
@@ -158,7 +158,7 @@ final class BlockTypeRepository
      */
     public function deleteBySlug(string $slug): void
     {
-        $this->db->table('lemma_block_types')->where('slug', '=', $slug)->delete();
+        $this->db->table('block_types')->where('slug', '=', $slug)->delete();
         $this->schemas = null;
     }
 
@@ -175,7 +175,7 @@ final class BlockTypeRepository
 
     public function setActive(string $uuid, bool $active): void
     {
-        $this->db->table('lemma_block_types')->where('uuid', '=', $uuid)->update([
+        $this->db->table('block_types')->where('uuid', '=', $uuid)->update([
             'active' => $active ? 1 : 0,
             'updated_at' => gmdate('Y-m-d H:i:s'),
         ]);

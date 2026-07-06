@@ -7,10 +7,10 @@ namespace App\Settings;
 use Glueful\Bootstrap\ApplicationContext;
 
 /**
- * Effective instance "General" settings: a `lemma_settings` row overrides the deploy-time
+ * Effective instance "General" settings: a `settings` row overrides the deploy-time
  * config/.env default. Precedence: DB row → `config('lemma.*')` (which reads .env) → hard default.
  *
- * This is the single read point for these settings so a save (to `lemma_settings`) takes effect on
+ * This is the single read point for these settings so a save (to `settings`) takes effect on
  * the next request across every instance, with no `.env` rewrite or restart. Consumers call e.g.
  * `app($context, GeneralSettings::class)->maxPerPage()` instead of `config('lemma.delivery.max_per_page')`.
  */

@@ -17,7 +17,7 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
             host: 'db.internal',
             port: 5433,
             database: 'lemma',
-            username: 'lemma_user',
+            username: 'app_user',
             password: 's3cr3t',
             schema: 'public',
             sslMode: 'require',
@@ -27,7 +27,7 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
         self::assertSame('db.internal', $cfg->host);
         self::assertSame(5433, $cfg->port);
         self::assertSame('lemma', $cfg->database);
-        self::assertSame('lemma_user', $cfg->username);
+        self::assertSame('app_user', $cfg->username);
         self::assertSame('s3cr3t', $cfg->password);
         self::assertSame('public', $cfg->schema);
         self::assertSame('require', $cfg->sslMode);
@@ -44,7 +44,7 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
             'DB_PGSQL_HOST' => 'localhost',
             'DB_PGSQL_PORT' => '5432',
             'DB_PGSQL_DATABASE' => 'lemma',
-            'DB_PGSQL_USERNAME' => 'lemma_user',
+            'DB_PGSQL_USERNAME' => 'app_user',
             'DB_PGSQL_PASSWORD' => 'pw with spaces',
             'DB_PGSQL_SCHEMA' => 'public',
             'DB_PGSQL_SSL_MODE' => 'prefer',
@@ -56,7 +56,7 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
         self::assertSame('localhost', $cfg->host);
         self::assertSame(5432, $cfg->port);
         self::assertSame('lemma', $cfg->database);
-        self::assertSame('lemma_user', $cfg->username);
+        self::assertSame('app_user', $cfg->username);
         self::assertSame('pw with spaces', $cfg->password);
         self::assertSame('public', $cfg->schema);
         self::assertSame('prefer', $cfg->sslMode);

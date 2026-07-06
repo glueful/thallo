@@ -12,7 +12,7 @@ require dirname(__DIR__) . '/vendor/autoload.php';
 // The framework's env() reads $_ENV only. CI supplies config (DB_PGSQL_*, etc.) via
 // the shell/job environment, which PHP's variables_order (often no `E`) and Dotenv's
 // immutable-skip can leave absent from $_ENV — so the framework silently falls back to
-// config DEFAULTS (e.g. database 'glueful' instead of lemma_test, pooling on) even
+// config DEFAULTS (e.g. database 'glueful' instead of app_test, pooling on) even
 // though getenv() has the right values. Mirror the process env into $_ENV so every
 // config value resolves, then force pooling off (a sequential test run needs no pool).
 // Done BEFORE the .env load so createImmutable keeps these values.
@@ -42,7 +42,7 @@ if ($envValue('APP_ENV', 'development') !== 'testing') {
 }
 
 $database = $envValue('DB_PGSQL_DATABASE', '');
-if ($database !== 'lemma_test' && !str_ends_with((string) $database, '_test')) {
+if ($database !== 'app_test' && !str_ends_with((string) $database, '_test')) {
     $fail("Refusing to run test migrations against non-test database '{$database}'.");
 }
 

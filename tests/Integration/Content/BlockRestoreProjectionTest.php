@@ -195,7 +195,7 @@ final class BlockRestoreProjectionTest extends AppTestCase
         // One wall-clock second, three distinct microsecond instants:
         $this->connection()->table('entry_versions')->where('uuid', '=', $v1)
             ->update(['created_at' => '2026-07-03 12:00:00.100000']);
-        $this->connection()->table('lemma_block_type_migrations')->where('uuid', '=', $m)
+        $this->connection()->table('block_type_migrations')->where('uuid', '=', $m)
             ->update(['created_at' => '2026-07-03 12:00:00.200000']);
         $this->connection()->table('entry_versions')->where('uuid', '=', $vBackfill)
             ->update(['created_at' => '2026-07-03 12:00:00.300000']);

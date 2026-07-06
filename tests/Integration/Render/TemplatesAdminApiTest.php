@@ -257,7 +257,7 @@ final class TemplatesAdminApiTest extends AppTestCase
 
         // Mutate the OLD version around the API (stands in for a version predating a
         // policy tightening): restore must 422 and change nothing.
-        $this->connection()->table('lemma_render_template_versions')
+        $this->connection()->table('render_template_versions')
             ->where('uuid', '=', $old)
             ->update(['source' => "{{ constant('X') }}"]);
 

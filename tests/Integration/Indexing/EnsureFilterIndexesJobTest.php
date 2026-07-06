@@ -14,20 +14,20 @@ final class EnsureFilterIndexesJobTest extends AppTestCase
     {
         parent::setUp();
         // The registry table lives outside AppTestCase's truncate set; clear it per test.
-        $this->connection()->table('lemma_filter_indexes')->where('id', '>', 0)->delete();
+        $this->connection()->table('filter_indexes')->where('id', '>', 0)->delete();
     }
 
     /** Drop any expression indexes a run may have created so reruns stay clean. */
     protected function tearDown(): void
     {
-        $rows = $this->connection()->table('lemma_filter_indexes')->select(['index_name'])->get();
+        $rows = $this->connection()->table('filter_indexes')->select(['index_name'])->get();
         foreach ($rows as $row) {
             $name = (string) $row['index_name'];
             if (preg_match('/\A[a-z0-9_]+\z/', $name) === 1) {
                 $this->connection()->getPDO()->exec("DROP INDEX CONCURRENTLY IF EXISTS {$name}");
             }
         }
-        $this->connection()->table('lemma_filter_indexes')->where('id', '>', 0)->delete();
+        $this->connection()->table('filter_indexes')->where('id', '>', 0)->delete();
         parent::tearDown();
     }
 
@@ -78,7 +78,7 @@ final class EnsureFilterIndexesJobTest extends AppTestCase
         $idx = $this->findExpressionIndex("(fields ->> 'price'::text))::numeric");
         self::assertNotNull($idx, 'expected a numeric expression index on (fields->>price) on entry_versions');
 
-        $reg = $this->connection()->table('lemma_filter_indexes')
+        $reg = $this->connection()->table('filter_indexes')
             ->where('content_type_uuid', '=', $type)
             ->where('field', '=', 'price')
             ->first();
@@ -106,7 +106,7 @@ final class EnsureFilterIndexesJobTest extends AppTestCase
         self::assertNotNull($idx, 'expected a text expression index on (fields->>published_at) on entry_versions');
         self::assertStringNotContainsString('timestamptz', $idx['def'], 'datetime index must not cast to timestamptz');
 
-        $reg = $this->connection()->table('lemma_filter_indexes')
+        $reg = $this->connection()->table('filter_indexes')
             ->where('content_type_uuid', '=', $type)
             ->where('field', '=', 'published_at')
             ->first();
@@ -124,7 +124,7 @@ final class EnsureFilterIndexesJobTest extends AppTestCase
         $this->runJob($type);
         $this->runJob($type); // must not error or duplicate
 
-        $count = $this->connection()->table('lemma_filter_indexes')
+        $count = $this->connection()->table('filter_indexes')
             ->where('content_type_uuid', '=', $type)
             ->count();
         self::assertSame(1, $count);
@@ -155,7 +155,7 @@ final class EnsureFilterIndexesJobTest extends AppTestCase
             $this->runJob($type); // first build fails → 'failed', invalid index left behind
             $this->runJob($type); // retry must drop the invalid index and rebuild, not mark 'ready'
 
-            $reg = $this->connection()->table('lemma_filter_indexes')
+            $reg = $this->connection()->table('filter_indexes')
                 ->where('content_type_uuid', '=', $type)
                 ->where('field', '=', 'price')
                 ->first();
@@ -185,7 +185,7 @@ final class EnsureFilterIndexesJobTest extends AppTestCase
             $this->findExpressionIndex("(fields ->> 'price'::text))::numeric"),
             'index should be dropped once the field is no longer filterable'
         );
-        $count = $this->connection()->table('lemma_filter_indexes')
+        $count = $this->connection()->table('filter_indexes')
             ->where('content_type_uuid', '=', $type)
             ->count();
         self::assertSame(0, $count);

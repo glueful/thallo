@@ -18,7 +18,7 @@ use Glueful\Routing\Attributes\ApiResponse;
  * Read/write the instance "General" settings — site identity, default locale, content-delivery
  * defaults, and feature toggles.
  *
- * Backed by the `lemma_settings` table via {@see GeneralSettings}: a stored row overrides the
+ * Backed by the `settings` table via {@see GeneralSettings}: a stored row overrides the
  * deploy-time config/.env default, so a save takes effect on the next request across every instance
  * with no restart (unlike the `.env`-backed email settings). Gated by `content.manage` — see
  * routes/lemma_admin.php.
@@ -41,7 +41,7 @@ final class GeneralSettingsController
     #[ApiOperation(
         summary: 'Get general settings',
         description: 'Effective instance settings (site identity, default locale, delivery defaults, '
-            . 'feature toggles): a lemma_settings override, else the config/.env default. Requires '
+            . 'feature toggles): a settings override, else the config/.env default. Requires '
             . '`content.manage`.',
         tags: ['Lemma Settings'],
     )]
@@ -54,7 +54,7 @@ final class GeneralSettingsController
     /** PUT /v1/admin/settings/general */
     #[ApiOperation(
         summary: 'Update general settings',
-        description: 'Persists the submitted settings to lemma_settings (only supplied fields change). '
+        description: 'Persists the submitted settings to settings (only supplied fields change). '
             . 'Applies on the next request — no restart. Requires `content.manage`.',
         tags: ['Lemma Settings'],
     )]

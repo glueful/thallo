@@ -21,10 +21,10 @@ abstract class AppTestCase extends TestCase
 
     // Truncate order is child -> parent (no FKs in v1, but keep it deterministic).
     private const TABLES = [
-        'lemma_block_type_migrations',
+        'block_type_migrations',
         'blobs',
-        'lemma_block_types',
-        'lemma_render_template_versions', 'lemma_render_templates',
+        'block_types',
+        'render_template_versions', 'render_templates',
         'navigation_items', 'navigation_menus',
         'workflow_transitions', 'workflow_review_states',
         'entry_schedules',
@@ -127,12 +127,12 @@ abstract class AppTestCase extends TestCase
         // Instance settings (varchar `key` PK — no integer id): a prior test's
         // install/save (e.g. listing_types) must never shadow another test's
         // config/.env fallback.
-        $this->connection()->table('lemma_settings')->where('key', '!=', '')->forceDelete();
+        $this->connection()->table('settings')->where('key', '!=', '')->forceDelete();
         // Chrome regions (varchar `slug` PK — no integer id): a prior test's saved
         // header/footer must never leak chrome into another test's render.
-        $this->connection()->table('lemma_regions')->where('slug', '!=', '')->forceDelete();
+        $this->connection()->table('regions')->where('slug', '!=', '')->forceDelete();
 
-        // The SettingsStore singleton memoises lemma_settings rows per process:
+        // The SettingsStore singleton memoises settings rows per process:
         // the truncation above just deleted rows its cache may still hold (or a
         // prior test's install wrote rows a later warm read would resurrect).
         $this->container()->get(\App\Settings\SettingsStore::class)->clearCache();

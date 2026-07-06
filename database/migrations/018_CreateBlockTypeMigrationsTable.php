@@ -5,14 +5,14 @@ declare(strict_types=1);
 use Glueful\Database\Migrations\MigrationInterface;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 
-final class CreateLemmaBlockTypeMigrationsTable implements MigrationInterface
+final class CreateBlockTypeMigrationsTable implements MigrationInterface
 {
     public function up(SchemaBuilderInterface $schema): void
     {
-        if ($schema->hasTable('lemma_block_type_migrations')) {
+        if ($schema->hasTable('block_type_migrations')) {
             return;
         }
-        $schema->createTable('lemma_block_type_migrations', function ($table) {
+        $schema->createTable('block_type_migrations', function ($table) {
             $table->bigInteger('id')->primary()->autoIncrement();
             $table->string('uuid', 12);
             $table->string('block_type_uuid', 12);
@@ -41,12 +41,12 @@ final class CreateLemmaBlockTypeMigrationsTable implements MigrationInterface
 
     public function down(SchemaBuilderInterface $schema): void
     {
-        $schema->dropTableIfExists('lemma_block_type_migrations');
+        $schema->dropTableIfExists('block_type_migrations');
     }
 
     public function getDescription(): string
     {
-        return 'Create lemma_block_type_migrations (eager block-schema migrations; '
+        return 'Create block_type_migrations (eager block-schema migrations; '
             . 'microsecond created_at is the chain identity).';
     }
 }

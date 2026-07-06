@@ -105,10 +105,10 @@ final class DbTemplatesPipelineTest extends AppTestCase
         $this->repo()->save('default', 'entry.twig', 'ok {{ entry.fields.title }}', null);
         $this->repo()->save('default', 'error.twig', 'placeholder', null);
         $map = $this->repo()->overrideMap('default');
-        $this->connection()->table('lemma_render_template_versions')
+        $this->connection()->table('render_template_versions')
             ->where('uuid', '=', $map['entry.twig'])
             ->update(['source' => "{{ constant('X') }}"]);
-        $this->connection()->table('lemma_render_template_versions')
+        $this->connection()->table('render_template_versions')
             ->where('uuid', '=', $map['error.twig'])
             ->update(['source' => "{{ constant('X') }}"]);
         $this->container()->get(EventService::class)

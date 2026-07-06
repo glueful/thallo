@@ -42,7 +42,7 @@ if ($driver !== 'pgsql') {
 }
 
 $database = $envValue('DB_PGSQL_DATABASE', '');
-if ($database !== 'lemma_test' && !str_ends_with((string) $database, '_test')) {
+if ($database !== 'app_test' && !str_ends_with((string) $database, '_test')) {
     fwrite(STDERR, "Refusing to reset non-test database '{$database}'.\n");
     exit(1);
 }

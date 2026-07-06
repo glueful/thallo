@@ -104,7 +104,7 @@ final class DbTemplateLoaderTest extends AppTestCase
         // Straight SQL — bypasses the save-time lint entirely.
         $this->repo()->save('default', 'evil.twig', 'placeholder', null);
         $map = $this->repo()->overrideMap('default');
-        $this->connection()->table('lemma_render_template_versions')
+        $this->connection()->table('render_template_versions')
             ->where('uuid', '=', $map['evil.twig'])
             ->update(['source' => "{{ constant('PHP_VERSION') }}"]);
 

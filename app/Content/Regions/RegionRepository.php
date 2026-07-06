@@ -7,7 +7,7 @@ namespace App\Content\Regions;
 use Glueful\Database\Connection;
 
 /**
- * lemma_regions rows: {slug, blocks JSON, settings JSON}. No draft state, no
+ * regions rows: {slug, blocks JSON, settings JSON}. No draft state, no
  * locale (global-regions spec §3/§8) — a save is the live region.
  */
 final class RegionRepository
@@ -19,7 +19,7 @@ final class RegionRepository
     /** @return array{slug: string, blocks: list<array<string,mixed>>, settings: array<string,mixed>}|null */
     public function find(string $slug): ?array
     {
-        $row = $this->db->table('lemma_regions')->where('slug', '=', $slug)->first();
+        $row = $this->db->table('regions')->where('slug', '=', $slug)->first();
         if ($row === null) {
             return null;
         }
@@ -45,11 +45,11 @@ final class RegionRepository
             'updated_at' => date('Y-m-d H:i:s'),
             'updated_by' => $updatedBy,
         ];
-        $existing = $this->db->table('lemma_regions')->where('slug', '=', $slug)->first();
+        $existing = $this->db->table('regions')->where('slug', '=', $slug)->first();
         if ($existing === null) {
-            $this->db->table('lemma_regions')->insert($payload + ['slug' => $slug]);
+            $this->db->table('regions')->insert($payload + ['slug' => $slug]);
         } else {
-            $this->db->table('lemma_regions')->where('slug', '=', $slug)->update($payload);
+            $this->db->table('regions')->where('slug', '=', $slug)->update($payload);
         }
     }
 }
