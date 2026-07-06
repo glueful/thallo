@@ -37,7 +37,7 @@ export function useSeoMeta(
     key: () => qk.seoMeta(toValue(uuid), toValue(locale)),
     query: () => fetchSeoMeta(toValue(uuid), toValue(locale)),
     // When `enabled` resolves false the query never runs — a disabled pack must not hit the 404'd
-    // route. The panel's parent passes its `lemma.seo` capability flag through here.
+    // route. The panel's parent passes its `thallo.seo` capability flag through here.
     enabled: () => (enabled === undefined ? true : toValue(enabled)),
   })
 }

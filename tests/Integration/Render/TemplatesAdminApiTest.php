@@ -162,7 +162,7 @@ final class TemplatesAdminApiTest extends AppTestCase
     {
         // custom-css spec §2: braces would be noise to a Twig linter; the exact
         // path skips it and validates as CSS (encoding + size only).
-        $res = $this->api()->save($this->putReq('.lemma-block-hero { padding: 2rem; }'), 'custom.css');
+        $res = $this->api()->save($this->putReq('.thallo-block-hero { padding: 2rem; }'), 'custom.css');
         self::assertSame(200, $res->getStatusCode());
 
         $show = $this->json($this->api()->show(Request::create('/x', 'GET'), 'custom.css'));

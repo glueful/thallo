@@ -32,7 +32,7 @@ final class ImporterHardeningTest extends AppTestCase
 
     private function tmpFile(string $suffix, string $contents): string
     {
-        $path = sys_get_temp_dir() . '/lemma-importer-test-' . bin2hex(random_bytes(6)) . $suffix;
+        $path = sys_get_temp_dir() . '/thallo-importer-test-' . bin2hex(random_bytes(6)) . $suffix;
         file_put_contents($path, $contents);
         $this->tmpFiles[] = $path;
         return $path;

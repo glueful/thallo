@@ -78,12 +78,12 @@ final class PreviewAnnotationTest extends AppTestCase
     {
         $entry = $this->seedBlockPage('source');
 
-        // LIVE render: no wrapper, no data-lemma-block, no bridge injection.
+        // LIVE render: no wrapper, no data-thallo-block, no bridge injection.
         $live = $this->handle(Request::create('/page/source', 'GET'));
         self::assertSame(200, $live->getStatusCode());
         $liveHtml = (string) $live->getContent();
         self::assertStringContainsString('Hello card', $liveHtml);
-        self::assertStringNotContainsString('data-lemma-block', $liveHtml);
+        self::assertStringNotContainsString('data-thallo-block', $liveHtml);
 
         // DIRECT token render (spec §2 P1: preview() does NOT pass the session
         // middleware — annotation must still fire).
@@ -93,12 +93,12 @@ final class PreviewAnnotationTest extends AppTestCase
             $token,
         );
         $html = (string) $direct->getContent();
-        self::assertStringContainsString('class="lemma-preview-block"', $html);
-        self::assertStringContainsString('data-lemma-block="blockone0001"', $html);
+        self::assertStringContainsString('class="thallo-preview-block"', $html);
+        self::assertStringContainsString('data-thallo-block="blockone0001"', $html);
 
         // And the flag does not leak: the NEXT live render is clean again.
         $liveAgain = $this->handle(Request::create('/page/source', 'GET'));
-        self::assertStringNotContainsString('data-lemma-block', (string) $liveAgain->getContent());
+        self::assertStringNotContainsString('data-thallo-block', (string) $liveAgain->getContent());
     }
 
     public function testBridgeInjectionOnPreviewHtmlOnly(): void
@@ -154,11 +154,11 @@ final class PreviewAnnotationTest extends AppTestCase
         self::assertSame(200, $css->getStatusCode());
         self::assertStringContainsString('text/css', (string) $css->headers->get('Content-Type'));
         self::assertStringContainsString('max-age=86400', (string) $css->headers->get('Cache-Control'));
-        self::assertStringContainsString('.lemma-preview-block { display: contents; }', (string) $css->getContent());
+        self::assertStringContainsString('.thallo-preview-block { display: contents; }', (string) $css->getContent());
 
         $js = $this->handle(Request::create('/_preview-bridge.js', 'GET'));
         self::assertSame(200, $js->getStatusCode());
         self::assertStringContainsString('javascript', (string) $js->headers->get('Content-Type'));
-        self::assertStringContainsString('lemma:canvas-hello', (string) $js->getContent());
+        self::assertStringContainsString('thallo:canvas-hello', (string) $js->getContent());
     }
 }

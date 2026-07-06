@@ -1,7 +1,7 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
 import { registerAdminModule } from './adminModules'
 
-// Review-queue nav — gated on the `lemma.workflow` capability. The whole entry disappears
+// Review-queue nav — gated on the `thallo.workflow` capability. The whole entry disappears
 // from the sidebar when the pack is disabled or removed (the backend 404s those routes too
 // — see the pack's WorkflowRemovabilityTest).
 const main: NavigationMenuItem[] = [
@@ -13,5 +13,5 @@ const main: NavigationMenuItem[] = [
 ]
 
 export function registerWorkflowModule(): void {
-  registerAdminModule({ id: 'workflow', requires: ['lemma.workflow'], nav: { main } })
+  registerAdminModule({ id: 'workflow', requires: ['thallo.workflow'], nav: { main } })
 }

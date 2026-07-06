@@ -142,7 +142,7 @@ final class CsvUserImporterTest extends AppTestCase
 
     private function writeCsv(string $contents): string
     {
-        $dir = sys_get_temp_dir() . '/lemma-user-import-tests';
+        $dir = sys_get_temp_dir() . '/thallo-user-import-tests';
         if (!is_dir($dir)) {
             mkdir($dir, 0770, true);
         }

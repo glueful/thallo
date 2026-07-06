@@ -24,7 +24,7 @@ export interface SessionUser {
 //
 // SECURITY DECISION (accepted risk, v1). localStorage tokens mean an XSS can steal credentials,
 // including the durable refresh token.
-//   Reason:     Lemma admin uses Glueful's cookieless token flow (tokens returned in the JSON body,
+//   Reason:     Thallo admin uses Glueful's cookieless token flow (tokens returned in the JSON body,
 //               refresh sent in the request body). A real fix needs framework-level httpOnly
 //               refresh-cookie support — it cannot be done as a SPA-only patch, and half-measures
 //               (encrypting localStorage "harder", or moving only the access token to memory while
@@ -41,9 +41,9 @@ const sessionStoreOptions: { persist: PersistOptions } = {
     enabled: true,
     strategies: [
       {
-        key: 'lemma_session',
+        key: 'thallo_session',
         storage: localStorage,
-        encrypt: { secret: import.meta.env.VITE_ADMIN_PERSIST_SECRET ?? 'lemma-admin-dev' },
+        encrypt: { secret: import.meta.env.VITE_ADMIN_PERSIST_SECRET ?? 'thallo-admin-dev' },
         mergeStrategy: 'shallow',
         debounce: 100,
       },

@@ -234,7 +234,7 @@ onMounted(() => {
                   />
                 </UFormField>
                 <UFormField label="From name">
-                  <UInput v-model="form.from_name" placeholder="Lemma" class="w-full" />
+                  <UInput v-model="form.from_name" placeholder="Thallo" class="w-full" />
                 </UFormField>
               </div>
               <div class="grid gap-4">

@@ -105,14 +105,14 @@ final class RegionAdminApiTest extends AppTestCase
         ]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/v1/admin/regions/preview'));
         self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
         $html = json_decode((string) $resp->getContent(), true)['data']['html'];
-        self::assertStringContainsString('lemma-block-navigation', $html);
-        self::assertStringContainsString('lemma-region-header--sticky', $html);
-        self::assertStringContainsString('lemma-region-header--full', $html);
+        self::assertStringContainsString('thallo-block-navigation', $html);
+        self::assertStringContainsString('thallo-region-header--sticky', $html);
+        self::assertStringContainsString('thallo-region-header--full', $html);
         self::assertStringContainsString('/theme-assets/site.css', $html);
         self::assertStringContainsString('/theme-assets/blocks.css', $html);
         // Blob-doc anchor (P1): absolute base so host-relative assets resolve.
         self::assertStringContainsString('<base href="https://admin.test/">', $html);
-        self::assertStringNotContainsString('lemma-preview-block', $html); // never annotated
+        self::assertStringNotContainsString('thallo-preview-block', $html); // never annotated
         self::assertStringNotContainsString('<footer', $html);            // no footer posted, none saved
 
         // NOTHING was written.

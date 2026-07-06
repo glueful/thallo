@@ -129,7 +129,7 @@ final class MarkdownContentImporterTest extends AppTestCase
 
     private function writeMarkdown(string $contents): string
     {
-        $dir = sys_get_temp_dir() . '/lemma-md-import-tests';
+        $dir = sys_get_temp_dir() . '/thallo-md-import-tests';
         if (!is_dir($dir)) {
             mkdir($dir, 0770, true);
         }

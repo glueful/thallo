@@ -171,7 +171,7 @@ async function declareMigration() {
         <p class="text-muted">
           Entries containing this block cannot be saved or published until it completes.
           <span v-if="activeMigration.status === 'failed'">
-            Re-drive it with <code>php glueful lemma:blocks:migration:backfill {{ activeMigration.uuid }}</code>.
+            Re-drive it with <code>php glueful thallo:blocks:migration:backfill {{ activeMigration.uuid }}</code>.
           </span>
         </p>
       </div>

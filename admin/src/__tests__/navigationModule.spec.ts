@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { visibleNav, resetAdminModules, registerAdminModule } from '@/registry/adminModules'
 import { registerNavigationModule } from '@/registry/navigationModule'
 
-describe('navigation admin module gating (lemma.navigation capability)', () => {
+describe('navigation admin module gating (thallo.navigation capability)', () => {
   beforeEach(() => resetAdminModules())
 
-  it('omits the Site group entirely when lemma.navigation is disabled', () => {
+  it('omits the Site group entirely when thallo.navigation is disabled', () => {
     registerNavigationModule()
     const [main] = visibleNav(() => false)
     expect(main).toEqual([])
@@ -13,7 +13,7 @@ describe('navigation admin module gating (lemma.navigation capability)', () => {
 
   it('nests Navigation under the expandable Site group when enabled', () => {
     registerNavigationModule()
-    const [main] = visibleNav((id) => id === 'lemma.navigation')
+    const [main] = visibleNav((id) => id === 'thallo.navigation')
 
     expect(main.map((i) => i.label)).toEqual(['Site'])
     const site = main[0]!
@@ -26,7 +26,7 @@ describe('navigation admin module gating (lemma.navigation capability)', () => {
     registerNavigationModule()
     registerAdminModule({
       id: 'render',
-      requires: ['lemma.render'],
+      requires: ['thallo.render'],
       nav: { site: [{ label: 'Themes', to: '/themes' }] },
     })
     const [main] = visibleNav(() => true)
@@ -40,10 +40,10 @@ describe('navigation admin module gating (lemma.navigation capability)', () => {
     registerNavigationModule()
     registerAdminModule({
       id: 'render',
-      requires: ['lemma.render'],
+      requires: ['thallo.render'],
       nav: { site: [{ label: 'Themes', to: '/themes' }] },
     })
-    const [main] = visibleNav((id) => id === 'lemma.navigation')
+    const [main] = visibleNav((id) => id === 'thallo.navigation')
 
     expect((main[0]!.children ?? []).map((c) => c.label)).toEqual(['Navigation'])
   })

@@ -54,11 +54,11 @@ final class RegionRenderingTest extends AppTestCase
         ], ['sticky' => true, 'width' => 'full'], null);
 
         $html = $this->renderHome($entry);
-        self::assertStringContainsString('lemma-region-header', $html);
-        self::assertStringContainsString('lemma-region-header--sticky', $html);
-        self::assertStringContainsString('lemma-region-header--full', $html);
-        self::assertStringContainsString('lemma-block-navigation', $html);
-        self::assertStringContainsString('lemma-block-logo', $html);
+        self::assertStringContainsString('thallo-region-header', $html);
+        self::assertStringContainsString('thallo-region-header--sticky', $html);
+        self::assertStringContainsString('thallo-region-header--full', $html);
+        self::assertStringContainsString('thallo-block-navigation', $html);
+        self::assertStringContainsString('thallo-block-logo', $html);
         // The hardcoded fallback header is gone.
         self::assertStringNotContainsString('class="site-name"', $html);
     }
@@ -70,14 +70,14 @@ final class RegionRenderingTest extends AppTestCase
         // (a) No region rows at all.
         $absent = $this->renderHome($entry);
         self::assertStringContainsString('class="site-name"', $absent);
-        self::assertStringNotContainsString('lemma-region-header', $absent);
+        self::assertStringNotContainsString('thallo-region-header', $absent);
 
         // (b) Saved-but-empty region: SAME null, SAME fallback (pinned rule).
         $this->regions()->save('header', [], [], null);
         $this->container()->get(CacheStore::class)->deletePattern('render:*');
         $empty = $this->renderHome($entry);
         self::assertStringContainsString('class="site-name"', $empty);
-        self::assertStringNotContainsString('lemma-region-header', $empty);
+        self::assertStringNotContainsString('thallo-region-header', $empty);
 
         // Footer fallback is present in both.
         self::assertStringContainsString('<footer class="site-footer">', $empty);
@@ -198,18 +198,18 @@ final class RegionRenderingTest extends AppTestCase
             $entryHtml = $env->createTemplate('{{ blocks(list) }}')->render(['list' => [
                 ['id' => 'entryblock01', 'type' => 'quote', 'data' => ['text' => 'Entry']],
             ]]);
-            self::assertStringContainsString('lemma-preview-block', $entryHtml); // canvas mode is ON
+            self::assertStringContainsString('thallo-preview-block', $entryHtml); // canvas mode is ON
 
             $regionHtml = $env->createTemplate("{{ region_blocks('footer') }}")->render([]);
-            self::assertStringContainsString('lemma-block-social_links', $regionHtml);
-            self::assertStringNotContainsString('lemma-preview-block', $regionHtml);
+            self::assertStringContainsString('thallo-block-social_links', $regionHtml);
+            self::assertStringNotContainsString('thallo-preview-block', $regionHtml);
             self::assertStringNotContainsString('regftrsoc001', $regionHtml); // no id markers either
 
             // …and suppression is scoped: blocks() AFTER a region render still annotates.
             $after = $env->createTemplate('{{ blocks(list) }}')->render(['list' => [
                 ['id' => 'entryblock02', 'type' => 'quote', 'data' => ['text' => 'After']],
             ]]);
-            self::assertStringContainsString('lemma-preview-block', $after);
+            self::assertStringContainsString('thallo-preview-block', $after);
         } finally {
             $ext->setBlockAnnotations(false);
         }

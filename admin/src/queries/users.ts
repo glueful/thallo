@@ -90,7 +90,7 @@ export function userDisplayName(u: UserRow): string {
   return full || u.username || u.email || u.uuid.slice(0, 8)
 }
 
-// ── Admin user management (app-owned, Lemma's /v1/admin/users; create needs users.create,
+// ── Admin user management (app-owned, Thallo's /v1/admin/users; create needs users.create,
 // delete needs users.delete). The list/read still comes from glueful/users (/v1/users). ──
 export interface CreateUserInput {
   username: string

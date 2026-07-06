@@ -40,4 +40,4 @@ export interface BlocksContext {
   maxDepth: number
 }
 
-export const BlocksContextKey: InjectionKey<BlocksContext> = Symbol('lemma-blocks-context')
+export const BlocksContextKey: InjectionKey<BlocksContext> = Symbol('thallo-blocks-context')

@@ -1,7 +1,7 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
 import { registerAdminModule } from './adminModules'
 
-// Navigation (menu builder) nav — gated on the `lemma.navigation` capability; disappears
+// Navigation (menu builder) nav — gated on the `thallo.navigation` capability; disappears
 // when the pack is disabled or removed (the backend 404s those routes too — see the
 // pack's NavigationRemovabilityTest). Lives under the shared expandable "Site" group,
 // alongside future site-facing modules (render/themes etc.).
@@ -14,5 +14,5 @@ const site: NavigationMenuItem[] = [
 ]
 
 export function registerNavigationModule(): void {
-  registerAdminModule({ id: 'navigation', requires: ['lemma.navigation'], nav: { site } })
+  registerAdminModule({ id: 'navigation', requires: ['thallo.navigation'], nav: { site } })
 }

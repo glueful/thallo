@@ -20,7 +20,7 @@ final class IconSetTest extends TestCase
         self::assertNotNull($svg);
         self::assertStringStartsWith('<svg', $svg);
         self::assertStringContainsString('aria-hidden="true"', $svg);
-        self::assertStringContainsString('lemma-icon', $svg);
+        self::assertStringContainsString('thallo-icon', $svg);
         // Exactly one class attribute in the opening tag (appended, never duplicated).
         $openingTag = substr($svg, 0, (int) strpos($svg, '>'));
         self::assertSame(1, substr_count($openingTag, 'class='));
@@ -31,7 +31,7 @@ final class IconSetTest extends TestCase
         $svg = $this->set()->svg('brand:github');
         self::assertNotNull($svg);
         self::assertStringContainsString('fill="currentColor"', $svg);
-        self::assertStringContainsString('lemma-icon', $svg);
+        self::assertStringContainsString('thallo-icon', $svg);
         self::assertStringContainsString('aria-hidden="true"', $svg);
     }
 

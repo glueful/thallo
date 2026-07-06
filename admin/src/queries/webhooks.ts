@@ -13,7 +13,7 @@ import { toApiError } from '@/api/errors'
 
 export type WebhookDeliveryStatus = 'pending' | 'delivered' | 'failed' | 'retrying'
 
-/** The subscribable Lemma content events (frozen taxonomy) plus wildcard patterns. */
+/** The subscribable Thallo content events (frozen taxonomy) plus wildcard patterns. */
 export const WEBHOOK_EVENTS = [
   'entry.created',
   'entry.updated',

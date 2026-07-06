@@ -101,7 +101,7 @@ final class PreviewWorkingCopyTest extends AppTestCase
         $html = $this->renderPreview($token);
         self::assertStringContainsString('Applied only', $html);
         // The working-only block is ANNOTATED like any rendered instance.
-        self::assertStringContainsString('data-lemma-block="workingb0001"', $html);
+        self::assertStringContainsString('data-thallo-block="workingb0001"', $html);
 
         // saveDraft SUCCESS clears the stash (clear-on-save pin): the next render
         // shows the (updated) draft, not a stale working copy. Read the CURRENT

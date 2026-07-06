@@ -7,7 +7,7 @@ const seoEnabled = ref(true)
 
 vi.mock('@/stores/capabilities', () => ({
   useCapabilitiesStore: () => ({
-    isEnabled: (id: string) => (id === 'lemma.seo' ? seoEnabled.value : true),
+    isEnabled: (id: string) => (id === 'thallo.seo' ? seoEnabled.value : true),
   }),
 }))
 vi.mock('@/queries/seo', () => ({
@@ -59,17 +59,17 @@ const factory = () =>
     },
   })
 
-describe('SeoPanel render gate (lemma.seo capability)', () => {
+describe('SeoPanel render gate (thallo.seo capability)', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     seoEnabled.value = true
   })
 
-  it('renders SeoPanel when lemma.seo is enabled', () => {
+  it('renders SeoPanel when thallo.seo is enabled', () => {
     expect(factory().findComponent(SeoPanel).exists()).toBe(true)
   })
 
-  it('omits SeoPanel when lemma.seo is disabled', () => {
+  it('omits SeoPanel when thallo.seo is disabled', () => {
     seoEnabled.value = false
     expect(factory().findComponent(SeoPanel).exists()).toBe(false)
   })

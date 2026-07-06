@@ -163,7 +163,7 @@ const ACTION_META: Record<string, AuditActionMeta> = {
   },
   rate_limit_exceeded: { label: 'Rate limit exceeded', color: 'warning', icon: 'i-lucide-gauge' },
   security_violation: { label: 'Security violation', color: 'error', icon: 'i-lucide-shield-x' },
-  // Content lifecycle (Lemma content events)
+  // Content lifecycle (Thallo content events)
   published: { label: 'Published', color: 'success', icon: 'i-lucide-globe' },
   unpublished: { label: 'Unpublished', color: 'warning', icon: 'i-lucide-eye-off' },
   attached: { label: 'Attached', color: 'info', icon: 'i-lucide-paperclip' },

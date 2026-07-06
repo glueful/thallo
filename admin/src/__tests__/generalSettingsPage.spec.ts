@@ -55,7 +55,7 @@ vi.mock('@/fields/components/ReferencePicker.vue', () => ({
 import GeneralSettingsPage from '@/pages/settings/general/index.vue'
 
 const settings = (): GeneralSettings => ({
-  site_name: 'Lemma',
+  site_name: 'Thallo',
   site_preview_url: '',
   default_locale: 'en',
   default_per_page: 20,
@@ -156,6 +156,6 @@ describe('general settings page — site logo', () => {
     const imgs = preview.findAll('img')
     expect(imgs.length).toBe(2)
     expect(imgs[0]!.attributes('src')).toBe('/blobs/favic0000001')
-    expect(preview.text()).toContain('Lemma')
+    expect(preview.text()).toContain('Thallo')
   })
 })

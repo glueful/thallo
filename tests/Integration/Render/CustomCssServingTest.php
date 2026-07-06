@@ -33,13 +33,13 @@ final class CustomCssServingTest extends AppTestCase
 
     public function testServesTheRowWithImmutableHeaders(): void
     {
-        $this->saveCss('.lemma-block-hero { padding: 2rem; }');
+        $this->saveCss('.thallo-block-hero { padding: 2rem; }');
 
         $res = $this->handle(Request::create('/custom.css?v=abc123', 'GET'));
         self::assertSame(200, $res->getStatusCode());
         self::assertStringContainsString('text/css', (string) $res->headers->get('Content-Type'));
         self::assertStringContainsString('immutable', (string) $res->headers->get('Cache-Control'));
-        self::assertStringContainsString('.lemma-block-hero', (string) $res->getContent());
+        self::assertStringContainsString('.thallo-block-hero', (string) $res->getContent());
     }
 
     public function testMissingOrEmptyCustomCssIs404(): void

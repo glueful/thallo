@@ -191,7 +191,7 @@ async function onSave() {
                 <template #header><h2 class="font-semibold text-default">Site identity</h2></template>
                 <div class="space-y-4">
                   <UFormField label="Site name" description="Shown to admins; the instance display name.">
-                    <UInput v-model="form.site_name" placeholder="Lemma" class="w-full" />
+                    <UInput v-model="form.site_name" placeholder="Thallo" class="w-full" />
                   </UFormField>
                   <UFormField
                     label="Site preview URL"

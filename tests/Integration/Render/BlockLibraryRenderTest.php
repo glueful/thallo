@@ -68,7 +68,7 @@ final class BlockLibraryRenderTest extends AppTestCase
             'style="--container-bg: #112233; --container-overlay: #000000; --container-overlay-opacity: 0.4"',
             $out,
         );
-        self::assertStringContainsString('lemma-block-container__overlay', $out);
+        self::assertStringContainsString('thallo-block-container__overlay', $out);
 
         // No styling fields -> NO style attribute at all.
         $bare = $this->render([['id' => 'c2', 'type' => 'container', 'data' => ['content' => []]]]);
@@ -206,7 +206,7 @@ final class BlockLibraryRenderTest extends AppTestCase
             'site' => ['name' => 'Acme'],
             'list' => [['id' => 'l1', 'type' => 'logo', 'data' => ['link_home' => true]]],
         ]);
-        self::assertStringContainsString('<span class="lemma-block-logo__name">Acme</span>', $out);
+        self::assertStringContainsString('<span class="thallo-block-logo__name">Acme</span>', $out);
         self::assertStringContainsString('href="/"', $out);
         self::assertStringNotContainsString('<img', $out);
     }
@@ -234,7 +234,7 @@ final class BlockLibraryRenderTest extends AppTestCase
         $light = $seedBlob();
         $store->putMany(['site_logo' => $light]);
         $out = $render();
-        self::assertStringContainsString('<img class="lemma-block-logo__image" src="', $out);
+        self::assertStringContainsString('<img class="thallo-block-logo__image" src="', $out);
         self::assertStringNotContainsString('--has-dark', $out);
         self::assertStringNotContainsString('__image--dark', $out);
 
@@ -242,9 +242,9 @@ final class BlockLibraryRenderTest extends AppTestCase
         $dark = $seedBlob();
         $store->putMany(['site_logo_dark' => $dark]);
         $out = $render();
-        self::assertStringContainsString('lemma-block-logo--has-dark', $out);
-        self::assertStringContainsString('lemma-block-logo__image--light', $out);
-        self::assertStringContainsString('lemma-block-logo__image--dark', $out);
+        self::assertStringContainsString('thallo-block-logo--has-dark', $out);
+        self::assertStringContainsString('thallo-block-logo__image--light', $out);
+        self::assertStringContainsString('thallo-block-logo__image--dark', $out);
         self::assertStringContainsString('/blobs/' . $dark, $out);
     }
 
@@ -307,7 +307,7 @@ final class BlockLibraryRenderTest extends AppTestCase
             'data' => ['layout' => '2', 'widths' => '33-67',
                 'col_1' => [], 'col_2' => [], 'col_3' => []],
         ]]);
-        self::assertStringContainsString('lemma-block-columns--w-33-67', $two);
+        self::assertStringContainsString('thallo-block-columns--w-33-67', $two);
 
         // Mismatch (3-col preset on a 2-col layout): NO width token at all.
         $mismatch = $this->render([[
@@ -333,7 +333,7 @@ final class BlockLibraryRenderTest extends AppTestCase
             'data' => ['layout' => '2', 'align' => 'center',
                 'col_1' => [], 'col_2' => [], 'col_3' => []],
         ]]);
-        self::assertStringContainsString('lemma-block-columns--align-center', $center);
+        self::assertStringContainsString('thallo-block-columns--align-center', $center);
 
         $stretch = $this->render([[
             'id' => 'cola2', 'type' => 'columns',
@@ -387,9 +387,9 @@ final class BlockLibraryRenderTest extends AppTestCase
         ]]);
         foreach (
             [
-            'lemma-block-navigation--align-center', 'lemma-block-navigation--size-lg',
-            'lemma-block-navigation--active-pill', 'lemma-block-navigation--hover-underline',
-            'lemma-block-navigation--reveal-hover',
+            'thallo-block-navigation--align-center', 'thallo-block-navigation--size-lg',
+            'thallo-block-navigation--active-pill', 'thallo-block-navigation--hover-underline',
+            'thallo-block-navigation--reveal-hover',
             ] as $token
         ) {
             self::assertStringContainsString($token, $out);
@@ -407,7 +407,7 @@ final class BlockLibraryRenderTest extends AppTestCase
             'id' => 'nav2b', 'type' => 'navigation',
             'data' => ['menu' => 'main', 'submenu_trigger' => 'click', 'submenu_icon' => 'none'],
         ]]);
-        self::assertStringContainsString('<details class="lemma-block-navigation__details" name="nav-nav2b"', $out);
+        self::assertStringContainsString('<details class="thallo-block-navigation__details" name="nav-nav2b"', $out);
         // Parent url repeated as first child (summary swallows navigation).
         self::assertStringContainsString('href="/services"', $out);
         self::assertStringNotContainsString('<svg', $out);          // icon: none
@@ -483,7 +483,7 @@ final class BlockLibraryRenderTest extends AppTestCase
         $out = $this->render([[
             'id' => 'nav1', 'type' => 'navigation', 'data' => ['menu' => 'no-such-menu'],
         ]]);
-        self::assertStringContainsString('lemma-block-navigation', $out); // root always renders
+        self::assertStringContainsString('thallo-block-navigation', $out); // root always renders
         self::assertStringNotContainsString('<nav', $out);                // but no empty nav
     }
 
@@ -494,8 +494,8 @@ final class BlockLibraryRenderTest extends AppTestCase
             'data' => ['icon' => 'star', 'size' => 'large', 'align' => 'center',
                 'url' => '/pricing', 'label' => 'See pricing'],
         ]]);
-        self::assertStringContainsString('lemma-block-icon--large', $out);
-        self::assertStringContainsString('lemma-block-icon--center', $out);
+        self::assertStringContainsString('thallo-block-icon--large', $out);
+        self::assertStringContainsString('thallo-block-icon--center', $out);
         self::assertStringContainsString('<svg', $out);
         self::assertStringContainsString('aria-label="See pricing"', $out);
         self::assertStringContainsString('href="/pricing"', $out);
@@ -516,7 +516,7 @@ final class BlockLibraryRenderTest extends AppTestCase
             'data' => ['icon' => 'activity', 'title' => 'Fast'],
         ]]);
         self::assertStringContainsString('<svg', $out);
-        self::assertStringContainsString('lemma-icon', $out);
+        self::assertStringContainsString('thallo-icon', $out);
         self::assertStringNotContainsString('&lt;svg', $out); // not escaped text
     }
 

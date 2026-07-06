@@ -307,7 +307,7 @@ final class RenderPipelineTest extends AppTestCase
         self::assertSame(200, $res->getStatusCode());
         $html = (string) $res->getContent();
         self::assertStringNotContainsString('class="site-name"', $html);   // no fallback header
-        self::assertStringNotContainsString('lemma-region-header', $html); // no region header
+        self::assertStringNotContainsString('thallo-region-header', $html); // no region header
         self::assertStringNotContainsString('<footer', $html);             // no footer at all
         self::assertStringContainsString('No Chrome', $html);              // the page itself renders
     }
@@ -351,7 +351,7 @@ final class RenderPipelineTest extends AppTestCase
     {
         // Build a throwaway app theme on disk; settings validate at construction
         // (modern-default-theme spec §5a: loud rejection, fixed vocabulary).
-        $dir = sys_get_temp_dir() . '/lemma-theme-settings-' . uniqid();
+        $dir = sys_get_temp_dir() . '/thallo-theme-settings-' . uniqid();
         mkdir($dir . '/settingstheme/templates', 0777, true);
         try {
             $write = function (array $json) use ($dir): void {

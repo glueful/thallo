@@ -164,7 +164,7 @@ async function clearType() {
             <div class="space-y-4">
               <UFormField
                 label="Clear one content type"
-                hint="Invalidates only that type's delivery cache (the lemma:type tag)."
+                hint="Invalidates only that type's delivery cache (the thallo:type tag)."
               >
                 <div class="flex gap-2">
                   <USelect

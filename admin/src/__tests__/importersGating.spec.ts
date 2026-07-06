@@ -11,15 +11,15 @@ vi.mock('@/runtime/config', () => ({
 }))
 
 // Realistic adapters list: core snapshot importer + the three format-pack adapters.
-// The snapshot key ('lemma.content') matches LemmaContentImporter::key() in the PHP core.
+// The snapshot key ('thallo.content') matches ContentImporter::key() in the PHP core.
 const MOCK_ADAPTERS = {
   importers: [
-    { key: 'lemma.content', label: 'Lemma snapshot (NDJSON)' },
+    { key: 'thallo.content', label: 'Thallo snapshot (NDJSON)' },
     { key: 'csv.content', label: 'CSV' },
     { key: 'markdown.content', label: 'Markdown / MDX' },
     { key: 'wordpress.content', label: 'WordPress (WXR)' },
   ],
-  exporters: [{ key: 'lemma.content', label: 'Lemma snapshot (NDJSON)' }],
+  exporters: [{ key: 'thallo.content', label: 'Thallo snapshot (NDJSON)' }],
 }
 
 vi.mock('@/queries/importExport', () => ({
@@ -57,7 +57,7 @@ import ImportExportPage from '@/pages/settings/import-export/index.vue'
 
 /**
  * These tests assert the *core promise* of the importers extraction: the snapshot
- * Import card is core-owned and stays usable when `lemma.importers` is off, while the
+ * Import card is core-owned and stays usable when `thallo.importers` is off, while the
  * format-adapter wizard (CSV/Markdown/WordPress mapping) is gated.
  *
  * We assert on plain DOM hooks (`data-test` / `data-testid`) the page owns, not on the
@@ -67,12 +67,12 @@ import ImportExportPage from '@/pages/settings/import-export/index.vue'
  * is off — pure logic that is, in any case, backstopped by the authoritative backend gate
  * (each format adapter fails closed at `plan()` regardless of what the UI offers).
  */
-describe('format-import gating (lemma.importers capability)', () => {
+describe('format-import gating (thallo.importers capability)', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
   })
 
-  it('hides the format wizard but keeps the core snapshot import when lemma.importers is disabled', () => {
+  it('hides the format wizard but keeps the core snapshot import when thallo.importers is disabled', () => {
     const caps = useCapabilitiesStore()
     // Mark as already-loaded so ensureLoaded() is a no-op and we control the set directly.
     caps.loaded = true
@@ -88,10 +88,10 @@ describe('format-import gating (lemma.importers capability)', () => {
     expect(wrapper.find('[data-testid="importer-adapter"]').exists()).toBe(true)
   })
 
-  it('shows the format wizard when lemma.importers is enabled', () => {
+  it('shows the format wizard when thallo.importers is enabled', () => {
     const caps = useCapabilitiesStore()
     caps.loaded = true
-    caps.enabledIds = new Set(['lemma.importers'])
+    caps.enabledIds = new Set(['thallo.importers'])
 
     const wrapper = mount(ImportExportPage)
 

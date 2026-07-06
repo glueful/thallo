@@ -900,7 +900,7 @@ describe('canvas page', () => {
   it('Apply awaits the flush and the FINAL flushed text reaches the apply payload', async () => {
     // Review P2: order alone is not the risk — the last sub-debounce keystroke
     // is. The mocked flush delivers a final text-changed BEFORE resolving, the
-    // way the real bridge commits during lemma:edit-flush; Apply must read the
+    // way the real bridge commits during thallo:edit-flush; Apply must read the
     // tree AFTER that commit landed.
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
     applyMock.mockResolvedValue(undefined)
@@ -1169,7 +1169,7 @@ describe('auto-apply', () => {
   it('the toggle disables auto, persists, and re-enables', async () => {
     const wrapper = await mountAuto()
     await wrapper.find('[data-test="canvas-auto-toggle"]').trigger('click')
-    expect(localStorage.getItem('lemma.canvas.auto_apply')).toBe('0')
+    expect(localStorage.getItem('thallo.canvas.auto_apply')).toBe('0')
     vi.useFakeTimers()
     try {
       bridge.callbacks.move?.('blockaaa0001', 1)
@@ -1179,7 +1179,7 @@ describe('auto-apply', () => {
       vi.useRealTimers()
     }
     await wrapper.find('[data-test="canvas-auto-toggle"]').trigger('click')
-    expect(localStorage.getItem('lemma.canvas.auto_apply')).toBe('1')
+    expect(localStorage.getItem('thallo.canvas.auto_apply')).toBe('1')
     wrapper.unmount()
   })
 

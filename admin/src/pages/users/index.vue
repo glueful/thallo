@@ -79,7 +79,7 @@ function onCreated(uuid: string) {
       </div>
 
       <UserCreateModal v-model:open="showCreate" @created="onCreated" />
-      <UserBulkImportModal v-if="caps.isEnabled('lemma.importers')" v-model:open="showImport" />
+      <UserBulkImportModal v-if="caps.isEnabled('thallo.importers')" v-model:open="showImport" />
     </template>
   </UDashboardPanel>
 </template>

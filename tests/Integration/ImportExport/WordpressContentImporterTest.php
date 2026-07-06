@@ -116,7 +116,7 @@ final class WordpressContentImporterTest extends AppTestCase
 
     private function writeWxr(): string
     {
-        $dir = sys_get_temp_dir() . '/lemma-wp-import-tests';
+        $dir = sys_get_temp_dir() . '/thallo-wp-import-tests';
         if (!is_dir($dir)) {
             mkdir($dir, 0770, true);
         }

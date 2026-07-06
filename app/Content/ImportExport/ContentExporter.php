@@ -266,6 +266,6 @@ final class ContentExporter implements ExporterInterface
     private function resultPath(string $jobUuid, int $sequence): string
     {
         $job = preg_replace('/[^A-Za-z0-9_-]/', '', $jobUuid) ?: 'job';
-        return sprintf('import-export/exports/%s/lemma-content-%04d.ndjson', $job, $sequence);
+        return sprintf('import-export/exports/%s/thallo-content-%04d.ndjson', $job, $sequence);
     }
 }

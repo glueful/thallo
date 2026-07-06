@@ -31,7 +31,7 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / perPage.va
       <h2 class="text-lg font-semibold text-highlighted">Users</h2>
       <div class="flex items-center gap-1">
         <UButton
-          v-if="caps.isEnabled('lemma.importers')"
+          v-if="caps.isEnabled('thallo.importers')"
           data-test="users-bulk-import"
           icon="i-lucide-upload"
           color="neutral"

@@ -20,7 +20,7 @@ final class ThemeClonerTest extends AppTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->themesDir = sys_get_temp_dir() . '/lemma-theme-clone-' . uniqid('', true);
+        $this->themesDir = sys_get_temp_dir() . '/thallo-theme-clone-' . uniqid('', true);
     }
 
     protected function tearDown(): void

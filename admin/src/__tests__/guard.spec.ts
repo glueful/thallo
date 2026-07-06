@@ -66,16 +66,16 @@ describe('install + auth guard', () => {
     session.isAuthenticated = true
     caps.isEnabled = () => false
     await expect(
-      installAndAuthGuard(to('/forms', { requiresAuth: true, requiresCapability: 'lemma.forms' })),
+      installAndAuthGuard(to('/forms', { requiresAuth: true, requiresCapability: 'thallo.forms' })),
     ).resolves.toEqual({ path: '/' })
   })
 
   it('allows a capability-gated route when the capability is enabled', async () => {
     cfg.installed = true
     session.isAuthenticated = true
-    caps.isEnabled = (id: string) => id === 'lemma.forms'
+    caps.isEnabled = (id: string) => id === 'thallo.forms'
     await expect(
-      installAndAuthGuard(to('/forms', { requiresAuth: true, requiresCapability: 'lemma.forms' })),
+      installAndAuthGuard(to('/forms', { requiresAuth: true, requiresCapability: 'thallo.forms' })),
     ).resolves.toBe(true)
   })
 

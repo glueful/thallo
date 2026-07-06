@@ -29,8 +29,8 @@ const type = computed(() => String(route.params.type))
 const uuid = computed(() => String(route.params.uuid))
 
 const caps = useCapabilitiesStore()
-const seoEnabled = computed(() => caps.isEnabled('lemma.seo'))
-const workflowEnabled = computed(() => caps.isEnabled('lemma.workflow'))
+const seoEnabled = computed(() => caps.isEnabled('thallo.seo'))
+const workflowEnabled = computed(() => caps.isEnabled('thallo.workflow'))
 
 // Sidebar tabs: Publishing is home; SEO joins when its pack is enabled. v-show keeps
 // panel state (dirty slug, open schedule) alive across tab switches.

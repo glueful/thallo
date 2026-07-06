@@ -8,7 +8,7 @@ import type { BlockType } from '@/queries/blockTypes'
 // Chromeless prose (spec §3): a rich_text-shaped block renders as flowing text —
 // bubble toolbar on selection, no fixed toolbar, and a `/` suggestion menu with
 // TWO groups: text constructs (Nuxt UI's own, staying INSIDE this block's HTML)
-// and Lemma block types. TipTap stays BOUNDED: its only structural output is the
+// and Thallo block types. TipTap stays BOUNDED: its only structural output is the
 // insert-block event ({slug, beforeHtml, afterHtml}); block order/ids/tree are
 // the Vue tree's alone.
 // `pickerTypes` is the CONTAINING LIST's options (stage-toolbar spec §5): the
@@ -49,7 +49,7 @@ function emitSplit(editor: Editor, slug: string): void {
 }
 
 const handlers = {
-  lemmaBlock: {
+  thalloBlock: {
     canExecute: () => true,
     isActive: () => false,
     execute: (editor: Editor, item?: { slug?: string }) => {
@@ -59,7 +59,7 @@ const handlers = {
   },
 } satisfies EditorCustomHandlers
 
-// `/` menu: text constructs stay inside this block's HTML; Lemma block types go
+// `/` menu: text constructs stay inside this block's HTML; Thallo block types go
 // through the custom handler -> split -> tree insertion.
 const suggestionItems = computed(
   () =>
@@ -76,7 +76,7 @@ const suggestionItems = computed(
       [
         { type: 'label', label: 'Blocks' },
         ...props.pickerTypes.map((t) => ({
-          kind: 'lemmaBlock' as const,
+          kind: 'thalloBlock' as const,
           slug: t.slug,
           label: t.label,
           icon: t.icon || 'i-lucide-box',
