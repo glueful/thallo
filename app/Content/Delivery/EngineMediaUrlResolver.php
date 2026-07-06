@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Content\Delivery;
 
 use Glueful\Database\Connection;
-use Glueful\Lemma\Contracts\Delivery\MediaUrlResolver;
+use Thallo\Contracts\Delivery\MediaUrlResolver;
 
 /**
  * Blob-route parity resolver (starter-library spec §3): emits a URL ONLY when the

@@ -17,9 +17,9 @@ use App\Content\Seo\RouteResolver;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
-use Glueful\Lemma\Contracts\Delivery\PreviewSession;
-use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
-use Glueful\Lemma\Contracts\Delivery\ReferenceTargetResolver;
+use Thallo\Contracts\Delivery\PreviewSession;
+use Thallo\Contracts\Delivery\PublicRouteResolver;
+use Thallo\Contracts\Delivery\ReferenceTargetResolver;
 use Glueful\Support\FieldSelection\FieldSelector;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
@@ -361,7 +361,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         try {
             $read = $this->preview->read($token);
         } catch (PreviewTokenException | PreviewNotFoundException $e) {
-            $this->logger->info('lemma-render: preview token rejected', [
+            $this->logger->info('thallo-render: preview token rejected', [
                 'reason' => get_class($e),
                 'error' => $e->getMessage(),
             ]);

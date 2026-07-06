@@ -6,9 +6,9 @@ namespace App\Tests\Integration\Http;
 
 use App\Http\Controllers\AdminConfigController;
 use App\Setup\SetupService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class AdminConfigApiTest extends LemmaTestCase
+final class AdminConfigApiTest extends AppTestCase
 {
     public function testReturnsRuntimeConfigKeys(): void
     {

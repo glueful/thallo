@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Analytics;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Analytics\Facts\AnalyticsFact;
-use Glueful\Lemma\Analytics\Facts\AnalyticsRecorder;
-use Glueful\Lemma\Analytics\Http\Controllers\AnalyticsController;
+use App\Tests\Support\AppTestCase;
+use Thallo\Analytics\Facts\AnalyticsFact;
+use Thallo\Analytics\Facts\AnalyticsRecorder;
+use Thallo\Analytics\Http\Controllers\AnalyticsController;
 use Symfony\Component\HttpFoundation\Request;
 
-final class AnalyticsApiTest extends LemmaTestCase
+final class AnalyticsApiTest extends AppTestCase
 {
     protected function setUp(): void
     {

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Search;
 
-use Glueful\Lemma\Contracts\Schema\ContentSchemaReader;
-use Glueful\Lemma\Contracts\Schema\FieldDescriptor;
-use Glueful\Lemma\Contracts\Search\IndexableContent;
-use Glueful\Lemma\Search\Index\DocumentBuilder;
+use Thallo\Contracts\Schema\ContentSchemaReader;
+use Thallo\Contracts\Schema\FieldDescriptor;
+use Thallo\Contracts\Search\IndexableContent;
+use Thallo\Search\Index\DocumentBuilder;
 use PHPUnit\Framework\TestCase;
 
 final class DocumentBuilderTest extends TestCase

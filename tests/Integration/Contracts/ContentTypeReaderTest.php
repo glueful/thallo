@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Contracts;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Schema\ContentSchemaReader;
-use Glueful\Lemma\Contracts\Schema\ContentTypeReader;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Schema\ContentSchemaReader;
+use Thallo\Contracts\Schema\ContentTypeReader;
 
-final class ContentTypeReaderTest extends LemmaTestCase
+final class ContentTypeReaderTest extends AppTestCase
 {
     public function testResolvesBySlugAndReadsSchema(): void
     {

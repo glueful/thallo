@@ -7,9 +7,9 @@ namespace App\Tests\Integration\Content;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Validation\FieldValidator;
 use App\Content\Validation\ValidationException;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class FieldValidatorMediaDiskTest extends LemmaTestCase
+final class FieldValidatorMediaDiskTest extends AppTestCase
 {
     protected function setUp(): void
     {

@@ -6,14 +6,14 @@ namespace App\Tests\Integration;
 
 use App\Http\Controllers\ApiKeyAdminController;
 use App\Http\DTOs\UpdateApiKeyScopesData;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 
 /**
  * The PATCH /v1/admin/api-keys/{uuid}/scopes endpoint replaces a key's scopes in place (no key
  * rotation) — the surface the collections scopes panel drives.
  */
-final class ApiKeyScopesTest extends LemmaTestCase
+final class ApiKeyScopesTest extends AppTestCase
 {
     public function testUpdateScopesReplacesTheKeyScopesInPlace(): void
     {

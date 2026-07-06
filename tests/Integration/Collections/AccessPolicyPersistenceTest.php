@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
-use Glueful\Lemma\Collections\CollectionManager;
-use Glueful\Lemma\Collections\Repositories\CollectionDefinitionRepository;
+use Thallo\Collections\CollectionManager;
+use Thallo\Collections\Repositories\CollectionDefinitionRepository;
 
 /**
  * The per-collection access policy survives a create → load round-trip through the
  * collection_definitions.access_policy column.
  */
-final class AccessPolicyPersistenceTest extends LemmaTestCase
+final class AccessPolicyPersistenceTest extends AppTestCase
 {
     private const NAMES = ['articles', 'secrets'];
 

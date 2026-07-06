@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Analytics;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Events\Auth\AuthenticationFailedEvent;
 use Glueful\Events\Auth\SessionCreatedEvent;
 use Glueful\Events\Auth\SessionDestroyedEvent;
 use Glueful\Events\EventService;
 
-final class AuthAnalyticsListenerTest extends LemmaTestCase
+final class AuthAnalyticsListenerTest extends AppTestCase
 {
     protected function setUp(): void
     {

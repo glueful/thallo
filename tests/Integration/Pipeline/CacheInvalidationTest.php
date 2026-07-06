@@ -8,13 +8,13 @@ use App\Content\Events\ModelUpdated;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Services\PublishService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use App\Tests\Support\RecordingArrayCache;
 use Glueful\Events\EventService;
 
 /**
  * Proves the cache-tag invalidation listener (V1_DESIGN §5) wired in
- * LemmaServiceProvider::boot() invalidates the SAME surrogate keys the delivery layer
+ * ThalloServiceProvider::boot() invalidates the SAME surrogate keys the delivery layer
  * emits (App\Content\Http\DeliveryEtag): `lemma:entry:{uuid}` and `lemma:type:{slug}`.
  *
  * A byte-for-byte match is the whole point — if delivery tags by slug but the listener
@@ -26,7 +26,7 @@ use Glueful\Events\EventService;
  * in-memory cache that also records every invalidateTags() call), so we assert both the
  * driver-level effect (a primed tagged value is gone) and the exact tag strings.
  */
-final class CacheInvalidationTest extends LemmaTestCase
+final class CacheInvalidationTest extends AppTestCase
 {
     private string $type;
     private string $entry;

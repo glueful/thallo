@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Seo;
 
 use App\Content\Seo\RedirectRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class RedirectRepositoryTest extends LemmaTestCase
+final class RedirectRepositoryTest extends AppTestCase
 {
     private function repo(): RedirectRepository
     {

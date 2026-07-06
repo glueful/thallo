@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Importers;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Importers\CsvContentImporter;
+use App\Tests\Support\AppTestCase;
+use Thallo\Importers\CsvContentImporter;
 
-final class ContentImporterWritesViaContractTest extends LemmaTestCase
+final class ContentImporterWritesViaContractTest extends AppTestCase
 {
     /** @return list<class-string> the four importer adapter classes */
     private function adapters(): array
     {
         return [
-            \Glueful\Lemma\Importers\CsvContentImporter::class,
-            \Glueful\Lemma\Importers\MarkdownContentImporter::class,
-            \Glueful\Lemma\Importers\WordpressContentImporter::class,
-            \Glueful\Lemma\Importers\CsvUserImporter::class,
+            \Thallo\Importers\CsvContentImporter::class,
+            \Thallo\Importers\MarkdownContentImporter::class,
+            \Thallo\Importers\WordpressContentImporter::class,
+            \Thallo\Importers\CsvUserImporter::class,
         ];
     }
 
@@ -40,7 +40,7 @@ final class ContentImporterWritesViaContractTest extends LemmaTestCase
             $ctor?->getParameters() ?? [],
         );
         $joined = implode(',', $paramTypes);
-        self::assertStringContainsString('Glueful\\Lemma\\Contracts\\Authoring\\ContentWriter', $joined);
+        self::assertStringContainsString('Thallo\\Contracts\\Authoring\\ContentWriter', $joined);
         self::assertStringNotContainsString('App\\Content\\Repositories\\EntryRepository', $joined);
         self::assertStringNotContainsString('App\\Content\\Services\\PublishService', $joined);
         self::assertStringNotContainsString('App\\Content\\Validation\\FieldValidator', $joined);
@@ -52,7 +52,7 @@ final class ContentImporterWritesViaContractTest extends LemmaTestCase
         // Catches an adapter that forgets `use RequiresImportersCapability;`.
         foreach ($this->adapters() as $cls) {
             self::assertContains(
-                \Glueful\Lemma\Importers\Concerns\RequiresImportersCapability::class,
+                \Thallo\Importers\Concerns\RequiresImportersCapability::class,
                 $this->traitsOf($cls),
                 "{$cls} must use RequiresImportersCapability (backend capability gate)",
             );

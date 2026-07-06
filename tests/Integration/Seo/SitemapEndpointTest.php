@@ -5,15 +5,15 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Seo;
 
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Delivery\ContentDeliveryReader;
-use Glueful\Lemma\Seo\Cache\SitemapCache;
-use Glueful\Lemma\Seo\Http\Controllers\RobotsController;
-use Glueful\Lemma\Seo\Http\Controllers\SitemapController;
-use Glueful\Lemma\Seo\Sitemap\SitemapBuilder;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Delivery\ContentDeliveryReader;
+use Thallo\Seo\Cache\SitemapCache;
+use Thallo\Seo\Http\Controllers\RobotsController;
+use Thallo\Seo\Http\Controllers\SitemapController;
+use Thallo\Seo\Sitemap\SitemapBuilder;
 use Symfony\Component\HttpFoundation\Request;
 
-final class SitemapEndpointTest extends LemmaTestCase
+final class SitemapEndpointTest extends AppTestCase
 {
     use SeedsPublishedContent;
 

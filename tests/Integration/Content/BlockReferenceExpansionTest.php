@@ -16,11 +16,11 @@ use App\Content\Repositories\VersionRepository;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Support\FieldSelection\FieldSelector;
 use Symfony\Component\HttpFoundation\Request;
 
-final class BlockReferenceExpansionTest extends LemmaTestCase
+final class BlockReferenceExpansionTest extends AppTestCase
 {
     private string $type;
 

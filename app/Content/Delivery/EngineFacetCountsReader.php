@@ -7,7 +7,7 @@ namespace App\Content\Delivery;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\PublishedReferenceRepository;
 use App\Content\Schema\ContentTypeSchema;
-use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
+use Thallo\Contracts\Delivery\FacetCountsReader;
 
 /**
  * Template-facing facet counts over the published-reference projection, with the SAME

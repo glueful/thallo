@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Unit\Capabilities;
 
 use App\Capabilities\DefaultCapabilityRegistry;
-use Glueful\Lemma\Contracts\Capability\Capability;
-use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
+use Thallo\Contracts\Capability\Capability;
+use Thallo\Contracts\Capability\CapabilityRegistry;
 use PHPUnit\Framework\TestCase;
 
 final class DefaultCapabilityRegistryTest extends TestCase

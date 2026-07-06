@@ -11,9 +11,9 @@ use App\Content\Repositories\VersionRepository;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
 use App\Content\Validation\ValidationException;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class PublishServiceTest extends LemmaTestCase
+final class PublishServiceTest extends AppTestCase
 {
     private string $type;
     private string $entry;

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Render;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\Http\Controllers\TemplatesAdminController;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\Http\Controllers\TemplatesAdminController;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
  * immutable cache headers; absent or empty → 404. DB-only — the route never
  * touches theme directories.
  */
-final class CustomCssServingTest extends LemmaTestCase
+final class CustomCssServingTest extends AppTestCase
 {
     protected function tearDown(): void
     {

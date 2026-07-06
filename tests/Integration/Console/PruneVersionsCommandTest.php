@@ -6,10 +6,10 @@ namespace App\Tests\Integration\Console;
 
 use App\Content\Console\PruneVersionsCommand;
 use App\Content\Repositories\VersionRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
-final class PruneVersionsCommandTest extends LemmaTestCase
+final class PruneVersionsCommandTest extends AppTestCase
 {
     private VersionRepository $versions;
 

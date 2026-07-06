@@ -13,8 +13,8 @@ use App\Content\Repositories\RouteRepository;
 use App\Content\Repositories\VersionRepository;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\Http\Controllers\RenderController;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\Http\Controllers\RenderController;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -23,14 +23,14 @@ use Symfony\Component\HttpFoundation\Request;
  * NOT pass PreviewSessionMiddleware) and NEVER in live renders — with no leak
  * from a preview render into the next live one on the shared singletons.
  */
-final class PreviewAnnotationTest extends LemmaTestCase
+final class PreviewAnnotationTest extends AppTestCase
 {
     private string $type;
 
     protected function tearDown(): void
     {
         $this->container()->get(\Glueful\Cache\CacheStore::class)->deletePattern('render:*');
-        $this->container()->get(\Glueful\Lemma\Seo\Cache\SitemapCache::class)->forgetAll();
+        $this->container()->get(\Thallo\Seo\Cache\SitemapCache::class)->forgetAll();
         parent::tearDown();
     }
 

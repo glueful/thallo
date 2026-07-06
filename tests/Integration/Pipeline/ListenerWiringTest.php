@@ -14,11 +14,11 @@ use App\Content\Events\EntryUpdated;
 use App\Content\Events\ModelCreated;
 use App\Content\Events\ModelDeleted;
 use App\Content\Events\ModelUpdated;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 
 /**
- * Regression guard for LemmaServiceProvider::boot() -> registerEventListeners().
+ * Regression guard for ThalloServiceProvider::boot() -> registerEventListeners().
  *
  * The pipeline is "events emitted afterCommit -> listeners react". If the boot-time
  * addListener() calls silently never run (the classic "listeners not registered"
@@ -36,7 +36,7 @@ use Glueful\Events\EventService;
  * Lazy '@'serviceId listeners resolve to ContainerListener instances, so the COUNT of
  * listeners per event is a faithful, stable assertion of how many listeners are wired.
  */
-final class ListenerWiringTest extends LemmaTestCase
+final class ListenerWiringTest extends AppTestCase
 {
     private function events(): EventService
     {
@@ -72,7 +72,7 @@ final class ListenerWiringTest extends LemmaTestCase
         self::assertTrue(
             $this->events()->hasListeners($eventClass),
             $eventClass . ' must have its pipeline listener(s) registered by '
-                . 'LemmaServiceProvider::boot() — none found, so the boot-time '
+                . 'ThalloServiceProvider::boot() — none found, so the boot-time '
                 . 'addListener() calls did not run for this event.'
         );
     }
@@ -118,7 +118,7 @@ final class ListenerWiringTest extends LemmaTestCase
             $expected,
             count($this->events()->getListeners($eventClass)),
             $eventClass . ' is wired to fewer listeners than expected — a row dropped out '
-                . 'of the pipeline map in LemmaServiceProvider::registerEventListeners().'
+                . 'of the pipeline map in ThalloServiceProvider::registerEventListeners().'
         );
     }
 }

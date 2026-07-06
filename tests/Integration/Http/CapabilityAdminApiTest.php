@@ -6,10 +6,10 @@ namespace App\Tests\Integration\Http;
 
 use App\Capabilities\DefaultCapabilityRegistry;
 use App\Http\Controllers\CapabilityAdminController;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Capability\Capability;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Capability\Capability;
 
-final class CapabilityAdminApiTest extends LemmaTestCase
+final class CapabilityAdminApiTest extends AppTestCase
 {
     public function testReturnsOnlyEnabledCapabilities(): void
     {

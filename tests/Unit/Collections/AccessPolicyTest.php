@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Collections;
 
-use Glueful\Lemma\Collections\Schema\AccessPolicy;
+use Thallo\Collections\Schema\AccessPolicy;
 use PHPUnit\Framework\TestCase;
 
 final class AccessPolicyTest extends TestCase

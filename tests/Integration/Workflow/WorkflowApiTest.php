@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Workflow;
 
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Workflow\Http\Controllers\WorkflowController;
+use App\Tests\Support\AppTestCase;
+use Thallo\Workflow\Http\Controllers\WorkflowController;
 use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;
 
-final class WorkflowApiTest extends LemmaTestCase
+final class WorkflowApiTest extends AppTestCase
 {
     use SeedsPublishedContent;
 

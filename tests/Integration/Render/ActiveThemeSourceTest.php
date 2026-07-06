@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Render;
 
-use Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator;
-use Glueful\Lemma\Contracts\Settings\ThemeSettingProvider;
-use Glueful\Lemma\Render\ActiveThemeSource;
+use Thallo\Contracts\Delivery\PreviewThemeValidator;
+use Thallo\Contracts\Settings\ThemeSettingProvider;
+use Thallo\Render\ActiveThemeSource;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\AbstractLogger;
 

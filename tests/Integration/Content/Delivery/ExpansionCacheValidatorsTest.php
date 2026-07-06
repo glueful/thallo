@@ -25,7 +25,7 @@ use App\Content\Seo\RouteResolver;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
 use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Http\Response;
 use Glueful\Support\FieldSelection\Projector;
 use Glueful\Validation\RequestDataHydrator;
@@ -36,7 +36,7 @@ use Symfony\Component\HttpFoundation\Request;
  * and the delivery ETag (revalidation) — for top-level AND block references; and
  * unresolved targets must reach NEITHER (surrogate-header privacy).
  */
-final class ExpansionCacheValidatorsTest extends LemmaTestCase
+final class ExpansionCacheValidatorsTest extends AppTestCase
 {
     private string $type;
 

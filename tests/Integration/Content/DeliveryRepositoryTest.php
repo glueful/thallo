@@ -7,8 +7,8 @@ namespace App\Tests\Integration\Content;
 use App\Content\Delivery\Cursor;
 use App\Content\Delivery\DeliveryRepository;
 use App\Content\Delivery\FilterCompiler;
-use Glueful\Lemma\Contracts\Delivery\ReferenceTargetResolver;
-use Glueful\Lemma\Contracts\Schema\FieldDescriptor;
+use Thallo\Contracts\Delivery\ReferenceTargetResolver;
+use Thallo\Contracts\Schema\FieldDescriptor;
 use App\Content\Delivery\SortCompiler;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
@@ -17,9 +17,9 @@ use App\Content\Repositories\RouteRepository;
 use App\Content\Repositories\VersionRepository;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class DeliveryRepositoryTest extends LemmaTestCase
+final class DeliveryRepositoryTest extends AppTestCase
 {
     private string $type;
 

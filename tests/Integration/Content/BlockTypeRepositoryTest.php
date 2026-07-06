@@ -6,9 +6,9 @@ namespace App\Tests\Integration\Content;
 
 use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Schema\SchemaParseException;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class BlockTypeRepositoryTest extends LemmaTestCase
+final class BlockTypeRepositoryTest extends AppTestCase
 {
     private function repo(): BlockTypeRepository
     {

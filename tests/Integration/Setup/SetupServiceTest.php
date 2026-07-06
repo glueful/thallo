@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Setup;
 
 use App\Setup\SetupService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
 /**
  * Verifies the SetupService install flow end-to-end against a real PostgreSQL database.
  *
  * Requires `composer test:migrate` to have run first (lemma_settings table must exist).
  */
-final class SetupServiceTest extends LemmaTestCase
+final class SetupServiceTest extends AppTestCase
 {
     protected function setUp(): void
     {

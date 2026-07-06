@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Seo;
 
-use Glueful\Lemma\Contracts\Delivery\ContentDeliveryReader;
-use Glueful\Lemma\Seo\Cache\SitemapCache;
-use Glueful\Lemma\Seo\Sitemap\SitemapBuilder;
+use Thallo\Contracts\Delivery\ContentDeliveryReader;
+use Thallo\Seo\Cache\SitemapCache;
+use Thallo\Seo\Sitemap\SitemapBuilder;
 use PHPUnit\Framework\TestCase;
 
 final class SitemapBuilderTest extends TestCase

@@ -9,9 +9,9 @@ use App\Content\Repositories\MigrationRepository;
 use App\Content\Schema\Migration\MigrationOpSet;
 use App\Content\Schema\Migration\RenameField;
 use App\Content\Schema\Migration\SchemaProjector;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class SchemaProjectorTest extends LemmaTestCase
+final class SchemaProjectorTest extends AppTestCase
 {
     public function testNoOpsWhenStoredVersionIsCurrent(): void
     {

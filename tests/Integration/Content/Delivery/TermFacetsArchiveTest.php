@@ -21,7 +21,7 @@ use App\Content\Seo\CanonicalProjector;
 use App\Content\Seo\PathRenderer;
 use App\Content\Seo\RedirectRepository;
 use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Support\FieldSelection\Projector;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,7 +31,7 @@ use Symfony\Component\HttpFoundation\Request;
  * counts and membership, fail-closed target-type visibility, DeliveryListQuery-mirrored
  * pagination envelopes, and the facets-before-show route precedence.
  */
-final class TermFacetsArchiveTest extends LemmaTestCase
+final class TermFacetsArchiveTest extends AppTestCase
 {
     private const CAT_TYPE_UUID = 'cattypefct00';
     private string $postType;

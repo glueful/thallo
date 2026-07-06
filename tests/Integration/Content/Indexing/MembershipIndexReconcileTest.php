@@ -6,19 +6,19 @@ namespace App\Tests\Integration\Content\Indexing;
 
 use App\Content\Indexing\EnsureFilterIndexesJob;
 use App\Content\Repositories\ContentTypeRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Helpers\Utils;
 
 /**
  * Verifies that reconcile() drops a stale btree registry row and builds a GIN expression index
  * when a field's family flips from scalar (e.g. string) to membership (reference/asset).
  */
-final class MembershipIndexReconcileTest extends LemmaTestCase
+final class MembershipIndexReconcileTest extends AppTestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
-        // Clear the registry table — it is outside LemmaTestCase's TABLES truncate set.
+        // Clear the registry table — it is outside AppTestCase's TABLES truncate set.
         $this->connection()->table('lemma_filter_indexes')->where('id', '>', 0)->delete();
     }
 

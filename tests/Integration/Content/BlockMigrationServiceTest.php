@@ -9,9 +9,9 @@ use App\Content\Blocks\Migration\BlockMigrationRepository;
 use App\Content\Blocks\Migration\BlockMigrationService;
 use App\Content\Schema\SchemaParseException;
 use App\Content\Services\ActiveMigrationException;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class BlockMigrationServiceTest extends LemmaTestCase
+final class BlockMigrationServiceTest extends AppTestCase
 {
     private function service(): BlockMigrationService
     {

@@ -16,7 +16,7 @@ use App\Content\Repositories\VersionRepository;
 use App\Content\Schema\Migration\SchemaProjector;
 use App\Content\Validation\FieldValidator;
 use Glueful\Bootstrap\ApplicationContext;
-use Glueful\Lemma\Contracts\Authoring\PublishGate;
+use Thallo\Contracts\Authoring\PublishGate;
 
 final class PublishService
 {

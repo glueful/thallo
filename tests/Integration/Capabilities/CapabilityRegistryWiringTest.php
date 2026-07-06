@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Capabilities;
 
 use App\Capabilities\DefaultCapabilityRegistry;
-use App\Providers\LemmaServiceProvider;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Capability\Capability;
-use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
+use App\Providers\ThalloServiceProvider;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Capability\Capability;
+use Thallo\Contracts\Capability\CapabilityRegistry;
 
-final class CapabilityRegistryWiringTest extends LemmaTestCase
+final class CapabilityRegistryWiringTest extends AppTestCase
 {
     public function testContractResolvesToTheEngineRegistry(): void
     {
@@ -43,7 +43,7 @@ final class CapabilityRegistryWiringTest extends LemmaTestCase
 
         // Call the factory directly to build a FRESH registry from the (now-seeded) config,
         // bypassing the shared singleton.
-        $reg = LemmaServiceProvider::makeCapabilityRegistry($this->container());
+        $reg = ThalloServiceProvider::makeCapabilityRegistry($this->container());
         $reg->register(new Capability('test.fake'));
 
         self::assertFalse(

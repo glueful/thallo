@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Render;
 
 use App\Content\Blocks\StarterBlockTypes;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\RenderContextExtension;
-use Glueful\Lemma\Render\ThemeLocator;
-use Glueful\Lemma\Render\TwigFactory;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\RenderContextExtension;
+use Thallo\Render\ThemeLocator;
+use Thallo\Render\TwigFactory;
 use Twig\Environment;
 
-final class StarterTemplatesTest extends LemmaTestCase
+final class StarterTemplatesTest extends AppTestCase
 {
     private function env(): Environment
     {

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Content\Pipeline\Listeners;
 
 use App\Content\Events\BaseEntryEvent;
-use Glueful\Lemma\Contracts\Search\ContentReindexer;
+use Thallo\Contracts\Search\ContentReindexer;
 use Psr\Container\ContainerInterface;
 
 /**

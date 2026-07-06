@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Content\Schema;
 
-use Glueful\Lemma\Contracts\Schema\ContentSchemaReader;
+use Thallo\Contracts\Schema\ContentSchemaReader;
 
 final class ContentTypeSchema implements ContentSchemaReader
 {

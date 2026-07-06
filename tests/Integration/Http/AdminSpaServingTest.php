@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Http;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class AdminSpaServingTest extends LemmaTestCase
+final class AdminSpaServingTest extends AppTestCase
 {
     public function testAdminBundleIsMountedAtAdmin(): void
     {

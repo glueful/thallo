@@ -7,12 +7,12 @@ namespace App\Tests\Integration\Navigation;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Helpers\Utils;
-use Glueful\Lemma\Contracts\Navigation\MenuReader;
-use Glueful\Lemma\Navigation\MenuRepository;
+use Thallo\Contracts\Navigation\MenuReader;
+use Thallo\Navigation\MenuRepository;
 
-final class MenuResolutionTest extends LemmaTestCase
+final class MenuResolutionTest extends AppTestCase
 {
     use SeedsPublishedContent;
 

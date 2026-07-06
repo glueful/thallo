@@ -7,9 +7,9 @@ namespace App\Tests\Integration\Collections;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Proves that the lemma-collections pack source never references the App\ namespace.
+ * Proves that the thallo-collections pack source never references the App\ namespace.
  *
- * Packs must depend only on glueful/framework + glueful/lemma-contracts (and any
+ * Packs must depend only on glueful/framework + glueful/thallo-contracts (and any
  * pack-specific deps). Any reference to App\ would couple the pack to the host
  * application and break the composer-install / removability guarantee.
  *
@@ -19,14 +19,14 @@ use PHPUnit\Framework\TestCase;
 final class NoAppReferencesTest extends TestCase
 {
     /**
-     * Every .php file under packages/lemma-collections/src must be free of App\ references.
+     * Every .php file under packages/thallo-collections/src must be free of App\ references.
      * On failure, the assertion message lists every offending file:line pair.
      */
     public function testNoAppReferencesInPackSource(): void
     {
-        $packRoot = dirname(__DIR__, 3) . '/packages/lemma-collections';
+        $packRoot = dirname(__DIR__, 3) . '/packages/thallo-collections';
 
-        self::assertDirectoryExists($packRoot . '/src', 'lemma-collections src directory must exist');
+        self::assertDirectoryExists($packRoot . '/src', 'thallo-collections src directory must exist');
 
         $violations = [];
 
@@ -69,7 +69,7 @@ final class NoAppReferencesTest extends TestCase
         self::assertSame(
             [],
             $violations,
-            'lemma-collections src/ and routes/ must not reference App\\ namespace (pack boundary violation):'
+            'thallo-collections src/ and routes/ must not reference App\\ namespace (pack boundary violation):'
                 . "\n  " . implode("\n  ", $violations),
         );
     }

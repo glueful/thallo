@@ -11,7 +11,7 @@ use App\Content\Events\EntryUnpublished;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\PublishedReferenceRepository;
 use App\Content\Schema\Migration\SchemaProjector;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -20,7 +20,7 @@ use Symfony\Component\Console\Tester\CommandTester;
  * semantics (incl. schema-migration projection for rolled-back versions), listener
  * wiring through real events, and the lemma:resync re-drive.
  */
-final class PublishedReferenceProjectionTest extends LemmaTestCase
+final class PublishedReferenceProjectionTest extends AppTestCase
 {
     private const CAT_TYPE_UUID = 'cattypeproj0';
     private string $postType;

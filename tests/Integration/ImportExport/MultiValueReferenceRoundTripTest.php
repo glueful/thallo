@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\ImportExport;
 
-use App\Content\ImportExport\LemmaContentImporter;
-use App\Tests\Support\LemmaTestCase;
+use App\Content\ImportExport\ContentImporter;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\ImportExport\Support\ImportBatch;
 use Glueful\Extensions\ImportExport\Support\ImportContext;
 use Glueful\Extensions\ImportExport\Support\ImportOptions;
@@ -15,13 +15,13 @@ use Glueful\Extensions\ImportExport\Support\ImportSource;
  * Proves that a multi-valued reference field (fields.category = uuid array)
  * survives an export→import round-trip verbatim, order preserved.
  *
- * Mirrors the setup established in LemmaContentImporterTest: write a bundle to
+ * Mirrors the setup established in ContentImporterTest: write a bundle to
  * a temp NDJSON file, seed an import_export_jobs + import_export_files row,
- * then drive LemmaContentImporter::process() in dry_run (no writes) and in
+ * then drive ContentImporter::process() in dry_run (no writes) and in
  * commit (upsert) mode.  The entry_draft's fields.category must equal the
  * original uuid array in the same order after the commit pass.
  */
-final class MultiValueReferenceRoundTripTest extends LemmaTestCase
+final class MultiValueReferenceRoundTripTest extends AppTestCase
 {
     /** Two category UUIDs that travel as an ordered array through the bundle. */
     private const CATEGORY_A = 'catA0000001';
@@ -81,9 +81,9 @@ final class MultiValueReferenceRoundTripTest extends LemmaTestCase
         );
     }
 
-    private function importer(): LemmaContentImporter
+    private function importer(): ContentImporter
     {
-        return new LemmaContentImporter($this->appContext(), $this->connection());
+        return new ContentImporter($this->appContext(), $this->connection());
     }
 
     /**

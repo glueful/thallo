@@ -12,9 +12,9 @@ use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\VersionRepository;
 use App\Content\Retention\RetentionPolicy;
 use App\Content\Retention\VersionPruner;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class VersionPrunerTest extends LemmaTestCase
+final class VersionPrunerTest extends AppTestCase
 {
     private VersionRepository $versions;
 

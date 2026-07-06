@@ -18,13 +18,13 @@ use App\Content\Schema\Migration\SchemaProjector;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
 use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 
-final class EntryListApiTest extends LemmaTestCase
+final class EntryListApiTest extends AppTestCase
 {
     protected function setUp(): void
     {

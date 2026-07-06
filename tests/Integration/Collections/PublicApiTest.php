@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Glueful\Helpers\Utils;
-use Glueful\Lemma\Collections\CollectionManager;
-use Glueful\Lemma\Collections\Schema\CollectionDefinition;
+use Thallo\Collections\CollectionManager;
+use Thallo\Collections\Schema\CollectionDefinition;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -22,7 +22,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Covers: default-deny 403, scoped reads, create round-trip, api_key actor audit,
  * bulk all-or-nothing, referenced-row 409, uuid-keyed paths.
  */
-final class PublicApiTest extends LemmaTestCase
+final class PublicApiTest extends AppTestCase
 {
     private const COL = 'testproducts';
     private const COL2 = 'testorders';

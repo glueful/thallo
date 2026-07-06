@@ -50,7 +50,7 @@ final class SeedLemmaRolesAndPermissions implements MigrationInterface
     private const ROLE_GRANTS = [
         'administrator' => [
             'content.publish', 'content.manage', 'content.routes',
-            // Collections admin permissions: the rows are declared by the lemma-collections pack's
+            // Collections admin permissions: the rows are declared by the thallo-collections pack's
             // own migration; this grants them to administrator. Aegis seeds the role before this runs.
             'collections.manage', 'collections.schema.manage', 'collections.data.manage',
             'analytics.read',

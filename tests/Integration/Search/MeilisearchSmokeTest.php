@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Search;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\Meilisearch\Indexing\IndexManager;
-use Glueful\Lemma\Contracts\Schema\ContentSchemaReader;
-use Glueful\Lemma\Contracts\Schema\FieldDescriptor;
-use Glueful\Lemma\Contracts\Search\IndexableContent;
-use Glueful\Lemma\Search\Engine\LiveMeilisearchIndex;
-use Glueful\Lemma\Search\Engine\MeilisearchBackend;
-use Glueful\Lemma\Search\Index\DocumentBuilder;
-use Glueful\Lemma\Search\Query\SearchRequest;
+use Thallo\Contracts\Schema\ContentSchemaReader;
+use Thallo\Contracts\Schema\FieldDescriptor;
+use Thallo\Contracts\Search\IndexableContent;
+use Thallo\Search\Engine\LiveMeilisearchIndex;
+use Thallo\Search\Engine\MeilisearchBackend;
+use Thallo\Search\Index\DocumentBuilder;
+use Thallo\Search\Query\SearchRequest;
 
 /**
  * Smoke test against a REAL Meilisearch server — the only place Meilisearch's actual
@@ -24,7 +24,7 @@ use Glueful\Lemma\Search\Query\SearchRequest;
  * Opt-in: set MEILISEARCH_SMOKE=1 with a reachable server (MEILISEARCH_HOST/config),
  * e.g. locally or in a docker-service CI job. Skipped otherwise.
  */
-final class MeilisearchSmokeTest extends LemmaTestCase
+final class MeilisearchSmokeTest extends AppTestCase
 {
     private const INDEX = 'lemma_smoke_test';
 

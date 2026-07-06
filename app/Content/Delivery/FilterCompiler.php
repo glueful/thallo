@@ -8,7 +8,7 @@ use App\Content\Indexing\FieldSqlExpression;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Schema\FieldDefinition;
 use App\Content\Validation\FieldValidator;
-use Glueful\Lemma\Contracts\Delivery\ReferenceTargetResolver;
+use Thallo\Contracts\Delivery\ReferenceTargetResolver;
 
 /**
  * Compiles `?filter[field][op]=value` request params into a safe, typed JSONB

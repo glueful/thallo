@@ -27,7 +27,7 @@ use App\Content\Seo\CanonicalProjector;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
 use Glueful\Http\Response;
-use Glueful\Lemma\Contracts\Delivery\ReferenceTargetResolver;
+use Thallo\Contracts\Delivery\ReferenceTargetResolver;
 use Glueful\Support\FieldSelection\FieldSelector;
 use Glueful\Support\FieldSelection\Projector;
 use Symfony\Component\HttpFoundation\Request;

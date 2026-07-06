@@ -7,7 +7,7 @@ namespace App\Content\Validation;
 use App\Content\Blocks\BlockDepth;
 use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Sanitization\TipTapHtmlSanitizer;
-use Glueful\Lemma\Contracts\Content\RichHtmlSanitizer;
+use Thallo\Contracts\Content\RichHtmlSanitizer;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Schema\FieldDefinition;
 use Glueful\Bootstrap\ApplicationContext;

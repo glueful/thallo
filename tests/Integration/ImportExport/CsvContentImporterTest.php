@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace App\Tests\Integration\ImportExport;
 
 use App\Capabilities\DefaultCapabilityRegistry;
-use Glueful\Lemma\Importers\CsvContentImporter;
-use App\Tests\Support\LemmaTestCase;
+use Thallo\Importers\CsvContentImporter;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\ImportExport\Support\ImportBatch;
 use Glueful\Extensions\ImportExport\Support\ImportContext;
 use Glueful\Extensions\ImportExport\Support\ImportOptions;
 use Glueful\Extensions\ImportExport\Support\ImportSource;
 use Glueful\Http\Exceptions\Client\ForbiddenException;
-use Glueful\Lemma\Contracts\Authoring\ContentWriter;
-use Glueful\Lemma\Contracts\Capability\Capability;
-use Glueful\Lemma\Contracts\Schema\ContentTypeReader;
+use Thallo\Contracts\Authoring\ContentWriter;
+use Thallo\Contracts\Capability\Capability;
+use Thallo\Contracts\Schema\ContentTypeReader;
 
-final class CsvContentImporterTest extends LemmaTestCase
+final class CsvContentImporterTest extends AppTestCase
 {
     /** @var array<string,mixed> */
     private const OPTIONS = [

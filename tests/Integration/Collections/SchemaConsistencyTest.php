@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
-use Glueful\Lemma\Collections\CollectionManager;
-use Glueful\Lemma\Collections\Repositories\CollectionDefinitionRepository;
-use Glueful\Lemma\Collections\Schema\CollectionDefinition;
+use Thallo\Collections\CollectionManager;
+use Thallo\Collections\Repositories\CollectionDefinitionRepository;
+use Thallo\Collections\Schema\CollectionDefinition;
 
 /**
  * Definition ↔ physical-table consistency: every manager mutation commits the definition
  * write and its DDL in ONE transaction (DDL is transactional on PostgreSQL), and definition
  * updates are guarded by schema_version so a concurrent change can never be silently lost.
  */
-final class SchemaConsistencyTest extends LemmaTestCase
+final class SchemaConsistencyTest extends AppTestCase
 {
     private const COL = 'consistency_test';
 

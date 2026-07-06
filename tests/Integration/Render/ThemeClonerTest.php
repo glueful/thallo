@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Render;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\RenderThemeValidator;
-use Glueful\Lemma\Render\Templates\ThemeCloner;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\RenderThemeValidator;
+use Thallo\Render\Templates\ThemeCloner;
 
 /**
  * Clone-theme pins: strict lowercase name grammar, 'default' reserved,
  * refuse-overwrite, full copy with theme.json name rewrite, and the clone is
  * immediately a VALID selectable theme (the validator accepts it).
  */
-final class ThemeClonerTest extends LemmaTestCase
+final class ThemeClonerTest extends AppTestCase
 {
     private string $themesDir;
 
@@ -40,7 +40,7 @@ final class ThemeClonerTest extends LemmaTestCase
 
     private function cloner(): ThemeCloner
     {
-        $packThemes = dirname(__DIR__, 3) . '/packages/lemma-render/themes';
+        $packThemes = dirname(__DIR__, 3) . '/packages/thallo-render/themes';
         return new ThemeCloner($this->themesDir, $packThemes, new RenderThemeValidator($this->themesDir));
     }
 

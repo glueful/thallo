@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Analytics;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Analytics\Facts\AnalyticsFact;
-use Glueful\Lemma\Analytics\Facts\AnalyticsRecorder;
-use Glueful\Lemma\Analytics\Query\AnalyticsQuery;
+use App\Tests\Support\AppTestCase;
+use Thallo\Analytics\Facts\AnalyticsFact;
+use Thallo\Analytics\Facts\AnalyticsRecorder;
+use Thallo\Analytics\Query\AnalyticsQuery;
 
-final class AnalyticsQueryTest extends LemmaTestCase
+final class AnalyticsQueryTest extends AppTestCase
 {
     protected function setUp(): void
     {

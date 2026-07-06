@@ -6,7 +6,7 @@ namespace App\Content\Delivery;
 
 use App\Content\Seo\CanonicalPathBuilder;
 use Glueful\Database\Connection;
-use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
+use Thallo\Contracts\Delivery\EntryTargetResolver;
 
 /** Engine-backed EntryTargetResolver over entries/publications/routes/content_types. */
 final class EngineEntryTargetResolver implements EntryTargetResolver

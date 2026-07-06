@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Analytics;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Analytics\Console\PruneAnalyticsCommand;
+use App\Tests\Support\AppTestCase;
+use Thallo\Analytics\Console\PruneAnalyticsCommand;
 
-final class PruneAnalyticsTest extends LemmaTestCase
+final class PruneAnalyticsTest extends AppTestCase
 {
     protected function setUp(): void
     {

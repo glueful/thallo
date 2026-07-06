@@ -8,7 +8,7 @@ use App\Http\Controllers\AdminConfigController;
 use App\Http\Controllers\SetupController;
 use App\Content\Http\DTOs\Requests\SetupData;
 use App\Setup\SetupService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\Users\Repositories\UserRepository;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,7 +24,7 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * Requires `composer test:migrate` to have been run first (lemma_settings + users tables must exist).
  */
-final class SetupApiTest extends LemmaTestCase
+final class SetupApiTest extends AppTestCase
 {
     protected function setUp(): void
     {

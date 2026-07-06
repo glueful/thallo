@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Http;
 
-use App\Content\Http\RequireLemmaPermission;
-use App\Tests\Support\LemmaTestCase;
+use App\Content\Http\RequirePermission;
+use App\Tests\Support\AppTestCase;
 use Glueful\Auth\UserIdentity;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;
@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\Request;
  * cannot mint bearer JWTs, so it invokes the middleware directly with auth attributes and
  * real Aegis grants against the booted PermissionManager.
  */
-final class LocaleRbacApiTest extends LemmaTestCase
+final class LocaleRbacApiTest extends AppTestCase
 {
     /** @var list<string> */
     private array $createdUserUuids = [];
@@ -137,7 +137,7 @@ final class LocaleRbacApiTest extends LemmaTestCase
         ]));
     }
 
-    public function testRouterPopulatesLocaleRouteParamForRealLemmaRoutes(): void
+    public function testRouterPopulatesLocaleRouteParamForRealRoutes(): void
     {
         $localeMatch = $this->router()->match(
             Request::create('/v1/admin/entries/abcd1234efgh/draft/fr', 'GET')
@@ -155,7 +155,7 @@ final class LocaleRbacApiTest extends LemmaTestCase
     /** @param array<string,string> $routeParams */
     private function allows(string $userUuid, string $permission, string $path, array $routeParams): bool
     {
-        $middleware = new RequireLemmaPermission($this->appContext());
+        $middleware = new RequirePermission($this->appContext());
 
         $request = Request::create($path, 'POST');
         $request->attributes->set('_route_params', $routeParams);

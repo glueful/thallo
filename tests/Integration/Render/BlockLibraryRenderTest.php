@@ -9,10 +9,10 @@ use App\Content\Blocks\StarterBlockTypes;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Validation\FieldValidator;
 use App\Content\Validation\ValidationException;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\RenderContextExtension;
-use Glueful\Lemma\Render\ThemeLocator;
-use Glueful\Lemma\Render\TwigFactory;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\RenderContextExtension;
+use Thallo\Render\ThemeLocator;
+use Thallo\Render\TwigFactory;
 use Twig\Environment;
 
 /**
@@ -22,7 +22,7 @@ use Twig\Environment;
  * modes, html verbatim output, shortcode template resolution, the logo
  * fallback chain, and per-instance group identity for faq/tabs.
  */
-final class BlockLibraryRenderTest extends LemmaTestCase
+final class BlockLibraryRenderTest extends AppTestCase
 {
     private function env(string $theme = 'default'): Environment
     {
@@ -284,7 +284,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
         // The default layout loads the enhancement ONCE, deferred.
         $layout = (string) file_get_contents(
             $this->appContext()->getBasePath()
-                . '/packages/lemma-render/themes/default/templates/layout.twig',
+                . '/packages/thallo-render/themes/default/templates/layout.twig',
         );
         self::assertSame(1, substr_count($layout, "asset('blocks.js')"));
         self::assertStringContainsString('<script defer', $layout);
@@ -361,7 +361,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
     /** Seed 'main': about (plain), services (own url, child web, grandchild seo). */
     private function seedNavMenu(): void
     {
-        $menus = $this->container()->get(\Glueful\Lemma\Navigation\MenuRepository::class);
+        $menus = $this->container()->get(\Thallo\Navigation\MenuRepository::class);
         $menu = $menus->createMenu('main', 'Main');
         $now = gmdate('Y-m-d H:i:s');
         $row = static fn (string $uuid, ?string $parent, int $pos, string $url, string $label): array => [
@@ -456,7 +456,7 @@ final class BlockLibraryRenderTest extends LemmaTestCase
 
     public function testNavigationRendersPerItemIconsWithLabelOnlyFallback(): void
     {
-        $menus = $this->container()->get(\Glueful\Lemma\Navigation\MenuRepository::class);
+        $menus = $this->container()->get(\Thallo\Navigation\MenuRepository::class);
         $menu = $menus->createMenu('main', 'Main');
         $now = gmdate('Y-m-d H:i:s');
         $menus->replaceTree((string) $menu['uuid'], 0, [

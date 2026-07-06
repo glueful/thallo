@@ -24,7 +24,7 @@ return [
         'editor' => 'editor',
     ],
 
-    // Collections public read API defaults (see packages/lemma-collections).
+    // Collections public read API defaults (see packages/thallo-collections).
     'collections' => [
         // Default page size when the request omits perPage.
         'default_per_page' => (int) env('LEMMA_COLLECTIONS_DEFAULT_PER_PAGE', 20),

@@ -8,13 +8,13 @@ use App\Content\Http\Controllers\ContentTypeController;
 use App\Content\Http\DTOs\CreateContentTypeData;
 use App\Content\Http\DTOs\UpdateContentTypeSchemaData;
 use App\Content\Repositories\ContentTypeRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;
 use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;
 
-final class ContentTypeApiTest extends LemmaTestCase
+final class ContentTypeApiTest extends AppTestCase
 {
     private function controller(): ContentTypeController
     {

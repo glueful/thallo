@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Render;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\Templates\TemplateLinter;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\Templates\TemplateLinter;
 
-final class TemplateLinterTest extends LemmaTestCase
+final class TemplateLinterTest extends AppTestCase
 {
     private function linter(): TemplateLinter
     {

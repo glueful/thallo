@@ -8,10 +8,10 @@ use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\RouteRepository;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Delivery\EntryTargetResolver;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Delivery\EntryTargetResolver;
 
-final class EntryTargetResolverTest extends LemmaTestCase
+final class EntryTargetResolverTest extends AppTestCase
 {
     use SeedsPublishedContent;
 

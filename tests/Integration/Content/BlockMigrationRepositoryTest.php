@@ -8,9 +8,9 @@ use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Blocks\Migration\BlockMigrationRepository;
 use App\Content\Schema\Migration\MigrationOpSet;
 use App\Content\Schema\Migration\RenameField;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class BlockMigrationRepositoryTest extends LemmaTestCase
+final class BlockMigrationRepositoryTest extends AppTestCase
 {
     public function testRecordAndFlipLifecycleAndSuffixSelection(): void
     {

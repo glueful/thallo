@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Render;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\Templates\TemplateRepository;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\Templates\TemplateRepository;
 
-final class TemplateRepositoryTest extends LemmaTestCase
+final class TemplateRepositoryTest extends AppTestCase
 {
     private function repo(): TemplateRepository
     {

@@ -6,7 +6,7 @@ namespace App\Content\Events;
 
 use Glueful\Events\Contracts\BaseEvent;
 use Glueful\Extensions\Audit\Contracts\AuditableEvent;
-use Glueful\Lemma\Contracts\Events\ContentLifecycleEvent;
+use Thallo\Contracts\Events\ContentLifecycleEvent;
 
 /**
  * Base class for every Lemma content domain event.

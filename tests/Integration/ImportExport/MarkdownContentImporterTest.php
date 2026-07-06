@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\ImportExport;
 
-use Glueful\Lemma\Importers\MarkdownContentImporter;
-use App\Tests\Support\LemmaTestCase;
+use Thallo\Importers\MarkdownContentImporter;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\ImportExport\Support\ImportBatch;
 use Glueful\Extensions\ImportExport\Support\ImportContext;
 use Glueful\Extensions\ImportExport\Support\ImportOptions;
 use Glueful\Extensions\ImportExport\Support\ImportSource;
 
-final class MarkdownContentImporterTest extends LemmaTestCase
+final class MarkdownContentImporterTest extends AppTestCase
 {
     /** @var array<string,mixed> */
     private const OPTIONS = [

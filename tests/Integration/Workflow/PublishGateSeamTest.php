@@ -11,12 +11,12 @@ use App\Content\Repositories\VersionRepository;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Authoring\DraftSummaryReader;
-use Glueful\Lemma\Contracts\Authoring\PublishBlocked;
-use Glueful\Lemma\Contracts\Authoring\PublishGate;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Authoring\DraftSummaryReader;
+use Thallo\Contracts\Authoring\PublishBlocked;
+use Thallo\Contracts\Authoring\PublishGate;
 
-final class PublishGateSeamTest extends LemmaTestCase
+final class PublishGateSeamTest extends AppTestCase
 {
     use SeedsPublishedContent;
 

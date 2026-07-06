@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Workflow;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Capability\CapabilityRegistry;
 
-final class WorkflowCapabilityTest extends LemmaTestCase
+final class WorkflowCapabilityTest extends AppTestCase
 {
     public function testCapabilityRegisteredAndEnabledByDefault(): void
     {

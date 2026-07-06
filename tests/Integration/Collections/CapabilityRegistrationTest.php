@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Capability\CapabilityRegistry;
 
-final class CapabilityRegistrationTest extends LemmaTestCase
+final class CapabilityRegistrationTest extends AppTestCase
 {
     public function testCollectionsCapabilityIsRegisteredAndEnabled(): void
     {

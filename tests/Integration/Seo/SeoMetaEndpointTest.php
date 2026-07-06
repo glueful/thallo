@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Seo;
 
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
-use Glueful\Lemma\Seo\Http\Controllers\AdminSeoMetaController;
-use Glueful\Lemma\Seo\Http\Controllers\SeoMetaController;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Capability\CapabilityRegistry;
+use Thallo\Seo\Http\Controllers\AdminSeoMetaController;
+use Thallo\Seo\Http\Controllers\SeoMetaController;
 use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;
 
-final class SeoMetaEndpointTest extends LemmaTestCase
+final class SeoMetaEndpointTest extends AppTestCase
 {
     use SeedsPublishedContent;
 

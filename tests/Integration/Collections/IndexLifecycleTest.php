@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
-use Glueful\Lemma\Collections\CollectionManager;
-use Glueful\Lemma\Collections\Data\Actor;
-use Glueful\Lemma\Collections\Data\RowRepository;
+use Thallo\Collections\CollectionManager;
+use Thallo\Collections\Data\Actor;
+use Thallo\Collections\Data\RowRepository;
 
 /**
  * Physical index lifecycle against real PostgreSQL. The index KIND (unique vs plain) is
@@ -17,7 +17,7 @@ use Glueful\Lemma\Collections\Data\RowRepository;
  * dropping a unique constraint was impossible, and removing a plain index from a
  * unique+indexed field silently dropped the unique constraint instead.
  */
-final class IndexLifecycleTest extends LemmaTestCase
+final class IndexLifecycleTest extends AppTestCase
 {
     private const COL = 'idx_lifecycle';
 
@@ -151,10 +151,10 @@ final class IndexLifecycleTest extends LemmaTestCase
         return CollectionManager::tableNameFor(self::COL) . "_{$column}_index";
     }
 
-    private function reload(): \Glueful\Lemma\Collections\Schema\CollectionDefinition
+    private function reload(): \Thallo\Collections\Schema\CollectionDefinition
     {
         $def = $this->container()
-            ->get(\Glueful\Lemma\Collections\Repositories\CollectionDefinitionRepository::class)
+            ->get(\Thallo\Collections\Repositories\CollectionDefinitionRepository::class)
             ->findByName(self::COL);
         self::assertNotNull($def);
 

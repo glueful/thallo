@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
-use Glueful\Lemma\Collections\CollectionManager;
-use Glueful\Lemma\Collections\Data\Actor;
-use Glueful\Lemma\Collections\Data\RowRepository;
-use Glueful\Lemma\Collections\Data\RowValidator;
-use Glueful\Lemma\Collections\Exceptions\RowNotFoundException;
-use Glueful\Lemma\Collections\Exceptions\RowValidationException;
-use Glueful\Lemma\Collections\Schema\CollectionDefinition;
-use Glueful\Lemma\Collections\Schema\CollectionField;
+use Thallo\Collections\CollectionManager;
+use Thallo\Collections\Data\Actor;
+use Thallo\Collections\Data\RowRepository;
+use Thallo\Collections\Data\RowValidator;
+use Thallo\Collections\Exceptions\RowNotFoundException;
+use Thallo\Collections\Exceptions\RowValidationException;
+use Thallo\Collections\Schema\CollectionDefinition;
+use Thallo\Collections\Schema\CollectionField;
 
-final class RowCrudTest extends LemmaTestCase
+final class RowCrudTest extends AppTestCase
 {
     private const COLLECTION_NAME = 'rowcrudtest';
 

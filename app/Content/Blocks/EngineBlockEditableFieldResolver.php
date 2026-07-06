@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Content\Blocks;
 
-use Glueful\Lemma\Contracts\Content\BlockEditableFieldResolver;
+use Thallo\Contracts\Content\BlockEditableFieldResolver;
 
 /**
  * Server-side mirror of the client prose convention (edit-in-place spec §1;

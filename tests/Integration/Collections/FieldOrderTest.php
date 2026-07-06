@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
-use Glueful\Lemma\Collections\CollectionManager;
+use Thallo\Collections\CollectionManager;
 
 /**
  * field_order (display order of all columns, system + custom) is persisted on create and survives a
  * round-trip through the DB — addField reloads the definition via fromRow and preserves the order.
  */
-final class FieldOrderTest extends LemmaTestCase
+final class FieldOrderTest extends AppTestCase
 {
     private const COL = 'widgets';
 

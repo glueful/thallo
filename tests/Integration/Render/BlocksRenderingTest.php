@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Render;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\RenderContextExtension;
-use Glueful\Lemma\Render\Templates\DatabaseTemplateLoader;
-use Glueful\Lemma\Render\Templates\TemplateLinter;
-use Glueful\Lemma\Render\Templates\TemplatePolicy;
-use Glueful\Lemma\Render\Templates\TemplateRepository;
-use Glueful\Lemma\Render\ThemeLocator;
-use Glueful\Lemma\Render\TwigFactory;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\RenderContextExtension;
+use Thallo\Render\Templates\DatabaseTemplateLoader;
+use Thallo\Render\Templates\TemplateLinter;
+use Thallo\Render\Templates\TemplatePolicy;
+use Thallo\Render\Templates\TemplateRepository;
+use Thallo\Render\ThemeLocator;
+use Thallo\Render\TwigFactory;
 use Twig\Environment;
 
-final class BlocksRenderingTest extends LemmaTestCase
+final class BlocksRenderingTest extends AppTestCase
 {
     /** Environment WITH the DB loader (block templates are DB-overridable — spec §6). */
     private function env(): Environment
@@ -190,7 +190,7 @@ final class BlocksRenderingTest extends LemmaTestCase
         self::assertStringNotContainsString('<script', $rendered);
 
         // FAIL-CLOSED (spec §4, exact): unbound sanitizer → ESCAPED output.
-        $targets = $this->container()->get(\Glueful\Lemma\Contracts\Delivery\EntryTargetResolver::class);
+        $targets = $this->container()->get(\Thallo\Contracts\Delivery\EntryTargetResolver::class);
         $unbound = new RenderContextExtension(null, $targets);
         $escaped = $unbound->safeHtml('<p>x</p>');
         self::assertSame(htmlspecialchars('<p>x</p>', ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), $escaped);
@@ -199,7 +199,7 @@ final class BlocksRenderingTest extends LemmaTestCase
         $throwing = new RenderContextExtension(
             null,
             $targets,
-            htmlSanitizer: new class implements \Glueful\Lemma\Contracts\Content\RichHtmlSanitizer {
+            htmlSanitizer: new class implements \Thallo\Contracts\Content\RichHtmlSanitizer {
                 public function sanitize(string $html): string
                 {
                     throw new \RuntimeException('boom');

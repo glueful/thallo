@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Contracts;
 
 use App\Content\Validation\ValidationException;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Authoring\ContentWriter;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Authoring\ContentWriter;
 
-final class ContentWriterContractTest extends LemmaTestCase
+final class ContentWriterContractTest extends AppTestCase
 {
     public function testContractResolvesToEngineAdapter(): void
     {

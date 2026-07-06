@@ -14,7 +14,7 @@ use App\Content\Preview\PreviewWorkingCopyStore;
 use App\Content\Preview\ResolvesPreviewKey;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -23,7 +23,7 @@ use Symfony\Component\HttpFoundation\Request;
  * migration gate -> validator -> stash), fails closed on every path, and
  * stashes only the validator's CLEANED output.
  */
-final class PreviewApplyTest extends LemmaTestCase
+final class PreviewApplyTest extends AppTestCase
 {
     use ResolvesPreviewKey;
 

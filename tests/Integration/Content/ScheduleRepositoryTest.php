@@ -6,9 +6,9 @@ namespace App\Tests\Integration\Content;
 
 use App\Content\Enums\ScheduleAction;
 use App\Content\Repositories\ScheduleRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class ScheduleRepositoryTest extends LemmaTestCase
+final class ScheduleRepositoryTest extends AppTestCase
 {
     public function testEntrySchedulesTableShape(): void
     {

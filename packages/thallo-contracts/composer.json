@@ -1,0 +1,22 @@
+{
+  "name": "glueful/thallo-contracts",
+  "description": "Thin, stable contracts (interfaces, DTOs, events, VOs) that Lemma capability packs compile against.",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Michael Tawiah Sowah",
+      "email": "michael@glueful.dev"
+    }
+  ],
+  "version": "0.1.0",
+  "require": {
+    "php": "^8.3"
+  },
+  "autoload": {
+    "psr-4": {
+      "Thallo\\Contracts\\": "src/"
+    }
+  },
+  "minimum-stability": "stable"
+}

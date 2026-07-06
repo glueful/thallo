@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
-use Glueful\Lemma\Collections\CollectionManager;
-use Glueful\Lemma\Collections\Exceptions\CollectionValidationException;
-use Glueful\Lemma\Collections\Exceptions\DestructiveConfirmationRequiredException;
-use Glueful\Lemma\Collections\Repositories\CollectionDefinitionRepository;
+use Thallo\Collections\CollectionManager;
+use Thallo\Collections\Exceptions\CollectionValidationException;
+use Thallo\Collections\Exceptions\DestructiveConfirmationRequiredException;
+use Thallo\Collections\Repositories\CollectionDefinitionRepository;
 
-final class CollectionManagerTest extends LemmaTestCase
+final class CollectionManagerTest extends AppTestCase
 {
     /**
      * Names used across tests — table names are derived deterministically as
@@ -30,7 +30,7 @@ final class CollectionManagerTest extends LemmaTestCase
         $schema = $this->schema();
         $schema->reset();
 
-        // Purge metadata rows that LemmaTestCase::TABLES does not cover.
+        // Purge metadata rows that AppTestCase::TABLES does not cover.
         $this->connection()->table('collection_schema_changes')->where('id', '>', 0)->delete();
         $this->connection()->table('collection_definitions')->where('id', '>', 0)->delete();
 

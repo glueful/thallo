@@ -6,8 +6,8 @@ namespace App\Http\Controllers;
 
 use App\Http\DTOs\Responses\CapabilityListData;
 use Glueful\Http\Response;
-use Glueful\Lemma\Contracts\Capability\Capability;
-use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
+use Thallo\Contracts\Capability\Capability;
+use Thallo\Contracts\Capability\CapabilityRegistry;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 

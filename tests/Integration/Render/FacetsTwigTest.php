@@ -6,9 +6,9 @@ namespace App\Tests\Integration\Render;
 
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\PublishedReferenceRepository;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Delivery\FacetCountsReader;
-use Glueful\Lemma\Render\RenderContextExtension;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Delivery\FacetCountsReader;
+use Thallo\Render\RenderContextExtension;
 use Twig\Environment;
 use Twig\Loader\ArrayLoader;
 
@@ -16,7 +16,7 @@ use Twig\Loader\ArrayLoader;
  * facets() in Twig (preview spec §5): the {items, cache_tags} contract (incl. the
  * valid-empty case), the render-scoped tag collector, and gate fail-safety.
  */
-final class FacetsTwigTest extends LemmaTestCase
+final class FacetsTwigTest extends AppTestCase
 {
     private const CAT_TYPE_UUID = 'cattypefctw0';
     private string $postType;

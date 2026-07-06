@@ -6,11 +6,11 @@ namespace App\Tests\Integration\Render;
 
 use App\Content\Regions\RegionRepository;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
-use Glueful\Lemma\Render\RenderContextExtension;
-use Glueful\Lemma\Render\ThemeLocator;
-use Glueful\Lemma\Render\TwigFactory;
+use Thallo\Render\RenderContextExtension;
+use Thallo\Render\ThemeLocator;
+use Thallo\Render\TwigFactory;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\Request;
  * by construction, absent row, saved-empty list) falls back to the hardcoded
  * chrome; _presentation hides both; region chrome is never canvas-annotated.
  */
-final class RegionRenderingTest extends LemmaTestCase
+final class RegionRenderingTest extends AppTestCase
 {
     use SeedsPublishedContent;
 
@@ -39,7 +39,7 @@ final class RegionRenderingTest extends LemmaTestCase
     {
         $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $entry]);
         $controller = $app->getContainer()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $res = $controller->home(Request::create('/', 'GET'));
         self::assertSame(200, $res->getStatusCode());
         return (string) $res->getContent();
@@ -119,7 +119,7 @@ final class RegionRenderingTest extends LemmaTestCase
         $this->publishSvc()->publish($rootEntry, 'en', 'user00000001');
 
         // A menu of TWO entry items + a header region rendering it.
-        $menus = $this->container()->get(\Glueful\Lemma\Navigation\MenuRepository::class);
+        $menus = $this->container()->get(\Thallo\Navigation\MenuRepository::class);
         $menu = $menus->createMenu('main', 'Main');
         $now = gmdate('Y-m-d H:i:s');
         $item = static fn (string $uuid, int $pos, string $target): array => [
@@ -136,7 +136,7 @@ final class RegionRenderingTest extends LemmaTestCase
         ], [], null);
 
         $controller = $this->container()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $render = function (string $path) use ($controller): string {
             $this->container()->get(CacheStore::class)->deletePattern('render:*');
             $res = $controller->page(Request::create('/' . ltrim($path, '/')), $path);

@@ -107,34 +107,34 @@ $manager->addMigrationPath(
     'glueful/email-notification'
 );
 $manager->addMigrationPath(
-    $root . '/packages/lemma-analytics/migrations',
+    $root . '/packages/thallo-analytics/migrations',
     MigrationPriority::DEPENDENT,
-    'lemma-analytics'
+    'thallo-analytics'
 );
 $manager->addMigrationPath(
-    $root . '/packages/lemma-collections/migrations',
+    $root . '/packages/thallo-collections/migrations',
     MigrationPriority::DEPENDENT,
-    'lemma-collections'
+    'thallo-collections'
 );
 $manager->addMigrationPath(
-    $root . '/packages/lemma-seo/migrations',
+    $root . '/packages/thallo-seo/migrations',
     MigrationPriority::DEPENDENT,
-    'lemma-seo'
+    'thallo-seo'
 );
 $manager->addMigrationPath(
-    $root . '/packages/lemma-workflow/migrations',
+    $root . '/packages/thallo-workflow/migrations',
     MigrationPriority::DEPENDENT,
-    'lemma-workflow'
+    'thallo-workflow'
 );
 $manager->addMigrationPath(
-    $root . '/packages/lemma-navigation/migrations',
+    $root . '/packages/thallo-navigation/migrations',
     MigrationPriority::DEPENDENT,
-    'lemma-navigation'
+    'thallo-navigation'
 );
 $manager->addMigrationPath(
-    $root . '/packages/lemma-render/migrations',
+    $root . '/packages/thallo-render/migrations',
     MigrationPriority::DEPENDENT,
-    'lemma-render'
+    'thallo-render'
 );
 $manager->addMigrationPath(
     $root . '/database/dependent-migrations',

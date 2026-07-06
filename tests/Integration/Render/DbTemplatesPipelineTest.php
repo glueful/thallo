@@ -8,14 +8,14 @@ use App\Content\Preview\PreviewMinter;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
 use Glueful\Events\EventService;
-use Glueful\Lemma\Render\Templates\TemplateRepository;
-use Glueful\Lemma\Render\Templates\TemplateUpdated;
+use Thallo\Render\Templates\TemplateRepository;
+use Thallo\Render\Templates\TemplateUpdated;
 use Symfony\Component\HttpFoundation\Request;
 
-final class DbTemplatesPipelineTest extends LemmaTestCase
+final class DbTemplatesPipelineTest extends AppTestCase
 {
     use SeedsPublishedContent;
 

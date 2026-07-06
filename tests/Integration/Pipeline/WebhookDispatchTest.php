@@ -7,13 +7,13 @@ namespace App\Tests\Integration\Pipeline;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Services\PublishService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use App\Tests\Support\RecordingWebhookDispatcher;
 use Glueful\Api\Webhooks\WebhookDispatcher;
 
 /**
  * Proves the webhook-dispatch listener (V1_DESIGN §5) wired in
- * LemmaServiceProvider::boot() forwards content events to the core WebhookDispatcher
+ * ThalloServiceProvider::boot() forwards content events to the core WebhookDispatcher
  * with the FROZEN event name + the identity-only payload.
  *
  * Lemma builds no webhook infra: it calls the core
@@ -27,7 +27,7 @@ use Glueful\Api\Webhooks\WebhookDispatcher;
  * resolves WebhookDispatcher::class per-invocation, so it picks up the spy even though it
  * was wired (and possibly already resolved) at boot.
  */
-final class WebhookDispatchTest extends LemmaTestCase
+final class WebhookDispatchTest extends AppTestCase
 {
     private string $type;
     private string $entry;

@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Contracts;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Contracts\Delivery\ContentDeliveryReader;
+use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Delivery\ContentDeliveryReader;
 
-final class ContentDeliveryReaderContractTest extends LemmaTestCase
+final class ContentDeliveryReaderContractTest extends AppTestCase
 {
     public function testContractResolvesToEngineAdapter(): void
     {

@@ -6,7 +6,7 @@ namespace App\Http\Controllers;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
-use Glueful\Lemma\Render\Templates\IconInventory;
+use Thallo\Render\Templates\IconInventory;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 use Symfony\Component\HttpFoundation\Request;

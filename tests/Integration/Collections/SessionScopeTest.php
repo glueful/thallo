@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Glueful\Helpers\Utils;
-use Glueful\Lemma\Collections\CollectionManager;
+use Thallo\Collections\CollectionManager;
 use Glueful\Permissions\PermissionManager;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -21,7 +21,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * the `user` request attribute (the gate reads it before calling AuthenticationManager), which lets
  * us exercise the permission check without minting a JWT.
  */
-final class SessionScopeTest extends LemmaTestCase
+final class SessionScopeTest extends AppTestCase
 {
     private const COL = 'widgets';
 

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Importers;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\ImportExport\Contracts\ImporterInterface;
-use Glueful\Lemma\Importers\CsvUserImporter;
+use Thallo\Importers\CsvUserImporter;
 
-final class CsvUserImporterRelocationTest extends LemmaTestCase
+final class CsvUserImporterRelocationTest extends AppTestCase
 {
     public function testCsvUserImporterIsResolvableFromContainer(): void
     {

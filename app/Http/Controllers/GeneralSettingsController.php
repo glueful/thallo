@@ -9,8 +9,8 @@ use App\Http\DTOs\UpdateGeneralSettingsData;
 use App\Settings\GeneralSettings;
 use Glueful\Events\EventService;
 use Glueful\Http\Response;
-use Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator;
-use Glueful\Lemma\Contracts\Settings\ThemeChanged;
+use Thallo\Contracts\Delivery\PreviewThemeValidator;
+use Thallo\Contracts\Settings\ThemeChanged;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 
@@ -29,7 +29,7 @@ final class GeneralSettingsController
 
     public function __construct(
         private readonly GeneralSettings $settings,
-        private readonly ?\Glueful\Lemma\Contracts\Delivery\PublicRouteResolver $resolver = null,
+        private readonly ?\Thallo\Contracts\Delivery\PublicRouteResolver $resolver = null,
         private readonly ?\App\Content\Repositories\ContentTypeRepository $contentTypes = null,
         /** Soft-bound (theme-setting spec §1): null = render pack absent, theme is inert. */
         private readonly ?PreviewThemeValidator $themeValidator = null,

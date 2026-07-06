@@ -6,9 +6,9 @@ namespace App\Tests\Unit\Importers;
 
 use App\Capabilities\DefaultCapabilityRegistry;
 use Glueful\Http\Exceptions\Client\ForbiddenException;
-use Glueful\Lemma\Contracts\Capability\Capability;
-use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
-use Glueful\Lemma\Importers\Concerns\RequiresImportersCapability;
+use Thallo\Contracts\Capability\Capability;
+use Thallo\Contracts\Capability\CapabilityRegistry;
+use Thallo\Importers\Concerns\RequiresImportersCapability;
 use PHPUnit\Framework\TestCase;
 
 final class RequiresImportersCapabilityTest extends TestCase

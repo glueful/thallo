@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Collections;
 
 use Glueful\Auth\UserIdentity;
-use Glueful\Lemma\Collections\Data\Actor;
-use Glueful\Lemma\Collections\Http\ActorResolver;
+use Thallo\Collections\Data\Actor;
+use Thallo\Collections\Http\ActorResolver;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 

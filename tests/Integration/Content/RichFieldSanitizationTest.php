@@ -7,9 +7,9 @@ namespace App\Tests\Integration\Content;
 use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class RichFieldSanitizationTest extends LemmaTestCase
+final class RichFieldSanitizationTest extends AppTestCase
 {
     public function testTopLevelRichFieldIsSanitizedInTheCleanedPayload(): void
     {

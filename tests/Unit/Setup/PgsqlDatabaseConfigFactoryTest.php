@@ -33,7 +33,7 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
         self::assertSame('require', $cfg->sslMode);
     }
 
-    public function testFromEnvReadsLemmaPgsqlKeys(): void
+    public function testFromEnvReadsPgsqlKeys(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'env');
         self::assertIsString($path);

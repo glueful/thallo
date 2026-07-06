@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
-use Glueful\Lemma\Collections\CollectionManager;
-use Glueful\Lemma\Collections\Exceptions\InvalidQueryException;
-use Glueful\Lemma\Collections\Query\ListResult;
-use Glueful\Lemma\Collections\Query\QueryCompiler;
-use Glueful\Lemma\Collections\Schema\CollectionDefinition;
+use Thallo\Collections\CollectionManager;
+use Thallo\Collections\Exceptions\InvalidQueryException;
+use Thallo\Collections\Query\ListResult;
+use Thallo\Collections\Query\QueryCompiler;
+use Thallo\Collections\Schema\CollectionDefinition;
 
 /**
  * Integration tests for QueryCompiler — filter / sort / fields / offset pagination.
@@ -19,7 +19,7 @@ use Glueful\Lemma\Collections\Schema\CollectionDefinition;
  * into the materialized table, and asserts the compiled queries return the expected
  * slices, totals, and projections — or throw InvalidQueryException for bad input.
  */
-final class QueryCompilerTest extends LemmaTestCase
+final class QueryCompilerTest extends AppTestCase
 {
     private const COLLECTION_NAME = 'querycompilertest';
 

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Capabilities;
 
-use Glueful\Lemma\Contracts\Capability\Capability;
-use Glueful\Lemma\Contracts\Capability\CapabilityRegistry;
+use Thallo\Contracts\Capability\Capability;
+use Thallo\Contracts\Capability\CapabilityRegistry;
 
 /**
  * In-memory capability registry. Packs register their Capability during boot; the host's

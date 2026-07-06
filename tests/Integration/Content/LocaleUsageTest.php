@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Content;
 
 use App\Content\Repositories\EntryRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class LocaleUsageTest extends LemmaTestCase
+final class LocaleUsageTest extends AppTestCase
 {
     public function testLocaleUsageCountsDraftsAndPublications(): void
     {

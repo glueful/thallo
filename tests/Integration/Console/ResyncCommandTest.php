@@ -7,9 +7,9 @@ namespace App\Tests\Integration\Console;
 use App\Content\Console\ResyncCommand;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
-use Glueful\Lemma\Contracts\Search\ContentReindexer;
+use Thallo\Contracts\Search\ContentReindexer;
 use App\Content\Services\PublishService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use App\Tests\Support\RecordingArrayCache;
 use App\Tests\Support\RecordingContentReindexer;
 use App\Tests\Support\RecordingWebhookDispatcher;
@@ -32,7 +32,7 @@ use Symfony\Component\Console\Tester\CommandTester;
  * Container surgery (reflection on the compiled container's `singletons`) mirrors
  * CacheInvalidationTest / CapabilityGatingTest.
  */
-final class ResyncCommandTest extends LemmaTestCase
+final class ResyncCommandTest extends AppTestCase
 {
     private string $type;
     private RecordingArrayCache $cache;

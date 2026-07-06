@@ -9,11 +9,11 @@ use App\Content\Blocks\StarterBlockTypes;
 use App\Content\Regions\RegionRepository;
 use App\Http\Controllers\RegionAdminController;
 use App\Http\DTOs\UpdateRegionData;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use App\Content\Validation\ValidationException;
 use Glueful\Validation\RequestDataHydrator;
 
-final class RegionAdminApiTest extends LemmaTestCase
+final class RegionAdminApiTest extends AppTestCase
 {
     private function controller(): RegionAdminController
     {

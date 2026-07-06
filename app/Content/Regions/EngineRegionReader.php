@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Content\Regions;
 
-use Glueful\Lemma\Contracts\Content\RegionReader;
+use Thallo\Contracts\Content\RegionReader;
 
 /** RegionRepository-backed reader; per-request resolution, no cross-request memo. */
 final class EngineRegionReader implements RegionReader

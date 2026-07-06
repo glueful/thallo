@@ -6,14 +6,14 @@ namespace App\Tests\Integration\Indexing;
 
 use App\Content\Indexing\EnsureFilterIndexesJob;
 use App\Content\Repositories\ContentTypeRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class EnsureFilterIndexesJobTest extends LemmaTestCase
+final class EnsureFilterIndexesJobTest extends AppTestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
-        // The registry table lives outside LemmaTestCase's truncate set; clear it per test.
+        // The registry table lives outside AppTestCase's truncate set; clear it per test.
         $this->connection()->table('lemma_filter_indexes')->where('id', '>', 0)->delete();
     }
 

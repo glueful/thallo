@@ -9,10 +9,10 @@ use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\RouteRepository;
 use App\Content\Services\PublishService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
-use Glueful\Lemma\Contracts\Delivery\PreviewSessionVerifier;
-use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
+use Thallo\Contracts\Delivery\PreviewSessionVerifier;
+use Thallo\Contracts\Delivery\PublicRouteResolver;
 
 /**
  * The root-mounted URL grammar (root-mounted-types spec §2/§4/§8): root hits,
@@ -20,7 +20,7 @@ use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
  * flag lifecycle — all through resolvePath, the real parser.
  * (phpunit.xml sets LEMMA_PUBLIC_URL_BASE=https://site.test.)
  */
-final class RootMountResolutionTest extends LemmaTestCase
+final class RootMountResolutionTest extends AppTestCase
 {
     private const BASE = 'https://site.test';
 

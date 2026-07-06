@@ -8,10 +8,10 @@ use App\Content\Events\EntryPublished;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\PublishedReferenceRepository;
 use App\Content\Repositories\RouteRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 use Glueful\Cache\CacheStore;
-use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
+use Thallo\Contracts\Delivery\PublicRouteResolver;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -21,7 +21,7 @@ use Symfony\Component\HttpFoundation\Request;
  *
  * Suite env: RENDER_LISTING_TYPES=blog,post, RENDER_LISTING_PER_PAGE=2.
  */
-final class ListingArchivePagesTest extends LemmaTestCase
+final class ListingArchivePagesTest extends AppTestCase
 {
     private const CAT_TYPE_UUID = 'cattyperlst0';
     private string $postType;

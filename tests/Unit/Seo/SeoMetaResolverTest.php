@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Seo;
 
-use Glueful\Lemma\Contracts\Delivery\ContentDeliveryReader;
-use Glueful\Lemma\Seo\Meta\SeoMetaResolver;
+use Thallo\Contracts\Delivery\ContentDeliveryReader;
+use Thallo\Seo\Meta\SeoMetaResolver;
 use PHPUnit\Framework\TestCase;
 
 final class SeoMetaResolverTest extends TestCase

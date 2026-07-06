@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Content\Schema;
 
-use Glueful\Lemma\Contracts\Schema\FieldDescriptor;
+use Thallo\Contracts\Schema\FieldDescriptor;
 
 final class FieldDefinition implements FieldDescriptor
 {

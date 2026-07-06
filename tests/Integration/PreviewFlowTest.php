@@ -8,7 +8,7 @@ use App\Content\Preview\PreviewToken;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\RouteRepository;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Helpers\Utils;
 use Glueful\Permissions\PermissionManager;
@@ -20,7 +20,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * End-to-end preview flow through the REAL application kernel.
  *
  * The preview door is the ONLY way to see a draft. This test drives genuine HTTP requests
- * through {@see LemmaTestCase::handle()} (the same entry point as public/index.php) so the
+ * through {@see AppTestCase::handle()} (the same entry point as public/index.php) so the
  * whole pipeline runs for both halves of the door:
  *
  *  - MINT  POST /v1/admin/entries/{uuid}/preview/{locale} — auth-gated + `lemma_permission`
@@ -43,7 +43,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * middleware + API-key provider, the `lemma_permission` RBAC gate, and the public rate-limited
  * read path all run.
  */
-final class PreviewFlowTest extends LemmaTestCase
+final class PreviewFlowTest extends AppTestCase
 {
     private string $type;
     private string $userUuid;
@@ -52,7 +52,7 @@ final class PreviewFlowTest extends LemmaTestCase
     {
         parent::setUp();
 
-        // LemmaTestCase only truncates the Lemma content tables; the users/api_keys rows
+        // AppTestCase only truncates the Lemma content tables; the users/api_keys rows
         // we seed for the kernel auth chain — and the singleton permission provider — are
         // ours to clean up.
         $this->purgeAuthFixtures();

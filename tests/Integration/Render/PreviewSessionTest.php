@@ -14,9 +14,9 @@ use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
 use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
-use Glueful\Lemma\Contracts\Delivery\PreviewSessionVerifier;
+use Thallo\Contracts\Delivery\PreviewSessionVerifier;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -24,7 +24,7 @@ use Symfony\Component\HttpFoundation\Request;
  * verifier VO, the single-draft overlay, session chrome, the cache-bust guard, and
  * per-preview themes with token-scoped assets.
  */
-final class PreviewSessionTest extends LemmaTestCase
+final class PreviewSessionTest extends AppTestCase
 {
     use SeedsPublishedContent;
 
@@ -121,7 +121,7 @@ final class PreviewSessionTest extends LemmaTestCase
     private function mintDirect(string $entry, ?string $theme, bool $boundValidator): \Glueful\Http\Response
     {
         $validator = $boundValidator
-            ? $this->container()->get(\Glueful\Lemma\Contracts\Delivery\PreviewThemeValidator::class)
+            ? $this->container()->get(\Thallo\Contracts\Delivery\PreviewThemeValidator::class)
             : null;
         $controller = new PreviewController(
             $this->container()->get(PreviewMinter::class),
@@ -220,7 +220,7 @@ final class PreviewSessionTest extends LemmaTestCase
         $entry = $this->seedDraftEntry();
         $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
 
-        $middleware = new \Glueful\Lemma\Render\Http\Middleware\PreviewSessionMiddleware($this->verifier());
+        $middleware = new \Thallo\Render\Http\Middleware\PreviewSessionMiddleware($this->verifier());
         $request = $this->sessionRequest('/blog/hello', $token);
         $middleware->handle(
             $request,
@@ -231,7 +231,7 @@ final class PreviewSessionTest extends LemmaTestCase
         self::assertSame($entry, $session->entry);
 
         // And a DISABLED RenderPageCache passes session requests through untouched.
-        $cacheOff = new \Glueful\Lemma\Render\Http\Middleware\RenderPageCache(
+        $cacheOff = new \Thallo\Render\Http\Middleware\RenderPageCache(
             $this->container()->get(CacheStore::class),
             'default',
             false,
@@ -383,7 +383,7 @@ final class PreviewSessionTest extends LemmaTestCase
         [$entry, $token] = $this->seedRoutedEntryWithDraft();
         $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $entry]);
         $controller = $app->getContainer()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
 
         // Session at '/': the DRAFT (closes the pre-existing homepage gap).
         $draft = $controller->home($this->homeSessionRequest($app, $token));
@@ -411,7 +411,7 @@ final class PreviewSessionTest extends LemmaTestCase
         $vo = $app->getContainer()->get(PreviewSessionVerifier::class)->verify($token);
         self::assertNotNull($vo); // the override container must accept the token
         $request->attributes->set(
-            \Glueful\Lemma\Render\Http\Middleware\PreviewSessionMiddleware::ATTRIBUTE,
+            \Thallo\Render\Http\Middleware\PreviewSessionMiddleware::ATTRIBUTE,
             $vo,
         );
         return $request;
@@ -423,7 +423,7 @@ final class PreviewSessionTest extends LemmaTestCase
         [, $token] = $this->seedRoutedEntryWithDraft(); // session for the BLOG entry
         $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $home]);
         $controller = $app->getContainer()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
 
         $res = $controller->home($this->homeSessionRequest($app, $token));
         self::assertSame(200, $res->getStatusCode());
@@ -543,7 +543,7 @@ final class PreviewSessionTest extends LemmaTestCase
         $entry = $this->seedDraftEntry('Bar draft');
         $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
         $controller = $this->container()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $html = (string) $controller
             ->preview(Request::create("/_preview/{$token}", 'GET'), $token)
             ->getContent();

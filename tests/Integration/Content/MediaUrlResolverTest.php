@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Content;
 
 use App\Content\Delivery\EngineMediaUrlResolver;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Helpers\Utils;
 
-final class MediaUrlResolverTest extends LemmaTestCase
+final class MediaUrlResolverTest extends AppTestCase
 {
     /** Insert a blobs row directly (the framework table; media uploads are out of scope). */
     private function seedBlob(string $visibility = 'public', string $status = 'active'): string

@@ -6,8 +6,8 @@ namespace App\Tests\Unit\Contracts;
 
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Schema\FieldDefinition;
-use Glueful\Lemma\Contracts\Schema\ContentSchemaReader;
-use Glueful\Lemma\Contracts\Schema\FieldDescriptor;
+use Thallo\Contracts\Schema\ContentSchemaReader;
+use Thallo\Contracts\Schema\FieldDescriptor;
 use PHPUnit\Framework\TestCase;
 
 final class SchemaReadContractTest extends TestCase

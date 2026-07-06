@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Analytics;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Events\EventService;
-use Glueful\Lemma\Collections\Events\CollectionCreated;
+use Thallo\Collections\Events\CollectionCreated;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -17,7 +17,7 @@ use Symfony\Component\HttpFoundation\Request;
  * absent — GET /v1/admin/analytics/summary returns 404 (route unregistered), not 401 from a
  * live-but-disabled auth gate.
  */
-final class AnalyticsRemovabilityTest extends LemmaTestCase
+final class AnalyticsRemovabilityTest extends AppTestCase
 {
     private static ?ApplicationContext $disabledApp = null;
 

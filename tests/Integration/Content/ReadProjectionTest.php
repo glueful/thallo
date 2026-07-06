@@ -14,10 +14,10 @@ use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\VersionRepository;
 use App\Content\Services\MigrationService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
-final class ReadProjectionTest extends LemmaTestCase
+final class ReadProjectionTest extends AppTestCase
 {
     public function testDeliveryProjectsNotYetMaterializedPublishedEntry(): void
     {

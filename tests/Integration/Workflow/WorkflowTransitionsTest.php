@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Workflow;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Workflow\IllegalTransition;
-use Glueful\Lemma\Workflow\WorkflowForbidden;
-use Glueful\Lemma\Workflow\WorkflowService;
+use App\Tests\Support\AppTestCase;
+use Thallo\Workflow\IllegalTransition;
+use Thallo\Workflow\WorkflowForbidden;
+use Thallo\Workflow\WorkflowService;
 
-final class WorkflowTransitionsTest extends LemmaTestCase
+final class WorkflowTransitionsTest extends AppTestCase
 {
     protected function setUp(): void
     {

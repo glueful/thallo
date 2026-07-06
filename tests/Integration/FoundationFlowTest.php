@@ -8,17 +8,17 @@ use App\Content\Http\Controllers\ContentTypeController;
 use App\Content\Http\Controllers\EntryController;
 use App\Content\Http\Controllers\PublicationController;
 use App\Content\Http\Controllers\RedirectController;
-use App\Content\Http\RequireLemmaPermission;
+use App\Content\Http\RequirePermission;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\RouteRepository;
 use App\Content\Repositories\VersionRepository;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
 /**
- * Proves the LemmaServiceProvider wiring is correct end-to-end through the booted
+ * Proves the ThalloServiceProvider wiring is correct end-to-end through the booted
  * application: the provider's DI definitions resolve, the `lemma_permission` middleware
  * alias resolves, the /v1/admin/* routes are live in the router with their permission
  * middleware attached, and a request driven through the REAL kernel reaches that
@@ -33,9 +33,9 @@ use App\Tests\Support\LemmaTestCase;
  * Tasks 11-13 (ContentTypeApiTest, EntryApiTest, PublicationApiTest) and the
  * service/repository integration tests. This test's job is the wiring those bypass.
  */
-final class FoundationFlowTest extends LemmaTestCase
+final class FoundationFlowTest extends AppTestCase
 {
-    public function testContainerResolvesLemmaServicesAndControllers(): void
+    public function testContainerResolvesServicesAndControllers(): void
     {
         $c = $this->container();
 
@@ -51,13 +51,13 @@ final class FoundationFlowTest extends LemmaTestCase
         self::assertInstanceOf(RedirectController::class, $c->get(RedirectController::class));
     }
 
-    public function testLemmaPermissionMiddlewareAliasResolves(): void
+    public function testPermissionMiddlewareAliasResolves(): void
     {
         // This is exactly how Router::resolveMiddleware() turns the string
         // 'lemma_permission:...' into a middleware instance.
         $middleware = $this->container()->get('lemma_permission');
 
-        self::assertInstanceOf(RequireLemmaPermission::class, $middleware);
+        self::assertInstanceOf(RequirePermission::class, $middleware);
     }
 
     /** @return array<int, array{0:string, 1:string, 2:string}> method, path, expected permission middleware */

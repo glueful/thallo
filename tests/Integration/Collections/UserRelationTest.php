@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
-use Glueful\Lemma\Collections\CollectionManager;
-use Glueful\Lemma\Collections\Data\Actor;
-use Glueful\Lemma\Collections\Data\RowRepository;
-use Glueful\Lemma\Collections\Exceptions\RowValidationException;
-use Glueful\Lemma\Collections\Schema\CollectionDefinition;
+use Thallo\Collections\CollectionManager;
+use Thallo\Collections\Data\Actor;
+use Thallo\Collections\Data\RowRepository;
+use Thallo\Collections\Exceptions\RowValidationException;
+use Thallo\Collections\Schema\CollectionDefinition;
 
 /**
  * A relation field with target "users" references the framework users table. This asserts the key
  * behaviour change: a `users` target is now enforced (a non-existent user uuid is rejected) rather
  * than silently skipped as a non-collection target was before.
  */
-final class UserRelationTest extends LemmaTestCase
+final class UserRelationTest extends AppTestCase
 {
     private const COLLECTION = 'rel_user_posts';
 

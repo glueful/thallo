@@ -15,10 +15,10 @@ use App\Content\Repositories\VersionRepository;
 use App\Content\Seo\RedirectRepository;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
-final class RedirectApiTest extends LemmaTestCase
+final class RedirectApiTest extends AppTestCase
 {
     private ContentTypeRepository $types;
     private EntryRepository $entries;

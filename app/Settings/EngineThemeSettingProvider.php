@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Settings;
 
-use Glueful\Lemma\Contracts\Settings\ThemeSettingProvider;
+use Thallo\Contracts\Settings\ThemeSettingProvider;
 
 /**
  * ThemeSettingProvider over the settings engine (theme-setting spec §2).

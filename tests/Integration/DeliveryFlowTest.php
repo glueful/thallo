@@ -12,7 +12,7 @@ use App\Content\Repositories\VersionRepository;
 use App\Content\Seo\RedirectRepository;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Helpers\Utils;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,7 +23,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  *
  * Unlike the controller-level {@see \App\Tests\Integration\Http\DeliveryApiTest} (which
  * news up the controller with the repositories), this test drives a genuine HTTP request
- * through {@see LemmaTestCase::handle()} (the same entry point as public/index.php) so the
+ * through {@see AppTestCase::handle()} (the same entry point as public/index.php) so the
  * full pipeline is exercised: routing (routes/lemma_content.php), optional API-key
  * authentication (which sets the `api_key_scopes` attribute when a key is present), and the
  * fail-closed delivery access gate — none of which the controller test touches.
@@ -31,7 +31,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * The data layer is seeded with the same real repositories/PublishService the admin path
  * uses, so the leak-proof publication spine is genuinely published-through, not faked.
  */
-final class DeliveryFlowTest extends LemmaTestCase
+final class DeliveryFlowTest extends AppTestCase
 {
     private string $type;
     private string $userUuid;
@@ -40,7 +40,7 @@ final class DeliveryFlowTest extends LemmaTestCase
     {
         parent::setUp();
 
-        // LemmaTestCase only truncates the Lemma content tables; the users/api_keys rows
+        // AppTestCase only truncates the Lemma content tables; the users/api_keys rows
         // we seed for the kernel auth chain are ours to clean up.
         $this->purgeAuthFixtures();
 

@@ -57,7 +57,7 @@ final class PreviewReader
      * @return array{entry_uuid:string,locale:string,version_uuid:?string,
      *               version:?int,schema_version:int,fields:array<string,mixed>}
      */
-    public function readVerified(\Glueful\Lemma\Contracts\Delivery\PreviewSession $session): array
+    public function readVerified(\Thallo\Contracts\Delivery\PreviewSession $session): array
     {
         $payload = PreviewToken::fromVerifiedClaims(
             $session->entry,

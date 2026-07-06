@@ -10,8 +10,8 @@ use App\Content\Preview\PreviewMinter;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\RouteRepository;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\Http\Controllers\RenderController;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\Http\Controllers\RenderController;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -19,14 +19,14 @@ use Symfony\Component\HttpFoundation\Request;
  * renders only — both data attributes present, never in live renders, never
  * for non-prose blocks. The resolver mirrors the client prose convention.
  */
-final class EditInPlaceMarkingTest extends LemmaTestCase
+final class EditInPlaceMarkingTest extends AppTestCase
 {
     private string $type;
 
     protected function tearDown(): void
     {
         $this->container()->get(\Glueful\Cache\CacheStore::class)->deletePattern('render:*');
-        $this->container()->get(\Glueful\Lemma\Seo\Cache\SitemapCache::class)->forgetAll();
+        $this->container()->get(\Thallo\Seo\Cache\SitemapCache::class)->forgetAll();
         parent::tearDown();
     }
 
@@ -281,7 +281,7 @@ final class EditInPlaceMarkingTest extends LemmaTestCase
 
         // Direct filter calls: non-string -> '', and NO frame -> escaped value only
         // even with annotations on.
-        $ext = $this->container()->get(\Glueful\Lemma\Render\RenderContextExtension::class);
+        $ext = $this->container()->get(\Thallo\Render\RenderContextExtension::class);
         $ext->setBlockAnnotations(true);
         $ext->resetBlockFrames();
         self::assertSame('x &lt;y&gt;', $ext->editableText('x <y>', 'f'));

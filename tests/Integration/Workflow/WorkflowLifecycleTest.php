@@ -6,11 +6,11 @@ namespace App\Tests\Integration\Workflow;
 
 use App\Content\Events\EntryPublished;
 use App\Content\Events\EntryUpdated;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
-use Glueful\Lemma\Workflow\WorkflowService;
+use Thallo\Workflow\WorkflowService;
 
-final class WorkflowLifecycleTest extends LemmaTestCase
+final class WorkflowLifecycleTest extends AppTestCase
 {
     public function testDraftSaveInvalidatesInReview(): void
     {

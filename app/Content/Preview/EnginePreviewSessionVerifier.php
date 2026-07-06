@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Content\Preview;
 
 use Glueful\Bootstrap\ApplicationContext;
-use Glueful\Lemma\Contracts\Delivery\PreviewSession;
-use Glueful\Lemma\Contracts\Delivery\PreviewSessionVerifier;
+use Thallo\Contracts\Delivery\PreviewSession;
+use Thallo\Contracts\Delivery\PreviewSessionVerifier;
 
 /**
  * Verifier over PreviewToken::verify with the shared key derivation — the cheap

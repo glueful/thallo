@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Search;
 
-use Glueful\Lemma\Contracts\Schema\ContentSchemaReader;
-use Glueful\Lemma\Contracts\Schema\ContentTypeReader;
-use Glueful\Lemma\Contracts\Schema\FieldDescriptor;
-use Glueful\Lemma\Contracts\Search\IndexableContent;
-use Glueful\Lemma\Contracts\Search\IndexableContentReader;
-use Glueful\Lemma\Contracts\Search\IndexablePage;
-use Glueful\Lemma\Search\Console\ReindexCommand;
-use Glueful\Lemma\Search\Engine\SearchBackend;
-use Glueful\Lemma\Search\Index\DocumentBuilder;
-use Glueful\Lemma\Search\Query\SearchRequest;
-use Glueful\Lemma\Search\Query\SearchResults;
+use Thallo\Contracts\Schema\ContentSchemaReader;
+use Thallo\Contracts\Schema\ContentTypeReader;
+use Thallo\Contracts\Schema\FieldDescriptor;
+use Thallo\Contracts\Search\IndexableContent;
+use Thallo\Contracts\Search\IndexableContentReader;
+use Thallo\Contracts\Search\IndexablePage;
+use Thallo\Search\Console\ReindexCommand;
+use Thallo\Search\Engine\SearchBackend;
+use Thallo\Search\Index\DocumentBuilder;
+use Thallo\Search\Query\SearchRequest;
+use Thallo\Search\Query\SearchResults;
 use PHPUnit\Framework\TestCase;
 
 final class ReindexCommandTest extends TestCase

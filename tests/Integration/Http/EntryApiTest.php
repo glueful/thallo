@@ -19,13 +19,13 @@ use App\Content\Repositories\ScheduleRepository;
 use App\Content\Schema\ContentTypeSchema;
 use App\Content\Validation\FieldValidator;
 use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 
-final class EntryApiTest extends LemmaTestCase
+final class EntryApiTest extends AppTestCase
 {
     private string $type;
 

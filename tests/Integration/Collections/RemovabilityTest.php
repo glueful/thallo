@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
-use Glueful\Lemma\Collections\CollectionManager;
-use Glueful\Lemma\Collections\Schema\CollectionDefinition;
-use Glueful\Lemma\Contracts\Authoring\ContentWriter;
-use Glueful\Lemma\Contracts\Context\LemmaContext;
-use Glueful\Lemma\Contracts\Delivery\ContentDeliveryReader;
-use Glueful\Lemma\Contracts\Schema\FieldTypeRegistry;
+use Thallo\Collections\CollectionManager;
+use Thallo\Collections\Schema\CollectionDefinition;
+use Thallo\Contracts\Authoring\ContentWriter;
+use Thallo\Contracts\Context\Context;
+use Thallo\Contracts\Delivery\ContentDeliveryReader;
+use Thallo\Contracts\Schema\FieldTypeRegistry;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Proves that lemma-collections is cleanly disable-able ("removable") at runtime.
+ * Proves that thallo-collections is cleanly disable-able ("removable") at runtime.
  *
  * Three properties are asserted via a dedicated disabled-capability boot:
  *
@@ -30,19 +30,19 @@ use Symfony\Component\HttpFoundation\Request;
  *      disable, so disabling never drops a table.
  *
  *   3. Core unbroken: the content-engine services (ContentWriter, ContentDeliveryReader,
- *      LemmaContext, FieldTypeRegistry) still resolve from the disabled-boot container,
+ *      Context, FieldTypeRegistry) still resolve from the disabled-boot container,
  *      proving the pack has no required footprint in core.
  *
  * Boot strategy: we need two contexts:
- *   - The SHARED enabled boot (LemmaTestCase::$app) — used in setUp to create a real
+ *   - The SHARED enabled boot (AppTestCase::$app) — used in setUp to create a real
  *     collection so the data-persistence assertions are non-trivial.
  *   - A DEDICATED disabled boot ($disabledApp, see setUpBeforeClass) — booted with a
  *     temporary config/testing/lemma.php that sets capabilities.lemma.collections=false,
- *     which the DefaultCapabilityRegistry factory reads before LemmaCollectionsServiceProvider
+ *     which the DefaultCapabilityRegistry factory reads before CollectionsServiceProvider
  *     registers routes. After the second boot the override file is deleted and RouteManifest
  *     is reset so subsequent test classes re-use the shared enabled context unaffected.
  */
-final class RemovabilityTest extends LemmaTestCase
+final class RemovabilityTest extends AppTestCase
 {
     /** Boot-level disabled context: fresh Framework boot with lemma.collections=false. */
     private static ?ApplicationContext $disabledApp = null;
@@ -62,7 +62,7 @@ final class RemovabilityTest extends LemmaTestCase
 
         // Boot the disabled app: ConfigurationLoader merges config/testing/lemma.php on
         // top of config/lemma.php, so DefaultCapabilityRegistry sees lemma.collections=>false
-        // and LemmaCollectionsServiceProvider::boot() skips loadRoutesFrom().
+        // and CollectionsServiceProvider::boot() skips loadRoutesFrom().
         self::$disabledApp ??= self::bootAppWithConfigOverride('lemma', [
             'capabilities' => ['lemma.collections' => false],
         ]);
@@ -179,7 +179,7 @@ final class RemovabilityTest extends LemmaTestCase
 
     /**
      * The core content-engine contract bindings must resolve from the disabled-boot
-     * container. The lemma-collections pack being off must not break core resolution.
+     * container. The thallo-collections pack being off must not break core resolution.
      */
     public function testContentEngineServicesResolveWithCollectionsDisabled(): void
     {
@@ -198,9 +198,9 @@ final class RemovabilityTest extends LemmaTestCase
         );
 
         self::assertInstanceOf(
-            LemmaContext::class,
-            $container->get(LemmaContext::class),
-            'LemmaContext must resolve from disabled-boot container',
+            Context::class,
+            $container->get(Context::class),
+            'Context must resolve from disabled-boot container',
         );
 
         self::assertInstanceOf(

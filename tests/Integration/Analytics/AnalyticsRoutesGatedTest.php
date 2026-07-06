@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Analytics;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
-final class AnalyticsRoutesGatedTest extends LemmaTestCase
+final class AnalyticsRoutesGatedTest extends AppTestCase
 {
     public function testAnalyticsAdminRouteIsRegisteredAndRequiresAuth(): void
     {

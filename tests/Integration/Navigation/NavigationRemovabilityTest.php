@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Navigation;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Bootstrap\ApplicationContext;
-use Glueful\Lemma\Contracts\Navigation\MenuReader;
+use Thallo\Contracts\Navigation\MenuReader;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Proves lemma-navigation is cleanly disable-able: with lemma.navigation disabled, the
+ * Proves thallo-navigation is cleanly disable-able: with lemma.navigation disabled, the
  * boot gate skips routes (404s) and MenuReader resolves null — indistinguishable from
  * "pack absent" for consumers. Also guards the pack boundary: no app-engine references
- * in packages/lemma-navigation/src.
+ * in packages/thallo-navigation/src.
  */
-final class NavigationRemovabilityTest extends LemmaTestCase
+final class NavigationRemovabilityTest extends AppTestCase
 {
     private static ?ApplicationContext $disabledApp = null;
 
@@ -55,7 +55,7 @@ final class NavigationRemovabilityTest extends LemmaTestCase
     public function testPackSourceHasNoAppReferences(): void
     {
         // Mirror scripts/check-pack-boundaries.php: a leading [^\w] catches bare FQCNs too.
-        $root = dirname(__DIR__, 3) . '/packages/lemma-navigation/src';
+        $root = dirname(__DIR__, 3) . '/packages/thallo-navigation/src';
         $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root));
         $checked = 0;
         foreach ($files as $file) {

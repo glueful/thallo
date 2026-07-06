@@ -9,7 +9,7 @@ use Glueful\Helpers\Utils;
 
 /**
  * Grant the navigation permission to Aegis's `administrator` role. The
- * `glueful/lemma-navigation` pack declares the permission row (its own seed migration);
+ * `glueful/thallo-navigation` pack declares the permission row (its own seed migration);
  * granting onto roles is the HOST APP's decision — this dependent migration runs after
  * Aegis has created the role.
  */

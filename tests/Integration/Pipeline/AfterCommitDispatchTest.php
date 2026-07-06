@@ -9,7 +9,7 @@ use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Services\PublishService;
 use App\Content\Validation\ValidationException;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 
 /**
@@ -22,7 +22,7 @@ use Glueful\Events\EventService;
  * mutation runs through the container-resolved PublishService, so the wired
  * PublishEventEmitter is exercised exactly as production would.
  */
-final class AfterCommitDispatchTest extends LemmaTestCase
+final class AfterCommitDispatchTest extends AppTestCase
 {
     private string $type;
     private string $entry;

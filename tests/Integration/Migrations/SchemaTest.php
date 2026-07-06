@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Migrations;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class SchemaTest extends LemmaTestCase
+final class SchemaTest extends AppTestCase
 {
     /** @dataProvider tables */
     public function testTableExists(string $table): void

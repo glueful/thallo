@@ -6,13 +6,13 @@ namespace App\Tests\Integration\Navigation;
 
 use App\Content\Repositories\EntryRepository;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Navigation\Http\Controllers\MenuController;
-use Glueful\Lemma\Navigation\Http\Controllers\NavigationAdminController;
+use App\Tests\Support\AppTestCase;
+use Thallo\Navigation\Http\Controllers\MenuController;
+use Thallo\Navigation\Http\Controllers\NavigationAdminController;
 use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;
 
-final class NavigationApiTest extends LemmaTestCase
+final class NavigationApiTest extends AppTestCase
 {
     use SeedsPublishedContent;
 

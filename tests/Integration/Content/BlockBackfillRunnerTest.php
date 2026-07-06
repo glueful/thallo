@@ -17,9 +17,9 @@ use App\Content\Schema\ContentTypeSchema;
 use App\Content\Schema\Migration\MigrationOpSet;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class BlockBackfillRunnerTest extends LemmaTestCase
+final class BlockBackfillRunnerTest extends AppTestCase
 {
     private string $type;
 

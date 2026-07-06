@@ -9,9 +9,9 @@ use App\Content\Blocks\StarterBlockTypes;
 use App\Content\Regions\RegionValidator;
 use App\Content\Validation\FieldValidator;
 use App\Content\Validation\ValidationException;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class RegionValidatorTest extends LemmaTestCase
+final class RegionValidatorTest extends AppTestCase
 {
     private function validator(): RegionValidator
     {

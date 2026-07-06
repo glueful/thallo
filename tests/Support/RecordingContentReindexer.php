@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Support;
 
-use Glueful\Lemma\Contracts\Search\ContentReindexer;
+use Thallo\Contracts\Search\ContentReindexer;
 
 final class RecordingContentReindexer implements ContentReindexer
 {

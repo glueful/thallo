@@ -11,7 +11,7 @@ use Glueful\Extensions\Audit\Contracts\AuditableEventDefaults;
 /**
  * App-side audit event for a collection row mutation.
  *
- * The `lemma-collections` pack depends only on framework + contracts (never `glueful/audit`), so its
+ * The `thallo-collections` pack depends only on framework + contracts (never `glueful/audit`), so its
  * `CollectionRow*` events stay pure. This App-owned event implements {@see AuditableEvent}, so the
  * Audit extension records it automatically — resolving the actor's email label and request context
  * itself. We supply only the semantic fields; we do not re-implement recording.

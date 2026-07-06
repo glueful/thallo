@@ -7,11 +7,11 @@ namespace App\Tests\Integration\Render;
 use App\Content\Events\EntryPublished;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
 use Glueful\Events\EventService;
-use Glueful\Lemma\Contracts\Navigation\MenuUpdated;
-use Glueful\Lemma\Render\RenderErrorCache;
+use Thallo\Contracts\Navigation\MenuUpdated;
+use Thallo\Render\RenderErrorCache;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -20,7 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
  * router bucket order, and listener wiring are all under test. The cache store is
  * process-shared — tearDown purges render:* keys so later tests never serve stale seeds.
  */
-final class RenderPageCacheTest extends LemmaTestCase
+final class RenderPageCacheTest extends AppTestCase
 {
     use SeedsPublishedContent;
 
@@ -152,7 +152,7 @@ final class RenderPageCacheTest extends LemmaTestCase
         // cache_enabled=false must be byte-for-byte today's behavior. Config-override
         // boots lose extension routes (loadRoutesFrom latch), so exercise the middleware
         // directly with enabled=false.
-        $middleware = new \Glueful\Lemma\Render\Http\Middleware\RenderPageCache(
+        $middleware = new \Thallo\Render\Http\Middleware\RenderPageCache(
             $this->cache(),
             'default',
             false,
@@ -330,7 +330,7 @@ final class RenderPageCacheTest extends LemmaTestCase
         self::assertCount(2, $this->cache()->getKeys('render:*'));
 
         $command = $this->container()
-            ->get(\Glueful\Lemma\Render\Console\ClearRenderCacheCommand::class);
+            ->get(\Thallo\Render\Console\ClearRenderCacheCommand::class);
         $command->clear();
 
         self::assertSame([], $this->cache()->getKeys('render:*'));

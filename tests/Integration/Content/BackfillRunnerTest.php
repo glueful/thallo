@@ -12,9 +12,9 @@ use App\Content\Repositories\MigrationRepository;
 use App\Content\Repositories\VersionRepository;
 use App\Content\Schema\Migration\MigrationOpSet;
 use App\Content\Services\MigrationService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class BackfillRunnerTest extends LemmaTestCase
+final class BackfillRunnerTest extends AppTestCase
 {
     protected function setUp(): void
     {

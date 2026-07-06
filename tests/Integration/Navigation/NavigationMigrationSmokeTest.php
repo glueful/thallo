@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Navigation;
 
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class NavigationMigrationSmokeTest extends LemmaTestCase
+final class NavigationMigrationSmokeTest extends AppTestCase
 {
     public function testTablesExist(): void
     {

@@ -6,14 +6,14 @@ namespace App\Tests\Integration\Content;
 
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Schema\ContentTypeSchema;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
 /**
  * Verifies that the new multi-value schema attributes (`multiple`, `max_items`,
  * `reference_slug_field`) round-trip correctly through persistence (create + reload)
  * and that a single-valued reference field is unaffected.
  */
-final class MultiValueSchemaPersistenceTest extends LemmaTestCase
+final class MultiValueSchemaPersistenceTest extends AppTestCase
 {
     private function repo(): ContentTypeRepository
     {

@@ -17,12 +17,12 @@ use App\Content\Repositories\ReferenceProjectionRepository;
 use App\Content\Repositories\VersionRepository;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Http\Response;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 
-final class BlockMigrationGateTest extends LemmaTestCase
+final class BlockMigrationGateTest extends AppTestCase
 {
     private string $type;
 

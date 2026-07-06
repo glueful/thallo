@@ -19,7 +19,7 @@ use App\Http\DTOs\ErrorResponse;
 use App\Support\ActorHelper;
 use Glueful\Auth\UserIdentity;
 use Glueful\Http\Response;
-use Glueful\Lemma\Contracts\Authoring\PublishBlocked;
+use Thallo\Contracts\Authoring\PublishBlocked;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 use Symfony\Component\HttpFoundation\Request;

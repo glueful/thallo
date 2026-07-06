@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Seo;
 
 use App\Content\Events\EntryPublished;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
-use Glueful\Lemma\Seo\Cache\SitemapCache;
+use Thallo\Seo\Cache\SitemapCache;
 
-final class SitemapCacheInvalidationTest extends LemmaTestCase
+final class SitemapCacheInvalidationTest extends AppTestCase
 {
     protected function setUp(): void
     {

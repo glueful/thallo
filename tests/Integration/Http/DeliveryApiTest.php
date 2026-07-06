@@ -24,7 +24,7 @@ use App\Content\Seo\RouteResolver;
 use App\Content\Validation\FieldValidator;
 use App\Content\Repositories\VersionRepository;
 use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
 use Glueful\Support\FieldSelection\Projector;
 use Glueful\Validation\RequestDataHydrator;
@@ -37,7 +37,7 @@ use Symfony\Component\HttpFoundation\Request;
  * the admin EntryApiTest), publishing entries through the real {@see PublishService} so
  * the leak-proof read path is exercised end to end.
  */
-final class DeliveryApiTest extends LemmaTestCase
+final class DeliveryApiTest extends AppTestCase
 {
     private string $type;
 

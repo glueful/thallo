@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Render;
 
-use App\Tests\Support\LemmaTestCase;
-use Glueful\Lemma\Render\RenderContextExtension;
-use Glueful\Lemma\Render\Templates\DatabaseTemplateLoader;
-use Glueful\Lemma\Render\Templates\RenderTemplateLoader;
-use Glueful\Lemma\Render\Templates\TemplateLinter;
-use Glueful\Lemma\Render\Templates\TemplatePolicy;
-use Glueful\Lemma\Render\Templates\TemplateRepository;
-use Glueful\Lemma\Render\ThemeLocator;
-use Glueful\Lemma\Render\TwigFactory;
+use App\Tests\Support\AppTestCase;
+use Thallo\Render\RenderContextExtension;
+use Thallo\Render\Templates\DatabaseTemplateLoader;
+use Thallo\Render\Templates\RenderTemplateLoader;
+use Thallo\Render\Templates\TemplateLinter;
+use Thallo\Render\Templates\TemplatePolicy;
+use Thallo\Render\Templates\TemplateRepository;
+use Thallo\Render\ThemeLocator;
+use Thallo\Render\TwigFactory;
 use Twig\Environment;
 use Twig\Error\LoaderError;
 
-final class DbTemplateLoaderTest extends LemmaTestCase
+final class DbTemplateLoaderTest extends AppTestCase
 {
     private function repo(): TemplateRepository
     {

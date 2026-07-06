@@ -10,9 +10,9 @@ use App\Content\Repositories\MigrationRepository;
 use App\Content\Schema\SchemaParseException;
 use App\Content\Services\ActiveMigrationException;
 use App\Content\Services\MigrationService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 
-final class MigrationServiceTest extends LemmaTestCase
+final class MigrationServiceTest extends AppTestCase
 {
     protected function setUp(): void
     {

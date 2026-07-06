@@ -9,9 +9,9 @@ use App\Content\Pipeline\Listeners\PurgeCdnListener;
 use App\Content\Pipeline\Listeners\ReindexSearchListener;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
-use Glueful\Lemma\Contracts\Search\ContentReindexer;
+use Thallo\Contracts\Search\ContentReindexer;
 use App\Content\Services\PublishService;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use App\Tests\Support\RecordingContentReindexer;
 use App\Tests\Support\RecordingEdgeCache;
 use Glueful\Cache\Contracts\EdgeCacheInterface;
@@ -34,7 +34,7 @@ use Glueful\Cache\NullEdgeCache;
  * The container-substitution (reflection on the compiled container's `singletons`) mirrors
  * CacheInvalidationTest / WebhookDispatchTest.
  */
-final class CapabilityGatingTest extends LemmaTestCase
+final class CapabilityGatingTest extends AppTestCase
 {
     private string $type;
     private string $entry;

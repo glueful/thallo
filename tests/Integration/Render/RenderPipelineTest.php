@@ -5,17 +5,17 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Render;
 
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\LemmaTestCase;
+use App\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Helpers\Utils;
-use Glueful\Lemma\Navigation\MenuRepository;
+use Thallo\Navigation\MenuRepository;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * Drives the render pipeline through the REAL kernel (Application::handle) — the router
  * bucket order (static → literal buckets → '*' catch-all) is itself the subject.
  */
-final class RenderPipelineTest extends LemmaTestCase
+final class RenderPipelineTest extends AppTestCase
 {
     use SeedsPublishedContent;
 
@@ -25,7 +25,7 @@ final class RenderPipelineTest extends LemmaTestCase
         // request must not leak into later tests (the store is process-shared; sitemap
         // entries carry no TTL, and cached pages would serve earlier tests' seeds).
         $this->container()->get(\Glueful\Cache\CacheStore::class)->deletePattern('render:*');
-        $this->container()->get(\Glueful\Lemma\Seo\Cache\SitemapCache::class)->forgetAll();
+        $this->container()->get(\Thallo\Seo\Cache\SitemapCache::class)->forgetAll();
         parent::tearDown();
     }
 
@@ -86,7 +86,7 @@ final class RenderPipelineTest extends LemmaTestCase
         // kernel would hit the live seo route and poison its no-TTL sitemap cache with an
         // empty build (cross-suite pollution) — the guard itself is what's under test here.
         $controller = $this->container()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $res = $controller->page(Request::create('/x', 'GET'), 'sitemap.xml');
         self::assertSame(404, $res->getStatusCode());
         self::assertStringContainsString('json', (string) $res->headers->get('Content-Type'));
@@ -107,21 +107,21 @@ final class RenderPipelineTest extends LemmaTestCase
     public function testHomepageEntryAndBadConfigModes(): void
     {
         // Config-override boots lose extension ROUTES to the framework's process-global
-        // loadRoutesFrom latch (see LemmaTestCase), so drive the CONTROLLER from the
+        // loadRoutesFrom latch (see AppTestCase), so drive the CONTROLLER from the
         // override container directly — GET / routing itself is covered by
         // testHomepageStandaloneMode through the shared kernel.
         $entry = $this->seedBilingualPublishedEntry();
 
         $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $entry]);
         $controller = $app->getContainer()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $res = $controller->home(Request::create('/', 'GET'));
         self::assertSame(200, $res->getStatusCode());
         self::assertStringContainsString('<h1>Hello</h1>', (string) $res->getContent());
 
         $bad = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => 'nope00000000']);
         $controller = $bad->getContainer()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $res = $controller->home(Request::create('/', 'GET'));
         self::assertSame(500, $res->getStatusCode());
         self::assertStringNotContainsString('Page not found', (string) $res->getContent());
@@ -267,7 +267,7 @@ final class RenderPipelineTest extends LemmaTestCase
     {
         // Unit: the shared normalizer (HTTP-path hygiene ONLY — no canonical
         // routing decisions; the P2 scope pin).
-        $normalize = \Glueful\Lemma\Render\Http\Middleware\RenderPageCache::normalizePath(...);
+        $normalize = \Thallo\Render\Http\Middleware\RenderPageCache::normalizePath(...);
         self::assertSame('/pages/ctx', $normalize('/pages//ctx/'));
         self::assertSame('/pages/ctx', $normalize('/pages/ctx?x=1'));
         self::assertSame('/', $normalize('/'));
@@ -279,7 +279,7 @@ final class RenderPipelineTest extends LemmaTestCase
         // verbatim layout copy can't be the fixture: the filesystem layout uses
         // constructs the DB sandbox deliberately excludes.)
         $this->seedPresentationEntry(['title' => 'Ctx'], 'ctx');
-        (new \Glueful\Lemma\Render\Templates\TemplateRepository($this->connection()))->save(
+        (new \Thallo\Render\Templates\TemplateRepository($this->connection()))->save(
             'default',
             'layout.twig',
             '<!doctype html><html><body><!-- test-probe:{{ current_path }} -->'
@@ -328,7 +328,7 @@ final class RenderPipelineTest extends LemmaTestCase
         // Homepage honors the same override (override-app controller pattern).
         $app = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => $entry]);
         $controller = $app->getContainer()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $home = $controller->home(Request::create('/', 'GET'));
         self::assertSame(200, $home->getStatusCode());
         self::assertDoesNotMatchRegularExpression(
@@ -365,22 +365,22 @@ final class RenderPipelineTest extends LemmaTestCase
                 'layout' => 'full',
                 'types' => ['pages' => ['show_title' => false]],
             ]]);
-            $locator = new \Glueful\Lemma\Render\ThemeLocator('settingstheme', $dir);
+            $locator = new \Thallo\Render\ThemeLocator('settingstheme', $dir);
             self::assertSame('full', $locator->settings()['layout']);
             self::assertFalse($locator->settings()['types']['pages']['show_title']);
 
             // Unknown key -> loud ThemeConfigError.
             $write(['settings' => ['sparkles' => true]]);
             try {
-                new \Glueful\Lemma\Render\ThemeLocator('settingstheme', $dir);
+                new \Thallo\Render\ThemeLocator('settingstheme', $dir);
                 self::fail('expected ThemeConfigError');
-            } catch (\Glueful\Lemma\Render\ThemeConfigError) {
+            } catch (\Thallo\Render\ThemeConfigError) {
             }
 
             // Bad enum value -> loud too.
             $write(['settings' => ['layout' => 'sideways']]);
-            $this->expectException(\Glueful\Lemma\Render\ThemeConfigError::class);
-            new \Glueful\Lemma\Render\ThemeLocator('settingstheme', $dir);
+            $this->expectException(\Thallo\Render\ThemeConfigError::class);
+            new \Thallo\Render\ThemeLocator('settingstheme', $dir);
         } finally {
             @unlink($dir . '/settingstheme/theme.json');
             @rmdir($dir . '/settingstheme/templates');
@@ -401,7 +401,7 @@ final class RenderPipelineTest extends LemmaTestCase
         $app->getContainer()->get(\App\Settings\SettingsStore::class)
             ->putMany(['homepage_entry' => $dbHome]);
         $controller = $app->getContainer()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $home = fn(): string => (string) $controller->home(Request::create('/', 'GET'))->getContent();
         self::assertStringContainsString('DB Home', $home());
 
@@ -413,7 +413,7 @@ final class RenderPipelineTest extends LemmaTestCase
         // Both empty: the standalone index.
         $bare = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => '']);
         $bareController = $bare->getContainer()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         self::assertStringContainsString(
             'powered by Lemma',
             (string) $bareController->home(Request::create('/', 'GET'))->getContent(),
@@ -429,7 +429,7 @@ final class RenderPipelineTest extends LemmaTestCase
         $app->getContainer()->get(\App\Settings\SettingsStore::class)
             ->putMany(['homepage_entry' => 'gone00000000']); // simulates a later-deleted entry
         $controller = $app->getContainer()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         $res = $controller->home(Request::create('/', 'GET'));
         self::assertSame(200, $res->getStatusCode());
         self::assertStringContainsString('Hello', (string) $res->getContent()); // env fallback
@@ -437,7 +437,7 @@ final class RenderPipelineTest extends LemmaTestCase
         // The env-invalid posture is UNCHANGED: loud 500 (deploy config error).
         $bad = self::bootAppWithConfigOverride('lemma_render', ['homepage_entry' => 'nope00000000']);
         $badController = $bad->getContainer()
-            ->get(\Glueful\Lemma\Render\Http\Controllers\RenderController::class);
+            ->get(\Thallo\Render\Http\Controllers\RenderController::class);
         self::assertSame(500, $badController->home(Request::create('/', 'GET'))->getStatusCode());
     }
 
@@ -570,7 +570,7 @@ final class RenderPipelineTest extends LemmaTestCase
             );
             $req->attributes->set('user', ['uuid' => 'user00000001']);
             $res = $this->container()
-                ->get(\Glueful\Lemma\Render\Http\Controllers\TemplatesAdminController::class)
+                ->get(\Thallo\Render\Http\Controllers\TemplatesAdminController::class)
                 ->save($req, 'custom.css');
             self::assertSame(200, $res->getStatusCode());
         };

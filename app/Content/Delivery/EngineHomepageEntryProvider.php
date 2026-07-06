@@ -6,8 +6,8 @@ namespace App\Content\Delivery;
 
 use App\Settings\GeneralSettings;
 use Glueful\Bootstrap\ApplicationContext;
-use Glueful\Lemma\Contracts\Delivery\HomepageEntryProvider;
-use Glueful\Lemma\Contracts\Delivery\PublicRouteResolver;
+use Thallo\Contracts\Delivery\HomepageEntryProvider;
+use Thallo\Contracts\Delivery\PublicRouteResolver;
 use Psr\Log\LoggerInterface;
 
 use function config;
