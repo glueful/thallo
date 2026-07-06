@@ -26,6 +26,7 @@ export interface CatalogExtension {
   downloads: number
   favers: number
   installed: boolean
+  enabled: boolean
 }
 
 const base = () => `${runtimeConfig.apiBase}/extensions`
@@ -118,89 +119,65 @@ export function useExtensionMutations() {
   return { enable, disable }
 }
 
-// ── Install (composer require, detached) ──────────────────────────────────────
-// POST /install starts a background job (composer require + auto-enable); the client
-// polls GET /install/{jobId} until a terminal status. `succeeded` = installed AND
-// enabled; `installed_not_enabled` = installed but auto-enable hit a snag (e.g. a
-// missing dependency) — not a hard failure.
+// ── Install (composer require, synchronous) ───────────────────────────────────
+// POST /install runs `composer require` inline and returns when it finishes — no
+// job, no polling. On success the extension is INSTALLED but disabled; the operator
+// enables it with the existing toggle (WordPress-style install → activate).
 
-export type InstallStatus =
-  | 'queued'
-  | 'running'
-  | 'succeeded'
-  | 'failed'
-  | 'installed_not_enabled'
+export type InstallStatus = 'installed' | 'failed'
 
-export interface InstallJob {
-  id: string
-  package: string
+export interface InstallResult {
   status: InstallStatus
-  output: string
-  error: string | null
-  enableError: string | null
+  package: string
+  error?: string | null
+  output?: string
 }
 
-const TERMINAL: InstallStatus[] = ['succeeded', 'failed', 'installed_not_enabled']
-
-export async function startInstall(name: string): Promise<string> {
+export async function installExtension(name: string): Promise<InstallResult> {
   const json = await authFetch(`${base()}/install`, {
     method: 'POST',
     body: JSON.stringify({ name }),
   })
-  const d = (json.data ?? json) as { jobId?: string }
-  return String(d.jobId ?? '')
-}
-
-export async function fetchInstallJob(jobId: string): Promise<InstallJob> {
-  const json = await authFetch(`${base()}/install/${encodeURIComponent(jobId)}`)
-  return (json.data ?? json) as InstallJob
-}
-
-export interface InstallState {
-  status: 'starting' | InstallStatus
-  error?: string
+  const d = (json.data ?? json) as Record<string, unknown>
+  return {
+    status: d.status === 'installed' ? 'installed' : 'failed',
+    package: typeof d.package === 'string' ? d.package : name,
+    error: typeof d.error === 'string' ? d.error : null,
+    output: typeof d.output === 'string' ? d.output : '',
+  }
 }
 
 /**
- * Per-package install orchestration: start → poll → converge. `pollMs` is injectable
- * so tests can drive it fast. A successful install auto-enables the extension, which
- * changes the capability set, so we converge the gated nav/catalog (same pattern as
- * enable/disable).
+ * Per-package install: a single blocking call (composer runs on the server for the
+ * duration of the request). `installing(name)` is true while it's in flight. A
+ * successful install invalidates the catalog so the card flips to "Installed".
  */
-export function useExtensionInstall(pollMs = 1500) {
+export function useExtensionInstall() {
   const cache = useQueryCache()
-  const caps = useCapabilitiesStore()
-  const state = reactive<Record<string, InstallState>>({})
+  const inflight = reactive<Record<string, boolean>>({})
 
-  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-  async function install(name: string): Promise<InstallStatus> {
-    state[name] = { status: 'starting' }
+  async function install(name: string): Promise<InstallResult> {
+    inflight[name] = true
     try {
-      const jobId = await startInstall(name)
-      for (;;) {
-        await sleep(pollMs)
-        const job = await fetchInstallJob(jobId)
-        state[name] = { status: job.status, error: job.error ?? job.enableError ?? undefined }
-        if (TERMINAL.includes(job.status)) {
-          cache.invalidateQueries({ key: ['extensions'] }) // refresh the installed flag
-          if (job.status === 'succeeded') void caps.refreshUntilChanged()
-          return job.status
-        }
+      const result = await installExtension(name)
+      if (result.status === 'installed') {
+        cache.invalidateQueries({ key: ['extensions'] }) // refresh the installed flag
       }
+      return result
     } catch (e) {
-      state[name] = { status: 'failed', error: e instanceof Error ? e.message : 'Install failed' }
-      cache.invalidateQueries({ key: ['extensions'] })
-      return 'failed'
+      return {
+        status: 'failed',
+        package: name,
+        error: e instanceof Error ? e.message : 'Install failed',
+      }
+    } finally {
+      inflight[name] = false
     }
   }
 
-  const installing = (name: string): boolean => {
-    const s = state[name]?.status
-    return s === 'starting' || s === 'queued' || s === 'running'
-  }
+  const installing = (name: string): boolean => inflight[name] === true
 
-  return { state, install, installing }
+  return { install, installing }
 }
 
 /** Short display name: `glueful/audit` → `audit`. */
