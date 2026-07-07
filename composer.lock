@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "88ceaa6a5e5774c214a5ef933112fd7c",
+    "content-hash": "d1475232ec5eabbee6ea528232a05d7f",
     "packages": [
         {
             "name": "composer/semver",
@@ -654,86 +654,6 @@
             "time": "2026-07-05T19:25:54+00:00"
         },
         {
-            "name": "glueful/entrada",
-            "version": "v1.11.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/glueful/entrada.git",
-                "reference": "302184aad918dc964143c4bd06dae6e36d745459"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/glueful/entrada/zipball/302184aad918dc964143c4bd06dae6e36d745459",
-                "reference": "302184aad918dc964143c4bd06dae6e36d745459",
-                "shasum": ""
-            },
-            "require": {
-                "php": "^8.3",
-                "vlucas/phpdotenv": "^5.6"
-            },
-            "require-dev": {
-                "glueful/framework": "^1.57.0",
-                "phpstan/phpstan": "^1.0",
-                "phpunit/phpunit": "^10.5",
-                "squizlabs/php_codesniffer": "^3.6"
-            },
-            "type": "glueful-extension",
-            "extra": {
-                "glueful": {
-                    "icon": "assets/icon.png",
-                    "name": "Entrada",
-                    "version": "1.11.0",
-                    "provider": "Glueful\\Extensions\\Entrada\\Services\\EntradaServiceProvider",
-                    "requires": {
-                        "glueful": ">=1.57.0",
-                        "extensions": []
-                    },
-                    "publisher": "glueful-team",
-                    "categories": [
-                        "authentication",
-                        "sso",
-                        "oauth"
-                    ],
-                    "description": "Social Login & SSO for Glueful (OAuth/OIDC)",
-                    "displayName": "Entrada",
-                    "galleryBanner": {
-                        "color": "#2563EB",
-                        "theme": "dark"
-                    }
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Glueful\\Extensions\\Entrada\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Michael Tawiah Sowah",
-                    "email": "michael@glueful.dev"
-                }
-            ],
-            "description": "Entrada: Social Login & SSO for Glueful (OAuth/OIDC)",
-            "homepage": "https://github.com/glueful/entrada",
-            "keywords": [
-                "Authentication",
-                "facebook",
-                "github",
-                "google",
-                "oauth",
-                "social-integration"
-            ],
-            "support": {
-                "issues": "https://github.com/glueful/entrada/issues",
-                "source": "https://github.com/glueful/entrada/tree/v1.11.0"
-            },
-            "time": "2026-06-15T01:37:40+00:00"
-        },
-        {
             "name": "glueful/extension-contracts",
             "version": "v1.0.0",
             "source": {
@@ -811,16 +731,16 @@
         },
         {
             "name": "glueful/framework",
-            "version": "v1.66.1",
+            "version": "v1.66.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "ffb49086ab892d1aec7ef508a3d6665a43683c0c"
+                "reference": "4e14aa06aae73f64115b15605a0a4f7ec6d1774c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/ffb49086ab892d1aec7ef508a3d6665a43683c0c",
-                "reference": "ffb49086ab892d1aec7ef508a3d6665a43683c0c",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/4e14aa06aae73f64115b15605a0a4f7ec6d1774c",
+                "reference": "4e14aa06aae73f64115b15605a0a4f7ec6d1774c",
                 "shasum": ""
             },
             "require": {
@@ -915,7 +835,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-06T01:00:49+00:00"
+            "time": "2026-07-06T19:56:26+00:00"
         },
         {
             "name": "glueful/i18n",
@@ -2091,16 +2011,16 @@
         },
         {
             "name": "league/flysystem",
-            "version": "3.35.1",
+            "version": "3.35.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/thephpleague/flysystem.git",
-                "reference": "f23af6c5aafd958a7593029a271d77baf5ed793c"
+                "reference": "b277b5dc3d56650b68904117124e79c851e12376"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/thephpleague/flysystem/zipball/f23af6c5aafd958a7593029a271d77baf5ed793c",
-                "reference": "f23af6c5aafd958a7593029a271d77baf5ed793c",
+                "url": "https://api.github.com/repos/thephpleague/flysystem/zipball/b277b5dc3d56650b68904117124e79c851e12376",
+                "reference": "b277b5dc3d56650b68904117124e79c851e12376",
                 "shasum": ""
             },
             "require": {
@@ -2168,9 +2088,9 @@
             ],
             "support": {
                 "issues": "https://github.com/thephpleague/flysystem/issues",
-                "source": "https://github.com/thephpleague/flysystem/tree/3.35.1"
+                "source": "https://github.com/thephpleague/flysystem/tree/3.35.2"
             },
-            "time": "2026-06-25T06:52:23+00:00"
+            "time": "2026-07-06T14:42:07+00:00"
         },
         {
             "name": "league/flysystem-local",
@@ -5942,16 +5862,16 @@
         },
         {
             "name": "vlucas/phpdotenv",
-            "version": "v5.6.3",
+            "version": "v5.6.4",
             "source": {
                 "type": "git",
                 "url": "https://github.com/vlucas/phpdotenv.git",
-                "reference": "955e7815d677a3eaa7075231212f2110983adecc"
+                "reference": "416df702837983f8d5ff48c9c3fee4f5f57b980b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/vlucas/phpdotenv/zipball/955e7815d677a3eaa7075231212f2110983adecc",
-                "reference": "955e7815d677a3eaa7075231212f2110983adecc",
+                "url": "https://api.github.com/repos/vlucas/phpdotenv/zipball/416df702837983f8d5ff48c9c3fee4f5f57b980b",
+                "reference": "416df702837983f8d5ff48c9c3fee4f5f57b980b",
                 "shasum": ""
             },
             "require": {
@@ -6010,7 +5930,7 @@
             ],
             "support": {
                 "issues": "https://github.com/vlucas/phpdotenv/issues",
-                "source": "https://github.com/vlucas/phpdotenv/tree/v5.6.3"
+                "source": "https://github.com/vlucas/phpdotenv/tree/v5.6.4"
             },
             "funding": [
                 {
@@ -6022,7 +5942,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2025-12-27T19:49:13+00:00"
+            "time": "2026-07-06T19:11:50+00:00"
         },
         {
             "name": "webmozart/assert",
@@ -6650,24 +6570,24 @@
         },
         {
             "name": "phpunit/phpunit",
-            "version": "10.5.63",
+            "version": "10.5.64",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/phpunit.git",
-                "reference": "33198268dad71e926626b618f3ec3966661e4d90"
+                "reference": "0e8c1d19cea35ad97d4887f363d07c78e30fbf06"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/33198268dad71e926626b618f3ec3966661e4d90",
-                "reference": "33198268dad71e926626b618f3ec3966661e4d90",
+                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/0e8c1d19cea35ad97d4887f363d07c78e30fbf06",
+                "reference": "0e8c1d19cea35ad97d4887f363d07c78e30fbf06",
                 "shasum": ""
             },
             "require": {
                 "ext-dom": "*",
+                "ext-filter": "*",
                 "ext-json": "*",
                 "ext-libxml": "*",
                 "ext-mbstring": "*",
-                "ext-xml": "*",
                 "ext-xmlwriter": "*",
                 "myclabs/deep-copy": "^1.13.4",
                 "phar-io/manifest": "^2.0.4",
@@ -6731,31 +6651,15 @@
             "support": {
                 "issues": "https://github.com/sebastianbergmann/phpunit/issues",
                 "security": "https://github.com/sebastianbergmann/phpunit/security/policy",
-                "source": "https://github.com/sebastianbergmann/phpunit/tree/10.5.63"
+                "source": "https://github.com/sebastianbergmann/phpunit/tree/10.5.64"
             },
             "funding": [
                 {
-                    "url": "https://phpunit.de/sponsors.html",
-                    "type": "custom"
-                },
-                {
-                    "url": "https://github.com/sebastianbergmann",
-                    "type": "github"
-                },
-                {
-                    "url": "https://liberapay.com/sebastianbergmann",
-                    "type": "liberapay"
-                },
-                {
-                    "url": "https://thanks.dev/u/gh/sebastianbergmann",
-                    "type": "thanks_dev"
-                },
-                {
-                    "url": "https://tidelift.com/funding/github/packagist/phpunit/phpunit",
-                    "type": "tidelift"
+                    "url": "https://phpunit.de/sponsoring.html",
+                    "type": "other"
                 }
             ],
-            "time": "2026-01-27T05:48:37+00:00"
+            "time": "2026-07-06T14:50:35+00:00"
         },
         {
             "name": "sebastian/cli-parser",
