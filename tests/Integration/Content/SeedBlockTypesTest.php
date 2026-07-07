@@ -40,13 +40,23 @@ final class SeedBlockTypesTest extends AppTestCase
         self::assertSame('Layout', $section['category']);
         self::assertContains('blocks', array_column($section['schema'], 'type'));
 
-        // Block-library expansion (spec §3) + icon block (icon-library follow-up)
-        // + navigation/social_links + social_link child (global-regions spec):
-        // 34 types; html seeds DEACTIVATED; hero/cta carry the Nuxt UI shapes;
+        // Block-library expansion + theme-rewrite reconciliation: legacy blocks
+        // dropped, new primitives added (incl. footer + footer_columns +
+        // color_mode), item carriers renamed (accordion_item, stepper_item).
+        // 35 types; html seeds DEACTIVATED; hero/cta carry the Nuxt UI shapes;
         // container declares value constraints.
-        self::assertSame(34, $expected);
+        self::assertSame(35, $expected);
         self::assertSame(0, (int) $repo->findBySlug('html')['active']);
-        self::assertSame('Items', $repo->findBySlug('testimonial')['category']);
+        self::assertSame('Items', $repo->findBySlug('accordion_item')['category']);
+        self::assertSame('Content', $repo->findBySlug('color_mode')['category']);
+        // Removed legacy blocks are gone; new primitives present with their enums.
+        self::assertNull($repo->findBySlug('quote'));
+        self::assertNull($repo->findBySlug('divider'));
+        self::assertNull($repo->findBySlug('logo_cloud'));
+        $separator = array_column($repo->findBySlug('separator')['schema'], null, 'name');
+        self::assertSame(['solid', 'dashed', 'dotted'], $separator['type']['enum']);
+        $accordion = array_column($repo->findBySlug('accordion')['schema'], null, 'name');
+        self::assertSame(['accordion_item'], $accordion['items']['block_types']);
         $heroFields = array_column($repo->findBySlug('hero')['schema'], 'name');
         self::assertSame(
             ['headline', 'title', 'description', 'links', 'image', 'orientation', 'reverse'],
@@ -61,6 +71,14 @@ final class SeedBlockTypesTest extends AppTestCase
         self::assertSame('#[0-9a-fA-F]{3}([0-9a-fA-F]{3})?', $container['background_color']['pattern']);
         self::assertSame(0, $container['overlay_opacity']['min']);
         self::assertSame(100, $container['overlay_opacity']['max']);
+
+        // Button enrichment (Nuxt UI shape): full variant/size sets, primary|neutral
+        // color (the navigation-parity decision), and leading/trailing icon fields.
+        $button = array_column($repo->findBySlug('button')['schema'], null, 'name');
+        self::assertSame(['solid', 'outline', 'soft', 'subtle', 'ghost', 'link'], $button['variant']['enum']);
+        self::assertSame(['primary', 'neutral'], $button['color']['enum']);
+        self::assertSame(['xs', 'sm', 'md', 'lg', 'xl'], $button['size']['enum']);
+        self::assertSame('icon', $button['leading_icon']['format']);
 
         // Columns sizing (columns-sizing spec): ratio presets + vertical alignment.
         $columns = array_column($repo->findBySlug('columns')['schema'], null, 'name');
@@ -78,12 +96,18 @@ final class SeedBlockTypesTest extends AppTestCase
         self::assertSame('brand-icon', $socialLink['icon']['format']);
         self::assertSame('brand:[a-z0-9]+(-[a-z0-9]+)*', $socialLink['icon']['pattern']);
 
-        // Navigation v2 (nav-v2 spec §1): styling + submenu enums.
+        // Navigation v2 (nav-v2 spec §1): styling + submenu enums. The style model
+        // is variant/color/highlight (navigationMenu-derived), not the old
+        // hover_style/active_style pair.
         $nav = array_column($repo->findBySlug('navigation')['schema'], null, 'name');
         self::assertSame(['start', 'center', 'end'], $nav['align']['enum']);
         self::assertSame(['sm', 'md', 'lg'], $nav['size']['enum']);
-        self::assertSame(['underline', 'pill', 'none'], $nav['active_style']['enum']);
-        self::assertSame(['color', 'underline', 'pill'], $nav['hover_style']['enum']);
+        self::assertSame(['pill', 'link'], $nav['variant']['enum']);
+        self::assertSame(['primary', 'neutral'], $nav['color']['enum']);
+        self::assertSame(['none', 'underline', 'bar'], $nav['highlight']['enum']);
+        self::assertSame(['dropdown', 'columns'], $nav['submenu_layout']['enum']);
+        self::assertArrayNotHasKey('active_style', $nav);
+        self::assertArrayNotHasKey('hover_style', $nav);
         self::assertSame(['chevron-down', 'chevron-right', 'plus', 'none'], $nav['submenu_icon']['enum']);
         self::assertSame(['hover', 'click'], $nav['submenu_trigger']['enum']);
     }
@@ -103,8 +127,8 @@ final class SeedBlockTypesTest extends AppTestCase
             null,
             'Custom',
         );
-        // …and deactivates quote (also an admin decision the seeder must respect).
-        $repo->setActive((string) $repo->findBySlug('quote')['uuid'], false);
+        // …and deactivates rich_text (also an admin decision the seeder must respect).
+        $repo->setActive((string) $repo->findBySlug('rich_text')['uuid'], false);
 
         $tester = $this->runSeed();
         $expected = count(StarterBlockTypes::definitions());
@@ -114,6 +138,6 @@ final class SeedBlockTypesTest extends AppTestCase
         $after = $repo->findBySlug('hero');
         self::assertSame('My Hero', $after['label']);                      // byte-identical edit survives
         self::assertContains('badge_text', array_column($after['schema'], 'name'));
-        self::assertSame(0, (int) $repo->findBySlug('quote')['active']);   // deactivation survives
+        self::assertSame(0, (int) $repo->findBySlug('rich_text')['active']);   // deactivation survives
     }
 }

@@ -91,6 +91,23 @@ final class RegionRenderingTest extends AppTestCase
      */
     public function testNavigationActiveStateAcrossLocaleGrammars(): void
     {
+        // Locale-prefixed grammar (/fr/…) consults the i18n registry — seed en
+        // (default) + fr so this test owns its locale setup instead of leaning on
+        // a row a sibling test happens to leave behind (mirrors PublicRouteResolverTest).
+        $this->connection()->getPDO()->exec("DELETE FROM i18n_locales WHERE code IN ('en', 'fr')");
+        $seedNow = gmdate('Y-m-d H:i:s');
+        foreach ([['en', true], ['fr', false]] as [$code, $isDefault]) {
+            $this->connection()->table('i18n_locales')->insert([
+                'uuid' => \Glueful\Helpers\Utils::generateNanoID(),
+                'code' => $code,
+                'name' => strtoupper($code),
+                'enabled' => true,
+                'is_default' => $isDefault,
+                'fallback_locale' => $isDefault ? null : 'en',
+                'created_at' => $seedNow,
+                'updated_at' => $seedNow,
+            ]);
+        }
         // Block types for the navigation block.
         $repo = new \App\Content\Blocks\BlockTypeRepository($this->connection());
         foreach (\App\Content\Blocks\StarterBlockTypes::definitions() as $definition) {
@@ -146,23 +163,28 @@ final class RegionRenderingTest extends AppTestCase
 
         // Collapsed default locale: /blog/hello — the blog item is active, root isn't.
         $en = $render('blog/hello');
+        // The active leaf <a> carries the __link class before href (nav v2), so the
+        // anchor match allows attributes between `<a` and `href`.
         self::assertMatchesRegularExpression(
-            '#__item--active[^>]*>\s*<a href="[^"]*/blog/hello"#',
+            '#__item--active[^>]*>\s*<a[^>]*href="[^"]*/blog/hello"#',
             $en,
         );
-        self::assertStringNotContainsString('__item--active"><a href="/landing-page"', $en);
+        self::assertDoesNotMatchRegularExpression(
+            '#__item--active[^>]*>\s*<a[^>]*href="[^"]*/landing-page"#',
+            $en,
+        );
 
         // Prefixed non-default locale: /fr/blog/bonjour — fr url resolves + matches.
         $fr = $render('fr/blog/bonjour');
         self::assertMatchesRegularExpression(
-            '#__item--active[^>]*>\s*<a href="[^"]*/fr/blog/bonjour"#',
+            '#__item--active[^>]*>\s*<a[^>]*href="[^"]*/fr/blog/bonjour"#',
             $fr,
         );
 
         // Root-mounted: /landing-page.
         $root = $render('landing-page');
         self::assertMatchesRegularExpression(
-            '#__item--active[^>]*>\s*<a href="[^"]*/landing-page"#',
+            '#__item--active[^>]*>\s*<a[^>]*href="[^"]*/landing-page"#',
             $root,
         );
     }
@@ -196,7 +218,7 @@ final class RegionRenderingTest extends AppTestCase
             ))->environment();
 
             $entryHtml = $env->createTemplate('{{ blocks(list) }}')->render(['list' => [
-                ['id' => 'entryblock01', 'type' => 'quote', 'data' => ['text' => 'Entry']],
+                ['id' => 'entryblock01', 'type' => 'rich_text', 'data' => ['body' => '<p>Entry</p>']],
             ]]);
             self::assertStringContainsString('thallo-preview-block', $entryHtml); // canvas mode is ON
 
@@ -207,7 +229,7 @@ final class RegionRenderingTest extends AppTestCase
 
             // …and suppression is scoped: blocks() AFTER a region render still annotates.
             $after = $env->createTemplate('{{ blocks(list) }}')->render(['list' => [
-                ['id' => 'entryblock02', 'type' => 'quote', 'data' => ['text' => 'After']],
+                ['id' => 'entryblock02', 'type' => 'rich_text', 'data' => ['body' => '<p>After</p>']],
             ]]);
             self::assertStringContainsString('thallo-preview-block', $after);
         } finally {

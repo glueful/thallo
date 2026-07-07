@@ -40,9 +40,9 @@ final class PreviewWorkingCopyTest extends AppTestCase
     private function seedBlockPage(string $slug): array
     {
         (new BlockTypeRepository($this->connection()))->create([
-            'slug' => 'quote',
-            'label' => 'Quote',
-            'schema' => [['name' => 'text', 'type' => 'text']],
+            'slug' => 'rich_text',
+            'label' => 'Rich text',
+            'schema' => [['name' => 'body', 'type' => 'text']],
         ]);
         $types = new ContentTypeRepository($this->connection());
         $this->type = $types->create([
@@ -57,7 +57,7 @@ final class PreviewWorkingCopyTest extends AppTestCase
         $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
         $entry = $entries->createEntry($this->type, 'en', 1, 'user00000001');
         $entries->saveDraft($entry, 'en', ['title' => 'S', 'body' => [
-            ['id' => 'draftblk0001', 'type' => 'quote', 'data' => ['text' => 'Draft only']],
+            ['id' => 'draftblk0001', 'type' => 'rich_text', 'data' => ['body' => '<p>Draft only</p>']],
         ]], 1, 0, 'user00000001');
         (new RouteRepository($this->connection()))->assign($entry, $this->type, 'en', $slug);
         $version = (new PublishService(
@@ -95,8 +95,8 @@ final class PreviewWorkingCopyTest extends AppTestCase
 
         // Stash a working copy with a block that exists ONLY there.
         $store->put($entry, 'en', ['title' => 'S', 'body' => [
-            ['id' => 'draftblk0001', 'type' => 'quote', 'data' => ['text' => 'Draft only']],
-            ['id' => 'workingb0001', 'type' => 'quote', 'data' => ['text' => 'Applied only']],
+            ['id' => 'draftblk0001', 'type' => 'rich_text', 'data' => ['body' => '<p>Draft only</p>']],
+            ['id' => 'workingb0001', 'type' => 'rich_text', 'data' => ['body' => '<p>Applied only</p>']],
         ]], 60);
         $html = $this->renderPreview($token);
         self::assertStringContainsString('Applied only', $html);
@@ -114,7 +114,7 @@ final class PreviewWorkingCopyTest extends AppTestCase
         $lock = (int) ($entriesRepo->findDraft($entry, 'en')['lock_version'] ?? 0);
         $save = $this->container()->get(EntryController::class)->saveDraft(
             new SaveDraftData(fields: ['title' => 'S', 'body' => [
-                ['id' => 'draftblk0001', 'type' => 'quote', 'data' => ['text' => 'Saved now']],
+                ['id' => 'draftblk0001', 'type' => 'rich_text', 'data' => ['body' => '<p>Saved now</p>']],
             ]], lock_version: $lock),
             Request::create('/x', 'PUT', [], [], [], ['CONTENT_TYPE' => 'application/json'], '{}'),
             $entry,
@@ -132,7 +132,7 @@ final class PreviewWorkingCopyTest extends AppTestCase
         ['entry' => $entry, 'version' => $version] = $this->seedBlockPage('wc-pinned');
         $store = $this->container()->get(PreviewWorkingCopyStore::class);
         $store->put($entry, 'en', ['title' => 'S', 'body' => [
-            ['id' => 'workingb0002', 'type' => 'quote', 'data' => ['text' => 'Applied only']],
+            ['id' => 'workingb0002', 'type' => 'rich_text', 'data' => ['body' => '<p>Applied only</p>']],
         ]], 60);
 
         $pinned = $this->container()->get(PreviewMinter::class)->mint($entry, 'en', $version);
