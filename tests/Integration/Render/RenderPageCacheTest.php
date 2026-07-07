@@ -68,7 +68,7 @@ final class RenderPageCacheTest extends AppTestCase
 
         // Overwrite the stored body: if the second request serves the sentinel, it came
         // from the cache — the resolver/Twig pipeline provably did not run.
-        $key = 'render:default:%2Fblog%2Fhello';
+        $key = 'render:default:blue-slate:%2Fblog%2Fhello';
         $entry = $this->cache()->get($key);
         self::assertIsArray($entry);
         $entry['body'] = 'SENTINEL-FROM-CACHE';
@@ -119,7 +119,7 @@ final class RenderPageCacheTest extends AppTestCase
 
         $this->handle(Request::create('/blog/hello', 'GET'));
         $keys = $this->cache()->getKeys('render:*');
-        self::assertSame(['render:default:%2Fblog%2Fhello'], $keys);
+        self::assertSame(['render:default:blue-slate:%2Fblog%2Fhello'], $keys);
         foreach ($keys as $key) {
             self::assertStringNotContainsString('//', $key);
         }
@@ -128,7 +128,7 @@ final class RenderPageCacheTest extends AppTestCase
     public function testHomepageIsCachedUnderRootKey(): void
     {
         $this->handle(Request::create('/', 'GET'));
-        self::assertIsArray($this->cache()->get('render:default:%2F'));
+        self::assertIsArray($this->cache()->get('render:default:blue-slate:%2F'));
     }
 
     public function testKeysAreValidForEveryCacheDriver(): void
@@ -155,6 +155,7 @@ final class RenderPageCacheTest extends AppTestCase
         $middleware = new \Thallo\Render\Http\Middleware\RenderPageCache(
             $this->cache(),
             'default',
+            'blue-slate',
             false,
             3600,
         );
@@ -178,20 +179,20 @@ final class RenderPageCacheTest extends AppTestCase
         // The fixed body's Cache-Tag reaches the client/CDN too, so edge purges on
         // thallo:render:page compose for themed 404s.
         self::assertSame('thallo:render:page', $first->headers->get('Cache-Tag'));
-        self::assertIsArray($this->cache()->get('render:default:404'));
+        self::assertIsArray($this->cache()->get('render:default:blue-slate:404'));
 
         // Overwrite the stored body: a DIFFERENT bogus path serving the sentinel proves
         // the 404 came from the fixed key — 404.twig was not rendered again.
-        $entry = $this->cache()->get('render:default:404');
+        $entry = $this->cache()->get('render:default:blue-slate:404');
         $entry['body'] = 'SENTINEL-404';
-        $this->cache()->set('render:default:404', $entry, 3600);
+        $this->cache()->set('render:default:blue-slate:404', $entry, 3600);
 
         $second = $this->handle(Request::create('/another/bogus/path', 'GET'));
         self::assertSame(404, $second->getStatusCode());
         self::assertSame('SENTINEL-404', (string) $second->getContent());
 
         // No per-path accumulation: the fixed key is the ONLY render:* entry.
-        self::assertSame(['render:default:404'], $this->cache()->getKeys('render:*'));
+        self::assertSame(['render:default:blue-slate:404'], $this->cache()->getKeys('render:*'));
     }
 
     public function testErrorRenderCallbackRunsOnlyOnceOnWarmKey(): void
@@ -203,7 +204,7 @@ final class RenderPageCacheTest extends AppTestCase
             $calls++;
             return new Response('<html>404</html>', 404, ['Content-Type' => 'text/html; charset=UTF-8']);
         };
-        $errors = new RenderErrorCache($this->cache(), 'default', true, 3600);
+        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate',true, 3600);
         $errors->themed404($render);
         $second = $errors->themed404($render);
 
@@ -222,11 +223,11 @@ final class RenderPageCacheTest extends AppTestCase
             $calls++;
             return new Response('Internal Server Error', 500, ['Content-Type' => 'text/plain; charset=UTF-8']);
         };
-        $errors = new RenderErrorCache($this->cache(), 'default', true, 3600);
+        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate',true, 3600);
         $errors->themed404($render);
         $errors->themed404($render);
         self::assertSame(2, $calls);
-        self::assertNull($this->cache()->get('render:default:404'));
+        self::assertNull($this->cache()->get('render:default:blue-slate:404'));
     }
 
     public function testGoneStoresFixed410Body(): void
@@ -250,7 +251,7 @@ final class RenderPageCacheTest extends AppTestCase
         $res = $this->handle(Request::create('/blog/moved-away', 'GET'));
         self::assertSame(410, $res->getStatusCode());
         self::assertSame('thallo:render:page', $res->headers->get('Cache-Tag'));
-        self::assertIsArray($this->cache()->get('render:default:410'));
+        self::assertIsArray($this->cache()->get('render:default:blue-slate:410'));
     }
 
     public function testDisabledErrorCacheIsAPurePassthrough(): void
@@ -260,7 +261,7 @@ final class RenderPageCacheTest extends AppTestCase
             $calls++;
             return new Response('<html>404</html>', 404, ['Content-Type' => 'text/html; charset=UTF-8']);
         };
-        $errors = new RenderErrorCache($this->cache(), 'default', false, 3600);
+        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate',false, 3600);
         $res = $errors->themed404($render);
         $errors->themed404($render);
         self::assertSame(2, $calls); // rendered every time — byte-for-byte today's behavior
@@ -277,8 +278,8 @@ final class RenderPageCacheTest extends AppTestCase
         $entry = $this->seedBilingualPublishedEntry();
         $this->handle(Request::create('/blog/hello', 'GET'));
         $this->handle(Request::create('/', 'GET'));
-        self::assertIsArray($this->cache()->get('render:default:%2Fblog%2Fhello'));
-        $root = $this->cache()->get('render:default:%2F');
+        self::assertIsArray($this->cache()->get('render:default:blue-slate:%2Fblog%2Fhello'));
+        $root = $this->cache()->get('render:default:blue-slate:%2F');
         self::assertIsArray($root);
         // Precondition, asserted rather than assumed: the test env runs the STANDALONE
         // homepage (render.homepage_entry unset), so the root entry carries no
@@ -290,8 +291,8 @@ final class RenderPageCacheTest extends AppTestCase
         $this->container()->get(EventService::class)
             ->dispatch(new EntryPublished($entry, $this->typeUuid()));
 
-        self::assertNull($this->cache()->get('render:default:%2Fblog%2Fhello')); // A purged
-        self::assertIsArray($this->cache()->get('render:default:%2F'));        // B still hit
+        self::assertNull($this->cache()->get('render:default:blue-slate:%2Fblog%2Fhello')); // A purged
+        self::assertIsArray($this->cache()->get('render:default:blue-slate:%2F'));        // B still hit
     }
 
     public function testRenderPageTagInvalidationDropsEverything(): void

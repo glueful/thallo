@@ -182,7 +182,7 @@ final class PreviewSessionTest extends AppTestCase
         // Prime the cache, then plant a sentinel.
         $this->handle(Request::create('/blog/hello', 'GET'));
         $cache = $this->container()->get(CacheStore::class);
-        $key = 'render:default:%2Fblog%2Fhello';
+        $key = 'render:default:blue-slate:%2Fblog%2Fhello';
         $cached = $cache->get($key);
         self::assertIsArray($cached);
         $cached['body'] = 'SENTINEL-CACHED';
@@ -234,6 +234,7 @@ final class PreviewSessionTest extends AppTestCase
         $cacheOff = new \Thallo\Render\Http\Middleware\RenderPageCache(
             $this->container()->get(CacheStore::class),
             'default',
+            'blue-slate',
             false,
             3600,
         );
@@ -289,7 +290,7 @@ final class PreviewSessionTest extends AppTestCase
         self::assertStringContainsString('preview-banner', $html); // …but in chrome
         self::assertStringContainsString('no-store', (string) $listing->headers->get('Cache-Control'));
         // And nothing entered the page cache.
-        self::assertNull($this->container()->get(CacheStore::class)->get('render:default:%2Fblog'));
+        self::assertNull($this->container()->get(CacheStore::class)->get('render:default:blue-slate:%2Fblog'));
     }
 
     public function testSessionCanonicalUrlRendersTheWorkingCopyOverTheDraft(): void
@@ -354,7 +355,7 @@ final class PreviewSessionTest extends AppTestCase
         // (the sentinel survives unchanged).
         [$entry, $token] = $this->seedRoutedEntryWithDraft();
         $cache = $this->container()->get(CacheStore::class);
-        $key = 'render:default:%2Fblog%2Fhello';
+        $key = 'render:default:blue-slate:%2Fblog%2Fhello';
 
         // Prime the real cache entry, then plant the sentinel.
         $this->handle(Request::create('/blog/hello', 'GET'));
@@ -441,7 +442,7 @@ final class PreviewSessionTest extends AppTestCase
         self::assertStringContainsString('preview-banner', (string) $res->getContent());
         self::assertStringContainsString('no-store', (string) $res->headers->get('Cache-Control'));
         // The SHARED fixed 404 body was neither read nor filled by the session.
-        self::assertNull($this->container()->get(CacheStore::class)->get('render:default:404'));
+        self::assertNull($this->container()->get(CacheStore::class)->get('render:default:blue-slate:404'));
     }
 
     // ---- Task 4: per-preview theme + assets -------------------------------------------

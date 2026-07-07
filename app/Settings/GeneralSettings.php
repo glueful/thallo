@@ -36,6 +36,10 @@ final class GeneralSettings
         // Live theme (theme-setting spec §1): DB override → RENDER_THEME env →
         // 'default'. Write-validated; explicit '' clears to the env fallback.
         'theme'             => ['render.theme', 'string', 'default'],
+        // Theme color config (theme-color-config spec §2): accent + neutral
+        // Tailwind families; DB row → config → blue/slate. Enum-validated on save.
+        'theme_accent'      => ['thallo.theme.accent', 'string', 'blue'],
+        'theme_neutral'     => ['thallo.theme.neutral', 'string', 'slate'],
         // Admin SPA base URL — powers the preview bar's Edit/Design deep links.
         // Auto-populated at web setup (the SPA sends its own origin).
         'admin_url'         => ['render.admin_url', 'string', ''],
@@ -90,6 +94,16 @@ final class GeneralSettings
     public function theme(): string
     {
         return (string) $this->value('theme');
+    }
+
+    public function themeAccent(): string
+    {
+        return (string) $this->value('theme_accent');
+    }
+
+    public function themeNeutral(): string
+    {
+        return (string) $this->value('theme_neutral');
     }
 
     /**

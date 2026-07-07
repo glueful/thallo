@@ -294,7 +294,7 @@ final class TermIndexPagesTest extends AppTestCase
         $this->seedTerm('tidxterm0003', 'vtidxterm003', 'purge');
         $this->handle(Request::create('/post/terms/category', 'GET'));
         self::assertIsArray(
-            $this->container()->get(CacheStore::class)->get('render:default:%2Fpost%2Fterms%2Fcategory'),
+            $this->container()->get(CacheStore::class)->get('render:default:blue-slate:%2Fpost%2Fterms%2Fcategory'),
         );
 
         // A brand-new post publishes → thallo:type:post purges the index (its counts
@@ -304,7 +304,7 @@ final class TermIndexPagesTest extends AppTestCase
             ->dispatch(new EntryPublished('tidxpostnew1', $this->postType, 'en'));
 
         self::assertNull(
-            $this->container()->get(CacheStore::class)->get('render:default:%2Fpost%2Fterms%2Fcategory'),
+            $this->container()->get(CacheStore::class)->get('render:default:blue-slate:%2Fpost%2Fterms%2Fcategory'),
         );
     }
 }

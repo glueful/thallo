@@ -68,6 +68,8 @@ const settings = (): GeneralSettings => ({
   site_logo_dark: '',
   site_favicon: '',
   theme: 'default',
+  theme_accent: 'blue',
+  theme_neutral: 'slate',
   admin_url: '',
   listing_types: ['post'],
 })
@@ -127,6 +129,37 @@ describe('general settings page — site logo', () => {
     await saveBtn!.trigger('click')
     await flushPromises()
     expect(saveMock.mock.calls[0]![0]).toMatchObject({ theme: 'default' })
+  })
+
+  it('exposes accent and neutral selectors and saves them with the form', async () => {
+    saveMock.mockResolvedValue({ ...settings() })
+    const wrapper = mount(GeneralSettingsPage)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="theme-colors-card"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="theme-accent"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="theme-neutral"]').exists()).toBe(true)
+
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
+    await saveBtn!.trigger('click')
+    await flushPromises()
+    expect(saveMock.mock.calls[0]![0]).toMatchObject({
+      theme_accent: 'blue',
+      theme_neutral: 'slate',
+    })
+  })
+
+  it('hydrates saved accent/neutral from the server payload', async () => {
+    settingsData.value = { ...settings(), theme_accent: 'emerald', theme_neutral: 'zinc' }
+    const wrapper = mount(GeneralSettingsPage)
+    await flushPromises()
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
+    await saveBtn!.trigger('click')
+    await flushPromises()
+    expect(saveMock.mock.calls[0]![0]).toMatchObject({
+      theme_accent: 'emerald',
+      theme_neutral: 'zinc',
+    })
   })
 
   it('a failed themes fetch hides the Theme card without an error toast', async () => {

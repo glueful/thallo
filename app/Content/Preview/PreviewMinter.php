@@ -35,6 +35,8 @@ final class PreviewMinter
         string $locale,
         ?string $versionUuid = null,
         ?string $theme = null,
+        ?string $accent = null,
+        ?string $neutral = null,
     ): string {
         return PreviewToken::mint(
             $entryUuid,
@@ -43,6 +45,8 @@ final class PreviewMinter
             time() + $this->ttlSeconds(),
             $this->previewKey($this->context),
             $theme,
+            $accent,
+            $neutral,
         );
     }
 

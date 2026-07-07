@@ -1,4 +1,249 @@
 export interface paths {
+    "/admin/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Admin SPA runtime config
+         * @description Unauthenticated bootstrap config the admin SPA fetches at startup: `apiBase`, `sitePreviewUrl`, `defaultLocale`, and whether first-run setup has completed (`installed`). A plain JSON document (no `data` envelope) so one compiled bundle works across installs.
+         */
+        get: operations["getAdminConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * First-run web setup
+         * @description Unauthenticated, self-locking first-run setup: creates the first admin and writes site settings. Returns 409 forever once the instance is installed — a second "first" admin can never be created.
+         */
+        post: operations["postAdminSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * User Login
+         * @description Authenticates a user with username/email and password
+         */
+        post: operations["postV1AuthLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/validate-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Validate Token
+         * @description Validates the current authentication token
+         */
+        post: operations["postV1AuthValidatetoken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/refresh-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Token
+         * @description Generates new access token using a valid refresh token
+         */
+        post: operations["postV1AuthRefreshtoken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * User Logout
+         * @description Invalidates the current authentication token
+         */
+        post: operations["postV1AuthLogout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/auth/refresh-permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh User Permissions
+         * @description Updates the session with fresh user permissions and returns a new token
+         */
+        post: operations["postV1AuthRefreshpermissions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/blobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload File
+         * @description Upload a file via multipart form data or base64 encoding.
+         */
+        post: operations["postV1Blobs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/extensions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /v1/extensions */
+        get: operations["getV1Extensions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/extensions/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /v1/extensions/catalog */
+        get: operations["getV1ExtensionsCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/extensions/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /v1/extensions/install */
+        post: operations["postV1ExtensionsInstall"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/extensions/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /v1/extensions/enable */
+        post: operations["postV1ExtensionsEnable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/extensions/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /v1/extensions/disable */
+        post: operations["postV1ExtensionsDisable"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/rbac/roles": {
         parameters: {
             query?: never;
@@ -818,7 +1063,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/config": {
+    "/v1/content/{type}": {
         parameters: {
             query?: never;
             header?: never;
@@ -826,10 +1071,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Admin SPA runtime config
-         * @description Unauthenticated bootstrap config the admin SPA fetches at startup: `apiBase`, `sitePreviewUrl`, `defaultLocale`, and whether first-run setup has completed (`installed`). A plain JSON document (no `data` envelope) so one compiled bundle works across installs.
+         * List published entries of a content type
+         * @description Published entries only. Cursor pagination by default; `page`/`perPage` switches to offset. Filter and sort are accepted only on filterable fields.
          */
-        get: operations["getAdminConfig"];
+        get: operations["getV1ContentByType"];
         put?: never;
         post?: never;
         delete?: never;
@@ -838,140 +1083,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/admin/setup": {
+    "/v1/content/{type}/facets": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** GET /v1/content/{type}/facets */
+        get: operations["getV1ContentByTypeFacets"];
         put?: never;
-        /**
-         * First-run web setup
-         * @description Unauthenticated, self-locking first-run setup: creates the first admin and writes site settings. Returns 409 forever once the instance is installed — a second "first" admin can never be created.
-         */
-        post: operations["postAdminSetup"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/auth/login": {
+    "/v1/content/{type}/{slugOrUuid}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * User Login
-         * @description Authenticates a user with username/email and password
+         * Get a single published entry by slug or UUID
+         * @description Resolved by route slug or 12-char entry UUID; published only (draft/unpublished → 404). Supports `If-None-Match` → 304.
          */
-        post: operations["postV1AuthLogin"];
+        get: operations["getV1ContentByTypeBySlugoruuid"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/auth/validate-token": {
+    "/v1/content/{type}/archive/{field}/{term}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** GET /v1/content/{type}/archive/{field}/{term} */
+        get: operations["getV1ContentByTypeArchiveByFieldByTerm"];
         put?: never;
-        /**
-         * Validate Token
-         * @description Validates the current authentication token
-         */
-        post: operations["postV1AuthValidatetoken"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/auth/refresh-token": {
+    "/v1/preview/{token}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Refresh Token
-         * @description Generates new access token using a valid refresh token
+         * Read a draft via a signed preview token
+         * @description Unauthenticated — the token in the path is the only credential, and this is the only way to read unpublished content. Returns the draft, or the version the token pins.
          */
-        post: operations["postV1AuthRefreshtoken"];
+        get: operations["getV1PreviewByToken"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/auth/logout": {
+    "/v1/blobs/{uuid}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * User Logout
-         * @description Invalidates the current authentication token
+         * Retrieve Blob
+         * @description Retrieve blob file content with optional image resizing.
          */
-        post: operations["postV1AuthLogout"];
-        delete?: never;
+        get: operations["getV1BlobsByUuid"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Blob
+         * @description Soft-delete a blob and remove its underlying file from storage
+         */
+        delete: operations["deleteV1BlobsByUuid"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/v1/auth/refresh-permissions": {
+    "/v1/blobs/{uuid}/info": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Refresh User Permissions
-         * @description Updates the session with fresh user permissions and returns a new token
+         * Blob Metadata
+         * @description Retrieve blob metadata without downloading the file content
          */
-        post: operations["postV1AuthRefreshpermissions"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/blobs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
+        get: operations["getV1BlobsByUuidInfo"];
         put?: never;
-        /**
-         * Upload File
-         * @description Upload a file via multipart form data or base64 encoding.
-         */
-        post: operations["postV1Blobs"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1421,163 +1644,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/content/{type}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List published entries of a content type
-         * @description Published entries only. Cursor pagination by default; `page`/`perPage` switches to offset. Filter and sort are accepted only on filterable fields.
-         */
-        get: operations["getV1ContentByType"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/content/{type}/facets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** GET /v1/content/{type}/facets */
-        get: operations["getV1ContentByTypeFacets"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/content/{type}/{slugOrUuid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a single published entry by slug or UUID
-         * @description Resolved by route slug or 12-char entry UUID; published only (draft/unpublished → 404). Supports `If-None-Match` → 304.
-         */
-        get: operations["getV1ContentByTypeBySlugoruuid"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/content/{type}/archive/{field}/{term}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** GET /v1/content/{type}/archive/{field}/{term} */
-        get: operations["getV1ContentByTypeArchiveByFieldByTerm"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/preview/{token}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Read a draft via a signed preview token
-         * @description Unauthenticated — the token in the path is the only credential, and this is the only way to read unpublished content. Returns the draft, or the version the token pins.
-         */
-        get: operations["getV1PreviewByToken"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/blobs/{uuid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Retrieve Blob
-         * @description Retrieve blob file content with optional image resizing.
-         */
-        get: operations["getV1BlobsByUuid"];
-        put?: never;
-        post?: never;
-        /**
-         * Delete Blob
-         * @description Soft-delete a blob and remove its underlying file from storage
-         */
-        delete: operations["deleteV1BlobsByUuid"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/v1/blobs/{uuid}/info": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Blob Metadata
-         * @description Retrieve blob metadata without downloading the file content
-         */
-        get: operations["getV1BlobsByUuidInfo"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/email/templates/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** PUT /email/templates/{key} */
-        put: operations["putEmailTemplatesByKey"];
-        post?: never;
-        /** DELETE /email/templates/{key} */
-        delete: operations["deleteEmailTemplatesByKey"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/rbac/roles/{uuid}/revoke": {
+    "/i18n/locales/{code}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1587,17 +1654,17 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Revoke role from user
-         * @description Revokes the role from a user. Body: `user_uuid` (required). Requires the `roles.assign` permission.
-         */
-        delete: operations["deleteRbacRolesByUuidRevoke"];
+        delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Locale
+         * @description Partially updates a stored locale by code. All body fields are optional; `fallback_locale` is cycle-checked, `is_default: true` clears the previous default, and the only stored default locale cannot be cleared or disabled. Body: `name`, `native_name`, `enabled`, `is_default`, `fallback_locale`, `direction` (ltr|rtl), `region`. Requires the `i18n.manage` permission.
+         */
+        patch: operations["i18nLocalesUpdate"];
         trace?: never;
     };
-    "/rbac/roles/{role_uuid}/revoke-users": {
+    "/i18n/translations/{uuid}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1607,17 +1674,17 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /**
-         * Bulk revoke role from users
-         * @description Revokes a role from multiple users. Body: `user_uuids` (required). Requires the `roles.assign` permission.
-         */
-        delete: operations["deleteRbacRolesByRoleuuidRevokeusers"];
+        delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Update Translation Value
+         * @description Updates the value of one persisted translation by UUID. Body: `value` (required; new translated message, max 65,535 bytes). Requires the `i18n.manage` permission.
+         */
+        patch: operations["i18nTranslationsUpdate"];
         trace?: never;
     };
-    "/rbac/roles/{uuid}/permissions/{permission_uuid}": {
+    "/v1/blobs/{uuid}/signed-url": {
         parameters: {
             query?: never;
             header?: never;
@@ -1626,52 +1693,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post?: never;
         /**
-         * Revoke permission from role
-         * @description Removes a single permission grant from a role. Requires the `roles.edit` permission.
+         * Generate Signed URL
+         * @description Generate a temporary signed URL for accessing a private blob.
          */
-        delete: operations["deleteRbacRolesByUuidPermissionsByPermissionuuid"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/rbac/permissions/{uuid}/revoke": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Revoke permission from user
-         * @description Revokes the permission from a user. Body: `user_uuid` (required). Requires the `system.config` permission.
-         */
-        delete: operations["deleteRbacPermissionsByUuidRevoke"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/rbac/users/{user_uuid}/roles/{role_uuid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Revoke specific role from user
-         * @description Revokes a specific role from a user. Requires the `roles.assign` permission.
-         */
-        delete: operations["deleteRbacUsersByUseruuidRolesByRoleuuid"];
+        post: operations["postV1BlobsByUuidSignedurl"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1851,7 +1878,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/blobs/{uuid}/signed-url": {
+    "/rbac/roles/{uuid}/revoke": {
         parameters: {
             query?: never;
             header?: never;
@@ -1860,18 +1887,18 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        post?: never;
         /**
-         * Generate Signed URL
-         * @description Generate a temporary signed URL for accessing a private blob.
+         * Revoke role from user
+         * @description Revokes the role from a user. Body: `user_uuid` (required). Requires the `roles.assign` permission.
          */
-        post: operations["postV1BlobsByUuidSignedurl"];
-        delete?: never;
+        delete: operations["deleteRbacRolesByUuidRevoke"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/i18n/locales/{code}": {
+    "/rbac/roles/{role_uuid}/revoke-users": {
         parameters: {
             query?: never;
             header?: never;
@@ -1881,17 +1908,17 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Bulk revoke role from users
+         * @description Revokes a role from multiple users. Body: `user_uuids` (required). Requires the `roles.assign` permission.
+         */
+        delete: operations["deleteRbacRolesByRoleuuidRevokeusers"];
         options?: never;
         head?: never;
-        /**
-         * Update Locale
-         * @description Partially updates a stored locale by code. All body fields are optional; `fallback_locale` is cycle-checked, `is_default: true` clears the previous default, and the only stored default locale cannot be cleared or disabled. Body: `name`, `native_name`, `enabled`, `is_default`, `fallback_locale`, `direction` (ltr|rtl), `region`. Requires the `i18n.manage` permission.
-         */
-        patch: operations["i18nLocalesUpdate"];
+        patch?: never;
         trace?: never;
     };
-    "/i18n/translations/{uuid}": {
+    "/rbac/roles/{uuid}/permissions/{permission_uuid}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1901,14 +1928,72 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Revoke permission from role
+         * @description Removes a single permission grant from a role. Requires the `roles.edit` permission.
+         */
+        delete: operations["deleteRbacRolesByUuidPermissionsByPermissionuuid"];
         options?: never;
         head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rbac/permissions/{uuid}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
         /**
-         * Update Translation Value
-         * @description Updates the value of one persisted translation by UUID. Body: `value` (required; new translated message, max 65,535 bytes). Requires the `i18n.manage` permission.
+         * Revoke permission from user
+         * @description Revokes the permission from a user. Body: `user_uuid` (required). Requires the `system.config` permission.
          */
-        patch: operations["i18nTranslationsUpdate"];
+        delete: operations["deleteRbacPermissionsByUuidRevoke"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/rbac/users/{user_uuid}/roles/{role_uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke specific role from user
+         * @description Revokes a specific role from a user. Requires the `roles.assign` permission.
+         */
+        delete: operations["deleteRbacUsersByUseruuidRolesByRoleuuid"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/email/templates/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** PUT /email/templates/{key} */
+        put: operations["putEmailTemplatesByKey"];
+        post?: never;
+        /** DELETE /email/templates/{key} */
+        delete: operations["deleteEmailTemplatesByKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }
@@ -2232,6 +2317,1001 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getAdminConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Runtime config: apiBase, sitePreviewUrl, defaultLocale, installed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postAdminSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "site_name": "example",
+                 *       "admin_email": "user@example.com",
+                 *       "admin_password": "example",
+                 *       "locale": "example",
+                 *       "admin_url": "example"
+                 *     }
+                 */
+                "application/json": {
+                    site_name: string;
+                    /** Format: email */
+                    admin_email: string;
+                    admin_password: string;
+                    locale: string;
+                    /** @description The admin SPA's own origin — sent by the web setup form. */
+                    admin_url?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Setup complete; the first admin was created. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Already installed — setup is permanently locked. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid setup payload (site name, admin email/password, locale). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AuthLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    username?: string;
+                    password?: string;
+                    provider?: string | null;
+                    remember?: boolean | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Login successful */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            access_token?: string;
+                            token_type?: string;
+                            expires_in?: number;
+                            refresh_token?: string;
+                            user?: unknown[];
+                            two_factor_required?: boolean | null;
+                            challenge_token?: string | null;
+                            delivered_to?: string | null;
+                        };
+                    };
+                };
+            };
+            /** @description Missing required fields */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid credentials */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AuthValidatetoken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Token is valid */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            user?: unknown[];
+                            is_valid?: boolean;
+                        };
+                    };
+                };
+            };
+            /** @description Invalid or expired token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AuthRefreshtoken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "refresh_token": "example"
+                 *     }
+                 */
+                "application/json": {
+                    refresh_token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            access_token?: string;
+                            refresh_token?: string;
+                            expires_in?: number;
+                            token_type?: string;
+                            user?: unknown[];
+                        };
+                    };
+                };
+            };
+            /** @description Missing refresh token */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid refresh token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AuthLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logout successful */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - not logged in */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AuthRefreshpermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Permissions refreshed successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            access_token?: string;
+                            refresh_token?: string;
+                            permissions?: unknown[];
+                            updated_at?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Missing or invalid token */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized - invalid token */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1Blobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                    path_prefix?: string;
+                    /** @enum {string} */
+                    visibility?: "public" | "private";
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Upload successful */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            type?: string;
+                            url?: string;
+                            thumb_url?: string | null;
+                            mime_type?: string;
+                            size_bytes?: number;
+                            width?: number | null;
+                            height?: number | null;
+                            duration_s?: number | null;
+                            filename?: string;
+                            path?: string;
+                            blob_uuid?: string;
+                            visibility?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Missing file upload or invalid base64 data */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description File too large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unsupported file type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1Extensions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1ExtensionsCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1ExtensionsInstall: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "package": "example"
+                 *     }
+                 */
+                "application/json": {
+                    package: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1ExtensionsEnable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "package": "example"
+                 *     }
+                 */
+                "application/json": {
+                    package: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1ExtensionsDisable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "package": "example"
+                 *     }
+                 */
+                "application/json": {
+                    package: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     getRbacRoles: {
         parameters: {
             query?: {
@@ -5405,130 +6485,31 @@ export interface operations {
             };
         };
     };
-    getAdminConfig: {
+    getV1ContentByType: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Content locale to read. Single-entry reads walk the configured i18n fallback chain; when omitted, this defaults to the i18n default locale. */
+                locale?: string;
+                /** @description Sort by a filterable field, `sort=field:asc` or `sort=field:desc`. Defaults to `published_at:desc`. */
+                sort?: string;
+                /** @description Opaque keyset cursor taken from a previous response's `next_cursor`. Cursor (default) mode only. */
+                cursor?: string;
+                /** @description Page number. Supplying `page` or `perPage` switches the response to the offset-pagination envelope. */
+                page?: number;
+                /** @description Items per page for offset pagination (clamped to delivery.max_per_page). */
+                perPage?: number;
+                /** @description Typed filters on filterable fields using bracket syntax `filter[field][op]=value`. Operators: eq, neq, gt, gte, lt, lte, in. Only fields declared filterable are accepted. */
+                filter?: string[];
+            };
             header?: never;
-            path?: never;
+            path: {
+                type: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Runtime config: apiBase, sitePreviewUrl, defaultLocale, installed. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    postAdminSetup: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "site_name": "example",
-                 *       "admin_email": "user@example.com",
-                 *       "admin_password": "example",
-                 *       "locale": "example",
-                 *       "admin_url": "example"
-                 *     }
-                 */
-                "application/json": {
-                    site_name: string;
-                    /** Format: email */
-                    admin_email: string;
-                    admin_password: string;
-                    locale: string;
-                    /** @description The admin SPA's own origin — sent by the web setup form. */
-                    admin_url?: string | null;
-                };
-            };
-        };
-        responses: {
-            /** @description Setup complete; the first admin was created. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Already installed — setup is permanently locked. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid setup payload (site name, admin email/password, locale). */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    postV1AuthLogin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    username?: string;
-                    password?: string;
-                    provider?: string | null;
-                    remember?: boolean | null;
-                };
-            };
-        };
-        responses: {
-            /** @description Login successful */
+            /** @description A page of published entries (cursor mode by default; offset mode replaces `data` with the item array plus top-level pagination keys). */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5538,34 +6519,21 @@ export interface operations {
                         success: boolean;
                         message: string;
                         data: {
-                            access_token?: string;
-                            token_type?: string;
-                            expires_in?: number;
-                            refresh_token?: string;
-                            user?: unknown[];
-                            two_factor_required?: boolean | null;
-                            challenge_token?: string | null;
-                            delivered_to?: string | null;
+                            items?: {
+                                uuid?: string | null;
+                                locale?: string | null;
+                                version?: number | null;
+                                /** Format: date-time */
+                                published_at?: string | null;
+                                fields?: Record<string, never>;
+                            }[];
+                            next_cursor?: string | null;
                         };
                     };
                 };
             };
-            /** @description Missing required fields */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid credentials */
+            /** @description Unauthenticated. */
             401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5580,40 +6548,6 @@ export interface operations {
                         };
                     };
                 };
-            };
-        };
-    };
-    postV1AuthValidatetoken: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Token is valid */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success: boolean;
-                        message: string;
-                        data: {
-                            user?: unknown[];
-                            is_valid?: boolean;
-                        };
-                    };
-                };
-            };
-            /** @description Invalid or expired token */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Forbidden. */
             403: {
@@ -5632,6 +6566,63 @@ export interface operations {
                     };
                 };
             };
+            /** @description Unknown content type slug. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Filter or sort references a non-filterable field or an unsupported operator. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Too Many Requests. */
+            429: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    /** @description Request quota for the current window. */
+                    "X-RateLimit-Limit"?: number;
+                    /** @description Requests remaining in the current window. */
+                    "X-RateLimit-Remaining"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
             /** @description Unexpected server error. */
             500: {
                 headers: {
@@ -5651,58 +6642,64 @@ export interface operations {
             };
         };
     };
-    postV1AuthRefreshtoken: {
+    getV1ContentByTypeFacets: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description Comma-separated filterable reference field names to count, e.g. `fields=categories,tags`. */
+                fields: string;
+                /** @description Content locale; defaults to the i18n default locale. */
+                locale?: string;
+                /** @description Max terms per field (default 100, capped at 500). */
+                limit?: number;
+            };
             header?: never;
-            path?: never;
+            path: {
+                type: string;
+            };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "refresh_token": "example"
-                 *     }
-                 */
-                "application/json": {
-                    refresh_token: string;
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful response */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        success: boolean;
-                        message: string;
-                        data: {
-                            access_token?: string;
-                            refresh_token?: string;
-                            expires_in?: number;
-                            token_type?: string;
-                            user?: unknown[];
-                        };
-                    };
-                };
-            };
-            /** @description Missing refresh token */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
                 content?: never;
             };
-            /** @description Invalid refresh token */
+            /** @description Unauthenticated. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
             };
             /** @description Validation failed */
             422: {
@@ -5720,51 +6717,15 @@ export interface operations {
                     };
                 };
             };
-            /** @description Unexpected server error. */
-            500: {
+            /** @description Too Many Requests. */
+            429: {
                 headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    postV1AuthLogout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Logout successful */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthorized - not logged in */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    /** @description Request quota for the current window. */
+                    "X-RateLimit-Limit"?: number;
+                    /** @description Requests remaining in the current window. */
+                    "X-RateLimit-Remaining"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -5798,16 +6759,22 @@ export interface operations {
             };
         };
     };
-    postV1AuthRefreshpermissions: {
+    getV1ContentByTypeBySlugoruuid: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Content locale to read (defaults to the i18n default locale). */
+                locale?: string;
+            };
             header?: never;
-            path?: never;
+            path: {
+                type: string;
+                slugOrUuid: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Permissions refreshed successfully */
+            /** @description The published entry with SEO metadata. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5817,31 +6784,100 @@ export interface operations {
                         success: boolean;
                         message: string;
                         data: {
-                            access_token?: string;
-                            refresh_token?: string;
-                            permissions?: unknown[];
-                            updated_at?: string;
+                            uuid?: string | null;
+                            locale?: string | null;
+                            version?: number | null;
+                            /** Format: date-time */
+                            published_at?: string | null;
+                            fields?: Record<string, never>;
+                            seo?: Record<string, never>;
                         };
                     };
                 };
             };
-            /** @description Missing or invalid token */
-            400: {
+            /** @description Not Modified — the supplied If-None-Match ETag still matches the published version. */
+            304: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Unauthorized - invalid token */
+            /** @description Unauthenticated. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
             };
             /** @description Forbidden. */
             403: {
                 headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown content type, or no published entry for the given slug/UUID. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Too Many Requests. */
+            429: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    /** @description Request quota for the current window. */
+                    "X-RateLimit-Limit"?: number;
+                    /** @description Requests remaining in the current window. */
+                    "X-RateLimit-Remaining"?: number;
                     [name: string]: unknown;
                 };
                 content: {
@@ -5875,24 +6911,31 @@ export interface operations {
             };
         };
     };
-    postV1Blobs: {
+    getV1ContentByTypeArchiveByFieldByTerm: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Content locale to read. Single-entry reads walk the configured i18n fallback chain; when omitted, this defaults to the i18n default locale. */
+                locale?: string;
+                /** @description Sort by a filterable field, `sort=field:asc` or `sort=field:desc`. Defaults to `published_at:desc`. */
+                sort?: string;
+                /** @description Opaque keyset cursor taken from a previous response's `next_cursor`. Cursor (default) mode only. */
+                cursor?: string;
+                /** @description Page number. Supplying `page` or `perPage` switches the response to the offset-pagination envelope. */
+                page?: number;
+                /** @description Items per page for offset pagination (clamped to delivery.max_per_page). */
+                perPage?: number;
+                /** @description Typed filters on filterable fields using bracket syntax `filter[field][op]=value`. Operators: eq, neq, gt, gte, lt, lte, in. Only fields declared filterable are accepted. */
+                filter?: string[];
+            };
             header?: never;
-            path?: never;
+            path: {
+                type: string;
+                field: string;
+                term: string;
+            };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "multipart/form-data": {
-                    /** Format: binary */
-                    file: string;
-                    path_prefix?: string;
-                    /** @enum {string} */
-                    visibility?: "public" | "private";
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful response */
             200: {
@@ -5901,8 +6944,111 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Upload successful */
-            201: {
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Too Many Requests. */
+            429: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    /** @description Request quota for the current window. */
+                    "X-RateLimit-Limit"?: number;
+                    /** @description Requests remaining in the current window. */
+                    "X-RateLimit-Remaining"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1PreviewByToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The previewed draft (or pinned version). */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5911,28 +7057,200 @@ export interface operations {
                         success: boolean;
                         message: string;
                         data: {
-                            type?: string;
-                            url?: string;
-                            thumb_url?: string | null;
-                            mime_type?: string;
-                            size_bytes?: number;
-                            width?: number | null;
-                            height?: number | null;
-                            duration_s?: number | null;
-                            filename?: string;
-                            path?: string;
-                            blob_uuid?: string;
-                            visibility?: string;
+                            preview?: {
+                                entry_uuid?: string;
+                                locale?: string;
+                                version_uuid?: string | null;
+                                version?: number | null;
+                                schema_version?: number;
+                                fields?: Record<string, never>;
+                            };
                         };
                     };
                 };
             };
-            /** @description Missing file upload or invalid base64 data */
-            400: {
+            /** @description Invalid or malformed preview token. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description The token's target entry/version no longer exists. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description The preview token has expired. */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Too Many Requests. */
+            429: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    /** @description Request quota for the current window. */
+                    "X-RateLimit-Limit"?: number;
+                    /** @description Requests remaining in the current window. */
+                    "X-RateLimit-Remaining"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1BlobsByUuid: {
+        parameters: {
+            query?: {
+                /** @description Resize target width in pixels (images only) */
+                width?: number;
+                /** @description Resize target height in pixels (images only) */
+                height?: number;
+                /** @description Output quality 1-100 (images only) */
+                quality?: number;
+                /** @description Output format for conversion (images only) */
+                format?: string;
+                /** @description Resize fit mode (images only) */
+                fit?: string;
+            };
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File content with appropriate Content-Type header */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Authentication required for private blob */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Blob not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteV1BlobsByUuid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Blob deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            uuid?: string;
+                        };
+                    };
+                };
             };
             /** @description Authentication required */
             401: {
@@ -5941,15 +7259,65 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description File too large */
-            413: {
+            /** @description Blob not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Unsupported file type */
-            415: {
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1BlobsByUuidInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Blob metadata retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: Record<string, never>;
+                    };
+                };
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Blob not found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -8466,723 +9834,57 @@ export interface operations {
             };
         };
     };
-    getV1ContentByType: {
-        parameters: {
-            query?: {
-                /** @description Content locale to read. Single-entry reads walk the configured i18n fallback chain; when omitted, this defaults to the i18n default locale. */
-                locale?: string;
-                /** @description Sort by a filterable field, `sort=field:asc` or `sort=field:desc`. Defaults to `published_at:desc`. */
-                sort?: string;
-                /** @description Opaque keyset cursor taken from a previous response's `next_cursor`. Cursor (default) mode only. */
-                cursor?: string;
-                /** @description Page number. Supplying `page` or `perPage` switches the response to the offset-pagination envelope. */
-                page?: number;
-                /** @description Items per page for offset pagination (clamped to delivery.max_per_page). */
-                perPage?: number;
-                /** @description Typed filters on filterable fields using bracket syntax `filter[field][op]=value`. Operators: eq, neq, gt, gte, lt, lte, in. Only fields declared filterable are accepted. */
-                filter?: string[];
-            };
-            header?: never;
-            path: {
-                type: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of published entries (cursor mode by default; offset mode replaces `data` with the item array plus top-level pagination keys). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success: boolean;
-                        message: string;
-                        data: {
-                            items?: {
-                                uuid?: string | null;
-                                locale?: string | null;
-                                version?: number | null;
-                                /** Format: date-time */
-                                published_at?: string | null;
-                                fields?: Record<string, never>;
-                            }[];
-                            next_cursor?: string | null;
-                        };
-                    };
-                };
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unknown content type slug. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Filter or sort references a non-filterable field or an unsupported operator. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Too Many Requests. */
-            429: {
-                headers: {
-                    /** @description Seconds to wait before retrying. */
-                    "Retry-After"?: number;
-                    /** @description Request quota for the current window. */
-                    "X-RateLimit-Limit"?: number;
-                    /** @description Requests remaining in the current window. */
-                    "X-RateLimit-Remaining"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1ContentByTypeFacets: {
-        parameters: {
-            query: {
-                /** @description Comma-separated filterable reference field names to count, e.g. `fields=categories,tags`. */
-                fields: string;
-                /** @description Content locale; defaults to the i18n default locale. */
-                locale?: string;
-                /** @description Max terms per field (default 100, capped at 500). */
-                limit?: number;
-            };
-            header?: never;
-            path: {
-                type: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Validation failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        success: boolean;
-                        message: string;
-                        errors: {
-                            [key: string]: string[];
-                        };
-                    };
-                };
-            };
-            /** @description Too Many Requests. */
-            429: {
-                headers: {
-                    /** @description Seconds to wait before retrying. */
-                    "Retry-After"?: number;
-                    /** @description Request quota for the current window. */
-                    "X-RateLimit-Limit"?: number;
-                    /** @description Requests remaining in the current window. */
-                    "X-RateLimit-Remaining"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1ContentByTypeBySlugoruuid: {
-        parameters: {
-            query?: {
-                /** @description Content locale to read (defaults to the i18n default locale). */
-                locale?: string;
-            };
-            header?: never;
-            path: {
-                type: string;
-                slugOrUuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The published entry with SEO metadata. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success: boolean;
-                        message: string;
-                        data: {
-                            uuid?: string | null;
-                            locale?: string | null;
-                            version?: number | null;
-                            /** Format: date-time */
-                            published_at?: string | null;
-                            fields?: Record<string, never>;
-                            seo?: Record<string, never>;
-                        };
-                    };
-                };
-            };
-            /** @description Not Modified — the supplied If-None-Match ETag still matches the published version. */
-            304: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unknown content type, or no published entry for the given slug/UUID. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Validation failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        success: boolean;
-                        message: string;
-                        errors: {
-                            [key: string]: string[];
-                        };
-                    };
-                };
-            };
-            /** @description Too Many Requests. */
-            429: {
-                headers: {
-                    /** @description Seconds to wait before retrying. */
-                    "Retry-After"?: number;
-                    /** @description Request quota for the current window. */
-                    "X-RateLimit-Limit"?: number;
-                    /** @description Requests remaining in the current window. */
-                    "X-RateLimit-Remaining"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1ContentByTypeArchiveByFieldByTerm: {
-        parameters: {
-            query?: {
-                /** @description Content locale to read. Single-entry reads walk the configured i18n fallback chain; when omitted, this defaults to the i18n default locale. */
-                locale?: string;
-                /** @description Sort by a filterable field, `sort=field:asc` or `sort=field:desc`. Defaults to `published_at:desc`. */
-                sort?: string;
-                /** @description Opaque keyset cursor taken from a previous response's `next_cursor`. Cursor (default) mode only. */
-                cursor?: string;
-                /** @description Page number. Supplying `page` or `perPage` switches the response to the offset-pagination envelope. */
-                page?: number;
-                /** @description Items per page for offset pagination (clamped to delivery.max_per_page). */
-                perPage?: number;
-                /** @description Typed filters on filterable fields using bracket syntax `filter[field][op]=value`. Operators: eq, neq, gt, gte, lt, lte, in. Only fields declared filterable are accepted. */
-                filter?: string[];
-            };
-            header?: never;
-            path: {
-                type: string;
-                field: string;
-                term: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Validation failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        success: boolean;
-                        message: string;
-                        errors: {
-                            [key: string]: string[];
-                        };
-                    };
-                };
-            };
-            /** @description Too Many Requests. */
-            429: {
-                headers: {
-                    /** @description Seconds to wait before retrying. */
-                    "Retry-After"?: number;
-                    /** @description Request quota for the current window. */
-                    "X-RateLimit-Limit"?: number;
-                    /** @description Requests remaining in the current window. */
-                    "X-RateLimit-Remaining"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1PreviewByToken: {
+    i18nLocalesUpdate: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                token: string;
+                code: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description The previewed draft (or pinned version). */
+            /** @description Locale updated */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        success: boolean;
-                        message: string;
-                        data: {
-                            preview?: {
-                                entry_uuid?: string;
-                                locale?: string;
-                                version_uuid?: string | null;
-                                version?: number | null;
-                                schema_version?: number;
-                                fields?: Record<string, never>;
-                            };
-                        };
-                    };
-                };
+                content?: never;
             };
-            /** @description Invalid or malformed preview token. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description The token's target entry/version no longer exists. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description The preview token has expired. */
-            410: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Too Many Requests. */
-            429: {
-                headers: {
-                    /** @description Seconds to wait before retrying. */
-                    "Retry-After"?: number;
-                    /** @description Request quota for the current window. */
-                    "X-RateLimit-Limit"?: number;
-                    /** @description Requests remaining in the current window. */
-                    "X-RateLimit-Remaining"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1BlobsByUuid: {
-        parameters: {
-            query?: {
-                /** @description Resize target width in pixels (images only) */
-                width?: number;
-                /** @description Resize target height in pixels (images only) */
-                height?: number;
-                /** @description Output quality 1-100 (images only) */
-                quality?: number;
-                /** @description Output format for conversion (images only) */
-                format?: string;
-                /** @description Resize fit mode (images only) */
-                fit?: string;
-            };
-            header?: never;
-            path: {
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description File content with appropriate Content-Type header */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/octet-stream": string;
-                };
-            };
-            /** @description Authentication required for private blob */
+            /** @description Unauthenticated. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
                 content?: never;
             };
-            /** @description Blob not found */
+            /** @description Locale not found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed (empty payload, code change, malformed fields, fallback cycle, or clearing/disabling the only default) */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -9207,7 +9909,7 @@ export interface operations {
             };
         };
     };
-    deleteV1BlobsByUuid: {
+    i18nTranslationsUpdate: {
         parameters: {
             query?: never;
             header?: never;
@@ -9218,7 +9920,85 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Blob deleted */
+            /** @description Translation updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Translation not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed (missing or oversized value) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1BlobsByUuidSignedurl: {
+        parameters: {
+            query?: {
+                /** @description URL lifetime in seconds (default: 3600, max: 604800) */
+                ttl?: number;
+            };
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed URL generated */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -9229,9 +10009,20 @@ export interface operations {
                         message: string;
                         data: {
                             uuid?: string;
+                            signed_url?: string;
+                            expires_in?: number;
+                            expires_at?: string;
+                            native_url?: string;
                         };
                     };
                 };
+            };
+            /** @description Signed URLs are disabled */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Authentication required */
             401: {
@@ -9239,124 +10030,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Blob not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1BlobsByUuidInfo: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Blob metadata retrieved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success: boolean;
-                        message: string;
-                        data: Record<string, never>;
-                    };
-                };
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Blob not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    putEmailTemplatesByKey: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
             };
             /** @description Forbidden. */
             403: {
@@ -9375,482 +10048,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteEmailTemplatesByKey: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteRbacRolesByUuidRevoke: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Role revoked successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid request format */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Role or user not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        success: boolean;
-                        message: string;
-                        errors: {
-                            [key: string]: string[];
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteRbacRolesByRoleuuidRevokeusers: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                role_uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Bulk role revocation completed */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid request format */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Role not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        success: boolean;
-                        message: string;
-                        errors: {
-                            [key: string]: string[];
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteRbacRolesByUuidPermissionsByPermissionuuid: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-                permission_uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Permission revoked from role successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Role not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteRbacPermissionsByUuidRevoke: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Permission revoked successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid request format */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Permission or user not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        success: boolean;
-                        message: string;
-                        errors: {
-                            [key: string]: string[];
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteRbacUsersByUseruuidRolesByRoleuuid: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                user_uuid: string;
-                role_uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Role revoked successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description User or role not found */
+            /** @description Blob not found */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -10690,12 +10888,9 @@ export interface operations {
             };
         };
     };
-    postV1BlobsByUuidSignedurl: {
+    deleteRbacRolesByUuidRevoke: {
         parameters: {
-            query?: {
-                /** @description URL lifetime in seconds (default: 3600, max: 604800) */
-                ttl?: number;
-            };
+            query?: never;
             header?: never;
             path: {
                 uuid: string;
@@ -10704,38 +10899,440 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Signed URL generated */
+            /** @description Role revoked successfully */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        success: boolean;
-                        message: string;
-                        data: {
-                            uuid?: string;
-                            signed_url?: string;
-                            expires_in?: number;
-                            expires_at?: string;
-                            native_url?: string;
-                        };
-                    };
-                };
+                content?: never;
             };
-            /** @description Signed URLs are disabled */
+            /** @description Invalid request format */
             400: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Authentication required */
+            /** @description Unauthenticated. */
             401: {
                 headers: {
                     [name: string]: unknown;
                 };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
                 content?: never;
+            };
+            /** @description Role or user not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteRbacRolesByRoleuuidRevokeusers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Bulk role revocation completed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request format */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Role not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteRbacRolesByUuidPermissionsByPermissionuuid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+                permission_uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Permission revoked from role successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Role not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteRbacPermissionsByUuidRevoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Permission revoked successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid request format */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Permission or user not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteRbacUsersByUseruuidRolesByRoleuuid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_uuid: string;
+                role_uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Role revoked successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description User or role not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    putEmailTemplatesByKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
             };
             /** @description Forbidden. */
             403: {
@@ -10754,13 +11351,6 @@ export interface operations {
                     };
                 };
             };
-            /** @description Blob not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
             /** @description Unexpected server error. */
             500: {
                 headers: {
@@ -10780,18 +11370,18 @@ export interface operations {
             };
         };
     };
-    i18nLocalesUpdate: {
+    deleteEmailTemplatesByKey: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                code: string;
+                key: string;
             };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Locale updated */
+            /** @description Successful response */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -10815,29 +11405,8 @@ export interface operations {
                     };
                 };
             };
-            /** @description Forbidden */
+            /** @description Forbidden. */
             403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Locale not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation failed (empty payload, code change, malformed fields, fallback cycle, or clearing/disabling the only default) */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10852,64 +11421,6 @@ export interface operations {
                         };
                     };
                 };
-            };
-        };
-    };
-    i18nTranslationsUpdate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Translation updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Translation not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation failed (missing or oversized value) */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description Unexpected server error. */
             500: {

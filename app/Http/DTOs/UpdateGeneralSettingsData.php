@@ -46,6 +46,12 @@ final class UpdateGeneralSettingsData implements RequestData
         /** @var string|null Live theme name; '' clears to the env/config default. */
         #[Rule('string')]
         public readonly ?string $theme = null,
+        /** @var string|null Accent Tailwind family (theme-color-config spec §2); enum-validated in the controller. */
+        #[Rule('string')]
+        public readonly ?string $theme_accent = null,
+        /** @var string|null Neutral Tailwind family; enum-validated in the controller. */
+        #[Rule('string')]
+        public readonly ?string $theme_neutral = null,
         /** @var string|null Admin SPA base URL for preview-bar deep links; '' clears. */
         #[Rule('string')]
         public readonly ?string $admin_url = null,

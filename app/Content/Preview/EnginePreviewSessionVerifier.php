@@ -35,6 +35,8 @@ final class EnginePreviewSessionVerifier implements PreviewSessionVerifier
             $payload->locale,
             $payload->versionUuid,
             $payload->theme,
+            $payload->accent,
+            $payload->neutral,
             $payload->expiresAt,
         );
     }

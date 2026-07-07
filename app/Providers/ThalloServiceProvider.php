@@ -109,6 +109,7 @@ use App\Content\Routing\RootMountGuard;
 use App\Content\Seo\CanonicalPathBuilder;
 use App\Settings\EngineAdminUrlProvider;
 use App\Settings\EngineSiteFaviconProvider;
+use App\Settings\EngineThemeAppearanceProvider;
 use App\Settings\EngineThemeSettingProvider;
 use App\Settings\EngineSiteLogoProvider;
 use App\Content\Seo\PathRenderer;
@@ -140,6 +141,7 @@ use Thallo\Contracts\Delivery\MediaUrlResolver;
 use Thallo\Contracts\Settings\AdminUrlProvider;
 use Thallo\Contracts\Settings\SiteFaviconProvider;
 use Thallo\Contracts\Settings\SiteLogoProvider;
+use Thallo\Contracts\Settings\ThemeAppearanceProvider;
 use Thallo\Contracts\Settings\ThemeSettingProvider;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Contracts\Context\Context;
@@ -638,6 +640,13 @@ final class ThalloServiceProvider extends ServiceProvider
             // the render pack's ActiveThemeSource soft-binds it.
             ThemeSettingProvider::class => [
                 'class'    => EngineThemeSettingProvider::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            // Theme color config (theme-color-config spec §4): saved accent/neutral
+            // provider — the render pack's ThemeAppearanceSource soft-binds it.
+            ThemeAppearanceProvider::class => [
+                'class'    => EngineThemeAppearanceProvider::class,
                 'shared'   => true,
                 'autowire' => true,
             ],

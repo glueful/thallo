@@ -17,6 +17,7 @@ use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Contracts\Delivery\PreviewThemeValidator;
+use Thallo\Render\Theme\ThemeColors;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -87,9 +88,20 @@ final class PreviewController
             }
         }
 
+        // Per-preview appearance (theme-color-config spec §6): closed enums, signed
+        // into the token. Token-only — never writes GeneralSettings; Save does that.
+        $accent = $input->accent !== null && $input->accent !== '' ? $input->accent : null;
+        $neutral = $input->neutral !== null && $input->neutral !== '' ? $input->neutral : null;
+        if ($accent !== null && ThemeColors::normalizeAccent($accent) === null) {
+            return Response::validation(['accent' => 'unknown accent color']);
+        }
+        if ($neutral !== null && ThemeColors::normalizeNeutral($neutral) === null) {
+            return Response::validation(['neutral' => 'unknown neutral color']);
+        }
+
         // version_uuid is optional: absent means "mint from the current draft". Existence /
         // ownership of a pinned version is validated by the reader at read time (domain rule).
-        $token = $this->minter->mint($uuid, $locale, $input->version_uuid, $theme);
+        $token = $this->minter->mint($uuid, $locale, $input->version_uuid, $theme, $accent, $neutral);
         $ttl = $this->minter->ttlSeconds();
         $exp = time() + $ttl;
 

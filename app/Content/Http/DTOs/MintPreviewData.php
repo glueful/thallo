@@ -28,6 +28,12 @@ final class MintPreviewData implements RequestData
          */
         #[Rule('string')]
         public readonly ?string $theme = null,
+        /** @var string|null Per-preview accent family (theme-color-config spec §6); enum-validated. */
+        #[Rule('string')]
+        public readonly ?string $accent = null,
+        /** @var string|null Per-preview neutral family; enum-validated. */
+        #[Rule('string')]
+        public readonly ?string $neutral = null,
     ) {
     }
 }
