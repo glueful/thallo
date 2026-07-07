@@ -64,6 +64,7 @@ function onEntryPicked({ uuid, title }: { uuid: string; title: string }) {
     kind: 'entry',
     entry_uuid: uuid,
     labels: {},
+    descriptions: {},
     children: [],
     target_title: title || null,
   })
@@ -226,7 +227,7 @@ async function save(): Promise<void> {
             data-test="tree-add-root"
             @click="
               () => {
-                working.push({ kind: 'url', url: '/', labels: {}, children: [] })
+                working.push({ kind: 'url', url: '/', labels: {}, descriptions: {}, children: [] })
                 dirty = true
               }
             "
