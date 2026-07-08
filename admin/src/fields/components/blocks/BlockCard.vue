@@ -9,6 +9,7 @@ import { newBlockId } from './useBlockListOps'
 import { isProseBlockType, proseRichFieldName } from './proseDetection'
 import BlockList from './BlockList.vue'
 import ProseBlockEditor from './ProseBlockEditor.vue'
+import ColumnsLayoutField from './ColumnsLayoutField.vue'
 
 // One block: header chrome (icon, label, summary, actions), delete-confirm, and
 // the schema-form body. Container regions recurse through BlockList — NOT the
@@ -72,7 +73,21 @@ const columnsLayout = computed(() =>
 function fieldVisible(name: string): boolean {
   if (props.block.type !== 'columns') return true
   if (name === 'col_3') return columnsLayout.value === 3
+  // `widths` is folded into the combined visual layout picker (rendered at `layout`).
+  if (name === 'widths') return false
   return true
+}
+
+// The `widths` enum, surfaced as swatches by the combined columns layout picker.
+const columnsWidthPresets = computed<string[]>(() => {
+  const wf = type.value?.schema.find((f) => f.name === 'widths')
+  return (wf ? toFieldDef(wf).enum : undefined) ?? []
+})
+
+// One click sets BOTH coupled fields, so column count and ratio never drift.
+function selectColumnsLayout(v: { layout: string; widths: string }): void {
+  patchData('layout', v.layout)
+  patchData('widths', v.widths)
 }
 
 function displayFieldDef(f: Parameters<typeof toFieldDef>[0]): ReturnType<typeof toFieldDef> {
@@ -82,6 +97,10 @@ function displayFieldDef(f: Parameters<typeof toFieldDef>[0]): ReturnType<typeof
   }
   return def
 }
+
+// Region/field names arrive snake_case (col_1); show them space-separated
+// ("col 1") without inventing a schema-level label vocabulary.
+const humanize = (name: string): string => name.replace(/_/g, ' ')
 
 // Rules of hooks: called unconditionally; the enabled-gate means it only
 // FETCHES for navigation blocks.
@@ -299,9 +318,9 @@ function onHeaderKeydown(event: KeyboardEvent): void {
             class="rounded border border-dashed border-default px-2 py-1.5 text-xs text-muted"
             data-test="max-depth-notice"
           >
-            “{{ f.name }}”: maximum nesting depth ({{ ctx.maxDepth }}) reached.
+            “{{ humanize(f.name) }}”: maximum nesting depth ({{ ctx.maxDepth }}) reached.
           </p>
-          <UFormField v-else-if="toFieldDef(f).type === 'blocks'" :label="f.name" :name="f.name">
+          <UFormField v-else-if="toFieldDef(f).type === 'blocks'" :label="humanize(f.name)" :name="f.name">
             <BlockList
               :blocks="(block.data[f.name] as BlockInstance[]) ?? []"
               :parent-id="block.id"
@@ -320,6 +339,18 @@ function onHeaderKeydown(event: KeyboardEvent): void {
               class="w-full"
               data-test="nav-menu-select"
               @update:model-value="(v: unknown) => patchData('menu', v)"
+            />
+          </UFormField>
+          <UFormField
+            v-else-if="block.type === 'columns' && f.name === 'layout'"
+            label="Layout"
+            name="layout"
+          >
+            <ColumnsLayoutField
+              :layout="(block.data.layout as string) ?? '2'"
+              :widths="(block.data.widths as string) ?? ''"
+              :presets="columnsWidthPresets"
+              @select="selectColumnsLayout"
             />
           </UFormField>
           <component

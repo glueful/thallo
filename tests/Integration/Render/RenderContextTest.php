@@ -13,7 +13,9 @@ use Thallo\Contracts\Navigation\MenuReader;
 use Thallo\Contracts\Settings\SiteFaviconProvider;
 use Thallo\Contracts\Settings\SiteLogoProvider;
 use Thallo\Navigation\MenuRepository;
+use Thallo\Render\ActiveThemeSource;
 use Thallo\Render\RenderContextExtension;
+use Thallo\Render\ThemeLocator;
 use Twig\Error\RuntimeError;
 
 final class RenderContextTest extends AppTestCase
@@ -72,6 +74,29 @@ final class RenderContextTest extends AppTestCase
         $ext = $this->extension();
         self::assertStringContainsString('/blog/hello', (string) $ext->path($entry));
         self::assertNull($ext->path('nope00000000'));
+    }
+
+    public function testAssetBustsCacheOnThemeSwitchAndOnContentEdit(): void
+    {
+        // Live base with the active theme wired: asset() carries the theme buster
+        // (?t=) AND a per-file content fingerprint (&v=<mtime>) so an in-place edit
+        // to a theme asset re-fetches immediately instead of waiting out max-age.
+        $ext = new RenderContextExtension(
+            null,
+            $this->container()->get(EntryTargetResolver::class),
+            'en',
+            themeSource: $this->container()->get(ActiveThemeSource::class),
+            themeAssetsDir: $this->container()->get(ThemeLocator::class)->activePaths()['assets'],
+        );
+        self::assertMatchesRegularExpression(
+            '#^/theme-assets/blocks\.css\?t=[^&]+&v=\d+$#',
+            $ext->asset('blocks.css'),
+        );
+        // A theme-relative path with no file on disk still gets ?t= but no &v=.
+        self::assertMatchesRegularExpression(
+            '#^/theme-assets/nope\.css\?t=[^&]+$#',
+            $ext->asset('nope.css'),
+        );
     }
 
     public function testAssetSafety(): void

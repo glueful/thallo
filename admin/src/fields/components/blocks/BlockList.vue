@@ -146,7 +146,21 @@ function insertType(type: BlockType): void {
         @update:open="(v: boolean) => { if (!v) closeMenu() }"
       >
         <template #anchor>
+          <!-- Region lists (col_1, content, items…) get a full-width dashed drop-zone
+               add button with the plus centered; the ROOT editor's add button (region
+               === null) keeps its compact square style. -->
+          <button
+            v-if="region !== null"
+            type="button"
+            class="flex h-11 w-full items-center justify-center rounded-md border border-dashed border-accented bg-muted text-muted transition-colors hover:border-primary hover:bg-primary/5 hover:text-primary"
+            aria-label="Add block"
+            data-test="add-block"
+            @click="openMenuAt(blocks.length)"
+          >
+            <UIcon name="i-lucide-plus" class="size-4" />
+          </button>
           <UButton
+            v-else
             variant="subtle"
             color="neutral"
             icon="i-lucide-plus"
