@@ -103,58 +103,70 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         ref="createForm"
         :schema="schema"
         :state="state"
-        class="mx-auto w-full max-w-3xl space-y-6"
+        class="mx-auto w-full max-w-6xl"
         @submit="onSubmit"
       >
-        <UCard>
-          <template #header><h2 class="font-semibold text-default">Details</h2></template>
+        <!-- Same shape as the content-type editor: Details = slim sticky left
+             rail, Fields = the wide working column. -->
+        <div class="grid gap-6 lg:grid-cols-3 pb-5">
+          <div class="lg:sticky lg:top-6 lg:self-start">
+            <UCard>
+              <template #header><h2 class="font-semibold text-default">Details</h2></template>
 
-          <div class="space-y-4">
-            <UFormField label="Label" name="label">
-              <UInput v-model="state.label" class="w-full" placeholder="Hero" />
-            </UFormField>
+              <div class="space-y-4">
+                <UFormField label="Label" name="label">
+                  <UInput v-model="state.label" class="w-full" placeholder="Hero" />
+                </UFormField>
 
-            <UFormField
-              label="Slug"
-              name="slug"
-              hint="Immutable — it names the blocks/{slug}.twig template"
-            >
-              <UInput
-                v-model="state.slug"
-                class="w-full"
-                placeholder="hero"
-                @update:model-value="slugTouched = true"
-              />
-            </UFormField>
+                <UFormField
+                  label="Slug"
+                  name="slug"
+                  description="Immutable — it names the blocks/{slug}.twig template"
+                >
+                  <UInput
+                    v-model="state.slug"
+                    class="w-full"
+                    placeholder="hero"
+                    @update:model-value="slugTouched = true"
+                  />
+                </UFormField>
 
-            <UFormField label="Icon" name="icon" hint="Lucide icon name shown in the block picker">
-              <UInput v-model="state.icon" class="w-full" placeholder="i-lucide-star" />
-            </UFormField>
+                <UFormField
+                  label="Icon"
+                  name="icon"
+                  description="Lucide icon name shown in the block picker"
+                >
+                  <UInput v-model="state.icon" class="w-full" placeholder="i-lucide-star" />
+                </UFormField>
 
-            <UFormField
-              label="Category"
-              name="category"
-              hint="Groups the block picker — e.g. Layout, Content, Media; empty = Other"
-            >
-              <UInput v-model="state.category" class="w-full" placeholder="Content" />
-            </UFormField>
+                <UFormField
+                  label="Category"
+                  name="category"
+                  description="Groups the block picker — e.g. Layout, Content, Media; empty = Other"
+                >
+                  <UInput v-model="state.category" class="w-full" placeholder="Content" />
+                </UFormField>
 
-            <UFormField label="Description" name="description">
-              <UTextarea
-                v-model="state.description"
-                class="w-full"
-                :rows="2"
-                placeholder="What does this block show?"
-              />
-            </UFormField>
+                <UFormField label="Description" name="description">
+                  <UTextarea
+                    v-model="state.description"
+                    class="w-full"
+                    :rows="2"
+                    placeholder="What does this block show?"
+                  />
+                </UFormField>
+              </div>
+            </UCard>
           </div>
-        </UCard>
 
-        <UCard>
-          <template #header><h2 class="font-semibold text-default">Fields</h2></template>
-          <!-- Block schemas reject nested blocks/localized/filterable (spec §2). -->
-          <ContentTypeFields v-model="fields" context="block-type" />
-        </UCard>
+          <div class="lg:col-span-2">
+            <UCard>
+              <template #header><h2 class="font-semibold text-default">Fields</h2></template>
+              <!-- Block schemas reject nested blocks/localized/filterable (spec §2). -->
+              <ContentTypeFields v-model="fields" context="block-type" />
+            </UCard>
+          </div>
+        </div>
       </UForm>
     </template>
   </UDashboardPanel>

@@ -117,67 +117,79 @@ async function onToggleActive() {
     </template>
 
     <template #body>
-      <div v-if="status === 'pending'" class="space-y-2">
-        <USkeleton v-for="n in 4" :key="n" class="h-12" />
-      </div>
-      <UEmpty
-        v-else-if="!blockType"
-        icon="i-lucide-blocks"
-        title="Unknown block type"
-        :description="`No block type has the slug “${slug}”.`"
-      />
-      <div v-else class="mx-auto w-full max-w-3xl space-y-6">
-        <UCard>
-          <template #header>
-            <div class="flex items-center gap-2">
-              <h2 class="flex-1 font-semibold text-default">Details</h2>
-              <UBadge v-if="!blockType.active" size="xs" color="warning" variant="subtle">
-                inactive
-              </UBadge>
-            </div>
-          </template>
+      <div class="mx-auto w-full max-w-6xl pb-5">
+        <div v-if="status === 'pending'" class="space-y-2">
+          <USkeleton v-for="n in 4" :key="n" class="h-12" />
+        </div>
+        <UEmpty
+          v-else-if="!blockType"
+          icon="i-lucide-blocks"
+          title="Unknown block type"
+          :description="`No block type has the slug “${slug}”.`"
+        />
 
-          <div class="space-y-4">
-            <UFormField label="Slug" hint="Immutable — it names the blocks/{slug}.twig template">
-              <UInput :model-value="blockType.slug" disabled class="w-full" />
-            </UFormField>
+        <!-- Details = slim sticky left rail; Fields + lifecycle = the wide working column. -->
+        <div v-else class="grid gap-6 lg:grid-cols-3">
+          <div class="space-y-6 lg:sticky lg:top-6 lg:self-start">
+            <UCard>
+              <template #header>
+                <div class="flex items-center gap-2">
+                  <h2 class="flex-1 font-semibold text-default">Details</h2>
+                  <UBadge v-if="!blockType.active" size="xs" color="warning" variant="subtle">
+                    inactive
+                  </UBadge>
+                </div>
+              </template>
 
-            <UFormField label="Label">
-              <UInput v-model="label" class="w-full" />
-            </UFormField>
+              <div class="space-y-4">
+                <UFormField
+                  label="Slug"
+                  description="Immutable — it names the blocks/{slug}.twig template"
+                >
+                  <UInput :model-value="blockType.slug" disabled class="w-full" />
+                </UFormField>
 
-            <UFormField label="Icon" hint="Lucide icon name shown in the block picker">
-              <UInput v-model="icon" class="w-full" placeholder="i-lucide-star" />
-            </UFormField>
+                <UFormField label="Label">
+                  <UInput v-model="label" class="w-full" />
+                </UFormField>
 
-            <UFormField
-              label="Category"
-              hint="Groups the block picker — e.g. Layout, Content, Media; empty = Other"
-            >
-              <UInput v-model="category" class="w-full" placeholder="Content" />
-            </UFormField>
+                <UFormField label="Icon" description="Lucide icon name shown in the block picker">
+                  <UInput v-model="icon" class="w-full" placeholder="i-lucide-star" />
+                </UFormField>
 
-            <UFormField label="Description">
-              <UTextarea v-model="description" class="w-full" :rows="2" />
-            </UFormField>
+                <UFormField
+                  label="Category"
+                  description="Groups the block picker — e.g. Layout, Content, Media; empty = Other"
+                >
+                  <UInput v-model="category" class="w-full" placeholder="Content" />
+                </UFormField>
+
+                <UFormField label="Description">
+                  <UTextarea v-model="description" class="w-full" :rows="2" />
+                </UFormField>
+              </div>
+            </UCard>
+
+            <BlockTypeLifecycle :slug="slug" :schema="fields" />
           </div>
-        </UCard>
 
-        <UCard>
-          <template #header>
-            <div class="flex items-center gap-2">
-              <h2 class="flex-1 font-semibold text-default">Fields</h2>
-              <UBadge v-if="migrationActive" size="xs" color="warning" variant="subtle">
-                migration active — schema locked
-              </UBadge>
-            </div>
-          </template>
-          <!-- Schema edits are ADDITIVE-ONLY (block-migrations spec §1): removing or
-               renaming a field 422s here — declare a migration instead (below). -->
-          <ContentTypeFields v-model="fields" context="block-type" />
-        </UCard>
-
-        <BlockTypeLifecycle :slug="slug" :schema="fields" />
+          <div class="lg:col-span-2">
+            <UCard>
+              <template #header>
+                <div class="flex items-center gap-2">
+                  <h2 class="flex-1 font-semibold text-default">Fields</h2>
+                  <UBadge v-if="migrationActive" size="xs" color="warning" variant="subtle">
+                    migration active — schema locked
+                  </UBadge>
+                </div>
+              </template>
+              <!-- Schema edits are ADDITIVE-ONLY (block-migrations spec §1): removing or
+                   renaming a field 422s here — declare a migration instead (Usage &
+                   lifecycle → Migrate fields). -->
+              <ContentTypeFields v-model="fields" context="block-type" />
+            </UCard>
+          </div>
+        </div>
       </div>
     </template>
   </UDashboardPanel>
