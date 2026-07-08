@@ -40,7 +40,7 @@ final class BlockLibraryRenderTest extends AppTestCase
         return $this->env()->createTemplate('{{ blocks(list) }}')->render(['list' => $list]);
     }
 
-    /** @return array<string,mixed> the seeded container schema, parsed */
+    /** @return ContentTypeSchema the seeded container schema, parsed */
     private function containerSchema(): ContentTypeSchema
     {
         foreach (StarterBlockTypes::definitions() as $def) {
@@ -691,7 +691,10 @@ final class BlockLibraryRenderTest extends AppTestCase
             'id' => 'bvv', 'type' => 'container',
             'data' => ['background_video_url' => 'https://vimeo.com/123456', 'content' => []],
         ]]);
-        self::assertStringContainsString('https://player.vimeo.com/video/123456?autoplay=1&muted=1&loop=1&background=1', $vm);
+        self::assertStringContainsString(
+            'https://player.vimeo.com/video/123456?autoplay=1&muted=1&loop=1&background=1',
+            $vm
+        );
 
         // A junk/non-video URL is scheme-checked: mailto is dropped → no <video>, no iframe.
         $junk = $this->render([[
