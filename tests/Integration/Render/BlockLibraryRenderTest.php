@@ -562,4 +562,19 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringNotContainsString('<img', $hostile);
         self::assertStringContainsString('&lt;img', $hostile);
     }
+
+    public function testContainerShadowEnumAddsUtilityClass(): void
+    {
+        $out = $this->render([[
+            'id' => 'cs1', 'type' => 'container',
+            'data' => ['shadow' => 'md', 'content' => []],
+        ]]);
+        self::assertStringContainsString('thallo-shadow-md', $out);
+    }
+
+    public function testContainerShadowDefaultsToNone(): void
+    {
+        $out = $this->render([['id' => 'cs2', 'type' => 'container', 'data' => ['content' => []]]]);
+        self::assertStringNotContainsString('thallo-shadow-', $out);
+    }
 }

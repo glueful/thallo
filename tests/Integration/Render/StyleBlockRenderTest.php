@@ -80,4 +80,72 @@ final class StyleBlockRenderTest extends AppTestCase
         self::assertStringContainsString('thallo-skin-none-zinc', $out);
         self::assertSame(2, substr_count($out, '<style>'));
     }
+
+    public function testShadowSpacingAndInlineVarsRender(): void
+    {
+        $out = $this->render([[
+            'id' => 'sp1', 'type' => 'style',
+            'data' => [
+                'shadow' => 'lg', 'shadow_color' => '#06b6d4', 'shadow_opacity' => 50,
+                'padding' => 'medium', 'margin' => 'small', 'content' => [],
+            ],
+        ]]);
+        self::assertStringContainsString('thallo-shadow-lg', $out);
+        self::assertStringContainsString('thallo-block-style--pad-medium', $out);
+        self::assertStringContainsString('thallo-block-style--mar-small', $out);
+        self::assertStringContainsString('--shadow-color: #06b6d4', $out);
+        self::assertStringContainsString('--shadow-strength: 0.5', $out);
+    }
+
+    public function testShadowDefaultsToNoneAndOmitsInlineVars(): void
+    {
+        $out = $this->render([['id' => 'sp2', 'type' => 'style', 'data' => ['content' => []]]]);
+        self::assertStringNotContainsString('thallo-shadow-', $out);
+        self::assertStringNotContainsString('--shadow-color', $out);
+        self::assertStringNotContainsString('style="', $out);          // no inline vars when nothing set
+    }
+
+    public function testUnknownShadowEnumDegradesToNoModifier(): void
+    {
+        $out = $this->render([['id' => 'sp3', 'type' => 'style', 'data' => ['shadow' => 'banana', 'content' => []]]]);
+        self::assertStringNotContainsString('thallo-shadow-banana', $out);
+        self::assertStringNotContainsString('thallo-shadow-', $out);   // allowlist guard, no bogus class
+    }
+
+    /**
+     * Render-time trust boundary: stale/malicious shadow_color and shadow_opacity
+     * (values a DB row can hold regardless of admin validation) must never reach the
+     * style attribute. A non-hex color and a non-numeric opacity are both dropped —
+     * the shadow depth class still applies, but no inline var is emitted.
+     */
+    public function testMaliciousShadowColorAndOpacityAreDropped(): void
+    {
+        $out = $this->render([[
+            'id' => 'sp4', 'type' => 'style',
+            'data' => [
+                'shadow' => 'md',
+                'shadow_color' => '#06b6d4; background: url(//evil)',  // CSS-injection attempt
+                'shadow_opacity' => '50); }',                          // non-numeric
+                'content' => [],
+            ],
+        ]]);
+        self::assertStringContainsString('thallo-shadow-md', $out);       // depth still applies
+        self::assertStringNotContainsString('--shadow-color', $out);      // non-hex rejected
+        self::assertStringNotContainsString('--shadow-strength', $out);   // non-numeric rejected
+        self::assertStringNotContainsString('background: url', $out);     // no injected declaration
+        self::assertStringNotContainsString('evil', $out);
+    }
+
+    public function testShadowOpacityIsClampedToTheAllowedRange(): void
+    {
+        // 999 → clamp to 200 → strength 2; a bare negative never matches the numeric
+        // guard, so it is dropped rather than emitted as a negative strength.
+        $high = $this->render([['id' => 'sp5', 'type' => 'style',
+            'data' => ['shadow' => 'md', 'shadow_opacity' => 999, 'content' => []]]]);
+        self::assertStringContainsString('--shadow-strength: 2', $high);
+
+        $neg = $this->render([['id' => 'sp6', 'type' => 'style',
+            'data' => ['shadow' => 'md', 'shadow_opacity' => -5, 'content' => []]]]);
+        self::assertStringNotContainsString('--shadow-strength', $neg);
+    }
 }

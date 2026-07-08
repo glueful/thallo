@@ -7,6 +7,20 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Shadow system**: the default theme's single flat `--shadow` is replaced by
+  a Tailwind v4-derived elevation scale in `site.css` — `--shadow-none` and
+  `--shadow-2xs…2xl` (verbatim Tailwind geometry/opacity), each composed from an
+  overridable `--shadow-color` + `--shadow-strength` via `color-mix()` so an
+  element can retint (colored shadow) or restrength (opacity modifier) its
+  shadow. `--shadow` re-aliases to `--shadow-md` (every existing surface stays
+  md, no per-line edits); the nav overlay moves to `--shadow-lg`; dark mode just
+  overrides the two knobs (black / strength 2.5). Matching `.thallo-shadow-{level}`
+  utilities ship in `blocks.css`. Page-builder controls: the **Style block** gains
+  `shadow` (depth), `shadow_color`, `shadow_opacity` (0–200), `padding` and
+  `margin` — color/opacity emitted as inline vars only when they pass a
+  render-time shape/range guard; the **Container** gains `shadow` depth. New
+  `thallo:blocks:sync` command additively propagates evolved starter fields onto
+  existing block-type rows (never removes; preserves order; `--dry-run` preview).
 - **Email admin**: Settings → Email is now the full email admin, a pure
   client of glueful/email-notification 1.11's API. Transport settings are
   DB-backed (saved via `PUT /email/settings`, applied on the next send — the

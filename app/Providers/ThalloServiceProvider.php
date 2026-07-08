@@ -15,6 +15,7 @@ use App\Content\Delivery\SortCompiler;
 use App\Content\Console\PruneVersionsCommand;
 use App\Content\Console\RunBlockBackfillCommand;
 use App\Content\Console\SeedBlockTypesCommand;
+use App\Content\Console\SyncBlockTypesCommand;
 use App\Content\Console\ResyncCommand;
 use App\Content\Console\RunBackfillCommand;
 use App\Content\Console\RunDueSchedulesCommand;
@@ -955,6 +956,11 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            SyncBlockTypesCommand::class => [
+                'class' => SyncBlockTypesCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             RunBlockBackfillCommand::class => [
                 'class' => RunBlockBackfillCommand::class,
                 'shared' => true,
@@ -1106,6 +1112,7 @@ final class ThalloServiceProvider extends ServiceProvider
             ResyncCommand::class,
             PruneVersionsCommand::class,
             SeedBlockTypesCommand::class,
+            SyncBlockTypesCommand::class,
             RunBlockBackfillCommand::class,
             RunBackfillCommand::class,
             RunDueSchedulesCommand::class,
