@@ -7,6 +7,19 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Pricing blocks**: five Nuxt-UI-Pro-modeled block types for the default theme —
+  `pricing_plan` (a card: price, discount, billing, one-per-line features with a
+  uniform icon, flat CTA, `outline`/`solid`/`soft`/`subtle` variants + `highlight`),
+  `pricing_plans` (a grid/stack wrapper with auto column `--count`, a group-level
+  featured-plan `scale`, and horizontal/vertical orientation cascaded to cards via
+  CSS), and `pricing_table` (a feature-comparison table with `pricing_tier` columns
+  and a flat `pricing_feature` list — section-heading rows plus positional per-tier
+  cells `value_1..4` capped at 4 tiers, `✓`/`yes`/`-`/`no`/literal tokens; renders a
+  desktop `<table>` and a mobile stacked list, both server-side). CTAs are flat
+  fields (no nested button block) and the feature list is flat (no section block) so
+  the blocks stay within `BlockDepth::MAX` and nest one wrapper deep. Self-contained
+  rounded cards (deliberate radius exception); accent rings use borders, not raw
+  box-shadow, to honor the shadow-token invariant.
 - **Shadow system**: the default theme's single flat `--shadow` is replaced by
   a Tailwind v4-derived elevation scale in `site.css` — `--shadow-none` and
   `--shadow-2xs…2xl` (verbatim Tailwind geometry/opacity), each composed from an
