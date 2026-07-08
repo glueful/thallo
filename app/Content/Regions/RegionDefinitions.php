@@ -19,7 +19,7 @@ final class RegionDefinitions
         'footer' => [
             'logo', 'navigation', 'button', 'social_links', 'container', 'columns', 'rich_text',
             'separator', 'spacer', 'icon', 'image', 'shortcode', 'html',
-            'footer', 'footer_columns', 'links',
+            'footer', 'links',
         ],
     ];
 

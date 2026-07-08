@@ -248,6 +248,71 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringContainsString('/blobs/' . $dark, $out);
     }
 
+    public function testImageBlockAppliesPixelDimensionsAndSizePreset(): void
+    {
+        $uuid = \Glueful\Helpers\Utils::generateNanoID();
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $uuid, 'name' => 'pic.png', 'mime_type' => 'image/png',
+            'size' => 1, 'url' => 'uploads/pic.png', 'visibility' => 'public',
+            'status' => 'active', 'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+
+        // `size` presets the figure's layout width; `width`/`height` set the <img>'s
+        // intrinsic size. Both set → exact dimensions on the element.
+        $out = $this->render([
+            ['id' => 'im1', 'type' => 'image', 'data' => [
+                'image' => $uuid, 'alt' => 'A', 'size' => 'wide', 'width' => 800, 'height' => 600,
+            ]],
+        ]);
+        self::assertStringContainsString('thallo-block-image--wide', $out);
+        self::assertStringContainsString('style="width:800px;height:600px"', $out);
+
+        // Width alone → only the width declaration; height stays auto (unset).
+        $out = $this->render([
+            ['id' => 'im2', 'type' => 'image', 'data' => ['image' => $uuid, 'width' => 320]],
+        ]);
+        self::assertStringContainsString('style="width:320px"', $out);
+        self::assertStringNotContainsString('height:', $out);
+
+        // Neither → no style attribute (default layout slot, current behaviour).
+        $out = $this->render([
+            ['id' => 'im3', 'type' => 'image', 'data' => ['image' => $uuid]],
+        ]);
+        self::assertStringContainsString('thallo-block-image', $out);
+        self::assertStringNotContainsString('style="width', $out);
+    }
+
+    public function testFileBlockRendersDownloadLinkAndNewTabViewLink(): void
+    {
+        $uuid = \Glueful\Helpers\Utils::generateNanoID();
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $uuid, 'name' => 'spec.pdf', 'mime_type' => 'application/pdf',
+            'size' => 1, 'url' => 'uploads/spec.pdf', 'visibility' => 'public',
+            'status' => 'active', 'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+
+        // Default: a forced-download link carrying the label.
+        $out = $this->render([
+            ['id' => 'f1', 'type' => 'file', 'data' => ['file' => $uuid, 'label' => 'Spec sheet']],
+        ]);
+        self::assertStringContainsString('class="thallo-block-file__link"', $out);
+        self::assertStringContainsString('/blobs/' . $uuid, $out);
+        self::assertStringContainsString('download', $out);
+        self::assertStringContainsString('>Spec sheet</span>', $out);
+
+        // new_tab → view in a new tab (target _blank + noopener), no download attr;
+        // absent label falls back to "Download".
+        $out = $this->render([
+            ['id' => 'f2', 'type' => 'file', 'data' => ['file' => $uuid, 'new_tab' => true]],
+        ]);
+        self::assertStringContainsString('target="_blank"', $out);
+        self::assertStringContainsString('rel="noopener noreferrer"', $out);
+        self::assertStringNotContainsString(' download', $out);
+        self::assertStringContainsString('>Download</span>', $out);
+    }
+
     public function testAccordionAndTabsGroupsAreScopedPerBlockInstance(): void
     {
         $accordion = static fn (string $id): array => ['id' => $id, 'type' => 'accordion', 'data' => [
@@ -561,6 +626,54 @@ final class BlockLibraryRenderTest extends AppTestCase
         ]]);
         self::assertStringNotContainsString('<img', $hostile);
         self::assertStringContainsString('&lt;img', $hostile);
+    }
+
+    public function testContainerGranularOverridesEmitInlineStyleAndSkipPaddingPreset(): void
+    {
+        // Box padding overrides the preset (no pad class, inline 4-side padding);
+        // margin/radius/border/min-height emit inline; max_width lands on __inner.
+        $out = $this->render([[
+            'id' => 'cov', 'type' => 'container',
+            'data' => [
+                'padding_preset' => 'large',
+                'padding' => ['top' => 10, 'right' => 20, 'bottom' => 10, 'left' => 20],
+                'margin' => ['top' => 8],
+                'radius' => ['top' => 6, 'right' => 6, 'bottom' => 6, 'left' => 6],
+                'border_style' => 'solid', 'border_width' => 2, 'border_color' => '#ff0000',
+                'max_width' => 720, 'min_height_px' => 400,
+                'content' => [],
+            ],
+        ]]);
+        self::assertStringNotContainsString('thallo-block-container--pad-large', $out);
+        self::assertStringContainsString('padding: 10px 20px 10px 20px', $out);
+        self::assertStringContainsString('margin: 8px 0px 0px 0px', $out);
+        self::assertStringContainsString('border-radius: 6px 6px 6px 6px', $out);
+        self::assertStringContainsString('border: 2px solid #ff0000', $out);
+        self::assertStringContainsString('min-height: 400px', $out);
+        self::assertStringContainsString('max-width: 720px', $out);
+
+        // Empty box → falls back to the preset class, no inline padding.
+        $preset = $this->render([[
+            'id' => 'cpr', 'type' => 'container',
+            'data' => ['padding_preset' => 'small', 'content' => []],
+        ]]);
+        self::assertStringContainsString('thallo-block-container--pad-small', $preset);
+        self::assertStringNotContainsString('padding:', $preset);
+    }
+
+    public function testContainerBoxFieldValidatesNumericSides(): void
+    {
+        $schema = $this->containerSchema();
+        // Valid box passes and is stored canonically (only numeric sides survive).
+        $clean = (new FieldValidator())->validate($schema, ['padding' => ['top' => 12, 'bogus' => 1]]);
+        self::assertSame(['top' => 12], $clean['padding']);
+        // A non-numeric side is rejected with the field's dot path.
+        try {
+            (new FieldValidator())->validate($schema, ['margin' => ['left' => 'nope']]);
+            self::fail('expected ValidationException');
+        } catch (ValidationException $e) {
+            self::assertArrayHasKey('margin', $e->errors());
+        }
     }
 
     public function testContainerShadowEnumAddsUtilityClass(): void

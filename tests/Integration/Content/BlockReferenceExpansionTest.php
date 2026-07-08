@@ -81,7 +81,7 @@ final class BlockReferenceExpansionTest extends AppTestCase
     /**
      * A real blob row: with the full validator wired, validateAt() applies
      * assetExistsOnMediaDisk() to asset fields INSIDE blocks too, so the fixture's
-     * asset uuid must exist on the configured media disk ('local' default).
+     * asset uuid must exist on the configured media disk ('uploads' default).
      */
     private function seedBlob(string $uuid): void
     {
@@ -90,7 +90,7 @@ final class BlockReferenceExpansionTest extends AppTestCase
             'name' => 'img.jpg',
             'mime_type' => 'image/jpeg',
             'size' => 100,
-            'storage_type' => 'local',
+            'storage_type' => 'uploads',
             'status' => 'active',
             'visibility' => 'public',
             'created_by' => 'user00000001',

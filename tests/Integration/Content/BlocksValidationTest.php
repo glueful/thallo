@@ -126,14 +126,12 @@ final class BlocksValidationTest extends AppTestCase
                 self::assertStringContainsString('must be an object', $e->errors()['body.0.data']);
             }
         }
-        // Empty object is fine (json '{}' decodes to [] in PHP — indistinguishable, allowed).
-        try {
-            $this->clean(['body' => [['type' => 'hero', 'data' => []]]]);
-            self::fail('heading is required — but the DATA shape itself must be accepted');
-        } catch (ValidationException $e) {
-            self::assertArrayHasKey('body.0.heading', $e->errors()); // field error, NOT a data-shape error
-            self::assertArrayNotHasKey('body.0.data', $e->errors());
-        }
+        // Empty object is a valid SHAPE (json '{}' decodes to [] in PHP). In draft it is
+        // ACCEPTED even though hero.heading is required — block required is a publish-time
+        // gate, so a freshly-added block saves and previews while you fill it in. (Strict
+        // publish rejects the missing heading; see testRequiredBlockFieldMissingIsPublishTimeOnly.)
+        $clean = $this->clean(['body' => [['type' => 'hero', 'data' => []]]]);
+        self::assertSame([], $clean['body'][0]['data']);
     }
 
     public function testStrictPublishRejectsDanglingReferenceInsideBlockData(): void
@@ -208,11 +206,20 @@ final class BlocksValidationTest extends AppTestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testRequiredBlockFieldMissingIsAlwaysAnError(): void
+    public function testRequiredBlockFieldMissingIsPublishTimeOnly(): void
     {
+        // A freshly-added block starts as {} and is filled incrementally, so a missing
+        // required field must NOT 422 during draft-save/preview — otherwise adding an
+        // image/accordion_item block toasts an error before you can type, and the live
+        // preview pauses. Publish (strict) still enforces it, so nothing incomplete
+        // can go live.
+        $draft = $this->clean(['body' => [['type' => 'hero', 'data' => []]]]);
+        self::assertSame('hero', $draft['body'][0]['type']);
+        self::assertSame([], $draft['body'][0]['data']);   // saved, heading simply absent
+
         try {
-            $this->clean(['body' => [['type' => 'hero', 'data' => []]]]);
-            self::fail('expected ValidationException');
+            $this->clean(['body' => [['type' => 'hero', 'data' => []]]], strict: true);
+            self::fail('expected ValidationException at publish');
         } catch (ValidationException $e) {
             self::assertArrayHasKey('body.0.heading', $e->errors());
         }

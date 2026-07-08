@@ -70,6 +70,9 @@ final class StarterBlockTypes
                 'schema' => [
                     ['name' => 'background_color', 'type' => 'string', 'pattern' => self::HEX],
                     ['name' => 'background_image', 'type' => 'asset'],
+                    // A muted, looping video background (behind the overlay). Takes
+                    // visual precedence over background_image when both are set.
+                    ['name' => 'background_video', 'type' => 'asset'],
                     ['name' => 'bg_size', 'type' => 'enum', 'enum' => ['cover', 'contain', 'auto']],
                     ['name' => 'bg_repeat', 'type' => 'enum', 'enum' => ['no-repeat', 'repeat']],
                     ['name' => 'bg_position', 'type' => 'enum',
@@ -77,10 +80,27 @@ final class StarterBlockTypes
                     ['name' => 'overlay_color', 'type' => 'string', 'pattern' => self::HEX],
                     ['name' => 'overlay_opacity', 'type' => 'number', 'min' => 0, 'max' => 100],
                     ['name' => 'width', 'type' => 'enum', 'enum' => ['full', 'contained', 'narrow']],
-                    ['name' => 'padding', 'type' => 'enum', 'enum' => ['none', 'small', 'medium', 'large']],
+                    // Token-scale padding preset (the quick, theme-consistent default).
+                    ['name' => 'padding_preset', 'type' => 'enum', 'enum' => ['none', 'small', 'medium', 'large']],
                     ['name' => 'min_height', 'type' => 'enum', 'enum' => ['auto', 'half', 'screen']],
+                    // Vertical placement of the content within the container (needs a
+                    // min_height to be visible). Enables the centered-hero / Cover look.
+                    ['name' => 'content_align', 'type' => 'enum', 'enum' => ['top', 'center', 'bottom']],
                     ['name' => 'shadow', 'type' => 'enum',
                         'enum' => ['none', '2xs', 'xs', 'sm', 'md', 'lg', 'xl', '2xl']],
+                    // ---- Granular overrides (all optional; unset → the presets/defaults
+                    // above still apply, so existing containers are unchanged). ----
+                    // Per-side px padding; overrides padding_preset when any side is set.
+                    ['name' => 'padding', 'type' => 'box'],
+                    ['name' => 'margin', 'type' => 'box'],
+                    ['name' => 'radius', 'type' => 'box'],
+                    ['name' => 'border_style', 'type' => 'enum',
+                        'enum' => ['none', 'solid', 'dashed', 'dotted']],
+                    ['name' => 'border_width', 'type' => 'number', 'min' => 0],
+                    ['name' => 'border_color', 'type' => 'string', 'pattern' => self::HEX, 'format' => 'color'],
+                    // px overrides for the width / min_height enums above.
+                    ['name' => 'max_width', 'type' => 'number', 'min' => 0],
+                    ['name' => 'min_height_px', 'type' => 'number', 'min' => 0],
                     ['name' => 'content', 'type' => 'blocks'],
                 ]],
             ['slug' => 'grid', 'label' => 'Grid', 'icon' => 'i-lucide-layout-grid',
@@ -142,11 +162,6 @@ final class StarterBlockTypes
                     ['name' => 'size', 'type' => 'enum', 'enum' => ['xs', 'sm', 'md', 'lg', 'xl']],
                     ['name' => 'icon', 'type' => 'string', 'pattern' => '[a-z0-9]+(-[a-z0-9]+)*', 'format' => 'icon'],
                 ]],
-            ['slug' => 'footer_columns', 'label' => 'Footer columns', 'icon' => 'i-lucide-panel-bottom',
-                'category' => 'Layout', 'description' => 'Columns of titled link lists for a site footer.',
-                'schema' => [
-                    ['name' => 'columns', 'type' => 'json'],
-                ]],
             // Nuxt UI Footer shape (refs.md `footer`): a <footer> bar with an optional
             // top band, then left (copyright) / center (links) / right (social) slots.
             // `copyright` is a block list so it can hold a shortcode (e.g. a dynamic
@@ -184,6 +199,19 @@ final class StarterBlockTypes
                 'category' => 'Content', 'description' => 'Free-form formatted text.',
                 'schema' => [
                     ['name' => 'body', 'type' => 'text', 'format' => 'rich'],
+                ]],
+            // A single heading/label — the lightweight alternative to reaching for a
+            // rich_text block just to place one line. Level defaults to h2 at render
+            // (h1 is the page title); align is logical (start/center/end).
+            ['slug' => 'heading', 'label' => 'Heading', 'icon' => 'i-lucide-heading',
+                'category' => 'Content', 'description' => 'A single heading or label line.',
+                'schema' => [
+                    ['name' => 'text', 'type' => 'string', 'required' => true],
+                    ['name' => 'level', 'type' => 'enum', 'enum' => ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']],
+                    ['name' => 'align', 'type' => 'enum', 'enum' => ['start', 'center', 'end']],
+                    // Freeform font color (optional) → inline `color:` at render. The
+                    // 'color' format renders a swatch picker in the editor.
+                    ['name' => 'color', 'type' => 'string', 'pattern' => self::HEX, 'format' => 'color'],
                 ]],
             ['slug' => 'card', 'label' => 'Card', 'icon' => 'i-lucide-rectangle-horizontal',
                 'category' => 'Content',
@@ -290,7 +318,12 @@ final class StarterBlockTypes
                     ['name' => 'image', 'type' => 'asset', 'required' => true],
                     ['name' => 'alt', 'type' => 'string'],
                     ['name' => 'caption', 'type' => 'string'],
-                    ['name' => 'width', 'type' => 'enum', 'enum' => ['normal', 'wide', 'full']],
+                    // Layout-size preset: how wide the figure sits within the content column.
+                    ['name' => 'size', 'type' => 'enum', 'enum' => ['normal', 'wide', 'full']],
+                    // Explicit intrinsic dimensions in px (optional, independent of `size`).
+                    // Set either or both: one alone preserves aspect ratio, both are exact.
+                    ['name' => 'width', 'type' => 'number', 'min' => 1],
+                    ['name' => 'height', 'type' => 'number', 'min' => 1],
                 ]],
             ['slug' => 'logo', 'label' => 'Logo', 'icon' => 'i-lucide-badge-check',
                 'category' => 'Media',
@@ -340,6 +373,16 @@ final class StarterBlockTypes
                 'schema' => [
                     ['name' => 'audio', 'type' => 'asset', 'required' => true],
                     ['name' => 'title', 'type' => 'string'],
+                ]],
+            // A download link to any uploaded blob (not media-type-specific). `label`
+            // is the link text (the resolver exposes no filename); falls back to
+            // "Download". new_tab opens it in a new browser tab.
+            ['slug' => 'file', 'label' => 'File', 'icon' => 'i-lucide-file',
+                'category' => 'Media', 'description' => 'A download link to an uploaded file.',
+                'schema' => [
+                    ['name' => 'file', 'type' => 'asset', 'required' => true],
+                    ['name' => 'label', 'type' => 'string'],
+                    ['name' => 'new_tab', 'type' => 'boolean'],
                 ]],
 
             // ---- Advanced ---------------------------------------------------

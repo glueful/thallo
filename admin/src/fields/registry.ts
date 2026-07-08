@@ -9,6 +9,7 @@ import EnumField from './components/EnumField.vue'
 import AssetField from './components/AssetField.vue'
 import ReferenceField from './components/ReferenceField.vue'
 import JsonField from './components/JsonField.vue'
+import BoxField from './components/BoxField.vue'
 
 // BlocksField recurses through fieldComponent(); loading it async removes the
 // registry ↔ widget static import cycle (nesting amendment §A4).
@@ -24,6 +25,7 @@ const registry: Record<FieldDef['type'], Component> = {
   asset: AssetField,
   reference: ReferenceField,
   json: JsonField,
+  box: BoxField,
   blocks: BlocksField,
 }
 

@@ -142,7 +142,13 @@ final class FieldValidator
             $value = $present ? $payload[$field->name] : null;
 
             if (!$present || $value === null) {
-                if ($field->required) {
+                // Required on the entry's OWN fields (depth 0) is enforced even in draft
+                // (the entry form always sends its keys). A nested BLOCK field (depth ≥ 1)
+                // is a publish-time gate instead: a freshly-added block starts as {} and
+                // is filled incrementally, so an absent required field must NOT 422 the
+                // draft-save/preview — that made image/accordion_item blocks impossible to
+                // add (and paused the live preview). Publish (strict) still rejects it.
+                if ($field->required && ($strict || $depth === 0)) {
                     $errors[$field->name] = 'is required';
                 }
                 continue;
@@ -231,6 +237,10 @@ final class FieldValidator
             if ($field->type === 'datetime' && is_string($value)) {
                 $value = self::normalizeDatetime($value);
             }
+            // Strip a box down to its four numeric sides so stored data is canonical.
+            if ($field->type === 'box' && is_array($value)) {
+                $value = $this->normalizeBox($value);
+            }
             $clean[$field->name] = $value;
         }
 
@@ -298,9 +308,48 @@ final class FieldValidator
                 : 'must be one of: ' . implode(', ', $field->enumValues),
             'reference', 'asset' => (is_string($value) && $value !== '') ? null : 'must be a uuid',
             'json' => (is_array($value)) ? null : 'must be an object/array',
+            'box' => $this->checkBox($value),
             'blocks' => 'must be an ordered list of blocks', // handled by validateBlocks(); guard only
             default => 'unknown field type',
         };
+    }
+
+    /** A box is an object with optional non-negative numeric top/right/bottom/left (px). */
+    private function checkBox(mixed $value): ?string
+    {
+        if (!is_array($value)) {
+            return 'must be an object';
+        }
+        foreach (['top', 'right', 'bottom', 'left'] as $side) {
+            if (!array_key_exists($side, $value) || $value[$side] === null) {
+                continue;
+            }
+            if (!is_int($value[$side]) && !is_float($value[$side])) {
+                return "{$side} must be a number";
+            }
+            if ($value[$side] < 0) {
+                return "{$side} must be at least 0";
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Cleaned box: only the four numeric sides survive (unknown keys and null/absent
+     * sides dropped), so stored data is `{}` .. `{top,right,bottom,left}` by construction.
+     *
+     * @param array<string,mixed> $value
+     * @return array<string,int|float>
+     */
+    private function normalizeBox(array $value): array
+    {
+        $out = [];
+        foreach (['top', 'right', 'bottom', 'left'] as $side) {
+            if (isset($value[$side]) && (is_int($value[$side]) || is_float($value[$side])) && $value[$side] >= 0) {
+                $out[$side] = $value[$side];
+            }
+        }
+        return $out;
     }
 
     /**

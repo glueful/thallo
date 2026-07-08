@@ -5,7 +5,11 @@ return [
     'site_name' => env('SITE_NAME', 'Thallo'),
 
     // Glueful storage disk that backs media blob references (see docs/V1_DESIGN.md §8).
-    'media_disk' => env('MEDIA_DISK', 'local'),
+    // MUST match the disk uploads land on, or asset-field validation rejects every
+    // library image ("must reference an active blob on the configured media disk").
+    // The framework writes blobs to `uploads.disk` (env UPLOADS_DISK, default 'uploads'),
+    // so this default mirrors it; set MEDIA_DISK only to point validation at a different disk.
+    'media_disk' => env('MEDIA_DISK', env('UPLOADS_DISK', 'uploads')),
 
     // First-run web setup (POST /admin/setup) guard. The endpoint is unauthenticated by design
     // (no admin exists yet), so on a public deploy it must not be "first caller owns the instance":

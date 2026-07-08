@@ -10,6 +10,9 @@ final class FieldDefinition implements FieldDescriptor
 {
     public const TYPES = [
         'string', 'text', 'number', 'boolean', 'datetime', 'enum', 'reference', 'asset', 'json', 'blocks',
+        // A 4-side spacing/radius box: an object with optional non-negative numeric
+        // top/right/bottom/left (px). Renders a linked T/R/B/L editor widget.
+        'box',
     ];
     public const FILTER_TYPES = ['string', 'number', 'boolean', 'datetime', 'enum'];
     /** Presentation widget for a `text` field — both store a string; only the editor differs. */
@@ -17,8 +20,9 @@ final class FieldDefinition implements FieldDescriptor
     /**
      * Editor-hint formats for STRING fields (icon-picker spec §2): presentation
      * metadata only — validation stays with the field's pattern/enum rules.
+     * 'color' renders a swatch + hex picker (pair with a HEX `pattern`).
      */
-    public const STRING_FORMATS = ['icon', 'brand-icon'];
+    public const STRING_FORMATS = ['icon', 'brand-icon', 'color'];
 
     /** @param list<string> $enumValues */
     public function __construct(
@@ -141,7 +145,7 @@ final class FieldDefinition implements FieldDescriptor
             if ($rawFormat !== null && $rawFormat !== '') {
                 if (!is_string($rawFormat) || !in_array($rawFormat, self::STRING_FORMATS, true)) {
                     throw new SchemaParseException(
-                        "string field '{$name}' has invalid format (expected icon|brand-icon)"
+                        "string field '{$name}' has invalid format (expected icon|brand-icon|color)"
                     );
                 }
                 $format = $rawFormat;

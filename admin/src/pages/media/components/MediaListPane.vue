@@ -87,7 +87,11 @@ async function uploadFiles() {
   // Sequential — keeps server load predictable and errors attributable per file.
   for (const file of list) {
     try {
-      await upload.mutateAsync({ file })
+      // Library media exists to be embedded in public content: the admin <img> preview
+      // (/blobs/{uuid}) and the live-site MediaUrlResolver both serve public blobs only,
+      // so a private upload would be unpickable/unrenderable. Upload public like the
+      // asset-field paths do (visibility default is otherwise 'private').
+      await upload.mutateAsync({ file, visibility: 'public' })
       ok++
     } catch (e) {
       failed.push(file.name)

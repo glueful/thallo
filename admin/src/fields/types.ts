@@ -15,10 +15,11 @@ export interface FieldDef {
     | 'asset'
     | 'json'
     | 'blocks'
+    | 'box'
   required?: boolean
   enum?: string[]
   /** Presentation widget for `text` fields: 'plain' (textarea) or 'rich' (editor). */
-  format?: 'plain' | 'rich' | 'icon' | 'brand-icon'
+  format?: 'plain' | 'rich' | 'icon' | 'brand-icon' | 'color'
   /** Target content-type slug for a `reference` field — drives the searchable entry picker. */
   referenceType?: string
   /** Ordered-array reference/asset field. */

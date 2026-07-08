@@ -41,11 +41,11 @@ final class SeedBlockTypesTest extends AppTestCase
         self::assertContains('blocks', array_column($section['schema'], 'type'));
 
         // Block-library expansion + theme-rewrite reconciliation: legacy blocks
-        // dropped, new primitives added (incl. footer + footer_columns +
-        // color_mode), item carriers renamed (accordion_item, stepper_item).
-        // 35 types; html seeds DEACTIVATED; hero/cta carry the Nuxt UI shapes;
-        // container declares value constraints.
-        self::assertSame(36, $expected);
+        // dropped, new primitives added (incl. footer + color_mode + heading + file),
+        // item carriers renamed (accordion_item, stepper_item). footer_columns removed
+        // — columns + links compose it. 37 types; html seeds DEACTIVATED; hero/cta
+        // carry the Nuxt UI shapes; container declares value constraints.
+        self::assertSame(37, $expected);
         // Style block (style-block spec §3): scoped accent/neutral re-skin + class hook.
         $style = $repo->findBySlug('style');
         self::assertSame('Layout', $style['category']);
