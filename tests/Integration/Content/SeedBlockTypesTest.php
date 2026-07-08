@@ -45,7 +45,17 @@ final class SeedBlockTypesTest extends AppTestCase
         // color_mode), item carriers renamed (accordion_item, stepper_item).
         // 35 types; html seeds DEACTIVATED; hero/cta carry the Nuxt UI shapes;
         // container declares value constraints.
-        self::assertSame(35, $expected);
+        self::assertSame(36, $expected);
+        // Style block (style-block spec §3): scoped accent/neutral re-skin + class hook.
+        $style = $repo->findBySlug('style');
+        self::assertSame('Layout', $style['category']);
+        $fields = array_column($style['schema'], 'type', 'name');
+        self::assertSame('enum', $fields['accent']);
+        self::assertSame('enum', $fields['neutral']);
+        self::assertSame('blocks', $fields['content']);
+        $accentField = array_values(array_filter($style['schema'], fn ($f) => $f['name'] === 'accent'))[0];
+        self::assertContains('inherit', $accentField['enum']);
+        self::assertContains('rose', $accentField['enum']);
         self::assertSame(0, (int) $repo->findBySlug('html')['active']);
         self::assertSame('Items', $repo->findBySlug('accordion_item')['category']);
         self::assertSame('Content', $repo->findBySlug('color_mode')['category']);

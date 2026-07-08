@@ -48,6 +48,7 @@ final class StarterTemplatesTest extends AppTestCase
                 'links' => [['id' => 'cb1', 'type' => 'button',
                     'data' => ['label' => 'Do it', 'url' => 'https://example.com']]]],
             'image' => ['image' => 'blob00000000', 'alt' => 'A pic', 'caption' => 'Cap', 'width' => 'wide'],
+            'style' => ['accent' => 'rose', 'neutral' => 'zinc', 'class_hook' => 'promo', 'content' => []],
             'container' => ['background_color' => '#112233', 'overlay_color' => '#000000',
                 'overlay_opacity' => 40, 'width' => 'full', 'padding' => 'large',
                 'content' => [['id' => 'cq', 'type' => 'rich_text', 'data' => ['body' => '<p>Boxed</p>']]]],

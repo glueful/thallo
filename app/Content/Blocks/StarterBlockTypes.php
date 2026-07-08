@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Content\Blocks;
 
+use Thallo\Render\Theme\ThemeColors;
+
 /**
  * The starter block library (starter-library spec §1; expanded + hero/cta
  * reshaped by the block-library spec) — DATA ONLY, the one source of truth for
@@ -41,6 +43,19 @@ final class StarterBlockTypes
                     ['name' => 'orientation', 'type' => 'enum', 'enum' => ['vertical', 'horizontal']],
                     ['name' => 'reverse', 'type' => 'boolean'],
                     ['name' => 'links', 'type' => 'blocks', 'block_types' => ['button']],
+                    ['name' => 'content', 'type' => 'blocks'],
+                ]],
+            ['slug' => 'style', 'label' => 'Style', 'icon' => 'i-lucide-palette',
+                'category' => 'Layout',
+                'description' => 'Re-skin a group of blocks with a chosen accent/neutral, '
+                    . 'plus an optional custom-CSS class hook.',
+                'schema' => [
+                    ['name' => 'accent', 'type' => 'enum',
+                        'enum' => array_merge(['inherit'], ThemeColors::ACCENTS)],
+                    ['name' => 'neutral', 'type' => 'enum',
+                        'enum' => array_merge(['inherit'], ThemeColors::NEUTRALS)],
+                    ['name' => 'class_hook', 'type' => 'string',
+                        'pattern' => '[A-Za-z_][A-Za-z0-9_-]*( [A-Za-z_][A-Za-z0-9_-]*)*'],
                     ['name' => 'content', 'type' => 'blocks'],
                 ]],
             ['slug' => 'container', 'label' => 'Container', 'icon' => 'i-lucide-square-dashed',

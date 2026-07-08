@@ -11,6 +11,7 @@ use App\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
 use Glueful\Events\EventService;
 use Thallo\Contracts\Navigation\MenuUpdated;
+use Thallo\Render\Http\Middleware\RenderPageCache;
 use Thallo\Render\RenderErrorCache;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -204,7 +205,7 @@ final class RenderPageCacheTest extends AppTestCase
             $calls++;
             return new Response('<html>404</html>', 404, ['Content-Type' => 'text/html; charset=UTF-8']);
         };
-        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate',true, 3600);
+        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate', true, 3600);
         $errors->themed404($render);
         $second = $errors->themed404($render);
 
@@ -223,7 +224,7 @@ final class RenderPageCacheTest extends AppTestCase
             $calls++;
             return new Response('Internal Server Error', 500, ['Content-Type' => 'text/plain; charset=UTF-8']);
         };
-        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate',true, 3600);
+        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate', true, 3600);
         $errors->themed404($render);
         $errors->themed404($render);
         self::assertSame(2, $calls);
@@ -261,7 +262,7 @@ final class RenderPageCacheTest extends AppTestCase
             $calls++;
             return new Response('<html>404</html>', 404, ['Content-Type' => 'text/html; charset=UTF-8']);
         };
-        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate',false, 3600);
+        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate', false, 3600);
         $res = $errors->themed404($render);
         $errors->themed404($render);
         self::assertSame(2, $calls); // rendered every time — byte-for-byte today's behavior
@@ -293,6 +294,42 @@ final class RenderPageCacheTest extends AppTestCase
 
         self::assertNull($this->cache()->get('render:default:blue-slate:%2Fblog%2Fhello')); // A purged
         self::assertIsArray($this->cache()->get('render:default:blue-slate:%2F'));        // B still hit
+    }
+
+    public function testStyleSkinnedRenderIsPurgedByItsEntrySurrogateTag(): void
+    {
+        // Style-block spec P2: a page whose HTML carries a scoped style-block skin is
+        // stored in the render page cache tagged with the page's entry surrogate
+        // (thallo:entry:{uuid}, from Cache-Tag) alongside thallo:render:page. Publishing
+        // that entry invalidates the SAME entry tag, so the stale skin is dropped — C
+        // rides the existing content-publish purge path (end-to-end coverage:
+        // testPublishPurgesCachedPageThroughTheRealListener) with no new cache code.
+        // The middleware's appearance fingerprint is the GLOBAL default (blue-slate) —
+        // the style block's rose-zinc skin lives in the HTML body, NOT the cache key.
+        // This deliberately proves normal-content purge, decoupled from the fingerprint.
+        $cache = $this->cache();
+        $mw = new RenderPageCache($cache, 'default', 'blue-slate', true, 3600);
+
+        $skinned = '<div class="thallo-block thallo-block-style thallo-skin-rose-zinc">'
+            . '<div class="thallo-block-style__inner"></div>'
+            . '<style>.thallo-skin-rose-zinc{--accent:#e11d48;}'
+            . 'html[data-theme="dark"] .thallo-skin-rose-zinc{--accent:#f43f5e;}</style></div>';
+        $next = static function () use ($skinned): Response {
+            $res = new Response($skinned, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
+            $res->headers->set('Cache-Tag', 'thallo:entry:STYLE1, thallo:type:post');
+            return $res;
+        };
+
+        $mw->handle(Request::create('/skinned', 'GET'), $next);
+
+        $key = 'render:default:blue-slate:%2Fskinned';
+        $stored = $cache->get($key);
+        self::assertIsArray($stored);
+        self::assertStringContainsString('thallo-skin-rose-zinc', $stored['body']);
+
+        // Publishing the entry invalidates thallo:entry:STYLE1 — the render entry's tag.
+        $cache->invalidateTags(['thallo:entry:STYLE1']);
+        self::assertNull($cache->get($key)); // stale skinned render dropped
     }
 
     public function testRenderPageTagInvalidationDropsEverything(): void
