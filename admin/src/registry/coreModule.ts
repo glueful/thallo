@@ -67,7 +67,7 @@ const main: NavigationMenuItem[] = [
       {
         label: 'API Reference',
         icon: 'i-lucide-book-open',
-        to: 'https://thallo.dev/docs/',
+        to: 'https://thallodev.dev/docs/',
         target: '_blank',
       },
       {

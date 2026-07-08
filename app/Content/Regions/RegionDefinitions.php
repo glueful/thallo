@@ -15,10 +15,11 @@ final class RegionDefinitions
 {
     /** @var array<string, list<string>> region slug → allowed TOP-LEVEL block types */
     public const PALETTES = [
-        'header' => ['logo', 'navigation', 'button', 'social_links', 'container', 'columns', 'rich_text'],
+        'header' => ['logo', 'navigation', 'button', 'color_mode', 'social_links', 'container', 'columns', 'rich_text'],
         'footer' => [
             'logo', 'navigation', 'button', 'social_links', 'container', 'columns', 'rich_text',
-            'divider', 'spacer', 'icon', 'image', 'shortcode', 'html',
+            'separator', 'spacer', 'icon', 'image', 'shortcode', 'html',
+            'footer', 'footer_columns', 'links',
         ],
     ];
 

@@ -29,6 +29,39 @@ describe('MenuTreeEditor', () => {
     expect((labels[0]!.element as HTMLInputElement).value).toBe('a')
   })
 
+  it('shows an existing per-item description and writes edits back, coercing [] → object', async () => {
+    const withDesc: NavTreeItem = {
+      uuid: 'u-d',
+      kind: 'url',
+      url: '/d',
+      labels: { en: 'D' },
+      descriptions: { en: 'existing' },
+      children: [],
+    }
+    const wrapper = mountEditor([withDesc])
+    const input = wrapper.find(
+      '[data-test="tree-item-description"] input, input[data-test="tree-item-description"]',
+    )
+    expect((input.element as HTMLInputElement).value).toBe('existing')
+
+    // The server sends an empty description map as `[]` (PHP). Setting a key must
+    // coerce it to an object, else JSON.stringify would drop the string key on save.
+    const arrayDesc = {
+      uuid: 'u-e',
+      kind: 'url',
+      url: '/e',
+      labels: { en: 'E' },
+      descriptions: [] as unknown as Record<string, string>,
+      children: [],
+    } as NavTreeItem
+    const w2 = mountEditor([arrayDesc])
+    await w2
+      .find('[data-test="tree-item-description"] input, input[data-test="tree-item-description"]')
+      .setValue('typed')
+    expect(Array.isArray(arrayDesc.descriptions)).toBe(false)
+    expect(arrayDesc.descriptions).toEqual({ en: 'typed' })
+  })
+
   it('entry rows inherit the page title as the label placeholder and show the path', () => {
     // nav-entry-items design: empty label = follow the page title; the SPA
     // never guesses — target_title comes from the admin tree payload.

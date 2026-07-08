@@ -55,6 +55,23 @@ final class MenuResolutionTest extends AppTestCase
         self::assertSame('À propos', $tree[0]['label']);
     }
 
+    public function testDescriptionResolvesWithLocaleFallbackAndDefaultsEmpty(): void
+    {
+        $menu = $this->menus()->createMenu('main', 'Main');
+        $this->menus()->replaceTree((string) $menu['uuid'], 0, [
+            // Has a description (fr only) — resolves via the fallback chain.
+            $this->item(['position' => 0, 'url' => '/a', 'labels' => json_encode(['en' => 'A']),
+                'descriptions' => json_encode(['fr' => 'Depuis fr'])]),
+            // No description column value at all — resolves to ''.
+            $this->item(['position' => 1, 'url' => '/b', 'labels' => json_encode(['en' => 'B'])]),
+        ]);
+
+        $tree = $this->reader()->menu('main', 'en');
+        self::assertNotNull($tree);
+        self::assertSame('Depuis fr', $tree[0]['description']); // en absent → any available
+        self::assertSame('', $tree[1]['description']);          // null column → empty string
+    }
+
     public function testUrlItemsAlwaysServeAndEntryItemsResolvePaths(): void
     {
         $entry = $this->seedBilingualPublishedEntry();

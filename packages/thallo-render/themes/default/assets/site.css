@@ -2,7 +2,10 @@
    your app's themes/ directory as a starting point. Shell selectors are
    NAMESPACED (.site-header/.site-nav/.site-footer): block templates render
    semantic header/nav/footer elements of their own and must never inherit
-   shell styling. Dark mode only re-maps the variables. */
+   shell styling. Dark mode only re-maps the variables, and is keyed on
+   html[data-theme="dark"] — the no-flash resolver's single source of truth
+   (color-mode spec §3.3), NOT the OS media query, so an explicit light/dark
+   choice always wins over the operating-system preference. */
 :root {
   --bg: #ffffff;
   --surface: #f6f7f9;
@@ -12,7 +15,20 @@
   --line: #e2e8f0;
   --accent: #2563eb;
   --accent-ink: #ffffff;
-  --shadow: 0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px rgb(15 23 42 / 0.08);
+  /* Elevation scale (Tailwind-derived). Each token composes its color from
+     --shadow-color and its opacity from calc(<base>% * --shadow-strength), so an
+     element can retint (colored shadow) or restrength (opacity modifier) its shadow. */
+  --shadow-color: #0f172a;   /* slate-900; dark mode + operators override */
+  --shadow-strength: 1;
+  --shadow-none: none;
+  --shadow-2xs: 0 1px color-mix(in srgb, var(--shadow-color) calc(5% * var(--shadow-strength)), transparent);
+  --shadow-xs:  0 1px 2px 0 color-mix(in srgb, var(--shadow-color) calc(5% * var(--shadow-strength)), transparent);
+  --shadow-sm:  0 1px 3px 0 color-mix(in srgb, var(--shadow-color) calc(10% * var(--shadow-strength)), transparent), 0 1px 2px -1px color-mix(in srgb, var(--shadow-color) calc(10% * var(--shadow-strength)), transparent);
+  --shadow-md:  0 4px 6px -1px color-mix(in srgb, var(--shadow-color) calc(10% * var(--shadow-strength)), transparent), 0 2px 4px -2px color-mix(in srgb, var(--shadow-color) calc(10% * var(--shadow-strength)), transparent);
+  --shadow-lg:  0 10px 15px -3px color-mix(in srgb, var(--shadow-color) calc(10% * var(--shadow-strength)), transparent), 0 4px 6px -4px color-mix(in srgb, var(--shadow-color) calc(10% * var(--shadow-strength)), transparent);
+  --shadow-xl:  0 20px 25px -5px color-mix(in srgb, var(--shadow-color) calc(10% * var(--shadow-strength)), transparent), 0 8px 10px -6px color-mix(in srgb, var(--shadow-color) calc(10% * var(--shadow-strength)), transparent);
+  --shadow-2xl: 0 25px 50px -12px color-mix(in srgb, var(--shadow-color) calc(25% * var(--shadow-strength)), transparent);
+  --shadow: var(--shadow-md);
   --radius: 12px;
   --radius-lg: 20px;
   --container: 72rem;
@@ -25,18 +41,18 @@
   --space-6: 4rem;
   --space-7: 6rem;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b1120;
-    --surface: #111a2e;
-    --surface-2: #16213a;
-    --ink: #e2e8f0;
-    --muted: #94a3b8;
-    --line: #1e293b;
-    --accent: #3b82f6;
-    --accent-ink: #ffffff;
-    --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.5);
-  }
+html[data-theme="dark"] {
+  --bg: #0b1120;
+  --surface: #111a2e;
+  --surface-2: #16213a;
+  --ink: #e2e8f0;
+  --muted: #94a3b8;
+  --line: #1e293b;
+  --accent: #3b82f6;
+  --accent-ink: #ffffff;
+  /* Shadows recompute from the scale; dark just darkens the tint and boosts strength. */
+  --shadow-color: #000000;
+  --shadow-strength: 2.5;
 }
 
 * { box-sizing: border-box; }
@@ -79,10 +95,8 @@ img { max-width: 100%; display: block; }
    template-emitted --has-dark modifier — without a dark upload the single
    light logo stays visible in dark mode, unchanged. */
 .site-logo--dark { display: none; }
-@media (prefers-color-scheme: dark) {
-  .site-name--has-dark .site-logo--light { display: none; }
-  .site-name--has-dark .site-logo--dark { display: block; }
-}
+html[data-theme="dark"] .site-name--has-dark .site-logo--light { display: none; }
+html[data-theme="dark"] .site-name--has-dark .site-logo--dark { display: block; }
 
 /* Region-backed chrome (global-regions spec): modifier classes from region settings. */
 .thallo-region-header--sticky { position: sticky; top: 0; z-index: 40; background: var(--bg); }

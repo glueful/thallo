@@ -101,6 +101,26 @@ describe('preview bridge (direct eval)', () => {
     expect(w.querySelector('.thallo-canvas-shim')).toBeNull()
   })
 
+  it('a leading <style> child is skipped: the toolbar anchors to the visual content, not the <style>', () => {
+    // Style-block spec P1: a block-owned <style> must never become the canvas host.
+    // Render it FIRST here (worst case) to prove the bridge — not template order —
+    // guarantees the invariant.
+    const w = wrapper(
+      'skin-a-00001',
+      '<style>.thallo-skin-rose-none{--accent:#e11d48;}</style>' +
+        '<div class="thallo-block-style__inner"><a href="/x">x</a></div>',
+    )
+    document.body.appendChild(w)
+    w.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    expect(lastPost('thallo:block-select')).toMatchObject({ id: 'skin-a-00001' })
+    const style = w.querySelector('style')!
+    const inner = w.querySelector('.thallo-block-style__inner')!
+    expect(style.classList.contains('thallo-canvas-anchor')).toBe(false)
+    expect(inner.classList.contains('thallo-canvas-anchor')).toBe(true)
+    expect(inner.querySelector(':scope > .thallo-canvas-toolbar')).not.toBeNull()
+  })
+
   it('toolbar clicks post intents and never re-select', () => {
     const w = wrapper('blk-int-0001')
     document.body.appendChild(w)

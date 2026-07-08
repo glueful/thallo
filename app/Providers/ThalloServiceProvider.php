@@ -15,6 +15,7 @@ use App\Content\Delivery\SortCompiler;
 use App\Content\Console\PruneVersionsCommand;
 use App\Content\Console\RunBlockBackfillCommand;
 use App\Content\Console\SeedBlockTypesCommand;
+use App\Content\Console\SyncBlockTypesCommand;
 use App\Content\Console\ResyncCommand;
 use App\Content\Console\RunBackfillCommand;
 use App\Content\Console\RunDueSchedulesCommand;
@@ -109,6 +110,7 @@ use App\Content\Routing\RootMountGuard;
 use App\Content\Seo\CanonicalPathBuilder;
 use App\Settings\EngineAdminUrlProvider;
 use App\Settings\EngineSiteFaviconProvider;
+use App\Settings\EngineThemeAppearanceProvider;
 use App\Settings\EngineThemeSettingProvider;
 use App\Settings\EngineSiteLogoProvider;
 use App\Content\Seo\PathRenderer;
@@ -140,6 +142,7 @@ use Thallo\Contracts\Delivery\MediaUrlResolver;
 use Thallo\Contracts\Settings\AdminUrlProvider;
 use Thallo\Contracts\Settings\SiteFaviconProvider;
 use Thallo\Contracts\Settings\SiteLogoProvider;
+use Thallo\Contracts\Settings\ThemeAppearanceProvider;
 use Thallo\Contracts\Settings\ThemeSettingProvider;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Contracts\Context\Context;
@@ -641,6 +644,13 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared'   => true,
                 'autowire' => true,
             ],
+            // Theme color config (theme-color-config spec §4): saved accent/neutral
+            // provider — the render pack's ThemeAppearanceSource soft-binds it.
+            ThemeAppearanceProvider::class => [
+                'class'    => EngineThemeAppearanceProvider::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
             // Global chrome regions (global-regions spec): storage + save
             // validation + the render-pack's soft-bound reader seam.
             RegionRepository::class => [
@@ -946,6 +956,11 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            SyncBlockTypesCommand::class => [
+                'class' => SyncBlockTypesCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             RunBlockBackfillCommand::class => [
                 'class' => RunBlockBackfillCommand::class,
                 'shared' => true,
@@ -1097,6 +1112,7 @@ final class ThalloServiceProvider extends ServiceProvider
             ResyncCommand::class,
             PruneVersionsCommand::class,
             SeedBlockTypesCommand::class,
+            SyncBlockTypesCommand::class,
             RunBlockBackfillCommand::class,
             RunBackfillCommand::class,
             RunDueSchedulesCommand::class,

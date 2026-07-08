@@ -16,6 +16,7 @@ use Thallo\Contracts\Navigation\MenuReader;
 use Thallo\Render\ActiveThemeSource;
 use Thallo\Render\Templates\CustomCssUrl;
 use Thallo\Render\Templates\IconSet;
+use Thallo\Render\Theme\ThemeColors;
 use Psr\Log\LoggerInterface;
 use Twig\Environment;
 use Twig\Error\RuntimeError;
@@ -67,6 +68,14 @@ final class RenderContextExtension extends AbstractExtension
     private bool $annotateBlocks = false;
 
     /**
+     * Preview-only appearance override (theme-color-config spec §6): request-local,
+     * reset before every render by the controller. Null = use the saved/default
+     * source; a verified preview session's signed pair sets it for that render only.
+     */
+    private ?string $appearanceAccentOverride = null;
+    private ?string $appearanceNeutralOverride = null;
+
+    /**
      * Per-block frame stack (edit-in-place spec §2): pushed around each block
      * template render so safe_html knows WHICH block instance it is emitting
      * for — and whether that block is prose (editable_field non-null). A stack,
@@ -106,6 +115,10 @@ final class RenderContextExtension extends AbstractExtension
         private readonly ?CustomCssUrl $customCssUrl = null,
         /** Pack-internal (theme-setting spec §3): null → no asset cache-buster. */
         private readonly ?ActiveThemeSource $themeSource = null,
+        /** color-mode spec §3.4: false → no resolver, no marker, toggle renders nothing. */
+        private readonly bool $colorModeEnabled = true,
+        /** theme-color-config spec §4: null → default blue/slate (no override emitted). */
+        private readonly ?ThemeAppearanceSource $appearance = null,
     ) {
         $this->locale = $defaultLocale;
     }
@@ -142,6 +155,13 @@ final class RenderContextExtension extends AbstractExtension
             new TwigFunction('region_settings', $this->regionSettings(...)),
             new TwigFunction('site_favicon', $this->siteFavicon(...)),
             new TwigFunction('custom_css', $this->customCss(...)),
+            new TwigFunction('color_mode_enabled', $this->colorModeEnabled(...)),
+            // is_safe html: trusted, static, theme-owned resolver (mirrors icon()).
+            new TwigFunction('color_mode_script', $this->colorModeScript(...), ['is_safe' => ['html']]),
+            // is_safe html: generated purely from the closed accent/neutral enums.
+            new TwigFunction('theme_colors_style', $this->themeColorsStyle(...), ['is_safe' => ['html']]),
+            // No is_safe: returns an array whose members carry their own safety (P2a).
+            new TwigFunction('theme_style_scope', $this->themeStyleScope(...)),
         ];
     }
 
@@ -152,6 +172,99 @@ final class RenderContextExtension extends AbstractExtension
     public function customCss(): ?string
     {
         return $this->customCssUrl?->url();
+    }
+
+    /** Color-mode enablement (color-mode spec §3.4): gates the resolver, the marker, and the toggle block. */
+    public function colorModeEnabled(): bool
+    {
+        return $this->colorModeEnabled;
+    }
+
+    /** The verbatim no-flash resolver (color-mode spec §3.1), or empty markup when disabled. */
+    public function colorModeScript(): \Twig\Markup
+    {
+        $html = $this->colorModeEnabled ? \Thallo\Render\ColorMode::scriptTag() : '';
+        return new \Twig\Markup($html, 'UTF-8');
+    }
+
+    /** Preview-only appearance override (reset before every render by the controller). */
+    public function setThemeAppearanceOverride(?string $accent, ?string $neutral): void
+    {
+        $this->appearanceAccentOverride = $accent;
+        $this->appearanceNeutralOverride = $neutral;
+    }
+
+    /**
+     * Theme-color-config spec §5: emit the token override for the effective pair —
+     * a preview override (request-local) beats the saved/default source. Emits
+     * NOTHING for the default pair (site.css already carries blue/slate). Generated
+     * purely from the closed enums, so it is html-safe.
+     */
+    public function themeColorsStyle(): \Twig\Markup
+    {
+        $accent = $this->appearanceAccentOverride
+            ?? $this->appearance?->accent()
+            ?? ThemeColors::DEFAULT_ACCENT;
+        $neutral = $this->appearanceNeutralOverride
+            ?? $this->appearance?->neutral()
+            ?? ThemeColors::DEFAULT_NEUTRAL;
+
+        // Normalize (a preview override could be junk) — invalid → default.
+        $accent = ThemeColors::normalizeAccent($accent) ?? ThemeColors::DEFAULT_ACCENT;
+        $neutral = ThemeColors::normalizeNeutral($neutral) ?? ThemeColors::DEFAULT_NEUTRAL;
+
+        $css = ThemeColors::css($accent, $neutral);
+        return new \Twig\Markup($css === '' ? '' : "<style>{$css}</style>", 'UTF-8');
+    }
+
+    /**
+     * Style-block spec §4.2: the effective scoped skin for a `style` block instance.
+     * Returns a class fragment (leading space, '' when no re-skin) and the inline
+     * <style> Markup ('' when no re-skin). Follows the global color mode. BOTH members
+     * are Twig\Markup: the class is enum-derived (closed families → safe by
+     * construction), so it is emitted as-is rather than relying on autoescape being a
+     * no-op (review P2a). The <style> carries its own safety.
+     *
+     * @return array{class: \Twig\Markup, style: \Twig\Markup}
+     */
+    public function themeStyleScope(?string $accent, ?string $neutral): array
+    {
+        $class = ThemeColors::skinClass($accent, $neutral);
+        $css = $class === '' ? '' : ThemeColors::scopedCss($accent, $neutral, $class);
+        return [
+            'class' => new \Twig\Markup($class === '' ? '' : ' ' . $class, 'UTF-8'),
+            'style' => new \Twig\Markup($css === '' ? '' : "<style>{$css}</style>", 'UTF-8'),
+        ];
+    }
+
+    /** Style-block spec §4.3: namespaced, sanitized custom-CSS class hook. */
+    public function styleHook(mixed $value): string
+    {
+        return self::sanitizeStyleHook(is_string($value) ? $value : '');
+    }
+
+    /**
+     * Pure sanitizer for the class hook (pin 7). Keeps only tokens matching
+     * ^[A-Za-z_-][A-Za-z0-9_-]*$, strips any existing thallo-style- prefix
+     * (idempotent), then namespaces each under thallo-style-. Returns a
+     * leading-space-joined string, or '' when nothing survives.
+     */
+    public static function sanitizeStyleHook(string $raw): string
+    {
+        $out = [];
+        foreach (preg_split('/\s+/', trim($raw)) ?: [] as $token) {
+            if ($token === '') {
+                continue;
+            }
+            if (str_starts_with($token, 'thallo-style-')) {
+                $token = substr($token, strlen('thallo-style-'));
+            }
+            if (preg_match('/^[A-Za-z_-][A-Za-z0-9_-]*$/', $token) !== 1) {
+                continue;
+            }
+            $out[] = 'thallo-style-' . $token;
+        }
+        return $out === [] ? '' : ' ' . implode(' ', $out);
     }
 
     /**
@@ -300,6 +413,9 @@ final class RenderContextExtension extends AbstractExtension
             // filter ESCAPES the value itself in BOTH modes (never autoescape).
             new TwigFilter('editable_text', $this->editableText(...), ['is_safe' => ['html']]),
             new TwigFilter('safe_url', $this->safeUrl(...)),
+            // No is_safe: sanitized output is autoescape-safe (a deliberate second
+            // layer over the sanitizer, since the input is operator-derived).
+            new TwigFilter('style_hook', $this->styleHook(...)),
         ];
     }
 

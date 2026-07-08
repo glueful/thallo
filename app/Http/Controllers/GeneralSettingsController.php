@@ -10,7 +10,9 @@ use App\Settings\GeneralSettings;
 use Glueful\Events\EventService;
 use Glueful\Http\Response;
 use Thallo\Contracts\Delivery\PreviewThemeValidator;
+use Thallo\Contracts\Settings\ThemeAppearanceChanged;
 use Thallo\Contracts\Settings\ThemeChanged;
+use Thallo\Render\Theme\ThemeColors;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 
@@ -68,9 +70,13 @@ final class GeneralSettingsController
         }
 
         $themeBefore = $this->settings->themeOverride();
+        $accentBefore = $this->settings->themeAccent();
+        $neutralBefore = $this->settings->themeNeutral();
 
         $this->settings->save([
             'theme' => $input->theme,
+            'theme_accent' => $input->theme_accent,
+            'theme_neutral' => $input->theme_neutral,
             'site_name' => $input->site_name,
             'site_preview_url' => $input->site_preview_url,
             'default_locale' => $input->default_locale,
@@ -91,6 +97,19 @@ final class GeneralSettingsController
         // setting spec §5): the render pack purges its page cache on it.
         if ($input->theme !== null && $this->settings->themeOverride() !== $themeBefore) {
             $this->events?->dispatch(new ThemeChanged($this->settings->theme()));
+        }
+
+        // ThemeAppearanceChanged only when a STORED appearance value actually
+        // changed (theme-color-config spec §7): the render pack purges its page
+        // cache (page + error keys) on it.
+        if (
+            ($input->theme_accent !== null && $this->settings->themeAccent() !== $accentBefore)
+            || ($input->theme_neutral !== null && $this->settings->themeNeutral() !== $neutralBefore)
+        ) {
+            $this->events?->dispatch(new ThemeAppearanceChanged(
+                $this->settings->themeAccent(),
+                $this->settings->themeNeutral(),
+            ));
         }
 
         return Response::success(
@@ -151,6 +170,15 @@ final class GeneralSettingsController
             && !$this->themeValidator->isValidTheme($input->theme)
         ) {
             $errors['theme'] = 'unknown theme';
+        }
+
+        // Theme appearance (theme-color-config spec §2): closed enums; null =
+        // unchanged. An out-of-enum value can never be stored.
+        if ($input->theme_accent !== null && ThemeColors::normalizeAccent($input->theme_accent) === null) {
+            $errors['theme_accent'] = 'unknown accent color';
+        }
+        if ($input->theme_neutral !== null && ThemeColors::normalizeNeutral($input->theme_neutral) === null) {
+            $errors['theme_neutral'] = 'unknown neutral color';
         }
 
         // A non-empty admin URL must be absolute http(s) — relative values

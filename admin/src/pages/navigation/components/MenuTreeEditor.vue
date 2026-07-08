@@ -65,6 +65,17 @@ function setLabel(item: NavTreeItem, value: string): void {
   changed()
 }
 
+// Optional per-item description (nav-v2 megamenu). Coerce to an object first: the
+// server sends an empty map as `[]` (PHP), and setting a string key on a JS array
+// would be dropped by JSON.stringify — so a blank-then-typed description would be
+// lost on save without this.
+function setDescription(item: NavTreeItem, value: string): void {
+  const map = item.descriptions && !Array.isArray(item.descriptions) ? item.descriptions : {}
+  map[props.locale] = value
+  item.descriptions = map
+  changed()
+}
+
 // Icon picker (icon-picker spec §5, direct use): one modal per level, aimed
 // at the item being edited.
 import { computed, ref } from 'vue'
@@ -122,6 +133,16 @@ function onIconClear(): void {
             {{ item.target_url }}
           </code>
         </template>
+        <!-- Optional per-item description (nav-v2 megamenu): a short supporting
+             line rendered under the label in dropdown/megamenu panels. -->
+        <UInput
+          :model-value="item.descriptions?.[locale] ?? ''"
+          size="sm"
+          class="w-56"
+          :placeholder="`Description (${locale}) — optional`"
+          data-test="tree-item-description"
+          @update:model-value="(v: string) => setDescription(item, v)"
+        />
         <!-- Optional Lucide icon (nav-v2 + icon-picker spec §5, direct use:
              tree items are not schema fields). Picker over the vendored
              inventory; preview via the admin's i-lucide-* set (same names). -->

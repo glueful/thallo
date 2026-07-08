@@ -26,6 +26,9 @@ export interface GeneralSettings {
   site_favicon: string
   /** Live theme name (effective); saving '' clears the override to the env default. */
   theme: string
+  /** Theme color config (theme-color-config spec §2): accent + neutral Tailwind families. */
+  theme_accent: string
+  theme_neutral: string
   /** Admin SPA base URL for the preview bar's Edit/Design links. */
   admin_url: string
   /** Content types with public listings/archives ([] = none). */

@@ -20,7 +20,7 @@ use Twig\Environment;
  * pieces StarterTemplatesTest's sweep doesn't pin: the container's style
  * attribute (the injection surface, asserted verbatim), video-embed failure
  * modes, html verbatim output, shortcode template resolution, the logo
- * fallback chain, and per-instance group identity for faq/tabs.
+ * fallback chain, and per-instance group identity for accordion/tabs.
  */
 final class BlockLibraryRenderTest extends AppTestCase
 {
@@ -248,16 +248,16 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringContainsString('/blobs/' . $dark, $out);
     }
 
-    public function testFaqAndTabsGroupsAreScopedPerBlockInstance(): void
+    public function testAccordionAndTabsGroupsAreScopedPerBlockInstance(): void
     {
-        $faq = static fn (string $id): array => ['id' => $id, 'type' => 'faq', 'data' => [
+        $accordion = static fn (string $id): array => ['id' => $id, 'type' => 'accordion', 'data' => [
             'multiple' => false,
-            'items' => [['id' => $id . 'i', 'type' => 'faq_item',
+            'items' => [['id' => $id . 'i', 'type' => 'accordion_item',
                 'data' => ['question' => 'Q', 'answer' => '<p>A</p>']]],
         ]];
-        $out = $this->render([$faq('faqblock0001'), $faq('faqblock0002')]);
-        self::assertStringContainsString('name="faq-faqblock0001"', $out);
-        self::assertStringContainsString('name="faq-faqblock0002"', $out);
+        $out = $this->render([$accordion('accblock0001'), $accordion('accblock0002')]);
+        self::assertStringContainsString('name="accordion-accblock0001"', $out);
+        self::assertStringContainsString('name="accordion-accblock0002"', $out);
 
         $tabs = static fn (string $id): array => ['id' => $id, 'type' => 'tabs', 'data' => [
             'items' => [['id' => $id . 't', 'type' => 'tab', 'data' => ['label' => 'L', 'content' => []]]],
@@ -273,7 +273,7 @@ final class BlockLibraryRenderTest extends AppTestCase
     {
         $out = $this->render([['id' => 'cr1', 'type' => 'carousel', 'data' => [
             'arrows' => true, 'dots' => true, 'autoplay' => true,
-            'slides' => [['id' => 'crq', 'type' => 'quote', 'data' => ['text' => 'S']]],
+            'slides' => [['id' => 'crq', 'type' => 'rich_text', 'data' => ['body' => '<p>S</p>']]],
         ]]]);
         // No server-side controls markup, no inline JS — data-attrs only.
         self::assertStringContainsString('data-arrows="1"', $out);
@@ -383,13 +383,14 @@ final class BlockLibraryRenderTest extends AppTestCase
         $out = $this->render([[
             'id' => 'nav2a', 'type' => 'navigation',
             'data' => ['menu' => 'main', 'align' => 'center', 'size' => 'lg',
-                'active_style' => 'pill', 'hover_style' => 'underline'],
+                'variant' => 'pill', 'color' => 'primary', 'highlight' => 'underline'],
         ]]);
         foreach (
             [
             'thallo-block-navigation--align-center', 'thallo-block-navigation--size-lg',
-            'thallo-block-navigation--active-pill', 'thallo-block-navigation--hover-underline',
-            'thallo-block-navigation--reveal-hover',
+            'thallo-block-navigation--pill', 'thallo-block-navigation--color-primary',
+            'thallo-block-navigation--highlight-underline', 'thallo-block-navigation--reveal-hover',
+            'thallo-block-navigation--submenu-dropdown',
             ] as $token
         ) {
             self::assertStringContainsString($token, $out);
@@ -478,6 +479,29 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringNotContainsString('no-such-glyph', $out); // …never the raw name
     }
 
+    public function testNavigationRendersPerItemDescriptionsInSubmenu(): void
+    {
+        $menus = $this->container()->get(\Thallo\Navigation\MenuRepository::class);
+        $menu = $menus->createMenu('main', 'Main');
+        $now = gmdate('Y-m-d H:i:s');
+        $menus->replaceTree((string) $menu['uuid'], 0, [
+            ['uuid' => 'navdesc00001', 'parent_uuid' => null, 'position' => 0, 'kind' => 'url',
+                'entry_uuid' => null, 'url' => '/products', 'labels' => json_encode(['en' => 'Products']),
+                'created_at' => $now, 'updated_at' => $now],
+            ['uuid' => 'navdesc00002', 'parent_uuid' => 'navdesc00001', 'position' => 0, 'kind' => 'url',
+                'entry_uuid' => null, 'url' => '/products/cms', 'labels' => json_encode(['en' => 'CMS']),
+                'descriptions' => json_encode(['en' => 'Author and publish content']),
+                'created_at' => $now, 'updated_at' => $now],
+        ]);
+
+        $out = $this->render([[
+            'id' => 'navdesc', 'type' => 'navigation',
+            'data' => ['menu' => 'main'], // dropdown default: child renders as a sublink
+        ]]);
+        self::assertStringContainsString('thallo-block-navigation__subdesc', $out);
+        self::assertStringContainsString('Author and publish content', $out);
+    }
+
     public function testNavigationBlockRendersNothingForAnUnknownMenu(): void
     {
         $out = $this->render([[
@@ -537,5 +561,20 @@ final class BlockLibraryRenderTest extends AppTestCase
         ]]);
         self::assertStringNotContainsString('<img', $hostile);
         self::assertStringContainsString('&lt;img', $hostile);
+    }
+
+    public function testContainerShadowEnumAddsUtilityClass(): void
+    {
+        $out = $this->render([[
+            'id' => 'cs1', 'type' => 'container',
+            'data' => ['shadow' => 'md', 'content' => []],
+        ]]);
+        self::assertStringContainsString('thallo-shadow-md', $out);
+    }
+
+    public function testContainerShadowDefaultsToNone(): void
+    {
+        $out = $this->render([['id' => 'cs2', 'type' => 'container', 'data' => ['content' => []]]]);
+        self::assertStringNotContainsString('thallo-shadow-', $out);
     }
 }

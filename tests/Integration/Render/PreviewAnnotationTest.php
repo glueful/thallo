@@ -36,12 +36,12 @@ final class PreviewAnnotationTest extends AppTestCase
 
     private function seedBlockPage(string $slug): string
     {
-        // `quote` matches the default theme's blocks/quote.twig — a rendered (not
-        // missing-template) instance is what annotation wraps.
+        // `rich_text` matches the default theme's blocks/rich_text.twig — a rendered
+        // (not missing-template) instance is what annotation wraps.
         (new BlockTypeRepository($this->connection()))->create([
-            'slug' => 'quote',
-            'label' => 'Quote',
-            'schema' => [['name' => 'text', 'type' => 'text']],
+            'slug' => 'rich_text',
+            'label' => 'Rich text',
+            'schema' => [['name' => 'body', 'type' => 'text']],
         ]);
         $types = new ContentTypeRepository($this->connection());
         $this->type = $types->create([
@@ -56,7 +56,7 @@ final class PreviewAnnotationTest extends AppTestCase
         $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
         $entry = $entries->createEntry($this->type, 'en', 1, 'user00000001');
         $entries->saveDraft($entry, 'en', ['title' => 'S', 'body' => [
-            ['id' => 'blockone0001', 'type' => 'quote', 'data' => ['text' => 'Hello card']],
+            ['id' => 'blockone0001', 'type' => 'rich_text', 'data' => ['body' => '<p>Hello card</p>']],
         ]], 1, 0, 'user00000001');
         (new RouteRepository($this->connection()))->assign($entry, $this->type, 'en', $slug);
         (new PublishService(

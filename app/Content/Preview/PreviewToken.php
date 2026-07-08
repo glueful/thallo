@@ -26,6 +26,8 @@ final class PreviewToken
         public readonly ?string $versionUuid,
         public readonly int $expiresAt,
         public readonly ?string $theme = null,
+        public readonly ?string $accent = null,
+        public readonly ?string $neutral = null,
     ) {
     }
 
@@ -47,15 +49,19 @@ final class PreviewToken
         int $expiresAt,
         string $key,
         ?string $theme = null,
+        ?string $accent = null,
+        ?string $neutral = null,
     ): string {
         $payload = self::b64(json_encode([
             'e' => $entryUuid,
             'l' => $locale,
             'v' => $versionUuid,
             'exp' => $expiresAt,
-            // Additive claim (preview-sessions spec §5): absent on old tokens, which
-            // keep verifying — the payload shape is forward-compatible.
+            // Additive claims (preview-sessions spec §5, theme-color-config spec §6):
+            // absent on old tokens, which keep verifying — forward-compatible payload.
             't' => $theme,
+            'a' => $accent,
+            'n' => $neutral,
         ], JSON_THROW_ON_ERROR));
 
         $sig = self::b64(hash_hmac('sha256', $payload, $key, true));
@@ -93,6 +99,8 @@ final class PreviewToken
             isset($data['v']) && is_string($data['v']) ? $data['v'] : null,
             (int) $data['exp'],
             isset($data['t']) && is_string($data['t']) ? $data['t'] : null,
+            isset($data['a']) && is_string($data['a']) ? $data['a'] : null,
+            isset($data['n']) && is_string($data['n']) ? $data['n'] : null,
         );
     }
 

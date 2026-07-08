@@ -17,6 +17,9 @@ final class PreviewSession
         public readonly string $locale,
         public readonly ?string $version,
         public readonly ?string $theme,
+        /** theme-color-config spec §6: previewed accent/neutral families (null = none). */
+        public readonly ?string $accent,
+        public readonly ?string $neutral,
         public readonly int $expiresAt,
     ) {
     }

@@ -11,6 +11,7 @@ use App\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
 use Glueful\Events\EventService;
 use Thallo\Contracts\Navigation\MenuUpdated;
+use Thallo\Render\Http\Middleware\RenderPageCache;
 use Thallo\Render\RenderErrorCache;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -68,7 +69,7 @@ final class RenderPageCacheTest extends AppTestCase
 
         // Overwrite the stored body: if the second request serves the sentinel, it came
         // from the cache — the resolver/Twig pipeline provably did not run.
-        $key = 'render:default:%2Fblog%2Fhello';
+        $key = 'render:default:blue-slate:%2Fblog%2Fhello';
         $entry = $this->cache()->get($key);
         self::assertIsArray($entry);
         $entry['body'] = 'SENTINEL-FROM-CACHE';
@@ -119,7 +120,7 @@ final class RenderPageCacheTest extends AppTestCase
 
         $this->handle(Request::create('/blog/hello', 'GET'));
         $keys = $this->cache()->getKeys('render:*');
-        self::assertSame(['render:default:%2Fblog%2Fhello'], $keys);
+        self::assertSame(['render:default:blue-slate:%2Fblog%2Fhello'], $keys);
         foreach ($keys as $key) {
             self::assertStringNotContainsString('//', $key);
         }
@@ -128,7 +129,7 @@ final class RenderPageCacheTest extends AppTestCase
     public function testHomepageIsCachedUnderRootKey(): void
     {
         $this->handle(Request::create('/', 'GET'));
-        self::assertIsArray($this->cache()->get('render:default:%2F'));
+        self::assertIsArray($this->cache()->get('render:default:blue-slate:%2F'));
     }
 
     public function testKeysAreValidForEveryCacheDriver(): void
@@ -155,6 +156,7 @@ final class RenderPageCacheTest extends AppTestCase
         $middleware = new \Thallo\Render\Http\Middleware\RenderPageCache(
             $this->cache(),
             'default',
+            'blue-slate',
             false,
             3600,
         );
@@ -178,20 +180,20 @@ final class RenderPageCacheTest extends AppTestCase
         // The fixed body's Cache-Tag reaches the client/CDN too, so edge purges on
         // thallo:render:page compose for themed 404s.
         self::assertSame('thallo:render:page', $first->headers->get('Cache-Tag'));
-        self::assertIsArray($this->cache()->get('render:default:404'));
+        self::assertIsArray($this->cache()->get('render:default:blue-slate:404'));
 
         // Overwrite the stored body: a DIFFERENT bogus path serving the sentinel proves
         // the 404 came from the fixed key — 404.twig was not rendered again.
-        $entry = $this->cache()->get('render:default:404');
+        $entry = $this->cache()->get('render:default:blue-slate:404');
         $entry['body'] = 'SENTINEL-404';
-        $this->cache()->set('render:default:404', $entry, 3600);
+        $this->cache()->set('render:default:blue-slate:404', $entry, 3600);
 
         $second = $this->handle(Request::create('/another/bogus/path', 'GET'));
         self::assertSame(404, $second->getStatusCode());
         self::assertSame('SENTINEL-404', (string) $second->getContent());
 
         // No per-path accumulation: the fixed key is the ONLY render:* entry.
-        self::assertSame(['render:default:404'], $this->cache()->getKeys('render:*'));
+        self::assertSame(['render:default:blue-slate:404'], $this->cache()->getKeys('render:*'));
     }
 
     public function testErrorRenderCallbackRunsOnlyOnceOnWarmKey(): void
@@ -203,7 +205,7 @@ final class RenderPageCacheTest extends AppTestCase
             $calls++;
             return new Response('<html>404</html>', 404, ['Content-Type' => 'text/html; charset=UTF-8']);
         };
-        $errors = new RenderErrorCache($this->cache(), 'default', true, 3600);
+        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate', true, 3600);
         $errors->themed404($render);
         $second = $errors->themed404($render);
 
@@ -222,11 +224,11 @@ final class RenderPageCacheTest extends AppTestCase
             $calls++;
             return new Response('Internal Server Error', 500, ['Content-Type' => 'text/plain; charset=UTF-8']);
         };
-        $errors = new RenderErrorCache($this->cache(), 'default', true, 3600);
+        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate', true, 3600);
         $errors->themed404($render);
         $errors->themed404($render);
         self::assertSame(2, $calls);
-        self::assertNull($this->cache()->get('render:default:404'));
+        self::assertNull($this->cache()->get('render:default:blue-slate:404'));
     }
 
     public function testGoneStoresFixed410Body(): void
@@ -250,7 +252,7 @@ final class RenderPageCacheTest extends AppTestCase
         $res = $this->handle(Request::create('/blog/moved-away', 'GET'));
         self::assertSame(410, $res->getStatusCode());
         self::assertSame('thallo:render:page', $res->headers->get('Cache-Tag'));
-        self::assertIsArray($this->cache()->get('render:default:410'));
+        self::assertIsArray($this->cache()->get('render:default:blue-slate:410'));
     }
 
     public function testDisabledErrorCacheIsAPurePassthrough(): void
@@ -260,7 +262,7 @@ final class RenderPageCacheTest extends AppTestCase
             $calls++;
             return new Response('<html>404</html>', 404, ['Content-Type' => 'text/html; charset=UTF-8']);
         };
-        $errors = new RenderErrorCache($this->cache(), 'default', false, 3600);
+        $errors = new RenderErrorCache($this->cache(), 'default', 'blue-slate', false, 3600);
         $res = $errors->themed404($render);
         $errors->themed404($render);
         self::assertSame(2, $calls); // rendered every time — byte-for-byte today's behavior
@@ -277,8 +279,8 @@ final class RenderPageCacheTest extends AppTestCase
         $entry = $this->seedBilingualPublishedEntry();
         $this->handle(Request::create('/blog/hello', 'GET'));
         $this->handle(Request::create('/', 'GET'));
-        self::assertIsArray($this->cache()->get('render:default:%2Fblog%2Fhello'));
-        $root = $this->cache()->get('render:default:%2F');
+        self::assertIsArray($this->cache()->get('render:default:blue-slate:%2Fblog%2Fhello'));
+        $root = $this->cache()->get('render:default:blue-slate:%2F');
         self::assertIsArray($root);
         // Precondition, asserted rather than assumed: the test env runs the STANDALONE
         // homepage (render.homepage_entry unset), so the root entry carries no
@@ -290,8 +292,44 @@ final class RenderPageCacheTest extends AppTestCase
         $this->container()->get(EventService::class)
             ->dispatch(new EntryPublished($entry, $this->typeUuid()));
 
-        self::assertNull($this->cache()->get('render:default:%2Fblog%2Fhello')); // A purged
-        self::assertIsArray($this->cache()->get('render:default:%2F'));        // B still hit
+        self::assertNull($this->cache()->get('render:default:blue-slate:%2Fblog%2Fhello')); // A purged
+        self::assertIsArray($this->cache()->get('render:default:blue-slate:%2F'));        // B still hit
+    }
+
+    public function testStyleSkinnedRenderIsPurgedByItsEntrySurrogateTag(): void
+    {
+        // Style-block spec P2: a page whose HTML carries a scoped style-block skin is
+        // stored in the render page cache tagged with the page's entry surrogate
+        // (thallo:entry:{uuid}, from Cache-Tag) alongside thallo:render:page. Publishing
+        // that entry invalidates the SAME entry tag, so the stale skin is dropped — C
+        // rides the existing content-publish purge path (end-to-end coverage:
+        // testPublishPurgesCachedPageThroughTheRealListener) with no new cache code.
+        // The middleware's appearance fingerprint is the GLOBAL default (blue-slate) —
+        // the style block's rose-zinc skin lives in the HTML body, NOT the cache key.
+        // This deliberately proves normal-content purge, decoupled from the fingerprint.
+        $cache = $this->cache();
+        $mw = new RenderPageCache($cache, 'default', 'blue-slate', true, 3600);
+
+        $skinned = '<div class="thallo-block thallo-block-style thallo-skin-rose-zinc">'
+            . '<div class="thallo-block-style__inner"></div>'
+            . '<style>.thallo-skin-rose-zinc{--accent:#e11d48;}'
+            . 'html[data-theme="dark"] .thallo-skin-rose-zinc{--accent:#f43f5e;}</style></div>';
+        $next = static function () use ($skinned): Response {
+            $res = new Response($skinned, 200, ['Content-Type' => 'text/html; charset=UTF-8']);
+            $res->headers->set('Cache-Tag', 'thallo:entry:STYLE1, thallo:type:post');
+            return $res;
+        };
+
+        $mw->handle(Request::create('/skinned', 'GET'), $next);
+
+        $key = 'render:default:blue-slate:%2Fskinned';
+        $stored = $cache->get($key);
+        self::assertIsArray($stored);
+        self::assertStringContainsString('thallo-skin-rose-zinc', $stored['body']);
+
+        // Publishing the entry invalidates thallo:entry:STYLE1 — the render entry's tag.
+        $cache->invalidateTags(['thallo:entry:STYLE1']);
+        self::assertNull($cache->get($key)); // stale skinned render dropped
     }
 
     public function testRenderPageTagInvalidationDropsEverything(): void
