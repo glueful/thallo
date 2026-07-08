@@ -51,6 +51,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         private readonly PreviewReader $preview,
         private readonly EntryRepository $entries,
         private readonly LoggerInterface $logger,
+        private readonly ListingItemShaper $listShaper,
         /** Loop C working-copy stash; null = no ephemeral overlay (minimal wiring). */
         private readonly ?PreviewWorkingCopyStore $workingCopies = null,
         /** Listing allowlist DB setting; null = config-only (minimal wiring). */
@@ -664,52 +665,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
      */
     private function listItems(array $rows, array $typeRow, string $locale, ?ExpandedTargets $expanded = null): array
     {
-        if ($rows === []) {
-            return [];
-        }
-        $typeUuid = (string) $typeRow['uuid'];
-        $typeSlug = (string) $typeRow['slug'];
-        $schema = ContentTypeSchema::fromArray((array) ($typeRow['schema'] ?? []));
-        $selector = FieldSelector::fromRequest(Request::create('/')); // empty = full item
-
-        $shaped = $this->shaper->shape($rows, $schema, $selector, $locale, $typeUuid, null, $expanded);
-
-        $uuids = array_values(array_filter(array_map(
-            static fn(array $r): string => (string) ($r['entry_uuid'] ?? ''),
-            $shaped,
-        )));
-        $slugByEntry = [];
-        if ($uuids !== []) {
-            $placeholders = implode(', ', array_fill(0, count($uuids), '?'));
-            // Constrained by content_type_uuid: the route table's real identity is
-            // (content_type_uuid, locale, slug) — entry_uuid alone can carry stale
-            // rows under another type, which would render a wrong-type href.
-            $routeRows = $this->db->table('entry_routes')
-                ->select(['entry_uuid', 'slug'])
-                ->whereRaw("entry_uuid IN ({$placeholders})", $uuids)
-                ->where('content_type_uuid', '=', $typeUuid)
-                ->where('locale', '=', $locale)
-                ->get();
-            foreach ($routeRows as $r) {
-                $slugByEntry[(string) $r['entry_uuid']] = (string) $r['slug'];
-            }
-        }
-
-        $items = [];
-        foreach ($shaped as $row) {
-            $item = $this->shaper->item($row);
-            $slug = $slugByEntry[(string) ($row['entry_uuid'] ?? '')] ?? null;
-            $item['href'] = $slug === null
-                ? null
-                : $this->canonical->pathFor(
-                    $typeSlug,
-                    (bool) ($typeRow['mount_at_root'] ?? false),
-                    $locale,
-                    $slug,
-                );
-            $items[] = $item;
-        }
-        return $items;
+        return $this->listShaper->shape($rows, $typeRow, $locale, $expanded ?? new ExpandedTargets());
     }
 
     /**

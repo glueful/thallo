@@ -159,6 +159,7 @@ final class SetupService
                 'schema'          => [
                     ['name' => 'title',      'type' => 'string', 'required' => true],
                     ['name' => 'excerpt',    'type' => 'text'],
+                    ['name' => 'cover',      'type' => 'asset'],
                     ['name' => 'body',       'type' => 'blocks', 'required' => true],
                     ['name' => 'categories', 'type' => 'reference', 'reference_type' => 'category',
                         'multiple' => true, 'filterable' => true],

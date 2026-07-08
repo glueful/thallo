@@ -7,6 +7,23 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Blog posts block**: a dynamic `blog_posts` leaf block that lists published
+  `post` entries as cards at render time. Introduces a `Thallo\Contracts\Delivery\
+  EntryListReader` seam (engine impl `EngineEntryListReader`, modeled on
+  `FacetCountsReader`/`facets()`): server-side limit clamp `1..12`, newest/oldest
+  order, and an optional category filter that auto-detects the first filterable
+  reference field in schema order and matches against the published-reference
+  projection. The reader carries its own cache tags — the broad
+  `thallo:type:{slug}` listing dependency (from the resolved type identity) plus
+  per-item entry tags and category term tags — collected into the render's
+  `Cache-Tag` header. Exposed to Twig as `entries(type, opts)` and `is_preview()`;
+  the block shows an empty-state placeholder only in the editor/canvas
+  (`is_preview()`), rendering nothing on the public site. The card is an inline
+  same-file macro (no separate `blogPost` block in v1); `columns 1..4`,
+  `outline/soft/subtle/ghost/naked` variants, and vertical/horizontal orientation.
+  Row→item+href shaping is shared with the listing route resolver via an extracted
+  app-internal `ListingItemShaper`. A `cover` (asset) field is added to the seeded
+  `post` content type. Author byline is deferred (needs an author-identity seam).
 - **Pricing blocks**: five Nuxt-UI-Pro-modeled block types for the default theme —
   `pricing_plan` (a card: price, discount, billing, one-per-line features with a
   uniform icon, flat CTA, `outline`/`solid`/`soft`/`subtle` variants + `highlight`),
