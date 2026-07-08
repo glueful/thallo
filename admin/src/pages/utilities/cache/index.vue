@@ -119,86 +119,97 @@ async function clearType() {
     </template>
 
     <template #body>
-      <div class="mx-auto w-full max-w-2xl space-y-6">
+      <div class="mx-auto w-full max-w-6xl space-y-6">
         <div v-if="status === 'pending'" class="space-y-3">
           <USkeleton class="h-40" />
           <USkeleton class="h-32" />
         </div>
 
         <template v-else-if="cache">
-          <UCard>
-            <template #header><h2 class="font-semibold text-default">Status</h2></template>
-            <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-              <dt class="text-muted">Driver</dt>
-              <dd class="text-default">{{ cache.driver }}</dd>
-              <dt class="text-muted">Prefix</dt>
-              <dd class="font-mono text-default">{{ cache.prefix || '—' }}</dd>
-              <dt class="text-muted">Tag invalidation</dt>
-              <dd class="text-default">{{ cache.tags_enabled ? 'Enabled' : 'Disabled' }}</dd>
-              <dt class="text-muted">Keys</dt>
-              <dd class="text-default">{{ cache.key_count }}</dd>
-            </dl>
+          <!-- Two-column split (same shape as General settings): the compact
+               Clear-cache actions sit in the sticky LEFT rail; Status and the
+               tall driver-stats block own the wide RIGHT column. -->
+          <div class="grid gap-6 lg:grid-cols-3 pb-5">
+            <!-- Left rail: Clear cache -->
+            <div class="space-y-6 lg:sticky lg:top-0 lg:self-start">
+              <UCard>
+                <template #header><h2 class="font-semibold text-default">Clear cache</h2></template>
+                <div class="space-y-4">
+                  <UFormField
+                    label="Clear one content type"
+                    hint="Invalidates only that type's delivery cache (the thallo:type tag)."
+                  >
+                    <div class="flex gap-2">
+                      <USelect
+                        v-model="selectedType"
+                        :items="typeItems"
+                        placeholder="Choose a content type…"
+                        class="flex-1"
+                      />
+                      <UButton
+                        label="Clear"
+                        color="neutral"
+                        variant="subtle"
+                        :disabled="!selectedType"
+                        :loading="clear.isLoading.value"
+                        @click="clearType"
+                      />
+                    </div>
+                  </UFormField>
 
-            <div v-if="statBlocks.length" class="mt-4 space-y-4 border-t border-default pt-4">
-              <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">Driver stats</h3>
-              <div v-for="b in statBlocks" :key="b.label">
-                <p class="mb-1.5 text-xs font-medium uppercase tracking-wide text-dimmed">
-                  {{ b.label }}
-                </p>
-                <dl
-                  v-if="b.rows.length"
-                  class="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2"
-                >
-                  <div v-for="r in b.rows" :key="r.label" class="flex justify-between gap-3">
-                    <dt class="text-muted">{{ r.label }}</dt>
-                    <dd class="break-all text-right text-default">{{ r.value }}</dd>
+                  <div class="border-t border-default pt-4">
+                    <UButton
+                      label="Clear all cache"
+                      icon="i-lucide-trash-2"
+                      color="error"
+                      variant="soft"
+                      :loading="clear.isLoading.value"
+                      @click="() => { pendingClearAll = true }"
+                    />
+                    <p class="mt-1 text-xs text-muted">
+                      Flushes every cache entry across the instance.
+                    </p>
                   </div>
-                </dl>
-                <p v-else class="break-all text-sm text-default">{{ b.text }}</p>
-              </div>
-            </div>
-          </UCard>
-
-          <UCard>
-            <template #header><h2 class="font-semibold text-default">Clear cache</h2></template>
-            <div class="space-y-4">
-              <UFormField
-                label="Clear one content type"
-                hint="Invalidates only that type's delivery cache (the thallo:type tag)."
-              >
-                <div class="flex gap-2">
-                  <USelect
-                    v-model="selectedType"
-                    :items="typeItems"
-                    placeholder="Choose a content type…"
-                    class="flex-1"
-                  />
-                  <UButton
-                    label="Clear"
-                    color="neutral"
-                    variant="subtle"
-                    :disabled="!selectedType"
-                    :loading="clear.isLoading.value"
-                    @click="clearType"
-                  />
                 </div>
-              </UFormField>
-
-              <div class="border-t border-default pt-4">
-                <UButton
-                  label="Clear all cache"
-                  icon="i-lucide-trash-2"
-                  color="error"
-                  variant="soft"
-                  :loading="clear.isLoading.value"
-                  @click="() => { pendingClearAll = true }"
-                />
-                <p class="mt-1 text-xs text-muted">
-                  Flushes every cache entry across the instance.
-                </p>
-              </div>
+              </UCard>
             </div>
-          </UCard>
+
+            <!-- Right column: Status + driver stats -->
+            <div class="space-y-6 lg:col-span-2">
+              <UCard>
+                <template #header><h2 class="font-semibold text-default">Status</h2></template>
+                <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <dt class="text-muted">Driver</dt>
+                  <dd class="text-default">{{ cache.driver }}</dd>
+                  <dt class="text-muted">Prefix</dt>
+                  <dd class="font-mono text-default">{{ cache.prefix || '—' }}</dd>
+                  <dt class="text-muted">Tag invalidation</dt>
+                  <dd class="text-default">{{ cache.tags_enabled ? 'Enabled' : 'Disabled' }}</dd>
+                  <dt class="text-muted">Keys</dt>
+                  <dd class="text-default">{{ cache.key_count }}</dd>
+                </dl>
+
+                <div v-if="statBlocks.length" class="mt-4 space-y-4 border-t border-default pt-4">
+                  <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">Driver stats</h3>
+                  <div v-for="b in statBlocks" :key="b.label">
+                    <p class="mb-1.5 text-xs font-medium uppercase tracking-wide text-dimmed">
+                      {{ b.label }}
+                    </p>
+                    <dl
+                      v-if="b.rows.length"
+                      class="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2"
+                    >
+                      <div v-for="r in b.rows" :key="r.label" class="flex justify-between gap-3">
+                        <dt class="text-muted">{{ r.label }}</dt>
+                        <dd class="break-all text-right text-default">{{ r.value }}</dd>
+                      </div>
+                    </dl>
+                    <p v-else class="break-all text-sm text-default">{{ b.text }}</p>
+                  </div>
+                </div>
+              </UCard>
+            </div>
+          </div>
         </template>
       </div>
     </template>
