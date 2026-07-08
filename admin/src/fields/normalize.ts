@@ -20,5 +20,6 @@ export function toFieldDef(f: ContentTypeField): FieldDef {
     maxItems: f.max_items ?? undefined,
     referenceSlugField: f.reference_slug_field ?? undefined,
     blockTypes: f.block_types ?? undefined,
+    group: f.group ?? undefined,
   }
 }

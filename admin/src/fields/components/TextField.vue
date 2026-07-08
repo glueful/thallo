@@ -10,7 +10,7 @@ const model = defineModel<string>()
 </script>
 
 <template>
-  <UFormField :label="field.name" :required="field.required" :name="field.name">
+  <UFormField :label="field.label ?? field.name" :required="field.required" :name="field.name">
     <RichText v-if="field.format === 'rich'" v-model="model" :placeholder="field.name" />
     <UTextarea v-else v-model="model" :rows="4" class="w-full" />
   </UFormField>

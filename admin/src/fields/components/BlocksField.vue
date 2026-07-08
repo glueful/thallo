@@ -285,7 +285,7 @@ function addTailProse(): void {
 </script>
 
 <template>
-  <UFormField :label="field.name" :required="field.required" :name="field.name">
+  <UFormField :label="field.label ?? field.name" :required="field.required" :name="field.name">
     <template #hint>
       <UButton
         variant="ghost"

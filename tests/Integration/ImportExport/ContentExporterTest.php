@@ -122,7 +122,7 @@ final class ContentExporterTest extends AppTestCase
             'mime_type' => 'image/jpeg',
             'size' => 123,
             'url' => '/uploads/blob00000001.jpg',
-            'storage_type' => 'local',
+            'storage_type' => 'uploads',
             'visibility' => 'private',
             'status' => 'active',
             'created_by' => 'user00000001',

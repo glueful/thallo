@@ -8,7 +8,7 @@ const model = defineModel<string>()
 </script>
 
 <template>
-  <UFormField :label="field.name" :required="field.required" :name="field.name">
+  <UFormField :label="field.label ?? field.name" :required="field.required" :name="field.name">
     <DateTimePicker v-model="model" />
   </UFormField>
 </template>

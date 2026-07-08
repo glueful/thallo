@@ -47,6 +47,9 @@ export interface ContentTypeField {
   min?: number | null
   /** Inclusive upper bound for a `number` field. */
   max?: number | null
+  /** Optional editor grouping: fields sharing a group render in a collapsible section
+      (block editor). Ungrouped fields render flat, always visible. */
+  group?: string
 }
 
 /** A content type with its full field schema. */

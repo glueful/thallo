@@ -498,4 +498,63 @@ describe('BlocksField', () => {
     wrapper.unmount()
     heroWrapper.unmount()
   })
+
+  it('folds grouped fields into collapsible sections; ungrouped fields render flat', async () => {
+    blockTypes.value = [
+      {
+        uuid: 'btg',
+        slug: 'grouped',
+        label: 'Grouped',
+        icon: null,
+        category: null,
+        description: null,
+        active: true,
+        schema: [
+          { name: 'title', type: 'string', required: false, localized: false, filterable: false },
+          { name: 'bg', type: 'string', required: false, localized: false, filterable: false, group: 'Style' },
+          { name: 'pad', type: 'number', required: false, localized: false, filterable: false, group: 'Style' },
+          { name: 'link_url', type: 'string', required: false, localized: false, filterable: false, group: 'Style' },
+        ],
+      },
+    ]
+    const model = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([
+      { id: 'g1', type: 'grouped', data: {} },
+    ])
+    const wrapper = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: model.value,
+        'onUpdate:modelValue': (v: typeof model.value) => (model.value = v),
+      },
+    })
+    await flushPromises()
+    await wrapper.find('[data-test="block-toggle-g1"]').trigger('click')
+    await flushPromises()
+
+    // The Style group is a collapsible <details>; its grouped fields live inside it.
+    const group = wrapper.find('[data-test="block-group-Style"]')
+    expect(group.exists()).toBe(true)
+    expect(group.element.tagName.toLowerCase()).toBe('details')
+    expect(group.text()).toContain('bg')
+    expect(group.text()).toContain('pad')
+    // snake_case field names render as human-readable labels.
+    expect(group.text()).toContain('link url')
+    // The ungrouped `title` renders flat — present in the card, NOT inside the group.
+    expect(wrapper.text()).toContain('title')
+    expect(group.text()).not.toContain('title')
+
+    // A block that declares no groups renders no group sections at all (flat, as before).
+    const flat = ref<{ id: string; type: string; data: Record<string, unknown> }[]>([
+      { id: 'h1', type: 'hero', data: { heading: 'H' } },
+    ])
+    const flatWrapper = mount(BlocksField, {
+      props: { field, modelValue: flat.value, 'onUpdate:modelValue': (v: typeof flat.value) => (flat.value = v) },
+    })
+    await flushPromises()
+    await flatWrapper.find('[data-test="block-toggle-h1"]').trigger('click')
+    await flushPromises()
+    expect(flatWrapper.find('details').exists()).toBe(false)
+    wrapper.unmount()
+    flatWrapper.unmount()
+  })
 })

@@ -18,7 +18,7 @@ const singleModel = computed<string | undefined>({
 </script>
 
 <template>
-  <UFormField :label="field.name" :required="field.required" :name="field.name">
+  <UFormField :label="field.label ?? field.name" :required="field.required" :name="field.name">
     <MultiReferencePicker
       v-if="field.multiple && target"
       v-model="multiModel"

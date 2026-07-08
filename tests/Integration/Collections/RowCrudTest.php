@@ -152,7 +152,7 @@ final class RowCrudTest extends AppTestCase
             'mime_type'    => 'image/jpeg',
             'size'         => 1024,
             'url'          => '/uploads/' . $uuid . '.jpg',
-            'storage_type' => 'local',
+            'storage_type' => 'uploads',
             'visibility'   => 'private',
             'status'       => 'active',
             'created_by'   => 'tstblob_usr',

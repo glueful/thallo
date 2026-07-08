@@ -43,14 +43,17 @@ final class StarterTemplatesTest extends AppTestCase
                 'links' => [['id' => 'hb1', 'type' => 'button',
                     'data' => ['label' => 'Go', 'url' => '/start']]]],
             'rich_text' => ['body' => '<p>Hello <strong>world</strong></p><script>alert(1)</script>'],
+            'heading' => ['text' => 'Section label', 'level' => 'h3', 'align' => 'center',
+                'color' => '#ff0000'],
+            'file' => ['file' => 'blob00000000', 'label' => 'Spec sheet', 'new_tab' => true],
             'cta' => ['title' => 'Act now', 'description' => 'Because.', 'variant' => 'solid',
                 'orientation' => 'vertical',
                 'links' => [['id' => 'cb1', 'type' => 'button',
                     'data' => ['label' => 'Do it', 'url' => 'https://example.com']]]],
-            'image' => ['image' => 'blob00000000', 'alt' => 'A pic', 'caption' => 'Cap', 'width' => 'wide'],
+            'image' => ['image' => 'blob00000000', 'alt' => 'A pic', 'caption' => 'Cap', 'size' => 'wide'],
             'style' => ['accent' => 'rose', 'neutral' => 'zinc', 'class_hook' => 'promo', 'content' => []],
             'container' => ['background_color' => '#112233', 'overlay_color' => '#000000',
-                'overlay_opacity' => 40, 'width' => 'full', 'padding' => 'large',
+                'overlay_opacity' => 40, 'width' => 'full', 'padding_preset' => 'large',
                 'content' => [['id' => 'cq', 'type' => 'rich_text', 'data' => ['body' => '<p>Boxed</p>']]]],
             'grid' => ['columns' => '3', 'flow' => 'masonry', 'gap' => 'small',
                 'items' => [['id' => 'gq', 'type' => 'rich_text', 'data' => ['body' => '<p>Cell</p>']]]],
@@ -89,14 +92,15 @@ final class StarterTemplatesTest extends AppTestCase
                 'body' => [['id' => 'cbd', 'type' => 'rich_text', 'data' => ['body' => '<p>Body</p>']]]],
             'collapsible' => ['label' => 'More', 'open' => false,
                 'content' => [['id' => 'cl1', 'type' => 'rich_text', 'data' => ['body' => '<p>Hidden</p>']]]],
-            'footer_columns' => ['columns' => [['label' => 'Product',
-                'items' => [['label' => 'Pricing', 'url' => '/pricing']]]]],
             'footer' => [
                 'copyright' => [['id' => 'fcop', 'type' => 'shortcode',
                     'data' => ['name' => 'copyright', 'params' => []]]],
-                'top' => [['id' => 'ftop', 'type' => 'footer_columns',
-                    'data' => ['columns' => [['label' => 'Product',
-                        'items' => [['label' => 'Pricing', 'url' => '/pricing']]]]]]],
+                // Footer's top band composes columns of titled link-lists from
+                // primitives (columns + links) — the footer_columns block was removed.
+                'top' => [['id' => 'ftop', 'type' => 'columns',
+                    'data' => ['layout' => '2', 'col_1' => [['id' => 'ftc1', 'type' => 'links',
+                        'data' => ['title' => 'Product',
+                            'items' => [['label' => 'Pricing', 'url' => '/pricing']]]]]]]],
                 'links' => [['id' => 'flnk', 'type' => 'links',
                     'data' => ['items' => [['label' => 'Home', 'url' => '/']]]]],
                 'social' => [['id' => 'fsoc', 'type' => 'social_links',
@@ -188,5 +192,22 @@ final class StarterTemplatesTest extends AppTestCase
             ['id' => 'i', 'type' => 'image', 'data' => $this->fixture('image')]]]);
         self::assertStringNotContainsString('<img', $out);
         self::assertStringContainsString('thallo-block-image', $out);
+    }
+
+    public function testHeadingUsesLevelAlignAndColorAndDefaultsToH2(): void
+    {
+        $render = fn(array $data): string => $this->env()->createTemplate("{{ blocks(l) }}")
+            ->render(['l' => [['id' => 'h', 'type' => 'heading', 'data' => $data]]]);
+
+        // Level → the tag; align → modifier class; color → inline style; text escaped.
+        $out = $render(['text' => 'Hi', 'level' => 'h3', 'align' => 'center', 'color' => '#ff0000']);
+        self::assertStringContainsString('<h3 class="thallo-block thallo-block-heading', $out);
+        self::assertStringContainsString('thallo-block-heading--center"', $out);
+        self::assertStringContainsString('style="color:#ff0000"', $out);
+        self::assertStringContainsString('>Hi</h3>', $out);
+
+        // No level → defaults to h2; unknown level degrades to h2 too.
+        self::assertStringContainsString('<h2 ', $render(['text' => 'Plain']));
+        self::assertStringContainsString('<h2 ', $render(['text' => 'X', 'level' => 'h9']));
     }
 }

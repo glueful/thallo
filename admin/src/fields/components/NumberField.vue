@@ -6,7 +6,7 @@ const model = defineModel<number>()
 </script>
 
 <template>
-  <UFormField :label="field.name" :required="field.required" :name="field.name">
+  <UFormField :label="field.label ?? field.name" :required="field.required" :name="field.name">
     <UInputNumber v-model="model" class="w-full" />
   </UFormField>
 </template>

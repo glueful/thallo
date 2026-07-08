@@ -40,7 +40,7 @@ final class BlockLibraryRenderTest extends AppTestCase
         return $this->env()->createTemplate('{{ blocks(list) }}')->render(['list' => $list]);
     }
 
-    /** @return array<string,mixed> the seeded container schema, parsed */
+    /** @return ContentTypeSchema the seeded container schema, parsed */
     private function containerSchema(): ContentTypeSchema
     {
         foreach (StarterBlockTypes::definitions() as $def) {
@@ -246,6 +246,71 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringContainsString('thallo-block-logo__image--light', $out);
         self::assertStringContainsString('thallo-block-logo__image--dark', $out);
         self::assertStringContainsString('/blobs/' . $dark, $out);
+    }
+
+    public function testImageBlockAppliesPixelDimensionsAndSizePreset(): void
+    {
+        $uuid = \Glueful\Helpers\Utils::generateNanoID();
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $uuid, 'name' => 'pic.png', 'mime_type' => 'image/png',
+            'size' => 1, 'url' => 'uploads/pic.png', 'visibility' => 'public',
+            'status' => 'active', 'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+
+        // `size` presets the figure's layout width; `width`/`height` set the <img>'s
+        // intrinsic size. Both set → exact dimensions on the element.
+        $out = $this->render([
+            ['id' => 'im1', 'type' => 'image', 'data' => [
+                'image' => $uuid, 'alt' => 'A', 'size' => 'wide', 'width' => 800, 'height' => 600,
+            ]],
+        ]);
+        self::assertStringContainsString('thallo-block-image--wide', $out);
+        self::assertStringContainsString('style="width:800px;height:600px"', $out);
+
+        // Width alone → only the width declaration; height stays auto (unset).
+        $out = $this->render([
+            ['id' => 'im2', 'type' => 'image', 'data' => ['image' => $uuid, 'width' => 320]],
+        ]);
+        self::assertStringContainsString('style="width:320px"', $out);
+        self::assertStringNotContainsString('height:', $out);
+
+        // Neither → no style attribute (default layout slot, current behaviour).
+        $out = $this->render([
+            ['id' => 'im3', 'type' => 'image', 'data' => ['image' => $uuid]],
+        ]);
+        self::assertStringContainsString('thallo-block-image', $out);
+        self::assertStringNotContainsString('style="width', $out);
+    }
+
+    public function testFileBlockRendersDownloadLinkAndNewTabViewLink(): void
+    {
+        $uuid = \Glueful\Helpers\Utils::generateNanoID();
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $uuid, 'name' => 'spec.pdf', 'mime_type' => 'application/pdf',
+            'size' => 1, 'url' => 'uploads/spec.pdf', 'visibility' => 'public',
+            'status' => 'active', 'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+
+        // Default: a forced-download link carrying the label.
+        $out = $this->render([
+            ['id' => 'f1', 'type' => 'file', 'data' => ['file' => $uuid, 'label' => 'Spec sheet']],
+        ]);
+        self::assertStringContainsString('class="thallo-block-file__link"', $out);
+        self::assertStringContainsString('/blobs/' . $uuid, $out);
+        self::assertStringContainsString('download', $out);
+        self::assertStringContainsString('>Spec sheet</span>', $out);
+
+        // new_tab → view in a new tab (target _blank + noopener), no download attr;
+        // absent label falls back to "Download".
+        $out = $this->render([
+            ['id' => 'f2', 'type' => 'file', 'data' => ['file' => $uuid, 'new_tab' => true]],
+        ]);
+        self::assertStringContainsString('target="_blank"', $out);
+        self::assertStringContainsString('rel="noopener noreferrer"', $out);
+        self::assertStringNotContainsString(' download', $out);
+        self::assertStringContainsString('>Download</span>', $out);
     }
 
     public function testAccordionAndTabsGroupsAreScopedPerBlockInstance(): void
@@ -561,6 +626,122 @@ final class BlockLibraryRenderTest extends AppTestCase
         ]]);
         self::assertStringNotContainsString('<img', $hostile);
         self::assertStringContainsString('&lt;img', $hostile);
+    }
+
+    public function testContainerGranularOverridesEmitInlineStyleAndSkipPaddingPreset(): void
+    {
+        // Box padding overrides the preset (no pad class, inline 4-side padding);
+        // margin/radius/border/min-height emit inline; max_width lands on __inner.
+        $out = $this->render([[
+            'id' => 'cov', 'type' => 'container',
+            'data' => [
+                'padding_preset' => 'large',
+                'padding' => ['top' => 10, 'right' => 20, 'bottom' => 10, 'left' => 20],
+                'margin' => ['top' => 8],
+                'radius' => ['top' => 6, 'right' => 6, 'bottom' => 6, 'left' => 6],
+                'border_style' => 'solid', 'border_width' => 2, 'border_color' => '#ff0000',
+                'max_width' => 720, 'min_height_px' => 400,
+                'content' => [],
+            ],
+        ]]);
+        self::assertStringNotContainsString('thallo-block-container--pad-large', $out);
+        self::assertStringContainsString('padding: 10px 20px 10px 20px', $out);
+        self::assertStringContainsString('margin: 8px 0px 0px 0px', $out);
+        self::assertStringContainsString('border-radius: 6px 6px 6px 6px', $out);
+        self::assertStringContainsString('border: 2px solid #ff0000', $out);
+        self::assertStringContainsString('min-height: 400px', $out);
+        self::assertStringContainsString('max-width: 720px', $out);
+
+        // Empty box → falls back to the preset class, no inline padding.
+        $preset = $this->render([[
+            'id' => 'cpr', 'type' => 'container',
+            'data' => ['padding_preset' => 'small', 'content' => []],
+        ]]);
+        self::assertStringContainsString('thallo-block-container--pad-small', $preset);
+        self::assertStringNotContainsString('padding:', $preset);
+    }
+
+    public function testContainerBackgroundVideoUrlSupportsFilesAndEmbeds(): void
+    {
+        // Direct video-file URL → a native <video> layer (scheme-allowlisted src).
+        $file = $this->render([[
+            'id' => 'bvf', 'type' => 'container',
+            'data' => ['background_video_url' => 'https://cdn.example.com/clip.mp4', 'content' => []],
+        ]]);
+        self::assertStringContainsString(
+            '<video class="thallo-block-container__video" src="https://cdn.example.com/clip.mp4"',
+            $file,
+        );
+
+        // YouTube URL → a cover iframe built from the parsed id (raw URL never in src),
+        // with background autoplay/mute/loop params.
+        $yt = $this->render([[
+            'id' => 'bvy', 'type' => 'container',
+            'data' => ['background_video_url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'content' => []],
+        ]]);
+        self::assertStringContainsString('thallo-block-container__video-cover', $yt);
+        self::assertStringContainsString(
+            'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&loop=1&playlist=dQw4w9WgXcQ',
+            $yt,
+        );
+        self::assertStringNotContainsString('youtube.com/watch', $yt); // raw URL never emitted
+
+        // Vimeo URL → the background-mode player embed.
+        $vm = $this->render([[
+            'id' => 'bvv', 'type' => 'container',
+            'data' => ['background_video_url' => 'https://vimeo.com/123456', 'content' => []],
+        ]]);
+        self::assertStringContainsString(
+            'https://player.vimeo.com/video/123456?autoplay=1&muted=1&loop=1&background=1',
+            $vm
+        );
+
+        // A junk/non-video URL is scheme-checked: mailto is dropped → no <video>, no iframe.
+        $junk = $this->render([[
+            'id' => 'bvj', 'type' => 'container',
+            'data' => ['background_video_url' => 'javascript:alert(1)', 'content' => []],
+        ]]);
+        self::assertStringNotContainsString('<video', $junk);
+        self::assertStringNotContainsString('__video-cover', $junk);
+    }
+
+    public function testContainerFlexLayoutEmitsModifierClassesAndGapVar(): void
+    {
+        // Flex mode → __inner flex classes + gap var; block mode (default) emits none.
+        $flex = $this->render([[
+            'id' => 'cf', 'type' => 'container',
+            'data' => [
+                'layout' => 'flex', 'flex_direction' => 'column', 'justify' => 'between',
+                'align_items' => 'center', 'flex_wrap' => 'wrap', 'gap' => 24,
+                'content' => [],
+            ],
+        ]]);
+        self::assertStringContainsString('thallo-block-container--layout-flex', $flex);
+        self::assertStringContainsString('thallo-block-container--dir-column', $flex);
+        self::assertStringContainsString('thallo-block-container--justify-between', $flex);
+        self::assertStringContainsString('thallo-block-container--items-center', $flex);
+        self::assertStringContainsString('thallo-block-container--wrap', $flex);
+        self::assertStringContainsString('--container-gap: 24px', $flex);
+
+        // Block mode (default) → no flex classes, no gap var.
+        $block = $this->render([['id' => 'cb', 'type' => 'container', 'data' => ['content' => []]]]);
+        self::assertStringNotContainsString('--layout-flex', $block);
+        self::assertStringNotContainsString('--container-gap', $block);
+    }
+
+    public function testContainerBoxFieldValidatesNumericSides(): void
+    {
+        $schema = $this->containerSchema();
+        // Valid box passes and is stored canonically (only numeric sides survive).
+        $clean = (new FieldValidator())->validate($schema, ['padding' => ['top' => 12, 'bogus' => 1]]);
+        self::assertSame(['top' => 12], $clean['padding']);
+        // A non-numeric side is rejected with the field's dot path.
+        try {
+            (new FieldValidator())->validate($schema, ['margin' => ['left' => 'nope']]);
+            self::fail('expected ValidationException');
+        } catch (ValidationException $e) {
+            self::assertArrayHasKey('margin', $e->errors());
+        }
     }
 
     public function testContainerShadowEnumAddsUtilityClass(): void
