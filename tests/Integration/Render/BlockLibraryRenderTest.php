@@ -661,6 +661,71 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringNotContainsString('padding:', $preset);
     }
 
+    public function testContainerBackgroundVideoUrlSupportsFilesAndEmbeds(): void
+    {
+        // Direct video-file URL → a native <video> layer (scheme-allowlisted src).
+        $file = $this->render([[
+            'id' => 'bvf', 'type' => 'container',
+            'data' => ['background_video_url' => 'https://cdn.example.com/clip.mp4', 'content' => []],
+        ]]);
+        self::assertStringContainsString(
+            '<video class="thallo-block-container__video" src="https://cdn.example.com/clip.mp4"',
+            $file,
+        );
+
+        // YouTube URL → a cover iframe built from the parsed id (raw URL never in src),
+        // with background autoplay/mute/loop params.
+        $yt = $this->render([[
+            'id' => 'bvy', 'type' => 'container',
+            'data' => ['background_video_url' => 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'content' => []],
+        ]]);
+        self::assertStringContainsString('thallo-block-container__video-cover', $yt);
+        self::assertStringContainsString(
+            'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&loop=1&playlist=dQw4w9WgXcQ',
+            $yt,
+        );
+        self::assertStringNotContainsString('youtube.com/watch', $yt); // raw URL never emitted
+
+        // Vimeo URL → the background-mode player embed.
+        $vm = $this->render([[
+            'id' => 'bvv', 'type' => 'container',
+            'data' => ['background_video_url' => 'https://vimeo.com/123456', 'content' => []],
+        ]]);
+        self::assertStringContainsString('https://player.vimeo.com/video/123456?autoplay=1&muted=1&loop=1&background=1', $vm);
+
+        // A junk/non-video URL is scheme-checked: mailto is dropped → no <video>, no iframe.
+        $junk = $this->render([[
+            'id' => 'bvj', 'type' => 'container',
+            'data' => ['background_video_url' => 'javascript:alert(1)', 'content' => []],
+        ]]);
+        self::assertStringNotContainsString('<video', $junk);
+        self::assertStringNotContainsString('__video-cover', $junk);
+    }
+
+    public function testContainerFlexLayoutEmitsModifierClassesAndGapVar(): void
+    {
+        // Flex mode → __inner flex classes + gap var; block mode (default) emits none.
+        $flex = $this->render([[
+            'id' => 'cf', 'type' => 'container',
+            'data' => [
+                'layout' => 'flex', 'flex_direction' => 'column', 'justify' => 'between',
+                'align_items' => 'center', 'flex_wrap' => 'wrap', 'gap' => 24,
+                'content' => [],
+            ],
+        ]]);
+        self::assertStringContainsString('thallo-block-container--layout-flex', $flex);
+        self::assertStringContainsString('thallo-block-container--dir-column', $flex);
+        self::assertStringContainsString('thallo-block-container--justify-between', $flex);
+        self::assertStringContainsString('thallo-block-container--items-center', $flex);
+        self::assertStringContainsString('thallo-block-container--wrap', $flex);
+        self::assertStringContainsString('--container-gap: 24px', $flex);
+
+        // Block mode (default) → no flex classes, no gap var.
+        $block = $this->render([['id' => 'cb', 'type' => 'container', 'data' => ['content' => []]]]);
+        self::assertStringNotContainsString('--layout-flex', $block);
+        self::assertStringNotContainsString('--container-gap', $block);
+    }
+
     public function testContainerBoxFieldValidatesNumericSides(): void
     {
         $schema = $this->containerSchema();

@@ -18,7 +18,7 @@ const model = defineModel<string>()
     :field="field"
   />
   <ColorField v-else-if="field.format === 'color'" v-model="model" :field="field" />
-  <UFormField v-else :label="field.name" :required="field.required" :name="field.name">
+  <UFormField v-else :label="field.label ?? field.name" :required="field.required" :name="field.name">
     <UInput v-model="model" class="w-full" />
   </UFormField>
 </template>

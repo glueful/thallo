@@ -67,40 +67,72 @@ final class StarterBlockTypes
             ['slug' => 'container', 'label' => 'Container', 'icon' => 'i-lucide-square-dashed',
                 'category' => 'Layout',
                 'description' => 'Free-form styled wrapper: background color/image, overlay, width and padding.',
+                // Fields carry an editor `group` so the (now large) config folds into
+                // collapsible sections in the block editor; `content` stays ungrouped so
+                // the nested region is always visible. Grouping is presentation-only —
+                // the render template ignores it. Fields are ordered by group so each
+                // section is contiguous.
                 'schema' => [
-                    ['name' => 'background_color', 'type' => 'string', 'pattern' => self::HEX],
-                    ['name' => 'background_image', 'type' => 'asset'],
+                    // ---- Background ----
+                    ['name' => 'background_color', 'type' => 'string', 'pattern' => self::HEX,
+                        'format' => 'color', 'group' => 'Background'],
+                    ['name' => 'background_image', 'type' => 'asset', 'group' => 'Background'],
                     // A muted, looping video background (behind the overlay). Takes
                     // visual precedence over background_image when both are set.
-                    ['name' => 'background_video', 'type' => 'asset'],
-                    ['name' => 'bg_size', 'type' => 'enum', 'enum' => ['cover', 'contain', 'auto']],
-                    ['name' => 'bg_repeat', 'type' => 'enum', 'enum' => ['no-repeat', 'repeat']],
+                    ['name' => 'background_video', 'type' => 'asset', 'group' => 'Background'],
+                    // Video background from a URL: a YouTube/Vimeo link (rendered as a
+                    // muted cover iframe) or a direct video-file URL (native <video>).
+                    // The uploaded blob above wins if both are set.
+                    ['name' => 'background_video_url', 'type' => 'string', 'group' => 'Background'],
+                    ['name' => 'bg_size', 'type' => 'enum', 'enum' => ['cover', 'contain', 'auto'],
+                        'group' => 'Background'],
+                    ['name' => 'bg_repeat', 'type' => 'enum', 'enum' => ['no-repeat', 'repeat'],
+                        'group' => 'Background'],
                     ['name' => 'bg_position', 'type' => 'enum',
-                        'enum' => ['center', 'top', 'bottom', 'left', 'right']],
-                    ['name' => 'overlay_color', 'type' => 'string', 'pattern' => self::HEX],
-                    ['name' => 'overlay_opacity', 'type' => 'number', 'min' => 0, 'max' => 100],
-                    ['name' => 'width', 'type' => 'enum', 'enum' => ['full', 'contained', 'narrow']],
-                    // Token-scale padding preset (the quick, theme-consistent default).
-                    ['name' => 'padding_preset', 'type' => 'enum', 'enum' => ['none', 'small', 'medium', 'large']],
-                    ['name' => 'min_height', 'type' => 'enum', 'enum' => ['auto', 'half', 'screen']],
+                        'enum' => ['center', 'top', 'bottom', 'left', 'right'], 'group' => 'Background'],
+                    ['name' => 'overlay_color', 'type' => 'string', 'pattern' => self::HEX,
+                        'format' => 'color', 'group' => 'Background'],
+                    ['name' => 'overlay_opacity', 'type' => 'number', 'min' => 0, 'max' => 100,
+                        'group' => 'Background'],
+                    // ---- Layout (width/height, alignment, flex) ----
+                    ['name' => 'width', 'type' => 'enum', 'enum' => ['full', 'contained', 'narrow'],
+                        'group' => 'Layout'],
+                    ['name' => 'max_width', 'type' => 'number', 'min' => 0, 'group' => 'Layout'],
+                    ['name' => 'min_height', 'type' => 'enum', 'enum' => ['auto', 'half', 'screen'],
+                        'group' => 'Layout'],
+                    ['name' => 'min_height_px', 'type' => 'number', 'min' => 0, 'group' => 'Layout'],
                     // Vertical placement of the content within the container (needs a
                     // min_height to be visible). Enables the centered-hero / Cover look.
-                    ['name' => 'content_align', 'type' => 'enum', 'enum' => ['top', 'center', 'bottom']],
-                    ['name' => 'shadow', 'type' => 'enum',
-                        'enum' => ['none', '2xs', 'xs', 'sm', 'md', 'lg', 'xl', '2xl']],
-                    // ---- Granular overrides (all optional; unset → the presets/defaults
-                    // above still apply, so existing containers are unchanged). ----
+                    ['name' => 'content_align', 'type' => 'enum', 'enum' => ['top', 'center', 'bottom'],
+                        'group' => 'Layout'],
+                    // Flex layout (opt-in): 'flex' lays the child content out as flex items;
+                    // 'block' (default) keeps normal flow. The rest apply only in flex mode.
+                    ['name' => 'layout', 'type' => 'enum', 'enum' => ['block', 'flex'], 'group' => 'Layout'],
+                    ['name' => 'flex_direction', 'type' => 'enum',
+                        'enum' => ['row', 'column', 'row-reverse', 'column-reverse'], 'group' => 'Layout'],
+                    ['name' => 'justify', 'type' => 'enum',
+                        'enum' => ['start', 'center', 'end', 'between', 'around', 'evenly'], 'group' => 'Layout'],
+                    ['name' => 'align_items', 'type' => 'enum',
+                        'enum' => ['start', 'center', 'end', 'stretch'], 'group' => 'Layout'],
+                    ['name' => 'gap', 'type' => 'number', 'min' => 0, 'group' => 'Layout'],
+                    ['name' => 'flex_wrap', 'type' => 'enum', 'enum' => ['nowrap', 'wrap'], 'group' => 'Layout'],
+                    // ---- Spacing (token preset + per-side px overrides) ----
+                    ['name' => 'padding_preset', 'type' => 'enum', 'enum' => ['none', 'small', 'medium', 'large'],
+                        'group' => 'Spacing'],
                     // Per-side px padding; overrides padding_preset when any side is set.
-                    ['name' => 'padding', 'type' => 'box'],
-                    ['name' => 'margin', 'type' => 'box'],
-                    ['name' => 'radius', 'type' => 'box'],
+                    ['name' => 'padding', 'type' => 'box', 'group' => 'Spacing'],
+                    ['name' => 'margin', 'type' => 'box', 'group' => 'Spacing'],
+                    // ---- Border ----
+                    ['name' => 'radius', 'type' => 'box', 'group' => 'Border'],
                     ['name' => 'border_style', 'type' => 'enum',
-                        'enum' => ['none', 'solid', 'dashed', 'dotted']],
-                    ['name' => 'border_width', 'type' => 'number', 'min' => 0],
-                    ['name' => 'border_color', 'type' => 'string', 'pattern' => self::HEX, 'format' => 'color'],
-                    // px overrides for the width / min_height enums above.
-                    ['name' => 'max_width', 'type' => 'number', 'min' => 0],
-                    ['name' => 'min_height_px', 'type' => 'number', 'min' => 0],
+                        'enum' => ['none', 'solid', 'dashed', 'dotted'], 'group' => 'Border'],
+                    ['name' => 'border_width', 'type' => 'number', 'min' => 0, 'group' => 'Border'],
+                    ['name' => 'border_color', 'type' => 'string', 'pattern' => self::HEX,
+                        'format' => 'color', 'group' => 'Border'],
+                    // ---- Effects ----
+                    ['name' => 'shadow', 'type' => 'enum',
+                        'enum' => ['none', '2xs', 'xs', 'sm', 'md', 'lg', 'xl', '2xl'], 'group' => 'Effects'],
+                    // Ungrouped → always-visible nested region.
                     ['name' => 'content', 'type' => 'blocks'],
                 ]],
             ['slug' => 'grid', 'label' => 'Grid', 'icon' => 'i-lucide-layout-grid',

@@ -37,7 +37,7 @@ function onInput(side: Side, e: Event): void {
 </script>
 
 <template>
-  <UFormField :label="field.name" :name="field.name">
+  <UFormField :label="field.label ?? field.name" :name="field.name">
     <div class="flex items-stretch gap-2">
       <div class="grid flex-1 grid-cols-4 gap-1">
         <div v-for="side in SIDES" :key="side" class="flex flex-col items-center gap-0.5">

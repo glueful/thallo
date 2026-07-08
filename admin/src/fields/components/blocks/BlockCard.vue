@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, inject } from 'vue'
+import { createReusableTemplate } from '@vueuse/core'
 import { fieldComponent } from '../../registry'
 import { toFieldDef } from '../../normalize'
+import type { ContentTypeField } from '@/queries/contentTypes'
 import { useNavMenus } from '@/queries/navigation'
 import { BlocksContextKey } from './context'
 import type { BlockInstance } from './useBlockListOps'
@@ -91,7 +93,10 @@ function selectColumnsLayout(v: { layout: string; widths: string }): void {
 }
 
 function displayFieldDef(f: Parameters<typeof toFieldDef>[0]): ReturnType<typeof toFieldDef> {
-  const def = toFieldDef(f)
+  const base = toFieldDef(f)
+  // Human-readable label from the snake_case field name (e.g. background_image →
+  // "background image"), unless the schema declared an explicit label.
+  const def = { ...base, label: base.label ?? humanize(base.name) }
   if (props.block.type === 'columns' && def.name === 'widths' && def.enum) {
     return { ...def, enum: def.enum.filter((v) => v.split('-').length === columnsLayout.value) }
   }
@@ -101,6 +106,25 @@ function displayFieldDef(f: Parameters<typeof toFieldDef>[0]): ReturnType<typeof
 // Region/field names arrive snake_case (col_1); show them space-separated
 // ("col 1") without inventing a schema-level label vocabulary.
 const humanize = (name: string): string => name.replace(/_/g, ' ')
+
+// Collapsible-group layout: fields carrying a `group` fold into labelled sections
+// (collapsed by default); ungrouped fields render flat, always visible. Schema order
+// is preserved, and consecutive same-group (or ungrouped) fields merge into one
+// section — so a block that declares no groups renders exactly as a single flat run.
+const sections = computed<{ group: string | null; fields: ContentTypeField[] }[]>(() => {
+  const out: { group: string | null; fields: ContentTypeField[] }[] = []
+  for (const f of type.value?.schema ?? []) {
+    const g = f.group ?? null
+    const last = out[out.length - 1]
+    if (last && last.group === g) last.fields.push(f)
+    else out.push({ group: g, fields: [f] })
+  }
+  return out
+})
+
+// Define the per-field row ONCE and reuse it both flat and inside groups (avoids
+// duplicating the widget-dispatch template).
+const [DefineFieldRow, FieldRow] = createReusableTemplate<{ f: ContentTypeField }>()
 
 // Rules of hooks: called unconditionally; the enabled-gate means it only
 // FETCHES for navigation blocks.
@@ -308,10 +332,11 @@ function onHeaderKeydown(event: KeyboardEvent): void {
       <UButton size="xs" variant="ghost" color="neutral" @click="cancelDelete()">Cancel</UButton>
     </div>
     <div v-if="ctx.expanded[block.id]" class="space-y-3 border-t border-default p-3">
-      <!-- toFieldDef: block schemas arrive snake_case; widgets consume camelCase
+      <!-- Per-field row defined once (widget dispatch), reused flat and inside groups.
+           toFieldDef: block schemas arrive snake_case; widgets consume camelCase
            FieldDef. Blocks-typed fields render a NESTED BlockList inside the same
            ops-owning tree, or the max-depth notice at the cap. -->
-      <template v-for="f in type?.schema ?? []" :key="f.name">
+      <DefineFieldRow v-slot="{ f }">
         <template v-if="fieldVisible(f.name)">
           <p
             v-if="toFieldDef(f).type === 'blocks' && depth >= ctx.maxDepth"
@@ -361,6 +386,30 @@ function onHeaderKeydown(event: KeyboardEvent): void {
             @update:model-value="(v: unknown) => patchData(f.name, v)"
           />
         </template>
+      </DefineFieldRow>
+
+      <template v-for="section in sections" :key="section.group ?? '__flat'">
+        <template v-if="section.group === null">
+          <FieldRow v-for="f in section.fields" :key="f.name" :f="f" />
+        </template>
+        <details
+          v-else
+          class="group/sect rounded-md border border-default"
+          :data-test="`block-group-${section.group}`"
+        >
+          <summary
+            class="flex cursor-pointer select-none list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium [&::-webkit-details-marker]:hidden"
+          >
+            <span>{{ section.group }}</span>
+            <UIcon
+              name="i-lucide-chevron-down"
+              class="size-4 shrink-0 text-muted transition-transform group-open/sect:rotate-180"
+            />
+          </summary>
+          <div class="space-y-3 border-t border-default p-3">
+            <FieldRow v-for="f in section.fields" :key="f.name" :f="f" />
+          </div>
+        </details>
       </template>
     </div>
   </div>

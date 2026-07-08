@@ -30,4 +30,6 @@ export interface FieldDef {
   referenceSlugField?: string
   /** Picker-only block-type allowlist for a `blocks` field ([] / absent = all active). */
   blockTypes?: string[]
+  /** Editor grouping: fields with the same group fold into a collapsible section. */
+  group?: string
 }

@@ -13,7 +13,7 @@ const swatch = computed<string>(() => (model.value && /^#[0-9a-fA-F]{6}$/.test(m
 </script>
 
 <template>
-  <UFormField :label="field.name" :required="field.required" :name="field.name">
+  <UFormField :label="field.label ?? field.name" :required="field.required" :name="field.name">
     <div class="flex items-center gap-2">
       <input
         type="color"

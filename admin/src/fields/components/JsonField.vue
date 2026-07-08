@@ -50,7 +50,7 @@ watch(model, (v) => {
 
 <template>
   <UFormField
-    :label="field.name"
+    :label="field.label ?? field.name"
     :required="field.required"
     :name="field.name"
     :error="error ?? undefined"
