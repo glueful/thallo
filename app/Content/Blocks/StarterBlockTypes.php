@@ -299,9 +299,17 @@ final class StarterBlockTypes
                 'schema' => [
                     ['name' => 'form_name', 'type' => 'string'],
                     ['name' => 'recipient', 'type' => 'string', 'group' => 'Delivery'],
+                    // store_and_email keeps a triageable record; email_only skips storage
+                    // and just notifies the recipient.
+                    ['name' => 'delivery', 'type' => 'enum',
+                        'enum' => ['store_and_email', 'email_only'], 'group' => 'Delivery'],
                     ['name' => 'success_message', 'type' => 'text', 'group' => 'Delivery'],
                     ['name' => 'redirect_url', 'type' => 'string', 'group' => 'Delivery'],
                     ['name' => 'submit_label', 'type' => 'string', 'group' => 'Form'],
+                    ['name' => 'submit_variant', 'type' => 'enum',
+                        'enum' => ['solid', 'outline', 'soft', 'subtle', 'ghost', 'link'], 'group' => 'Form'],
+                    ['name' => 'submit_color', 'type' => 'enum',
+                        'enum' => ['primary', 'neutral'], 'group' => 'Form'],
                     ['name' => 'heading', 'type' => 'string', 'group' => 'Form'],
                     ['name' => 'intro', 'type' => 'text', 'group' => 'Form'],
                     ['name' => 'name_label', 'type' => 'string', 'group' => 'Fields'],

@@ -52,6 +52,9 @@ final class DefaultFormSealer implements FormSealer
             minSeconds: $this->minSeconds, // real config dependency — time-trap armed at seal time
             spamVersion: 1,
             issuedAt: $issued,
+            delivery: ($data['delivery'] ?? null) === FormDescriptor::DELIVERY_EMAIL_ONLY
+                ? FormDescriptor::DELIVERY_EMAIL_ONLY
+                : FormDescriptor::DELIVERY_STORE_AND_EMAIL,
         );
 
         $token = $this->encryption->encrypt(

@@ -32,7 +32,12 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   seen), and drives a sidebar unread-count badge. New config `config/forms.php`
   (`FORMS_DESCRIPTOR_MAX_AGE`, `FORMS_DESCRIPTOR_BUFFER`, `FORMS_MIN_SECONDS`,
   `FORMS_RATE_MAX`, `FORMS_RATE_WINDOW`, `FORMS_DEFAULT_RECIPIENT`) and migration
-  `022_CreateFormSubmissionsTable`.
+  `022_CreateFormSubmissionsTable`. Block options: a `delivery` mode
+  (`store_and_email` default, or `email_only` which skips storage — the choice is
+  sealed server-side), a selectable submit-button style (`submit_variant`/
+  `submit_color`, reusing the button block's classes), and compact
+  Tailwind-style fields that self-constrain to the reading measure like every
+  other content block.
 - **Blog posts block**: a dynamic `blog_posts` leaf block that lists published
   `post` entries as cards at render time. Introduces a `Thallo\Contracts\Delivery\
   EntryListReader` seam (engine impl `EngineEntryListReader`, modeled on

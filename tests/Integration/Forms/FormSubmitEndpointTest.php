@@ -15,12 +15,16 @@ use Thallo\Contracts\Content\FormSealer;
 
 final class FormSubmitEndpointTest extends AppTestCase
 {
-    /** Seal a real contact-form descriptor through the bound sealer and return its token. */
-    private function sealContactForm(string $recipient): string
+    /**
+     * Seal a real contact-form descriptor through the bound sealer and return its token.
+     *
+     * @param array<string,mixed> $extra extra block-data keys (e.g. delivery)
+     */
+    private function sealContactForm(string $recipient, array $extra = []): string
     {
         $sealer = $this->container()->get(FormSealer::class);
         $sealed = $sealer->describe(
-            ['id' => 'c1', 'type' => 'form', 'data' => ['recipient' => $recipient]],
+            ['id' => 'c1', 'type' => 'form', 'data' => ['recipient' => $recipient] + $extra],
             null,
             '/contact',
             null,
@@ -120,6 +124,17 @@ final class FormSubmitEndpointTest extends AppTestCase
         ], json: false);
         self::assertSame(303, $res->getStatusCode());
         self::assertStringContainsString('/contact?form_ok=', (string) $res->headers->get('Location'));
+    }
+
+    public function testEmailOnlyDeliveryDoesNotStore(): void
+    {
+        $token = $this->sealContactForm('owner@site.test', ['delivery' => 'email_only']);
+        $res = $this->postForm([
+            '_form' => $token, '_t' => (string) (time() - 5),
+            'name' => 'Zoe', 'email' => 'zoe@x.test', 'message' => 'hi',
+        ], json: true);
+        self::assertTrue($this->json($res)['ok']);              // still a success to the visitor
+        self::assertSame(0, $this->countSubmissions('zoe@x.test')); // email-only: nothing stored
     }
 
     public function testExpiredDescriptorReturnsReloadMessage(): void

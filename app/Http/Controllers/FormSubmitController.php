@@ -72,21 +72,25 @@ final class FormSubmitController
         $sourceUrl = $this->safeReturn($request->request->get('_return'))
             ?? (is_string($request->headers->get('Referer')) ? $request->headers->get('Referer') : null);
 
-        $this->submissions->store(new FormSubmission(
-            uuid: '',
-            formKey: $descriptor->formKey,
-            formName: $descriptor->formName,
-            sourceUrl: $sourceUrl,
-            fieldsSnapshot: array_map(static fn (FieldDef $f): array => $f->toArray(), $descriptor->fields),
-            values: $values,
-            descriptorVersion: $descriptor->v,
-            status: 'unread',
-            ip: $request->getClientIp(),
-            userAgent: substr((string) $request->headers->get('User-Agent', ''), 0, 512) ?: null,
-            submittedAt: gmdate('Y-m-d H:i:s'),
-        ));
+        // Delivery mode is sealed (server-side only): email_only skips storage entirely.
+        if ($descriptor->shouldStore()) {
+            $this->submissions->store(new FormSubmission(
+                uuid: '',
+                formKey: $descriptor->formKey,
+                formName: $descriptor->formName,
+                sourceUrl: $sourceUrl,
+                fieldsSnapshot: array_map(static fn (FieldDef $f): array => $f->toArray(), $descriptor->fields),
+                values: $values,
+                descriptorVersion: $descriptor->v,
+                status: 'unread',
+                ip: $request->getClientIp(),
+                userAgent: substr((string) $request->headers->get('User-Agent', ''), 0, 512) ?: null,
+                submittedAt: gmdate('Y-m-d H:i:s'),
+            ));
+        }
 
-        // Best-effort email (spec §10): never fatal — the submission is already stored.
+        // Best-effort email (spec §10): never fatal. For email_only this is the only sink,
+        // so it still runs even though nothing was stored.
         $this->notifier->notify($descriptor, $values, $sourceUrl);
 
         return $this->respond($request, ok: true, descriptor: $descriptor);

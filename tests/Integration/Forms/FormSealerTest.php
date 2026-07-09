@@ -50,6 +50,16 @@ final class FormSealerTest extends AppTestCase
         self::assertInstanceOf(FormDescriptor::class, $d);
         self::assertSame('owner@site.test', $d->recipient);
         self::assertCount(1, $d->fields);
+        // Delivery defaults to store_and_email and survives the seal/open round-trip.
+        self::assertTrue($d->shouldStore());
+    }
+
+    public function testEmailOnlyDeliverySealsAndOpens(): void
+    {
+        $block = $this->block('e1', ['recipient' => 'owner@site.test', 'delivery' => 'email_only']);
+        $sf = $this->sealer()->describe($block, null, '/contact', null);
+        self::assertFalse($sf->descriptor->shouldStore());
+        self::assertFalse($this->sealer()->open($sf->token)->shouldStore());
     }
 
     public function testTamperedTokenOpensToNull(): void

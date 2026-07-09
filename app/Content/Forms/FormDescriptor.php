@@ -9,6 +9,10 @@ final class FormDescriptor
 {
     public const VERSION = 1;
 
+    /** Delivery modes: keep a triageable record + email, or email the recipient only. */
+    public const DELIVERY_STORE_AND_EMAIL = 'store_and_email';
+    public const DELIVERY_EMAIL_ONLY = 'email_only';
+
     /** @param list<FieldDef> $fields */
     public function __construct(
         public readonly int $v,
@@ -22,7 +26,15 @@ final class FormDescriptor
         public readonly int $minSeconds,
         public readonly int $spamVersion,
         public readonly int $issuedAt,
+        // Sealed, server-side only (never rendered): store_and_email | email_only.
+        public readonly string $delivery = self::DELIVERY_STORE_AND_EMAIL,
     ) {
+    }
+
+    /** True when a submission should be persisted (vs email-only delivery). */
+    public function shouldStore(): bool
+    {
+        return $this->delivery !== self::DELIVERY_EMAIL_ONLY;
     }
 
     /** @return array<string,mixed> */
@@ -33,12 +45,15 @@ final class FormDescriptor
             'recipient' => $this->recipient, 'success_message' => $this->successMessage,
             'redirect_url' => $this->redirectUrl, 'honeypot_field' => $this->honeypotField,
             'min_seconds' => $this->minSeconds, 'spam_version' => $this->spamVersion,
-            'issued_at' => $this->issuedAt];
+            'issued_at' => $this->issuedAt, 'delivery' => $this->delivery];
     }
 
     /** @param array<string,mixed> $a */
     public static function fromArray(array $a): self
     {
+        $delivery = ($a['delivery'] ?? null) === self::DELIVERY_EMAIL_ONLY
+            ? self::DELIVERY_EMAIL_ONLY
+            : self::DELIVERY_STORE_AND_EMAIL;
         return new self(
             (int) $a['v'],
             (string) $a['form_key'],
@@ -51,6 +66,7 @@ final class FormDescriptor
             (int) $a['min_seconds'],
             (int) $a['spam_version'],
             (int) $a['issued_at'],
+            $delivery,
         );
     }
 }
