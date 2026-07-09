@@ -16,6 +16,7 @@ use App\Http\Controllers\ApiKeyAdminController;
 use App\Http\Controllers\CacheAdminController;
 use App\Http\Controllers\CapabilityAdminController;
 use App\Http\Controllers\ExtensionAdminController;
+use App\Http\Controllers\FormSubmissionsController;
 use App\Http\Controllers\GeneralSettingsController;
 use App\Http\Controllers\HealthAdminController;
 use App\Http\Controllers\IconInventoryController;
@@ -205,6 +206,26 @@ $router->group(['prefix' => '/v1/admin', 'middleware' => ['auth']], function (Ro
         ->middleware('content_permission:content.view');
 
     $router->put('/regions/{slug}', [RegionAdminController::class, 'update'])
+        ->middleware('content_permission:content.manage');
+
+    // Form submissions triage (form-block spec §11). Static routes (unread-count,
+    // export.csv) precede the {uuid} routes; the router resolves static first anyway.
+    $router->get('/form-submissions', [FormSubmissionsController::class, 'index'])
+        ->middleware('content_permission:content.manage');
+
+    $router->get('/form-submissions/unread-count', [FormSubmissionsController::class, 'unreadCount'])
+        ->middleware('content_permission:content.manage');
+
+    $router->get('/form-submissions/export.csv', [FormSubmissionsController::class, 'export'])
+        ->middleware('content_permission:content.manage');
+
+    $router->get('/form-submissions/{uuid}', [FormSubmissionsController::class, 'show'])
+        ->middleware('content_permission:content.manage');
+
+    $router->patch('/form-submissions/{uuid}/read', [FormSubmissionsController::class, 'read'])
+        ->middleware('content_permission:content.manage');
+
+    $router->delete('/form-submissions/{uuid}', [FormSubmissionsController::class, 'destroy'])
         ->middleware('content_permission:content.manage');
 
     // Instance General settings — site identity, default locale, delivery defaults, feature toggles

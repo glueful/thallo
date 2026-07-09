@@ -12,6 +12,15 @@ use App\Content\Delivery\FilterCompiler;
 use App\Content\Delivery\ReferenceFilterResolver;
 use App\Content\Delivery\ReferenceResolver;
 use App\Content\Delivery\SortCompiler;
+use App\Content\Forms\DefaultFormSealer;
+use App\Content\Forms\FormFieldDerivation;
+use App\Content\Forms\FormMailSender;
+use App\Content\Forms\FormNotifier;
+use App\Content\Forms\FormSubmissionRepository;
+use App\Content\Forms\Spam\DefaultFormGuard;
+use App\Content\Forms\Spam\FormSubmissionGuard;
+use Glueful\Encryption\EncryptionService;
+use Thallo\Contracts\Content\FormSealer;
 use App\Content\Console\PruneVersionsCommand;
 use App\Content\Console\RunBlockBackfillCommand;
 use App\Content\Console\SeedBlockTypesCommand;
@@ -28,6 +37,8 @@ use App\Http\Controllers\ApiKeyAdminController;
 use App\Http\Controllers\CacheAdminController;
 use App\Http\Controllers\CapabilityAdminController;
 use App\Http\Controllers\ExtensionAdminController;
+use App\Http\Controllers\FormSubmissionsController;
+use App\Http\Controllers\FormSubmitController;
 use App\Http\Controllers\GeneralSettingsController;
 use App\Http\Controllers\HealthAdminController;
 use App\Http\Controllers\IconInventoryController;
@@ -167,6 +178,7 @@ use Thallo\Collections\Events\CollectionUpdated;
 use Glueful\Extensions\ServiceProvider;
 use Glueful\Support\FieldSelection\Projector;
 use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface;
 
 /**
  * Wires the Thallo content engine into the application container.
@@ -220,6 +232,85 @@ final class ThalloServiceProvider extends ServiceProvider
             self::contentControllerServices(),
             self::platformControllerServices(),
             self::consoleCommandServices(),
+            self::formServices(),
+        );
+    }
+
+    /**
+     * Form block backend (form-block spec): the sealed-descriptor sealer. Config-derived
+     * (encryption key, descriptor lifetime vs render cache TTL, default recipient, time-trap
+     * floor), so it needs a factory rather than autowire.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function formServices(): array
+    {
+        return [
+            FormSealer::class => [
+                'factory' => [self::class, 'makeFormSealer'],
+                'shared' => true,
+            ],
+            FormSubmissionRepository::class => [
+                'class' => FormSubmissionRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            DefaultFormGuard::class => [
+                'factory' => [self::class, 'makeFormGuard'],
+                'shared' => true,
+            ],
+            FormSubmissionGuard::class => [
+                'factory' => [self::class, 'makeFormGuard'],
+                'shared' => true,
+            ],
+            FormNotifier::class => [
+                'factory' => [self::class, 'makeFormNotifier'],
+                'shared' => true,
+            ],
+            FormSubmitController::class => [
+                'class' => FormSubmitController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            FormSubmissionsController::class => [
+                'class' => FormSubmissionsController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+        ];
+    }
+
+    public static function makeFormNotifier(ContainerInterface $container): FormNotifier
+    {
+        // FormMailSender is a soft seam: unbound → the notifier no-ops (spec §10).
+        $sender = $container->has(FormMailSender::class) ? $container->get(FormMailSender::class) : null;
+        return new FormNotifier(
+            $sender instanceof FormMailSender ? $sender : null,
+            $container->get(LoggerInterface::class),
+        );
+    }
+
+    public static function makeFormGuard(ContainerInterface $container): DefaultFormGuard
+    {
+        $context = $container->get(ApplicationContext::class);
+        return new DefaultFormGuard(
+            $container->get(CacheStore::class),
+            rateMax: (int) config($context, 'forms.rate_limit.max', 5),
+            rateWindow: (int) config($context, 'forms.rate_limit.window', 60),
+        );
+    }
+
+    public static function makeFormSealer(ContainerInterface $container): DefaultFormSealer
+    {
+        $context = $container->get(ApplicationContext::class);
+        return new DefaultFormSealer(
+            $container->get(EncryptionService::class),
+            static fn (array $data): array => FormFieldDerivation::derive($data),
+            cacheTtl: (int) config($context, 'render.cache_ttl', 3600),
+            maxAge: (int) config($context, 'forms.descriptor_max_age', 1209600),
+            buffer: (int) config($context, 'forms.descriptor_buffer', 3600),
+            defaultRecipient: (string) config($context, 'forms.default_recipient', ''),
+            minSeconds: (int) config($context, 'forms.min_seconds', 2),
         );
     }
 

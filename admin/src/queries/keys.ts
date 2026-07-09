@@ -29,4 +29,8 @@ export const qk = {
   workflowQueue: () => ['workflow', 'queue'] as const,
   navMenus: () => ['navigation', 'menus'] as const,
   navMenu: (slug: string, locale: string) => ['navigation', 'menu', slug, locale] as const,
+  formSubmissions: (formKey: string, status: string) =>
+    ['form-submissions', 'list', formKey, status] as const,
+  formSubmission: (uuid: string) => ['form-submissions', 'detail', uuid] as const,
+  formSubmissionsUnread: () => ['form-submissions', 'unread'] as const,
 }

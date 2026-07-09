@@ -8,8 +8,10 @@ import { registerWorkflowModule } from '@/registry/workflowModule'
 import { registerNavigationModule } from '@/registry/navigationModule'
 import { registerRegionsModule } from '@/registry/regionsModule'
 import { registerTemplatesModule } from '@/registry/templatesModule'
+import { registerSubmissionsModule } from '@/registry/submissionsModule'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useContentTypes } from '@/queries/contentTypes'
+import { useUnreadCount } from '@/queries/formSubmissions'
 
 registerCoreModule()
 registerCollectionsModule()
@@ -18,6 +20,7 @@ registerWorkflowModule()
 registerNavigationModule()
 registerRegionsModule()
 registerTemplatesModule()
+registerSubmissionsModule()
 const caps = useCapabilitiesStore()
 caps.ensureLoaded() // post-auth: this layout only renders for authenticated users
 
@@ -45,21 +48,30 @@ onBeforeUnmount(() => {
 
 const nav = useVisibleNav()
 const { data: contentTypes } = useContentTypes()
+// Live unread count for the Submissions badge (module registration is non-reactive, so
+// the badge is injected here — the same seam the Content children use).
+const { data: unreadSubmissions } = useUnreadCount()
 
-// nav.value[0] = main nav; inject live content types into the Content section's children (unchanged behavior).
+// nav.value[0] = main nav; inject live content types into the Content section's children,
+// and the live unread count as the Submissions badge (both unchanged for other items).
 const mainItems = computed(() =>
-  nav.value[0].map((item) =>
-    item.label === 'Content'
-      ? {
-          ...item,
-          children: (contentTypes.value ?? []).map((ct) => ({
-            label: ct.name ?? ct.slug ?? 'Untitled',
-            icon: 'i-lucide-file-text',
-            to: `/content/${ct.slug}`,
-          })),
-        }
-      : item,
-  ),
+  nav.value[0].map((item) => {
+    if (item.label === 'Content') {
+      return {
+        ...item,
+        children: (contentTypes.value ?? []).map((ct) => ({
+          label: ct.name ?? ct.slug ?? 'Untitled',
+          icon: 'i-lucide-file-text',
+          to: `/content/${ct.slug}`,
+        })),
+      }
+    }
+    if (item.label === 'Submissions') {
+      const count = unreadSubmissions.value ?? 0
+      return count > 0 ? { ...item, badge: String(count) } : item
+    }
+    return item
+  }),
 )
 const utilityItems = computed(() => nav.value[1])
 </script>
