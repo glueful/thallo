@@ -7,6 +7,37 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Form block**: a generic `form` block (contact-form preset in v1) whose
+  submissions are stored, best-effort emailed, spam-guarded, and triaged/exported
+  in the admin. Built on a **sealed-descriptor** model: `blocks/form.twig` calls a
+  single gated `form_render(block)` Twig function that derives the field list and
+  seals an AES-256-GCM descriptor (`EncryptionService`, aad `form.descriptor`) in
+  ONE pass via an app-bound `Thallo\Contracts\Content\FormSealer`, so the exact form
+  the visitor saw is the exact schema the server validates — the recipient and
+  config never appear in the markup. Descriptor lifetime is
+  `max(FORMS_DESCRIPTOR_MAX_AGE, render cache_ttl + FORMS_DESCRIPTOR_BUFFER)` so a
+  page-cached form never outlives its token; an un-routable form (no valid recipient
+  and no `FORMS_DEFAULT_RECIPIENT`) refuses to seal and renders a disabled notice, so
+  the endpoint is unreachable. `POST /_forms/submit` (reserved `/_forms` prefix,
+  IP-rate-limited, unauthenticated — the sealed token IS the authorization) opens the
+  descriptor, runs a guard chain (honeypot → time-trap → per-form-key+IP rate-limit,
+  reasons recorded server-side only), validates against the sealed fields, stores a
+  normalized snapshot, and best-effort emails through a soft `FormMailSender` seam
+  (unbound → no-op; storage is the source of truth). AJAX and no-JS POSTs share one
+  response path: field errors as JSON or a PRG `?form_ok=`/`?form_err=` redirect;
+  spam rejects always return generic success. `redirect_url` is root-relative-only,
+  validated at seal and at submit. An admin **Submissions** area (`GET/PATCH/DELETE
+  /v1/admin/form-submissions/*`, gated `content.manage`) lists/filters/reads/deletes
+  submissions, exports CSV (fixed metadata columns unioned with every field key
+  seen), and drives a sidebar unread-count badge. New config `config/forms.php`
+  (`FORMS_DESCRIPTOR_MAX_AGE`, `FORMS_DESCRIPTOR_BUFFER`, `FORMS_MIN_SECONDS`,
+  `FORMS_RATE_MAX`, `FORMS_RATE_WINDOW`, `FORMS_DEFAULT_RECIPIENT`) and migration
+  `022_CreateFormSubmissionsTable`. Block options: a `delivery` mode
+  (`store_and_email` default, or `email_only` which skips storage — the choice is
+  sealed server-side), a selectable submit-button style (`submit_variant`/
+  `submit_color`, reusing the button block's classes), and compact
+  Tailwind-style fields that self-constrain to the reading measure like every
+  other content block.
 - **Blog posts block**: a dynamic `blog_posts` leaf block that lists published
   `post` entries as cards at render time. Introduces a `Thallo\Contracts\Delivery\
   EntryListReader` seam (engine impl `EngineEntryListReader`, modeled on

@@ -33,6 +33,7 @@ abstract class AppTestCase extends TestCase
         'entry_schema_migrations', 'entry_references', 'published_entry_references',
         'entry_redirects', 'entry_routes', 'entry_publications',
         'entry_versions', 'entry_drafts', 'entries', 'content_types',
+        'form_submissions',
     ];
 
     public static function setUpBeforeClass(): void

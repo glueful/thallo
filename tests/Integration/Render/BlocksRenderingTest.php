@@ -160,8 +160,9 @@ final class BlocksRenderingTest extends AppTestCase
         self::assertContains('region_settings', TemplatePolicy::FUNCTIONS);
         self::assertContains('site_favicon', TemplatePolicy::FUNCTIONS);
         self::assertContains('custom_css', TemplatePolicy::FUNCTIONS);
-        // 10 = Twig 3.28's ConfigNode joined the node allowlist
-        self::assertSame(10, TemplatePolicy::CACHE_VERSION);
+        self::assertContains('form_render', TemplatePolicy::FUNCTIONS);
+        // 11 = form_render joined the function allowlist (form-block spec §4)
+        self::assertSame(11, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);
@@ -173,6 +174,7 @@ final class BlocksRenderingTest extends AppTestCase
         self::assertSame([], $linter->lint("{{ region_settings('header').width|default('contained') }}"));
         self::assertSame([], $linter->lint('{{ site_favicon() }}'));
         self::assertSame([], $linter->lint('{{ custom_css() }}'));
+        self::assertSame([], $linter->lint('{% set f = form_render(block) %}{{ f.token|default }}'));
     }
 
     public function testSafeHtmlSanitizesAndFailsClosed(): void
