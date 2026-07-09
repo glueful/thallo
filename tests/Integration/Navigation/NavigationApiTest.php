@@ -210,4 +210,95 @@ final class NavigationApiTest extends AppTestCase
         self::assertNotNull($route);
         self::assertContains('rate_limit', (array) ($route['middleware'] ?? []));
     }
+
+    public function testCreateAppendsPositionAndListOrdersByInsertion(): void
+    {
+        // Created out of alphabetical order — the list must follow position (insertion),
+        // not slug, so the alpha tiebreak never masks a broken position.
+        $this->admin()->create($this->req(['slug' => 'zeta', 'name' => 'Zeta']));
+        $this->admin()->create($this->req(['slug' => 'alpha', 'name' => 'Alpha']));
+        $this->admin()->create($this->req(['slug' => 'mid', 'name' => 'Mid']));
+
+        $list = $this->data($this->admin()->index(Request::create('/x', 'GET')))['menus'];
+        self::assertSame(['zeta', 'alpha', 'mid'], array_column($list, 'slug'));
+    }
+
+    public function testReorderRewritesDensePositions(): void
+    {
+        foreach (['a', 'b', 'c'] as $s) {
+            $this->admin()->create($this->req(['slug' => $s, 'name' => strtoupper($s)]));
+        }
+        $res = $this->admin()->reorder($this->req(['slugs' => ['c', 'a', 'b']]));
+        self::assertSame(200, $res->getStatusCode());
+        self::assertSame(['c', 'a', 'b'], array_column($this->data($res)['menus'], 'slug'));
+
+        // Persisted, not just echoed.
+        $list = $this->data($this->admin()->index(Request::create('/x', 'GET')))['menus'];
+        self::assertSame(['c', 'a', 'b'], array_column($list, 'slug'));
+    }
+
+    public function testReorderRejectsBadPayloadsWithNoPartialWrite(): void
+    {
+        foreach (['a', 'b', 'c'] as $s) {
+            $this->admin()->create($this->req(['slug' => $s, 'name' => strtoupper($s)]));
+        }
+        // Establish a known order first.
+        $this->admin()->reorder($this->req(['slugs' => ['c', 'a', 'b']]));
+
+        $bad = [
+            'duplicate' => ['c', 'a', 'a'],
+            'missing'   => ['c', 'a'],           // b omitted
+            'unknown'   => ['c', 'a', 'b', 'z'], // z is not a menu
+        ];
+        foreach ($bad as $label => $slugs) {
+            $res = $this->admin()->reorder($this->req(['slugs' => $slugs]));
+            self::assertSame(422, $res->getStatusCode(), "{$label} must 422");
+            // No partial write: the order is still c, a, b.
+            $list = $this->data($this->admin()->index(Request::create('/x', 'GET')))['menus'];
+            self::assertSame(['c', 'a', 'b'], array_column($list, 'slug'), "{$label} must not write");
+        }
+    }
+
+    public function testReorderRouteResolvesNotRenameViaSlug(): void
+    {
+        $route = $this->findRoute('POST', '/v1/admin/navigation/menus/reorder');
+        self::assertNotNull($route);
+        self::assertContains('content_permission:navigation.manage', (array) ($route['middleware'] ?? []));
+    }
+
+    public function testTreeReNestingRoundTripsThroughTheSavePath(): void
+    {
+        // The P1 nesting guarantee: whatever a tree drag produces, the menu-save path
+        // (PUT /menus/{slug}/items) preserves it. Move a child from parent A to parent B
+        // and assert the reload reflects the new nesting.
+        $this->admin()->create($this->req(['slug' => 'main', 'name' => 'Main']));
+        $childUnderA = [
+            'lock_version' => 0,
+            'items' => [
+                ['kind' => 'url', 'url' => '/a', 'labels' => ['en' => 'A'], 'children' => [
+                    ['kind' => 'url', 'url' => '/x', 'labels' => ['en' => 'X'], 'children' => []],
+                ]],
+                ['kind' => 'url', 'url' => '/b', 'labels' => ['en' => 'B'], 'children' => []],
+            ],
+        ];
+        $this->admin()->replaceItems($this->req($childUnderA), 'main');
+        $show = $this->data($this->admin()->show(Request::create('/x', 'GET', ['locale' => 'en']), 'main'));
+        self::assertSame('X', $show['items'][0]['children'][0]['labels']['en']); // X under A
+        self::assertCount(0, $show['items'][1]['children']);                     // B empty
+
+        $lock = $show['lock_version'];
+        $childUnderB = [
+            'lock_version' => $lock,
+            'items' => [
+                ['kind' => 'url', 'url' => '/a', 'labels' => ['en' => 'A'], 'children' => []],
+                ['kind' => 'url', 'url' => '/b', 'labels' => ['en' => 'B'], 'children' => [
+                    ['kind' => 'url', 'url' => '/x', 'labels' => ['en' => 'X'], 'children' => []],
+                ]],
+            ],
+        ];
+        $this->admin()->replaceItems($this->req($childUnderB), 'main');
+        $show = $this->data($this->admin()->show(Request::create('/x', 'GET', ['locale' => 'en']), 'main'));
+        self::assertCount(0, $show['items'][0]['children']);                     // A empty
+        self::assertSame('X', $show['items'][1]['children'][0]['labels']['en']); // X now under B
+    }
 }

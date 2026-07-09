@@ -107,6 +107,16 @@ export function useNavMenu(
   })
 }
 
+/** Reorder the admin menu list: send the COMPLETE ordered slug set (dense-rewrite contract). */
+export async function reorderMenus(slugs: string[]): Promise<NavMenuSummary[]> {
+  const json = await authFetch(`${base()}/menus/reorder`, {
+    method: 'POST',
+    body: JSON.stringify({ slugs }),
+  })
+  const d = (json.data ?? json) as { menus?: NavMenuSummary[] }
+  return d.menus ?? []
+}
+
 export function useNavigationMutations() {
   const cache = useQueryCache()
   const invalidate = () => {
@@ -128,6 +138,10 @@ export function useNavigationMutations() {
     save: useMutation({
       mutation: (input: { slug: string; lockVersion: number; items: NavTreeItem[]; locale: string }) =>
         saveTree(input.slug, input.lockVersion, input.items, input.locale),
+      onSettled: invalidate,
+    }),
+    reorder: useMutation({
+      mutation: (slugs: string[]) => reorderMenus(slugs),
       onSettled: invalidate,
     }),
   }

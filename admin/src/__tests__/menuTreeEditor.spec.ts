@@ -144,4 +144,39 @@ describe('MenuTreeEditor', () => {
     await wrapper.findAll('[data-test="tree-item-remove"]')[0]!.trigger('click')
     expect(items.map((i) => i.labels.en)).toEqual(['b'])
   })
+
+  it('renders a drag handle on every row', () => {
+    const wrapper = mountEditor([url('a'), url('b')])
+    expect(wrapper.findAll('[data-test="tree-item-drag"]')).toHaveLength(2)
+  })
+
+  it('always renders a droppable children container, even for a childless item (nesting-by-drag target)', () => {
+    const wrapper = mountEditor([url('a')])
+    // Two sortable lists: the root, PLUS the (empty) child level under item 'a' — proving a
+    // childless item still offers a drop target. If the child container were guarded by
+    // `children.length > 0`, this would be 1.
+    expect(wrapper.findAll('[data-test="tree-children"]').length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('onMove rejects dropping a node into its own subtree', () => {
+    const wrapper = mountEditor([url('a')])
+    const vm = wrapper.vm as unknown as {
+      onMove: (e: { dragged: HTMLElement; to: HTMLElement }) => boolean
+    }
+    const outer = document.createElement('div')
+    const inner = document.createElement('div')
+    outer.appendChild(inner)
+    expect(vm.onMove({ dragged: outer, to: inner })).toBe(false) // into own subtree → reject
+    expect(vm.onMove({ dragged: inner, to: outer })).toBe(true) // outward → allow
+  })
+
+  it('committing a reordered list mutates items in place and emits changed', () => {
+    // The drag-commit path is the `list` computed setter (what vue-draggable-plus writes to).
+    // Assigning a reordered array must splice the SAME items array in place and bubble changed.
+    const items = [url('a'), url('b')]
+    const wrapper = mount(MenuTreeEditor, { props: { items, locale: 'en' } })
+    ;(wrapper.vm as unknown as { list: NavTreeItem[] }).list = [items[1]!, items[0]!]
+    expect(items.map((i) => i.url)).toEqual(['/b', '/a'])
+    expect(wrapper.emitted('changed')).toBeTruthy()
+  })
 })

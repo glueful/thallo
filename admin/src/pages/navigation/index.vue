@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { VueDraggable } from 'vue-draggable-plus'
 import {
   useNavMenus,
   useNavMenu,
   useNavigationMutations,
+  type NavMenuSummary,
   type NavTreeItem,
 } from '@/queries/navigation'
 import { useLocales } from '@/queries/locales'
@@ -25,6 +27,36 @@ const { data: localeRows } = useLocales()
 const locales = computed(() => (localeRows.value ?? []).map((l) => l.code))
 
 const selected = ref('')
+
+// Reconcile selection ONLY when it's invalid: first load (empty), post-delete, or a
+// refetch that dropped the slug. A still-valid selection — including one whose row just
+// moved in a reorder — is left untouched (selection follows slug, never index).
+watch(
+  menus,
+  (rows) => {
+    const list = rows ?? []
+    if (!list.some((m) => m.slug === selected.value)) {
+      selected.value = list.length > 0 ? list[0]!.slug : ''
+    }
+  },
+  { immediate: true },
+)
+
+// Create-menu modal (replaces the sidebar form).
+const createOpen = ref(false)
+
+// Drag mirror for the sidebar list — kept in sync with the fetched list; the reorder
+// mutation commits it. VueDraggable binds this so reordering is smooth without touching
+// `selected`.
+const menuOrder = ref<NavMenuSummary[]>([])
+watch(
+  menus,
+  (rows) => {
+    menuOrder.value = [...(rows ?? [])]
+  },
+  { immediate: true },
+)
+
 const locale = ref('')
 watch(locales, (codes) => {
   if (locale.value === '' && codes.length > 0) locale.value = codes[0]!
@@ -32,6 +64,25 @@ watch(locales, (codes) => {
 
 const { data: detail, refetch } = useNavMenu(selected, () => locale.value || 'en', enabled)
 const mutations = useNavigationMutations()
+
+async function commitOrder(): Promise<void> {
+  try {
+    await mutations.reorder.mutateAsync(menuOrder.value.map((m) => m.slug))
+  } catch (e) {
+    notifyError(e, 'Couldn’t reorder menus')
+  }
+}
+
+// Keyboard fallback (overflow "Move up/down"): swap with the neighbour, then commit.
+async function moveMenu(index: number, delta: number): Promise<void> {
+  const target = index + delta
+  if (target < 0 || target >= menuOrder.value.length) return
+  const next = [...menuOrder.value]
+  const [row] = next.splice(index, 1)
+  next.splice(target, 0, row!)
+  menuOrder.value = next
+  await commitOrder()
+}
 
 // The page owns the WORKING tree (a reactive clone). A locale switch refetches badges for
 // the new locale; unsaved edits are preserved by merging fetched target_* into the local
@@ -116,6 +167,7 @@ async function createMenu(): Promise<void> {
     selected.value = newSlug.value.trim()
     newSlug.value = ''
     newName.value = ''
+    createOpen.value = false
   } catch (e) {
     notifyError(e, 'Couldn’t create the menu')
   }
@@ -129,6 +181,47 @@ async function deleteMenu(slug: string): Promise<void> {
   } catch (e) {
     notifyError(e, 'Couldn’t delete the menu')
   }
+}
+
+// Rename modal — targets a specific row (menu.slug), independent of the current
+// selection, so any menu can be renamed straight from its overflow menu.
+const renameOpen = ref(false)
+const renameSlug = ref('')
+const renameName = ref('')
+
+function openRename(menu: NavMenuSummary): void {
+  renameSlug.value = menu.slug
+  renameName.value = menu.name
+  renameOpen.value = true
+}
+
+async function submitRename(): Promise<void> {
+  const name = renameName.value.trim()
+  if (name === '') return
+  try {
+    await mutations.rename.mutateAsync({ slug: renameSlug.value, name })
+    success('Menu renamed')
+    renameOpen.value = false
+  } catch (e) {
+    notifyError(e, 'Couldn’t rename the menu')
+  }
+}
+
+// Delete confirmation — destructive, so it goes through a modal that names the
+// target before calling the shared deleteMenu() (which clears the selection).
+const deleteOpen = ref(false)
+const deleteSlug = ref('')
+const deleteName = ref('')
+
+function openDelete(menu: NavMenuSummary): void {
+  deleteSlug.value = menu.slug
+  deleteName.value = menu.name
+  deleteOpen.value = true
+}
+
+async function confirmDelete(): Promise<void> {
+  await deleteMenu(deleteSlug.value)
+  deleteOpen.value = false
 }
 
 async function save(): Promise<void> {
@@ -156,126 +249,235 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-  <div class="space-y-6 p-6" data-test="nav-page">
-    <h1 class="text-xl font-semibold">Navigation</h1>
-
-    <div class="flex flex-col gap-6 lg:flex-row">
-      <UCard class="lg:w-80 lg:shrink-0" data-test="nav-menu-list">
-        <div class="space-y-2">
-          <button
-            v-for="menu in menus ?? []"
-            :key="menu.slug"
-            class="hover:bg-elevated flex w-full items-center justify-between rounded px-3 py-2 text-left"
-            :class="{ 'bg-elevated': selected === menu.slug }"
-            data-test="nav-menu-row"
-            @click="selected = menu.slug"
+  <UDashboardPanel id="navigation" data-test="nav-page">
+    <template #header>
+      <UDashboardNavbar title="Navigation">
+        <template #right>
+          <UButton
+            v-if="enabled"
+            icon="i-lucide-plus"
+            data-test="nav-menu-new"
+            @click="() => { createOpen = true }"
           >
-            <span class="truncate">{{ menu.name }}</span>
-            <span class="text-muted text-xs">{{ menu.item_count }}</span>
-          </button>
-          <p v-if="(menus ?? []).length === 0" class="text-muted px-3 text-sm">No menus yet.</p>
-        </div>
-
-        <USeparator class="my-4" />
-        <form class="space-y-2" data-test="nav-menu-create" @submit.prevent="createMenu">
-          <UInput v-model="newSlug" size="sm" placeholder="slug (e.g. main)" class="w-full" />
-          <UInput v-model="newName" size="sm" placeholder="Name" class="w-full" />
-          <UButton type="submit" size="sm" :disabled="newSlug.trim() === '' || newName.trim() === ''">
-            Create menu
+            New menu
           </UButton>
-        </form>
-      </UCard>
+        </template>
+      </UDashboardNavbar>
+    </template>
 
-      <UCard v-if="detail" class="min-w-0 flex-1">
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <div class="flex items-center gap-3">
-            <h2 class="font-medium">{{ detail.name }}</h2>
-            <UButton
-              size="xs"
-              color="error"
-              variant="ghost"
-              data-test="nav-menu-delete"
-              @click="deleteMenu(detail.slug)"
+    <template #body>
+      <!-- Capability off: one clear empty state, no list, no create. -->
+      <div v-if="!enabled" class="flex h-full flex-col items-center justify-center gap-2 text-muted">
+        <UIcon name="i-lucide-lock" class="size-8" />
+        <p class="text-sm">Navigation isn’t enabled.</p>
+      </div>
+
+      <div v-else class="flex h-full min-h-0 flex-col gap-6 lg:flex-row">
+        <aside class="w-full shrink-0 lg:w-80" data-test="nav-menu-list">
+          <VueDraggable
+            v-model="menuOrder"
+            handle="[data-test='nav-menu-drag']"
+            :animation="150"
+            class="space-y-1"
+            @end="commitOrder"
+          >
+            <div
+              v-for="(menu, i) in menuOrder"
+              :key="menu.slug"
+              class="group flex items-center gap-1 rounded pr-1"
+              :class="selected === menu.slug ? 'bg-elevated border-l-2 border-primary' : 'hover:bg-elevated border-l-2 border-transparent'"
             >
-              Delete
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                icon="i-lucide-grip-vertical"
+                class="cursor-grab opacity-0 group-hover:opacity-100"
+                aria-label="Drag to reorder"
+                data-test="nav-menu-drag"
+                @click.prevent
+              />
+              <button
+                type="button"
+                class="flex min-w-0 flex-1 items-center gap-3 px-2 py-2 text-left"
+                data-test="nav-menu-row"
+                :aria-current="selected === menu.slug ? 'true' : undefined"
+                @click="selected = menu.slug"
+              >
+                <UIcon name="i-lucide-menu" class="text-muted size-4 shrink-0" />
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate text-sm font-medium">{{ menu.name }}</span>
+                  <span class="text-muted block truncate text-xs">{{ menu.slug }}</span>
+                </span>
+                <UBadge color="neutral" variant="subtle" size="sm">{{ menu.item_count }}</UBadge>
+              </button>
+              <UDropdownMenu
+                :items="[
+                  [{ label: 'Rename', icon: 'i-lucide-pencil', onSelect: () => openRename(menu) }],
+                  [
+                    { label: 'Move up', icon: 'i-lucide-arrow-up', disabled: i === 0, onSelect: () => moveMenu(i, -1) },
+                    { label: 'Move down', icon: 'i-lucide-arrow-down', disabled: i === menuOrder.length - 1, onSelect: () => moveMenu(i, 1) },
+                  ],
+                  [{ label: 'Delete', icon: 'i-lucide-trash-2', color: 'error', onSelect: () => openDelete(menu) }],
+                ]"
+                data-test="nav-menu-menu"
+              >
+                <UButton size="xs" variant="ghost" color="neutral" icon="i-lucide-ellipsis-vertical" aria-label="Menu actions" />
+              </UDropdownMenu>
+            </div>
+          </VueDraggable>
+
+          <p v-if="menuOrder.length === 0" class="text-muted px-3 py-2 text-sm">No menus yet.</p>
+        </aside>
+
+        <div class="min-w-0 flex-1">
+          <div v-if="detail">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 class="font-medium">{{ detail.name }}</h2>
+              <div class="flex items-center gap-1" role="group" aria-label="Locale">
+                <UButton
+                  v-for="code in locales"
+                  :key="code"
+                  size="xs"
+                  :variant="locale === code ? 'solid' : 'ghost'"
+                  data-test="nav-locale-tab"
+                  @click="() => { locale = code }"
+                >
+                  {{ code }}
+                </UButton>
+              </div>
+            </div>
+
+            <MenuTreeEditor :items="working" :locale="locale || 'en'" @changed="dirty = true" />
+
+            <div class="mt-4 flex items-center gap-3">
+              <UButton
+                size="sm"
+                variant="outline"
+                data-test="tree-add-root"
+                @click="() => { working.push({ kind: 'url', url: '/', labels: {}, descriptions: {}, children: [] }); dirty = true }"
+              >
+                Add link
+              </UButton>
+              <UButton
+                size="sm"
+                variant="outline"
+                icon="i-lucide-file-text"
+                data-test="tree-add-page"
+                @click="() => { addPageOpen = !addPageOpen }"
+              >
+                Add page
+              </UButton>
+              <span class="grow" />
+              <UButton size="sm" :disabled="!dirty" data-test="tree-save" @click="save">Save</UButton>
+            </div>
+
+            <div
+              v-if="addPageOpen"
+              class="border-default mt-3 grid gap-3 rounded border p-3 sm:grid-cols-2"
+              data-test="add-page-picker"
+            >
+              <UFormField label="Content type">
+                <USelect
+                  v-model="addPageType"
+                  :items="pageTypeOptions"
+                  placeholder="Pick a type…"
+                  class="w-full"
+                  data-test="add-page-type"
+                />
+              </UFormField>
+              <UFormField label="Page" hint="The menu label follows the page title until you override it.">
+                <ReferencePicker
+                  v-if="addPageType"
+                  v-model="pickedEntry"
+                  :target="addPageType"
+                  @picked="onEntryPicked"
+                />
+                <p v-else class="text-muted pt-1.5 text-sm">Pick a type first.</p>
+              </UFormField>
+            </div>
+          </div>
+
+          <!-- No menu selected: zero-menu empty state with a CTA, else a light hint. -->
+          <div v-else class="flex h-full flex-col items-center justify-center gap-3 text-muted">
+            <UIcon name="i-lucide-list-tree" class="size-8" />
+            <p class="text-sm">{{ menuOrder.length === 0 ? 'No menus yet.' : 'Select a menu.' }}</p>
+            <UButton v-if="menuOrder.length === 0" icon="i-lucide-plus" @click="() => { createOpen = true }">
+              New menu
             </UButton>
           </div>
-          <div class="flex items-center gap-1" role="group" aria-label="Locale">
+        </div>
+      </div>
+
+      <!-- Create-menu modal (teleports). MUST live inside #body: UDashboardPanel renders
+           #header/#body as fallback of its DEFAULT slot, so anything placed in the default
+           slot suppresses them. Enter in either input submits (real form); footer buttons remain. -->
+      <UModal v-model:open="createOpen" title="New menu">
+        <template #body>
+          <form id="nav-create-form" data-test="nav-menu-create" class="space-y-3" @submit.prevent="createMenu">
+            <UFormField label="Slug">
+              <UInput v-model="newSlug" placeholder="slug (e.g. main)" class="w-full" />
+            </UFormField>
+            <UFormField label="Name">
+              <UInput v-model="newName" placeholder="Name" class="w-full" />
+            </UFormField>
+            <button type="submit" class="sr-only" aria-hidden="true" tabindex="-1">Create</button>
+          </form>
+        </template>
+        <template #footer>
+          <div class="flex w-full justify-end gap-2">
+            <UButton color="neutral" variant="ghost" @click="() => { createOpen = false }">Cancel</UButton>
             <UButton
-              v-for="code in locales"
-              :key="code"
-              size="xs"
-              :variant="locale === code ? 'solid' : 'ghost'"
-              data-test="nav-locale-tab"
-              @click="
-                () => {
-                  locale = code
-                }
-              "
+              :disabled="newSlug.trim() === '' || newName.trim() === ''"
+              @click="createMenu"
             >
-              {{ code }}
+              Create
             </UButton>
           </div>
-        </div>
+        </template>
+      </UModal>
 
-        <MenuTreeEditor :items="working" :locale="locale || 'en'" @changed="dirty = true" />
+      <!-- Rename-menu modal (same #body rule as the create modal). The slug is
+           immutable; only the display name changes. Enter submits (real form). -->
+      <UModal v-model:open="renameOpen" title="Rename menu">
+        <template #body>
+          <form data-test="nav-menu-rename" class="space-y-3" @submit.prevent="submitRename">
+            <UFormField label="Name">
+              <UInput v-model="renameName" placeholder="Name" class="w-full" />
+            </UFormField>
+            <button type="submit" class="sr-only" aria-hidden="true" tabindex="-1">Save</button>
+          </form>
+        </template>
+        <template #footer>
+          <div class="flex w-full justify-end gap-2">
+            <UButton color="neutral" variant="ghost" @click="() => { renameOpen = false }">Cancel</UButton>
+            <UButton
+              :disabled="renameName.trim() === ''"
+              data-test="nav-menu-rename-save"
+              @click="submitRename"
+            >
+              Save
+            </UButton>
+          </div>
+        </template>
+      </UModal>
 
-        <div class="mt-4 flex items-center gap-3">
-          <UButton
-            size="sm"
-            variant="outline"
-            data-test="tree-add-root"
-            @click="
-              () => {
-                working.push({ kind: 'url', url: '/', labels: {}, descriptions: {}, children: [] })
-                dirty = true
-              }
-            "
-          >
-            Add link
-          </UButton>
-          <UButton
-            size="sm"
-            variant="outline"
-            icon="i-lucide-file-text"
-            data-test="tree-add-page"
-            @click="
-              () => {
-                addPageOpen = !addPageOpen
-              }
-            "
-          >
-            Add page
-          </UButton>
-          <span class="grow" />
-          <UButton size="sm" :disabled="!dirty" data-test="tree-save" @click="save">Save</UButton>
-        </div>
-
-        <div v-if="addPageOpen" class="border-default mt-3 grid gap-3 rounded border p-3 sm:grid-cols-2" data-test="add-page-picker">
-          <UFormField label="Content type">
-            <USelect
-              v-model="addPageType"
-              :items="pageTypeOptions"
-              placeholder="Pick a type…"
-              class="w-full"
-              data-test="add-page-type"
-            />
-          </UFormField>
-          <UFormField label="Page" hint="The menu label follows the page title until you override it.">
-            <ReferencePicker
-              v-if="addPageType"
-              v-model="pickedEntry"
-              :target="addPageType"
-              @picked="onEntryPicked"
-            />
-            <p v-else class="text-muted pt-1.5 text-sm">Pick a type first.</p>
-          </UFormField>
-        </div>
-      </UCard>
-
-      <UCard v-else class="text-muted flex flex-1 items-center justify-center text-sm">
-        Select or create a menu.
-      </UCard>
-    </div>
-  </div>
+      <!-- Delete confirmation. Names the target and warns before the irreversible
+           delete; the confirm button carries the nav-menu-delete hook. -->
+      <UModal v-model:open="deleteOpen" title="Delete menu">
+        <template #body>
+          <p class="text-sm text-muted">
+            Delete the menu “<span class="text-default font-medium">{{ deleteName }}</span>”? This removes the
+            menu and all of its items. This can’t be undone.
+          </p>
+        </template>
+        <template #footer>
+          <div class="flex w-full justify-end gap-2">
+            <UButton color="neutral" variant="ghost" @click="() => { deleteOpen = false }">Cancel</UButton>
+            <UButton color="error" data-test="nav-menu-delete" @click="confirmDelete">Delete</UButton>
+          </div>
+        </template>
+      </UModal>
+    </template>
+  </UDashboardPanel>
 </template>

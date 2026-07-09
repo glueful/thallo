@@ -4,7 +4,7 @@ const authFetch = vi.fn()
 vi.mock('@/api/authFetch', () => ({ authFetch: (...a: unknown[]) => authFetch(...a) }))
 vi.mock('@/runtime/config', () => ({ runtimeConfig: { apiBase: '/v1/admin' } }))
 
-import { fetchMenus, fetchMenu, saveTree, createMenu } from '@/queries/navigation'
+import { fetchMenus, fetchMenu, saveTree, createMenu, reorderMenus } from '@/queries/navigation'
 
 describe('navigation query layer', () => {
   beforeEach(() => authFetch.mockReset())
@@ -45,5 +45,15 @@ describe('navigation query layer', () => {
     const [url, init] = authFetch.mock.calls[0] as [string, { method: string; body: string }]
     expect(url).toBe('/v1/admin/navigation/menus')
     expect(JSON.parse(init.body)).toEqual({ slug: 'footer', name: 'Footer' })
+  })
+
+  it('reorderMenus POSTs the full slug list to /menus/reorder and unwraps data.menus', async () => {
+    authFetch.mockResolvedValue({ data: { menus: [{ slug: 'c', name: 'C', item_count: 0, lock_version: 0 }] } })
+    const out = await reorderMenus(['c', 'a', 'b'])
+    const [url, init] = authFetch.mock.calls[0] as [string, { method: string; body: string }]
+    expect(url).toBe('/v1/admin/navigation/menus/reorder')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toEqual({ slugs: ['c', 'a', 'b'] })
+    expect(out[0]!.slug).toBe('c')
   })
 })

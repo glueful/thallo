@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed, ref } from 'vue'
+import { VueDraggable } from 'vue-draggable-plus'
 import type { NavTreeItem, NavTargetStatus } from '@/queries/navigation'
 
 // Recursive tree editor level. Mutates THIS level's `items` array in place (the page owns
@@ -44,6 +46,26 @@ function remove(index: number): void {
   changed()
 }
 
+// Two-way view of THIS level's array for vue-draggable-plus. The setter mutates the
+// prop array IN PLACE (like the splice calls above) — never reassigns the prop — so
+// drags commit straight into the page's working tree and `changed()` bubbles.
+const list = computed<NavTreeItem[]>({
+  get: () => props.items,
+  set: (next) => {
+    props.items.splice(0, props.items.length, ...next)
+    changed()
+  },
+})
+
+// Reject dropping an item into its own subtree (would detach a cycle). Sortable's move
+// event carries the dragged element and the destination list element.
+function onMove(e: { dragged: HTMLElement; to: HTMLElement }): boolean {
+  return !e.dragged.contains(e.to)
+}
+
+// Exposed for tests: `onMove` (guard) and `list` (the drag-commit setter).
+defineExpose({ onMove, list })
+
 /** Indent: nest under the previous sibling. */
 function indent(index: number): void {
   if (index === 0) return
@@ -78,7 +100,6 @@ function setDescription(item: NavTreeItem, value: string): void {
 
 // Icon picker (icon-picker spec §5, direct use): one modal per level, aimed
 // at the item being edited.
-import { computed, ref } from 'vue'
 import IconPickerModal from '@/fields/components/IconPickerModal.vue'
 const iconPickerFor = ref<NavTreeItem | null>(null)
 const iconPickerOpen = computed({
@@ -100,9 +121,29 @@ function onIconClear(): void {
 </script>
 
 <template>
-  <ul class="space-y-2">
+  <VueDraggable
+    v-model="list"
+    :group="{ name: 'nav-tree' }"
+    handle="[data-test='tree-item-drag']"
+    :move="onMove"
+    :animation="150"
+    tag="ul"
+    class="space-y-2"
+    :class="{ 'min-h-8 rounded border border-dashed border-default': items.length === 0 }"
+    data-test="tree-children"
+  >
     <li v-for="(item, i) in items" :key="item.uuid ?? `new-${i}`" data-test="tree-item">
       <div class="border-default flex flex-wrap items-center gap-2 rounded border p-2">
+        <UButton
+          size="xs"
+          variant="ghost"
+          color="neutral"
+          icon="i-lucide-grip-vertical"
+          class="cursor-grab"
+          aria-label="Drag to reorder"
+          data-test="tree-item-drag"
+          @click.prevent
+        />
         <UInput
           :model-value="item.labels[locale] ?? ''"
           size="sm"
@@ -203,7 +244,9 @@ function onIconClear(): void {
         />
       </div>
 
-      <div v-if="item.children.length > 0" class="border-default mt-2 ml-6 border-l pl-3">
+      <!-- Children ALWAYS render as a droppable level (empty → a thin dashed strip via the
+           child level's own tree-children class), so an item can receive children by drag. -->
+      <div class="border-default mt-2 ml-6 border-l pl-3">
         <MenuTreeEditor
           :items="item.children"
           :locale="locale"
@@ -213,7 +256,7 @@ function onIconClear(): void {
         />
       </div>
     </li>
-  </ul>
+  </VueDraggable>
 
   <IconPickerModal
     v-model:open="iconPickerOpen"
