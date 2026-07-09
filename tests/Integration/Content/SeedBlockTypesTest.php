@@ -45,7 +45,8 @@ final class SeedBlockTypesTest extends AppTestCase
         // item carriers renamed (accordion_item, stepper_item). footer_columns removed
         // — columns + links compose it. 37 types; html seeds DEACTIVATED; hero/cta
         // carry the Nuxt UI shapes; container declares value constraints.
-        self::assertSame(42, $expected);
+        // blog_posts (blog-posts spec): dynamic listing of published posts as cards.
+        self::assertSame(43, $expected);
         // Style block (style-block spec §3): scoped accent/neutral re-skin + class hook.
         $style = $repo->findBySlug('style');
         self::assertSame('Layout', $style['category']);

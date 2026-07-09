@@ -542,6 +542,19 @@ final class StarterBlockTypes
                     ['name' => 'value_3', 'type' => 'string'],
                     ['name' => 'value_4', 'type' => 'string'],
                 ]],
+            ['slug' => 'blog_posts', 'label' => 'Blog posts', 'icon' => 'i-lucide-newspaper',
+                'category' => 'Content',
+                'description' => 'Lists published posts as cards (dynamic).',
+                'schema' => [
+                    ['name' => 'type', 'type' => 'string', 'pattern' => '[a-z0-9]+(-[a-z0-9]+)*'],
+                    ['name' => 'limit', 'type' => 'number', 'min' => 1, 'max' => 12],
+                    ['name' => 'order', 'type' => 'enum', 'enum' => ['newest', 'oldest']],
+                    ['name' => 'category', 'type' => 'string'],
+                    ['name' => 'columns', 'type' => 'enum', 'enum' => ['1', '2', '3', '4']],
+                    ['name' => 'variant', 'type' => 'enum',
+                        'enum' => ['outline', 'soft', 'subtle', 'ghost', 'naked']],
+                    ['name' => 'orientation', 'type' => 'enum', 'enum' => ['vertical', 'horizontal']],
+                ]],
         ];
     }
 }

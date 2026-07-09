@@ -122,6 +122,7 @@ use App\Content\Authoring\EngineDraftSummaryReader;
 use App\Content\Delivery\EngineEntryTargetResolver;
 use App\Content\Context\EngineContext;
 use App\Content\Delivery\EngineContentDeliveryReader;
+use App\Content\Delivery\EngineEntryListReader;
 use App\Content\Delivery\EngineFacetCountsReader;
 use App\Content\Delivery\EngineIndexableContentReader;
 use App\Content\Schema\FieldTypes\DefaultFieldTypeRegistry;
@@ -147,6 +148,7 @@ use Thallo\Contracts\Settings\ThemeSettingProvider;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Contracts\Context\Context;
 use Thallo\Contracts\Delivery\ContentDeliveryReader;
+use Thallo\Contracts\Delivery\EntryListReader;
 use Thallo\Contracts\Delivery\FacetCountsReader;
 use Thallo\Contracts\Delivery\PreviewSessionVerifier;
 use Thallo\Contracts\Delivery\PreviewThemeValidator;
@@ -363,6 +365,11 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared'   => true,
                 'autowire' => true,
             ],
+            \App\Content\Delivery\ListingItemShaper::class => [
+                'class'    => \App\Content\Delivery\ListingItemShaper::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
             \Thallo\Contracts\Delivery\HomepageEntryProvider::class => [
                 'class'    => \App\Content\Delivery\EngineHomepageEntryProvider::class,
                 'shared'   => true,
@@ -375,6 +382,11 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             FacetCountsReader::class => [
                 'class'    => EngineFacetCountsReader::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            EntryListReader::class => [
+                'class'    => EngineEntryListReader::class,
                 'shared'   => true,
                 'autowire' => true,
             ],

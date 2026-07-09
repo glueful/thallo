@@ -758,4 +758,14 @@ final class BlockLibraryRenderTest extends AppTestCase
         $out = $this->render([['id' => 'cs2', 'type' => 'container', 'data' => ['content' => []]]]);
         self::assertStringNotContainsString('thallo-shadow-', $out);
     }
+
+    public function testEntriesFunctionReturnsListAndIsPreviewReflectsAnnotation(): void
+    {
+        $env = $this->env();
+        // No posts seeded → entries('post') is an empty list, and the call is safe.
+        // is_preview() reflects the (default off) block-annotation mode.
+        $out = $env->createTemplate('{{ entries("post", {limit: 3})|length }}|{{ is_preview() ? "p" : "n" }}')
+            ->render([]);
+        self::assertSame('0|n', $out);
+    }
 }

@@ -118,7 +118,7 @@ final class SetupServiceTest extends AppTestCase
         self::assertTrue((bool) $type['mount_at_root']);
 
         // The companion "Posts" type: publicly delivered, PREFIXED grammar
-        // (/post/hello — a blog shape), title/excerpt/body schema.
+        // (/post/hello — a blog shape), title/excerpt/cover/body schema.
         $posts = (new \App\Content\Repositories\ContentTypeRepository($this->connection()))
             ->findBySlug('post');
         self::assertNotNull($posts, 'fresh install must seed the "post" content type');
@@ -126,7 +126,7 @@ final class SetupServiceTest extends AppTestCase
         self::assertTrue((bool) $posts['public_delivery']);
         self::assertFalse((bool) $posts['mount_at_root']);
         self::assertSame(
-            ['title', 'excerpt', 'body', 'categories'],
+            ['title', 'excerpt', 'cover', 'body', 'categories'],
             array_map(static fn(array $f): string => (string) $f['name'], $posts['schema']),
         );
 
