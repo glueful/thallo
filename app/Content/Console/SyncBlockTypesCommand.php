@@ -11,6 +11,8 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;
+use Thallo\Tenancy\System\SystemFlags;
 
 /**
  * Additively syncs evolved starter block-type schemas onto existing rows.
@@ -35,13 +37,36 @@ final class SyncBlockTypesCommand extends BaseCommand
     protected function configure(): void
     {
         $this->addOption('dry-run', null, InputOption::VALUE_NONE, 'Report what would change without writing.');
+        $this->addOption('tenant', null, InputOption::VALUE_REQUIRED, 'Tenant uuid.');
+        $this->addOption('all', null, InputOption::VALUE_NONE, 'Sync all active tenants.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $flags = $this->getService(SystemFlags::class);
+        if (!$flags->tenancyEnabled()) {
+            return $this->syncCurrent((bool) $input->getOption('dry-run'));
+        }
+        $tenant = $input->getOption('tenant');
+        $all = (bool) $input->getOption('all');
+        if ($all === (is_string($tenant) && trim($tenant) !== '')) {
+            $this->error('When tenancy is enabled, supply exactly one --tenant or --all.');
+            return self::FAILURE;
+        }
+        $dryRun = (bool) $input->getOption('dry-run');
+        $runner = $this->getService(TenantContextRunner::class);
+        if ($all) {
+            $runner->forEachTenant(fn() => $this->syncCurrent($dryRun));
+        } else {
+            $runner->runAsTenant(trim((string) $tenant), fn() => $this->syncCurrent($dryRun));
+        }
+        return self::SUCCESS;
+    }
+
+    private function syncCurrent(bool $dryRun): int
+    {
         /** @var BlockTypeRepository $repo */
         $repo = $this->getService(BlockTypeRepository::class);
-        $dryRun = (bool) $input->getOption('dry-run');
         $synced = 0;
         $unchanged = 0;
         $missing = 0;

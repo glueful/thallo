@@ -44,6 +44,21 @@ final class PublishService
      */
     public function publish(string $entryUuid, string $locale, ?string $actor): string
     {
+        return $this->publishInternal($entryUuid, $locale, $actor, true);
+    }
+
+    /** Publish code-owned starter content while retaining validation and projection. */
+    public function publishStarter(string $entryUuid, string $locale, ?string $actor): string
+    {
+        return $this->publishInternal($entryUuid, $locale, $actor, false);
+    }
+
+    private function publishInternal(
+        string $entryUuid,
+        string $locale,
+        ?string $actor,
+        bool $enforceEditorialGates,
+    ): string {
         $entry = $this->entries->findEntry($entryUuid);
         if ($entry === null || ($entry['status'] ?? null) === 'deleted') {
             // A soft-deleted entry keeps its draft/version rows, so publishing would mint a new
@@ -61,8 +76,10 @@ final class PublishService
         // existence checks so 404s beat 409s. The first PublishBlocked stops the publish;
         // unexpected exceptions bubble (a broken gate must not silently allow publishes).
         // No gates → exactly the pre-seam behaviour.
-        foreach ($this->publishGates as $gate) {
-            $gate->assertCanPublish($entryUuid, $locale, $actor);
+        if ($enforceEditorialGates) {
+            foreach ($this->publishGates as $gate) {
+                $gate->assertCanPublish($entryUuid, $locale, $actor);
+            }
         }
 
         $typeUuid = (string) $entry['content_type_uuid'];
