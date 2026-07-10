@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2aa6aebade340769b3767a960360e95e",
+    "content-hash": "99424d08cb6d5877d1e6783ca78af66f",
     "packages": [
         {
             "name": "composer/semver",
@@ -655,16 +655,16 @@
         },
         {
             "name": "glueful/extension-contracts",
-            "version": "v1.0.0",
+            "version": "v1.1.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/contracts.git",
-                "reference": "396b341ccc33e611b04f6ba7fb1603664f253149"
+                "reference": "cc7a8a73a25175d797d350995b320ef0a496f628"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/contracts/zipball/396b341ccc33e611b04f6ba7fb1603664f253149",
-                "reference": "396b341ccc33e611b04f6ba7fb1603664f253149",
+                "url": "https://api.github.com/repos/glueful/contracts/zipball/cc7a8a73a25175d797d350995b320ef0a496f628",
+                "reference": "cc7a8a73a25175d797d350995b320ef0a496f628",
                 "shasum": ""
             },
             "require": {
@@ -681,7 +681,7 @@
                 "glueful": {
                     "icon": "assets/icon.png",
                     "name": "Extension Contracts",
-                    "version": "1.0.0",
+                    "version": "1.1.0",
                     "requires": {
                         "glueful": ">=1.65.3",
                         "extensions": []
@@ -725,22 +725,22 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/contracts/issues",
-                "source": "https://github.com/glueful/contracts/tree/v1.0.0"
+                "source": "https://github.com/glueful/contracts/tree/v1.1.0"
             },
-            "time": "2026-07-05T18:24:26+00:00"
+            "time": "2026-07-10T14:46:31+00:00"
         },
         {
             "name": "glueful/framework",
-            "version": "v1.66.3",
+            "version": "v1.67.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "4e14aa06aae73f64115b15605a0a4f7ec6d1774c"
+                "reference": "593d50d348e819f494380b8bba77a99a5e781fa0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/4e14aa06aae73f64115b15605a0a4f7ec6d1774c",
-                "reference": "4e14aa06aae73f64115b15605a0a4f7ec6d1774c",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/593d50d348e819f494380b8bba77a99a5e781fa0",
+                "reference": "593d50d348e819f494380b8bba77a99a5e781fa0",
                 "shasum": ""
             },
             "require": {
@@ -835,7 +835,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-06T19:56:26+00:00"
+            "time": "2026-07-10T14:38:29+00:00"
         },
         {
             "name": "glueful/i18n",
@@ -1146,9 +1146,10 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-analytics",
-                "reference": "43d839e5e8fba7076c4ad68bdd3a26fed86325a4"
+                "reference": "5de0c9f296c1a3639e2560b5b766afd93755b5dc"
             },
             "require": {
+                "glueful/extension-contracts": "*",
                 "glueful/framework": "^1.65.0",
                 "glueful/thallo-contracts": "*",
                 "php": "^8.3"
@@ -1296,9 +1297,10 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-navigation",
-                "reference": "5bf698b5858771abf4729759f2036b2356e19db4"
+                "reference": "24ac32a9336e3531e39b08c632fde34bddd7137d"
             },
             "require": {
+                "glueful/extension-contracts": "*",
                 "glueful/framework": "^1.65.2",
                 "glueful/thallo-contracts": "*",
                 "php": "^8.3"
@@ -1334,11 +1336,12 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-render",
-                "reference": "71a397b76875d2825a8358280bc80b2285e7fc5a"
+                "reference": "ceb492dd45820daff292fe79f753ed77a79e830e"
             },
             "require": {
                 "glueful/framework": "^1.65.2",
                 "glueful/thallo-contracts": "*",
+                "glueful/thallo-tenancy": "*",
                 "php": "^8.3",
                 "twig/twig": "^3.0"
             },
@@ -1412,11 +1415,13 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-seo",
-                "reference": "e6965d2bf5f5cbfd9f5eefe88eedeaa8012bd7d6"
+                "reference": "14d03d398068bb3e5f762b1c389fb0d4dfeb923e"
             },
             "require": {
+                "glueful/extension-contracts": "*",
                 "glueful/framework": "^1.65.0",
                 "glueful/thallo-contracts": "*",
+                "glueful/thallo-tenancy": "*",
                 "php": "^8.3"
             },
             "type": "glueful-extension",
@@ -1450,11 +1455,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-tenancy",
-                "reference": "15fea668264ef1a2b3e62b860accba9c232779f0"
+                "reference": "f24b31c2c4deca3035fa0fa8b009cb192385ed49"
             },
             "require": {
                 "glueful/extension-contracts": "*",
-                "glueful/framework": "^1.66.3",
+                "glueful/framework": "^1.67.0",
                 "glueful/thallo-contracts": "*",
                 "php": "^8.3"
             },
@@ -1489,9 +1494,10 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-workflow",
-                "reference": "97f531992b8d9e81dc85404647b5b8c6dee1750c"
+                "reference": "3ec3f3b6168c09a73098f73b362a1d459160acd4"
             },
             "require": {
+                "glueful/extension-contracts": "*",
                 "glueful/framework": "^1.65.0",
                 "glueful/thallo-contracts": "*",
                 "php": "^8.3"
@@ -2182,16 +2188,16 @@
         },
         {
             "name": "league/mime-type-detection",
-            "version": "1.16.0",
+            "version": "1.17.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/thephpleague/mime-type-detection.git",
-                "reference": "2d6702ff215bf922936ccc1ad31007edc76451b9"
+                "reference": "f5f47eff7c48ed1003069a2ca67f316fb4021c76"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/thephpleague/mime-type-detection/zipball/2d6702ff215bf922936ccc1ad31007edc76451b9",
-                "reference": "2d6702ff215bf922936ccc1ad31007edc76451b9",
+                "url": "https://api.github.com/repos/thephpleague/mime-type-detection/zipball/f5f47eff7c48ed1003069a2ca67f316fb4021c76",
+                "reference": "f5f47eff7c48ed1003069a2ca67f316fb4021c76",
                 "shasum": ""
             },
             "require": {
@@ -2201,7 +2207,7 @@
             "require-dev": {
                 "friendsofphp/php-cs-fixer": "^3.2",
                 "phpstan/phpstan": "^0.12.68",
-                "phpunit/phpunit": "^8.5.8 || ^9.3 || ^10.0"
+                "phpunit/phpunit": "^8.5.8 || ^9.3 || ^10.0 || ^11.0 || ^12.0"
             },
             "type": "library",
             "autoload": {
@@ -2222,7 +2228,7 @@
             "description": "Mime-type detection for Flysystem",
             "support": {
                 "issues": "https://github.com/thephpleague/mime-type-detection/issues",
-                "source": "https://github.com/thephpleague/mime-type-detection/tree/1.16.0"
+                "source": "https://github.com/thephpleague/mime-type-detection/tree/1.17.0"
             },
             "funding": [
                 {
@@ -2234,7 +2240,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2024-09-21T08:32:55+00:00"
+            "time": "2026-07-09T11:49:27+00:00"
         },
         {
             "name": "league/uri",
@@ -3235,16 +3241,16 @@
         },
         {
             "name": "phpstan/phpdoc-parser",
-            "version": "2.3.2",
+            "version": "2.3.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpstan/phpdoc-parser.git",
-                "reference": "a004701b11273a26cd7955a61d67a7f1e525a45a"
+                "reference": "fb19eedd2bb67ff8cf7a5502ad329e701d6398a3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpdoc-parser/zipball/a004701b11273a26cd7955a61d67a7f1e525a45a",
-                "reference": "a004701b11273a26cd7955a61d67a7f1e525a45a",
+                "url": "https://api.github.com/repos/phpstan/phpdoc-parser/zipball/fb19eedd2bb67ff8cf7a5502ad329e701d6398a3",
+                "reference": "fb19eedd2bb67ff8cf7a5502ad329e701d6398a3",
                 "shasum": ""
             },
             "require": {
@@ -3276,9 +3282,9 @@
             "description": "PHPDoc parser with support for nullable, intersection and generic types",
             "support": {
                 "issues": "https://github.com/phpstan/phpdoc-parser/issues",
-                "source": "https://github.com/phpstan/phpdoc-parser/tree/2.3.2"
+                "source": "https://github.com/phpstan/phpdoc-parser/tree/2.3.3"
             },
-            "time": "2026-01-25T14:56:51+00:00"
+            "time": "2026-07-08T07:01:06+00:00"
         },
         {
             "name": "psr/container",
@@ -6051,6 +6057,83 @@
         }
     ],
     "packages-dev": [
+        {
+            "name": "glueful/tenancy",
+            "version": "v1.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/glueful/tenancy.git",
+                "reference": "a4c78f25f82346178321b7959093189f612cbffd"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/glueful/tenancy/zipball/a4c78f25f82346178321b7959093189f612cbffd",
+                "reference": "a4c78f25f82346178321b7959093189f612cbffd",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "glueful/framework": "^1.56.0",
+                "phpstan/phpstan": "^1.0",
+                "phpunit/phpunit": "^10.5",
+                "squizlabs/php_codesniffer": "^3.6"
+            },
+            "suggest": {
+                "glueful/aegis": "RBAC provider that can govern cross-tenant bypass — grant a role the configured bypass permission (tenancy.access_any / tenancy.manage) to unlock Tenancy::forAnyTenant()."
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "name": "Tenancy",
+                    "version": "1.0.2",
+                    "provider": "Glueful\\Extensions\\Tenancy\\TenancyServiceProvider",
+                    "requires": {
+                        "glueful": ">=1.56.0",
+                        "extensions": []
+                    },
+                    "publisher": "glueful-team",
+                    "categories": [
+                        "multi-tenancy",
+                        "security"
+                    ],
+                    "description": "Shared-database, row-level multi-tenancy for Glueful.",
+                    "displayName": "Tenancy"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Glueful\\Extensions\\Tenancy\\": "src/"
+                },
+                "classmap": [
+                    "migrations/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Shared-database, row-level multi-tenancy for Glueful (tenant resolution, scoping, enforcement).",
+            "homepage": "https://github.com/glueful/tenancy",
+            "keywords": [
+                "glueful",
+                "multi-tenancy",
+                "row-level",
+                "tenancy"
+            ],
+            "support": {
+                "issues": "https://github.com/glueful/tenancy/issues",
+                "source": "https://github.com/glueful/tenancy/tree/v1.1.0"
+            },
+            "time": "2026-06-16T06:58:26+00:00"
+        },
         {
             "name": "myclabs/deep-copy",
             "version": "1.13.4",
