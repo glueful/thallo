@@ -14,7 +14,7 @@ use Glueful\Routing\Router;
  *   3. content_permission — per-route seo.manage.
  */
 $router->group(
-    ['prefix' => '/v1/admin', 'middleware' => ['tenant_bootstrap', 'auth']],
+    ['prefix' => '/v1/admin', 'middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap']],
     function (Router $router): void {
         $router->get('/seo/meta/{entryUuid}', [AdminSeoMetaController::class, 'show'])
             ->middleware('content_permission:seo.manage');

@@ -37,7 +37,7 @@ use Glueful\Routing\Router;
  * RouteManifest; the provider must NOT loadRoutesFrom() this file.
  */
 $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
-    $router->group(['middleware' => ['tenant_bootstrap', 'auth']], function (Router $router): void {
+    $router->group(['middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap']], function (Router $router): void {
     // Content type (model) management.
         $router->get('/content-types', [ContentTypeController::class, 'index'])
         ->middleware('content_permission:content.view');
@@ -201,7 +201,7 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
             ->middleware('content_permission:content.view');
     });
 
-    $router->group(['middleware' => ['tenant_bootstrap', 'auth']], function (Router $router): void {
+    $router->group(['middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap']], function (Router $router): void {
         // Global chrome regions (header/footer block lists) — chrome is content policy.
         $router->get('/regions', [RegionAdminController::class, 'index'])
             ->middleware('content_permission:content.view');
@@ -276,7 +276,7 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
             ->middleware('content_permission:system.access');
     });
 
-    $router->group(['middleware' => ['tenant_bootstrap', 'auth']], function (Router $router): void {
+    $router->group(['middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap']], function (Router $router): void {
         // Media library — list/search over blobs + CMS metadata (alt/caption/tags) + usage.
         $router->get('/media', [MediaAdminController::class, 'index'])
             ->middleware('content_permission:content.view');
@@ -319,7 +319,7 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
             ->middleware('content_permission:system.access');
     });
 
-    $router->group(['middleware' => ['auth']], function (Router $router): void {
+    $router->group(['middleware' => ['tenant_system', 'auth']], function (Router $router): void {
         // Webhooks — surface the framework's webhook engine (subscriptions + deliveries) in the admin.
         // Routes delegate to the framework's WebhookController; the tables are materialized by the
         // 007_CreateWebhookTables migration so listing works before the first dispatch. All gated by
@@ -381,7 +381,7 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
             ->middleware('content_permission:system.access');
     });
 
-    $router->group(['middleware' => ['tenant_bootstrap', 'auth']], function (Router $router): void {
+    $router->group(['middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap']], function (Router $router): void {
         // Import/Export: the glueful/import-export extension owns the job API (under /import-export), but
         // ships no route to download an export result or upload an import file — these Thallo routes fill
         // both gaps (the importer reads from the uploads disk; see config/import_export.php source_roots).

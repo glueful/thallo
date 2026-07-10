@@ -18,7 +18,7 @@ use Glueful\Routing\Router;
  * (double registration throws on duplicate static routes).
  */
 $router->group(
-    ['prefix' => '/v1/content', 'middleware' => ['tenant_bootstrap', 'optional_api_key']],
+    ['prefix' => '/v1/content', 'middleware' => ['tenant_profile:public', 'tenant_bootstrap', 'optional_api_key']],
     function (Router $router): void {
     // List published entries of a content type.
         $router->get('/{type}', [DeliveryController::class, 'index'])

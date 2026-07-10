@@ -45,7 +45,18 @@ final class RouteCoverageTest extends AppTestCase
             );
 
             if (($present[0] ?? null) === 'tenant_bootstrap') {
-                self::assertSame('tenant_bootstrap', $middleware[0] ?? null, $path . ': bootstrap must be outermost');
+                $index = array_search('tenant_bootstrap', $middleware, true);
+                self::assertIsInt($index);
+                $prefix = array_slice($middleware, 0, $index);
+                self::assertContains(
+                    $prefix,
+                    [[], ['tenant_profile:public'], ['auth', 'tenant_profile:admin']],
+                    sprintf(
+                        '%s: tenant_bootstrap must directly follow its resolver; prefix was [%s]',
+                        $path,
+                        implode(',', $prefix),
+                    ),
+                );
             }
 
             if (str_starts_with($path, '/v1/collections')) {
