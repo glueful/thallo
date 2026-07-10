@@ -19,7 +19,12 @@ use App\Content\Forms\FormNotifier;
 use App\Content\Forms\FormSubmissionRepository;
 use App\Content\Forms\Spam\DefaultFormGuard;
 use App\Content\Forms\Spam\FormSubmissionGuard;
+use App\Content\Media\TenantBlobPolicy;
 use Glueful\Encryption\EncryptionService;
+use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
+use Glueful\Extensions\Contracts\Tenancy\TenantRuntimeReadiness;
+use Glueful\Uploader\Contracts\BlobAccessPolicy;
+use Glueful\Uploader\Contracts\BlobCreatedHook;
 use Thallo\Contracts\Content\FormSealer;
 use App\Content\Console\PruneVersionsCommand;
 use App\Content\Console\RunBlockBackfillCommand;
@@ -52,6 +57,7 @@ use App\Support\UserRoleAssignmentPolicy;
 use App\Settings\GeneralSettings;
 use App\Settings\SettingsStore;
 use App\Settings\SystemKeyReconciler;
+use Thallo\Contracts\Settings\SystemKeyReconciler as SystemKeyReconcilerContract;
 use App\Content\Http\Controllers\BlockMigrationController;
 use App\Content\Http\Controllers\BlockTypeController;
 use App\Content\Http\Controllers\ContentTypeController;
@@ -168,6 +174,8 @@ use Thallo\Contracts\Delivery\PreviewThemeValidator;
 use Thallo\Contracts\Delivery\ReferenceTargetResolver;
 use Thallo\Contracts\Search\IndexableContentReader;
 use Thallo\Contracts\Schema\FieldTypeRegistry;
+use Thallo\Contracts\Tenancy\WriteBarrier;
+use Thallo\Tenancy\System\SystemFlags;
 use Glueful\Database\Connection;
 use Glueful\Database\Migrations\MigrationPriority;
 use Glueful\Events\EventService;
@@ -810,7 +818,42 @@ final class ThalloServiceProvider extends ServiceProvider
 
     public static function makePreviewWorkingCopyStore(ContainerInterface $container): PreviewWorkingCopyStore
     {
-        return new PreviewWorkingCopyStore($container->get(CacheStore::class));
+        return new PreviewWorkingCopyStore(
+            $container->get(CacheStore::class),
+            $container->get(\Thallo\Tenancy\Cache\TenantCacheSegment::class),
+            $container->get(ApplicationContext::class),
+        );
+    }
+
+    public static function makeSystemKeyReconciler(ContainerInterface $container): SystemKeyReconcilerContract
+    {
+        return $container->get(SystemKeyReconciler::class);
+    }
+
+    public static function makeTenantBlobPolicy(ContainerInterface $container): TenantBlobPolicy
+    {
+        $resolver = $container->has(CurrentTenantResolver::class)
+            ? $container->get(CurrentTenantResolver::class)
+            : null;
+
+        return new TenantBlobPolicy(
+            $container->get(ApplicationContext::class),
+            $container->get(Connection::class),
+            $container->get(SystemFlags::class),
+            $container->get(TenantRuntimeReadiness::class),
+            $container->get(WriteBarrier::class),
+            $resolver,
+        );
+    }
+
+    public static function makeBlobCreatedHook(ContainerInterface $container): BlobCreatedHook
+    {
+        return $container->get(TenantBlobPolicy::class);
+    }
+
+    public static function makeBlobAccessPolicy(ContainerInterface $container): BlobAccessPolicy
+    {
+        return $container->get(TenantBlobPolicy::class);
     }
 
     public static function makeMediaUrlResolver(ContainerInterface $container): EngineMediaUrlResolver
@@ -984,6 +1027,18 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            TenantBlobPolicy::class => [
+                'factory' => [self::class, 'makeTenantBlobPolicy'],
+                'shared' => true,
+            ],
+            BlobCreatedHook::class => [
+                'factory' => [self::class, 'makeBlobCreatedHook'],
+                'shared' => true,
+            ],
+            BlobAccessPolicy::class => [
+                'factory' => [self::class, 'makeBlobAccessPolicy'],
+                'shared' => true,
+            ],
             ApiKeyAdminController::class => [
                 'class' => ApiKeyAdminController::class,
                 'shared' => true,
@@ -1018,6 +1073,10 @@ final class ThalloServiceProvider extends ServiceProvider
                 'class' => SystemKeyReconciler::class,
                 'shared' => true,
                 'autowire' => true,
+            ],
+            SystemKeyReconcilerContract::class => [
+                'factory' => [self::class, 'makeSystemKeyReconciler'],
+                'shared' => true,
             ],
             CacheAdminController::class => [
                 'class' => CacheAdminController::class,
@@ -1203,6 +1262,11 @@ final class ThalloServiceProvider extends ServiceProvider
             'app:dependent'
         );
 
+        $container = $context->getContainer();
+        $enabled = $container->has(SystemFlags::class)
+            && $container->get(SystemFlags::class)->tenancyEnabled();
+        self::assertBlobPolicyReady($container, $enabled);
+
         // Mount the compiled admin SPA at /admin via the framework seam: secure asset serving
         // + index.html deep-link fallback + cache split. No-ops (with a warning) if the bundle
         // is unbuilt. The /admin/config + /admin/setup static routes (routes/admin_spa.php)
@@ -1235,6 +1299,22 @@ final class ThalloServiceProvider extends ServiceProvider
             ProvisionCommand::class,
             CreateAdminCommand::class,
         ]);
+    }
+
+    public static function assertBlobPolicyReady(ContainerInterface $container, bool $tenancyEnabled): void
+    {
+        if (!$tenancyEnabled) {
+            return;
+        }
+
+        if (
+            !$container->has(BlobCreatedHook::class)
+            || !$container->get(BlobCreatedHook::class) instanceof TenantBlobPolicy
+            || !$container->has(BlobAccessPolicy::class)
+            || !$container->get(BlobAccessPolicy::class) instanceof TenantBlobPolicy
+        ) {
+            throw new \RuntimeException('Tenancy is enabled without the tenant blob policy.');
+        }
     }
 
     /**

@@ -159,6 +159,44 @@ abstract class AppTestCase extends TestCase
         return self::$app;
     }
 
+    /** Reset BaseRepository's process-static connection after a secondary app boot. */
+    protected static function resetSharedRepositoryConnection(): void
+    {
+        if (!class_exists(\Glueful\Repository\BaseRepository::class)) {
+            return;
+        }
+
+        $property = new \ReflectionProperty(\Glueful\Repository\BaseRepository::class, 'sharedConnection');
+        $property->setAccessible(true);
+        $property->setValue(null, null);
+    }
+
+    /** Restore the process-static permission provider to the process-shared app after a secondary boot. */
+    protected static function restoreSharedPermissionProvider(): void
+    {
+        if (self::$app === null || !class_exists(\Glueful\Extensions\Aegis\AegisPermissionProvider::class)) {
+            return;
+        }
+
+        $container = self::$app->getContainer();
+        if (!$container->has('permission.manager')) {
+            return;
+        }
+
+        $config = (array) config(self::$app, 'rbac', []);
+        $permissionConfig = (array) ($config['permissions'] ?? []);
+        $roleConfig = (array) ($config['roles'] ?? []);
+        $provider = new \Glueful\Extensions\Aegis\AegisPermissionProvider(self::$app);
+        $container->get('permission.manager')->setProvider($provider, [
+            'cache_enabled' => $permissionConfig['cache_enabled'] ?? true,
+            'cache_ttl' => $permissionConfig['cache_ttl'] ?? 3600,
+            'cache_prefix' => $permissionConfig['cache_prefix'] ?? 'rbac:',
+            'enable_hierarchy' => $roleConfig['inherit_permissions'] ?? true,
+            'enable_inheritance' => $permissionConfig['inheritance_enabled'] ?? true,
+            'max_hierarchy_depth' => $roleConfig['max_hierarchy_depth'] ?? 10,
+        ]);
+    }
+
     /**
      * Boot a SECOND app with a temporary `config/testing/{$file}.php` override — the
      * capability/extension enable-disable tests' shared choreography. The override file

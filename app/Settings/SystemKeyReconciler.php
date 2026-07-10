@@ -6,6 +6,7 @@ namespace App\Settings;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Contracts\Settings\SystemChannel;
+use Thallo\Contracts\Settings\SystemKeyReconciler as SystemKeyReconcilerContract;
 
 /**
  * One-way data-move: relocate any legacy system-key rows (see {@see SystemKeys}) out of the
@@ -19,7 +20,7 @@ use Thallo\Contracts\Settings\SystemChannel;
  *
  * Idempotent: once the rows are moved there is nothing left in `settings` to move or delete.
  */
-final class SystemKeyReconciler
+final class SystemKeyReconciler implements SystemKeyReconcilerContract
 {
     public function __construct(
         private readonly ApplicationContext $context,
