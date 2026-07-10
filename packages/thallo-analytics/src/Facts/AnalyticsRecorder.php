@@ -72,7 +72,6 @@ final class AnalyticsRecorder
 
     private function bumpDaily(string $day, string $event, string $subject): void
     {
-        $this->barrier?->assertWritable();
         // Raw upsert bypasses the tenancy stamper — scope the row + widen the conflict target.
         $tenant = TenantScope::current($this->tenants, $this->context);
         $cols = ['day', 'event', 'subject', 'count'];
@@ -87,12 +86,12 @@ final class AnalyticsRecorder
         $sql = 'INSERT INTO analytics_daily (' . implode(', ', $cols) . ") VALUES ({$ph})"
             . ' ON CONFLICT (' . implode(', ', $conflict) . ')'
             . ' DO UPDATE SET count = analytics_daily.count + 1';
-        $this->connection->getPDO()->prepare($sql)->execute($vals);
+        $write = fn (): bool => $this->connection->getPDO()->prepare($sql)->execute($vals);
+        $this->barrier !== null ? $this->barrier->runWritable($write) : $write();
     }
 
     private function touchActiveUser(string $day, string $hash): void
     {
-        $this->barrier?->assertWritable();
         $tenant = TenantScope::current($this->tenants, $this->context);
         $cols = ['day', 'metric', 'actor_type', 'actor_id_hash'];
         $vals = [$day, 'active_users', 'user', $hash];
@@ -105,6 +104,7 @@ final class AnalyticsRecorder
         $ph = implode(', ', array_fill(0, count($cols), '?'));
         $sql = 'INSERT INTO analytics_active_actors (' . implode(', ', $cols) . ") VALUES ({$ph})"
             . ' ON CONFLICT (' . implode(', ', $conflict) . ') DO NOTHING';
-        $this->connection->getPDO()->prepare($sql)->execute($vals);
+        $write = fn (): bool => $this->connection->getPDO()->prepare($sql)->execute($vals);
+        $this->barrier !== null ? $this->barrier->runWritable($write) : $write();
     }
 }

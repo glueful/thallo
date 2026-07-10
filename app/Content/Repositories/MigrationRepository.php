@@ -123,19 +123,21 @@ final class MigrationRepository
 
     public function incrementDone(string $uuid): void
     {
-        $this->barrier?->assertWritable();
         $tenant = TenantScope::current($this->tenants, $this->context);
         $scope = $tenant === null ? '' : ' AND tenant_uuid = :tenant';
-        $stmt = $this->db->getPDO()->prepare(
-            'UPDATE entry_schema_migrations
-             SET work_items_done = work_items_done + 1
-             WHERE uuid = :uuid' . $scope
-        );
         $params = ['uuid' => $uuid];
         if ($tenant !== null) {
             $params['tenant'] = $tenant;
         }
-        $stmt->execute($params);
+        $write = function () use ($scope, $params): bool {
+            $stmt = $this->db->getPDO()->prepare(
+                'UPDATE entry_schema_migrations
+                 SET work_items_done = work_items_done + 1
+                 WHERE uuid = :uuid' . $scope
+            );
+            return $stmt->execute($params);
+        };
+        $this->barrier !== null ? $this->barrier->runWritable($write) : $write();
     }
 
     public function recordFailure(string $uuid, string $entryUuid, string $locale, string $kind, string $reason): void

@@ -49,14 +49,30 @@ abstract class RetrofittedTenantTestCase extends RetrofitHarnessTestCase
         $providers = [...$base['enabled'], 'Glueful\\Extensions\\Tenancy\\TenancyServiceProvider'];
         self::$onApp = self::bootAppWithConfigOverride('serviceproviders', ['enabled' => $providers]);
 
-        // Lower the barrier THROUGH boot2 (Phase E's transition to `on`), then seed tenants A/B.
+        // Lower the barrier THROUGH boot2 (Phase E's transition to `on`), then optionally seed
+        // tenants A/B for isolation suites. Finalization acceptance overrides the hook so it starts
+        // with the one real default tenant and can prove bootstrap readiness before adding tenant two.
         self::$onApp->getContainer()->get(RetrofitMaintenanceGuard::class)->end();
-        /** @var TenantProvisioner $provisioner */
-        $provisioner = self::$onApp->getContainer()->get(TenantProvisioner::class);
-        self::$tenantAUuid = Utils::generateNanoID(12);
-        self::$tenantBUuid = Utils::generateNanoID(12);
-        $provisioner->provisionDefault(self::$onApp, self::$tenantAUuid, 'tenant-a', 'Tenant A', 'user00000001');
-        $provisioner->provisionDefault(self::$onApp, self::$tenantBUuid, 'tenant-b', 'Tenant B', 'user00000001');
+        if (static::seedAdditionalTenants()) {
+            /** @var TenantProvisioner $provisioner */
+            $provisioner = self::$onApp->getContainer()->get(TenantProvisioner::class);
+            self::$tenantAUuid = Utils::generateNanoID(12);
+            self::$tenantBUuid = Utils::generateNanoID(12);
+            $provisioner->provisionDefault(
+                self::$onApp,
+                self::$tenantAUuid,
+                'tenant-a',
+                'Tenant A',
+                'user00000001',
+            );
+            $provisioner->provisionDefault(
+                self::$onApp,
+                self::$tenantBUuid,
+                'tenant-b',
+                'Tenant B',
+                'user00000001',
+            );
+        }
     }
 
     public static function tearDownAfterClass(): void
@@ -88,5 +104,10 @@ abstract class RetrofittedTenantTestCase extends RetrofitHarnessTestCase
     protected function runAsSystem(callable $fn): mixed
     {
         return $this->container()->get(TenantContextRunner::class)->runAsSystem($fn);
+    }
+
+    protected static function seedAdditionalTenants(): bool
+    {
+        return true;
     }
 }

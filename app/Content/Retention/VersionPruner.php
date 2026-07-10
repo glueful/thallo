@@ -140,18 +140,22 @@ final class VersionPruner
 
         $deleted = 0;
         foreach (array_chunk($uuids, self::DELETE_BATCH) as $chunk) {
-            $this->barrier?->assertWritable(); // fresh persisted read before EACH batch (minimise window)
-            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
-            $stmt = $this->db->getPDO()->prepare(
-                "DELETE FROM entry_versions
-                 WHERE uuid IN ({$placeholders})
-                   AND NOT EXISTS (
-                       SELECT 1 FROM entry_publications p
-                       WHERE p.version_uuid = entry_versions.uuid
-                   )"
-            );
-            $stmt->execute($chunk);
-            $deleted += $stmt->rowCount();
+            $write = function () use ($chunk): int {
+                $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+                $stmt = $this->db->getPDO()->prepare(
+                    "DELETE FROM entry_versions
+                     WHERE uuid IN ({$placeholders})
+                       AND NOT EXISTS (
+                           SELECT 1 FROM entry_publications p
+                           WHERE p.version_uuid = entry_versions.uuid
+                       )"
+                );
+                $stmt->execute($chunk);
+                return $stmt->rowCount();
+            };
+            $deleted += (int) ($this->barrier !== null
+                ? $this->barrier->runWritable($write)
+                : $write());
         }
 
         return $deleted;

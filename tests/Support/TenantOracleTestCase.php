@@ -67,25 +67,21 @@ abstract class TenantOracleTestCase extends AppTestCase
             self::markTestSkipped('glueful/tenancy is not symlinked into vendor/ — oracle harness skipped.');
         }
 
-        if (self::$tenantApp === null) {
-            // Turn Thallo tenancy ON in the shared app_test DB BEFORE the enabled boot, so the pack's
-            // registerTenantTables() passes its SystemFlags gate during that boot and registers
-            // Thallo's owned tables into the (process-global) guard registry.
-            self::$app->getContainer()->get(SystemFlags::class)->put('tenancy.enabled', '1');
+        // Turn Thallo tenancy ON in the shared app_test DB BEFORE the enabled boot, so the pack's
+        // registerTenantTables() passes its SystemFlags gate during that boot and registers
+        // Thallo's owned tables into the process-global guard registry.
+        self::$app->getContainer()->get(SystemFlags::class)->put('tenancy.enabled', '1');
 
-            // glueful/tenancy is symlinked, NOT composer-discovered, so listing it in
-            // extensions.enabled is inert (that list only GATES composer candidates). Load it as an
-            // APP provider instead: AppProviderLoader reads config('serviceproviders.enabled')
-            // VERBATIM (no discovery), and our targeted autoloader resolves the class. Its services()
-            // bind CurrentTenantResolver/TenantContextRunner and its boot() arms guard + stamper.
-            /** @var array{enabled: list<string>} $base */
-            $base = require dirname(__DIR__, 2) . '/config/serviceproviders.php';
-            $providers = $base['enabled'];
-            $providers[] = 'Glueful\\Extensions\\Tenancy\\TenancyServiceProvider';
+        // Boot a fresh oracle app for EVERY subclass. Retrofit acceptance classes deliberately clear
+        // process-global tenancy hooks; reusing one old oracle boot after that would silently disable
+        // its enforcement and make later isolation assertions meaningless.
+        /** @var array{enabled: list<string>} $base */
+        $base = require dirname(__DIR__, 2) . '/config/serviceproviders.php';
+        $providers = $base['enabled'];
+        $providers[] = 'Glueful\\Extensions\\Tenancy\\TenancyServiceProvider';
 
-            self::$tenantApp = self::bootAppWithConfigOverride('serviceproviders', ['enabled' => $providers]);
-            self::seedTenants();
-        }
+        self::$tenantApp = self::bootAppWithConfigOverride('serviceproviders', ['enabled' => $providers]);
+        self::seedTenants();
 
         // Add the stand-in columns for THIS class only; tearDownAfterClass drops them so the shared
         // app_test schema other (non-oracle) classes see is never mutated — the tenant_uuid columns
@@ -98,6 +94,17 @@ abstract class TenantOracleTestCase extends AppTestCase
         if (self::$tenantApp !== null) {
             self::dropMinimalTenantColumnsForOracle();
         }
+        self::$tenantApp = null;
+        Connection::clearInsertHooks();
+        Connection::clearTableHooks();
+        \Glueful\Database\Execution\QueryExecutor::clearQueryInterceptors();
+        \Glueful\Database\Execution\QueryExecutor::clearExecutionWrappers();
+        if (class_exists(\Glueful\Extensions\Tenancy\Query\TenantTableRegistry::class)) {
+            \Glueful\Extensions\Tenancy\Query\TenantTableRegistry::clear();
+            \Glueful\Extensions\Tenancy\Context\CurrentContext::clear();
+        }
+        self::resetSharedRepositoryConnection();
+        self::restoreSharedPermissionProvider();
         parent::tearDownAfterClass();
     }
 

@@ -39,6 +39,7 @@ abstract class RetrofitHarnessTestCase extends AppTestCase
         Connection::clearInsertHooks();
         Connection::clearTableHooks();
         QueryExecutor::clearQueryInterceptors();
+        QueryExecutor::clearExecutionWrappers();
         if (class_exists(\Glueful\Extensions\Tenancy\Query\TenantTableRegistry::class)) {
             \Glueful\Extensions\Tenancy\Query\TenantTableRegistry::clear();
             \Glueful\Extensions\Tenancy\Context\CurrentContext::clear(); // static process-pointer reset
@@ -69,7 +70,10 @@ abstract class RetrofitHarnessTestCase extends AppTestCase
         self::resetSharedRepositoryConnection(); // never inherit a prior class's (possibly foreign-DB) shared conn
         /** @var array{enabled: list<string>} $base */
         $base = require dirname(__DIR__, 2) . '/config/serviceproviders.php';
-        $providers = [...$base['enabled'], 'Glueful\\Extensions\\Tenancy\\TenancyServiceProvider'];
+        $providers = $base['enabled'];
+        if (static::includeTenancyExtensionOnEngineBoot()) {
+            $providers[] = 'Glueful\\Extensions\\Tenancy\\TenancyServiceProvider';
+        }
         self::$engineApp = self::bootAppWithConfigOverride('serviceproviders', ['enabled' => $providers]);
 
         self::$engineApp->getContainer()->get(Connection::class)->getPDO()->exec(
@@ -82,34 +86,14 @@ abstract class RetrofitHarnessTestCase extends AppTestCase
     {
         self::$engineApp = null;
         self::resetTenancyGlobals();             // stop stale throwaway-bound closures leaking into later classes
+        self::resetSharedRepositoryConnection();  // drop the throwaway connection before restoring shared RBAC
+        self::restoreSharedPermissionProvider();
         if (self::$throwawayDb !== '') {
             self::dropThrowaway(self::$throwawayDb); // maintenance PDO: terminate connections + DROP DATABASE
         }
-        self::resetSharedRepositoryConnection();  // drop the dead throwaway-bound Connection before the next class
         self::putEnv('DB_PGSQL_DATABASE', self::$priorDb);
         self::putEnv('DB_POOLING_ENABLED', self::$priorPooling);
         parent::tearDownAfterClass();
-    }
-
-    /**
-     * Null out {@see \Glueful\Repository\BaseRepository}'s process-static $sharedConnection.
-     *
-     * BaseRepository memoises ONE Connection across every repository in the process and never resets it
-     * between framework boots. Once we DROP the throwaway DB in teardown, that static still points at the
-     * now-terminated Connection; the NEXT retrofit class boots fresh but AppTestCase::setUp constructs
-     * RoleRepository context-only, which reuses the dead shared Connection → "PDOException: no connection
-     * to the server". Nulling it forces the next repository to lazily rebuild from its own live context.
-     * Reflection because the framework exposes no reset seam (a public BaseRepository::resetSharedConnection()
-     * would be the cleaner long-term fix). Harmless outside this harness: the shared suite DB is never dropped.
-     */
-    protected static function resetSharedRepositoryConnection(): void
-    {
-        if (!class_exists(\Glueful\Repository\BaseRepository::class)) {
-            return;
-        }
-        $prop = new \ReflectionProperty(\Glueful\Repository\BaseRepository::class, 'sharedConnection');
-        $prop->setAccessible(true);
-        $prop->setValue(null, null);
     }
 
     protected function container(): ContainerInterface
@@ -125,6 +109,11 @@ abstract class RetrofitHarnessTestCase extends AppTestCase
     protected function connection(): Connection
     {
         return $this->container()->get(Connection::class);
+    }
+
+    protected static function includeTenancyExtensionOnEngineBoot(): bool
+    {
+        return true;
     }
 
     private static function putEnv(string $k, string $v): void
@@ -206,23 +195,10 @@ abstract class RetrofitHarnessTestCase extends AppTestCase
             $pdo->exec(sprintf('CREATE DATABASE "%s"', self::TEMPLATE_DB));
         }
 
-        if (!self::templateIsMigrated()) {
-            self::migrateTemplate();
-        }
+        // The migration runner is idempotent and must see newly-added migrations. A single old
+        // sentinel table only proves the template was migrated once, not that it is current.
+        self::migrateTemplate();
         self::$templateChecked = true;
-    }
-
-    /** Probe the template for a sentinel owned table to decide whether it still needs migrating. */
-    private static function templateIsMigrated(): bool
-    {
-        $c = self::maintenanceCreds();
-        $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s', $c['host'], $c['port'], self::TEMPLATE_DB);
-        $pdo = new PDO($dsn, $c['user'], $c['pass'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-        $found = $pdo->query(
-            "SELECT to_regclass('public.content_types')"
-        )->fetchColumn();
-
-        return $found !== null && $found !== false;
     }
 
     /** Run the shared test-migration script against the template in a clean child process. */

@@ -132,11 +132,11 @@ final class EnsureFilterIndexesJob extends Job
             }
             $this->assertSafeName($name);
             $this->dropIndex($db, (string) $name, $logger, $barrier);
-            $barrier?->assertWritable();
-            $db->table('filter_indexes')
+            $write = fn (): int => $db->table('filter_indexes')
                 ->where('content_type_uuid', '=', $typeUuid)
                 ->where('index_name', '=', $name)
                 ->delete();
+            $barrier !== null ? $barrier->runWritable($write) : $write();
         }
     }
 
@@ -173,11 +173,9 @@ final class EnsureFilterIndexesJob extends Job
 
             // Raw DDL on entry_versions bypasses QueryExecutor (the interceptor), so honor the barrier
             // explicitly, immediately before the CREATE, to minimise the check-to-execute window.
-            $barrier?->assertWritable();
-
-            // CREATE INDEX CONCURRENTLY cannot run inside a transaction — execute on the
-            // raw PDO outside any transaction.
-            $db->getPDO()->exec($sql);
+            // CREATE INDEX CONCURRENTLY cannot run inside a transaction.
+            $write = fn (): int|false => $db->getPDO()->exec($sql);
+            $barrier !== null ? $barrier->runWritable($write) : $write();
 
             // Not throwing is NOT proof of a usable index: the IF NOT EXISTS path can skip over an
             // invalid index, and CONCURRENTLY can leave one invalid. On Postgres, confirm the index
@@ -240,8 +238,8 @@ final class EnsureFilterIndexesJob extends Job
     ): void {
         $sql = sprintf('DROP INDEX CONCURRENTLY IF EXISTS %s', $name);
         try {
-            $barrier?->assertWritable(); // raw DDL on entry_versions bypasses the interceptor
-            $db->getPDO()->exec($sql);
+            $write = fn (): int|false => $db->getPDO()->exec($sql);
+            $barrier !== null ? $barrier->runWritable($write) : $write();
         } catch (\Throwable $e) {
             $logger?->warning('EnsureFilterIndexesJob: failed to drop expression index', [
                 'index' => $name,
@@ -260,32 +258,33 @@ final class EnsureFilterIndexesJob extends Job
         string $status,
         ?WriteBarrier $barrier = null
     ): void {
-        $barrier?->assertWritable(); // filter_indexes is deliberately-global (not owned) — the interceptor
-                                     // does not cover it, so gate the builder write explicitly.
-        $exists = $db->table('filter_indexes')
-            ->where('content_type_uuid', '=', $typeUuid)
-            ->where('field', '=', $d['field'])
-            ->first();
-        if ($exists === null) {
-            $db->table('filter_indexes')->insert([
-                'uuid' => Utils::generateNanoID(12),
-                'content_type_uuid' => $typeUuid,
-                'field' => $d['field'],
-                'filter_type' => $d['filter_type'],
-                'index_name' => $d['index_name'],
-                'status' => $status,
-                'created_at' => date('Y-m-d H:i:s'),
-            ]);
-            return;
-        }
-        $db->table('filter_indexes')
-            ->where('content_type_uuid', '=', $typeUuid)
-            ->where('field', '=', $d['field'])
-            ->update([
-                'filter_type' => $d['filter_type'],
-                'index_name' => $d['index_name'],
-                'status' => $status,
-            ]);
+        $write = function () use ($db, $typeUuid, $d, $status): void {
+            $exists = $db->table('filter_indexes')
+                ->where('content_type_uuid', '=', $typeUuid)
+                ->where('field', '=', $d['field'])
+                ->first();
+            if ($exists === null) {
+                $db->table('filter_indexes')->insert([
+                    'uuid' => Utils::generateNanoID(12),
+                    'content_type_uuid' => $typeUuid,
+                    'field' => $d['field'],
+                    'filter_type' => $d['filter_type'],
+                    'index_name' => $d['index_name'],
+                    'status' => $status,
+                    'created_at' => date('Y-m-d H:i:s'),
+                ]);
+                return;
+            }
+            $db->table('filter_indexes')
+                ->where('content_type_uuid', '=', $typeUuid)
+                ->where('field', '=', $d['field'])
+                ->update([
+                    'filter_type' => $d['filter_type'],
+                    'index_name' => $d['index_name'],
+                    'status' => $status,
+                ]);
+        };
+        $barrier !== null ? $barrier->runWritable($write) : $write();
     }
 
     private function markStatus(
@@ -295,11 +294,11 @@ final class EnsureFilterIndexesJob extends Job
         string $status,
         ?WriteBarrier $barrier = null
     ): void {
-        $barrier?->assertWritable();
-        $db->table('filter_indexes')
+        $write = fn (): int => $db->table('filter_indexes')
             ->where('content_type_uuid', '=', $typeUuid)
             ->where('index_name', '=', $name)
             ->update(['status' => $status]);
+        $barrier !== null ? $barrier->runWritable($write) : $write();
     }
 
     private function assertSafeName(string $name): void

@@ -45,7 +45,6 @@ final class WorkflowStateRepository
     /** @param array<string, string|null> $attrs subset of submitted_by/at, reviewed_by/at */
     public function setState(string $entryUuid, string $locale, string $state, array $attrs = []): void
     {
-        $this->barrier?->assertWritable();
         $payload = ['state' => $state];
         foreach (self::ATTRS as $attr) {
             if (array_key_exists($attr, $attrs)) {
@@ -72,7 +71,8 @@ final class WorkflowStateRepository
         $sql = 'INSERT INTO workflow_review_states (' . implode(', ', $cols) . ')'
             . ' VALUES (' . implode(', ', array_fill(0, count($cols), '?')) . ')'
             . ' ON CONFLICT (' . implode(', ', $conflict) . ') DO UPDATE SET ' . implode(', ', $sets);
-        $this->db->getPDO()->prepare($sql)->execute(array_values($insert));
+        $write = fn (): bool => $this->db->getPDO()->prepare($sql)->execute(array_values($insert));
+        $this->barrier !== null ? $this->barrier->runWritable($write) : $write();
     }
 
     public function record(

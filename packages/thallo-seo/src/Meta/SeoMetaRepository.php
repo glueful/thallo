@@ -47,7 +47,6 @@ final class SeoMetaRepository
      */
     public function upsert(string $entryUuid, string $locale, array $data): void
     {
-        $this->barrier?->assertWritable();
         $payload = [];
         foreach (self::COLUMNS as $col) {
             if (array_key_exists($col, $data)) {
@@ -85,6 +84,7 @@ final class SeoMetaRepository
         $sql = 'INSERT INTO seo_meta (' . implode(', ', $cols) . ')'
             . ' VALUES (' . implode(', ', array_fill(0, count($cols), '?')) . ')'
             . ' ON CONFLICT (' . implode(', ', $conflict) . ') DO UPDATE SET ' . implode(', ', $sets);
-        $this->db->getPDO()->prepare($sql)->execute(array_values($insert));
+        $write = fn (): bool => $this->db->getPDO()->prepare($sql)->execute(array_values($insert));
+        $this->barrier !== null ? $this->barrier->runWritable($write) : $write();
     }
 }

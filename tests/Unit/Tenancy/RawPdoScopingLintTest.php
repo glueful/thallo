@@ -26,6 +26,7 @@ final class RawPdoScopingLintTest extends TestCase
         'packages/thallo-workflow/src/WorkflowStateRepository.php',
         'app/Content/Blocks/Migration/BlockMigrationRepository.php',
         'app/Content/Repositories/MigrationRepository.php',
+        'app/Content/Media/TenantBlobPolicy.php',
     ];
 
     /**
@@ -44,6 +45,8 @@ final class RawPdoScopingLintTest extends TestCase
         'packages/thallo-collections/src/Data/RowRepository.php',
         'packages/thallo-tenancy/src/Retrofit/SchemaIntrospector.php',
         'packages/thallo-tenancy/src/Retrofit/UniquenessPreflight.php',
+        'packages/thallo-tenancy/src/Enablement/EnablementLock.php',
+        'packages/thallo-tenancy/src/Retrofit/MutationBoundaryLock.php',
     ];
 
     /**
@@ -77,6 +80,7 @@ final class RawPdoScopingLintTest extends TestCase
         'packages/thallo-tenancy/src/Retrofit/AdditiveRetrofit.php',
         'packages/thallo-tenancy/src/Retrofit/TableRebuilder.php',
         'packages/thallo-tenancy/src/TenancyServiceProvider.php',
+        'packages/thallo-tenancy/src/Retrofit/MediaOwnershipBackfill.php',
     ];
 
     /**
@@ -109,6 +113,24 @@ final class RawPdoScopingLintTest extends TestCase
         'app/Content/Repositories/MigrationRepository.php' => [
             ' AND tenant_uuid = :tenant',
         ],
+        'app/Content/Media/TenantBlobPolicy.php' => [
+            'runWritable(',
+            'ON CONFLICT (blob_uuid) DO NOTHING',
+        ],
+    ];
+
+    /** @var array<string,int> file => one runWritable wrapper per mutation boundary */
+    private const RUNWRITABLE_SITES = [
+        'packages/thallo-seo/src/Meta/SeoMetaRepository.php' => 1,
+        'packages/thallo-navigation/src/MenuRepository.php' => 3,
+        'packages/thallo-analytics/src/Facts/AnalyticsRecorder.php' => 2,
+        'packages/thallo-workflow/src/WorkflowStateRepository.php' => 1,
+        'app/Content/Blocks/Migration/BlockMigrationRepository.php' => 1,
+        'app/Content/Repositories/MigrationRepository.php' => 1,
+        'app/Content/Repositories/ScheduleRepository.php' => 3,
+        'app/Content/Retention/VersionPruner.php' => 1,
+        'app/Content/Indexing/EnsureFilterIndexesJob.php' => 5,
+        'app/Content/Media/TenantBlobPolicy.php' => 1,
     ];
 
     public function testEveryScopedRawSiteReferencesTenantUuid(): void
@@ -125,10 +147,23 @@ final class RawPdoScopingLintTest extends TestCase
         foreach ($writers as $rel) {
             $body = (string) file_get_contents(dirname(__DIR__, 3) . '/' . $rel);
             self::assertStringContainsString(
-                'assertWritable(',
+                'runWritable(',
                 $body,
-                "$rel: raw owned-data writer must gate every mutation behind the WriteBarrier (assertWritable()).",
+                "$rel: raw owned-data writer must hold the WriteBarrier mutation boundary.",
             );
+        }
+    }
+
+    public function testEveryRawMutationSiteIsWrappedInRunWritable(): void
+    {
+        foreach (self::RUNWRITABLE_SITES as $rel => $expected) {
+            $body = (string) file_get_contents(dirname(__DIR__, 3) . '/' . $rel);
+            self::assertSame(
+                $expected,
+                substr_count($body, 'runWritable('),
+                "$rel: expected one runWritable() wrapper per mutation boundary.",
+            );
+            self::assertStringNotContainsString("?->assertWritable();\n", $body);
         }
     }
 

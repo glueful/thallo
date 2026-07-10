@@ -11,4 +11,11 @@ namespace Thallo\Contracts\Tenancy;
 interface WriteBarrier
 {
     public function assertWritable(): void;
+
+    /**
+     * @template T
+     * @param callable():T $operation
+     * @return T
+     */
+    public function runWritable(callable $operation): mixed;
 }
