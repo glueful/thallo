@@ -138,6 +138,15 @@ abstract class AppTestCase extends TestCase
         // prior test's install wrote rows a later warm read would resurrect).
         $this->container()->get(\App\Settings\SettingsStore::class)->clearCache();
 
+        // System-global tenancy flags (varchar `key` PK — no integer id): a prior test that
+        // ENABLED tenancy must never leave scoping on for an unrelated test (that would arm the
+        // insert stamper suite-wide). Guarded on existence — the table is created by a dependent
+        // migration, so it is absent on a pre-migration DB. Then drop the shared memo.
+        if ($this->connection()->getSchemaBuilder()->hasTable('thallo_system_flags')) {
+            $this->connection()->table('thallo_system_flags')->where('key', '!=', '')->forceDelete();
+        }
+        $this->container()->get(\Thallo\Tenancy\System\SystemFlags::class)->clearCache();
+
         // The CONTAINER BlockTypeRepository memoises schemasBySlug() per instance:
         // a prior test that warmed it through container-resolved services (render
         // resolver, validator, …) would poison this test's registry when fixtures

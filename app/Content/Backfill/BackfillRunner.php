@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Content\Backfill;
 
-use App\Content\Indexing\EnsureFilterIndexesJob;
+use App\Content\Indexing\FilterIndexJobDispatcher;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\MigrationRepository;
 use App\Content\Repositories\ReferenceProjectionRepository;
@@ -13,8 +13,8 @@ use App\Content\Schema\ContentTypeSchema;
 use App\Content\Schema\Migration\MigrationOpSet;
 use Glueful\Cache\CacheStore;
 use Glueful\Database\Connection;
-use Glueful\Queue\QueueManager;
 use Psr\Container\ContainerInterface;
+use Thallo\Contracts\Tenancy\WriteBarrier;
 
 final class BackfillRunner
 {
@@ -24,14 +24,16 @@ final class BackfillRunner
         private readonly ContentTypeRepository $types,
         private readonly VersionRepository $versions,
         private readonly ReferenceProjectionRepository $references,
-        private readonly QueueManager $queue,
+        private readonly FilterIndexJobDispatcher $filterIndexes,
         private readonly ContainerInterface $container,
+        private readonly ?WriteBarrier $barrier = null,
     ) {
     }
 
     /** @return array{done:int,failed:int} */
     public function run(string $migrationUuid): array
     {
+        $this->barrier?->assertWritable();
         $migration = $this->migrations->find($migrationUuid);
         if ($migration === null) {
             throw new \RuntimeException("migration {$migrationUuid} not found");
@@ -52,7 +54,7 @@ final class BackfillRunner
             $this->processPublished($migrationUuid, $opSet, $schema, $toVersion, $actor, $item);
         }
 
-        $this->queue->push(EnsureFilterIndexesJob::class, ['content_type_uuid' => $typeUuid]);
+        $this->filterIndexes->dispatch($typeUuid);
         $this->invalidateCache($typeUuid);
 
         $remaining = count($this->draftItems($typeUuid, $toVersion))

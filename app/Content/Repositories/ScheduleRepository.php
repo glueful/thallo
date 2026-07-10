@@ -8,11 +8,23 @@ use App\Content\Enums\ScheduleAction;
 use App\Content\Enums\ScheduleStatus;
 use Glueful\Database\Connection;
 use Glueful\Helpers\Utils;
+use Thallo\Contracts\Tenancy\WriteBarrier;
 
+/**
+ * Request-path methods (schedule/cancel/forEntry/find) go through the builder and are tenant-scoped
+ * by the tenancy guard/hook. The background drain — claimDuePending()/reclaimStale()/markOutcome() —
+ * is a NAMED SYSTEM PATH: it uses raw PDO (FOR UPDATE SKIP LOCKED / RETURNING / AT TIME ZONE, which
+ * the builder can't express) to scan and finalize entry_schedules ACROSS tenants in one pass, keyed
+ * on the global surrogate `id`. Tenant correctness is carried per drained row (RETURNING * yields
+ * tenant_uuid) into the scoped publish by ScheduleRunner; these three methods intentionally do not
+ * add a tenant predicate.
+ */
 final class ScheduleRepository
 {
-    public function __construct(private readonly Connection $db)
-    {
+    public function __construct(
+        private readonly Connection $db,
+        private readonly ?WriteBarrier $barrier = null,
+    ) {
     }
 
     /**
@@ -126,6 +138,7 @@ final class ScheduleRepository
             return [];
         }
 
+        $this->barrier?->assertWritable();
         $pdo = $this->db->getPDO();
         $pdo->beginTransaction();
 
@@ -187,6 +200,7 @@ final class ScheduleRepository
             return 0;
         }
 
+        $this->barrier?->assertWritable();
         // Clear locked_by on reclaim so the previous owner can no longer finalise the row via
         // markOutcome. UTC-explicit comparison/write for the same reason as claimDuePending.
         $stmt = $this->db->getPDO()->prepare(
@@ -211,6 +225,7 @@ final class ScheduleRepository
             throw new \InvalidArgumentException('Schedule outcome must be terminal.');
         }
 
+        $this->barrier?->assertWritable();
         // Scope to the claiming run's token: if a stale-lease reclaim handed this row to another run
         // (which cleared/replaced locked_by), this write no-ops instead of clobbering that run's
         // outcome.

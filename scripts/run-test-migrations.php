@@ -137,6 +137,22 @@ $manager->addMigrationPath(
     'thallo-render'
 );
 $manager->addMigrationPath(
+    $root . '/packages/thallo-tenancy/migrations',
+    MigrationPriority::DEPENDENT,
+    'thallo-tenancy'
+);
+// glueful/tenancy extension (creates `tenants`/`tenant_memberships`) — LOCAL dev-link only:
+// present when the extension is symlinked into vendor/ for the two-tenant oracle harness. The
+// same tier the extension itself uses (after IDENTITY, before app DEFAULT). Absent in a plain
+// checkout, so the guard keeps the default suite deterministic.
+if (is_dir($root . '/vendor/glueful/tenancy/migrations')) {
+    $manager->addMigrationPath(
+        $root . '/vendor/glueful/tenancy/migrations',
+        MigrationPriority::DEFAULT - 50,
+        'glueful/tenancy'
+    );
+}
+$manager->addMigrationPath(
     $root . '/database/dependent-migrations',
     MigrationPriority::DEPENDENT,
     'app:dependent'

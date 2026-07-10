@@ -32,6 +32,7 @@ use App\Setup\Console\CreateAdminCommand;
 use App\Setup\Console\DoctorCommand;
 use App\Setup\Console\ProvisionCommand;
 use App\Content\Backfill\BackfillRunner;
+use App\Content\Indexing\FilterIndexJobDispatcher;
 use App\Http\Controllers\AdminConfigController;
 use App\Http\Controllers\ApiKeyAdminController;
 use App\Http\Controllers\CacheAdminController;
@@ -50,6 +51,7 @@ use App\Http\Controllers\UserAdminController;
 use App\Support\UserRoleAssignmentPolicy;
 use App\Settings\GeneralSettings;
 use App\Settings\SettingsStore;
+use App\Settings\SystemKeyReconciler;
 use App\Content\Http\Controllers\BlockMigrationController;
 use App\Content\Http\Controllers\BlockTypeController;
 use App\Content\Http\Controllers\ContentTypeController;
@@ -870,6 +872,11 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            FilterIndexJobDispatcher::class => [
+                'class' => FilterIndexJobDispatcher::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             ScheduleRunner::class => [
                 'class' => ScheduleRunner::class,
                 'shared' => true,
@@ -1004,6 +1011,11 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             GeneralSettings::class => [
                 'class' => GeneralSettings::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            SystemKeyReconciler::class => [
+                'class' => SystemKeyReconciler::class,
                 'shared' => true,
                 'autowire' => true,
             ],

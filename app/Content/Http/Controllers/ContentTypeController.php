@@ -8,6 +8,7 @@ use App\Content\Events\ModelCreated;
 use App\Content\Events\ModelDeleted;
 use App\Content\Events\ModelUpdated;
 use App\Content\Indexing\EnsureFilterIndexesJob;
+use App\Content\Indexing\FilterIndexJobDispatcher;
 use App\Content\Pipeline\PublishEventEmitter;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Routing\RootMountGuard;
@@ -22,7 +23,6 @@ use App\Http\DTOs\ErrorResponse;
 use App\Support\ActorHelper;
 use Glueful\Auth\UserIdentity;
 use Glueful\Http\Response;
-use Glueful\Queue\QueueManager;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -43,7 +43,7 @@ final class ContentTypeController
 {
     public function __construct(
         private readonly ContentTypeRepository $types,
-        private readonly QueueManager $queue,
+        private readonly FilterIndexJobDispatcher $filterIndexes,
         private readonly ?PublishEventEmitter $events = null,
         private readonly ?\Glueful\Cache\CacheStore $cache = null,
         /** Root URL namespace guard; null = ungated (tests, minimal wiring). */
@@ -274,7 +274,7 @@ final class ContentTypeController
      */
     private function ensureFilterIndexes(string $typeUuid): void
     {
-        $this->queue->push(EnsureFilterIndexesJob::class, ['content_type_uuid' => $typeUuid]);
+        $this->filterIndexes->dispatch($typeUuid);
     }
 
     /** @return array<string,mixed> */

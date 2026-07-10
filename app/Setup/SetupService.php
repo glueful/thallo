@@ -6,12 +6,14 @@ namespace App\Setup;
 
 use App\Content\Regions\RegionRepository;
 use App\Content\Repositories\ContentTypeRepository;
+use App\Settings\SystemKeys;
 use Glueful\Auth\PasswordHasher;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Users\Repositories\UserRepository;
 use Glueful\Helpers\Utils;
+use Thallo\Contracts\Settings\SystemChannel;
 
 /**
  * Single source of truth for first-run installation.
@@ -29,19 +31,16 @@ final class SetupService
         private readonly UserRepository $users,
         private readonly AegisPermissionProvider $aegis,
         private readonly ContentTypeRepository $contentTypes,
+        private readonly SystemChannel $system,
     ) {
     }
 
     /**
-     * Returns true when the `installed` marker has been written to `settings`.
+     * Returns true when the `installed` marker has been written to the system channel.
      */
     public function isInstalled(): bool
     {
-        $row = $this->db->table('settings')
-            ->where(['key' => 'installed'])
-            ->first();
-
-        return $row !== null && ($row['value'] ?? '') === '1';
+        return $this->system->get('installed') === '1';
     }
 
     /**
@@ -196,14 +195,21 @@ final class SetupService
     }
 
     /**
-     * Inserts or updates a single key in `settings`.
+     * Inserts or updates a single settings key.
      *
-     * Because the PostgreSQL upsert helper targets `ON CONFLICT (id)` and our primary
-     * key is the varchar `key` column, we perform a manual check-then-write instead.
-     * Both branches run inside the caller's transaction when invoked from install().
+     * System keys (see {@see SystemKeys}) are routed to the unscoped {@see SystemChannel} so they stay
+     * out of the (soon tenant-scoped) `settings` table; everything else is a manual check-then-write on
+     * `settings` (the PostgreSQL upsert helper targets `ON CONFLICT (id)`, but our PK is the varchar
+     * `key`). All branches run inside the caller's transaction when invoked from install() — the channel
+     * (SystemFlags) shares the same Connection singleton, so its writes join the transaction too.
      */
     private function put(string $key, string $value): void
     {
+        if (SystemKeys::isSystem($key)) {
+            $this->system->put($key, $value);
+            return;
+        }
+
         $now = date('Y-m-d H:i:s');
 
         $existing = $this->db->table('settings')

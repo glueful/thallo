@@ -31,6 +31,7 @@ return [
         'Thallo\Navigation\NavigationServiceProvider',
         'Thallo\Render\RenderServiceProvider',
         'Thallo\Seo\SeoServiceProvider',
+        'Thallo\Tenancy\TenancyServiceProvider',
         'Thallo\Workflow\WorkflowServiceProvider',
     ],
 

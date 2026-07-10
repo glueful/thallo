@@ -6,11 +6,20 @@ namespace App\Content\Retention;
 
 use Glueful\Database\Connection;
 use Psr\Log\LoggerInterface;
+use Thallo\Contracts\Tenancy\WriteBarrier;
 
 /**
  * Deletes out-of-policy, non-pinned rows from entry_versions per (entry, locale)
  * lineage. The delete-time NOT EXISTS guard is the correctness barrier: a row
  * pinned after selection but before deletion is spared by the DELETE itself.
+ *
+ * SYSTEM PATH (tenancy): lineages()/computeDeletable()/deleteGuarded() run raw PDO with NO tenant
+ * predicate — they scan and delete across all tenants in one background pass. This is correct under
+ * the shared-DB model precisely because every lineage is keyed on globally-unique nano-id uuids
+ * (entry_uuid + version uuid): a lineage belongs to exactly one tenant, so a global scan prunes each
+ * tenant's history independently and can never delete across the boundary. No tenant context is
+ * required, and adding a predicate here would only narrow (and could mis-scope) an already-correct
+ * global sweep.
  */
 final class VersionPruner
 {
@@ -19,6 +28,7 @@ final class VersionPruner
     public function __construct(
         private readonly Connection $db,
         private readonly ?LoggerInterface $logger = null,
+        private readonly ?WriteBarrier $barrier = null,
     ) {
     }
 
@@ -130,6 +140,7 @@ final class VersionPruner
 
         $deleted = 0;
         foreach (array_chunk($uuids, self::DELETE_BATCH) as $chunk) {
+            $this->barrier?->assertWritable(); // fresh persisted read before EACH batch (minimise window)
             $placeholders = implode(',', array_fill(0, count($chunk), '?'));
             $stmt = $this->db->getPDO()->prepare(
                 "DELETE FROM entry_versions

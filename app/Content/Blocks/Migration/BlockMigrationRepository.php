@@ -6,8 +6,12 @@ namespace App\Content\Blocks\Migration;
 
 use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Schema\Migration\MigrationOpSet;
+use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
+use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
+use Glueful\Extensions\Contracts\Tenancy\TenantScope;
 use Glueful\Helpers\Utils;
+use Thallo\Contracts\Tenancy\WriteBarrier;
 
 /**
  * Block-type migration rows (block-migrations spec §2). NO version numbers: block
@@ -22,6 +26,9 @@ final class BlockMigrationRepository
     public function __construct(
         private readonly Connection $db,
         private readonly BlockTypeRepository $blockTypes,
+        private readonly ?ApplicationContext $context = null,
+        private readonly ?CurrentTenantResolver $tenants = null,
+        private readonly ?WriteBarrier $barrier = null,
     ) {
     }
 
@@ -89,10 +96,18 @@ final class BlockMigrationRepository
      */
     public function activeAny(): array
     {
-        $rows = $this->db->table('block_type_migrations as m')
-            ->join('block_types as t', 't.uuid', '=', 'm.block_type_uuid')
-            ->select(['m.uuid', 'm.block_type_uuid', 'm.status', 't.slug'])
-            ->whereIn('m.status', ['running', 'failed'])
+        // Use unaliased table names so the tenancy read-scope hook (which matches the exact
+        // registered owned-table name passed to table()) injects its tenant_uuid predicate on the
+        // primary table; an inline `as` alias would defeat that and the guard would fail closed.
+        $rows = $this->db->table('block_type_migrations')
+            ->join('block_types', 'block_types.uuid', '=', 'block_type_migrations.block_type_uuid')
+            ->select([
+                'block_type_migrations.uuid',
+                'block_type_migrations.block_type_uuid',
+                'block_type_migrations.status',
+                'block_types.slug',
+            ])
+            ->whereIn('block_type_migrations.status', ['running', 'failed'])
             ->get();
         return array_map(static fn(array $r): array => [
             'uuid' => (string) $r['uuid'],
@@ -144,12 +159,19 @@ final class BlockMigrationRepository
 
     public function incrementDone(string $uuid): void
     {
+        $this->barrier?->assertWritable();
+        $tenant = TenantScope::current($this->tenants, $this->context);
+        $scope = $tenant === null ? '' : ' AND tenant_uuid = :tenant';
         $stmt = $this->db->getPDO()->prepare(
             'UPDATE block_type_migrations
              SET work_items_done = work_items_done + 1
-             WHERE uuid = :uuid'
+             WHERE uuid = :uuid' . $scope
         );
-        $stmt->execute(['uuid' => $uuid]);
+        $params = ['uuid' => $uuid];
+        if ($tenant !== null) {
+            $params['tenant'] = $tenant;
+        }
+        $stmt->execute($params);
     }
 
     public function recordFailure(string $uuid, string $entryUuid, string $locale, string $kind, string $reason): void

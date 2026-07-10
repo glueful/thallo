@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "d1475232ec5eabbee6ea528232a05d7f",
+    "content-hash": "2aa6aebade340769b3767a960360e95e",
     "packages": [
         {
             "name": "composer/semver",
@@ -1440,6 +1440,45 @@
                 }
             ],
             "description": "SEO for Thallo: sitemaps, per-entry meta, and robots.txt as a removable capability pack.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "glueful/thallo-tenancy",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-tenancy",
+                "reference": "15fea668264ef1a2b3e62b860accba9c232779f0"
+            },
+            "require": {
+                "glueful/extension-contracts": "*",
+                "glueful/framework": "^1.66.3",
+                "glueful/thallo-contracts": "*",
+                "php": "^8.3"
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "provider": "Thallo\\Tenancy\\TenancyServiceProvider"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Tenancy\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Multi-tenancy foundation for Thallo: tenant-owned schema, scoping, seed/sync and enablement as a capability pack.",
             "transport-options": {
                 "relative": true
             }

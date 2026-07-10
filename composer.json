@@ -20,6 +20,7 @@
     { "type": "path", "url": "packages/thallo-render" },
     { "type": "path", "url": "packages/thallo-search" },
     { "type": "path", "url": "packages/thallo-seo" },
+    { "type": "path", "url": "packages/thallo-tenancy" },
     { "type": "path", "url": "packages/thallo-workflow" }
   ],
   "require": {
@@ -38,6 +39,7 @@
     "glueful/thallo-render": "*",
     "glueful/thallo-search": "*",
     "glueful/thallo-seo": "*",
+    "glueful/thallo-tenancy": "*",
     "glueful/thallo-workflow": "*",
     "glueful/media": "^1.1.0",
     "glueful/meilisearch": "^1.6",

@@ -13,6 +13,7 @@ use App\Content\Schema\Migration\MigrationOpSet;
 use Glueful\Cache\CacheStore;
 use Glueful\Database\Connection;
 use Psr\Container\ContainerInterface;
+use Thallo\Contracts\Tenancy\WriteBarrier;
 
 /**
  * Eager block-schema backfill (block-migrations spec §4) — BackfillRunner's SHAPE
@@ -36,12 +37,14 @@ final class BlockBackfillRunner
         private readonly ReferenceProjectionRepository $references,
         private readonly BlockInstanceWalker $walker,
         private readonly ContainerInterface $container,
+        private readonly ?WriteBarrier $barrier = null,
     ) {
     }
 
     /** @return array{done:int,failed:int} */
     public function run(string $migrationUuid): array
     {
+        $this->barrier?->assertWritable();
         $migration = $this->migrations->find($migrationUuid);
         if ($migration === null) {
             throw new \RuntimeException("block migration {$migrationUuid} not found");
