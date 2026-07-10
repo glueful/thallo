@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Content\Preview;
 
 use Glueful\Cache\CacheStore;
+use Glueful\Bootstrap\ApplicationContext;
+use Thallo\Tenancy\Cache\TenantCacheSegment;
 
 /**
  * The visual canvas's ephemeral working copy (loop C spec §3): the VALIDATED,
@@ -16,13 +18,20 @@ use Glueful\Cache\CacheStore;
 final class PreviewWorkingCopyStore
 {
     /** @param CacheStore<mixed> $cache */
-    public function __construct(private readonly CacheStore $cache)
-    {
+    public function __construct(
+        private readonly CacheStore $cache,
+        private readonly ?TenantCacheSegment $tenantCache = null,
+        private readonly ?ApplicationContext $context = null,
+    ) {
     }
 
     private function key(string $entryUuid, string $locale): string
     {
-        return 'thallo:preview:working:' . $entryUuid . ':' . $locale;
+        $prefix = $this->tenantCache !== null && $this->context !== null
+            ? $this->tenantCache->segment($this->context, 'preview')
+            : '';
+
+        return $prefix . 'thallo:preview:working:' . $entryUuid . ':' . $locale;
     }
 
     /** @param array<string,mixed> $cleanFields validator OUTPUT only — never raw payload */

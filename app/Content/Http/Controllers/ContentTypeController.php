@@ -235,6 +235,7 @@ final class ContentTypeController
         ]);
         if ($routingChanged) {
             $this->cache?->deletePattern('render:*');
+            $this->cache?->deletePattern('tenant:*:render:*');
         }
         $this->events?->emitAfterCommit(new ModelUpdated(type: (string) $row['slug'], actor: $this->actor($request)));
         return Response::success(

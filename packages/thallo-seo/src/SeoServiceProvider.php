@@ -25,6 +25,7 @@ use Thallo\Seo\Meta\SeoMetaResolver;
 use Thallo\Seo\Sitemap\RobotsBuilder;
 use Thallo\Seo\Sitemap\SitemapBuilder;
 use Psr\Container\ContainerInterface;
+use Thallo\Tenancy\Cache\TenantCacheSegment;
 
 final class SeoServiceProvider extends ServiceProvider
 {
@@ -76,7 +77,11 @@ final class SeoServiceProvider extends ServiceProvider
 
     public static function makeSitemapCache(ContainerInterface $container): SitemapCache
     {
-        return new FrameworkSitemapCache($container->get(CacheStore::class));
+        return new FrameworkSitemapCache(
+            $container->get(CacheStore::class),
+            $container->get(TenantCacheSegment::class),
+            $container->get(ApplicationContext::class),
+        );
     }
 
     public static function makeSitemapBuilder(ContainerInterface $container): SitemapBuilder
