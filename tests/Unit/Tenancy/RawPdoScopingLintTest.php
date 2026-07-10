@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Tenancy;
 
+use App\Content\Starter\RawPdoWriteAudit;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -195,31 +196,11 @@ final class RawPdoScopingLintTest extends TestCase
 
     public function testNoUnclassifiedGetPdoSites(): void
     {
-        $known = array_merge(
-            self::SCOPED,
-            self::SYSTEM_READERS,
-            self::SYSTEM_WRITERS,
-            self::GLOBAL_BY_PROOF,
-            self::RETROFIT_ENGINE,
-        );
         $root = dirname(__DIR__, 3);
-        $found = [];
-        foreach (['app', 'packages'] as $dir) {
-            $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root . '/' . $dir));
-            foreach ($it as $file) {
-                if ($file->getExtension() !== 'php') {
-                    continue;
-                }
-                if (str_contains((string) file_get_contents($file->getPathname()), 'getPDO()')) {
-                    $found[] = str_replace($root . '/', '', $file->getPathname());
-                }
-            }
-        }
-        sort($found);
-        self::assertSame(
-            [],
-            array_values(array_diff($found, $known)),
-            'New getPDO() site(s) must be classified in this lint (read-vs-write).',
-        );
+        $report = (new RawPdoWriteAudit($root))->run();
+        self::assertTrue($report['available']);
+        self::assertSame([], $report['unclassified']);
+        self::assertSame([], $report['bucketViolations']);
+        self::assertSame([], $report['wrapperMismatches']);
     }
 }

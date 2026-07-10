@@ -80,4 +80,14 @@ final class EnablementStoreTest extends AppTestCase
         self::assertNull($s->pendingSlug());
         self::assertNull($s->pendingName());
     }
+
+    public function testDisableSentinelRoundTrips(): void
+    {
+        $store = $this->store();
+        self::assertNull($store->sentinelKey());
+        $store->setSentinelKey('tenant:abc:render:disable-sentinel:123');
+        self::assertSame('tenant:abc:render:disable-sentinel:123', $store->sentinelKey());
+        $store->clearSentinel();
+        self::assertNull($store->sentinelKey());
+    }
 }

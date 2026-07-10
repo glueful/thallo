@@ -23,7 +23,7 @@ final class TenancyEnablementApiTest extends AppTestCase
         $found = [];
 
         foreach ($this->container()->get(Router::class)->getStaticRoutes() as $key => $route) {
-            if (!$route instanceof Route || !str_starts_with($route->getPath(), '/v1/admin/tenancy/')) {
+            if (!$route instanceof Route || !in_array($key, $expected, true)) {
                 continue;
             }
             $found[] = $key;

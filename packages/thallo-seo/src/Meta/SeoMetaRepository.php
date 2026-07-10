@@ -9,6 +9,7 @@ use Glueful\Database\Connection;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
 use Glueful\Extensions\Contracts\Tenancy\TenantScope;
 use Thallo\Contracts\Tenancy\WriteBarrier;
+use Thallo\Contracts\Tenancy\TenantWriteScope;
 
 /**
  * Reads/writes the seo_meta override table, keyed by (entry_uuid, locale).
@@ -24,6 +25,7 @@ final class SeoMetaRepository
         private readonly ?ApplicationContext $context = null,
         private readonly ?CurrentTenantResolver $tenants = null,
         private readonly ?WriteBarrier $barrier = null,
+        private readonly ?TenantWriteScope $writeScope = null,
     ) {
     }
 
@@ -75,6 +77,9 @@ final class SeoMetaRepository
         // $payload, so it never enters DO UPDATE SET (the row's tenant is immutable).
         $conflict = ['entry_uuid', 'locale'];
         $tenant = TenantScope::current($this->tenants, $this->context);
+        if ($this->writeScope?->mode() === 'compat') {
+            $tenant = $this->writeScope->tenantUuidForWrite();
+        }
         if ($tenant !== null) {
             $insert['tenant_uuid'] = $tenant;
             array_unshift($conflict, 'tenant_uuid');

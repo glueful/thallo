@@ -10,6 +10,7 @@ use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
 use Glueful\Extensions\Contracts\Tenancy\TenantScope;
 use Psr\Log\LoggerInterface;
 use Thallo\Contracts\Tenancy\WriteBarrier;
+use Thallo\Contracts\Tenancy\TenantWriteScope;
 use Throwable;
 
 /**
@@ -28,6 +29,7 @@ final class AnalyticsRecorder
         private readonly ?ApplicationContext $context = null,
         private readonly ?CurrentTenantResolver $tenants = null,
         private readonly ?WriteBarrier $barrier = null,
+        private readonly ?TenantWriteScope $writeScope = null,
     ) {
     }
 
@@ -74,6 +76,9 @@ final class AnalyticsRecorder
     {
         // Raw upsert bypasses the tenancy stamper — scope the row + widen the conflict target.
         $tenant = TenantScope::current($this->tenants, $this->context);
+        if ($this->writeScope?->mode() === 'compat') {
+            $tenant = $this->writeScope->tenantUuidForWrite();
+        }
         $cols = ['day', 'event', 'subject', 'count'];
         $vals = [$day, $event, $subject, 1];
         $conflict = ['day', 'event', 'subject'];
@@ -93,6 +98,9 @@ final class AnalyticsRecorder
     private function touchActiveUser(string $day, string $hash): void
     {
         $tenant = TenantScope::current($this->tenants, $this->context);
+        if ($this->writeScope?->mode() === 'compat') {
+            $tenant = $this->writeScope->tenantUuidForWrite();
+        }
         $cols = ['day', 'metric', 'actor_type', 'actor_id_hash'];
         $vals = [$day, 'active_users', 'user', $hash];
         $conflict = ['day', 'metric', 'actor_type', 'actor_id_hash'];

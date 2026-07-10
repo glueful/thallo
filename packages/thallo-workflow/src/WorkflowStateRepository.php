@@ -9,6 +9,7 @@ use Glueful\Database\Connection;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
 use Glueful\Extensions\Contracts\Tenancy\TenantScope;
 use Thallo\Contracts\Tenancy\WriteBarrier;
+use Thallo\Contracts\Tenancy\TenantWriteScope;
 
 /**
  * Reads/writes the review-state row (one per entry+locale; absent ≡ draft) and the
@@ -24,6 +25,7 @@ final class WorkflowStateRepository
         private readonly ?ApplicationContext $context = null,
         private readonly ?CurrentTenantResolver $tenants = null,
         private readonly ?WriteBarrier $barrier = null,
+        private readonly ?TenantWriteScope $writeScope = null,
     ) {
     }
 
@@ -62,6 +64,9 @@ final class WorkflowStateRepository
         // Raw upsert bypasses the tenancy stamper — scope the row + widen the conflict target.
         $conflict = ['entry_uuid', 'locale'];
         $tenant = TenantScope::current($this->tenants, $this->context);
+        if ($this->writeScope?->mode() === 'compat') {
+            $tenant = $this->writeScope->tenantUuidForWrite();
+        }
         if ($tenant !== null) {
             $insert['tenant_uuid'] = $tenant;
             array_unshift($conflict, 'tenant_uuid');
