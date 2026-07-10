@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "99424d08cb6d5877d1e6783ca78af66f",
+    "content-hash": "7082930171793ee98b580cbe7361ed0b",
     "packages": [
         {
             "name": "composer/semver",
@@ -655,16 +655,16 @@
         },
         {
             "name": "glueful/extension-contracts",
-            "version": "v1.1.0",
+            "version": "v1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/contracts.git",
-                "reference": "cc7a8a73a25175d797d350995b320ef0a496f628"
+                "reference": "7e170e01603f04b03cba58abc64f243fac638c36"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/contracts/zipball/cc7a8a73a25175d797d350995b320ef0a496f628",
-                "reference": "cc7a8a73a25175d797d350995b320ef0a496f628",
+                "url": "https://api.github.com/repos/glueful/contracts/zipball/7e170e01603f04b03cba58abc64f243fac638c36",
+                "reference": "7e170e01603f04b03cba58abc64f243fac638c36",
                 "shasum": ""
             },
             "require": {
@@ -681,7 +681,7 @@
                 "glueful": {
                     "icon": "assets/icon.png",
                     "name": "Extension Contracts",
-                    "version": "1.1.0",
+                    "version": "1.2.0",
                     "requires": {
                         "glueful": ">=1.65.3",
                         "extensions": []
@@ -725,22 +725,22 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/contracts/issues",
-                "source": "https://github.com/glueful/contracts/tree/v1.1.0"
+                "source": "https://github.com/glueful/contracts/tree/v1.2.0"
             },
-            "time": "2026-07-10T14:46:31+00:00"
+            "time": "2026-07-10T22:34:16+00:00"
         },
         {
             "name": "glueful/framework",
-            "version": "v1.67.0",
+            "version": "v1.68.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "593d50d348e819f494380b8bba77a99a5e781fa0"
+                "reference": "ddaa925fcb92babac1c0a087e3cbc4914d3c9b0c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/593d50d348e819f494380b8bba77a99a5e781fa0",
-                "reference": "593d50d348e819f494380b8bba77a99a5e781fa0",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/ddaa925fcb92babac1c0a087e3cbc4914d3c9b0c",
+                "reference": "ddaa925fcb92babac1c0a087e3cbc4914d3c9b0c",
                 "shasum": ""
             },
             "require": {
@@ -835,7 +835,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-10T14:38:29+00:00"
+            "time": "2026-07-10T22:28:39+00:00"
         },
         {
             "name": "glueful/i18n",
@@ -1455,11 +1455,11 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-tenancy",
-                "reference": "f24b31c2c4deca3035fa0fa8b009cb192385ed49"
+                "reference": "c3c2ac7177ace42723589b20d812ebda2581be16"
             },
             "require": {
                 "glueful/extension-contracts": "*",
-                "glueful/framework": "^1.67.0",
+                "glueful/framework": "^1.68.0",
                 "glueful/thallo-contracts": "*",
                 "php": "^8.3"
             },
@@ -6059,23 +6059,24 @@
     "packages-dev": [
         {
             "name": "glueful/tenancy",
-            "version": "v1.1.0",
+            "version": "v1.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/tenancy.git",
-                "reference": "a4c78f25f82346178321b7959093189f612cbffd"
+                "reference": "68bf3c60ed8198deb623b6e27efd0000b45bcee1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/tenancy/zipball/a4c78f25f82346178321b7959093189f612cbffd",
-                "reference": "a4c78f25f82346178321b7959093189f612cbffd",
+                "url": "https://api.github.com/repos/glueful/tenancy/zipball/68bf3c60ed8198deb623b6e27efd0000b45bcee1",
+                "reference": "68bf3c60ed8198deb623b6e27efd0000b45bcee1",
                 "shasum": ""
             },
             "require": {
+                "glueful/extension-contracts": "^1.2.0",
                 "php": "^8.3"
             },
             "require-dev": {
-                "glueful/framework": "^1.56.0",
+                "glueful/framework": "^1.67.0",
                 "phpstan/phpstan": "^1.0",
                 "phpunit/phpunit": "^10.5",
                 "squizlabs/php_codesniffer": "^3.6"
@@ -6087,10 +6088,10 @@
             "extra": {
                 "glueful": {
                     "name": "Tenancy",
-                    "version": "1.0.2",
+                    "version": "1.2.0",
                     "provider": "Glueful\\Extensions\\Tenancy\\TenancyServiceProvider",
                     "requires": {
-                        "glueful": ">=1.56.0",
+                        "glueful": ">=1.67.0",
                         "extensions": []
                     },
                     "publisher": "glueful-team",
@@ -6130,9 +6131,9 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/tenancy/issues",
-                "source": "https://github.com/glueful/tenancy/tree/v1.1.0"
+                "source": "https://github.com/glueful/tenancy/tree/v1.2.0"
             },
-            "time": "2026-06-16T06:58:26+00:00"
+            "time": "2026-07-10T22:36:13+00:00"
         },
         {
             "name": "myclabs/deep-copy",
