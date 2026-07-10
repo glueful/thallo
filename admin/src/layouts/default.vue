@@ -12,6 +12,7 @@ import { registerSubmissionsModule } from '@/registry/submissionsModule'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useContentTypes } from '@/queries/contentTypes'
 import { useUnreadCount } from '@/queries/formSubmissions'
+import { useTenantStore } from '@/stores/tenant'
 
 registerCoreModule()
 registerCollectionsModule()
@@ -23,6 +24,7 @@ registerTemplatesModule()
 registerSubmissionsModule()
 const caps = useCapabilitiesStore()
 caps.ensureLoaded() // post-auth: this layout only renders for authenticated users
+useTenantStore().ensureLoaded()
 
 // Converge an open tab on server-side pack enable/disable without a manual reload:
 // re-fetch capabilities whenever the window regains focus (the toggle usually happens in a
@@ -90,6 +92,7 @@ const utilityItems = computed(() => nav.value[1])
     >
       <template #header="{ collapsed }">
         <AppLogo v-if="!collapsed" class="w-auto h-10 shrink-0" :show-text="true" />
+        <TenantSwitcher v-if="!collapsed" />
         <UDashboardSidebarCollapse :class="collapsed ? 'mx-auto' : 'ms-auto'" />
       </template>
 

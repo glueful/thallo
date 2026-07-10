@@ -21,7 +21,24 @@ const authMiddleware: Middleware = {
     const { useSessionStore } = await import('@/stores/session')
     const token = useSessionStore().accessToken
     if (token) request.headers.set('authorization', `Bearer ${token}`)
+    const { getActivePinia } = await import('pinia')
+    if (getActivePinia()) {
+      const { useTenantStore } = await import('@/stores/tenant')
+      const tenant = useTenantStore()
+      if (tenant.selectedUuid) request.headers.set('X-Tenant-Id', tenant.selectedUuid)
+    }
     return request
+  },
+  async onResponse({ request, response }) {
+    if (response.status !== 403 || !request.headers.has('X-Tenant-Id')) return response
+    const { getActivePinia } = await import('pinia')
+    if (!getActivePinia()) return response
+    const { useTenantStore } = await import('@/stores/tenant')
+    const tenant = useTenantStore()
+    tenant.clearSelection()
+    await tenant.ensureLoaded(true)
+    window.dispatchEvent(new CustomEvent('tenant-switch-required'))
+    return response
   },
 }
 

@@ -13,6 +13,7 @@ use Glueful\Uploader\Contracts\BlobAccessPolicy;
 use Glueful\Uploader\Contracts\BlobCreatedHook;
 use RuntimeException;
 use Thallo\Contracts\Tenancy\WriteBarrier;
+use Thallo\Contracts\Tenancy\TenantWriteScope;
 use Thallo\Tenancy\System\SystemFlags;
 
 final class TenantBlobPolicy implements BlobCreatedHook, BlobAccessPolicy
@@ -24,16 +25,19 @@ final class TenantBlobPolicy implements BlobCreatedHook, BlobAccessPolicy
         private readonly TenantRuntimeReadiness $readiness,
         private readonly WriteBarrier $barrier,
         private readonly ?CurrentTenantResolver $resolver = null,
+        private readonly ?TenantWriteScope $writeScope = null,
     ) {
     }
 
     public function onBlobCreated(string $blobUuid, ?string $uploaderUserUuid): void
     {
-        if (!$this->flags->tenancyEnabled()) {
+        if (!$this->flags->tenancyEnabled() && $this->writeScope?->mode() !== 'compat') {
             return;
         }
 
-        $tenantUuid = $this->currentTenantUuid();
+        $tenantUuid = $this->writeScope?->mode() === 'compat'
+            ? $this->writeScope->tenantUuidForWrite()
+            : $this->currentTenantUuid();
         if ($tenantUuid === null) {
             throw new RuntimeException('No tenant resolved for blob attribution.');
         }

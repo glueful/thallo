@@ -11,12 +11,27 @@ export async function authFetch(
   init: RequestInit = {},
 ): Promise<Record<string, unknown>> {
   const token = useSessionStore().accessToken
+  let tenant: ReturnType<(typeof import('@/stores/tenant'))['useTenantStore']> | null = null
+  try {
+    const { useTenantStore } = await import('@/stores/tenant')
+    tenant = useTenantStore()
+  } catch {
+    // Some pre-app/bootstrap callers run before Pinia is installed. They retain the legacy request.
+  }
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (token) headers.authorization = `Bearer ${token}`
+  if (tenant?.selectedUuid) headers['X-Tenant-Id'] = tenant.selectedUuid
   const res = await fetch(path, {
     ...init,
     headers: { ...headers, ...(init.headers as Record<string, string> | undefined) },
   })
-  if (!res.ok) throw await responseError(res, 'Request failed.')
+  if (!res.ok) {
+    if (res.status === 403 && headers['X-Tenant-Id'] && tenant !== null) {
+      tenant.clearSelection()
+      await tenant.ensureLoaded(true)
+      window.dispatchEvent(new CustomEvent('tenant-switch-required'))
+    }
+    throw await responseError(res, 'Request failed.')
+  }
   return (await res.json().catch(() => ({}))) as Record<string, unknown>
 }

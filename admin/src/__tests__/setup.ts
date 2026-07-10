@@ -28,6 +28,12 @@ class BaseAwareRequest extends OriginalRequest {
 
 globalThis.Request = BaseAwareRequest as unknown as typeof Request
 
+// Reka UI scrolls the selected listbox option into view when a SelectMenu opens.
+// jsdom has no layout/scroll implementation, so provide the browser method as a no-op.
+if (typeof globalThis.HTMLElement?.prototype.scrollIntoView !== 'function') {
+  globalThis.HTMLElement.prototype.scrollIntoView = () => undefined
+}
+
 // jsdom implements no SVG layout engine, so @unovis's axis auto-margin pass — which calls
 // SVGGraphicsElement.getBBox()/getComputedTextLength() from inside a requestAnimationFrame —
 // throws `getBBox is not a function`. Because it runs in a rAF callback it fires AFTER the test
