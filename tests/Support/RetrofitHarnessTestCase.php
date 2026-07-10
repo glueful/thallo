@@ -66,6 +66,7 @@ abstract class RetrofitHarnessTestCase extends AppTestCase
         self::putEnv('DB_POOLING_ENABLED', 'false');
 
         self::resetTenancyGlobals(); // drop the shared app's hooks before our first boot
+        self::resetSharedRepositoryConnection(); // never inherit a prior class's (possibly foreign-DB) shared conn
         /** @var array{enabled: list<string>} $base */
         $base = require dirname(__DIR__, 2) . '/config/serviceproviders.php';
         $providers = [...$base['enabled'], 'Glueful\\Extensions\\Tenancy\\TenancyServiceProvider'];
@@ -84,9 +85,31 @@ abstract class RetrofitHarnessTestCase extends AppTestCase
         if (self::$throwawayDb !== '') {
             self::dropThrowaway(self::$throwawayDb); // maintenance PDO: terminate connections + DROP DATABASE
         }
+        self::resetSharedRepositoryConnection();  // drop the dead throwaway-bound Connection before the next class
         self::putEnv('DB_PGSQL_DATABASE', self::$priorDb);
         self::putEnv('DB_POOLING_ENABLED', self::$priorPooling);
         parent::tearDownAfterClass();
+    }
+
+    /**
+     * Null out {@see \Glueful\Repository\BaseRepository}'s process-static $sharedConnection.
+     *
+     * BaseRepository memoises ONE Connection across every repository in the process and never resets it
+     * between framework boots. Once we DROP the throwaway DB in teardown, that static still points at the
+     * now-terminated Connection; the NEXT retrofit class boots fresh but AppTestCase::setUp constructs
+     * RoleRepository context-only, which reuses the dead shared Connection → "PDOException: no connection
+     * to the server". Nulling it forces the next repository to lazily rebuild from its own live context.
+     * Reflection because the framework exposes no reset seam (a public BaseRepository::resetSharedConnection()
+     * would be the cleaner long-term fix). Harmless outside this harness: the shared suite DB is never dropped.
+     */
+    protected static function resetSharedRepositoryConnection(): void
+    {
+        if (!class_exists(\Glueful\Repository\BaseRepository::class)) {
+            return;
+        }
+        $prop = new \ReflectionProperty(\Glueful\Repository\BaseRepository::class, 'sharedConnection');
+        $prop->setAccessible(true);
+        $prop->setValue(null, null);
     }
 
     protected function container(): ContainerInterface

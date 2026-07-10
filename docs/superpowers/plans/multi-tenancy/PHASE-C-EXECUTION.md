@@ -167,10 +167,24 @@ Running log for the SP1 Phase C retrofit build. Local-only; not committed unless
   no lingering mysql/mariadb/MODIFY/AUTO_INCREMENT refs in `src/Retrofit/`; phpcs clean (8/8). No commit.
 
 ## DEFERRED / FOLLOW-UP (all commits still HELD)
-- FOLLOW-UP: two-boot harness connection-lifecycle fragility — CrossTenant's scheduler/publish run poisons
-  the NEXT two-boot class's connection (process-static Connection::$instances / pool). Worked around by
-  ordering (CrossTenant last; alias tests folded into TenantKey). Root fix = reset Connection statics in
-  RetrofitHarnessTestCase teardown.
+- FOLLOW-UP (#382) — two-boot harness connection-lifecycle fragility — **FIXED (root cause found).**
+  Root cause was NOT Connection::$instances / pool (both proven inert: pooling off, $instances never
+  populated). The real leaked static is **`Glueful\Repository\BaseRepository::$sharedConnection`** — a
+  process-global Connection memoised across ALL repositories and NEVER reset between framework boots. When
+  a two-boot class drops its throwaway DB in teardown, that static still points at the now-terminated
+  Connection; the next class's `AppTestCase::setUp → grantSeedActorBypass` builds RoleRepository
+  context-only and reuses the dead conn → "PDOException: no connection to the server".
+  Fix: `RetrofitHarnessTestCase::resetSharedRepositoryConnection()` nulls that static (reflection — no
+  framework reset seam) in BOTH tearDownAfterClass (after DROP) and setUpBeforeClass (before boot). Now
+  order-independent: worst-case order (CrossTenant first, then all three other two-boot classes) 8/8 green;
+  full tenancy-retrofit 54/217; OFF composer test 1605/0-fail/39-skip. The ordering workaround (CrossTenant
+  last; alias tests folded into TenantKey) is no longer load-bearing — left as-is (harmless, saves a 5th boot).
+  NOTE: while investigating, a `git checkout src/Database/Connection.php` in the framework accidentally
+  reverted HELD (uncommitted) insert-hook code (addInsertHook/clearInsertHooks/applyInsertHooks). It was
+  reconstructed from tests/Unit/Database/InsertHookTest.php + the QueryBuilder diff and re-verified
+  (InsertHookTest 6/6, all Connection::/QueryExecutor:: statics resolve, OFF suite unchanged). Framework
+  remains uncommitted/held.
+  Longer-term: a public `BaseRepository::resetSharedConnection()` framework seam would beat reflection.
 - Task 1 open watch: boot-time reconcile for OFF installs with legacy `installed` in `settings` (DECISION).
 
 ## Environment / harness notes
