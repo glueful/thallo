@@ -15,7 +15,7 @@ use Glueful\Routing\Router;
  *      may lack content.edit; the submitter-or-reviewer rule is enforced in the service (403).
  */
 $router->group(
-    ['prefix' => '/v1/admin/workflow', 'middleware' => ['auth']],
+    ['prefix' => '/v1/admin/workflow', 'middleware' => ['tenant_bootstrap', 'auth']],
     function (Router $router): void {
         $router->post('/entries/{uuid}/{locale}/submit', [WorkflowController::class, 'submit'])
             ->middleware('content_permission:content.edit');

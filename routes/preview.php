@@ -20,7 +20,7 @@ use Glueful\Routing\Router;
  * Auto-discovered by RouteManifest; the provider must NOT loadRoutesFrom() this file
  * (double registration throws on duplicate static routes).
  */
-$router->group(['prefix' => '/v1/preview'], function (Router $router): void {
+$router->group(['prefix' => '/v1/preview', 'middleware' => ['tenant_bootstrap']], function (Router $router): void {
     // Read a draft via a signed preview token (unauthenticated; rate-limited by IP).
     $router->get('/{token}', [PreviewController::class, 'show'])
         ->middleware('rate_limit')

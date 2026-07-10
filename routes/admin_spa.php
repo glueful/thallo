@@ -23,7 +23,8 @@ use Glueful\Routing\Router;
  * This route is NOT under /v1/admin and carries no `auth` middleware; every API call the SPA
  * makes IS auth-gated under /v1/admin.
  */
-$router->get('/admin/config', [AdminConfigController::class, 'config']);
+$router->get('/admin/config', [AdminConfigController::class, 'config'])
+    ->middleware('tenant_system');
 
 /*
  * First-run setup — UNAUTHENTICATED but self-locking: SetupController returns 409 once installed.
@@ -31,4 +32,5 @@ $router->get('/admin/config', [AdminConfigController::class, 'config']);
  * route, so the router's static-first lookup matches it before serveFrontend's /admin/{rest}
  * catch-all — never swallowed by the SPA fallback.
  */
-$router->post('/admin/setup', [SetupController::class, 'setup']);
+$router->post('/admin/setup', [SetupController::class, 'setup'])
+    ->middleware('tenant_system');

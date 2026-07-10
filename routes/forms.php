@@ -16,5 +16,6 @@ use Glueful\Routing\Router;
  * Auto-discovered by RouteManifest; the provider must NOT loadRoutesFrom() this file.
  */
 $router->post('/_forms/submit', [FormSubmitController::class, 'submit'])
+    ->middleware('tenant_bootstrap')
     ->middleware('rate_limit')
     ->rateLimit(30, 1, by: 'ip');
