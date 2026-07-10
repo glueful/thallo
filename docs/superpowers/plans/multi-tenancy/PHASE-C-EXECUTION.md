@@ -185,7 +185,25 @@ Running log for the SP1 Phase C retrofit build. Local-only; not committed unless
   (InsertHookTest 6/6, all Connection::/QueryExecutor:: statics resolve, OFF suite unchanged). Framework
   remains uncommitted/held.
   Longer-term: a public `BaseRepository::resetSharedConnection()` framework seam would beat reflection.
-- Task 1 open watch: boot-time reconcile for OFF installs with legacy `installed` in `settings` (DECISION).
+- Task 1 open watch — **DECIDED (2026-07-10): NO boot-time reconcile.** Keep `SystemKeyReconciler`
+  invoked only at tenancy-enable (retrofit orchestrator). Reasoning, verified against the code:
+  * The thallo-tenancy pack is ALWAYS installed (required composer dep; provider registered in
+    config/extensions.php) and its migrations load UNCONDITIONALLY in boot() (TenancyServiceProvider.php
+    ~L179 "for every install"), so `thallo_system_flags` — the SystemChannel/SystemFlags backing store —
+    exists on every install, OFF or ON.
+  * ALL post-split system-key reads/writes route to the channel, never to `settings`:
+    SettingsStore::get/forget/putMany and SetupService::put/isInstalled all gate on SystemKeys::isSystem
+    → SystemChannel. So no post-split code path can create a legacy `settings.installed` row — the
+    subject set is closed.
+  * A `settings.<system-key>` row can therefore ONLY come from a PRE-split install. Thallo is
+    pre-production; per the fold-migrations-prelaunch convention dev/test DBs are hand-synced and there
+    are no production installs — so the real subject set is empty.
+  * A boot-time reconcile would add a 4-key `settings` SELECT (+ a DELETE) to EVERY boot, including OFF
+    installs that never touch tenancy, to serve a subject set that does not exist. Net cost, ~zero benefit.
+  * The reconciler still runs at the one moment fragmentation would matter (enable/retrofit); it is a
+    harmless no-op on a clean post-split DB and a safety net if a site somehow carried legacy rows.
+  * Stale-dev-DB remedy (rare, local only): re-run setup, or one-liner move e.g.
+    `UPDATE thallo_system_flags ... ` / delete the orphan `settings` rows — cheaper than boot machinery.
 
 ## Environment / harness notes
 - Maintenance creds resolved from `DB_PGSQL_HOST/PORT/USERNAME/PASSWORD` (defaults 127.0.0.1:5432 postgres).
