@@ -48,18 +48,20 @@ final class MediaAdminController
         $page = max(1, (int) $request->query->get('page', '1'));
         $perPage = min(self::PER_PAGE_MAX, max(1, (int) $request->query->get('per_page', '30')));
 
-        $query = db($this->context)->table('blobs')
-            ->where('status', '=', 'active')
-            ->whereNull('deleted_at');
+        $query = db($this->context)->table('media_assets as ma')
+            ->join('blobs as b', 'b.uuid', '=', 'ma.blob_uuid')
+            ->select(['b.*'])
+            ->where('b.status', '=', 'active')
+            ->whereNull('b.deleted_at');
 
-        $this->applyTypeFilter($query, (string) $request->query->get('type', ''));
+        $this->applyTypeFilter($query, (string) $request->query->get('type', ''), 'b.mime_type');
 
         $search = trim((string) $request->query->get('q', ''));
         if ($search !== '') {
-            $query->where('name', 'LIKE', '%' . $search . '%');
+            $query->where('b.name', 'LIKE', '%' . $search . '%');
         }
 
-        $query->orderBy('created_at', 'desc');
+        $query->orderBy('b.created_at', 'desc');
 
         /** @var array{data:array<int,array<string,mixed>>,total:int,current_page:int,per_page:int} $result */
         $result = $query->paginate($page, $perPage);
@@ -391,21 +393,24 @@ final class MediaAdminController
     /** @return array<string,mixed>|null */
     private function findBlob(string $uuid): ?array
     {
-        $blob = db($this->context)->table('blobs')
-            ->where('uuid', '=', $uuid)
-            ->where('status', '=', 'active')
-            ->whereNull('deleted_at')
+        $blob = db($this->context)->table('media_assets as ma')
+            ->join('blobs as b', 'b.uuid', '=', 'ma.blob_uuid')
+            ->select(['b.*'])
+            ->where('ma.blob_uuid', '=', $uuid)
+            ->where('b.status', '=', 'active')
+            ->whereNull('b.deleted_at')
             ->first();
 
         return is_array($blob) ? $blob : null;
     }
 
-    private function applyTypeFilter(object $query, string $type): void
+    private function applyTypeFilter(object $query, string $type, string $column = 'mime_type'): void
     {
         match ($type) {
-            'image', 'video', 'audio' => $query->where('mime_type', 'LIKE', $type . '/%'),
+            'image', 'video', 'audio' => $query->where($column, 'LIKE', $type . '/%'),
             'doc' => $query->whereRaw(
-                "mime_type NOT LIKE 'image/%' AND mime_type NOT LIKE 'video/%' AND mime_type NOT LIKE 'audio/%'"
+                "{$column} NOT LIKE 'image/%' AND {$column} NOT LIKE 'video/%' "
+                . "AND {$column} NOT LIKE 'audio/%'"
             ),
             default => null,
         };
