@@ -19,7 +19,7 @@ const name = computed(() => props.collectionName)
 const { data: collection } = useCollection(name)
 
 const page = ref(1)
-const perPage = ref(20)
+const perPage = ref(10)
 const { data: pageData, status } = useCollectionRows(name, page, perPage)
 const { create, update, remove } = useCollectionRowMutations(name)
 
