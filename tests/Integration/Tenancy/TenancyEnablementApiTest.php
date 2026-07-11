@@ -5,11 +5,30 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Tenancy;
 
 use App\Tests\Support\AppTestCase;
+use Glueful\Extensions\Contracts\Tenancy\TenantDomainAdministration;
 use Glueful\Routing\Route;
 use Glueful\Routing\Router;
+use Thallo\Tenancy\Resolution\FullResolutionActivation;
 
 final class TenancyEnablementApiTest extends AppTestCase
 {
+    public function testResolutionServiceResolvesAndReportsInactiveWhileTenancyIsOff(): void
+    {
+        // Regression: FullResolutionActivation depends on TenantDomainAdministration /
+        // TenantResolutionProbe, which are bound only by the tenancy extension (active once
+        // tenancy is enabled). While tenancy is off those contracts are absent, so autowiring
+        // the service — and thus GET /v1/admin/tenancy/resolution — 500'd with a container
+        // error. The read-only status must build and report an inactive machine instead.
+        self::assertFalse(
+            $this->container()->has(TenantDomainAdministration::class),
+            'Precondition: the tenancy extension is not active in this off-mode harness.'
+        );
+
+        $activation = $this->container()->get(FullResolutionActivation::class);
+
+        self::assertSame('inactive', $activation->status()['step']);
+    }
+
     public function testEnablementRoutesAreRegisteredAsSystemRoutes(): void
     {
         $expected = [
