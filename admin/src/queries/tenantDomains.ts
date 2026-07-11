@@ -8,6 +8,9 @@ export interface TenantDomain {
   host: string
   verification_status: string
   status: string
+  last_checked_at: string | null
+  last_check_status: string | null
+  consecutive_failures: number
 }
 
 export interface AddedTenantDomain {
@@ -40,6 +43,7 @@ async function mutateDomain(uuid: string, action: string, method = 'POST'): Prom
 }
 
 export const verifyDomain = (uuid: string) => mutateDomain(uuid, '/verify')
+export const reverifyDomain = (uuid: string) => mutateDomain(uuid, '/reverify')
 export const enableDomain = (uuid: string) => mutateDomain(uuid, '/enable')
 export const disableDomain = (uuid: string) => mutateDomain(uuid, '/disable')
 export const removeDomain = (uuid: string) => mutateDomain(uuid, '', 'DELETE')
@@ -64,6 +68,7 @@ export function useTenantDomainMutations(tenantUuid: MaybeRefOrGetter<string>) {
       onSettled: invalidate,
     }),
     verify: useMutation({ mutation: verifyDomain, onSettled: invalidate }),
+    reverify: useMutation({ mutation: reverifyDomain, onSettled: invalidate }),
     enable: useMutation({ mutation: enableDomain, onSettled: invalidate }),
     disable: useMutation({ mutation: disableDomain, onSettled: invalidate }),
     remove: useMutation({ mutation: removeDomain, onSettled: invalidate }),

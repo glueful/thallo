@@ -85,6 +85,17 @@ return [
             'parameters' => [],
             'description' => 'Fire due scheduled publish/unpublish actions',
         ],
+        [
+            'name' => 'domain_reverification_sweep',
+            'schedule' => '0 * * * *',
+            'handler_class' => \Thallo\Tenancy\Reverification\DomainReverificationSweepJob::class,
+            'parameters' => [],
+            'description' => 'Re-verify due custom-domain ownership proofs',
+            'enabled' => env('TENANCY_REVERIFICATION_ENABLED', true),
+            'queue' => $maintenanceQueue,
+            'timeout' => 300,
+            'retry_attempts' => 1,
+        ],
     ],
 
     'settings' => [

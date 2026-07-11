@@ -30,6 +30,13 @@ final class RawPdoWriteAudit implements StaticWriteAudit
         'packages/thallo-tenancy/src/Retrofit/MutationBoundaryLock.php',
         'app/Support/AuthorityContinuityGuard.php',
         'app/Support/RoleAuthority.php',
+        'packages/thallo-tenancy/src/Purge/Handlers/MediaPurgeHandler.php',
+        'packages/thallo-tenancy/src/Purge/Handlers/TablesPurgeHandler.php',
+        'packages/thallo-tenancy/src/Purge/PurgeCoordinator.php',
+        'packages/thallo-tenancy/src/Purge/PurgeJob.php',
+        'packages/thallo-tenancy/src/Purge/PurgeRunRepository.php',
+        'packages/thallo-tenancy/src/Enablement/TenancyDiagnostics.php',
+        'packages/thallo-tenancy/src/Reverification/DomainReverificationSweep.php',
     ];
 
     private const SYSTEM_WRITERS = [
@@ -44,6 +51,7 @@ final class RawPdoWriteAudit implements StaticWriteAudit
         'packages/thallo-tenancy/src/Retrofit/TableRebuilder.php',
         'packages/thallo-tenancy/src/TenancyServiceProvider.php',
         'packages/thallo-tenancy/src/Retrofit/MediaOwnershipBackfill.php',
+        'packages/thallo-tenancy/migrations/002_CreateTenantPurgeRunsTable.php',
     ];
 
     private const RUNWRITABLE_SITES = [

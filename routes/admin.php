@@ -27,6 +27,7 @@ use App\Http\Controllers\RegionAdminController;
 use App\Http\Controllers\ScheduledTasksController;
 use App\Http\Controllers\TenancyAccessController;
 use App\Http\Controllers\UserAdminController;
+use App\Http\Controllers\TenantHostCooldownController;
 use Glueful\Api\Webhooks\Http\Controllers\WebhookController;
 use Glueful\Routing\Router;
 
@@ -402,4 +403,9 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
         ->middleware('auth')
         ->middleware('tenant_profile:admin,soft')
         ->middleware('tenant_bootstrap:optional');
+
+    $router->post('/tenancy/hosts/cooldown/override', [TenantHostCooldownController::class, 'override'])
+        ->middleware('auth')
+        ->middleware('tenant_system')
+        ->middleware('content_permission:tenancy.manage');
 });

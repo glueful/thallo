@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ApiError } from '@/api/errors'
+import { ApiError, apiErrorDetails } from '@/api/errors'
 import { useTenantTarget } from '@/composables/useTenantTarget'
 import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 import {
@@ -44,6 +44,13 @@ async function add(host: string): Promise<void> {
   try {
     instructions.value = { ...(await mutations.add.mutateAsync(host)), host }
   } catch (caught) {
+    if (caught instanceof ApiError && caught.status === 409) {
+      const details = apiErrorDetails(caught)
+      if (details?.code === 'HOST_COOLDOWN' && typeof details.available_after === 'string') {
+        error.value = `Host in cooldown - available after ${details.available_after}`
+        return
+      }
+    }
     error.value =
       caught instanceof ApiError || caught instanceof Error
         ? caught.message
@@ -101,17 +108,46 @@ async function mutate(operation: () => Promise<unknown>): Promise<void> {
             >
               <div class="min-w-0 flex-1">
                 <p class="font-medium break-all">{{ domain.host }}</p>
-                <p class="text-xs text-muted">{{ domain.verification_status }}</p>
+                <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
+                  <span>{{ domain.verification_status }}</span>
+                  <span
+                    v-if="domain.last_check_status"
+                    :data-testid="`domain-check-${domain.uuid}`"
+                  >
+                    Last check: {{ domain.last_check_status }}
+                  </span>
+                  <span v-if="domain.consecutive_failures > 0">
+                    {{ domain.consecutive_failures }} consecutive failures
+                  </span>
+                  <span v-if="domain.last_checked_at">{{ domain.last_checked_at }}</span>
+                </div>
               </div>
-              <UBadge color="neutral" variant="subtle">{{ domain.status }}</UBadge>
+              <UBadge
+                :color="domain.verification_status === 'revoked' ? 'error' : 'neutral'"
+                variant="subtle"
+              >
+                {{ domain.verification_status === 'revoked' ? 'Not resolving' : domain.status }}
+              </UBadge>
               <UButton
-                v-if="domain.verification_status !== 'verified'"
+                v-if="domain.verification_status === 'pending'"
                 icon="i-lucide-badge-check"
                 color="neutral"
                 variant="ghost"
+                :data-testid="`domain-verify-${domain.uuid}`"
                 @click="mutate(() => mutations.verify.mutateAsync(domain.uuid))"
               >
                 Verify
+              </UButton>
+              <UButton
+                v-else-if="['verified', 'revoked'].includes(domain.verification_status)"
+                icon="i-lucide-refresh-cw"
+                color="neutral"
+                variant="ghost"
+                :loading="mutations.reverify.isLoading.value"
+                :data-testid="`domain-reverify-${domain.uuid}`"
+                @click="mutate(() => mutations.reverify.mutateAsync(domain.uuid))"
+              >
+                Re-verify now
               </UButton>
               <UButton
                 v-if="domain.status === 'active'"
