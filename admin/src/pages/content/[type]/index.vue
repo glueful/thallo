@@ -44,7 +44,7 @@ async function confirmDelete() {
 }
 
 const page = ref(1)
-const perPage = ref(20)
+const perPage = ref(10)
 const search = ref('')
 const debouncedSearch = refDebounced(search, 300)
 

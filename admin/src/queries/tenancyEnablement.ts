@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
+import { toValue, type MaybeRefOrGetter } from 'vue'
 import { authFetch } from '@/api/authFetch'
 import { runtimeConfig } from '@/runtime/config'
 
@@ -59,8 +60,15 @@ export const finalizeEnablement = () => action('finalize')
 export const disableEnablement = () => action('disable')
 export const confirmEnablement = (input: { slug: string; name: string }) => action('confirm', input)
 
-export function useTenancyEnablement() {
-  return useQuery({ key: qkEnablement(), query: fetchEnablementStatus })
+// `enabled` gates the fetch: /tenancy/status is content_permission:tenancy.manage-guarded, so
+// callers that render for non-operators (e.g. the sidebar) pass `() => access.manage_platform`
+// to avoid a guaranteed 403. Defaults to always-on for the operator-only lifecycle page.
+export function useTenancyEnablement(enabled: MaybeRefOrGetter<boolean> = true) {
+  return useQuery({
+    key: qkEnablement(),
+    query: fetchEnablementStatus,
+    enabled: () => toValue(enabled),
+  })
 }
 
 export function useTenancyEnablementMutations() {

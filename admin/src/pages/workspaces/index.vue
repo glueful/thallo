@@ -51,11 +51,11 @@ async function repair(uuid: string): Promise<void> {
 <template>
   <UDashboardPanel id="tenants">
     <template #header>
-      <UDashboardNavbar title="Tenants">
+      <UDashboardNavbar title="Workspaces">
         <template #right>
           <OperatorModeToggle v-if="accessStore.access.access_any" />
           <UButton v-if="canManage" icon="i-lucide-plus" @click="createOpen = true"
-            >New tenant</UButton
+            >New workspace</UButton
           >
         </template>
       </UDashboardNavbar>
@@ -116,7 +116,7 @@ async function repair(uuid: string): Promise<void> {
                 icon="i-lucide-pause"
                 color="neutral"
                 variant="ghost"
-                aria-label="Suspend tenant"
+                aria-label="Suspend workspace"
                 @click="mutations.suspend.mutate(tenant.uuid)"
               />
               <UButton
@@ -124,7 +124,7 @@ async function repair(uuid: string): Promise<void> {
                 icon="i-lucide-play"
                 color="neutral"
                 variant="ghost"
-                aria-label="Reactivate tenant"
+                aria-label="Reactivate workspace"
                 @click="mutations.reactivate.mutate(tenant.uuid)"
               />
             </div>

@@ -16,6 +16,7 @@ import { useUnreadCount } from '@/queries/formSubmissions'
 import { useTenantStore } from '@/stores/tenant'
 import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 import { useTenancyAccessLifecycle } from '@/composables/useTenancyAccessLifecycle'
+import { useTenancyEnablement } from '@/queries/tenancyEnablement'
 import { shapeTenancyNav } from '@/navigation/shapeTenancyNav'
 
 registerCoreModule()
@@ -57,6 +58,17 @@ onBeforeUnmount(() => {
 
 const nav = useVisibleNav()
 const { data: contentTypes } = useContentTypes()
+// The authoritative "tenancy is switched on" signal — distinct from the `thallo.tenancy`
+// capability (which only means the pack is installed). /tenancy/status is operator-guarded, so
+// the fetch is gated on manage_platform; owners never need it because their domain/member access
+// only resolves when tenancy is already on.
+const { data: enablementStatus } = useTenancyEnablement(() => tenancyAccess.access.manage_platform)
+const tenancyEnabled = computed(
+  () =>
+    (enablementStatus.value?.enabled ?? false) ||
+    tenancyAccess.access.manage_domains ||
+    tenancyAccess.access.manage_members,
+)
 // Live unread count for the Submissions badge (module registration is non-reactive, so
 // the badge is injected here — the same seam the Content children use).
 const { data: unreadSubmissions } = useUnreadCount()
@@ -86,6 +98,7 @@ const mainItems = computed(() => {
     tenancyAccess.access,
     tenant.selectedUuid,
     caps.isEnabled('thallo.tenancy'),
+    tenancyEnabled.value,
   )
 })
 const utilityItems = computed(() => nav.value[1])

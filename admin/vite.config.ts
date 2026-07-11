@@ -5,7 +5,7 @@ import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 import VueRouter from 'vue-router/vite'
 import Layouts from 'vite-plugin-vue-layouts-next'
-import ui from '@nuxt/ui/vite'
+import ui, { type NuxtUIOptions } from '@nuxt/ui/vite'
 
 import fs from 'fs'
 import path from 'path'
@@ -21,6 +21,12 @@ export default defineConfig(({ mode }) => {
     process.cwd(),
     '',
   )
+
+  // @nuxt/ui@4.9.0 mistypes the Vite plugin's `icon` option as Pick<RuntimeOptions,'customize'|'size'|
+  // 'mode'> with those keys REQUIRED — it both omits the documented `clientBundle.scan` build-time option
+  // (ui.nuxt.com — icons/vue) and demands three props the plugin doesn't need. The runtime honours
+  // `clientBundle`, so cast our real option through the plugin's accepted option type.
+  const iconOptions = { clientBundle: { scan: true } } as unknown as NuxtUIOptions['icon']
 
   return {
     // The admin SPA is served by the PHP app at /admin (framework serveFrontend() seam), so assets
@@ -67,6 +73,8 @@ export default defineConfig(({ mode }) => {
       Layouts(),
       ui({
         colorMode: false, // Disable color mode support
+        icon: iconOptions,
+
         ui: {
           colors: {
             primary: 'blue',

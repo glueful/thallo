@@ -53,7 +53,12 @@ async function mutate(operation: () => Promise<unknown>): Promise<void> {
     </template>
     <template #body>
       <div class="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6">
-        <UEmpty v-if="denied" variant="naked" icon="i-lucide-shield-x" title="Tenant unavailable" />
+        <UEmpty
+          v-if="denied"
+          variant="naked"
+          icon="i-lucide-shield-x"
+          title="Workspace unavailable"
+        />
         <template v-else-if="targetReady">
           <MemberAddForm
             v-if="access.access.manage_members"

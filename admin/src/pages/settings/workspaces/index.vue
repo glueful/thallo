@@ -58,7 +58,7 @@ function onActivate(retry: boolean) {
 <template>
   <UDashboardPanel id="settings-tenancy">
     <template #header>
-      <UDashboardNavbar title="Tenancy" />
+      <UDashboardNavbar title="Workspaces" />
     </template>
     <template #body>
       <div class="mx-auto w-full max-w-5xl px-4 sm:px-6">
