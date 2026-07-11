@@ -15,6 +15,7 @@ use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 use Glueful\Support\SignedUrl;
 use Symfony\Component\HttpFoundation\Request;
+use Thallo\Tenancy\System\SystemFlags;
 
 /**
  * Media-library admin API over the framework `blobs` store.
@@ -31,8 +32,10 @@ final class MediaAdminController
 {
     private const PER_PAGE_MAX = 60;
 
-    public function __construct(private readonly ApplicationContext $context)
-    {
+    public function __construct(
+        private readonly ApplicationContext $context,
+        private readonly SystemFlags $flags,
+    ) {
     }
 
     /** GET /v1/admin/media — paginated, type-filtered, searchable library. */
@@ -48,11 +51,7 @@ final class MediaAdminController
         $page = max(1, (int) $request->query->get('page', '1'));
         $perPage = min(self::PER_PAGE_MAX, max(1, (int) $request->query->get('per_page', '30')));
 
-        $query = db($this->context)->table('media_assets as ma')
-            ->join('blobs as b', 'b.uuid', '=', 'ma.blob_uuid')
-            ->select(['b.*'])
-            ->where('b.status', '=', 'active')
-            ->whereNull('b.deleted_at');
+        $query = $this->activeBlobs();
 
         $this->applyTypeFilter($query, (string) $request->query->get('type', ''), 'b.mime_type');
 
@@ -393,15 +392,28 @@ final class MediaAdminController
     /** @return array<string,mixed>|null */
     private function findBlob(string $uuid): ?array
     {
-        $blob = db($this->context)->table('media_assets as ma')
-            ->join('blobs as b', 'b.uuid', '=', 'ma.blob_uuid')
-            ->select(['b.*'])
-            ->where('ma.blob_uuid', '=', $uuid)
-            ->where('b.status', '=', 'active')
-            ->whereNull('b.deleted_at')
-            ->first();
+        $blob = $this->activeBlobs()->where('b.uuid', '=', $uuid)->first();
 
         return is_array($blob) ? $blob : null;
+    }
+
+    /**
+     * Base query over active, non-deleted blobs, aliased `b`.
+     *
+     * When tenancy is on, `media_assets` is the primary table so the framework tenant read-hook
+     * auto-scopes the library to the resolved tenant. When off there is no ledger to join — blobs
+     * are queried directly, so tenancy-off uploads (which never get a ledger row) stay visible.
+     */
+    private function activeBlobs(): object
+    {
+        $db = db($this->context);
+        $query = $this->flags->tenancyEnabled()
+            ? $db->table('media_assets as ma')->join('blobs as b', 'b.uuid', '=', 'ma.blob_uuid')
+            : $db->table('blobs as b');
+
+        return $query->select(['b.*'])
+            ->where('b.status', '=', 'active')
+            ->whereNull('b.deleted_at');
     }
 
     private function applyTypeFilter(object $query, string $type, string $column = 'mime_type'): void
