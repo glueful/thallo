@@ -22,7 +22,13 @@ use App\Content\Forms\Spam\FormSubmissionGuard;
 use App\Content\Media\TenantBlobPolicy;
 use App\Content\Media\TenantBlobPublicUrlProvider;
 use App\Content\Media\TenantBlobRouteMiddlewareProvider;
+use App\Content\Authorization\OperatorBypass;
+use App\Content\Authorization\AuthenticatedPrincipalResolver;
+use App\Content\Authorization\PermissionAuthority;
+use App\Content\Authorization\RoleMatrix;
+use App\Content\Authorization\TenantMembershipRoleReader;
 use Glueful\Encryption\EncryptionService;
+use Glueful\Extensions\Audit\Contracts\AuditRecorderInterface;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
 use Glueful\Extensions\Contracts\Tenancy\TenantRuntimeReadiness;
 use Glueful\Uploader\Contracts\BlobAccessPolicy;
@@ -59,6 +65,7 @@ use App\Http\Controllers\ImportExportController;
 use App\Http\Controllers\MediaAdminController;
 use App\Http\Controllers\RegionAdminController;
 use App\Http\Controllers\ScheduledTasksController;
+use App\Http\Controllers\TenancyAccessController;
 use App\Http\Controllers\UserAdminController;
 use App\Support\UserRoleAssignmentPolicy;
 use App\Settings\GeneralSettings;
@@ -186,6 +193,7 @@ use Thallo\Tenancy\System\SystemFlags;
 use Glueful\Database\Connection;
 use Glueful\Database\Migrations\MigrationPriority;
 use Glueful\Events\EventService;
+use Glueful\Permissions\PermissionManager;
 use Thallo\Collections\Events\CollectionCreated;
 use Thallo\Collections\Events\CollectionDropped;
 use Thallo\Collections\Events\CollectionRowCreated;
@@ -1127,12 +1135,83 @@ final class ThalloServiceProvider extends ServiceProvider
                 'autowire' => true,
             ],
             RequirePermission::class => [
-                'class' => RequirePermission::class,
+                'factory' => [self::class, 'makeRequirePermission'],
                 'shared' => true,
-                'autowire' => true,
                 'alias' => ['content_permission'],
             ],
+            RoleMatrix::class => [
+                'class' => RoleMatrix::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            TenantMembershipRoleReader::class => [
+                'factory' => [self::class, 'makeMembershipRoleReader'],
+                'shared' => true,
+            ],
+            OperatorBypass::class => [
+                'factory' => [self::class, 'makeOperatorBypass'],
+                'shared' => true,
+            ],
+            AuthenticatedPrincipalResolver::class => [
+                'class' => AuthenticatedPrincipalResolver::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            PermissionAuthority::class => [
+                'class' => PermissionAuthority::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
         ];
+    }
+
+    public static function makeMembershipRoleReader(ContainerInterface $container): TenantMembershipRoleReader
+    {
+        return new TenantMembershipRoleReader(
+            $container->get(ApplicationContext::class),
+            $container->has(CurrentTenantResolver::class)
+                ? $container->get(CurrentTenantResolver::class)
+                : null,
+        );
+    }
+
+    public static function makeOperatorBypass(ContainerInterface $container): OperatorBypass
+    {
+        $permissions = $container->has(PermissionManager::class)
+            ? $container->get(PermissionManager::class)
+            : ($container->has('permission.manager') ? $container->get('permission.manager') : null);
+        return new OperatorBypass(
+            $container->get(ApplicationContext::class),
+            $permissions instanceof PermissionManager ? $permissions : null,
+            $container->has(AuditRecorderInterface::class)
+                ? $container->get(AuditRecorderInterface::class)
+                : null,
+        );
+    }
+
+    public static function makeRequirePermission(ContainerInterface $container): RequirePermission
+    {
+        return new RequirePermission(
+            $container->get(ApplicationContext::class),
+            $container->get(TenantMembershipRoleReader::class),
+            $container->get(RoleMatrix::class),
+            $container->get(OperatorBypass::class),
+            $container->get(AuthenticatedPrincipalResolver::class),
+            $container->get(PermissionAuthority::class),
+        );
+    }
+
+    public static function makeTenancyAccessController(ContainerInterface $container): TenancyAccessController
+    {
+        return new TenancyAccessController(
+            $container->get(AuthenticatedPrincipalResolver::class),
+            $container->get(PermissionAuthority::class),
+            $container->has(RoleMatrix::class) ? $container->get(RoleMatrix::class) : null,
+            $container->has(TenantMembershipRoleReader::class)
+                ? $container->get(TenantMembershipRoleReader::class)
+                : null,
+            $container->has(OperatorBypass::class) ? $container->get(OperatorBypass::class) : null,
+        );
     }
 
     /**
@@ -1248,6 +1327,10 @@ final class ThalloServiceProvider extends ServiceProvider
                 'class' => ScheduledTasksController::class,
                 'shared' => true,
                 'autowire' => true,
+            ],
+            TenancyAccessController::class => [
+                'factory' => [self::class, 'makeTenancyAccessController'],
+                'shared' => true,
             ],
             SetupController::class => [
                 'class' => SetupController::class,

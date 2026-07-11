@@ -10,6 +10,7 @@ use Glueful\Extensions\Contracts\Tenancy\TenantRuntimeReadiness;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Tenancy\Contracts\TenantSeedActivator;
+use Thallo\Tenancy\Contracts\TenantSeedRepair;
 use Thallo\Tenancy\Http\Controllers\TenantManagementController;
 use Thallo\Tenancy\Runtime\BootstrapTenantCreationGuard;
 use Thallo\Tenancy\StarterSeedException;
@@ -55,9 +56,30 @@ final class TenantSeedActivationControllerTest extends TestCase
         self::assertStringContainsString('thallo:tenant:seed', $body['error']['details']['repair_command']);
     }
 
+    public function testSeedRepairEndpointReturnsActive(): void
+    {
+        $repair = new class implements TenantSeedRepair {
+            public bool $called = false;
+
+            public function repair(string $tenantUuid): void
+            {
+                $this->called = $tenantUuid === 'tenant000001';
+            }
+        };
+        $controller = $this->controller($this->administration(), $this->successfulSeeder(), $repair);
+
+        $response = $controller->seed('tenant000001');
+        $body = json_decode((string) $response->getContent(), true, flags: JSON_THROW_ON_ERROR);
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertSame('active', $body['data']['tenant']['status']);
+        self::assertTrue($repair->called);
+    }
+
     private function controller(
         TenantAdministration $admin,
         TenantSeedActivator $seeder,
+        ?TenantSeedRepair $repair = null,
     ): TenantManagementController {
         $context = new ApplicationContext(sys_get_temp_dir(), 'testing');
         $readiness = new class implements TenantRuntimeReadiness {
@@ -76,7 +98,17 @@ final class TenantSeedActivationControllerTest extends TestCase
             new BootstrapTenantCreationGuard($context, $readiness),
             $admin,
             $seeder,
+            $repair,
         );
+    }
+
+    private function successfulSeeder(): TenantSeedActivator
+    {
+        return new class implements TenantSeedActivator {
+            public function seedAndActivate(string $tenantUuid, string $ownerUserUuid): void
+            {
+            }
+        };
     }
 
     private function request(): Request

@@ -23,6 +23,19 @@ final class TenancyEnablementRecoveryTest extends AppTestCase
         self::assertNull($status->failure);
     }
 
+    public function testRetriedMigrationResumesToAwaitingConfirm(): void
+    {
+        $store = $this->container()->get(EnablementStore::class);
+        $store->recordFailure(EnablementStep::MIGRATING_EXTENSION, 'failed');
+
+        $enablement = $this->container()->get(TenancyEnablement::class);
+        $enablement->retry();
+        $status = $enablement->begin();
+
+        self::assertSame(EnablementStep::AWAITING_CONFIRM, $status->step);
+        self::assertNull($status->failure);
+    }
+
     public function testCancelReturnsPreRetrofitStepToOff(): void
     {
         $store = $this->container()->get(EnablementStore::class);

@@ -74,6 +74,50 @@ final class BootstrapResolutionTest extends AppTestCase
         self::assertSame(Response::HTTP_SERVICE_UNAVAILABLE, $response->getStatusCode());
     }
 
+    public function testOptionalRoutePassesWithoutTenantOutsideBootstrapMode(): void
+    {
+        $flags = $this->container()->get(SystemFlags::class);
+        $flags->put('tenancy.enabled', '1');
+
+        $middleware = new BootstrapDefaultTenantMiddleware(
+            $this->appContext(),
+            $flags,
+            $this->readiness(TenantRuntimeReadiness::MODE_FULL_RESOLUTION),
+        );
+
+        $response = $middleware->handle(
+            Request::create('/'),
+            static fn (): Response => new Response('optional'),
+            'optional',
+        );
+
+        self::assertSame(Response::HTTP_OK, $response->getStatusCode());
+        self::assertSame('optional', $response->getContent());
+    }
+
+    public function testOptionalRouteStillUsesDefaultTenantInBootstrapMode(): void
+    {
+        $flags = $this->container()->get(SystemFlags::class);
+        $flags->put('tenancy.enabled', '1');
+        $flags->put('tenancy.default_tenant_uuid', 'tenant000001');
+        $runner = $this->runner();
+        $middleware = new BootstrapDefaultTenantMiddleware(
+            $this->appContext(),
+            $flags,
+            $this->readiness(TenantRuntimeReadiness::MODE_BOOTSTRAP_DEFAULT),
+            null,
+            $runner,
+        );
+
+        $middleware->handle(
+            Request::create('/'),
+            static fn (): Response => new Response('scoped'),
+            'optional',
+        );
+
+        self::assertSame('tenant000001', $runner->tenantUuid);
+    }
+
     private function readiness(string $mode): TenantRuntimeReadiness
     {
         return new class ($mode) implements TenantRuntimeReadiness {

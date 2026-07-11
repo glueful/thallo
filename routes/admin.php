@@ -24,6 +24,7 @@ use App\Http\Controllers\ImportExportController;
 use App\Http\Controllers\MediaAdminController;
 use App\Http\Controllers\RegionAdminController;
 use App\Http\Controllers\ScheduledTasksController;
+use App\Http\Controllers\TenancyAccessController;
 use App\Http\Controllers\UserAdminController;
 use Glueful\Api\Webhooks\Http\Controllers\WebhookController;
 use Glueful\Routing\Router;
@@ -392,4 +393,9 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
         $router->post('/import-export/upload', [ImportExportController::class, 'upload'])
             ->middleware('content_permission:content.manage');
     });
+
+    $router->get('/tenancy/access', [TenancyAccessController::class, 'access'])
+        ->middleware('auth')
+        ->middleware('tenant_profile:admin,soft')
+        ->middleware('tenant_bootstrap:optional');
 });

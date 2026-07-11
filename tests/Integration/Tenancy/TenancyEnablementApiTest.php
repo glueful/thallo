@@ -14,11 +14,14 @@ final class TenancyEnablementApiTest extends AppTestCase
     {
         $expected = [
             'GET:/v1/admin/tenancy/status',
+            'GET:/v1/admin/tenancy/diagnose',
             'POST:/v1/admin/tenancy/begin',
             'POST:/v1/admin/tenancy/confirm',
             'POST:/v1/admin/tenancy/retry',
             'POST:/v1/admin/tenancy/cancel',
             'POST:/v1/admin/tenancy/finalize',
+            'POST:/v1/admin/tenancy/disable',
+            'POST:/v1/admin/tenancy/resolution/activate',
         ];
         $found = [];
 
@@ -29,7 +32,7 @@ final class TenancyEnablementApiTest extends AppTestCase
             $found[] = $key;
             self::assertContains('auth', $route->getMiddleware());
             self::assertContains('tenant_system', $route->getMiddleware());
-            self::assertContains('content_permission:system.access', $route->getMiddleware());
+            self::assertContains('content_permission:tenancy.manage', $route->getMiddleware());
         }
 
         sort($expected);

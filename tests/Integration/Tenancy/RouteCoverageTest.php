@@ -35,7 +35,11 @@ final class RouteCoverageTest extends AppTestCase
 
             ++$checked;
             $middleware = $route->getMiddleware();
-            $present = array_values(array_intersect(self::MARKERS, $middleware));
+            $baseMiddleware = array_map(
+                static fn (string $entry): string => explode(':', $entry, 2)[0],
+                $middleware,
+            );
+            $present = array_values(array_intersect(self::MARKERS, $baseMiddleware));
             $path = $route->getPath();
 
             self::assertCount(
@@ -45,12 +49,17 @@ final class RouteCoverageTest extends AppTestCase
             );
 
             if (($present[0] ?? null) === 'tenant_bootstrap') {
-                $index = array_search('tenant_bootstrap', $middleware, true);
+                $index = array_search('tenant_bootstrap', $baseMiddleware, true);
                 self::assertIsInt($index);
                 $prefix = array_slice($middleware, 0, $index);
                 self::assertContains(
                     $prefix,
-                    [[], ['tenant_profile:public'], ['auth', 'tenant_profile:admin']],
+                    [
+                        [],
+                        ['tenant_profile:public'],
+                        ['auth', 'tenant_profile:admin'],
+                        ['auth', 'tenant_profile:admin,soft'],
+                    ],
                     sprintf(
                         '%s: tenant_bootstrap must directly follow its resolver; prefix was [%s]',
                         $path,
@@ -65,6 +74,35 @@ final class RouteCoverageTest extends AppTestCase
         }
 
         self::assertGreaterThan(40, $checked);
+    }
+
+    public function testTenancyRoutesNoLongerUseSystemAccess(): void
+    {
+        foreach ($this->allRoutes() as $route) {
+            if (!str_starts_with($route->getPath(), '/v1/admin/tenancy')) {
+                continue;
+            }
+            self::assertNotContains(
+                'content_permission:system.access',
+                $route->getMiddleware(),
+                $route->getPath(),
+            );
+        }
+    }
+
+    /** @return list<Route> */
+    private function allRoutes(): array
+    {
+        $router = $this->container()->get(Router::class);
+        $routes = array_values($router->getStaticRoutes());
+        foreach ($router->getDynamicRoutes() as $methodRoutes) {
+            foreach ($methodRoutes as $route) {
+                if ($route instanceof Route) {
+                    $routes[] = $route;
+                }
+            }
+        }
+        return array_values(array_filter($routes, static fn(mixed $route): bool => $route instanceof Route));
     }
 
     private static function handlerClass(Route $route): ?string
