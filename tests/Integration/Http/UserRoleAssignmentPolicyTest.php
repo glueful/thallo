@@ -95,14 +95,13 @@ final class UserRoleAssignmentPolicyTest extends AppTestCase
         }
     }
 
-    public function testSuperuserIsExemptFromCeiling(): void
+    public function testSuperuserCannotBeAssignedThroughUserApi(): void
     {
         $su = $this->userWithRole('superuser');
         $target = $this->seedUser();
 
-        // A superuser may assign superuser (exempt) and change their own roles.
+        $this->expectException(RoleAssignmentException::class);
         $this->policy()->assertCanSyncRoles($su, $target, [], ['superuser']);
-        $this->addToAssertionCount(1);
     }
 
     public function testNoRoleChangeIsAlwaysAllowed(): void

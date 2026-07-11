@@ -13,6 +13,7 @@ use App\Content\Http\Controllers\PublicationController;
 use App\Content\Http\Controllers\RedirectController;
 use App\Content\Http\Controllers\ScheduleController;
 use App\Http\Controllers\ApiKeyAdminController;
+use App\Http\Controllers\AssignableRolesController;
 use App\Http\Controllers\CacheAdminController;
 use App\Http\Controllers\CapabilityAdminController;
 use App\Http\Controllers\ExtensionAdminController;
@@ -246,6 +247,9 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
     $router->group(['middleware' => ['tenant_system', 'auth']], function (Router $router): void {
         // Admin user management (app-owned policy over glueful/users' store primitives). The list/read
         // lives in glueful/users (`GET /v1/users`); creating and removing users is product policy.
+        $router->get('/users/assignable-roles', [AssignableRolesController::class, 'index'])
+            ->middleware('content_permission:users.roles.manage');
+
         $router->post('/users', [UserAdminController::class, 'store'])
             ->middleware('content_permission:users.create');
 

@@ -9,6 +9,9 @@ use App\Http\DTOs\ErrorResponse;
 use App\Http\DTOs\UpdateUserData;
 use Glueful\Auth\PasswordHasher;
 use App\Support\ActorHelper;
+use App\Support\AuthorityAudit;
+use App\Support\AuthorityContinuityGuard;
+use App\Support\AuthorityMutator;
 use App\Support\RoleAssignmentException;
 use App\Support\UserRoleAssignmentPolicy;
 use Glueful\Bootstrap\ApplicationContext;
@@ -42,6 +45,9 @@ final class UserAdminController
         private readonly UserRepository $users,
         private readonly AegisPermissionProvider $aegis,
         private readonly UserRoleAssignmentPolicy $rolePolicy,
+        private readonly AuthorityContinuityGuard $continuity,
+        private readonly AuthorityMutator $authorityMutator,
+        private readonly AuthorityAudit $audit,
     ) {
     }
 
@@ -141,31 +147,69 @@ final class UserAdminController
             return Response::validation(['username' => 'A user with this username already exists.']);
         }
 
-        // Account fields: only non-empty values (don't blank a username/email/status).
-        $account = array_filter(
-            ['username' => $input->username, 'email' => $input->email, 'status' => $input->status],
-            static fn ($v) => $v !== null && $v !== '',
-        );
-        if ($account !== []) {
-            $this->users->update($uuid, $account);
-        }
+        $current = $this->currentRoleSlugs($uuid);
+        $desired = $input->role_slugs;
+        $rolesRemoved = $desired === null ? [] : array_values(array_diff($current, $desired));
+        $deactivating = $input->status !== null && $input->status !== '' && $input->status !== 'active';
 
-        // Profile fields accept empty strings (so a name can be cleared); skip only when absent (null).
-        $this->applyProfile($uuid, $input->first_name, $input->last_name, allowClear: true);
-
-        // role_slugs is nullable: omitted ⇒ leave roles untouched; provided ⇒ replace with that set.
-        if ($input->role_slugs !== null) {
+        if ($desired !== null) {
             try {
                 $this->rolePolicy->assertCanSyncRoles(
                     ActorHelper::uuidFromRequest($request) ?? '',
                     $uuid,
-                    $this->currentRoleSlugs($uuid),
-                    $input->role_slugs,
+                    $current,
+                    $desired,
                 );
             } catch (RoleAssignmentException $e) {
                 return $this->roleAssignmentError($e);
             }
-            $this->syncRoles($uuid, $input->role_slugs);
+        }
+
+        $account = array_filter(
+            ['username' => $input->username, 'email' => $input->email, 'status' => $input->status],
+            static fn ($v) => $v !== null && $v !== '',
+        );
+
+        $actorUuid = ActorHelper::uuidFromRequest($request);
+        try {
+            $this->continuity->runExclusive(function () use (
+                $actorUuid,
+                $uuid,
+                $account,
+                $desired,
+                $rolesRemoved,
+                $deactivating,
+            ): void {
+                if ($rolesRemoved !== [] || $deactivating) {
+                    $this->continuity->assertPreservesAuthority(
+                        $actorUuid,
+                        $uuid,
+                        $rolesRemoved,
+                        $deactivating,
+                        $deactivating ? 'deactivate' : 'roles_sync',
+                    );
+                }
+                if ($account !== [] && !$this->authorityMutator->updateUser($uuid, $account)) {
+                    throw new \RuntimeException('User account update failed.');
+                }
+                if ($desired !== null) {
+                    $this->syncRoles($uuid, $desired, transactional: true);
+                }
+            });
+        } catch (RoleAssignmentException $e) {
+            return $this->roleAssignmentError($e);
+        }
+
+        // Profile fields carry no authority and need not hold the global authority lock.
+        $this->applyProfile($uuid, $input->first_name, $input->last_name, allowClear: true);
+
+        if ($desired !== null) {
+            foreach ($rolesRemoved as $slug) {
+                $this->audit->record('security.role_revoked', $actorUuid, $uuid, ['role' => $slug]);
+            }
+            foreach (array_values(array_diff($desired, $current)) as $slug) {
+                $this->audit->record('security.role_assigned', $actorUuid, $uuid, ['role' => $slug]);
+            }
         }
 
         return Response::success([], 'User updated.');
@@ -196,8 +240,19 @@ final class UserAdminController
             return Response::error('You cannot delete your own account.', Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        if (!$this->users->softDelete($uuid)) {
+        if ($this->users->findByUuid($uuid) === null) {
             return Response::notFound('User not found.');
+        }
+
+        try {
+            $this->continuity->runExclusive(function () use ($actorUuid, $uuid): void {
+                $this->continuity->assertPreservesAuthority($actorUuid, $uuid, [], true, 'delete');
+                if (!$this->authorityMutator->softDeleteUser($uuid)) {
+                    throw new \RuntimeException('User soft-delete failed.');
+                }
+            });
+        } catch (RoleAssignmentException $e) {
+            return $this->roleAssignmentError($e);
         }
 
         return Response::success([], 'User deleted.');
@@ -251,7 +306,7 @@ final class UserAdminController
         return Response::error($e->getMessage(), Response::HTTP_FORBIDDEN, ['code' => 'FORBIDDEN']);
     }
 
-    private function syncRoles(string $userUuid, array $roleSlugs): void
+    private function syncRoles(string $userUuid, array $roleSlugs, bool $transactional = false): void
     {
         $want = array_values(
             array_filter(array_map('strval', $roleSlugs), static fn (string $s) => $s !== ''),
@@ -266,12 +321,16 @@ final class UserAdminController
 
         foreach ($have as $slug) {
             if (!in_array($slug, $want, true)) {
-                $this->aegis->revokeRole($userUuid, $slug);
+                $transactional
+                    ? $this->authorityMutator->revokeRole($userUuid, $slug)
+                    : $this->aegis->revokeRole($userUuid, $slug);
             }
         }
         foreach ($want as $slug) {
             if (!in_array($slug, $have, true)) {
-                $this->aegis->assignRole($userUuid, $slug);
+                $transactional
+                    ? $this->authorityMutator->assignRole($userUuid, $slug)
+                    : $this->aegis->assignRole($userUuid, $slug);
             }
         }
     }

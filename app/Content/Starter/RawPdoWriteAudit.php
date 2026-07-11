@@ -28,6 +28,8 @@ final class RawPdoWriteAudit implements StaticWriteAudit
         'packages/thallo-tenancy/src/Retrofit/UniquenessPreflight.php',
         'packages/thallo-tenancy/src/Enablement/EnablementLock.php',
         'packages/thallo-tenancy/src/Retrofit/MutationBoundaryLock.php',
+        'app/Support/AuthorityContinuityGuard.php',
+        'app/Support/RoleAuthority.php',
     ];
 
     private const SYSTEM_WRITERS = [
