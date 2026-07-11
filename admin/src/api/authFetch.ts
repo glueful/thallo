@@ -20,7 +20,10 @@ export async function authFetch(
   }
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (token) headers.authorization = `Bearer ${token}`
-  if (tenant?.selectedUuid) headers['X-Tenant-Id'] = tenant.selectedUuid
+  if (tenant?.selectedUuid) {
+    headers['X-Tenant-Id'] = tenant.selectedUuid
+    if (tenant.operatorMode) headers['X-Tenant-Operator-Mode'] = '1'
+  }
   const res = await fetch(path, {
     ...init,
     headers: { ...headers, ...(init.headers as Record<string, string> | undefined) },

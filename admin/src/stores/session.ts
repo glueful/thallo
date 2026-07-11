@@ -92,6 +92,7 @@ export const useSessionStore = defineStore(
       // avoids a store<->store cycle). NOT called on token refresh — only on identity changes.
       void import('@/stores/capabilities').then((m) => m.useCapabilitiesStore().reset())
       void import('@/stores/tenant').then((m) => m.useTenantStore().reset())
+      void import('@/stores/tenancyAccess').then((m) => m.useTenancyAccessStore().reset())
     }
 
     async function login(email: string, password: string): Promise<void> {
@@ -110,6 +111,8 @@ export const useSessionStore = defineStore(
       useCapabilitiesStore().reset()
       const { useTenantStore } = await import('@/stores/tenant')
       useTenantStore().reset()
+      const { useTenancyAccessStore } = await import('@/stores/tenancyAccess')
+      useTenancyAccessStore().reset()
     }
 
     // Mint a fresh access token by POSTing the stored refresh token in the body (no cookie). Refresh

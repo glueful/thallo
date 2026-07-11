@@ -25,7 +25,10 @@ const authMiddleware: Middleware = {
     if (getActivePinia()) {
       const { useTenantStore } = await import('@/stores/tenant')
       const tenant = useTenantStore()
-      if (tenant.selectedUuid) request.headers.set('X-Tenant-Id', tenant.selectedUuid)
+      if (tenant.selectedUuid) {
+        request.headers.set('X-Tenant-Id', tenant.selectedUuid)
+        if (tenant.operatorMode) request.headers.set('X-Tenant-Operator-Mode', '1')
+      }
     }
     return request
   },

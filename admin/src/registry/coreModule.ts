@@ -117,6 +117,11 @@ const main: NavigationMenuItem[] = [
         icon: 'i-lucide-arrow-down-up',
         to: '/settings/import-export',
       },
+      {
+        label: 'Tenancy',
+        icon: 'i-lucide-building-2',
+        to: '/settings/tenancy',
+      },
     ],
   },
   {

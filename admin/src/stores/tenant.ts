@@ -14,16 +14,23 @@ export const useTenantStore = defineStore(
   'tenant',
   () => {
     const selectedUuid = ref<string | null>(null)
+    const operatorMode = ref(false)
     const tenants = ref<TenantSummary[]>([])
     const loaded = ref(false)
     let inflight: Promise<void> | null = null
 
     function select(uuid: string): void {
+      operatorMode.value = false
       selectedUuid.value = uuid
     }
 
     function clearSelection(): void {
+      operatorMode.value = false
       selectedUuid.value = null
+    }
+
+    function setOperatorMode(enabled: boolean): void {
+      operatorMode.value = enabled
     }
 
     async function load(): Promise<void> {
@@ -49,13 +56,24 @@ export const useTenantStore = defineStore(
     }
 
     function reset(): void {
+      operatorMode.value = false
       tenants.value = []
       selectedUuid.value = null
       loaded.value = false
       inflight = null
     }
 
-    return { selectedUuid, tenants, loaded, select, clearSelection, ensureLoaded, reset }
+    return {
+      selectedUuid,
+      operatorMode,
+      tenants,
+      loaded,
+      select,
+      clearSelection,
+      setOperatorMode,
+      ensureLoaded,
+      reset,
+    }
   },
   tenantStoreOptions,
 )

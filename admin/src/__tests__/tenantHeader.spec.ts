@@ -4,6 +4,7 @@ const stores = vi.hoisted(() => ({
   session: { accessToken: 'token' as string | null },
   tenant: {
     selectedUuid: 'tenant000001' as string | null,
+    operatorMode: false,
     clearSelection: vi.fn(),
     ensureLoaded: vi.fn().mockResolvedValue(undefined),
   },
@@ -17,6 +18,7 @@ import { authFetch } from '@/api/authFetch'
 describe('tenant request header', () => {
   beforeEach(() => {
     stores.tenant.selectedUuid = 'tenant000001'
+    stores.tenant.operatorMode = false
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: {} }), { status: 200 })),
@@ -36,5 +38,18 @@ describe('tenant request header', () => {
     const init = vi.mocked(fetch).mock.calls[0]?.[1]
     const headers = (init?.headers ?? {}) as Record<string, string>
     expect(headers['X-Tenant-Id']).toBeUndefined()
+  })
+
+  it('attaches operator mode only with an active tenant selection', async () => {
+    stores.tenant.operatorMode = true
+    await authFetch('/v1/admin/content-types')
+    let headers = (vi.mocked(fetch).mock.calls[0]?.[1]?.headers ?? {}) as Record<string, string>
+    expect(headers['X-Tenant-Operator-Mode']).toBe('1')
+
+    vi.mocked(fetch).mockClear()
+    stores.tenant.selectedUuid = null
+    await authFetch('/v1/admin/content-types')
+    headers = (vi.mocked(fetch).mock.calls[0]?.[1]?.headers ?? {}) as Record<string, string>
+    expect(headers['X-Tenant-Operator-Mode']).toBeUndefined()
   })
 })

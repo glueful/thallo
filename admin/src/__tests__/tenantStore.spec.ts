@@ -46,4 +46,22 @@ describe('tenant store', () => {
     store.clearSelection()
     expect(store.selectedUuid).toBeNull()
   })
+
+  it('keeps operator mode in memory and resets it at every tenant boundary', () => {
+    const store = useTenantStore()
+    expect(store.operatorMode).toBe(false)
+
+    store.setOperatorMode(true)
+    store.select('tenant000001')
+    expect(store.operatorMode).toBe(false)
+
+    store.setOperatorMode(true)
+    store.clearSelection()
+    expect(store.operatorMode).toBe(false)
+
+    store.setOperatorMode(true)
+    store.reset()
+    expect(store.operatorMode).toBe(false)
+    expect(localStorage.getItem('thallo_tenant') ?? '').not.toContain('operatorMode')
+  })
 })

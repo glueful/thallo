@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useTenantStore } from '@/stores/tenant'
+import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 
 const store = useTenantStore()
+const access = useTenancyAccessStore()
+const switcherOpen = ref(false)
 const options = computed(() =>
   store.tenants.map((tenant) => ({
     label: tenant.name,
@@ -16,17 +19,29 @@ const selected = computed({
     if (value) store.select(value)
   },
 })
+
+function onSwitchRequired(): void {
+  store.setOperatorMode(false)
+  access.reset()
+  void access.refresh()
+  switcherOpen.value = true
+}
+
+onMounted(() => window.addEventListener('tenant-switch-required', onSwitchRequired))
+onBeforeUnmount(() => window.removeEventListener('tenant-switch-required', onSwitchRequired))
 </script>
 
 <template>
   <USelectMenu
     v-if="store.tenants.length > 1"
     v-model="selected"
+    v-model:open="switcherOpen"
     :items="options"
     value-key="value"
     icon="i-lucide-building-2"
     aria-label="Current tenant"
     data-testid="tenant-switcher"
+    :data-switcher-open="switcherOpen ? 'true' : 'false'"
     class="min-w-0 flex-1"
     :ui="{ content: 'min-w-56' }"
   >
