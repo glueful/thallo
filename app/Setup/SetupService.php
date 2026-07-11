@@ -9,10 +9,9 @@ use App\Content\Starter\Kinds\RegionKind;
 use App\Content\Starter\Kinds\SettingKind;
 use App\Content\Starter\SeedContext;
 use App\Settings\SystemKeys;
+use App\Support\AuthorityMutator;
 use Glueful\Auth\PasswordHasher;
-use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
-use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Users\Repositories\UserRepository;
 use Thallo\Contracts\Settings\SystemChannel;
 
@@ -27,10 +26,9 @@ use Thallo\Contracts\Settings\SystemChannel;
 final class SetupService
 {
     public function __construct(
-        private readonly ApplicationContext $context,
         private readonly Connection $db,
         private readonly UserRepository $users,
-        private readonly AegisPermissionProvider $aegis,
+        private readonly AuthorityMutator $authorityMutator,
         private readonly SystemChannel $system,
         private readonly ContentTypeKind $contentTypes,
         private readonly SettingKind $settings,
@@ -52,7 +50,7 @@ final class SetupService
      * Steps:
      *   1. Re-checks isInstalled() to guard against races.
      *   2. Creates the admin user via UserRepository.
-     *   3. Assigns the configured admin role slug to the new user via AegisPermissionProvider.
+     *   3. Assigns the canonical superuser and administrator roles to the install user.
      *   4. Writes site_name and default_locale to settings.
      *   5. Seeds "Pages" (publicly delivered, mounted at root), "Posts"
      *      (publicly delivered, prefixed) and "Categories" (the taxonomy
@@ -101,9 +99,11 @@ final class SetupService
                 'email_verified_at' => date('Y-m-d H:i:s'),
             ]);
 
-            $adminRoleSlug = (string) config($this->context, 'thallo.roles.admin', 'administrator');
-
-            $this->aegis->assignRole($userUuid, $adminRoleSlug);
+            foreach (['superuser', 'administrator'] as $roleSlug) {
+                if (!$this->authorityMutator->assignRole($userUuid, $roleSlug)) {
+                    throw new \RuntimeException("Failed to assign install authority role '{$roleSlug}'.");
+                }
+            }
 
             $seed = new SeedContext('', $siteName, $locale, $userUuid);
             foreach ([$this->contentTypes, $this->settings, $this->regions] as $kind) {

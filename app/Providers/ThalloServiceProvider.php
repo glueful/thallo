@@ -49,9 +49,12 @@ use App\Content\Console\RunDueSchedulesCommand;
 use App\Setup\Console\CreateAdminCommand;
 use App\Setup\Console\DoctorCommand;
 use App\Setup\Console\ProvisionCommand;
+use App\Setup\Console\SuperuserGrantCommand;
+use App\Setup\Console\SuperuserTransferCommand;
 use App\Content\Backfill\BackfillRunner;
 use App\Content\Indexing\FilterIndexJobDispatcher;
 use App\Http\Controllers\AdminConfigController;
+use App\Http\Controllers\AssignableRolesController;
 use App\Http\Controllers\ApiKeyAdminController;
 use App\Http\Controllers\CacheAdminController;
 use App\Http\Controllers\CapabilityAdminController;
@@ -67,6 +70,10 @@ use App\Http\Controllers\RegionAdminController;
 use App\Http\Controllers\ScheduledTasksController;
 use App\Http\Controllers\TenancyAccessController;
 use App\Http\Controllers\UserAdminController;
+use App\Support\AuthorityAudit;
+use App\Support\AuthorityContinuityGuard;
+use App\Support\AuthorityMutator;
+use App\Support\RoleAuthority;
 use App\Support\UserRoleAssignmentPolicy;
 use App\Settings\GeneralSettings;
 use App\Settings\SettingsStore;
@@ -1189,6 +1196,15 @@ final class ThalloServiceProvider extends ServiceProvider
         );
     }
 
+    public static function makeAuthorityAudit(ContainerInterface $container): AuthorityAudit
+    {
+        return new AuthorityAudit(
+            $container->has(AuditRecorderInterface::class)
+                ? $container->get(AuditRecorderInterface::class)
+                : null,
+        );
+    }
+
     public static function makeRequirePermission(ContainerInterface $container): RequirePermission
     {
         return new RequirePermission(
@@ -1234,8 +1250,32 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            AssignableRolesController::class => [
+                'class' => AssignableRolesController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             UserRoleAssignmentPolicy::class => [
                 'class' => UserRoleAssignmentPolicy::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            RoleAuthority::class => [
+                'class' => RoleAuthority::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            AuthorityAudit::class => [
+                'factory' => [self::class, 'makeAuthorityAudit'],
+                'shared' => true,
+            ],
+            AuthorityContinuityGuard::class => [
+                'class' => AuthorityContinuityGuard::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            AuthorityMutator::class => [
+                'class' => AuthorityMutator::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -1399,6 +1439,16 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            SuperuserGrantCommand::class => [
+                'class' => SuperuserGrantCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            SuperuserTransferCommand::class => [
+                'class' => SuperuserTransferCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
         ];
     }
 
@@ -1532,6 +1582,8 @@ final class ThalloServiceProvider extends ServiceProvider
             DoctorCommand::class,
             ProvisionCommand::class,
             CreateAdminCommand::class,
+            SuperuserGrantCommand::class,
+            SuperuserTransferCommand::class,
         ]);
     }
 

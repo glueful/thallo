@@ -38,6 +38,7 @@ final class RawPdoScopingLintTest extends TestCase
      *    through the BUILDER (covered by the interceptor).
      *  - RowRepository: TRUNCATE targets a dynamic collection table (collections are NOT owned).
      *  - SchemaIntrospector / UniquenessPreflight: retrofit engine introspection/preflight READS.
+     *  - AuthorityContinuityGuard: global advisory lock only; RoleAuthority: global RBAC reads.
      */
     private const SYSTEM_READERS = [
         'packages/thallo-analytics/src/Query/AnalyticsQuery.php',
@@ -48,6 +49,8 @@ final class RawPdoScopingLintTest extends TestCase
         'packages/thallo-tenancy/src/Retrofit/UniquenessPreflight.php',
         'packages/thallo-tenancy/src/Enablement/EnablementLock.php',
         'packages/thallo-tenancy/src/Retrofit/MutationBoundaryLock.php',
+        'app/Support/AuthorityContinuityGuard.php',
+        'app/Support/RoleAuthority.php',
     ];
 
     /**

@@ -18,6 +18,14 @@ export interface UserRole {
   slug: string
 }
 
+export interface AssignableRole {
+  slug: string
+  name: string
+  assigned: boolean
+  assignable: boolean
+  removable: boolean
+}
+
 export interface UserRow {
   uuid: string
   username?: string
@@ -81,6 +89,25 @@ export function useUser(uuid: MaybeRefOrGetter<string | undefined>) {
     key: () => ['users', 'detail', toValue(uuid) ?? ''],
     query: () => fetchUser(toValue(uuid) as string),
     enabled: () => !!toValue(uuid),
+  })
+}
+
+export async function fetchAssignableRoles(targetUuid?: string): Promise<AssignableRole[]> {
+  const query = targetUuid ? `?${new URLSearchParams({ target_uuid: targetUuid }).toString()}` : ''
+  const json = (await authFetch(`${runtimeConfig.apiBase}/users/assignable-roles${query}`)) as {
+    data?: { roles?: AssignableRole[] }
+  }
+  return Array.isArray(json.data?.roles) ? json.data.roles : []
+}
+
+export function useAssignableRoles(targetUuid?: MaybeRefOrGetter<string | undefined>) {
+  return useQuery({
+    key: () => [
+      'users',
+      'assignable-roles',
+      targetUuid ? toValue(targetUuid) || 'create' : 'create',
+    ],
+    query: () => fetchAssignableRoles(targetUuid ? toValue(targetUuid) : undefined),
   })
 }
 

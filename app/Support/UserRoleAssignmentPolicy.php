@@ -9,47 +9,22 @@ use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Aegis\Models\Role;
 use Glueful\Extensions\Aegis\Repositories\RoleRepository;
 
-/**
- * The policy governing WHO may assign WHICH roles to a user — the escalation guard the flat-role
- * model needs.
- *
- * Aegis's own {@see \Glueful\Extensions\Aegis\Services\RoleService} rejects cross-role assignment
- * for Thallo because its guard walks the `parent_uuid` hierarchy, and Thallo roles are flat. So the
- * app owns the rule instead, keyed on the numeric role `level` (Aegis: superuser 100, administrator
- * 80, editor 50, user 10):
- *
- *   - Changing roles at all requires the dedicated `users.roles.manage` permission (distinct from
- *     `users.edit`, which only covers profile fields).
- *   - A non-superuser actor may not assign or revoke a role whose level is >= their own highest
- *     level (so an administrator can grant `editor` but never `administrator` or `superuser`), and
- *     may not change their OWN roles at all.
- *   - A superuser (level >= 100) is exempt from the ceiling and the self-guard (can assign anything,
- *     including superuser), but still needs the permission.
- *   - An unknown role slug is a 422.
- *
- * Only the DIFF is checked (roles being added or removed): re-sending a user's unchanged role set
- * alongside a profile edit is a no-op and never blocked, so existing edit flows are unaffected.
- */
+/** Escalation policy for global Aegis role assignment through Thallo's user API. */
 final class UserRoleAssignmentPolicy
 {
     private const MANAGE_PERMISSION = 'users.roles.manage';
-    private const SUPERUSER_LEVEL = 100;
 
     private ?RoleRepository $roles = null;
 
     public function __construct(
         private readonly ApplicationContext $context,
         private readonly AegisPermissionProvider $aegis,
+        private readonly RoleAuthority $authority,
+        private readonly AuthorityAudit $audit,
     ) {
     }
 
-    /**
-     * Assert the actor may change the target user's roles from $currentSlugs to $desiredSlugs.
-     *
-     * @param list<string> $currentSlugs the target's current role slugs
-     * @param list<string> $desiredSlugs the requested role slugs
-     * @throws RoleAssignmentException 403 (permission/ceiling/self) or 422 (unknown slug)
-     */
+    /** @param list<string> $currentSlugs @param list<string> $desiredSlugs */
     public function assertCanSyncRoles(
         string $actorUuid,
         string $targetUuid,
@@ -59,31 +34,82 @@ final class UserRoleAssignmentPolicy
         $added = array_values(array_diff($desiredSlugs, $currentSlugs));
         $removed = array_values(array_diff($currentSlugs, $desiredSlugs));
         if ($added === [] && $removed === []) {
-            return; // no role change requested — nothing to authorize
+            return;
         }
 
         if (!$this->canManageRoles($actorUuid)) {
-            throw RoleAssignmentException::forbidden('You do not have permission to manage user roles.');
+            $this->deny(
+                $actorUuid,
+                $targetUuid,
+                'no_manage_permission',
+                'You do not have permission to manage user roles.',
+            );
+        }
+        if (!$this->authority->isCanonicalSuperuser($actorUuid) && $actorUuid === $targetUuid) {
+            $this->deny($actorUuid, $targetUuid, 'self_change', 'You cannot change your own roles.');
         }
 
-        $actorLevel = $this->maxLevel($actorUuid);
-        $isSuperuser = $actorLevel >= self::SUPERUSER_LEVEL;
-
-        if (!$isSuperuser && $actorUuid === $targetUuid) {
-            throw RoleAssignmentException::forbidden('You cannot change your own roles.');
-        }
-
-        foreach (array_merge($added, $removed) as $slug) {
-            $role = $this->roles()->findRoleBySlug($slug);
-            if ($role === null) {
-                throw RoleAssignmentException::unprocessable("Unknown role '{$slug}'.");
-            }
-            if (!$isSuperuser && $role->getLevel() >= $actorLevel) {
-                throw RoleAssignmentException::forbidden(
-                    "You cannot assign or revoke the role '{$slug}' (it is at or above your own level)."
-                );
+        foreach ($added as $slug) {
+            $role = $this->requireRole($slug, $actorUuid, $targetUuid);
+            if (!$this->mayAdd($actorUuid, $role)) {
+                $this->deny($actorUuid, $targetUuid, 'add_denied', "You cannot assign the role '{$slug}'.");
             }
         }
+        foreach ($removed as $slug) {
+            $role = $this->requireRole($slug, $actorUuid, $targetUuid);
+            if (!$this->mayRemove($actorUuid, $role)) {
+                $this->deny($actorUuid, $targetUuid, 'remove_denied', "You cannot revoke the role '{$slug}'.");
+            }
+        }
+    }
+
+    public function mayAdd(string $actorUuid, Role $role): bool
+    {
+        $slug = $role->getSlug();
+        if ($slug === RoleAuthority::SUPERUSER || !$role->isActive()) {
+            return false;
+        }
+        if ($this->maxLevel($actorUuid) <= $role->getLevel()) {
+            return false;
+        }
+        $superuser = $this->authority->isCanonicalSuperuser($actorUuid);
+        if ($slug === RoleAuthority::WORKSPACE_MANAGER && !$superuser) {
+            return false;
+        }
+        return $superuser || $this->authority->actorHoldsAllPermissionsOf($actorUuid, $slug);
+    }
+
+    public function mayRemove(string $actorUuid, Role $role): bool
+    {
+        $slug = $role->getSlug();
+        if ($slug === RoleAuthority::SUPERUSER || $this->maxLevel($actorUuid) <= $role->getLevel()) {
+            return false;
+        }
+        return $slug !== RoleAuthority::WORKSPACE_MANAGER
+            || $this->authority->isCanonicalSuperuser($actorUuid);
+    }
+
+    private function requireRole(string $slug, string $actorUuid, string $targetUuid): Role
+    {
+        $role = $this->roles()->findRoleBySlug($slug);
+        if ($role instanceof Role) {
+            return $role;
+        }
+        $this->audit->record('security.role_assignment_denied', $actorUuid, $targetUuid, [
+            'role' => $slug,
+            'outcome' => 'denied',
+            'reason' => 'unknown_role',
+        ]);
+        throw RoleAssignmentException::unprocessable("Unknown role '{$slug}'.");
+    }
+
+    private function deny(string $actorUuid, string $targetUuid, string $reason, string $message): never
+    {
+        $this->audit->record('security.role_assignment_denied', $actorUuid, $targetUuid, [
+            'outcome' => 'denied',
+            'reason' => $reason,
+        ]);
+        throw RoleAssignmentException::forbidden($message);
     }
 
     private function canManageRoles(string $actorUuid): bool
@@ -95,12 +121,11 @@ final class UserRoleAssignmentPolicy
         }
     }
 
-    /** The actor's highest role level; 0 when the actor holds no resolvable roles (fail-closed). */
     private function maxLevel(string $actorUuid): int
     {
         $max = 0;
         foreach ($this->aegis->getUserRoles($actorUuid) as $role) {
-            if ($role instanceof Role) {
+            if ($role instanceof Role && $role->isActive()) {
                 $max = max($max, $role->getLevel());
             }
         }
@@ -109,8 +134,6 @@ final class UserRoleAssignmentPolicy
 
     private function roles(): RoleRepository
     {
-        // Built the same way AegisPermissionProvider builds it internally (RoleRepository is not
-        // a first-class autowired service).
         return $this->roles ??= new RoleRepository(null, $this->context);
     }
 }

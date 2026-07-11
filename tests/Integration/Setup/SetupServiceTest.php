@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Setup;
 
 use App\Setup\SetupService;
+use App\Support\RoleAuthority;
 use App\Tests\Support\AppTestCase;
+use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Thallo\Contracts\Settings\SystemChannel;
 
 /**
@@ -23,6 +25,15 @@ final class SetupServiceTest extends AppTestCase
         // column), so TRUNCATE ... CASCADE is the reliable wipe — it clears users, the
         // Aegis user_roles child rows, and the settings markers regardless of PK.
         $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, settings CASCADE');
+    }
+
+    protected function tearDown(): void
+    {
+        // install() now provisions a committed superuser; wipe after the LAST test too so no
+        // stray superuser survives this class and pollutes global-count invariants elsewhere
+        // (e.g. last-superuser continuity checks that assert against the whole users table).
+        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, settings CASCADE');
+        parent::tearDown();
     }
 
     private function service(): SetupService
@@ -64,6 +75,15 @@ final class SetupServiceTest extends AppTestCase
             password_verify('S3cur3P@ssw0rd!', (string) $userRow['password']),
             'stored hash must verify against the original password',
         );
+
+        $uuid = (string) $userRow['uuid'];
+        $roleSlugs = array_map(
+            static fn ($role): string => $role->getSlug(),
+            $this->container()->get(AegisPermissionProvider::class)->getUserRoles($uuid),
+        );
+        self::assertContains('superuser', $roleSlugs);
+        self::assertContains('administrator', $roleSlugs);
+        self::assertTrue($this->container()->get(RoleAuthority::class)->isCanonicalSuperuser($uuid));
 
         // Verify site_name was written to settings.
         $row = $this->connection()->table('settings')
