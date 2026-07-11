@@ -30,8 +30,8 @@ const action = computed(() => {
 const label = computed(() => {
   if (action.value === 'retry') return 'Retry'
   if (action.value === 'finalize') return 'Reload and continue'
-  if (action.value === 'disable') return 'Disable tenancy'
-  return props.status.step === 'off' ? 'Enable tenancy' : 'Continue'
+  if (action.value === 'disable') return 'Disable workspaces'
+  return props.status.step === 'off' ? 'Enable workspaces' : 'Continue'
 })
 const showConfirm = computed(
   () =>

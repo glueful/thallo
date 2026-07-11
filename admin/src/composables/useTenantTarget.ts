@@ -17,7 +17,7 @@ export function useTenantTarget() {
 
   async function selectThenNavigate(uuid: string, section: 'domains' | 'members'): Promise<void> {
     if (!(await ensureTargetSelected(uuid))) return
-    await router.push(`/tenants/${uuid}/${section}`)
+    await router.push(`/workspaces/${uuid}/${section}`)
   }
 
   return { ensureTargetSelected, selectThenNavigate }

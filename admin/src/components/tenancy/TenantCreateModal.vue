@@ -13,7 +13,7 @@ function submit(): void {
 </script>
 
 <template>
-  <UModal v-model:open="open" title="New tenant">
+  <UModal v-model:open="open" title="New workspace">
     <template #body>
       <form id="tenant-create-form" class="space-y-4" @submit.prevent="submit">
         <UFormField label="Name" name="name" :error="props.errors?.name">
@@ -47,7 +47,7 @@ function submit(): void {
           :disabled="!valid"
           data-testid="tenant-create-submit"
         >
-          Create tenant
+          Create workspace
         </UButton>
       </div>
     </template>

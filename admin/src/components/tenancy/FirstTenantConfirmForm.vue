@@ -18,11 +18,11 @@ const form = reactive({ slug: props.initialSlug ?? '', name: props.initialName ?
     data-testid="first-tenant-confirm"
     @submit.prevent="emit('submit', form)"
   >
-    <UFormField label="Tenant name" name="name" :error="errors?.name">
+    <UFormField label="Workspace name" name="name" :error="errors?.name">
       <UInput v-model="form.name" name="name" autocomplete="organization" required class="w-full" />
     </UFormField>
     <UFormField
-      label="Tenant slug"
+      label="Workspace slug"
       name="slug"
       :error="errors?.slug"
       hint="Lowercase letters, numbers, and hyphens"
@@ -42,7 +42,7 @@ const form = reactive({ slug: props.initialSlug ?? '', name: props.initialName ?
         :loading="busy"
         data-testid="enablement-action-confirm"
       >
-        Confirm tenant
+        Confirm workspace
       </UButton>
     </div>
   </form>

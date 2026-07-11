@@ -10,15 +10,15 @@ vi.mock('@/runtime/config', () => ({ runtimeConfig: { apiBase: '/v1/admin' } }))
 
 const baseNavigation: NavigationMenuItem[] = [
   {
-    label: 'Tenants',
-    to: '/tenants',
+    label: 'Workspaces',
+    to: '/workspaces',
     children: [
-      { label: 'All tenants', to: '/tenants' },
-      { label: 'Domains', to: '/tenants/_selected/domains' },
-      { label: 'Members', to: '/tenants/_selected/members' },
+      { label: 'All workspaces', to: '/workspaces' },
+      { label: 'Domains', to: '/workspaces/_selected/domains' },
+      { label: 'Members', to: '/workspaces/_selected/members' },
     ],
   },
-  { label: 'Settings', children: [{ label: 'Tenancy', to: '/settings/tenancy' }] },
+  { label: 'Settings', children: [{ label: 'Workspaces', to: '/settings/workspaces' }] },
 ]
 
 const noAccess = {
@@ -36,8 +36,8 @@ describe('tenancy administration acceptance', () => {
   })
 
   it('keeps tenancy navigation closed until the server grants an effective capability', () => {
-    const closedNavigation = shapeTenancyNav(baseNavigation, noAccess, null, true)
-    expect(closedNavigation.find((item) => item.label === 'Tenants')).toBeUndefined()
+    const closedNavigation = shapeTenancyNav(baseNavigation, noAccess, null, true, true)
+    expect(closedNavigation.find((item) => item.label === 'Workspaces')).toBeUndefined()
     expect(closedNavigation.find((item) => item.label === 'Settings')?.children).toEqual([])
 
     const ownerNavigation = shapeTenancyNav(
@@ -45,8 +45,9 @@ describe('tenancy administration acceptance', () => {
       { ...noAccess, manage_members: true, manage_domains: true },
       'tenant000001',
       true,
+      true,
     )
-    const ownerTenants = ownerNavigation.find((item) => item.label === 'Tenants')
+    const ownerTenants = ownerNavigation.find((item) => item.label === 'Workspaces')
     expect(ownerTenants?.children?.map((item) => item.label)).toEqual(['Domains', 'Members'])
     expect(ownerNavigation.find((item) => item.label === 'Settings')?.children).toEqual([])
 
@@ -55,8 +56,9 @@ describe('tenancy administration acceptance', () => {
       { ...noAccess, manage_platform: true },
       'tenant000001',
       true,
+      true,
     )
-    expect(operatorNavigation.find((item) => item.label === 'Tenants')?.children).toHaveLength(1)
+    expect(operatorNavigation.find((item) => item.label === 'Workspaces')?.children).toHaveLength(1)
     expect(operatorNavigation.find((item) => item.label === 'Settings')?.children).toHaveLength(1)
   })
 

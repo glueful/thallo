@@ -13,7 +13,7 @@ const reload = computed(() => props.status.step === 'awaiting_fresh_boot')
   <section class="border-b border-default py-6" aria-labelledby="resolution-heading">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2 id="resolution-heading" class="text-base font-semibold">Tenant resolution</h2>
+        <h2 id="resolution-heading" class="text-base font-semibold">Workspace resolution</h2>
         <p class="text-sm text-muted mt-1">{{ status.step.replace(/_/g, ' ') }}</p>
       </div>
       <UBadge :color="full ? 'success' : 'neutral'" variant="subtle">{{ status.mode }}</UBadge>
