@@ -14,6 +14,22 @@
         <testsuite name="Integration">
             <directory>tests/Integration</directory>
         </testsuite>
+        <!--
+            Retrofit harness classes blanket clear process global query interceptors and hooks in
+            tearDown, so they MUST run in their OWN phpunit invocation (a teardown clear can never
+            then strip interceptors from a following non tenancy class). Invoke separately with
+            `phpunit tenancy-retrofit` and THALLO_TENANCY_DEV_LINK=1; the classes skip otherwise,
+            so they stay inert in the default Integration run. The shared DB Task 2/3 tests
+            (SchemaIntrospectorTest, RetrofitProgressTest) also live here and keep running in the
+            default Integration suite unchanged.
+        -->
+        <testsuite name="tenancy-retrofit">
+            <directory>tests/Integration/Tenancy/Retrofit</directory>
+            <!-- Pinned MANDATORY acceptance tests live one level up (real widened schema); include them
+                 explicitly so the ON regression run of this testsuite exercises them. -->
+            <file>tests/Integration/Tenancy/TenantKeyCoexistenceTest.php</file>
+            <file>tests/Integration/Tenancy/CrossTenantSchedulerPublishTest.php</file>
+        </testsuite>
     </testsuites>
     <source>
         <include>

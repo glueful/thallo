@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Settings;
 
 use Glueful\Bootstrap\ApplicationContext;
+use Thallo\Contracts\Settings\SystemChannel;
 
 /**
  * Thin key/value store over the `settings` table — the runtime-mutable instance settings
@@ -13,14 +14,19 @@ use Glueful\Bootstrap\ApplicationContext;
  * Unlike `.env`, rows are shared across every app instance and apply on the next request with no
  * restart. Rows are loaded once per instance (the service is container-shared, so once per request)
  * and memoized; writes invalidate the cache.
+ *
+ * System keys (see {@see SystemKeys}) are NOT stored here — reads and writes of those keys are routed
+ * to the unscoped {@see SystemChannel}, so enabling multi-tenancy cannot fragment or lose them.
  */
 final class SettingsStore
 {
     /** @var array<string,string>|null */
     private ?array $cache = null;
 
-    public function __construct(private readonly ApplicationContext $context)
-    {
+    public function __construct(
+        private readonly ApplicationContext $context,
+        private readonly SystemChannel $system,
+    ) {
     }
 
     /** @return array<string,string> all rows, key => value */
@@ -43,6 +49,10 @@ final class SettingsStore
 
     public function get(string $key): ?string
     {
+        if (SystemKeys::isSystem($key)) {
+            return $this->system->get($key);
+        }
+
         return $this->all()[$key] ?? null;
     }
 
@@ -53,6 +63,11 @@ final class SettingsStore
      */
     public function forget(string $key): void
     {
+        if (SystemKeys::isSystem($key)) {
+            $this->system->forget($key);
+            return;
+        }
+
         db($this->context)->table('settings')->where(['key' => $key])->delete();
         $this->cache = null;
     }
@@ -81,6 +96,11 @@ final class SettingsStore
 
         $now = date('Y-m-d H:i:s');
         foreach ($pairs as $key => $value) {
+            // System keys never touch `settings` — they belong to the unscoped channel.
+            if (SystemKeys::isSystem($key)) {
+                $this->system->put($key, $value);
+                continue;
+            }
             // `key` is the (non-integer) primary key, so upsert is check-then-write (mirrors SetupService).
             $existing = db($this->context)->table('settings')->where(['key' => $key])->first();
             if ($existing === null) {

@@ -4,14 +4,17 @@ declare(strict_types=1);
 
 namespace App\Setup;
 
-use App\Content\Regions\RegionRepository;
-use App\Content\Repositories\ContentTypeRepository;
+use App\Content\Starter\Kinds\ContentTypeKind;
+use App\Content\Starter\Kinds\RegionKind;
+use App\Content\Starter\Kinds\SettingKind;
+use App\Content\Starter\SeedContext;
+use App\Settings\SystemKeys;
 use Glueful\Auth\PasswordHasher;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Users\Repositories\UserRepository;
-use Glueful\Helpers\Utils;
+use Thallo\Contracts\Settings\SystemChannel;
 
 /**
  * Single source of truth for first-run installation.
@@ -28,20 +31,19 @@ final class SetupService
         private readonly Connection $db,
         private readonly UserRepository $users,
         private readonly AegisPermissionProvider $aegis,
-        private readonly ContentTypeRepository $contentTypes,
+        private readonly SystemChannel $system,
+        private readonly ContentTypeKind $contentTypes,
+        private readonly SettingKind $settings,
+        private readonly RegionKind $regions,
     ) {
     }
 
     /**
-     * Returns true when the `installed` marker has been written to `settings`.
+     * Returns true when the `installed` marker has been written to the system channel.
      */
     public function isInstalled(): bool
     {
-        $row = $this->db->table('settings')
-            ->where(['key' => 'installed'])
-            ->first();
-
-        return $row !== null && ($row['value'] ?? '') === '1';
+        return $this->system->get('installed') === '1';
     }
 
     /**
@@ -103,107 +105,38 @@ final class SetupService
 
             $this->aegis->assignRole($userUuid, $adminRoleSlug);
 
-            $this->put('site_name', $siteName);
-            $this->put('default_locale', $locale);
+            $seed = new SeedContext('', $siteName, $locale, $userUuid);
+            foreach ([$this->contentTypes, $this->settings, $this->regions] as $kind) {
+                foreach ($kind->definitions() as $definition) {
+                    $kind->apply($definition, $seed);
+                }
+            }
             // The web setup form sends the admin SPA's own origin, so the
             // preview bar's Edit/Design links work with zero configuration.
             if (is_string($adminUrl) && preg_match('#\Ahttps?://#i', $adminUrl) === 1) {
                 $this->put('admin_url', rtrim($adminUrl, '/'));
             }
 
-            // Seed "Pages" and "Posts" content types so a fresh instance has a
-            // working editorial loop on day one. These are ORDINARY content-type
-            // rows — fully editable, renameable, and deletable like any
-            // user-defined type, not hardcoded/system types — which keeps
-            // Thallo's "define your own types" model intact. Both are publicly
-            // deliverable out of the box; pages mount at root (/about), posts
-            // keep the prefixed grammar (/post/hello) like a blog.
-            // Shares this transaction via the singleton Connection.
-            $this->contentTypes->create([
-                'slug'            => 'pages',
-                'name'            => 'Pages',
-                'description'     => 'Generic static pages (e.g. About, Contact).',
-                'public_delivery' => true,
-                'mount_at_root'   => true,
-                'schema'          => [
-                    ['name' => 'title', 'type' => 'string', 'required' => true],
-                    ['name' => 'body',  'type' => 'blocks', 'required' => true],
-                ],
-                'created_by'      => $userUuid,
-            ]);
-            // Taxonomies are ORDINARY content types + filterable reference
-            // fields — this is the worked example of that pattern (deliberately
-            // ONE taxonomy: a second is a two-minute copy of the same recipe).
-            // Term slugs resolve via the target's published `slug` field
-            // (reference_slug_field default), and the archive grammar
-            // (/post/categories/{slug}) requires the reference field to be
-            // filterable and both types publicly delivered.
-            $this->contentTypes->create([
-                'slug'            => 'category',
-                'name'            => 'Categories',
-                'description'     => 'Groups posts into browsable archives.',
-                'public_delivery' => true,
-                'mount_at_root'   => false,
-                'schema'          => [
-                    ['name' => 'title', 'type' => 'string', 'required' => true],
-                    ['name' => 'slug',  'type' => 'string', 'required' => true],
-                ],
-                'created_by'      => $userUuid,
-            ]);
-            $this->contentTypes->create([
-                'slug'            => 'post',
-                'name'            => 'Posts',
-                'description'     => 'Dated articles and news (e.g. blog posts).',
-                'public_delivery' => true,
-                'mount_at_root'   => false,
-                'schema'          => [
-                    ['name' => 'title',      'type' => 'string', 'required' => true],
-                    ['name' => 'excerpt',    'type' => 'text'],
-                    ['name' => 'cover',      'type' => 'asset'],
-                    ['name' => 'body',       'type' => 'blocks', 'required' => true],
-                    ['name' => 'categories', 'type' => 'reference', 'reference_type' => 'category',
-                        'multiple' => true, 'filterable' => true],
-                ],
-                'created_by'      => $userUuid,
-            ]);
-
-            // Listings/archives are allowlist-gated: without this row a fresh
-            // install's /post and /post/categories/{slug} would 404 — the
-            // half-working-default trap. A DB setting (editable in Settings →
-            // General) since the taxonomy-defaults work.
-            $this->put('listing_types', 'post');
-
-            // Default chrome regions (global-regions spec §9): reproduce the
-            // theme's hardcoded look so fresh installs are region-editable
-            // from minute one. Structured sources by construction — the logo
-            // block reads Settings → General, navigation renders the 'main'
-            // menu. Existing installs never get these (install() only); their
-            // layouts keep the hardcoded fallback until a region is saved.
-            $regions = app($this->context, RegionRepository::class);
-            $regions->save('header', [
-                ['id' => Utils::generateNanoID(12), 'type' => 'logo',
-                    'data' => ['size' => 'medium', 'link_home' => true]],
-                ['id' => Utils::generateNanoID(12), 'type' => 'navigation',
-                    'data' => ['menu' => 'main']],
-            ], ['sticky' => false, 'width' => 'contained'], $userUuid);
-            $regions->save('footer', [
-                ['id' => Utils::generateNanoID(12), 'type' => 'rich_text',
-                    'data' => ['body' => '<p>' . htmlspecialchars($siteName, ENT_QUOTES) . '</p>']],
-            ], ['width' => 'contained'], $userUuid);
-
             $this->put('installed', '1');
         });
     }
 
     /**
-     * Inserts or updates a single key in `settings`.
+     * Inserts or updates a single settings key.
      *
-     * Because the PostgreSQL upsert helper targets `ON CONFLICT (id)` and our primary
-     * key is the varchar `key` column, we perform a manual check-then-write instead.
-     * Both branches run inside the caller's transaction when invoked from install().
+     * System keys (see {@see SystemKeys}) are routed to the unscoped {@see SystemChannel} so they stay
+     * out of the (soon tenant-scoped) `settings` table; everything else is a manual check-then-write on
+     * `settings` (the PostgreSQL upsert helper targets `ON CONFLICT (id)`, but our PK is the varchar
+     * `key`). All branches run inside the caller's transaction when invoked from install() — the channel
+     * (SystemFlags) shares the same Connection singleton, so its writes join the transaction too.
      */
     private function put(string $key, string $value): void
     {
+        if (SystemKeys::isSystem($key)) {
+            $this->system->put($key, $value);
+            return;
+        }
+
         $now = date('Y-m-d H:i:s');
 
         $existing = $this->db->table('settings')

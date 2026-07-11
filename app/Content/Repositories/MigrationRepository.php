@@ -5,13 +5,21 @@ declare(strict_types=1);
 namespace App\Content\Repositories;
 
 use App\Content\Schema\Migration\MigrationOpSet;
+use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
+use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
+use Glueful\Extensions\Contracts\Tenancy\TenantScope;
 use Glueful\Helpers\Utils;
+use Thallo\Contracts\Tenancy\WriteBarrier;
 
 final class MigrationRepository
 {
-    public function __construct(private readonly Connection $db)
-    {
+    public function __construct(
+        private readonly Connection $db,
+        private readonly ?ApplicationContext $context = null,
+        private readonly ?CurrentTenantResolver $tenants = null,
+        private readonly ?WriteBarrier $barrier = null,
+    ) {
     }
 
     /**
@@ -115,12 +123,21 @@ final class MigrationRepository
 
     public function incrementDone(string $uuid): void
     {
-        $stmt = $this->db->getPDO()->prepare(
-            'UPDATE entry_schema_migrations
-             SET work_items_done = work_items_done + 1
-             WHERE uuid = :uuid'
-        );
-        $stmt->execute(['uuid' => $uuid]);
+        $tenant = TenantScope::current($this->tenants, $this->context);
+        $scope = $tenant === null ? '' : ' AND tenant_uuid = :tenant';
+        $params = ['uuid' => $uuid];
+        if ($tenant !== null) {
+            $params['tenant'] = $tenant;
+        }
+        $write = function () use ($scope, $params): bool {
+            $stmt = $this->db->getPDO()->prepare(
+                'UPDATE entry_schema_migrations
+                 SET work_items_done = work_items_done + 1
+                 WHERE uuid = :uuid' . $scope
+            );
+            return $stmt->execute($params);
+        };
+        $this->barrier !== null ? $this->barrier->runWritable($write) : $write();
     }
 
     public function recordFailure(string $uuid, string $entryUuid, string $locale, string $kind, string $reason): void

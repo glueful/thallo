@@ -14,7 +14,7 @@ use Glueful\Routing\Router;
  *   3. content_permission — per-route Aegis permission: analytics.read.
  */
 $router->group(
-    ['prefix' => '/v1/admin', 'middleware' => ['auth']],
+    ['prefix' => '/v1/admin', 'middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap']],
     function (Router $router): void {
         $router->get('/analytics/series', [AnalyticsController::class, 'series'])
             ->middleware('content_permission:analytics.read');

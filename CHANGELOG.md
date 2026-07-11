@@ -7,6 +7,16 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Full tenant resolution and operations**: verified custom domains plus
+  subdomain fallback for public delivery, header/JWT resolution for the admin,
+  a resumable fresh-boot activation flow, tenant/domain/membership HTTP and CLI
+  management, a persisted admin tenant switcher, and centralized
+  `X-Tenant-Id` injection with membership-revocation recovery. Framework blob
+  routes receive generic app-contributed middleware and canonical-origin seams;
+  Thallo supplies tenant-aware implementations without moving tenant policy into
+  framework core. Domain mutations purge only the affected tenant's render and
+  sitemap namespaces. All resolver profiles remain inert until full activation,
+  preserving tenancy-off and SP1 bootstrap behavior.
 - **Form block**: a generic `form` block (contact-form preset in v1) whose
   submissions are stored, best-effort emailed, spam-guarded, and triaged/exported
   in the admin. Built on a **sealed-descriptor** model: `blocks/form.twig` calls a

@@ -10,6 +10,8 @@
   "require": {
     "php": "^8.3",
     "glueful/thallo-contracts": "*",
+    "glueful/thallo-tenancy": "*",
+    "glueful/extension-contracts": "*",
     "glueful/framework": "^1.65.0"
   },
   "autoload": {

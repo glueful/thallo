@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace App\Content\Http;
 
+use App\Content\Authorization\OperatorBypass;
+use App\Content\Authorization\AuthenticatedPrincipalResolver;
+use App\Content\Authorization\PermissionAuthority;
+use App\Content\Authorization\RoleMatrix;
+use App\Content\Authorization\TenantMembershipRoleReader;
 use Glueful\Auth\ApiKey\ApiKeyService;
-use Glueful\Auth\UserIdentity;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
 use Glueful\Permissions\PermissionManager;
@@ -27,8 +31,14 @@ use Symfony\Component\HttpFoundation\Request;
  */
 final class RequirePermission implements RouteMiddleware
 {
-    public function __construct(private readonly ApplicationContext $context)
-    {
+    public function __construct(
+        private readonly ApplicationContext $context,
+        private readonly ?TenantMembershipRoleReader $roleReader = null,
+        private readonly ?RoleMatrix $matrix = null,
+        private readonly ?OperatorBypass $bypass = null,
+        private readonly ?AuthenticatedPrincipalResolver $principals = null,
+        private readonly ?PermissionAuthority $permissions = null,
+    ) {
     }
 
     public function handle(Request $request, callable $next, mixed ...$params): mixed
@@ -63,21 +73,46 @@ final class RequirePermission implements RouteMiddleware
         //     lean install (no enricher binding) actually carries, so the gate must read
         //     it too — otherwise every permissioned route would fail closed even for a
         //     correctly authenticated user.
-        $principal = $this->resolvePrincipal($request);
+        $principals = $this->principals ?? new AuthenticatedPrincipalResolver();
+        $principal = $principals->resolve($request);
         if ($principal === null) {
             return $this->forbidden();
         }
 
-        $manager = $this->permissionManager();
-        if (!$manager instanceof PermissionManager) {
+        $permissions = $this->permissions ?? new PermissionAuthority($this->context);
+        if (!$permissions->manager() instanceof PermissionManager) {
             return $this->forbidden();
         }
-        $context = [
-            'roles' => $principal['roles'],
-            'scopes' => $principal['scopes'],
-            'jwt_claims' => (array) $request->attributes->get('jwt.claims'),
-        ];
-        if (!$manager->can($principal['uuid'], $permission, $this->resourceFor($request), $context)) {
+        $context = $principals->aegisContext($request, $principal);
+        $tenantContextPresent = $this->context->getRequestState('tenancy.tenant') !== null;
+        if (!$tenantContextPresent) {
+            $allowed = $permissions->can(
+                $principal['uuid'],
+                $permission,
+                $this->resourceFor($request),
+                $context,
+            );
+        } else {
+            if ($this->roleReader === null || $this->matrix === null || $this->bypass === null) {
+                return $this->forbidden();
+            }
+            $resolvedTenant = $this->roleReader->resolvedTenantUuid();
+            if ($resolvedTenant === null) {
+                return $this->forbidden();
+            }
+            $role = $this->roleReader->roleFor($request, $principal['uuid']);
+            $allowed = ($role !== null && $this->matrix->allows($role, $permission))
+                || $this->bypass->evaluate(
+                    $request,
+                    $principal['uuid'],
+                    $role,
+                    $permission,
+                    $resolvedTenant,
+                    $context,
+                )->granted;
+        }
+
+        if (!$allowed) {
             return $this->forbidden();
         }
         return $next($request);
@@ -95,58 +130,6 @@ final class RequirePermission implements RouteMiddleware
         $locale = $params['locale'] ?? null;
 
         return is_string($locale) && $locale !== '' ? "locale:{$locale}" : 'thallo';
-    }
-
-    /**
-     * Extract {uuid, roles, scopes} for the authenticated user from either the
-     * UserIdentity (`auth.user`) or the plain identity array (`user`). Returns null when
-     * neither carries a usable, non-empty uuid — the same fail-closed deny as before.
-     *
-     * @return array{uuid: string, roles: array<int, string>, scopes: array<int, string>}|null
-     */
-    private function resolvePrincipal(Request $request): ?array
-    {
-        $user = $request->attributes->get('auth.user');
-        if ($user instanceof UserIdentity) {
-            $uuid = trim($user->id());
-            return $uuid === '' ? null : [
-                'uuid' => $uuid,
-                'roles' => array_values(array_filter($user->roles(), 'is_string')),
-                'scopes' => array_values(array_filter($user->scopes(), 'is_string')),
-            ];
-        }
-
-        $array = $request->attributes->get('user');
-        if (is_array($array) && isset($array['uuid']) && is_string($array['uuid']) && trim($array['uuid']) !== '') {
-            $roles = isset($array['roles']) && is_array($array['roles'])
-                ? array_values(array_filter($array['roles'], 'is_string'))
-                : [];
-            $scopes = isset($array['claims']['scopes']) && is_array($array['claims']['scopes'])
-                ? array_values(array_filter($array['claims']['scopes'], 'is_string'))
-                : [];
-            return ['uuid' => trim($array['uuid']), 'roles' => $roles, 'scopes' => $scopes];
-        }
-
-        return null;
-    }
-
-    private function permissionManager(): ?PermissionManager
-    {
-        if (!$this->context->hasContainer()) {
-            return null;
-        }
-
-        $container = $this->context->getContainer();
-        foreach ([PermissionManager::class, 'permission.manager'] as $id) {
-            try {
-                if ($container->has($id) && ($m = $container->get($id)) instanceof PermissionManager) {
-                    return $m;
-                }
-            } catch (\Throwable) {
-                continue;
-            }
-        }
-        return null;
     }
 
     private function forbidden(): Response

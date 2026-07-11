@@ -4,8 +4,13 @@ declare(strict_types=1);
 
 namespace Thallo\Analytics\Facts;
 
+use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
+use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
+use Glueful\Extensions\Contracts\Tenancy\TenantScope;
 use Psr\Log\LoggerInterface;
+use Thallo\Contracts\Tenancy\WriteBarrier;
+use Thallo\Contracts\Tenancy\TenantWriteScope;
 use Throwable;
 
 /**
@@ -21,6 +26,10 @@ final class AnalyticsRecorder
         private readonly Connection $connection,
         private readonly ActorHasher $hasher,
         private readonly LoggerInterface $logger,
+        private readonly ?ApplicationContext $context = null,
+        private readonly ?CurrentTenantResolver $tenants = null,
+        private readonly ?WriteBarrier $barrier = null,
+        private readonly ?TenantWriteScope $writeScope = null,
     ) {
     }
 
@@ -65,22 +74,45 @@ final class AnalyticsRecorder
 
     private function bumpDaily(string $day, string $event, string $subject): void
     {
-        $pdo = $this->connection->getPDO();
-        $stmt = $pdo->prepare(
-            'INSERT INTO analytics_daily (day, event, subject, count) VALUES (?, ?, ?, 1)'
-            . ' ON CONFLICT (day, event, subject) DO UPDATE SET count = analytics_daily.count + 1'
-        );
-        $stmt->execute([$day, $event, $subject]);
+        // Raw upsert bypasses the tenancy stamper — scope the row + widen the conflict target.
+        $tenant = TenantScope::current($this->tenants, $this->context);
+        if ($this->writeScope?->mode() === 'compat') {
+            $tenant = $this->writeScope->tenantUuidForWrite();
+        }
+        $cols = ['day', 'event', 'subject', 'count'];
+        $vals = [$day, $event, $subject, 1];
+        $conflict = ['day', 'event', 'subject'];
+        if ($tenant !== null) {
+            array_unshift($cols, 'tenant_uuid');
+            array_unshift($vals, $tenant);
+            array_unshift($conflict, 'tenant_uuid');
+        }
+        $ph = implode(', ', array_fill(0, count($cols), '?'));
+        $sql = 'INSERT INTO analytics_daily (' . implode(', ', $cols) . ") VALUES ({$ph})"
+            . ' ON CONFLICT (' . implode(', ', $conflict) . ')'
+            . ' DO UPDATE SET count = analytics_daily.count + 1';
+        $write = fn (): bool => $this->connection->getPDO()->prepare($sql)->execute($vals);
+        $this->barrier !== null ? $this->barrier->runWritable($write) : $write();
     }
 
     private function touchActiveUser(string $day, string $hash): void
     {
-        $pdo = $this->connection->getPDO();
-        $stmt = $pdo->prepare(
-            'INSERT INTO analytics_active_actors (day, metric, actor_type, actor_id_hash)'
-            . " VALUES (?, 'active_users', 'user', ?)"
-            . ' ON CONFLICT (day, metric, actor_type, actor_id_hash) DO NOTHING'
-        );
-        $stmt->execute([$day, $hash]);
+        $tenant = TenantScope::current($this->tenants, $this->context);
+        if ($this->writeScope?->mode() === 'compat') {
+            $tenant = $this->writeScope->tenantUuidForWrite();
+        }
+        $cols = ['day', 'metric', 'actor_type', 'actor_id_hash'];
+        $vals = [$day, 'active_users', 'user', $hash];
+        $conflict = ['day', 'metric', 'actor_type', 'actor_id_hash'];
+        if ($tenant !== null) {
+            array_unshift($cols, 'tenant_uuid');
+            array_unshift($vals, $tenant);
+            array_unshift($conflict, 'tenant_uuid');
+        }
+        $ph = implode(', ', array_fill(0, count($cols), '?'));
+        $sql = 'INSERT INTO analytics_active_actors (' . implode(', ', $cols) . ") VALUES ({$ph})"
+            . ' ON CONFLICT (' . implode(', ', $conflict) . ') DO NOTHING';
+        $write = fn (): bool => $this->connection->getPDO()->prepare($sql)->execute($vals);
+        $this->barrier !== null ? $this->barrier->runWritable($write) : $write();
     }
 }

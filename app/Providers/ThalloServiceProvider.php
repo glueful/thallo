@@ -19,7 +19,25 @@ use App\Content\Forms\FormNotifier;
 use App\Content\Forms\FormSubmissionRepository;
 use App\Content\Forms\Spam\DefaultFormGuard;
 use App\Content\Forms\Spam\FormSubmissionGuard;
+use App\Content\Media\TenantBlobPolicy;
+use App\Content\Media\TenantBlobPublicUrlProvider;
+use App\Content\Media\TenantBlobRouteMiddlewareProvider;
+use App\Content\Authorization\OperatorBypass;
+use App\Content\Authorization\AuthenticatedPrincipalResolver;
+use App\Content\Authorization\PermissionAuthority;
+use App\Content\Authorization\RoleMatrix;
+use App\Content\Authorization\TenantMembershipRoleReader;
 use Glueful\Encryption\EncryptionService;
+use Glueful\Extensions\Audit\Contracts\AuditRecorderInterface;
+use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
+use Glueful\Extensions\Contracts\Tenancy\TenantRuntimeReadiness;
+use Glueful\Uploader\Contracts\BlobAccessPolicy;
+use Glueful\Uploader\Contracts\BlobCreatedHook;
+use Glueful\Uploader\Contracts\BlobPublicUrlProvider;
+use Glueful\Uploader\Contracts\BlobRouteMiddlewareProvider;
+use Glueful\Extensions\Contracts\Tenancy\FullTenantResolutionReadiness;
+use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;
+use Glueful\Extensions\Contracts\Tenancy\TenantDomainAdministration;
 use Thallo\Contracts\Content\FormSealer;
 use App\Content\Console\PruneVersionsCommand;
 use App\Content\Console\RunBlockBackfillCommand;
@@ -32,6 +50,7 @@ use App\Setup\Console\CreateAdminCommand;
 use App\Setup\Console\DoctorCommand;
 use App\Setup\Console\ProvisionCommand;
 use App\Content\Backfill\BackfillRunner;
+use App\Content\Indexing\FilterIndexJobDispatcher;
 use App\Http\Controllers\AdminConfigController;
 use App\Http\Controllers\ApiKeyAdminController;
 use App\Http\Controllers\CacheAdminController;
@@ -46,10 +65,13 @@ use App\Http\Controllers\ImportExportController;
 use App\Http\Controllers\MediaAdminController;
 use App\Http\Controllers\RegionAdminController;
 use App\Http\Controllers\ScheduledTasksController;
+use App\Http\Controllers\TenancyAccessController;
 use App\Http\Controllers\UserAdminController;
 use App\Support\UserRoleAssignmentPolicy;
 use App\Settings\GeneralSettings;
 use App\Settings\SettingsStore;
+use App\Settings\SystemKeyReconciler;
+use Thallo\Contracts\Settings\SystemKeyReconciler as SystemKeyReconcilerContract;
 use App\Content\Http\Controllers\BlockMigrationController;
 use App\Content\Http\Controllers\BlockTypeController;
 use App\Content\Http\Controllers\ContentTypeController;
@@ -166,9 +188,12 @@ use Thallo\Contracts\Delivery\PreviewThemeValidator;
 use Thallo\Contracts\Delivery\ReferenceTargetResolver;
 use Thallo\Contracts\Search\IndexableContentReader;
 use Thallo\Contracts\Schema\FieldTypeRegistry;
+use Thallo\Contracts\Tenancy\WriteBarrier;
+use Thallo\Tenancy\System\SystemFlags;
 use Glueful\Database\Connection;
 use Glueful\Database\Migrations\MigrationPriority;
 use Glueful\Events\EventService;
+use Glueful\Permissions\PermissionManager;
 use Thallo\Collections\Events\CollectionCreated;
 use Thallo\Collections\Events\CollectionDropped;
 use Thallo\Collections\Events\CollectionRowCreated;
@@ -223,6 +248,7 @@ final class ThalloServiceProvider extends ServiceProvider
         return array_merge(
             self::repositoryServices(),
             self::contentEngineServices(),
+            self::starterServices(),
             self::seoServices(),
             self::deliveryServices(),
             self::pipelineListenerServices(),
@@ -522,6 +548,114 @@ final class ThalloServiceProvider extends ServiceProvider
         ];
     }
 
+    /** @return array<string, array<string, mixed>> */
+    private static function starterServices(): array
+    {
+        $autowired = static fn(string $class): array => [
+            'class' => $class,
+            'shared' => true,
+            'autowire' => true,
+        ];
+
+        return [
+            \App\Content\Starter\Kinds\ContentTypeKind::class => $autowired(
+                \App\Content\Starter\Kinds\ContentTypeKind::class
+            ),
+            \App\Content\Starter\Kinds\BlockTypeKind::class => $autowired(
+                \App\Content\Starter\Kinds\BlockTypeKind::class
+            ),
+            \App\Content\Starter\Kinds\SettingKind::class => $autowired(
+                \App\Content\Starter\Kinds\SettingKind::class
+            ),
+            \App\Content\Starter\Kinds\RegionKind::class => $autowired(
+                \App\Content\Starter\Kinds\RegionKind::class
+            ),
+            \App\Content\Starter\Kinds\NavigationMenuKind::class => $autowired(
+                \App\Content\Starter\Kinds\NavigationMenuKind::class
+            ),
+            \App\Content\Starter\Kinds\HomepageEntryKind::class => $autowired(
+                \App\Content\Starter\Kinds\HomepageEntryKind::class
+            ),
+            \App\Content\Starter\StarterProvenanceRepository::class => $autowired(
+                \App\Content\Starter\StarterProvenanceRepository::class
+            ),
+            \App\Content\Starter\StarterTransaction::class => $autowired(
+                \App\Content\Starter\StarterTransaction::class
+            ),
+            \App\Content\Starter\StarterDefinitions::class => [
+                'factory' => [self::class, 'makeStarterDefinitions'],
+                'shared' => true,
+            ],
+            \App\Content\Starter\TenantSeeder::class => $autowired(
+                \App\Content\Starter\TenantSeeder::class
+            ),
+            \App\Content\Starter\StarterSync::class => $autowired(\App\Content\Starter\StarterSync::class),
+            \App\Content\Starter\DefaultStarterCoverageCheck::class => $autowired(
+                \App\Content\Starter\DefaultStarterCoverageCheck::class
+            ),
+            \Thallo\Tenancy\Contracts\TenantSeedActivator::class => [
+                'factory' => [self::class, 'makeTenantSeeder'],
+                'shared' => true,
+            ],
+            \Thallo\Tenancy\Contracts\TenantSeedRepair::class => [
+                'factory' => [self::class, 'makeTenantSeeder'],
+                'shared' => true,
+            ],
+            \Thallo\Tenancy\Contracts\TenantStarterSync::class => [
+                'factory' => [self::class, 'makeStarterSync'],
+                'shared' => true,
+            ],
+            \Thallo\Tenancy\Contracts\StarterCoverageCheck::class => [
+                'factory' => [self::class, 'makeStarterCoverageCheck'],
+                'shared' => true,
+            ],
+            \App\Content\Starter\RawPdoWriteAudit::class => [
+                'factory' => [self::class, 'makeRawPdoWriteAudit'],
+                'shared' => true,
+            ],
+            \Thallo\Tenancy\Contracts\StaticWriteAudit::class => [
+                'factory' => [self::class, 'makeRawPdoWriteAudit'],
+                'shared' => true,
+            ],
+        ];
+    }
+
+    public static function makeStarterDefinitions(
+        ContainerInterface $container
+    ): \App\Content\Starter\StarterDefinitions {
+        return new \App\Content\Starter\StarterDefinitions(
+            $container->get(\App\Content\Starter\Kinds\ContentTypeKind::class),
+            $container->get(\App\Content\Starter\Kinds\BlockTypeKind::class),
+            $container->get(\App\Content\Starter\Kinds\SettingKind::class),
+            $container->get(\App\Content\Starter\Kinds\RegionKind::class),
+            $container->get(\App\Content\Starter\Kinds\NavigationMenuKind::class),
+            $container->get(\App\Content\Starter\Kinds\HomepageEntryKind::class),
+        );
+    }
+
+    public static function makeTenantSeeder(ContainerInterface $container): \App\Content\Starter\TenantSeeder
+    {
+        return $container->get(\App\Content\Starter\TenantSeeder::class);
+    }
+
+    public static function makeStarterSync(ContainerInterface $container): \App\Content\Starter\StarterSync
+    {
+        return $container->get(\App\Content\Starter\StarterSync::class);
+    }
+
+    public static function makeStarterCoverageCheck(
+        ContainerInterface $container
+    ): \Thallo\Tenancy\Contracts\StarterCoverageCheck {
+        return $container->get(\App\Content\Starter\DefaultStarterCoverageCheck::class);
+    }
+
+    public static function makeRawPdoWriteAudit(
+        ContainerInterface $container
+    ): \App\Content\Starter\RawPdoWriteAudit {
+        $context = $container->get(\Glueful\Bootstrap\ApplicationContext::class);
+        return new \App\Content\Starter\RawPdoWriteAudit(base_path($context));
+    }
+
     /**
      * Headless SEO/routing: path rendering, route resolution, and canonical-URL
      * projection (the factory-built services derive their config from thallo.seo.*).
@@ -808,7 +942,69 @@ final class ThalloServiceProvider extends ServiceProvider
 
     public static function makePreviewWorkingCopyStore(ContainerInterface $container): PreviewWorkingCopyStore
     {
-        return new PreviewWorkingCopyStore($container->get(CacheStore::class));
+        return new PreviewWorkingCopyStore(
+            $container->get(CacheStore::class),
+            $container->get(\Thallo\Tenancy\Cache\TenantCacheSegment::class),
+            $container->get(ApplicationContext::class),
+        );
+    }
+
+    public static function makeSystemKeyReconciler(ContainerInterface $container): SystemKeyReconcilerContract
+    {
+        return $container->get(SystemKeyReconciler::class);
+    }
+
+    public static function makeTenantBlobPolicy(ContainerInterface $container): TenantBlobPolicy
+    {
+        $resolver = $container->has(CurrentTenantResolver::class)
+            ? $container->get(CurrentTenantResolver::class)
+            : null;
+
+        return new TenantBlobPolicy(
+            $container->get(ApplicationContext::class),
+            $container->get(Connection::class),
+            $container->get(SystemFlags::class),
+            $container->get(TenantRuntimeReadiness::class),
+            $container->get(WriteBarrier::class),
+            $resolver,
+            $container->has(\Thallo\Contracts\Tenancy\TenantWriteScope::class)
+                ? $container->get(\Thallo\Contracts\Tenancy\TenantWriteScope::class)
+                : null,
+        );
+    }
+
+    public static function makeBlobCreatedHook(ContainerInterface $container): BlobCreatedHook
+    {
+        return $container->get(TenantBlobPolicy::class);
+    }
+
+    public static function makeBlobAccessPolicy(ContainerInterface $container): BlobAccessPolicy
+    {
+        return $container->get(TenantBlobPolicy::class);
+    }
+
+    public static function makeBlobPublicUrlProvider(ContainerInterface $container): BlobPublicUrlProvider
+    {
+        return new TenantBlobPublicUrlProvider(
+            $container->get(ApplicationContext::class),
+            $container->get(Connection::class),
+            $container->get(SystemFlags::class),
+            $container->has(FullTenantResolutionReadiness::class)
+                ? $container->get(FullTenantResolutionReadiness::class)
+                : null,
+            $container->has(TenantAdministration::class)
+                ? $container->get(TenantAdministration::class)
+                : null,
+            $container->has(TenantDomainAdministration::class)
+                ? $container->get(TenantDomainAdministration::class)
+                : null,
+        );
+    }
+
+    public static function makeBlobRouteMiddlewareProvider(
+        ContainerInterface $container
+    ): BlobRouteMiddlewareProvider {
+        return new TenantBlobRouteMiddlewareProvider();
     }
 
     public static function makeMediaUrlResolver(ContainerInterface $container): EngineMediaUrlResolver
@@ -867,6 +1063,11 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             BackfillRunner::class => [
                 'class' => BackfillRunner::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            FilterIndexJobDispatcher::class => [
+                'class' => FilterIndexJobDispatcher::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -934,12 +1135,83 @@ final class ThalloServiceProvider extends ServiceProvider
                 'autowire' => true,
             ],
             RequirePermission::class => [
-                'class' => RequirePermission::class,
+                'factory' => [self::class, 'makeRequirePermission'],
                 'shared' => true,
-                'autowire' => true,
                 'alias' => ['content_permission'],
             ],
+            RoleMatrix::class => [
+                'class' => RoleMatrix::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            TenantMembershipRoleReader::class => [
+                'factory' => [self::class, 'makeMembershipRoleReader'],
+                'shared' => true,
+            ],
+            OperatorBypass::class => [
+                'factory' => [self::class, 'makeOperatorBypass'],
+                'shared' => true,
+            ],
+            AuthenticatedPrincipalResolver::class => [
+                'class' => AuthenticatedPrincipalResolver::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            PermissionAuthority::class => [
+                'class' => PermissionAuthority::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
         ];
+    }
+
+    public static function makeMembershipRoleReader(ContainerInterface $container): TenantMembershipRoleReader
+    {
+        return new TenantMembershipRoleReader(
+            $container->get(ApplicationContext::class),
+            $container->has(CurrentTenantResolver::class)
+                ? $container->get(CurrentTenantResolver::class)
+                : null,
+        );
+    }
+
+    public static function makeOperatorBypass(ContainerInterface $container): OperatorBypass
+    {
+        $permissions = $container->has(PermissionManager::class)
+            ? $container->get(PermissionManager::class)
+            : ($container->has('permission.manager') ? $container->get('permission.manager') : null);
+        return new OperatorBypass(
+            $container->get(ApplicationContext::class),
+            $permissions instanceof PermissionManager ? $permissions : null,
+            $container->has(AuditRecorderInterface::class)
+                ? $container->get(AuditRecorderInterface::class)
+                : null,
+        );
+    }
+
+    public static function makeRequirePermission(ContainerInterface $container): RequirePermission
+    {
+        return new RequirePermission(
+            $container->get(ApplicationContext::class),
+            $container->get(TenantMembershipRoleReader::class),
+            $container->get(RoleMatrix::class),
+            $container->get(OperatorBypass::class),
+            $container->get(AuthenticatedPrincipalResolver::class),
+            $container->get(PermissionAuthority::class),
+        );
+    }
+
+    public static function makeTenancyAccessController(ContainerInterface $container): TenancyAccessController
+    {
+        return new TenancyAccessController(
+            $container->get(AuthenticatedPrincipalResolver::class),
+            $container->get(PermissionAuthority::class),
+            $container->has(RoleMatrix::class) ? $container->get(RoleMatrix::class) : null,
+            $container->has(TenantMembershipRoleReader::class)
+                ? $container->get(TenantMembershipRoleReader::class)
+                : null,
+            $container->has(OperatorBypass::class) ? $container->get(OperatorBypass::class) : null,
+        );
     }
 
     /**
@@ -977,6 +1249,26 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            TenantBlobPolicy::class => [
+                'factory' => [self::class, 'makeTenantBlobPolicy'],
+                'shared' => true,
+            ],
+            BlobCreatedHook::class => [
+                'factory' => [self::class, 'makeBlobCreatedHook'],
+                'shared' => true,
+            ],
+            BlobAccessPolicy::class => [
+                'factory' => [self::class, 'makeBlobAccessPolicy'],
+                'shared' => true,
+            ],
+            BlobPublicUrlProvider::class => [
+                'factory' => [self::class, 'makeBlobPublicUrlProvider'],
+                'shared' => true,
+            ],
+            BlobRouteMiddlewareProvider::class => [
+                'factory' => [self::class, 'makeBlobRouteMiddlewareProvider'],
+                'shared' => true,
+            ],
             ApiKeyAdminController::class => [
                 'class' => ApiKeyAdminController::class,
                 'shared' => true,
@@ -1007,6 +1299,15 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            SystemKeyReconciler::class => [
+                'class' => SystemKeyReconciler::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            SystemKeyReconcilerContract::class => [
+                'factory' => [self::class, 'makeSystemKeyReconciler'],
+                'shared' => true,
+            ],
             CacheAdminController::class => [
                 'class' => CacheAdminController::class,
                 'shared' => true,
@@ -1026,6 +1327,10 @@ final class ThalloServiceProvider extends ServiceProvider
                 'class' => ScheduledTasksController::class,
                 'shared' => true,
                 'autowire' => true,
+            ],
+            TenancyAccessController::class => [
+                'factory' => [self::class, 'makeTenancyAccessController'],
+                'shared' => true,
             ],
             SetupController::class => [
                 'class' => SetupController::class,
@@ -1191,6 +1496,11 @@ final class ThalloServiceProvider extends ServiceProvider
             'app:dependent'
         );
 
+        $container = $context->getContainer();
+        $enabled = $container->has(SystemFlags::class)
+            && $container->get(SystemFlags::class)->tenancyEnabled();
+        self::assertBlobPolicyReady($container, $enabled);
+
         // Mount the compiled admin SPA at /admin via the framework seam: secure asset serving
         // + index.html deep-link fallback + cache split. No-ops (with a warning) if the bundle
         // is unbuilt. The /admin/config + /admin/setup static routes (routes/admin_spa.php)
@@ -1223,6 +1533,22 @@ final class ThalloServiceProvider extends ServiceProvider
             ProvisionCommand::class,
             CreateAdminCommand::class,
         ]);
+    }
+
+    public static function assertBlobPolicyReady(ContainerInterface $container, bool $tenancyEnabled): void
+    {
+        if (!$tenancyEnabled) {
+            return;
+        }
+
+        if (
+            !$container->has(BlobCreatedHook::class)
+            || !$container->get(BlobCreatedHook::class) instanceof TenantBlobPolicy
+            || !$container->has(BlobAccessPolicy::class)
+            || !$container->get(BlobAccessPolicy::class) instanceof TenantBlobPolicy
+        ) {
+            throw new \RuntimeException('Tenancy is enabled without the tenant blob policy.');
+        }
     }
 
     /**

@@ -15,12 +15,16 @@ const model = defineModel<Box>({ default: () => ({}) })
 
 const linked = ref(true)
 
+function toggleLink(): void {
+  linked.value = !linked.value
+}
+
 function sideValue(side: Side): number | undefined {
   return model.value?.[side]
 }
 
 function setSide(side: Side, raw: number | undefined): void {
-  const next: Box = { ...(model.value ?? {}) }
+  const next: Box = { ...model.value }
   const apply = (s: Side) => {
     if (raw === undefined || Number.isNaN(raw)) delete next[s]
     else next[s] = raw
@@ -62,7 +66,7 @@ function onInput(side: Side, e: Event): void {
           :aria-label="linked ? 'Unlink sides' : 'Link sides'"
           :aria-pressed="linked"
           data-test="box-link"
-          @click="linked = !linked"
+          @click="toggleLink"
         />
         <span class="text-[11px] text-muted">px</span>
       </div>

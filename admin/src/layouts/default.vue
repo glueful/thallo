@@ -9,9 +9,14 @@ import { registerNavigationModule } from '@/registry/navigationModule'
 import { registerRegionsModule } from '@/registry/regionsModule'
 import { registerTemplatesModule } from '@/registry/templatesModule'
 import { registerSubmissionsModule } from '@/registry/submissionsModule'
+import { registerTenancyModule } from '@/registry/tenancyModule'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useContentTypes } from '@/queries/contentTypes'
 import { useUnreadCount } from '@/queries/formSubmissions'
+import { useTenantStore } from '@/stores/tenant'
+import { useTenancyAccessStore } from '@/stores/tenancyAccess'
+import { useTenancyAccessLifecycle } from '@/composables/useTenancyAccessLifecycle'
+import { shapeTenancyNav } from '@/navigation/shapeTenancyNav'
 
 registerCoreModule()
 registerCollectionsModule()
@@ -21,8 +26,12 @@ registerNavigationModule()
 registerRegionsModule()
 registerTemplatesModule()
 registerSubmissionsModule()
+registerTenancyModule()
 const caps = useCapabilitiesStore()
 caps.ensureLoaded() // post-auth: this layout only renders for authenticated users
+const tenant = useTenantStore()
+const tenancyAccess = useTenancyAccessStore()
+useTenancyAccessLifecycle()
 
 // Converge an open tab on server-side pack enable/disable without a manual reload:
 // re-fetch capabilities whenever the window regains focus (the toggle usually happens in a
@@ -54,8 +63,8 @@ const { data: unreadSubmissions } = useUnreadCount()
 
 // nav.value[0] = main nav; inject live content types into the Content section's children,
 // and the live unread count as the Submissions badge (both unchanged for other items).
-const mainItems = computed(() =>
-  nav.value[0].map((item) => {
+const mainItems = computed(() => {
+  const enriched = nav.value[0].map((item) => {
     if (item.label === 'Content') {
       return {
         ...item,
@@ -71,8 +80,14 @@ const mainItems = computed(() =>
       return count > 0 ? { ...item, badge: String(count) } : item
     }
     return item
-  }),
-)
+  })
+  return shapeTenancyNav(
+    enriched,
+    tenancyAccess.access,
+    tenant.selectedUuid,
+    caps.isEnabled('thallo.tenancy'),
+  )
+})
 const utilityItems = computed(() => nav.value[1])
 </script>
 
@@ -90,6 +105,7 @@ const utilityItems = computed(() => nav.value[1])
     >
       <template #header="{ collapsed }">
         <AppLogo v-if="!collapsed" class="w-auto h-10 shrink-0" :show-text="true" />
+        <TenantSwitcher v-if="!collapsed" />
         <UDashboardSidebarCollapse :class="collapsed ? 'mx-auto' : 'ms-auto'" />
       </template>
 

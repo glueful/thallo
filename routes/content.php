@@ -17,9 +17,11 @@ use Glueful\Routing\Router;
  * Auto-discovered by RouteManifest; the provider must NOT loadRoutesFrom() this file
  * (double registration throws on duplicate static routes).
  */
-$router->group(['prefix' => '/v1/content', 'middleware' => ['optional_api_key']], function (Router $router): void {
+$router->group(
+    ['prefix' => '/v1/content', 'middleware' => ['tenant_profile:public', 'tenant_bootstrap', 'optional_api_key']],
+    function (Router $router): void {
     // List published entries of a content type.
-    $router->get('/{type}', [DeliveryController::class, 'index'])
+        $router->get('/{type}', [DeliveryController::class, 'index'])
         ->middleware('delivery_access')
         ->middleware('rate_limit')
         ->rateLimit(120, 1, by: 'user');
@@ -27,21 +29,22 @@ $router->group(['prefix' => '/v1/content', 'middleware' => ['optional_api_key']]
     // Facet counts — registered BEFORE the show route: /{type}/facets and
     // /{type}/{slugOrUuid} share a segment shape and `facets` must win. `facets` is a
     // reserved word on this surface (an entry literally slugged `facets` is shadowed).
-    $router->get('/{type}/facets', [TaxonomyController::class, 'facets'])
+        $router->get('/{type}/facets', [TaxonomyController::class, 'facets'])
         ->middleware('delivery_access')
         ->middleware('rate_limit')
         ->rateLimit(120, 1, by: 'user');
 
     // Get a single published entry by slug or UUID.
-    $router->get('/{type}/{slugOrUuid}', [DeliveryController::class, 'show'])
+        $router->get('/{type}/{slugOrUuid}', [DeliveryController::class, 'show'])
         ->middleware('delivery_access')
         ->middleware('rate_limit')
         ->rateLimit(120, 1, by: 'user');
 
     // Term archive: the shaped term + its published members (projection-backed
     // membership — term-archives/facets spec §3).
-    $router->get('/{type}/archive/{field}/{term}', [TaxonomyController::class, 'archive'])
+        $router->get('/{type}/archive/{field}/{term}', [TaxonomyController::class, 'archive'])
         ->middleware('delivery_access')
         ->middleware('rate_limit')
         ->rateLimit(120, 1, by: 'user');
-});
+    },
+);

@@ -8,11 +8,23 @@ use App\Content\Enums\ScheduleAction;
 use App\Content\Enums\ScheduleStatus;
 use Glueful\Database\Connection;
 use Glueful\Helpers\Utils;
+use Thallo\Contracts\Tenancy\WriteBarrier;
 
+/**
+ * Request-path methods (schedule/cancel/forEntry/find) go through the builder and are tenant-scoped
+ * by the tenancy guard/hook. The background drain — claimDuePending()/reclaimStale()/markOutcome() —
+ * is a NAMED SYSTEM PATH: it uses raw PDO (FOR UPDATE SKIP LOCKED / RETURNING / AT TIME ZONE, which
+ * the builder can't express) to scan and finalize entry_schedules ACROSS tenants in one pass, keyed
+ * on the global surrogate `id`. Tenant correctness is carried per drained row (RETURNING * yields
+ * tenant_uuid) into the scoped publish by ScheduleRunner; these three methods intentionally do not
+ * add a tenant predicate.
+ */
 final class ScheduleRepository
 {
-    public function __construct(private readonly Connection $db)
-    {
+    public function __construct(
+        private readonly Connection $db,
+        private readonly ?WriteBarrier $barrier = null,
+    ) {
     }
 
     /**
@@ -126,59 +138,63 @@ final class ScheduleRepository
             return [];
         }
 
-        $pdo = $this->db->getPDO();
-        $pdo->beginTransaction();
+        $write = function () use ($limit, $lockToken): array {
+            $pdo = $this->db->getPDO();
+            $pdo->beginTransaction();
 
-        try {
+            try {
             // run_at is TIMESTAMP WITHOUT TIME ZONE holding a UTC wall-clock (normalizeRunAt stores
             // UTC). Comparing it to the tz-aware now() would promote it in the SESSION timezone and
             // fire schedules off by the session's UTC offset — so compare against now() reduced to
             // UTC wall-clock, which is what the stored values are.
-            $select = $pdo->prepare(
-                "SELECT id
+                $select = $pdo->prepare(
+                    "SELECT id
                  FROM entry_schedules
                  WHERE status = 'pending' AND run_at <= (now() AT TIME ZONE 'UTC')
                  ORDER BY run_at ASC
                  LIMIT :limit
                  FOR UPDATE SKIP LOCKED"
-            );
-            $select->bindValue(':limit', $limit, \PDO::PARAM_INT);
-            $select->execute();
+                );
+                $select->bindValue(':limit', $limit, \PDO::PARAM_INT);
+                $select->execute();
 
-            $ids = array_map('intval', $select->fetchAll(\PDO::FETCH_COLUMN));
-            if ($ids === []) {
-                $pdo->commit();
+                $ids = array_map('intval', $select->fetchAll(\PDO::FETCH_COLUMN));
+                if ($ids === []) {
+                    $pdo->commit();
 
-                return [];
-            }
+                    return [];
+                }
 
-            $placeholders = implode(',', array_fill(0, count($ids), '?'));
-            $update = $pdo->prepare(
-                "UPDATE entry_schedules
+                $placeholders = implode(',', array_fill(0, count($ids), '?'));
+                $update = $pdo->prepare(
+                    "UPDATE entry_schedules
                  SET status = 'processing', locked_by = ?, updated_at = (now() AT TIME ZONE 'UTC')
                  WHERE id IN ({$placeholders})
                  RETURNING *"
-            );
-            $update->execute([$lockToken, ...$ids]);
+                );
+                $update->execute([$lockToken, ...$ids]);
             /** @var list<array<string,mixed>> $rows */
-            $rows = $update->fetchAll(\PDO::FETCH_ASSOC);
-            $pdo->commit();
+                $rows = $update->fetchAll(\PDO::FETCH_ASSOC);
+                $pdo->commit();
 
             // Postgres does not guarantee RETURNING row order, so re-establish chronological order
             // (run_at, then id) in PHP: a publish+unpublish for one entry claimed in the same batch
             // must run oldest-first, or the later-scheduled action could be applied before the
             // earlier one and leave the wrong terminal state.
-            $rows = $this->normalizeRows($rows);
-            usort($rows, static function (array $a, array $b): int {
-                return [$a['run_at'], (int) $a['id']] <=> [$b['run_at'], (int) $b['id']];
-            });
+                $rows = $this->normalizeRows($rows);
+                usort($rows, static function (array $a, array $b): int {
+                    return [$a['run_at'], (int) $a['id']] <=> [$b['run_at'], (int) $b['id']];
+                });
 
-            return $rows;
-        } catch (\Throwable $e) {
-            $pdo->rollBack();
+                return $rows;
+            } catch (\Throwable $e) {
+                $pdo->rollBack();
 
-            throw $e;
-        }
+                throw $e;
+            }
+        };
+
+        return $this->barrier !== null ? $this->barrier->runWritable($write) : $write();
     }
 
     public function reclaimStale(int $olderThanSeconds = 300): int
@@ -187,18 +203,21 @@ final class ScheduleRepository
             return 0;
         }
 
-        // Clear locked_by on reclaim so the previous owner can no longer finalise the row via
-        // markOutcome. UTC-explicit comparison/write for the same reason as claimDuePending.
-        $stmt = $this->db->getPDO()->prepare(
-            "UPDATE entry_schedules
-             SET status = 'pending', locked_by = NULL, updated_at = (now() AT TIME ZONE 'UTC')
-             WHERE status = 'processing'
-               AND updated_at < ((now() AT TIME ZONE 'UTC') - (:seconds::int * interval '1 second'))"
-        );
-        $stmt->bindValue(':seconds', $olderThanSeconds, \PDO::PARAM_INT);
-        $stmt->execute();
+        $write = function () use ($olderThanSeconds): int {
+            // Clear locked_by on reclaim so the previous owner can no longer finalise the row.
+            $stmt = $this->db->getPDO()->prepare(
+                "UPDATE entry_schedules
+                 SET status = 'pending', locked_by = NULL, updated_at = (now() AT TIME ZONE 'UTC')
+                 WHERE status = 'processing'
+                   AND updated_at < ((now() AT TIME ZONE 'UTC') - (:seconds::int * interval '1 second'))"
+            );
+            $stmt->bindValue(':seconds', $olderThanSeconds, \PDO::PARAM_INT);
+            $stmt->execute();
 
-        return $stmt->rowCount();
+            return $stmt->rowCount();
+        };
+
+        return $this->barrier !== null ? $this->barrier->runWritable($write) : $write();
     }
 
     public function markOutcome(
@@ -211,24 +230,24 @@ final class ScheduleRepository
             throw new \InvalidArgumentException('Schedule outcome must be terminal.');
         }
 
-        // Scope to the claiming run's token: if a stale-lease reclaim handed this row to another run
-        // (which cleared/replaced locked_by), this write no-ops instead of clobbering that run's
-        // outcome.
-        $stmt = $this->db->getPDO()->prepare(
-            "UPDATE entry_schedules
-             SET status = :status,
-                 attempts = attempts + 1,
-                 failure_reason = :failure_reason,
-                 updated_at = :updated_at
-             WHERE id = :id AND status = 'processing' AND locked_by = :lock_token"
-        );
-        $stmt->execute([
-            ':status' => $status->value,
-            ':failure_reason' => $failureReason,
-            ':updated_at' => $this->now(),
-            ':id' => $id,
-            ':lock_token' => $lockToken,
-        ]);
+        $write = function () use ($id, $status, $failureReason, $lockToken): void {
+            $stmt = $this->db->getPDO()->prepare(
+                "UPDATE entry_schedules
+                 SET status = :status,
+                     attempts = attempts + 1,
+                     failure_reason = :failure_reason,
+                     updated_at = :updated_at
+                 WHERE id = :id AND status = 'processing' AND locked_by = :lock_token"
+            );
+            $stmt->execute([
+                ':status' => $status->value,
+                ':failure_reason' => $failureReason,
+                ':updated_at' => $this->now(),
+                ':id' => $id,
+                ':lock_token' => $lockToken,
+            ]);
+        };
+        $this->barrier !== null ? $this->barrier->runWritable($write) : $write();
     }
 
     private function now(): string

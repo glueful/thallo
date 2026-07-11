@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Thallo\Analytics\Query;
 
 use DateTimeImmutable;
+use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
+use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
+use Glueful\Extensions\Contracts\Tenancy\TenantScope;
 
 /**
  * Read service over the rollups. Reads analytics_daily for counts and analytics_active_actors for
@@ -13,8 +16,11 @@ use Glueful\Database\Connection;
  */
 final class AnalyticsQuery
 {
-    public function __construct(private readonly Connection $connection)
-    {
+    public function __construct(
+        private readonly Connection $connection,
+        private readonly ?ApplicationContext $context = null,
+        private readonly ?CurrentTenantResolver $tenants = null,
+    ) {
     }
 
     /**
@@ -72,12 +78,14 @@ final class AnalyticsQuery
      */
     private function activeUsersByDay(string $from, string $to): array
     {
+        $tenant = TenantScope::current($this->tenants, $this->context);
+        $scope = $tenant === null ? '' : ' AND tenant_uuid = ?';
         $pdo = $this->connection->getPDO();
         $stmt = $pdo->prepare(
             'SELECT day, COUNT(DISTINCT actor_id_hash) AS count FROM analytics_active_actors'
-            . " WHERE metric = 'active_users' AND day >= ? AND day <= ? GROUP BY day"
+            . " WHERE metric = 'active_users' AND day >= ? AND day <= ?" . $scope . ' GROUP BY day'
         );
-        $stmt->execute([$from, $to]);
+        $stmt->execute($tenant === null ? [$from, $to] : [$from, $to, $tenant]);
 
         $byDay = [];
         foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
@@ -96,13 +104,15 @@ final class AnalyticsQuery
     {
         $limit = max(1, min($limit, 50));
 
+        $tenant = TenantScope::current($this->tenants, $this->context);
+        $scope = $tenant === null ? '' : ' AND tenant_uuid = ?';
         $pdo = $this->connection->getPDO();
         $stmt = $pdo->prepare(
             'SELECT subject, SUM(count) AS count FROM analytics_daily'
-            . " WHERE event = ? AND subject <> '__total__' AND day >= ? AND day <= ?"
+            . " WHERE event = ? AND subject <> '__total__' AND day >= ? AND day <= ?" . $scope
             . ' GROUP BY subject ORDER BY count DESC, subject ASC LIMIT ' . $limit
         );
-        $stmt->execute([$event, $from, $to]);
+        $stmt->execute($tenant === null ? [$event, $from, $to] : [$event, $from, $to, $tenant]);
 
         $out = [];
         foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) as $row) {
@@ -130,12 +140,14 @@ final class AnalyticsQuery
 
         // DISTINCT over the range — a user active on N days counts ONCE, not N (the per-(day,actor)
         // rows would otherwise be user-days). Raw SQL: the builder's count() is COUNT(*).
+        $tenant = TenantScope::current($this->tenants, $this->context);
+        $scope = $tenant === null ? '' : ' AND tenant_uuid = ?';
         $pdo = $this->connection->getPDO();
         $stmt = $pdo->prepare(
             'SELECT COUNT(DISTINCT actor_id_hash) FROM analytics_active_actors'
-            . " WHERE metric = 'active_users' AND day >= ? AND day <= ?"
+            . " WHERE metric = 'active_users' AND day >= ? AND day <= ?" . $scope
         );
-        $stmt->execute([$from, $to]);
+        $stmt->execute($tenant === null ? [$from, $to] : [$from, $to, $tenant]);
         $activeUsers = (int) $stmt->fetchColumn();
 
         return ['from' => $from, 'to' => $to, 'totals' => $totals, 'active_users' => $activeUsers];

@@ -6,6 +6,7 @@ namespace App\Tests\Integration\Setup;
 
 use App\Setup\SetupService;
 use App\Tests\Support\AppTestCase;
+use Thallo\Contracts\Settings\SystemChannel;
 
 /**
  * Verifies the SetupService install flow end-to-end against a real PostgreSQL database.
@@ -27,6 +28,11 @@ final class SetupServiceTest extends AppTestCase
     private function service(): SetupService
     {
         return $this->container()->get(SetupService::class);
+    }
+
+    private function channel(): SystemChannel
+    {
+        return $this->container()->get(SystemChannel::class);
     }
 
     public function testIsInstalledReturnsFalseOnFreshInstall(): void
@@ -160,10 +166,12 @@ final class SetupServiceTest extends AppTestCase
             ->where(['key' => 'listing_types'])->first();
         self::assertSame('post', $row['value'] ?? null);
 
-        // No admin_url was passed (CLI-style install) -> no row written.
+        // admin_url is a system key: it never lands in `settings`, and none was passed
+        // (CLI-style install), so the system channel holds no value for it either.
         self::assertNull(
             $this->connection()->table('settings')->where(['key' => 'admin_url'])->first(),
         );
+        self::assertNull($this->channel()->get('admin_url'));
     }
 
     public function testInstallRecordsTheAdminOriginWhenSupplied(): void
@@ -177,8 +185,9 @@ final class SetupServiceTest extends AppTestCase
             locale: 'en',
             adminUrl: 'https://admin.example.com/',
         );
-        $row = $this->connection()->table('settings')->where(['key' => 'admin_url'])->first();
-        self::assertSame('https://admin.example.com', $row['value'] ?? null); // trailing / trimmed
+        // admin_url is a system key — persisted to the unscoped system channel, not `settings`.
+        self::assertNull($this->connection()->table('settings')->where(['key' => 'admin_url'])->first());
+        self::assertSame('https://admin.example.com', $this->channel()->get('admin_url')); // trailing / trimmed
     }
 
     public function testInstallIsPermanentLock(): void

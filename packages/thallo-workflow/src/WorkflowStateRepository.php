@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Thallo\Workflow;
 
+use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
+use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
+use Glueful\Extensions\Contracts\Tenancy\TenantScope;
+use Thallo\Contracts\Tenancy\WriteBarrier;
+use Thallo\Contracts\Tenancy\TenantWriteScope;
 
 /**
  * Reads/writes the review-state row (one per entry+locale; absent ≡ draft) and the
@@ -15,8 +20,13 @@ final class WorkflowStateRepository
 {
     private const ATTRS = ['submitted_by', 'submitted_at', 'reviewed_by', 'reviewed_at'];
 
-    public function __construct(private readonly Connection $db)
-    {
+    public function __construct(
+        private readonly Connection $db,
+        private readonly ?ApplicationContext $context = null,
+        private readonly ?CurrentTenantResolver $tenants = null,
+        private readonly ?WriteBarrier $barrier = null,
+        private readonly ?TenantWriteScope $writeScope = null,
+    ) {
     }
 
     /** @return array<string,mixed>|null */
@@ -50,11 +60,24 @@ final class WorkflowStateRepository
         foreach (array_keys($payload) as $col) {
             $sets[] = $col . ' = excluded.' . $col;
         }
+
+        // Raw upsert bypasses the tenancy stamper — scope the row + widen the conflict target.
+        $conflict = ['entry_uuid', 'locale'];
+        $tenant = TenantScope::current($this->tenants, $this->context);
+        if ($this->writeScope?->mode() === 'compat') {
+            $tenant = $this->writeScope->tenantUuidForWrite();
+        }
+        if ($tenant !== null) {
+            $insert['tenant_uuid'] = $tenant;
+            array_unshift($conflict, 'tenant_uuid');
+        }
+
         $cols = array_keys($insert);
         $sql = 'INSERT INTO workflow_review_states (' . implode(', ', $cols) . ')'
             . ' VALUES (' . implode(', ', array_fill(0, count($cols), '?')) . ')'
-            . ' ON CONFLICT (entry_uuid, locale) DO UPDATE SET ' . implode(', ', $sets);
-        $this->db->getPDO()->prepare($sql)->execute(array_values($insert));
+            . ' ON CONFLICT (' . implode(', ', $conflict) . ') DO UPDATE SET ' . implode(', ', $sets);
+        $write = fn (): bool => $this->db->getPDO()->prepare($sql)->execute(array_values($insert));
+        $this->barrier !== null ? $this->barrier->runWritable($write) : $write();
     }
 
     public function record(
@@ -86,15 +109,22 @@ final class WorkflowStateRepository
         $perPage = max(1, min($perPage, 100));
         $pdo = $this->db->getPDO();
 
-        $count = $pdo->prepare('SELECT COUNT(*) FROM workflow_review_states WHERE state = ?');
-        $count->execute([$state]);
+        $tenant = TenantScope::current($this->tenants, $this->context);
+        $scope = $tenant === null ? '' : ' AND tenant_uuid = ?';
+
+        $count = $pdo->prepare('SELECT COUNT(*) FROM workflow_review_states WHERE state = ?' . $scope);
+        $count->execute($tenant === null ? [$state] : [$state, $tenant]);
         $total = (int) $count->fetchColumn();
 
         $stmt = $pdo->prepare(
             'SELECT entry_uuid, locale, state, submitted_by, submitted_at FROM workflow_review_states'
-            . ' WHERE state = ? ORDER BY submitted_at ASC NULLS LAST, id ASC LIMIT ? OFFSET ?'
+            . ' WHERE state = ?' . $scope . ' ORDER BY submitted_at ASC NULLS LAST, id ASC LIMIT ? OFFSET ?'
         );
-        $stmt->execute([$state, $perPage, ($page - 1) * $perPage]);
+        $stmt->execute(
+            $tenant === null
+                ? [$state, $perPage, ($page - 1) * $perPage]
+                : [$state, $tenant, $perPage, ($page - 1) * $perPage],
+        );
 
         return ['items' => $stmt->fetchAll(\PDO::FETCH_ASSOC), 'total' => $total];
     }
@@ -103,12 +133,14 @@ final class WorkflowStateRepository
     public function history(string $entryUuid, string $locale, int $limit = 20): array
     {
         $limit = max(1, min($limit, 100));
+        $tenant = TenantScope::current($this->tenants, $this->context);
+        $scope = $tenant === null ? '' : ' AND tenant_uuid = ?';
         $stmt = $this->db->getPDO()->prepare(
             'SELECT from_state, to_state, action, actor_uuid, note, created_at'
-            . ' FROM workflow_transitions WHERE entry_uuid = ? AND locale = ?'
+            . ' FROM workflow_transitions WHERE entry_uuid = ? AND locale = ?' . $scope
             . ' ORDER BY id DESC LIMIT ' . $limit
         );
-        $stmt->execute([$entryUuid, $locale]);
+        $stmt->execute($tenant === null ? [$entryUuid, $locale] : [$entryUuid, $locale, $tenant]);
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 }

@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace Thallo\Seo\Meta;
 
+use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
+use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
+use Glueful\Extensions\Contracts\Tenancy\TenantScope;
+use Thallo\Contracts\Tenancy\WriteBarrier;
+use Thallo\Contracts\Tenancy\TenantWriteScope;
 
 /**
  * Reads/writes the seo_meta override table, keyed by (entry_uuid, locale).
@@ -15,8 +20,13 @@ final class SeoMetaRepository
         'title', 'description', 'og_title', 'og_description', 'og_image', 'twitter_card', 'robots',
     ];
 
-    public function __construct(private readonly Connection $db)
-    {
+    public function __construct(
+        private readonly Connection $db,
+        private readonly ?ApplicationContext $context = null,
+        private readonly ?CurrentTenantResolver $tenants = null,
+        private readonly ?WriteBarrier $barrier = null,
+        private readonly ?TenantWriteScope $writeScope = null,
+    ) {
     }
 
     /** @return array<string,mixed>|null */
@@ -63,10 +73,23 @@ final class SeoMetaRepository
             $sets[] = $col . ' = excluded.' . $col;
         }
 
+        // Raw PDO bypasses the tenancy stamper/guard — scope explicitly. tenant_uuid is not in
+        // $payload, so it never enters DO UPDATE SET (the row's tenant is immutable).
+        $conflict = ['entry_uuid', 'locale'];
+        $tenant = TenantScope::current($this->tenants, $this->context);
+        if ($this->writeScope?->mode() === 'compat') {
+            $tenant = $this->writeScope->tenantUuidForWrite();
+        }
+        if ($tenant !== null) {
+            $insert['tenant_uuid'] = $tenant;
+            array_unshift($conflict, 'tenant_uuid');
+        }
+
         $cols = array_keys($insert);
         $sql = 'INSERT INTO seo_meta (' . implode(', ', $cols) . ')'
             . ' VALUES (' . implode(', ', array_fill(0, count($cols), '?')) . ')'
-            . ' ON CONFLICT (entry_uuid, locale) DO UPDATE SET ' . implode(', ', $sets);
-        $this->db->getPDO()->prepare($sql)->execute(array_values($insert));
+            . ' ON CONFLICT (' . implode(', ', $conflict) . ') DO UPDATE SET ' . implode(', ', $sets);
+        $write = fn (): bool => $this->db->getPDO()->prepare($sql)->execute(array_values($insert));
+        $this->barrier !== null ? $this->barrier->runWritable($write) : $write();
     }
 }

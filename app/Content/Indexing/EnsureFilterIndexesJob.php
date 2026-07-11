@@ -7,9 +7,11 @@ namespace App\Content\Indexing;
 use App\Content\Repositories\ContentTypeRepository;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
+use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;
 use Glueful\Helpers\Utils;
 use Glueful\Queue\Job;
 use Psr\Log\LoggerInterface;
+use Thallo\Contracts\Tenancy\WriteBarrier;
 
 /**
  * Reconciles a content type's filterable-field expression indexes against the registry.
@@ -53,8 +55,32 @@ final class EnsureFilterIndexesJob extends Job
         /** @var ContentTypeRepository $types */
         $types = $container->get(ContentTypeRepository::class);
         $logger = $container->has(LoggerInterface::class) ? $container->get(LoggerInterface::class) : null;
+        $barrier = $container->has(WriteBarrier::class) ? $container->get(WriteBarrier::class) : null;
 
-        $this->reconcile($db, $types, $typeUuid, $logger);
+        $reconcile = function () use ($db, $types, $typeUuid, $logger, $barrier): void {
+            $this->reconcile($db, $types, $typeUuid, $logger, $barrier);
+        };
+
+        // Closed shape: ONLY an explicit null tenant_uuid takes the unscoped (tenancy-off) path. A
+        // missing key, empty/whitespace string, non-string, or malformed value all THROW — none can
+        // silently select the unscoped read of the tenant-owned content_types. schemaFor() below reads
+        // content_types, so a tenant-bearing job MUST run inside its tenant context.
+        if (!array_key_exists('tenant_uuid', $data)) {
+            throw new \InvalidArgumentException('EnsureFilterIndexesJob: tenant_uuid is required.');
+        }
+        $tenantUuid = $data['tenant_uuid'];
+
+        if ($tenantUuid === null) {
+            $reconcile(); // ONLY an explicit null is the tenancy-off payload
+            return;
+        }
+        if (!is_string($tenantUuid) || preg_match('/\A[0-9A-Za-z]{12}\z/', $tenantUuid) !== 1) {
+            throw new \InvalidArgumentException('EnsureFilterIndexesJob: invalid tenant_uuid.');
+        }
+        if (!$container->has(TenantContextRunner::class)) {
+            throw new \RuntimeException('EnsureFilterIndexesJob: tenant runner unavailable for a tenant-bearing job.');
+        }
+        $container->get(TenantContextRunner::class)->runAsTenant($tenantUuid, $reconcile);
     }
 
     /**
@@ -64,7 +90,8 @@ final class EnsureFilterIndexesJob extends Job
         Connection $db,
         ContentTypeRepository $types,
         string $typeUuid,
-        ?LoggerInterface $logger = null
+        ?LoggerInterface $logger = null,
+        ?WriteBarrier $barrier = null
     ): void {
         $schema = $types->schemaFor($typeUuid);
         $desired = (new FilterIndexPlanner())->desiredIndexes($schema, $typeUuid);
@@ -91,10 +118,10 @@ final class EnsureFilterIndexesJob extends Job
             if ($stale) {
                 // Family changed (e.g. scalar 'number' → membership 'reference'); the index name is
                 // stable, so drop the old physical index before recreating with the new definition.
-                $this->dropIndex($db, $d['index_name'], $logger);
+                $this->dropIndex($db, $d['index_name'], $logger, $barrier);
             }
             if ($current === null || ($current['status'] ?? '') !== 'ready' || $stale) {
-                $this->createIndex($db, $typeUuid, $d, $logger);
+                $this->createIndex($db, $typeUuid, $d, $logger, $barrier);
             }
         }
 
@@ -104,11 +131,12 @@ final class EnsureFilterIndexesJob extends Job
                 continue;
             }
             $this->assertSafeName($name);
-            $this->dropIndex($db, (string) $name, $logger);
-            $db->table('filter_indexes')
+            $this->dropIndex($db, (string) $name, $logger, $barrier);
+            $write = fn (): int => $db->table('filter_indexes')
                 ->where('content_type_uuid', '=', $typeUuid)
                 ->where('index_name', '=', $name)
                 ->delete();
+            $barrier !== null ? $barrier->runWritable($write) : $write();
         }
     }
 
@@ -119,10 +147,11 @@ final class EnsureFilterIndexesJob extends Job
         Connection $db,
         string $typeUuid,
         array $d,
-        ?LoggerInterface $logger
+        ?LoggerInterface $logger,
+        ?WriteBarrier $barrier = null
     ): void {
         $name = $d['index_name'];
-        $this->upsertRegistry($db, $typeUuid, $d, 'pending');
+        $this->upsertRegistry($db, $typeUuid, $d, 'pending', $barrier);
 
         $method = isset($d['method']) && $d['method'] === 'gin' ? 'gin' : 'btree';
         $using = $method === 'gin' ? ' USING gin' : '';
@@ -139,20 +168,22 @@ final class EnsureFilterIndexesJob extends Job
             // it (no error), so the fresh build never happens — drop the dead one first so the create
             // actually rebuilds. Postgres-only; other drivers keep their existing behaviour.
             if ($this->pgIndexValidity($db, $name) === false) {
-                $this->dropIndex($db, $name, $logger);
+                $this->dropIndex($db, $name, $logger, $barrier);
             }
 
-            // CREATE INDEX CONCURRENTLY cannot run inside a transaction — execute on the
-            // raw PDO outside any transaction.
-            $db->getPDO()->exec($sql);
+            // Raw DDL on entry_versions bypasses QueryExecutor (the interceptor), so honor the barrier
+            // explicitly, immediately before the CREATE, to minimise the check-to-execute window.
+            // CREATE INDEX CONCURRENTLY cannot run inside a transaction.
+            $write = fn (): int|false => $db->getPDO()->exec($sql);
+            $barrier !== null ? $barrier->runWritable($write) : $write();
 
             // Not throwing is NOT proof of a usable index: the IF NOT EXISTS path can skip over an
             // invalid index, and CONCURRENTLY can leave one invalid. On Postgres, confirm the index
             // is actually valid before marking it ready; if it is invalid, drop it and mark failed so
             // a later reconcile rebuilds instead of the planner silently seq-scanning over a dead one.
             if ($this->pgIndexValidity($db, $name) === false) {
-                $this->dropIndex($db, $name, $logger);
-                $this->markStatus($db, $typeUuid, $name, 'failed');
+                $this->dropIndex($db, $name, $logger, $barrier);
+                $this->markStatus($db, $typeUuid, $name, 'failed', $barrier);
                 $logger?->warning('EnsureFilterIndexesJob: expression index built invalid', [
                     'index' => $name,
                     'content_type_uuid' => $typeUuid,
@@ -160,9 +191,9 @@ final class EnsureFilterIndexesJob extends Job
                 return;
             }
 
-            $this->markStatus($db, $typeUuid, $name, 'ready');
+            $this->markStatus($db, $typeUuid, $name, 'ready', $barrier);
         } catch (\Throwable $e) {
-            $this->markStatus($db, $typeUuid, $name, 'failed');
+            $this->markStatus($db, $typeUuid, $name, 'failed', $barrier);
             $logger?->warning('EnsureFilterIndexesJob: failed to create expression index', [
                 'index' => $name,
                 'content_type_uuid' => $typeUuid,
@@ -199,11 +230,16 @@ final class EnsureFilterIndexesJob extends Job
         return (int) $row[0] === 1;
     }
 
-    private function dropIndex(Connection $db, string $name, ?LoggerInterface $logger): void
-    {
+    private function dropIndex(
+        Connection $db,
+        string $name,
+        ?LoggerInterface $logger,
+        ?WriteBarrier $barrier = null
+    ): void {
         $sql = sprintf('DROP INDEX CONCURRENTLY IF EXISTS %s', $name);
         try {
-            $db->getPDO()->exec($sql);
+            $write = fn (): int|false => $db->getPDO()->exec($sql);
+            $barrier !== null ? $barrier->runWritable($write) : $write();
         } catch (\Throwable $e) {
             $logger?->warning('EnsureFilterIndexesJob: failed to drop expression index', [
                 'index' => $name,
@@ -215,40 +251,54 @@ final class EnsureFilterIndexesJob extends Job
     /**
      * @param array{field:string,filter_type:string,index_name:string,expression:string} $d
      */
-    private function upsertRegistry(Connection $db, string $typeUuid, array $d, string $status): void
-    {
-        $exists = $db->table('filter_indexes')
-            ->where('content_type_uuid', '=', $typeUuid)
-            ->where('field', '=', $d['field'])
-            ->first();
-        if ($exists === null) {
-            $db->table('filter_indexes')->insert([
-                'uuid' => Utils::generateNanoID(12),
-                'content_type_uuid' => $typeUuid,
-                'field' => $d['field'],
-                'filter_type' => $d['filter_type'],
-                'index_name' => $d['index_name'],
-                'status' => $status,
-                'created_at' => date('Y-m-d H:i:s'),
-            ]);
-            return;
-        }
-        $db->table('filter_indexes')
-            ->where('content_type_uuid', '=', $typeUuid)
-            ->where('field', '=', $d['field'])
-            ->update([
-                'filter_type' => $d['filter_type'],
-                'index_name' => $d['index_name'],
-                'status' => $status,
-            ]);
+    private function upsertRegistry(
+        Connection $db,
+        string $typeUuid,
+        array $d,
+        string $status,
+        ?WriteBarrier $barrier = null
+    ): void {
+        $write = function () use ($db, $typeUuid, $d, $status): void {
+            $exists = $db->table('filter_indexes')
+                ->where('content_type_uuid', '=', $typeUuid)
+                ->where('field', '=', $d['field'])
+                ->first();
+            if ($exists === null) {
+                $db->table('filter_indexes')->insert([
+                    'uuid' => Utils::generateNanoID(12),
+                    'content_type_uuid' => $typeUuid,
+                    'field' => $d['field'],
+                    'filter_type' => $d['filter_type'],
+                    'index_name' => $d['index_name'],
+                    'status' => $status,
+                    'created_at' => date('Y-m-d H:i:s'),
+                ]);
+                return;
+            }
+            $db->table('filter_indexes')
+                ->where('content_type_uuid', '=', $typeUuid)
+                ->where('field', '=', $d['field'])
+                ->update([
+                    'filter_type' => $d['filter_type'],
+                    'index_name' => $d['index_name'],
+                    'status' => $status,
+                ]);
+        };
+        $barrier !== null ? $barrier->runWritable($write) : $write();
     }
 
-    private function markStatus(Connection $db, string $typeUuid, string $name, string $status): void
-    {
-        $db->table('filter_indexes')
+    private function markStatus(
+        Connection $db,
+        string $typeUuid,
+        string $name,
+        string $status,
+        ?WriteBarrier $barrier = null
+    ): void {
+        $write = fn (): int => $db->table('filter_indexes')
             ->where('content_type_uuid', '=', $typeUuid)
             ->where('index_name', '=', $name)
             ->update(['status' => $status]);
+        $barrier !== null ? $barrier->runWritable($write) : $write();
     }
 
     private function assertSafeName(string $name): void

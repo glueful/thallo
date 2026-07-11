@@ -47,7 +47,12 @@ final class EnsureFilterIndexesJobTest extends AppTestCase
 
     private function runJob(string $typeUuid): void
     {
-        $job = new EnsureFilterIndexesJob(['content_type_uuid' => $typeUuid], $this->appContext());
+        // tenant_uuid => null is the tenancy-off (explicit-null) payload the dispatcher pushes when no
+        // tenant is resolved; handle()'s closed shape requires the key to be present.
+        $job = new EnsureFilterIndexesJob(
+            ['content_type_uuid' => $typeUuid, 'tenant_uuid' => null],
+            $this->appContext(),
+        );
         $job->handle();
     }
 
