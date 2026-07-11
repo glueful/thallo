@@ -191,6 +191,11 @@ abstract class RetrofitHarnessTestCase extends AppTestCase
         $exists = $pdo->query(
             "SELECT 1 FROM pg_database WHERE datname = " . $pdo->quote(self::TEMPLATE_DB)
         )->fetchColumn();
+        if ($exists !== false && !self::templateHasLifecycleColumns()) {
+            self::terminateBackends($pdo, self::TEMPLATE_DB);
+            $pdo->exec(sprintf('DROP DATABASE "%s"', self::TEMPLATE_DB));
+            $exists = false;
+        }
         if ($exists === false) {
             $pdo->exec(sprintf('CREATE DATABASE "%s"', self::TEMPLATE_DB));
         }
@@ -199,6 +204,29 @@ abstract class RetrofitHarnessTestCase extends AppTestCase
         // sentinel table only proves the template was migrated once, not that it is current.
         self::migrateTemplate();
         self::$templateChecked = true;
+    }
+
+    private static function templateHasLifecycleColumns(): bool
+    {
+        $c = self::maintenanceCreds();
+        $dsn = sprintf(
+            'pgsql:host=%s;port=%s;dbname=%s',
+            $c['host'],
+            $c['port'],
+            self::TEMPLATE_DB,
+        );
+        $template = new PDO($dsn, $c['user'], $c['pass'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $tenantCount = $template->query(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='tenants' "
+            . "AND column_name IN ('deleted_from_status','purge_after')"
+        )->fetchColumn();
+        $domainCount = $template->query(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_name='tenant_domains' "
+            . "AND column_name IN ("
+            . "'last_checked_at','last_check_status','consecutive_failures','first_failure_at')"
+        )->fetchColumn();
+
+        return (int) $tenantCount === 2 && (int) $domainCount === 4;
     }
 
     /** Run the shared test-migration script against the template in a clean child process. */

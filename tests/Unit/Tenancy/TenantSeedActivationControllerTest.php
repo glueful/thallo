@@ -155,6 +155,27 @@ final class TenantSeedActivationControllerTest extends TestCase
                 return null;
             }
 
+            public function deleteTenant(ApplicationContext $c, string $tenantUuid): void
+            {
+            }
+
+            public function restoreTenant(ApplicationContext $c, string $tenantUuid): void
+            {
+            }
+
+            public function beginPurge(ApplicationContext $c, string $tenantUuid): void
+            {
+            }
+
+            public function purgeTenantRecord(ApplicationContext $c, string $tenantUuid): void
+            {
+            }
+
+            public function getTenantLifecycle(ApplicationContext $c, string $tenantUuid): ?array
+            {
+                return null;
+            }
+
             public function listTenantsForUser(ApplicationContext $c, string $userUuid): array
             {
                 return [];

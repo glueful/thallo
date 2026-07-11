@@ -7,7 +7,7 @@ vi.mock('@/runtime/config', () => ({ runtimeConfig: { apiBase: '/v1/admin' } }))
 import { fetchEnablementStatus, confirmEnablement } from '@/queries/tenancyEnablement'
 import { activateResolution } from '@/queries/tenancyResolution'
 import { createTenant, repairTenantSeed } from '@/queries/tenants'
-import { addDomain } from '@/queries/tenantDomains'
+import { addDomain, reverifyDomain } from '@/queries/tenantDomains'
 import { addMember, setMemberRole } from '@/queries/tenantMembers'
 
 describe('tenancy queries', () => {
@@ -60,5 +60,14 @@ describe('tenancy queries', () => {
     expect(authFetch.mock.calls[2]?.[0]).toBe(
       '/v1/admin/tenancy/tenants/tenant000001/members/user00000001',
     )
+  })
+
+  it('uses the dedicated domain re-verification action', async () => {
+    authFetch.mockResolvedValue({ data: {} })
+    await reverifyDomain('domain000001')
+    expect(authFetch).toHaveBeenCalledWith('/v1/admin/tenancy/domains/domain000001/reverify', {
+      method: 'POST',
+      body: '{}',
+    })
   })
 })

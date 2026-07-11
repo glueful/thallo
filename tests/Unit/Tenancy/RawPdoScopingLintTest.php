@@ -51,6 +51,17 @@ final class RawPdoScopingLintTest extends TestCase
         'packages/thallo-tenancy/src/Retrofit/MutationBoundaryLock.php',
         'app/Support/AuthorityContinuityGuard.php',
         'app/Support/RoleAuthority.php',
+        // Purge handlers/job use raw PDO for explicitly scoped reads; destructive writes are
+        // builder-based inside PurgeJob's outer WriteBarrier::runWritable() system boundary.
+        'packages/thallo-tenancy/src/Purge/Handlers/MediaPurgeHandler.php',
+        'packages/thallo-tenancy/src/Purge/Handlers/TablesPurgeHandler.php',
+        'packages/thallo-tenancy/src/Purge/PurgeJob.php',
+        // Coordinator: advisory lock only. Run repository: system-global purge ledger only.
+        'packages/thallo-tenancy/src/Purge/PurgeCoordinator.php',
+        'packages/thallo-tenancy/src/Purge/PurgeRunRepository.php',
+        // Read-only domain-proof coherence and global due-domain selection.
+        'packages/thallo-tenancy/src/Enablement/TenancyDiagnostics.php',
+        'packages/thallo-tenancy/src/Reverification/DomainReverificationSweep.php',
     ];
 
     /**
@@ -85,6 +96,8 @@ final class RawPdoScopingLintTest extends TestCase
         'packages/thallo-tenancy/src/Retrofit/TableRebuilder.php',
         'packages/thallo-tenancy/src/TenancyServiceProvider.php',
         'packages/thallo-tenancy/src/Retrofit/MediaOwnershipBackfill.php',
+        // System-global schema migration; never an application request/worker mutation.
+        'packages/thallo-tenancy/migrations/002_CreateTenantPurgeRunsTable.php',
     ];
 
     /**

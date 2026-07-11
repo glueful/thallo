@@ -8,6 +8,7 @@ use App\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
 use Glueful\Extensions\Contracts\Tenancy\TenantDomainAdministration;
+use Glueful\Extensions\Contracts\Tenancy\DomainReverificationResult;
 use Thallo\Tenancy\Cache\TenantHostCachePurger;
 use Thallo\Tenancy\Http\Controllers\TenantDomainController;
 use Thallo\Tenancy\Http\Controllers\TenantMembershipController;
@@ -69,6 +70,13 @@ final class SelfServiceBindingTest extends AppTestCase
                 return 'verified';
             }
 
+            public function reverifyDomain(
+                ApplicationContext $c,
+                string $domainUuid
+            ): DomainReverificationResult {
+                return new DomainReverificationResult('verified', 'verified', 'none', 0, 'now');
+            }
+
             public function disableDomain(ApplicationContext $c, string $domainUuid): void
             {
             }
@@ -79,6 +87,18 @@ final class SelfServiceBindingTest extends AppTestCase
 
             public function removeDomain(ApplicationContext $c, string $domainUuid): void
             {
+            }
+
+            public function releaseDomain(ApplicationContext $c, string $domainUuid): void
+            {
+            }
+
+            public function overrideCooldownAndClaim(
+                ApplicationContext $c,
+                string $tenantUuid,
+                string $host,
+            ): array {
+                return ['uuid' => 'domain000001', 'token' => 'token'];
             }
 
             public function listDomains(ApplicationContext $c, string $tenantUuid): array
@@ -97,6 +117,9 @@ final class SelfServiceBindingTest extends AppTestCase
                     'host' => 'foreign.test',
                     'verification_status' => 'pending',
                     'status' => 'disabled',
+                    'last_checked_at' => null,
+                    'last_check_status' => null,
+                    'consecutive_failures' => 0,
                 ];
             }
 

@@ -38,7 +38,11 @@ use Glueful\Uploader\Contracts\BlobRouteMiddlewareProvider;
 use Glueful\Extensions\Contracts\Tenancy\FullTenantResolutionReadiness;
 use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;
 use Glueful\Extensions\Contracts\Tenancy\TenantDomainAdministration;
+use Glueful\Extensions\Tenancy\Events\DomainReverificationFailed;
+use Glueful\Extensions\Tenancy\Events\DomainReverified;
+use Glueful\Extensions\Tenancy\Events\DomainRevoked;
 use Thallo\Contracts\Content\FormSealer;
+use Thallo\Tenancy\Reverification\DomainReverificationAuditListener;
 use App\Content\Console\PruneVersionsCommand;
 use App\Content\Console\RunBlockBackfillCommand;
 use App\Content\Console\SeedBlockTypesCommand;
@@ -70,11 +74,14 @@ use App\Http\Controllers\RegionAdminController;
 use App\Http\Controllers\ScheduledTasksController;
 use App\Http\Controllers\TenancyAccessController;
 use App\Http\Controllers\UserAdminController;
+use App\Http\Controllers\TenantHostCooldownController;
 use App\Support\AuthorityAudit;
 use App\Support\AuthorityContinuityGuard;
 use App\Support\AuthorityMutator;
 use App\Support\RoleAuthority;
 use App\Support\UserRoleAssignmentPolicy;
+use App\Support\TenancyLifecycleAudit;
+use Thallo\Contracts\Tenancy\TenancyLifecycleAudit as TenancyLifecycleAuditContract;
 use App\Settings\GeneralSettings;
 use App\Settings\SettingsStore;
 use App\Settings\SystemKeyReconciler;
@@ -1205,6 +1212,15 @@ final class ThalloServiceProvider extends ServiceProvider
         );
     }
 
+    public static function makeTenancyLifecycleAudit(ContainerInterface $container): TenancyLifecycleAuditContract
+    {
+        return new TenancyLifecycleAudit(
+            $container->has(AuditRecorderInterface::class)
+                ? $container->get(AuditRecorderInterface::class)
+                : null,
+        );
+    }
+
     public static function makeRequirePermission(ContainerInterface $container): RequirePermission
     {
         return new RequirePermission(
@@ -1268,6 +1284,15 @@ final class ThalloServiceProvider extends ServiceProvider
             AuthorityAudit::class => [
                 'factory' => [self::class, 'makeAuthorityAudit'],
                 'shared' => true,
+            ],
+            TenancyLifecycleAuditContract::class => [
+                'factory' => [self::class, 'makeTenancyLifecycleAudit'],
+                'shared' => true,
+            ],
+            TenantHostCooldownController::class => [
+                'class' => TenantHostCooldownController::class,
+                'shared' => true,
+                'autowire' => true,
             ],
             AuthorityContinuityGuard::class => [
                 'class' => AuthorityContinuityGuard::class,
@@ -1733,6 +1758,10 @@ final class ThalloServiceProvider extends ServiceProvider
             $listeners[EntryPublished::class][]  = AnalyticsBridgeListener::class;
             $listeners[EntryUnpublished::class][] = AnalyticsBridgeListener::class;
         }
+
+        $listeners[DomainReverificationFailed::class][] = DomainReverificationAuditListener::class;
+        $listeners[DomainRevoked::class][] = DomainReverificationAuditListener::class;
+        $listeners[DomainReverified::class][] = DomainReverificationAuditListener::class;
 
         foreach ($listeners as $eventClass => $serviceIds) {
             foreach ($serviceIds as $serviceId) {
