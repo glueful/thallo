@@ -2,8 +2,7 @@
 import { reactive, ref, useTemplateRef, watch } from 'vue'
 import * as z from 'zod'
 import type { Form, FormSubmitEvent } from '@nuxt/ui'
-import { useUserAdminMutations } from '@/queries/users'
-import { useRoles } from '@/queries/rbac'
+import { useAssignableRoles, useUserAdminMutations } from '@/queries/users'
 import { generatePassword } from '@/lib/password'
 import { toApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
@@ -13,8 +12,9 @@ const emit = defineEmits<{ created: [uuid: string] }>()
 
 const { success, error: notifyError } = useNotify()
 const { create } = useUserAdminMutations()
-const { data: allRoles } = useRoles()
-const roleOptions = () => (allRoles.value ?? []).map((r) => ({ label: r.name, value: r.slug }))
+const { data: assignableRoles } = useAssignableRoles()
+const roleOptions = () =>
+  (assignableRoles.value ?? []).map((role) => ({ label: role.name, value: role.slug }))
 
 const schema = z.object({
   username: z.string().min(1, 'Username is required.'),
@@ -102,7 +102,11 @@ async function onSubmit(e: FormSubmitEvent<Schema>) {
                 variant="link"
                 size="xs"
                 aria-label="Toggle password visibility"
-                @click="() => { reveal = !reveal }"
+                @click="
+                  () => {
+                    reveal = !reveal
+                  }
+                "
               />
               <UButton
                 icon="i-lucide-refresh-cw"
@@ -137,7 +141,16 @@ async function onSubmit(e: FormSubmitEvent<Schema>) {
     </template>
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton color="neutral" variant="ghost" @click="() => { open = false }">Cancel</UButton>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          @click="
+            () => {
+              open = false
+            }
+          "
+          >Cancel</UButton
+        >
         <UButton type="submit" form="user-create" :loading="create.isLoading.value">
           Create User
         </UButton>

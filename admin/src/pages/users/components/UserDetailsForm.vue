@@ -2,8 +2,7 @@
 import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
 import * as z from 'zod'
 import type { Form, FormSubmitEvent } from '@nuxt/ui'
-import { useUserAdminMutations, type UserRow } from '@/queries/users'
-import { useRoles } from '@/queries/rbac'
+import { useAssignableRoles, useUserAdminMutations, type UserRow } from '@/queries/users'
 import { toApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
 
@@ -11,9 +10,18 @@ const props = defineProps<{ user: UserRow }>()
 
 const { success, error: notifyError } = useNotify()
 const { update } = useUserAdminMutations()
-const { data: allRoles } = useRoles()
+const { data: assignableRoles } = useAssignableRoles(() => props.user.uuid)
+const lockedRoleSlugs = computed(() =>
+  (assignableRoles.value ?? [])
+    .filter((role) => role.assigned && !role.removable)
+    .map((role) => role.slug),
+)
 const roleOptions = computed(() =>
-  (allRoles.value ?? []).map((r) => ({ label: r.name, value: r.slug })),
+  (assignableRoles.value ?? []).map((role) => ({
+    label: role.name,
+    value: role.slug,
+    disabled: role.assigned && !role.removable,
+  })),
 )
 
 const schema = z.object({
@@ -26,6 +34,12 @@ const schema = z.object({
 type Schema = z.output<typeof schema>
 const form = reactive({ username: '', email: '', status: 'active', first_name: '', last_name: '' })
 const roles = ref<string[]>([])
+const selectedRoles = computed<string[]>({
+  get: () => roles.value,
+  set: (next) => {
+    roles.value = [...new Set([...next, ...lockedRoleSlugs.value])]
+  },
+})
 const originalRoles = ref<string[]>([])
 const formRef = useTemplateRef<Form<Schema>>('formRef')
 const statusItems = ['active', 'inactive']
@@ -124,13 +138,25 @@ async function onSubmit(e: FormSubmitEvent<Schema>) {
     </UFormField>
     <UFormField label="Roles">
       <USelectMenu
-        v-model="roles"
+        v-model="selectedRoles"
         :items="roleOptions"
         value-key="value"
         multiple
         placeholder="Select roles"
         class="w-full"
       />
+      <div v-if="lockedRoleSlugs.length" class="mt-2 flex flex-wrap gap-1.5">
+        <UBadge
+          v-for="slug in lockedRoleSlugs"
+          :key="slug"
+          color="neutral"
+          variant="subtle"
+          icon="i-lucide-lock-keyhole"
+          data-testid="locked-role"
+        >
+          {{ assignableRoles?.find((role) => role.slug === slug)?.name ?? slug }}
+        </UBadge>
+      </div>
     </UFormField>
 
     <div class="pt-2">
