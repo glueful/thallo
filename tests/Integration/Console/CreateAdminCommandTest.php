@@ -8,6 +8,7 @@ use App\Setup\Console\CreateAdminCommand;
 use App\Setup\SetupService;
 use App\Tests\Support\AppTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
+use Thallo\Tenancy\System\SystemFlags;
 
 final class CreateAdminCommandTest extends AppTestCase
 {
@@ -15,7 +16,24 @@ final class CreateAdminCommandTest extends AppTestCase
     {
         parent::setUp();
         // uuid-keyed users table => TRUNCATE ... CASCADE is the reliable wipe.
-        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, settings CASCADE');
+        $this->resetInstallState();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->resetInstallState();
+        parent::tearDown();
+    }
+
+    private function resetInstallState(): void
+    {
+        $this->connection()->getPDO()->exec(
+            'TRUNCATE TABLE tenant_memberships, tenants, users, user_roles, settings CASCADE',
+        );
+        $this->connection()->getPDO()->exec(
+            "DELETE FROM thallo_system_flags WHERE key LIKE 'tenancy.%' OR key = 'installed'",
+        );
+        $this->container()->get(SystemFlags::class)->clearCache();
     }
 
     private function tester(): CommandTester

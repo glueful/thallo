@@ -321,6 +321,12 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
         $router->patch('/api-keys/{uuid}/scopes', [ApiKeyAdminController::class, 'updateScopes'])
         ->middleware('content_permission:system.access');
 
+        $router->patch('/api-keys/{uuid}/tenant', [ApiKeyAdminController::class, 'updateTenant'])
+            ->middleware([
+                'content_permission:system.access',
+                'content_permission:tenancy.manage',
+            ]);
+
         $router->delete('/api-keys/{uuid}', [ApiKeyAdminController::class, 'destroy'])
             ->middleware('content_permission:system.access');
     });

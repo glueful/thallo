@@ -13,14 +13,18 @@ use App\Http\DTOs\Responses\ApiKeyResultData;
 use App\Http\DTOs\Responses\ApiKeyRotatedData;
 use App\Http\DTOs\RotateApiKeyData;
 use App\Http\DTOs\UpdateApiKeyScopesData;
+use App\Http\DTOs\UpdateApiKeyTenantData;
 use Glueful\Auth\ApiKey\ApiKey;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use App\Support\ActorHelper;
 use Glueful\Bootstrap\ApplicationContext;
+use Glueful\Database\Connection;
 use Glueful\Http\Response;
+use Glueful\Permissions\PermissionManager;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Thallo\Tenancy\ApiKeyBinding\TenantApiKeyBindingRepository;
 
 /**
  * Admin API for the framework `api_keys` store (programmatic, non-session access).
@@ -41,8 +45,11 @@ final class ApiKeyAdminController
     private const GRACE_HOURS_DEFAULT = 24;
     private const GRACE_HOURS_MAX = 720; // 30 days
 
-    public function __construct(private readonly ApplicationContext $context)
-    {
+    public function __construct(
+        private readonly ApplicationContext $context,
+        private readonly Connection $connection,
+        private readonly TenantApiKeyBindingRepository $bindings,
+    ) {
     }
 
     /** GET /v1/admin/api-keys — every key, newest first; optional status + name filters. */
@@ -127,13 +134,34 @@ final class ApiKeyAdminController
         $scopes = $this->cleanList($input->scopes);
         $allowedIps = $this->cleanList($input->allowed_ips);
 
-        $created = ApiKeyService::create($this->context, [
-            'user_uuid' => $userUuid,
-            'name' => $name,
-            'scopes' => $scopes !== [] ? $scopes : null,
-            'allowed_ips' => $allowedIps !== [] ? $allowedIps : null,
-            'expires_at' => $expiresAt,
-        ]);
+        $tenantUuid = $this->normalizeTenant($input->tenant_uuid);
+        if ($tenantUuid !== null && !$this->canManageTenancy($userUuid)) {
+            return Response::forbidden('The tenancy.manage permission is required to bind an API key.');
+        }
+        if ($tenantUuid !== null && !$this->tenantExists($tenantUuid)) {
+            return Response::validation(['tenant_uuid' => 'Workspace not found.']);
+        }
+
+        $created = $this->connection->transaction(function () use (
+            $userUuid,
+            $name,
+            $scopes,
+            $allowedIps,
+            $expiresAt,
+            $tenantUuid,
+        ): array {
+            $created = ApiKeyService::create($this->context, [
+                'user_uuid' => $userUuid,
+                'name' => $name,
+                'scopes' => $scopes !== [] ? $scopes : null,
+                'allowed_ips' => $allowedIps !== [] ? $allowedIps : null,
+                'expires_at' => $expiresAt,
+            ]);
+            if ($tenantUuid !== null) {
+                $this->bindings->bind((string) $created['key']->uuid, $tenantUuid);
+            }
+            return $created;
+        });
 
         $row = $this->rowFor($created['key']->uuid);
 
@@ -167,14 +195,17 @@ final class ApiKeyAdminController
         $grace = (int) ($input->grace_hours ?? self::GRACE_HOURS_DEFAULT);
         $grace = min(self::GRACE_HOURS_MAX, max(1, $grace));
 
-        $result = ApiKeyService::rotate($this->context, $key, $grace);
-
-        // rotate() returns the old key's data + the new plaintext, but not the new row; the new key is
-        // the most recent one pointing back at this key via rotated_from_id.
-        $newRow = db($this->context)->table('api_keys')
-            ->where('rotated_from_id', '=', $key->id)
-            ->orderBy('created_at', 'desc')
-            ->first();
+        [$result, $newRow] = $this->connection->transaction(function () use ($key, $grace): array {
+            $result = ApiKeyService::rotate($this->context, $key, $grace);
+            $newRow = db($this->context)->table('api_keys')
+                ->where('rotated_from_id', '=', $key->id)
+                ->orderBy('created_at', 'desc')
+                ->first();
+            if (is_array($newRow)) {
+                $this->bindings->copyBinding((string) $key->uuid, (string) $newRow['uuid']);
+            }
+            return [$result, $newRow];
+        });
 
         return Response::success([
             'api_key' => is_array($newRow) ? $this->present($newRow, $this->ownerLabels([$newRow])) : null,
@@ -213,6 +244,42 @@ final class ApiKeyAdminController
         );
     }
 
+    /** PATCH /v1/admin/api-keys/{uuid}/tenant — bind or unbind the key's workspace authority. */
+    #[ApiOperation(
+        summary: 'Update an API key workspace binding',
+        description: 'Binds the key to one workspace, or unbinds it with a null tenant_uuid. '
+            . 'Requires system.access and tenancy.manage.',
+        tags: ['API Keys'],
+    )]
+    #[ApiResponse(200, schema: ApiKeyResultData::class, description: 'Updated key.')]
+    #[ApiResponse(404, schema: ErrorResponse::class, envelope: false, description: 'No such key.')]
+    #[ApiResponse(422, schema: ErrorResponse::class, envelope: false, description: 'Workspace not found.')]
+    public function updateTenant(UpdateApiKeyTenantData $input, string $uuid): Response
+    {
+        $row = $this->rowFor($uuid);
+        if ($row === null) {
+            return Response::notFound('API key not found.');
+        }
+        $tenantUuid = $this->normalizeTenant($input->tenant_uuid);
+        if ($tenantUuid !== null && !$this->tenantExists($tenantUuid)) {
+            return Response::validation(['tenant_uuid' => 'Workspace not found.']);
+        }
+
+        $this->connection->transaction(function () use ($uuid, $tenantUuid): void {
+            if ($tenantUuid === null) {
+                $this->bindings->unbind($uuid);
+            } else {
+                $this->bindings->bind($uuid, $tenantUuid);
+            }
+        });
+
+        $updated = $this->rowFor($uuid) ?? $row;
+        return Response::success(
+            ['api_key' => $this->present($updated, $this->ownerLabels([$updated]))],
+            'API key workspace binding updated.',
+        );
+    }
+
     /** DELETE /v1/admin/api-keys/{uuid} — revoke immediately (soft; the row is kept for audit). */
     #[ApiOperation(
         summary: 'Revoke an API key',
@@ -229,7 +296,10 @@ final class ApiKeyAdminController
             return Response::notFound('API key not found.');
         }
 
-        ApiKeyService::revoke($this->context, $key);
+        $this->connection->transaction(function () use ($key): void {
+            ApiKeyService::revoke($this->context, $key);
+            $this->bindings->unbind((string) $key->uuid);
+        });
 
         return Response::success(['revoked' => true], 'API key revoked.');
     }
@@ -301,6 +371,10 @@ final class ApiKeyAdminController
     {
         $ownerUuid = (string) ($row['user_uuid'] ?? '');
         $owner = $owners[$ownerUuid] ?? null;
+        $tenantUuid = $this->bindings->tenantFor((string) ($row['uuid'] ?? ''));
+        $tenant = $tenantUuid !== null
+            ? $this->connection->table('tenants')->where('uuid', $tenantUuid)->first()
+            : null;
 
         return [
             'uuid' => (string) ($row['uuid'] ?? ''),
@@ -309,6 +383,8 @@ final class ApiKeyAdminController
             'key_prefix' => (string) ($row['key_prefix'] ?? ''),
             'owner_uuid' => $ownerUuid,
             'owner_label' => $owner['username'] ?? $owner['email'] ?? ($ownerUuid !== '' ? $ownerUuid : null),
+            'tenant_uuid' => $tenantUuid,
+            'tenant_name' => is_array($tenant) ? ($tenant['name'] ?? null) : null,
             'scopes' => $this->decodeList($row['scopes'] ?? null),
             'allowed_ips' => $this->decodeList($row['allowed_ips'] ?? null),
             'status' => $this->status($row),
@@ -350,6 +426,26 @@ final class ApiKeyAdminController
     private function currentUserUuid(Request $request): ?string
     {
         return ActorHelper::uuidFromRequest($request);
+    }
+
+    private function canManageTenancy(string $userUuid): bool
+    {
+        return PermissionManager::getInstance(null, $this->context)
+            ->can($userUuid, 'tenancy.manage', 'thallo');
+    }
+
+    private function tenantExists(string $tenantUuid): bool
+    {
+        return $this->connection->table('tenants')
+            ->where('uuid', $tenantUuid)
+            ->whereNull('deleted_at')
+            ->first() !== null;
+    }
+
+    private function normalizeTenant(?string $tenantUuid): ?string
+    {
+        $tenantUuid = trim((string) $tenantUuid);
+        return $tenantUuid === '' ? null : $tenantUuid;
     }
 
     /**

@@ -9,8 +9,8 @@ use PHPUnit\Framework\TestCase;
 /**
  * Release-gate invariant (SP1 Task 21): at release, glueful/tenancy is a PUBLISHED package,
  * not a sibling path repository. Production Composer must never depend on local repo layout;
- * dev/CI keep the pin in require-dev for the two-boot suite while production installs the
- * extension on-demand via the enablement flow.
+ * the identity/provisioning plane is bundled for clean setup while persisted runtime flags
+ * still control tenant enforcement.
  */
 final class TenancyReleaseDistributionTest extends TestCase
 {
@@ -23,9 +23,10 @@ final class TenancyReleaseDistributionTest extends TestCase
             self::assertStringNotContainsString('extensions/tenancy', (string) ($repo['url'] ?? ''));
         }
 
-        // require-dev pins a real published version constraint, not '*' against a path repo.
-        $constraint = $composer['require-dev']['glueful/tenancy'] ?? null;
-        self::assertNotNull($constraint, 'glueful/tenancy stays in require-dev for the two-boot suite');
+        // Production pins a real published version constraint, not '*' against a path repo.
+        $constraint = $composer['require']['glueful/tenancy'] ?? null;
+        self::assertNotNull($constraint, 'glueful/tenancy is bundled for the identity plane');
         self::assertNotSame('*', $constraint, 'pin a published version at release');
+        self::assertArrayNotHasKey('glueful/tenancy', $composer['require-dev'] ?? []);
     }
 }

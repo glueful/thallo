@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Thallo\Collections\CollectionManager;
 use Thallo\Collections\Exceptions\CollectionValidationException;
 use Thallo\Collections\Exceptions\DestructiveConfirmationRequiredException;
 use Thallo\Collections\Repositories\CollectionDefinitionRepository;
 
-final class CollectionManagerTest extends AppTestCase
+final class CollectionManagerTest extends CollectionsTestCase
 {
     /**
      * Names used across tests — table names are derived deterministically as
-     * CollectionManager::tableNameFor($name).
+     * $this->physicalTable($name).
      *
      * @var list<string>
      */
@@ -81,7 +80,7 @@ final class CollectionManagerTest extends AppTestCase
      */
     private function tableNameFor(string $name): string
     {
-        return CollectionManager::tableNameFor($name);
+        return $this->physicalTable($name);
     }
 
     // ----------------------------------------------------------------- tests

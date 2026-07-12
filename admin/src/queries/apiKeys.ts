@@ -19,6 +19,8 @@ export interface ApiKey {
   key_prefix: string
   owner_uuid: string
   owner_label: string | null
+  tenant_uuid: string | null
+  tenant_name: string | null
   scopes: string[]
   allowed_ips: string[]
   status: ApiKeyStatus
@@ -41,6 +43,7 @@ export interface CreateApiKeyInput {
   scopes?: string[]
   allowed_ips?: string[]
   expires_at?: string | null
+  tenant_uuid?: string | null
 }
 
 /** Create/rotate return the plaintext key exactly once — it is never retrievable again. */
@@ -120,6 +123,7 @@ export async function createApiKey(input: CreateApiKeyInput): Promise<SecretResu
       scopes: input.scopes,
       allowed_ips: input.allowed_ips,
       expires_at: input.expires_at,
+      tenant_uuid: input.tenant_uuid,
     },
   })
   if (error) throw toApiError(error, response)
@@ -157,6 +161,15 @@ export async function updateApiKeyScopes(uuid: string, scopes: string[]): Promis
   if (error) throw toApiError(error, response)
 }
 
+export async function updateApiKeyTenant(uuid: string, tenantUuid: string | null): Promise<ApiKey> {
+  const { data, error, response } = await client.PATCH('/api-keys/{uuid}/tenant', {
+    params: { path: { uuid } },
+    body: { tenant_uuid: tenantUuid },
+  })
+  if (error) throw toApiError(error, response)
+  return (data?.data?.api_key ?? {}) as ApiKey
+}
+
 export function useApiKeyMutations() {
   const cache = useQueryCache()
   const invalidate = () => cache.invalidateQueries({ key: ['api-keys'] })
@@ -173,8 +186,13 @@ export function useApiKeyMutations() {
       updateApiKeyScopes(vars.uuid, vars.scopes),
     onSettled: invalidate,
   })
+  const updateTenant = useMutation({
+    mutation: (vars: { uuid: string; tenantUuid: string | null }) =>
+      updateApiKeyTenant(vars.uuid, vars.tenantUuid),
+    onSettled: invalidate,
+  })
 
-  return { create, rotate, revoke, updateScopes }
+  return { create, rotate, revoke, updateScopes, updateTenant }
 }
 
 const STATUS_META: Record<ApiKeyStatus, { label: string; color: 'success' | 'warning' | 'error' }> =

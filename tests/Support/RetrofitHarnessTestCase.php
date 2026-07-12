@@ -225,8 +225,20 @@ abstract class RetrofitHarnessTestCase extends AppTestCase
             . "AND column_name IN ("
             . "'last_checked_at','last_check_status','consecutive_failures','first_failure_at')"
         )->fetchColumn();
+        $collectionColumnCount = $template->query(
+            "SELECT COUNT(*) FROM information_schema.columns WHERE table_name IN "
+            . "('collection_definitions','collection_schema_changes') AND column_name='tenant_uuid' "
+            . "AND is_nullable='NO'",
+        )->fetchColumn();
+        $collectionIndexCount = $template->query(
+            "SELECT COUNT(*) FROM pg_indexes WHERE tablename='collection_schema_changes' "
+            . "AND indexname='idx_collection_changes_tenant_collection'",
+        )->fetchColumn();
 
-        return (int) $tenantCount === 2 && (int) $domainCount === 4;
+        return (int) $tenantCount === 2
+            && (int) $domainCount === 4
+            && (int) $collectionColumnCount === 2
+            && (int) $collectionIndexCount === 1;
     }
 
     /** Run the shared test-migration script against the template in a clean child process. */

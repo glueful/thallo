@@ -6,7 +6,6 @@ namespace App\Tests\Integration\Collections;
 
 use App\Collections\Audit\CollectionRowAuditEvent;
 use App\Collections\Audit\CollectionSchemaAuditEvent;
-use App\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 use Thallo\Collections\Data\Actor;
 use Thallo\Collections\Events\CollectionCreated;
@@ -20,7 +19,7 @@ use Thallo\Collections\Events\CollectionUpdated;
  * through the app EventService triggers CollectionAuditListener (registered in ThalloServiceProvider),
  * which bridges it to a CollectionRowAuditEvent — the AuditableEvent the Audit extension records.
  */
-final class CollectionAuditWiringTest extends AppTestCase
+final class CollectionAuditWiringTest extends CollectionsTestCase
 {
     public function testCollectionRowEventsAreBridgedToAuditableEvents(): void
     {

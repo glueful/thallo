@@ -9,6 +9,7 @@ use App\Support\RoleAuthority;
 use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Thallo\Contracts\Settings\SystemChannel;
+use Thallo\Tenancy\System\SystemFlags;
 
 /**
  * Verifies the SetupService install flow end-to-end against a real PostgreSQL database.
@@ -24,7 +25,7 @@ final class SetupServiceTest extends AppTestCase
         // Start each test from a clean slate. The users table is uuid-keyed (no `id`
         // column), so TRUNCATE ... CASCADE is the reliable wipe — it clears users, the
         // Aegis user_roles child rows, and the settings markers regardless of PK.
-        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, settings CASCADE');
+        $this->resetInstallState();
     }
 
     protected function tearDown(): void
@@ -32,8 +33,19 @@ final class SetupServiceTest extends AppTestCase
         // install() now provisions a committed superuser; wipe after the LAST test too so no
         // stray superuser survives this class and pollutes global-count invariants elsewhere
         // (e.g. last-superuser continuity checks that assert against the whole users table).
-        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, settings CASCADE');
+        $this->resetInstallState();
         parent::tearDown();
+    }
+
+    private function resetInstallState(): void
+    {
+        $this->connection()->getPDO()->exec(
+            'TRUNCATE TABLE tenant_memberships, tenants, users, user_roles, settings CASCADE',
+        );
+        $this->connection()->getPDO()->exec(
+            "DELETE FROM thallo_system_flags WHERE key LIKE 'tenancy.%' OR key = 'installed'",
+        );
+        $this->container()->get(SystemFlags::class)->clearCache();
     }
 
     private function service(): SetupService
@@ -100,6 +112,19 @@ final class SetupServiceTest extends AppTestCase
 
         self::assertNotNull($localeRow);
         self::assertSame('en', $localeRow['value']);
+
+        $defaultTenant = $this->container()->get(SystemFlags::class)->defaultTenantUuid();
+        self::assertNotNull($defaultTenant);
+        self::assertSame(1, (int) $this->connection()->getPDO()->query('SELECT count(*) FROM tenants')->fetchColumn());
+        self::assertSame(
+            1,
+            (int) $this->connection()->getPDO()->query(
+                "SELECT count(*) FROM tenant_memberships WHERE tenant_uuid = "
+                . $this->connection()->getPDO()->quote($defaultTenant)
+                . " AND user_uuid = " . $this->connection()->getPDO()->quote($uuid)
+                . " AND role = 'owner'",
+            )->fetchColumn(),
+        );
     }
 
     public function testInstallSeedsGenericPagesContentType(): void

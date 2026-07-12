@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Thallo\Collections\CollectionManager;
 use Thallo\Collections\Repositories\CollectionDefinitionRepository;
@@ -13,7 +12,7 @@ use Thallo\Collections\Repositories\CollectionDefinitionRepository;
  * The per-collection access policy survives a create → load round-trip through the
  * collection_definitions.access_policy column.
  */
-final class AccessPolicyPersistenceTest extends AppTestCase
+final class AccessPolicyPersistenceTest extends CollectionsTestCase
 {
     private const NAMES = ['articles', 'secrets'];
 
@@ -24,7 +23,7 @@ final class AccessPolicyPersistenceTest extends AppTestCase
         // Collection creation materializes real tables (DDL is not rolled back with the test
         // transaction), so drop any leftovers from a prior run before recreating.
         foreach (self::NAMES as $name) {
-            $table = CollectionManager::tableNameFor($name);
+            $table = $this->physicalTable($name);
             if ($this->schema()->hasTable($table)) {
                 $this->schema()->dropTableIfExists($table);
             }

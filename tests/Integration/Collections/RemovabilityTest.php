@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
@@ -42,7 +41,7 @@ use Symfony\Component\HttpFoundation\Request;
  *     registers routes. After the second boot the override file is deleted and RouteManifest
  *     is reset so subsequent test classes re-use the shared enabled context unaffected.
  */
-final class RemovabilityTest extends AppTestCase
+final class RemovabilityTest extends CollectionsTestCase
 {
     /** Boot-level disabled context: fresh Framework boot with thallo.collections=false. */
     private static ?ApplicationContext $disabledApp = null;
@@ -222,7 +221,7 @@ final class RemovabilityTest extends AppTestCase
         $schema = $this->container()->get(SchemaBuilderInterface::class);
         $schema->reset();
 
-        $tableName = CollectionManager::tableNameFor(self::COL);
+        $tableName = $this->physicalTable(self::COL);
         if ($schema->hasTable($tableName)) {
             $schema->dropTableIfExists($tableName);
         }

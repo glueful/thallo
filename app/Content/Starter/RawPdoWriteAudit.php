@@ -37,6 +37,8 @@ final class RawPdoWriteAudit implements StaticWriteAudit
         'packages/thallo-tenancy/src/Purge/PurgeRunRepository.php',
         'packages/thallo-tenancy/src/Enablement/TenancyDiagnostics.php',
         'packages/thallo-tenancy/src/Reverification/DomainReverificationSweep.php',
+        'packages/thallo-tenancy/src/Tenant/SingleStoreTenant.php',
+        'packages/thallo-collections/src/Purge/CollectionsPurgeHandler.php',
     ];
 
     private const SYSTEM_WRITERS = [

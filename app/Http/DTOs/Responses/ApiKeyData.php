@@ -22,6 +22,8 @@ final class ApiKeyData implements ResponseData
         public readonly string $key_prefix,
         public readonly string $owner_uuid,
         public readonly ?string $owner_label,
+        public readonly ?string $tenant_uuid,
+        public readonly ?string $tenant_name,
         public readonly array $scopes,
         public readonly array $allowed_ips,
         public readonly string $status,

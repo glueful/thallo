@@ -1,15 +1,26 @@
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useApiKeyMutations, type SecretResult } from '@/queries/apiKeys'
 import { useNotify } from '@/composables/useNotify'
+import { useAllTenants } from '@/queries/tenants'
+import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ created: [result: SecretResult] }>()
 
 const { create } = useApiKeyMutations()
 const { error: notifyError } = useNotify()
+const access = useTenancyAccessStore()
+const tenants = useAllTenants(() => access.access.manage_platform)
+// Reka UI's ComboboxItem forbids an empty-string value (reserved for "clear selection"), so the
+// "Unbound" option uses a non-empty sentinel that maps back to no-binding at submit.
+const UNBOUND = '__unbound__'
+const tenantItems = computed(() => [
+  { label: 'Unbound', value: UNBOUND },
+  ...((tenants.data.value ?? []).map((tenant) => ({ label: tenant.name, value: tenant.uuid }))),
+])
 
-const form = reactive({ name: '', expires_at: '' })
+const form = reactive({ name: '', expires_at: '', tenant_uuid: UNBOUND })
 const scopes = ref<string[]>([])
 const allowedIps = ref<string[]>([])
 const scopeInput = ref('')
@@ -21,6 +32,7 @@ watch(open, (isOpen) => {
   if (isOpen) {
     form.name = ''
     form.expires_at = ''
+    form.tenant_uuid = UNBOUND
     scopes.value = []
     allowedIps.value = []
     scopeInput.value = ''
@@ -58,6 +70,7 @@ async function submit() {
       scopes: scopes.value.length ? scopes.value : undefined,
       allowed_ips: allowedIps.value.length ? allowedIps.value : undefined,
       expires_at: form.expires_at || undefined,
+      tenant_uuid: form.tenant_uuid === UNBOUND ? undefined : form.tenant_uuid,
     })
     open.value = false
     emit('created', result)
@@ -84,6 +97,14 @@ async function submit() {
             @keydown.enter.prevent="submit"
           />
           <p v-if="nameError" class="mt-1 text-xs text-error">{{ nameError }}</p>
+        </div>
+
+        <!-- Scopes -->
+        <div v-if="access.access.manage_platform">
+          <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">
+            Workspace
+          </label>
+          <USelectMenu v-model="form.tenant_uuid" :items="tenantItems" value-key="value" class="w-full" />
         </div>
 
         <!-- Scopes -->

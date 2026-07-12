@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Glueful\Events\EventService;
 use Thallo\Collections\CollectionManager;
@@ -28,7 +27,7 @@ use Thallo\Collections\Schema\CollectionDefinition;
  *   - rel_test_articles (single + multi relation to authors)
  *   - rel_test_nested   (single relation to articles — for no-recurse expand test)
  */
-final class RelationsTest extends AppTestCase
+final class RelationsTest extends CollectionsTestCase
 {
     private const AUTHORS_COLLECTION  = 'rel_test_authors';
     private const ARTICLES_COLLECTION = 'rel_test_articles';
@@ -150,7 +149,7 @@ final class RelationsTest extends AppTestCase
 
     private function tableNameFor(string $name): string
     {
-        return CollectionManager::tableNameFor($name);
+        return $this->physicalTable($name);
     }
 
     private function cleanupAll(): void

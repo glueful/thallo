@@ -12,6 +12,7 @@ use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\Users\Repositories\UserRepository;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
+use Thallo\Tenancy\System\SystemFlags;
 
 /**
  * Integration tests for `POST /admin/setup`.
@@ -32,7 +33,24 @@ final class SetupApiTest extends AppTestCase
 
         // Start from a clean slate on each test: wipe users, Aegis user_roles, and the
         // settings markers so install() is always re-runnable.
-        $this->connection()->getPDO()->exec('TRUNCATE TABLE users, user_roles, settings CASCADE');
+        $this->resetInstallState();
+    }
+
+    protected function tearDown(): void
+    {
+        $this->resetInstallState();
+        parent::tearDown();
+    }
+
+    private function resetInstallState(): void
+    {
+        $this->connection()->getPDO()->exec(
+            'TRUNCATE TABLE tenant_memberships, tenants, users, user_roles, settings CASCADE',
+        );
+        $this->connection()->getPDO()->exec(
+            "DELETE FROM thallo_system_flags WHERE key LIKE 'tenancy.%' OR key = 'installed'",
+        );
+        $this->container()->get(SystemFlags::class)->clearCache();
     }
 
     private function service(): SetupService

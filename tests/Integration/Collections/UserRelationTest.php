@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Thallo\Collections\CollectionManager;
 use Thallo\Collections\Data\Actor;
@@ -17,7 +16,7 @@ use Thallo\Collections\Schema\CollectionDefinition;
  * behaviour change: a `users` target is now enforced (a non-existent user uuid is rejected) rather
  * than silently skipped as a non-collection target was before.
  */
-final class UserRelationTest extends AppTestCase
+final class UserRelationTest extends CollectionsTestCase
 {
     private const COLLECTION = 'rel_user_posts';
 
@@ -93,7 +92,7 @@ final class UserRelationTest extends AppTestCase
     private function cleanup(): void
     {
         $schema = $this->container()->get(SchemaBuilderInterface::class);
-        $table = CollectionManager::tableNameFor(self::COLLECTION);
+        $table = $this->physicalTable(self::COLLECTION);
         if ($schema->hasTable($table)) {
             $schema->dropTableIfExists($table);
         }

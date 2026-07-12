@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Thallo\Collections\Exceptions\PreflightFailedException;
 use Thallo\Collections\Schema\CollectionDefinition;
@@ -13,7 +12,7 @@ use Thallo\Collections\Schema\DdlPlanner;
 use Thallo\Collections\Schema\SchemaChange;
 use Thallo\Collections\Schema\SchemaMaterializer;
 
-final class SchemaMaterializerTest extends AppTestCase
+final class SchemaMaterializerTest extends CollectionsTestCase
 {
     private const TEST_TABLE = 'collection_clx1';
 

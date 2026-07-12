@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Thallo\Contracts\Schema\FieldTypeRegistry;
 
 /**
  * Verifies that ThalloServiceProvider binds FieldTypeRegistry to the container and
  * that EditorialFieldTypes seeds the registry with all content.* type definitions.
  */
-final class FieldTypeRegistryIntegrationTest extends AppTestCase
+final class FieldTypeRegistryIntegrationTest extends CollectionsTestCase
 {
     public function testRegistryResolvesFromContainer(): void
     {

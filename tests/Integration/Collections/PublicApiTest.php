@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Glueful\Helpers\Utils;
 use Thallo\Collections\CollectionManager;
 use Thallo\Collections\Schema\CollectionDefinition;
+use Thallo\Tenancy\ApiKeyBinding\TenantApiKeyBindingRepository;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
@@ -22,7 +22,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * Covers: default-deny 403, scoped reads, create round-trip, api_key actor audit,
  * bulk all-or-nothing, referenced-row 409, uuid-keyed paths.
  */
-final class PublicApiTest extends AppTestCase
+final class PublicApiTest extends CollectionsTestCase
 {
     private const COL = 'testproducts';
     private const COL2 = 'testorders';
@@ -292,6 +292,8 @@ final class PublicApiTest extends AppTestCase
             'name'      => 'collections-test-' . uniqid(),
             'scopes'    => $scopes,
         ]);
+        $this->container()->get(TenantApiKeyBindingRepository::class)
+            ->bind((string) $result['key']->uuid, $this->collectionTenantUuid);
         return $result['plain'];
     }
 
@@ -309,12 +311,14 @@ final class PublicApiTest extends AppTestCase
         ]);
         /** @var \Glueful\Auth\ApiKey\ApiKey $key */
         $key = $result['key'];
+        $this->container()->get(TenantApiKeyBindingRepository::class)
+            ->bind((string) $key->uuid, $this->collectionTenantUuid);
         return [(string) $key->uuid, $result['plain']];
     }
 
     private function tableNameFor(string $name): string
     {
-        return CollectionManager::tableNameFor($name);
+        return $this->physicalTable($name);
     }
 
     public function testPublicReadAllowsAnonymousAccessWhileWriteStaysScoped(): void

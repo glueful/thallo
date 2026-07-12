@@ -20,7 +20,7 @@ final class TenancyPackageDiscoverableTest extends AppTestCase
         );
     }
 
-    public function testGluefulTenancyIsNotEnabledByDefault(): void
+    public function testGluefulTenancyRequestEnforcementIsNotEnabledByDefault(): void
     {
         $extensions = require dirname(__DIR__, 4) . '/config/extensions.php';
 
@@ -30,7 +30,7 @@ final class TenancyPackageDiscoverableTest extends AppTestCase
         );
     }
 
-    public function testGluefulTenancyIsDevelopmentOnly(): void
+    public function testGluefulTenancyIsAProductionDependency(): void
     {
         $composer = json_decode(
             (string) file_get_contents(dirname(__DIR__, 4) . '/composer.json'),
@@ -38,7 +38,7 @@ final class TenancyPackageDiscoverableTest extends AppTestCase
             flags: JSON_THROW_ON_ERROR,
         );
 
-        self::assertArrayNotHasKey('glueful/tenancy', $composer['require'] ?? []);
-        self::assertArrayHasKey('glueful/tenancy', $composer['require-dev'] ?? []);
+        self::assertSame('^1.3.0', $composer['require']['glueful/tenancy'] ?? null);
+        self::assertArrayNotHasKey('glueful/tenancy', $composer['require-dev'] ?? []);
     }
 }
