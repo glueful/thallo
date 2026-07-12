@@ -9,12 +9,15 @@ $defaultHosts = array_values(array_filter(array_map(
 )));
 
 return [
+    'membership' => [
+        'role_authority' => App\Content\Authorization\ThalloMembershipRoleAuthority::class,
+    ],
     'role_matrix' => [
         'owner' => [
             'content.view', 'content.create', 'content.edit', 'content.publish',
             'content.delete', 'content.manage', 'content.routes', 'navigation.manage',
             'seo.manage', 'templates.manage', 'analytics.read', 'workflow.review',
-            'tenant.members.manage', 'tenant.domains.manage',
+            'tenant.members.manage', 'tenant.domains.manage', 'tenant.roles.manage',
             'collections.manage', 'collections.schema.manage', 'collections.data.manage',
         ],
         'admin' => [

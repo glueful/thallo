@@ -43,6 +43,7 @@ describe('tenancy lifecycle action map', () => {
   it.each([
     ['off', 'enablement-action-begin'],
     ['awaiting_provider_boot', 'enablement-action-begin'],
+    ['enabling_enforcement', 'enablement-action-begin'],
     ['reloading', 'enablement-reload-continue'],
     ['finalizing', 'enablement-reload-continue'],
     ['failed', 'enablement-action-retry'],

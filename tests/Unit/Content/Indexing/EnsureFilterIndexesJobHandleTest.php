@@ -11,6 +11,7 @@ use Glueful\Database\Connection;
 use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
+use Thallo\Tenancy\System\SystemFlags;
 
 /**
  * The fail-closed CLOSED SHAPE of EnsureFilterIndexesJob::handle(): only an explicit `null` tenant_uuid
@@ -36,6 +37,14 @@ final class EnsureFilterIndexesJobHandleTest extends TestCase
 
             public function get(string $id): mixed
             {
+                if ($id === SystemFlags::class) {
+                    return new class {
+                        public function enforcementActive(): bool
+                        {
+                            return true;
+                        }
+                    };
+                }
                 if ($id === TenantContextRunner::class && $this->bindRunner) {
                     // A tolerant fake — never actually invoked in the THROW cases.
                     return new class implements TenantContextRunner {

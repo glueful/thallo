@@ -7,7 +7,7 @@ namespace App\Http\Controllers;
 use App\Content\Authorization\AuthenticatedPrincipalResolver;
 use App\Content\Authorization\OperatorBypass;
 use App\Content\Authorization\PermissionAuthority;
-use App\Content\Authorization\RoleMatrix;
+use App\Content\Authorization\EffectiveRoleMatrix;
 use App\Content\Authorization\TenantMembershipRoleReader;
 use Glueful\Http\Response;
 use Symfony\Component\HttpFoundation\Request;
@@ -17,7 +17,7 @@ final class TenancyAccessController
     public function __construct(
         private readonly AuthenticatedPrincipalResolver $principals,
         private readonly PermissionAuthority $permissions,
-        private readonly ?RoleMatrix $matrix = null,
+        private readonly ?EffectiveRoleMatrix $matrix = null,
         private readonly ?TenantMembershipRoleReader $roleReader = null,
         private readonly ?OperatorBypass $bypass = null,
     ) {
@@ -38,6 +38,7 @@ final class TenancyAccessController
             'access_any' => $this->permissions->can($uuid, 'tenancy.access_any', 'thallo', $context),
             'manage_members' => $this->effective($request, $uuid, 'tenant.members.manage', $context),
             'manage_domains' => $this->effective($request, $uuid, 'tenant.domains.manage', $context),
+            'manage_roles' => $this->effective($request, $uuid, 'tenant.roles.manage', $context),
         ]]);
     }
 
@@ -50,7 +51,7 @@ final class TenancyAccessController
         }
 
         $role = $this->roleReader->roleFor($request, $uuid);
-        return ($role !== null && $this->matrix->allows($role, $capability))
+        return ($role !== null && $this->matrix->allows($tenantUuid, $role, $capability))
             || $this->bypass->decide(
                 $request,
                 $uuid,
@@ -61,7 +62,7 @@ final class TenancyAccessController
             )->granted;
     }
 
-    /** @return array{manage_platform:false,access_any:false,manage_members:false,manage_domains:false} */
+    /** @return array{manage_platform:false,access_any:false,manage_members:false,manage_domains:false,manage_roles:false} */
     private function denyAll(): array
     {
         return [
@@ -69,6 +70,7 @@ final class TenancyAccessController
             'access_any' => false,
             'manage_members' => false,
             'manage_domains' => false,
+            'manage_roles' => false,
         ];
     }
 }

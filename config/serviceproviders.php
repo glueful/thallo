@@ -10,6 +10,7 @@
 
 return [
     'enabled' => [
+        'Glueful\\Extensions\\Tenancy\\TenancyControlPlaneProvider',
         'App\\Providers\\ThalloServiceProvider',
         // 'App\\Providers\\EventServiceProvider',
     ],

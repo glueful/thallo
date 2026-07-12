@@ -28,6 +28,7 @@ final class RawPdoScopingLintTest extends TestCase
         'app/Content/Blocks/Migration/BlockMigrationRepository.php',
         'app/Content/Repositories/MigrationRepository.php',
         'app/Content/Media/TenantBlobPolicy.php',
+        'app/Content/Authorization/TenantRoleOverrideRepository.php',
     ];
 
     /**
@@ -155,6 +156,8 @@ final class RawPdoScopingLintTest extends TestCase
         'app/Content/Retention/VersionPruner.php' => 1,
         'app/Content/Indexing/EnsureFilterIndexesJob.php' => 5,
         'app/Content/Media/TenantBlobPolicy.php' => 1,
+        'app/Content/Authorization/TenantRolePolicyMutator.php' => 2,
+        'app/Content/Authorization/TenantRoleOverrideRepository.php' => 2,
     ];
 
     public function testEveryScopedRawSiteReferencesTenantUuid(): void

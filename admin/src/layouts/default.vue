@@ -67,7 +67,8 @@ const tenancyEnabled = computed(
   () =>
     (enablementStatus.value?.enabled ?? false) ||
     tenancyAccess.access.manage_domains ||
-    tenancyAccess.access.manage_members,
+    tenancyAccess.access.manage_members ||
+    tenancyAccess.access.manage_roles === true,
 )
 // Live unread count for the Submissions badge (module registration is non-reactive, so
 // the badge is injected here — the same seam the Content children use).

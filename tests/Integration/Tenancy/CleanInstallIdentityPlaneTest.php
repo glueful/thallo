@@ -7,17 +7,27 @@ namespace App\Tests\Integration\Tenancy;
 use App\Tests\Support\AppTestCase;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
+use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;
 use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;
+use Glueful\Extensions\Contracts\Tenancy\TenantDomainAdministration;
+use Glueful\Extensions\Contracts\Tenancy\TenantEnforcementProbe;
+use Glueful\Extensions\Contracts\Tenancy\TenantProvisioner;
+use Glueful\Extensions\Contracts\Tenancy\TenantProvisioningRunner;
 use Glueful\Extensions\Tenancy\Query\TenantTableRegistry;
 use Thallo\Tenancy\System\SystemFlags;
 
 final class CleanInstallIdentityPlaneTest extends AppTestCase
 {
-    public function testIdentityServicesExistWhileEnforcementIsOff(): void
+    public function testControlPlaneIsBoundWhileEnforcementIsAbsent(): void
     {
         self::assertTrue($this->container()->has(\Thallo\Tenancy\Tenant\SingleStoreTenant::class));
-        self::assertFalse($this->container()->has(TenantContextRunner::class));
+        self::assertTrue($this->container()->has(TenantProvisioner::class));
+        self::assertTrue($this->container()->has(TenantProvisioningRunner::class));
+        self::assertTrue($this->container()->has(TenantAdministration::class));
+        self::assertTrue($this->container()->has(TenantDomainAdministration::class));
+        self::assertTrue($this->container()->has(TenantContextRunner::class));
         self::assertFalse($this->container()->has(CurrentTenantResolver::class));
+        self::assertFalse($this->container()->has(TenantEnforcementProbe::class));
         self::assertTrue($this->connection()->getSchemaBuilder()->hasTable('tenants'));
         self::assertFalse($this->container()->get(SystemFlags::class)->tenancyEnabled());
         self::assertSame([], TenantTableRegistry::all());

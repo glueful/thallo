@@ -28,9 +28,15 @@ Real features, each sizeable and previously deferred by choice. Worth doing, but
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| A | **Per-tenant custom roles / matrix overrides** | ☐ deferred | Per-tenant deviation from the global `role_matrix`; larger change to `RoleMatrix`. |
+| A | **Per-tenant custom roles / matrix overrides** | ✅ implemented (held) | Live-baseline deltas, owner floor, custom-role lifecycle, versioned effective-policy cache, manifest CLI, and Roles UI. |
 | B | **Public self-serve tenant signup** | ☐ deferred | Unauthenticated workspace creation flow (vs. today's operator-provisioned). |
 | C | **Collections tenancy** | ✅ implemented (held) | Per-workspace definitions and structurally isolated `tc_*` physical tables; release verification pending. |
+
+### Infrastructure hardening
+
+| Change | Status | Spec | Plan |
+|--------|--------|------|------|
+| **Tenancy provider split** — always-on identity/control plane plus enablement-gated request enforcement; explicit fresh `enforcementActive()` signal; resumable provider activation/deactivation. | ✅ implemented (held; batched with role authority for engine 2.0.0) | [spec](2026-07-12-tenancy-provider-split-design.md) | [plan](../../plans/multi-tenancy/2026-07-12-tenancy-provider-split.md) |
 
 ---
 

@@ -28,6 +28,7 @@ use App\Http\Controllers\ScheduledTasksController;
 use App\Http\Controllers\TenancyAccessController;
 use App\Http\Controllers\UserAdminController;
 use App\Http\Controllers\TenantHostCooldownController;
+use App\Http\Controllers\TenantRolesController;
 use Glueful\Api\Webhooks\Http\Controllers\WebhookController;
 use Glueful\Routing\Router;
 
@@ -41,6 +42,20 @@ use Glueful\Routing\Router;
  */
 $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
     $router->group(['middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap']], function (Router $router): void {
+        $router->get('/tenancy/roles', [TenantRolesController::class, 'index'])
+            ->middleware('content_permission:tenant.roles.manage');
+        $router->put('/tenancy/roles/{slug}/overrides', [TenantRolesController::class, 'overrides'])
+            ->middleware('content_permission:tenant.roles.manage');
+        $router->post('/tenancy/roles/preview', [TenantRolesController::class, 'preview'])
+            ->middleware('content_permission:tenant.roles.manage');
+        $router->get('/tenancy/roles/assignable', [TenantRolesController::class, 'assignable'])
+            ->middleware('content_permission:tenant.members.manage');
+        $router->post('/tenancy/roles', [TenantRolesController::class, 'create'])
+            ->middleware('content_permission:tenant.roles.manage');
+        $router->patch('/tenancy/roles/{slug}', [TenantRolesController::class, 'update'])
+            ->middleware('content_permission:tenant.roles.manage');
+        $router->delete('/tenancy/roles/{slug}', [TenantRolesController::class, 'delete'])
+            ->middleware('content_permission:tenant.roles.manage');
     // Content type (model) management.
         $router->get('/content-types', [ContentTypeController::class, 'index'])
         ->middleware('content_permission:content.view');
@@ -411,6 +426,11 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
         ->middleware('tenant_bootstrap:optional');
 
     $router->post('/tenancy/hosts/cooldown/override', [TenantHostCooldownController::class, 'override'])
+        ->middleware('auth')
+        ->middleware('tenant_system')
+        ->middleware('content_permission:tenancy.manage');
+
+    $router->post('/tenancy/roles/{tenant}/reset', [TenantRolesController::class, 'reset'])
         ->middleware('auth')
         ->middleware('tenant_system')
         ->middleware('content_permission:tenancy.manage');

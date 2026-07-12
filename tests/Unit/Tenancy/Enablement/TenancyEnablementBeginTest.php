@@ -10,11 +10,11 @@ use Thallo\Tenancy\Enablement\TenancyEnablement;
 
 final class TenancyEnablementBeginTest extends AppTestCase
 {
-    public function testFirstBeginStopsAtExtensionEnableBoundary(): void
+    public function testFirstBeginStopsAtMigrationBoundary(): void
     {
         $status = $this->container()->get(TenancyEnablement::class)->begin();
 
-        self::assertSame(EnablementStep::ENABLING_EXTENSION, $status->step);
+        self::assertSame(EnablementStep::MIGRATING_EXTENSION, $status->step);
         self::assertFalse($status->enabled);
     }
 }

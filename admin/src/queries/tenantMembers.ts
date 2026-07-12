@@ -3,8 +3,20 @@ import { toValue, type MaybeRefOrGetter } from 'vue'
 import { authFetch } from '@/api/authFetch'
 import { runtimeConfig } from '@/runtime/config'
 
-export type TenantRole = 'owner' | 'admin' | 'member' | 'viewer'
+export type TenantRole = string
 export const TENANT_ROLES: readonly TenantRole[] = ['owner', 'admin', 'member', 'viewer']
+
+export interface AssignableTenantRole {
+  slug: string
+  name: string
+  builtin: boolean
+}
+
+export async function fetchAssignableRoles(): Promise<AssignableTenantRole[]> {
+  const json = await authFetch(`${runtimeConfig.apiBase}/tenancy/roles/assignable`)
+  const data = (json.data ?? json) as { roles?: AssignableTenantRole[] }
+  return data.roles ?? []
+}
 
 export interface TenantMember {
   user_uuid: string

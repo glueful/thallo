@@ -71,6 +71,7 @@ abstract class TenantOracleTestCase extends AppTestCase
         // registerTenantTables() passes its SystemFlags gate during that boot and registers
         // Thallo's owned tables into the process-global guard registry.
         self::$app->getContainer()->get(SystemFlags::class)->put('tenancy.enabled', '1');
+        self::$app->getContainer()->get(SystemFlags::class)->put('tenancy.enable_step', 'on');
 
         // Boot a fresh oracle app for EVERY subclass. Retrofit acceptance classes deliberately clear
         // process-global tenancy hooks; reusing one old oracle boot after that would silently disable
@@ -179,6 +180,9 @@ abstract class TenantOracleTestCase extends AppTestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $flags = $this->container()->get(SystemFlags::class);
+        $flags->put('tenancy.enabled', '1');
+        $flags->put('tenancy.enable_step', 'on');
         // Clean the oracle allowlist (some aren't in AppTestCase::TABLES, e.g. seo_meta/analytics_*;
         // analytics_active_actors has no surrogate `id`). Raw DELETE — bypasses the id assumption and
         // the builder guard entirely (test cleanup runs with no tenant context anyway).

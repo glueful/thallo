@@ -21,6 +21,7 @@ abstract class AppTestCase extends TestCase
 
     // Truncate order is child -> parent (no FKs in v1, but keep it deterministic).
     private const TABLES = [
+        'tenant_role_overrides', 'tenant_roles', 'tenant_role_policy',
         'block_type_migrations',
         'blobs',
         'block_types',

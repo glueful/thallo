@@ -25,8 +25,18 @@ use App\Content\Media\TenantBlobRouteMiddlewareProvider;
 use App\Content\Authorization\OperatorBypass;
 use App\Content\Authorization\AuthenticatedPrincipalResolver;
 use App\Content\Authorization\PermissionAuthority;
+use App\Content\Authorization\CapabilityCatalog;
+use App\Content\Authorization\EffectiveRoleEvaluator;
+use App\Content\Authorization\EffectiveRoleMatrix;
+use App\Content\Authorization\PolicyManifest;
+use App\Content\Authorization\RolePolicyDiagnostics;
 use App\Content\Authorization\RoleMatrix;
 use App\Content\Authorization\TenantMembershipRoleReader;
+use App\Content\Authorization\TenantRoleOverrideRepository;
+use App\Content\Authorization\TenantRolePolicyMutator;
+use App\Content\Authorization\TenantRoleRepository;
+use App\Content\Authorization\TenantRoleLifecycle;
+use App\Content\Authorization\ThalloMembershipRoleAuthority;
 use Glueful\Encryption\EncryptionService;
 use Glueful\Extensions\Audit\Contracts\AuditRecorderInterface;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
@@ -41,9 +51,11 @@ use Glueful\Extensions\Contracts\Tenancy\TenantDomainAdministration;
 use Glueful\Extensions\Tenancy\Events\DomainReverificationFailed;
 use Glueful\Extensions\Tenancy\Events\DomainReverified;
 use Glueful\Extensions\Tenancy\Events\DomainRevoked;
+use Glueful\Extensions\Tenancy\Membership\MembershipRoleAuthority;
 use Thallo\Contracts\Content\FormSealer;
 use Thallo\Tenancy\Reverification\DomainReverificationAuditListener;
 use App\Content\Console\PruneVersionsCommand;
+use App\Content\Console\PolicyManifestCommand;
 use App\Content\Console\RunBlockBackfillCommand;
 use App\Content\Console\SeedBlockTypesCommand;
 use App\Content\Console\SyncBlockTypesCommand;
@@ -75,6 +87,7 @@ use App\Http\Controllers\ScheduledTasksController;
 use App\Http\Controllers\TenancyAccessController;
 use App\Http\Controllers\UserAdminController;
 use App\Http\Controllers\TenantHostCooldownController;
+use App\Http\Controllers\TenantRolesController;
 use App\Support\AuthorityAudit;
 use App\Support\AuthorityContinuityGuard;
 use App\Support\AuthorityMutator;
@@ -82,6 +95,7 @@ use App\Support\RoleAuthority;
 use App\Support\UserRoleAssignmentPolicy;
 use App\Support\TenancyLifecycleAudit;
 use Thallo\Contracts\Tenancy\TenancyLifecycleAudit as TenancyLifecycleAuditContract;
+use Thallo\Contracts\Tenancy\RolePolicyDiagnostics as RolePolicyDiagnosticsContract;
 use App\Settings\GeneralSettings;
 use App\Settings\SettingsStore;
 use App\Settings\SystemKeyReconciler;
@@ -1158,6 +1172,61 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            CapabilityCatalog::class => [
+                'class' => CapabilityCatalog::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            PolicyManifest::class => [
+                'class' => PolicyManifest::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            TenantRoleOverrideRepository::class => [
+                'class' => TenantRoleOverrideRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            TenantRoleRepository::class => [
+                'class' => TenantRoleRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            TenantRoleLifecycle::class => [
+                'class' => TenantRoleLifecycle::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            ThalloMembershipRoleAuthority::class => [
+                'class' => ThalloMembershipRoleAuthority::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            EffectiveRoleEvaluator::class => [
+                'class' => EffectiveRoleEvaluator::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            EffectiveRoleMatrix::class => [
+                'class' => EffectiveRoleMatrix::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            TenantRolePolicyMutator::class => [
+                'class' => TenantRolePolicyMutator::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            RolePolicyDiagnostics::class => [
+                'class' => RolePolicyDiagnostics::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            RolePolicyDiagnosticsContract::class => [
+                'class' => RolePolicyDiagnostics::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             TenantMembershipRoleReader::class => [
                 'factory' => [self::class, 'makeMembershipRoleReader'],
                 'shared' => true,
@@ -1226,7 +1295,7 @@ final class ThalloServiceProvider extends ServiceProvider
         return new RequirePermission(
             $container->get(ApplicationContext::class),
             $container->get(TenantMembershipRoleReader::class),
-            $container->get(RoleMatrix::class),
+            $container->get(EffectiveRoleMatrix::class),
             $container->get(OperatorBypass::class),
             $container->get(AuthenticatedPrincipalResolver::class),
             $container->get(PermissionAuthority::class),
@@ -1238,7 +1307,9 @@ final class ThalloServiceProvider extends ServiceProvider
         return new TenancyAccessController(
             $container->get(AuthenticatedPrincipalResolver::class),
             $container->get(PermissionAuthority::class),
-            $container->has(RoleMatrix::class) ? $container->get(RoleMatrix::class) : null,
+            $container->has(EffectiveRoleMatrix::class)
+                ? $container->get(EffectiveRoleMatrix::class)
+                : null,
             $container->has(TenantMembershipRoleReader::class)
                 ? $container->get(TenantMembershipRoleReader::class)
                 : null,
@@ -1291,6 +1362,11 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             TenantHostCooldownController::class => [
                 'class' => TenantHostCooldownController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            TenantRolesController::class => [
+                'class' => TenantRolesController::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -1421,6 +1497,11 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             PruneVersionsCommand::class => [
                 'class' => PruneVersionsCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            PolicyManifestCommand::class => [
+                'class' => PolicyManifestCommand::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -1599,6 +1680,7 @@ final class ThalloServiceProvider extends ServiceProvider
         $this->commands([
             ResyncCommand::class,
             PruneVersionsCommand::class,
+            PolicyManifestCommand::class,
             SeedBlockTypesCommand::class,
             SyncBlockTypesCommand::class,
             RunBlockBackfillCommand::class,

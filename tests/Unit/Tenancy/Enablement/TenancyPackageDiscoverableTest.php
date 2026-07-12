@@ -38,7 +38,7 @@ final class TenancyPackageDiscoverableTest extends AppTestCase
             flags: JSON_THROW_ON_ERROR,
         );
 
-        self::assertSame('^1.3.0', $composer['require']['glueful/tenancy'] ?? null);
+        self::assertSame('^2.0.0', $composer['require']['glueful/tenancy'] ?? null);
         self::assertArrayNotHasKey('glueful/tenancy', $composer['require-dev'] ?? []);
     }
 }

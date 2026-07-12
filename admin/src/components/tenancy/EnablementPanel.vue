@@ -18,6 +18,7 @@ const action = computed(() => {
       'enabling_extension',
       'migrating_extension',
       'awaiting_provider_boot',
+      'enabling_enforcement',
       'disabled_widened',
     ].includes(step)
   )

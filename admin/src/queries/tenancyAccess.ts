@@ -6,6 +6,7 @@ export interface TenancyAccess {
   access_any: boolean
   manage_members: boolean
   manage_domains: boolean
+  manage_roles?: boolean
 }
 
 export async function fetchTenancyAccess(): Promise<TenancyAccess> {
@@ -17,5 +18,6 @@ export async function fetchTenancyAccess(): Promise<TenancyAccess> {
     access_any: access.access_any === true,
     manage_members: access.manage_members === true,
     manage_domains: access.manage_domains === true,
+    manage_roles: access.manage_roles === true,
   }
 }
