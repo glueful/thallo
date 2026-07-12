@@ -7,6 +7,7 @@ namespace App\Content\Http;
 use App\Content\Authorization\OperatorBypass;
 use App\Content\Authorization\AuthenticatedPrincipalResolver;
 use App\Content\Authorization\PermissionAuthority;
+use App\Content\Authorization\EffectiveRoleMatrix;
 use App\Content\Authorization\RoleMatrix;
 use App\Content\Authorization\TenantMembershipRoleReader;
 use Glueful\Auth\ApiKey\ApiKeyService;
@@ -34,7 +35,7 @@ final class RequirePermission implements RouteMiddleware
     public function __construct(
         private readonly ApplicationContext $context,
         private readonly ?TenantMembershipRoleReader $roleReader = null,
-        private readonly ?RoleMatrix $matrix = null,
+        private readonly ?EffectiveRoleMatrix $matrix = null,
         private readonly ?OperatorBypass $bypass = null,
         private readonly ?AuthenticatedPrincipalResolver $principals = null,
         private readonly ?PermissionAuthority $permissions = null,
@@ -101,7 +102,7 @@ final class RequirePermission implements RouteMiddleware
                 return $this->forbidden();
             }
             $role = $this->roleReader->roleFor($request, $principal['uuid']);
-            $allowed = ($role !== null && $this->matrix->allows($role, $permission))
+            $allowed = ($role !== null && $this->matrix->allows($resolvedTenant, $role, $permission))
                 || $this->bypass->evaluate(
                     $request,
                     $principal['uuid'],

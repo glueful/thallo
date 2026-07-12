@@ -16,6 +16,13 @@ use PHPUnit\Framework\TestCase;
  */
 final class RawPdoScopingLintTest extends TestCase
 {
+    private const SIGNUP_GLOBAL_TABLES = [
+        'signup_intents',
+        'signup_verifiers',
+        'signup_continuations',
+        'signup_rate_counters',
+        'signup_daily_counters',
+    ];
     /**
      * Owned-table raw WRITERS on the request path. MUST reference tenant_uuid (smoke) AND gate every
      * raw mutation behind the WriteBarrier (assertWritable).
@@ -28,6 +35,7 @@ final class RawPdoScopingLintTest extends TestCase
         'app/Content/Blocks/Migration/BlockMigrationRepository.php',
         'app/Content/Repositories/MigrationRepository.php',
         'app/Content/Media/TenantBlobPolicy.php',
+        'app/Content/Authorization/TenantRoleOverrideRepository.php',
     ];
 
     /**
@@ -155,6 +163,8 @@ final class RawPdoScopingLintTest extends TestCase
         'app/Content/Retention/VersionPruner.php' => 1,
         'app/Content/Indexing/EnsureFilterIndexesJob.php' => 5,
         'app/Content/Media/TenantBlobPolicy.php' => 1,
+        'app/Content/Authorization/TenantRolePolicyMutator.php' => 2,
+        'app/Content/Authorization/TenantRoleOverrideRepository.php' => 2,
     ];
 
     public function testEveryScopedRawSiteReferencesTenantUuid(): void
@@ -208,6 +218,23 @@ final class RawPdoScopingLintTest extends TestCase
         self::assertSame(1, preg_match(self::PER_TENANT_PHYSICAL, 'tc_abcde23456_abc123xyz789'));
         self::assertSame(0, preg_match(self::PER_TENANT_PHYSICAL, 'coll_products'));
         self::assertSame(0, preg_match(self::PER_TENANT_PHYSICAL, 'tc_../../users'));
+    }
+
+    public function testSignupControlPlaneTablesAreExplicitlyGlobal(): void
+    {
+        $tables = (string) file_get_contents(
+            dirname(__DIR__, 3) . '/packages/thallo-tenancy/src/ThalloTenantTables.php'
+        );
+        $repository = (string) file_get_contents(
+            dirname(__DIR__, 3) . '/app/Signup/SignupIntentRepository.php'
+        );
+        $throttle = (string) file_get_contents(
+            dirname(__DIR__, 3) . '/app/Signup/SignupThrottle.php'
+        );
+        foreach (self::SIGNUP_GLOBAL_TABLES as $table) {
+            self::assertStringNotContainsString("'{$table}' =>", $tables);
+            self::assertStringContainsString($table, $repository . $throttle);
+        }
     }
 
     public function testCriticalScopingConstructsArePresent(): void

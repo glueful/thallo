@@ -16,6 +16,7 @@ final class OperatorBypass
     private const CAPABILITY_MAP = [
         'tenant.members.manage' => 'tenancy.manage',
         'tenant.domains.manage' => 'tenancy.manage',
+        'tenant.roles.manage' => 'tenancy.manage',
     ];
 
     public function __construct(

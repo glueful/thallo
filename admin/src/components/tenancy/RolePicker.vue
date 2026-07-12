@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { TENANT_ROLES, type TenantRole } from '@/queries/tenantMembers'
+import { computed } from 'vue'
+import { TENANT_ROLES, type AssignableTenantRole, type TenantRole } from '@/queries/tenantMembers'
 
 const model = defineModel<TenantRole>({ required: true })
-const items = TENANT_ROLES.map((value) => ({
-  label: value.charAt(0).toUpperCase() + value.slice(1),
-  value,
-}))
+const props = defineProps<{ roles?: AssignableTenantRole[] }>()
+const items = computed(() =>
+  props.roles?.length
+    ? props.roles.map((role) => ({ label: role.name, value: role.slug }))
+    : TENANT_ROLES.map((value) => ({
+        label: value.charAt(0).toUpperCase() + value.slice(1),
+        value,
+      })),
+)
 </script>
 
 <template>

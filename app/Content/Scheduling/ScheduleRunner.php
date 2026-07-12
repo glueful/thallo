@@ -13,6 +13,7 @@ use App\Settings\GeneralSettings;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;
 use Thallo\Contracts\Tenancy\WriteBarrier;
+use Thallo\Tenancy\System\SystemFlags;
 
 /**
  * Fires due scheduled publish/unpublish actions through the normal publish path.
@@ -32,6 +33,7 @@ final class ScheduleRunner
         private readonly ScheduleRepository $schedules,
         private readonly PublishService $publisher,
         private readonly EntryRepository $entries,
+        private readonly SystemFlags $flags,
         private readonly ?TenantContextRunner $tenants = null,
         private readonly ?WriteBarrier $barrier = null,
     ) {
@@ -76,9 +78,12 @@ final class ScheduleRunner
      */
     private function fireScoped(array $row, string $tenantUuid): array
     {
-        if ($this->tenants !== null) {
+        if ($this->flags->enforcementActive()) {
             if ($tenantUuid === '') {
                 return [ScheduleStatus::Failed, 'schedule row missing tenant_uuid under active tenancy'];
+            }
+            if ($this->tenants === null) {
+                return [ScheduleStatus::Failed, 'tenant runner unavailable under active tenancy'];
             }
             return $this->tenants->runAsTenant($tenantUuid, fn (): array => $this->fire($row));
         }

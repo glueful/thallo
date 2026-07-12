@@ -61,12 +61,17 @@ function onActivate(retry: boolean) {
       <UDashboardNavbar title="Workspaces" />
     </template>
     <template #body>
-      <div class="mx-auto w-full max-w-5xl px-4 sm:px-6">
-        <div v-if="loading" class="grid gap-4 py-6">
+      <div class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
+        <p class="text-sm text-muted">
+          By default Thallo runs as a single site. Turn on multi-workspace mode to host many
+          independent workspaces, then choose whether visitors can create their own.
+        </p>
+        <div v-if="loading" class="flex flex-col gap-6">
           <USkeleton class="h-28 w-full" />
           <USkeleton class="h-28 w-full" />
         </div>
         <template v-else>
+          <!-- Prerequisite first: everything below depends on it. -->
           <EnablementPanel
             v-if="enablement"
             :status="enablement"
@@ -83,6 +88,8 @@ function onActivate(retry: boolean) {
             @activate="onActivate"
             @deactivate="run(() => resolutionMutations.deactivate.mutateAsync(), refreshResolution)"
           />
+          <!-- Dependent on multi-workspace mode: the switch is locked until it's on. -->
+          <WorkspaceSignupSettings :workspaces-enabled="enablement?.enabled ?? false" />
           <DiagnoseReport :report="diagnose" :busy="diagnosing" @run="runDiagnose" />
         </template>
       </div>

@@ -12,6 +12,7 @@ use Glueful\Helpers\Utils;
 use Glueful\Queue\Job;
 use Psr\Log\LoggerInterface;
 use Thallo\Contracts\Tenancy\WriteBarrier;
+use Thallo\Tenancy\System\SystemFlags;
 
 /**
  * Reconciles a content type's filterable-field expression indexes against the registry.
@@ -71,11 +72,23 @@ final class EnsureFilterIndexesJob extends Job
         $tenantUuid = $data['tenant_uuid'];
 
         if ($tenantUuid === null) {
+            $enforcementActive = $container->get(SystemFlags::class)->enforcementActive();
+            if ($enforcementActive) {
+                throw new \RuntimeException(
+                    'EnsureFilterIndexesJob: null tenant_uuid is invalid while tenancy enforcement is active.',
+                );
+            }
             $reconcile(); // ONLY an explicit null is the tenancy-off payload
             return;
         }
         if (!is_string($tenantUuid) || preg_match('/\A[0-9A-Za-z]{12}\z/', $tenantUuid) !== 1) {
             throw new \InvalidArgumentException('EnsureFilterIndexesJob: invalid tenant_uuid.');
+        }
+        $enforcementActive = $container->get(SystemFlags::class)->enforcementActive();
+        if (!$enforcementActive) {
+            throw new \RuntimeException(
+                'EnsureFilterIndexesJob: tenant-bearing job cannot run while tenancy enforcement is inactive.',
+            );
         }
         if (!$container->has(TenantContextRunner::class)) {
             throw new \RuntimeException('EnsureFilterIndexesJob: tenant runner unavailable for a tenant-bearing job.');

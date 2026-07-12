@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { TenantRole } from '@/queries/tenantMembers'
+import type { AssignableTenantRole, TenantRole } from '@/queries/tenantMembers'
 
-defineProps<{ busy?: boolean; error?: string | null }>()
+defineProps<{ busy?: boolean; error?: string | null; roles?: AssignableTenantRole[] }>()
 const emit = defineEmits<{ submit: [value: { user_uuid: string; role: TenantRole }] }>()
 const userUuid = ref('')
 const role = ref<TenantRole>('member')
@@ -18,7 +18,7 @@ const valid = computed(() => userUuid.value.trim() !== '')
       <UInput v-model="userUuid" name="user_uuid" required class="w-full" />
     </UFormField>
     <UFormField label="Role">
-      <RolePicker v-model="role" />
+      <RolePicker v-model="role" :roles="roles" />
     </UFormField>
     <UButton
       type="submit"

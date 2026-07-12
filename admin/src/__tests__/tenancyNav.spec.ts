@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { NavigationMenuItem } from '@nuxt/ui'
-import { shapeTenancyNav } from '@/navigation/shapeTenancyNav'
+import { inferTenancyEnabledForNavigation, shapeTenancyNav } from '@/navigation/shapeTenancyNav'
 
 const base: NavigationMenuItem[] = [
   {
@@ -16,6 +16,7 @@ const base: NavigationMenuItem[] = [
     label: 'Settings',
     children: [
       { label: 'General', to: '/settings/general' },
+      { label: 'Signup', to: '/settings/signup' },
       { label: 'Workspaces', to: '/settings/workspaces' },
     ],
   },
@@ -29,6 +30,16 @@ const none = {
 }
 
 describe('tenancy navigation shaping', () => {
+  it('does not mistake single-store member authority for active tenancy', () => {
+    expect(inferTenancyEnabledForNavigation(false, null, { ...none, manage_members: true })).toBe(
+      false,
+    )
+    expect(
+      inferTenancyEnabledForNavigation(false, 'tenant000001', { ...none, manage_members: true }),
+    ).toBe(true)
+    expect(inferTenancyEnabledForNavigation(true, null, none)).toBe(true)
+  })
+
   it('hides all tenancy navigation without access', () => {
     const shaped = shapeTenancyNav(base, none, null, true, true)
     expect(shaped.find((item) => item.label === 'Workspaces')).toBeUndefined()
@@ -46,6 +57,18 @@ describe('tenancy navigation shaping', () => {
     const shaped = shapeTenancyNav(base, { ...none, manage_platform: true }, null, true, false)
     const settings = shaped.find((item) => item.label === 'Settings')
     expect(settings?.children?.map((child) => child.to)).toContain('/settings/workspaces')
+  })
+
+  it('shows single-store signup while tenancy is off', () => {
+    const off = shapeTenancyNav(base, none, null, true, false)
+    expect(
+      off.find((item) => item.label === 'Settings')?.children?.map((child) => child.to),
+    ).toContain('/settings/signup')
+
+    const on = shapeTenancyNav(base, { ...none, manage_members: true }, 'tenant000001', true, true)
+    expect(
+      on.find((item) => item.label === 'Settings')?.children?.map((child) => child.to),
+    ).not.toContain('/settings/signup')
   })
 
   it('hides Settings -> Tenancy when the tenancy feature is not installed', () => {

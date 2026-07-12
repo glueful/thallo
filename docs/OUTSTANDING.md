@@ -4,7 +4,7 @@
 > pointer page), this file is meant to be edited as work lands — tick items off, link the
 > spec/plan/commit, and move them to **Recently shipped**.
 
-**Last reconciled:** 2026-07-09 (against the working tree, not just `NEXT.md`).
+**Last reconciled:** 2026-07-12 (against the working tree, not just `NEXT.md`).
 
 ## How to use this file
 
@@ -22,7 +22,6 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
 
 ## A. Large tracks (named in the vision)
 
-- [ ] **Multi-tenancy** — `L` — tenant-owned content via `glueful/tenancy`: additive retrofit (`tenant_uuid`, widened unique constraints, `BelongsToTenant` trait), no row-identity change. **Home:** [V1_DESIGN.md](V1_DESIGN.md) §10. _No spec yet._
 - [ ] **Ecommerce content integration** — `L` — **Home:** [APPROACH.md](APPROACH.md). _No design yet._
 - [ ] **Personalization / segmentation** — `L` — **Home:** [APPROACH.md](APPROACH.md). _No design yet._
 
@@ -70,6 +69,7 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
 > Move ticked items here (newest first) with their ship date + spec link, so the sections
 > above stay focused on what's left.
 
+- [x] **Multi-tenancy** — shipped 2026-07-11–12 — the full arc, far beyond the original additive-retrofit line: SP1 foundation (`tenant_uuid` retrofit, widened uniques, `BelongsToTenant`, raw-query scoping) → SP2 resolution + tenant management → SP3 membership×RBAC → **Bucket 1** lifecycle gaps (workspace-manager role, two-phase deletion + host-cooldown, background domain re-verification) → **Bucket 2** (collections tenancy, per-tenant roles / matrix overrides, public self-serve signup) → the control-plane/enforcement **provider split** shipped as `glueful/tenancy` **2.0.0**. Index: [LIFECYCLE-GAPS-README](superpowers/specs/multi-tenancy/LIFECYCLE-GAPS-README.md); specs/plans under `superpowers/{specs,plans}/multi-tenancy/`. **Loose ends (housekeeping, not feature gaps):** public-signup (2B) is implemented + verified but **HELD/uncommitted** along with the admin-settings polish; one tenancy-on `BlobPublicUrlProviderTest` failure remains unreproduced (passes in every isolated config) pending the exact suite-invocation command.
 - [x] **Form block** — shipped 2026-07-09 — generic `form` block (contact preset): sealed-descriptor model, stored + best-effort-emailed submissions, spam guard chain, admin Submissions area + CSV, delivery mode (store+email / email-only), selectable submit-button style. [spec](superpowers/specs/2026-07-09-form-block-design.md) · [plan](superpowers/plans/2026-07-09-form-block.md).
 - [x] **Rendered delivery (V2)** — shipped 2026-07-02/03 — navigation pack, render core, render caching, listing/archive pages, preview-through-theme + preview sessions, term index pages, DB-edited templates, page/block builder. [V2_DESIGN.md](V2_DESIGN.md).
 - [x] **Capability packs** — seo, collections, search, analytics, workflow, navigation, importers — built as removable packs on the composable-core seams.

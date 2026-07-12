@@ -10,7 +10,7 @@ const reload = computed(() => props.status.step === 'awaiting_fresh_boot')
 </script>
 
 <template>
-  <section class="border-b border-default py-6" aria-labelledby="resolution-heading">
+  <section class="rounded-lg border border-default px-5 py-4" aria-labelledby="resolution-heading">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <h2 id="resolution-heading" class="text-base font-semibold">Workspace resolution</h2>

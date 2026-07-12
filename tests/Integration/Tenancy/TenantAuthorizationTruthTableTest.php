@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Tenancy;
 
 use App\Content\Authorization\OperatorBypass;
-use App\Content\Authorization\RoleMatrix;
+use App\Content\Authorization\EffectiveRoleMatrix;
 use App\Content\Authorization\TenantMembershipRoleReader;
 use App\Content\Http\RequirePermission;
 use App\Tests\Support\RetrofittedTenantTestCase;
@@ -137,7 +137,7 @@ final class TenantAuthorizationTruthTableTest extends RetrofittedTenantTestCase
         return new RequirePermission(
             $this->appContext(),
             $this->container()->get(TenantMembershipRoleReader::class),
-            $this->container()->get(RoleMatrix::class),
+            $this->container()->get(EffectiveRoleMatrix::class),
             new OperatorBypass($this->appContext(), $permissions, $audit),
         );
     }

@@ -29,6 +29,18 @@ abstract class RetrofittedTenantTestCase extends RetrofitHarnessTestCase
     protected static string $tenantAUuid = '';
     protected static string $tenantBUuid = '';
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $flags = $this->container()->get(SystemFlags::class);
+        $flags->put('tenancy.enabled', '1');
+        $flags->put('tenancy.enable_step', 'on');
+        $flags->put('tenancy.schema_state', 'widened');
+        if (self::$defaultTenantUuid !== '') {
+            $flags->put('tenancy.default_tenant_uuid', self::$defaultTenantUuid);
+        }
+    }
+
     public static function setUpBeforeClass(): void
     {
         parent::setUpBeforeClass();
@@ -53,6 +65,7 @@ abstract class RetrofittedTenantTestCase extends RetrofitHarnessTestCase
         // tenants A/B for isolation suites. Finalization acceptance overrides the hook so it starts
         // with the one real default tenant and can prove bootstrap readiness before adding tenant two.
         self::$onApp->getContainer()->get(RetrofitMaintenanceGuard::class)->end();
+        self::$onApp->getContainer()->get(SystemFlags::class)->put('tenancy.enable_step', 'on');
         if (static::seedAdditionalTenants()) {
             /** @var TenantProvisioner $provisioner */
             $provisioner = self::$onApp->getContainer()->get(TenantProvisioner::class);

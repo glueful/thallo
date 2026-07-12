@@ -17,7 +17,7 @@ import { useTenantStore } from '@/stores/tenant'
 import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 import { useTenancyAccessLifecycle } from '@/composables/useTenancyAccessLifecycle'
 import { useTenancyEnablement } from '@/queries/tenancyEnablement'
-import { shapeTenancyNav } from '@/navigation/shapeTenancyNav'
+import { inferTenancyEnabledForNavigation, shapeTenancyNav } from '@/navigation/shapeTenancyNav'
 
 registerCoreModule()
 registerCollectionsModule()
@@ -63,11 +63,12 @@ const { data: contentTypes } = useContentTypes()
 // the fetch is gated on manage_platform; owners never need it because their domain/member access
 // only resolves when tenancy is already on.
 const { data: enablementStatus } = useTenancyEnablement(() => tenancyAccess.access.manage_platform)
-const tenancyEnabled = computed(
-  () =>
-    (enablementStatus.value?.enabled ?? false) ||
-    tenancyAccess.access.manage_domains ||
-    tenancyAccess.access.manage_members,
+const tenancyEnabled = computed(() =>
+  inferTenancyEnabledForNavigation(
+    enablementStatus.value?.enabled ?? false,
+    tenant.selectedUuid,
+    tenancyAccess.access,
+  ),
 )
 // Live unread count for the Submissions badge (module registration is non-reactive, so
 // the badge is injected here — the same seam the Content children use).

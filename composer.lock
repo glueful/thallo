@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e2ffaf0adb5fc1ccaa428a0d0c3b848d",
+    "content-hash": "f04f0d43a92a395c77d29c5c4b380bd8",
     "packages": [
         {
             "name": "composer/semver",
@@ -1142,16 +1142,16 @@
         },
         {
             "name": "glueful/tenancy",
-            "version": "v1.3.0",
+            "version": "v2.0.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/tenancy.git",
-                "reference": "fb2378489c8a559a361a26e4654746595306712f"
+                "reference": "96650a0ef47a8ad3a8fd871adac6a683831a1b7c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/tenancy/zipball/fb2378489c8a559a361a26e4654746595306712f",
-                "reference": "fb2378489c8a559a361a26e4654746595306712f",
+                "url": "https://api.github.com/repos/glueful/tenancy/zipball/96650a0ef47a8ad3a8fd871adac6a683831a1b7c",
+                "reference": "96650a0ef47a8ad3a8fd871adac6a683831a1b7c",
                 "shasum": ""
             },
             "require": {
@@ -1171,7 +1171,7 @@
             "extra": {
                 "glueful": {
                     "name": "Tenancy",
-                    "version": "1.3.0",
+                    "version": "2.0.0",
                     "provider": "Glueful\\Extensions\\Tenancy\\TenancyServiceProvider",
                     "requires": {
                         "glueful": ">=1.67.0",
@@ -1214,9 +1214,9 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/tenancy/issues",
-                "source": "https://github.com/glueful/tenancy/tree/v1.3.0"
+                "source": "https://github.com/glueful/tenancy/tree/v2.0.0"
             },
-            "time": "2026-07-11T21:21:11+00:00"
+            "time": "2026-07-12T06:09:31+00:00"
         },
         {
             "name": "glueful/thallo-analytics",

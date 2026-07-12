@@ -7,6 +7,8 @@ import {
   useTenantMembers,
   useTenantMemberMutations,
   type TenantRole,
+  fetchAssignableRoles,
+  type AssignableTenantRole,
 } from '@/queries/tenantMembers'
 
 definePage({ meta: { requiresAuth: true } })
@@ -21,6 +23,7 @@ const enabled = computed(() => targetReady.value && access.access.manage_members
 const { data: members, status } = useTenantMembers(uuid, enabled)
 const mutations = useTenantMemberMutations(uuid)
 const error = ref<string | null>(null)
+const assignableRoles = ref<AssignableTenantRole[]>([])
 
 watch(
   uuid,
@@ -32,6 +35,7 @@ watch(
       return
     }
     targetReady.value = true
+    assignableRoles.value = await fetchAssignableRoles()
   },
   { immediate: true },
 )
@@ -64,6 +68,7 @@ async function mutate(operation: () => Promise<unknown>): Promise<void> {
             v-if="access.access.manage_members"
             :busy="mutations.add.isLoading.value"
             :error="error"
+            :roles="assignableRoles"
             @submit="mutate(() => mutations.add.mutateAsync($event))"
           />
           <p v-if="error" class="mt-4 text-sm text-error" role="alert" data-testid="member-error">
@@ -82,6 +87,7 @@ async function mutate(operation: () => Promise<unknown>): Promise<void> {
               <code class="min-w-0 flex-1 break-all text-sm">{{ member.user_uuid }}</code>
               <RolePicker
                 :model-value="member.role as TenantRole"
+                :roles="assignableRoles"
                 @update:model-value="
                   mutate(() =>
                     mutations.setRole.mutateAsync({ user_uuid: member.user_uuid, role: $event }),

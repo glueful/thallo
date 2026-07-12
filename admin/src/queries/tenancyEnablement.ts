@@ -12,6 +12,7 @@ export type EnablementStep =
   | 'migrating_extension'
   | 'awaiting_confirm'
   | 'retrofitting'
+  | 'enabling_enforcement'
   | 'reloading'
   | 'finalizing'
   | 'on'

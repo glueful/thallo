@@ -32,6 +32,7 @@ describe('tenancy access store', () => {
       access_any: false,
       manage_members: false,
       manage_domains: false,
+      manage_roles: false,
     })
   })
 

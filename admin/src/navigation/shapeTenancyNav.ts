@@ -1,6 +1,18 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
 import type { TenancyAccess } from '@/queries/tenancyAccess'
 
+export function inferTenancyEnabledForNavigation(
+  reportedEnabled: boolean,
+  selectedUuid: string | null,
+  access: TenancyAccess,
+): boolean {
+  return (
+    reportedEnabled ||
+    (selectedUuid !== null &&
+      (access.manage_domains || access.manage_members || access.manage_roles === true))
+  )
+}
+
 export function shapeTenancyNav(
   items: NavigationMenuItem[],
   access: TenancyAccess,
@@ -12,9 +24,11 @@ export function shapeTenancyNav(
   tenancyInstalled: boolean,
   tenancyEnabled: boolean,
 ): NavigationMenuItem[] {
-  const anyTenantAccess = access.manage_platform || access.manage_domains || access.manage_members
+  const anyTenantAccess =
+    access.manage_platform || access.manage_domains || access.manage_members || access.manage_roles
   const domainsPath = selectedUuid ? `/workspaces/${selectedUuid}/domains` : null
   const membersPath = selectedUuid ? `/workspaces/${selectedUuid}/members` : null
+  const rolesPath = selectedUuid ? `/workspaces/${selectedUuid}/roles` : null
   const shaped: NavigationMenuItem[] = []
 
   for (const item of items) {
@@ -28,6 +42,9 @@ export function shapeTenancyNav(
         if (child.to === '/workspaces/_selected/members') {
           return access.manage_members && membersPath ? [{ ...child, to: membersPath }] : []
         }
+        if (child.to === '/workspaces/_selected/roles') {
+          return access.manage_roles && rolesPath ? [{ ...child, to: rolesPath }] : []
+        }
         return []
       })
       const firstTarget = children[0]?.to
@@ -39,10 +56,15 @@ export function shapeTenancyNav(
     if (item.label === 'Settings') {
       shaped.push({
         ...item,
-        children: (item.children ?? []).filter(
-          (child) =>
-            child.to !== '/settings/workspaces' || (tenancyInstalled && access.manage_platform),
-        ),
+        children: (item.children ?? []).filter((child) => {
+          if (child.to === '/settings/workspaces') {
+            return tenancyInstalled && access.manage_platform
+          }
+          if (child.to === '/settings/signup') {
+            return !tenancyEnabled
+          }
+          return true
+        }),
       })
       continue
     }

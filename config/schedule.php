@@ -96,6 +96,17 @@ return [
             'timeout' => 300,
             'retry_attempts' => 1,
         ],
+        [
+            'name' => 'signup_intent_sweep',
+            'schedule' => '15 2 * * *',
+            'handler_class' => \App\Signup\SignupIntentSweepJob::class,
+            'parameters' => [],
+            'description' => 'Remove expired and sanitized public-signup intents',
+            'enabled' => env('SIGNUP_SWEEP_ENABLED', true),
+            'queue' => $maintenanceQueue,
+            'timeout' => 300,
+            'retry_attempts' => 1,
+        ],
     ],
 
     'settings' => [

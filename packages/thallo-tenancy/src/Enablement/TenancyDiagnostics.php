@@ -11,6 +11,8 @@ use Thallo\Tenancy\Resolution\ResolutionActivationStep;
 use Thallo\Tenancy\Resolution\ResolutionActivationStore;
 use Thallo\Tenancy\Retrofit\RetrofitDiagnostics;
 use Thallo\Tenancy\System\SystemFlags;
+use Thallo\Contracts\Tenancy\RolePolicyDiagnostics;
+use Thallo\Contracts\Tenancy\SignupDiagnostics;
 
 /** Read-only operational diagnosis for the tenancy schema, state tuple, provenance, and write audit. */
 final class TenancyDiagnostics
@@ -23,6 +25,8 @@ final class TenancyDiagnostics
         private readonly Connection $connection,
         private readonly StaticWriteAudit $writeAudit,
         private readonly ?StarterCoverageCheck $coverage = null,
+        private readonly ?RolePolicyDiagnostics $rolePolicy = null,
+        private readonly ?SignupDiagnostics $signup = null,
     ) {
     }
 
@@ -49,6 +53,8 @@ final class TenancyDiagnostics
             'collections' => $this->collectionsSection(),
             'domain_reverification' => $this->domainReverificationSection(),
             'static_write_audit' => $this->auditSection(),
+            'role_policy' => $this->rolePolicySection(),
+            'public_signup' => $this->signupSection(),
         ];
 
         $ok = true;
@@ -173,5 +179,22 @@ final class TenancyDiagnostics
     private function section(bool $ok, mixed $detail): array
     {
         return ['status' => $ok ? 'ok' : 'fail', 'detail' => $detail];
+    }
+
+    /** @return array{status:string,detail:mixed} */
+    private function rolePolicySection(): array
+    {
+        if ($this->rolePolicy === null) {
+            return ['status' => 'info', 'detail' => 'Role policy diagnostics unavailable.'];
+        }
+        $rows = $this->rolePolicy->driftRows();
+        return ['status' => $rows === [] ? 'ok' : 'warn', 'detail' => $rows];
+    }
+
+    /** @return array{status:string,detail:mixed} */
+    private function signupSection(): array
+    {
+        return $this->signup?->check()
+            ?? ['status' => 'info', 'detail' => 'Public signup diagnostics unavailable.'];
     }
 }
