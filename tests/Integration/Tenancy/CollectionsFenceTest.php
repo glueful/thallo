@@ -5,38 +5,31 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Tenancy;
 
 use App\Tests\Support\AppTestCase;
-use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
-use Thallo\Tenancy\Runtime\CollectionsDisabledWhenTenantMiddleware;
-use Thallo\Tenancy\System\SystemFlags;
+use Glueful\Routing\Route;
+use Glueful\Routing\Router;
 
 final class CollectionsFenceTest extends AppTestCase
 {
-    public function testCollectionsPassWhileTenancyIsOff(): void
+    public function testLegacyFenceIsRemoved(): void
     {
-        $middleware = new CollectionsDisabledWhenTenantMiddleware(
-            $this->container()->get(SystemFlags::class),
-        );
-
-        $response = $middleware->handle(
-            Request::create('/v1/collections/products'),
-            static fn (): Response => new Response('passed'),
-        );
-
-        self::assertSame('passed', $response->getContent());
+        self::assertFalse(class_exists('Thallo\\Tenancy\\Runtime\\CollectionsDisabledWhenTenantMiddleware'));
     }
 
-    public function testCollectionsFailClosedWhileTenancyIsEnabled(): void
+    public function testCollectionsUseTenantResolutionAndBindingInsteadOfAFence(): void
     {
-        $flags = $this->container()->get(SystemFlags::class);
-        $flags->put('tenancy.enabled', '1');
-        $middleware = new CollectionsDisabledWhenTenantMiddleware($flags);
-
-        $response = $middleware->handle(
-            Request::create('/v1/collections/products'),
-            static fn (): Response => new Response('unsafe'),
-        );
-
-        self::assertSame(Response::HTTP_SERVICE_UNAVAILABLE, $response->getStatusCode());
+        $routes = $this->container()->get(Router::class)->getDynamicRoutes();
+        $found = false;
+        foreach ($routes as $methodRoutes) {
+            foreach ($methodRoutes as $route) {
+                if (!$route instanceof Route || !str_starts_with($route->getPath(), '/v1/collections')) {
+                    continue;
+                }
+                $found = true;
+                self::assertContains('collections_tenant_binding', $route->getMiddleware());
+                self::assertContains('tenant_bootstrap', $route->getMiddleware());
+                self::assertNotContains('collections_disabled_when_tenant', $route->getMiddleware());
+            }
+        }
+        self::assertTrue($found);
     }
 }

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Glueful\Helpers\Utils;
 use Thallo\Collections\CollectionManager;
@@ -21,7 +20,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * the `user` request attribute (the gate reads it before calling AuthenticationManager), which lets
  * us exercise the permission check without minting a JWT.
  */
-final class SessionScopeTest extends AppTestCase
+final class SessionScopeTest extends CollectionsTestCase
 {
     private const COL = 'widgets';
 
@@ -127,7 +126,7 @@ final class SessionScopeTest extends AppTestCase
     private function dropCollection(): void
     {
         $schema = $this->container()->get(SchemaBuilderInterface::class);
-        $table = CollectionManager::tableNameFor(self::COL);
+        $table = $this->physicalTable(self::COL);
         if ($schema->hasTable($table)) {
             $schema->dropTableIfExists($table);
         }

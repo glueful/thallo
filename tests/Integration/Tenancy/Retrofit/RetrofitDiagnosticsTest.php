@@ -62,6 +62,30 @@ final class RetrofitDiagnosticsTest extends RetrofitHarnessTestCase
         self::assertTrue($d->checkAgreement()['ok']); // schema_state none + no widened tables → agree
     }
 
+    public function testBornWidenedCollectionMetadataDoesNotConflictWithNarrowGlobalState(): void
+    {
+        $tables = $this->diagnostics()->checkTables();
+        self::assertTrue($tables['collection_definitions']['ok']);
+        self::assertTrue($tables['collection_schema_changes']['ok']);
+        self::assertTrue($this->diagnostics()->checkAgreement()['ok']);
+    }
+
+    public function testCollectionSchemaChangesRequiresCompositeOwnershipIndex(): void
+    {
+        $pdo = $this->connection()->getPDO();
+        $pdo->exec('DROP INDEX IF EXISTS idx_collection_changes_tenant_collection');
+        try {
+            $result = $this->diagnostics()->checkTables()['collection_schema_changes'];
+            self::assertFalse($result['ok']);
+            self::assertStringContainsString('tenant collection index', $result['detail']);
+        } finally {
+            $pdo->exec(
+                'CREATE INDEX idx_collection_changes_tenant_collection '
+                . 'ON collection_schema_changes (tenant_uuid, collection_uuid)',
+            );
+        }
+    }
+
     public function testManualWidenFlipsAgreementWhileFlagStillNone(): void
     {
         // Manually widen ONE owned table (raw PDO): add tenant_uuid, backfill, NOT NULL, widened unique.

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Thallo\Collections\CollectionManager;
 use Thallo\Collections\Http\Controllers\CollectionDataController;
@@ -14,7 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
  * The admin data browser reuses CollectionDataController, but the resolved actor is the admin
  * session (not an api key). Drives it through the container with an admin-authenticated request.
  */
-final class AdminDataApiTest extends AppTestCase
+final class AdminDataApiTest extends CollectionsTestCase
 {
     private const NAME  = 'widgets';
     private const ADMIN = 'admin-1';
@@ -97,7 +96,7 @@ final class AdminDataApiTest extends AppTestCase
 
     private function table(): string
     {
-        return CollectionManager::tableNameFor(self::NAME);
+        return $this->physicalTable(self::NAME);
     }
 
     private function dropCollection(): void

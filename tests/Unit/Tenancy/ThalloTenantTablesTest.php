@@ -18,11 +18,14 @@ final class ThalloTenantTablesTest extends TestCase
         }
     }
 
-    public function testCollectionsAreExcluded(): void
+    public function testCollectionMetadataIsOwnedButPhysicalTablesAreNotRegistered(): void
     {
         $names = ThalloTenantTables::tableNames();
-        self::assertNotContains('collection_definitions', $names);
-        self::assertNotContains('collection_schema_changes', $names);
+        self::assertContains('collection_definitions', $names);
+        self::assertContains('collection_schema_changes', $names);
+        foreach ($names as $name) {
+            self::assertFalse(str_starts_with($name, 'tc_'));
+        }
     }
 
     public function testSystemChannelTableIsNotOwned(): void

@@ -62,6 +62,10 @@ final class RawPdoScopingLintTest extends TestCase
         // Read-only domain-proof coherence and global due-domain selection.
         'packages/thallo-tenancy/src/Enablement/TenancyDiagnostics.php',
         'packages/thallo-tenancy/src/Reverification/DomainReverificationSweep.php',
+        // SingleStoreTenant: advisory lock only; provisioning writes use the builder.
+        'packages/thallo-tenancy/src/Tenant/SingleStoreTenant.php',
+        // Specialized purge: validated physical-table DDL + scoped reads under PurgeJob's barrier.
+        'packages/thallo-collections/src/Purge/CollectionsPurgeHandler.php',
     ];
 
     /**
@@ -81,6 +85,9 @@ final class RawPdoScopingLintTest extends TestCase
     private const GLOBAL_BY_PROOF = [
         'app/Content/Indexing/EnsureFilterIndexesJob.php',
     ];
+
+    /** Dynamic collection tables are isolated by validated, tenant-derived physical names. */
+    private const PER_TENANT_PHYSICAL = '/\Atc_[a-z2-7]{10}_[a-z0-9]{12}\z/';
 
     /**
      * The retrofit ENGINE's own raw DDL/DML (AdditiveRetrofit / TableRebuilder) and the provider's
@@ -194,6 +201,13 @@ final class RawPdoScopingLintTest extends TestCase
         self::assertStringContainsString('filter_indexes', $tables);
         // ...and filter_indexes must NOT appear as an owned table key.
         self::assertStringNotContainsString("'filter_indexes' =>", $tables);
+    }
+
+    public function testDynamicCollectionTablesAreClassifiedByExactPhysicalPattern(): void
+    {
+        self::assertSame(1, preg_match(self::PER_TENANT_PHYSICAL, 'tc_abcde23456_abc123xyz789'));
+        self::assertSame(0, preg_match(self::PER_TENANT_PHYSICAL, 'coll_products'));
+        self::assertSame(0, preg_match(self::PER_TENANT_PHYSICAL, 'tc_../../users'));
     }
 
     public function testCriticalScopingConstructsArePresent(): void

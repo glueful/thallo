@@ -13,7 +13,6 @@ final class RouteCoverageTest extends AppTestCase
     private const MARKERS = [
         'tenant_bootstrap',
         'tenant_system',
-        'collections_disabled_when_tenant',
     ];
 
     public function testEveryThalloRouteCarriesExactlyOneTenancyMarker(): void
@@ -57,6 +56,7 @@ final class RouteCoverageTest extends AppTestCase
                     [
                         [],
                         ['tenant_profile:public'],
+                        ['tenant_profile:public,soft', 'optional_api_key', 'collections_tenant_binding'],
                         ['auth', 'tenant_profile:admin'],
                         ['auth', 'tenant_profile:admin,soft'],
                     ],
@@ -69,7 +69,7 @@ final class RouteCoverageTest extends AppTestCase
             }
 
             if (str_starts_with($path, '/v1/collections')) {
-                self::assertSame('collections_disabled_when_tenant', $present[0] ?? null, $path . ': must be fenced');
+                self::assertContains('collections_tenant_binding', $baseMiddleware);
             }
         }
 

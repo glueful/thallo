@@ -1,4 +1,160 @@
 export interface paths {
+    "/analytics/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Analytics time-series for one metric */
+        get: operations["getV1AdminAnalyticsSeries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Analytics summary (KPIs incl. active users) */
+        get: operations["getV1AdminAnalyticsSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/analytics/breakdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Analytics breakdown: top subjects for one event */
+        get: operations["getV1AdminAnalyticsBreakdown"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List collections */
+        get: operations["getV1AdminCollections"];
+        put?: never;
+        /** Create a collection */
+        post: operations["postV1AdminCollections"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/navigation/menus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List navigation menus */
+        get: operations["getV1AdminNavigationMenus"];
+        put?: never;
+        /** Create a navigation menu */
+        post: operations["postV1AdminNavigationMenus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/navigation/menus/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reorder navigation menus (full ordered set) */
+        post: operations["postV1AdminNavigationMenusReorder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/render/themes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List selectable themes (validator-accepted) and the active one */
+        get: operations["getV1AdminRenderThemes"];
+        put?: never;
+        /** Clone a theme into a new app theme directory (themes/{name}) */
+        post: operations["postV1AdminRenderThemes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/render/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List resolvable templates (filesystem + DB) for a theme */
+        get: operations["getV1AdminRenderTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflow/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Review queue (in_review submissions) */
+        get: operations["getV1AdminWorkflowQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/content-types": {
         parameters: {
             query?: never;
@@ -128,6 +284,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/form-submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List form submissions
+         * @description Stored contact-form submissions newest-first, optionally filtered by `form_key` and `status` (unread|read). Requires `content.manage`.
+         */
+        get: operations["getV1AdminFormsubmissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/form-submissions/unread-count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Unread submission count
+         * @description The number of unread submissions, for the sidebar badge. Requires `content.manage`.
+         */
+        get: operations["getV1AdminFormsubmissionsUnreadcount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/form-submissions/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export submissions as CSV
+         * @description Streams the filtered submissions as CSV: fixed metadata columns unioned with every field key seen across the rows. Requires `content.manage`.
+         */
+        get: operations["getV1AdminFormsubmissionsExportcsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/settings/general": {
         parameters: {
             query?: never;
@@ -145,6 +361,23 @@ export interface paths {
          * @description Persists the submitted settings to settings (only supplied fields change). Applies on the next request — no restart. Requires `content.manage`.
          */
         put: operations["putV1AdminSettingsGeneral"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/assignable-roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List assignable roles */
+        get: operations["getV1AdminUsersAssignableroles"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -480,15 +713,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/analytics/series": {
+    "/collections/{name}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Analytics time-series for one metric */
-        get: operations["getV1AdminAnalyticsSeries"];
+        /** Get a collection */
+        get: operations["getV1AdminCollectionsByName"];
+        put?: never;
+        post?: never;
+        /** Drop a collection (guarded) */
+        delete: operations["deleteV1AdminCollectionsByName"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/collections/{name}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List rows in a collection */
+        get: operations["getV1AdminCollectionsByNameRows"];
+        put?: never;
+        /** Create a row */
+        post: operations["postV1AdminCollectionsByNameRows"];
+        /** Delete all rows in a collection (guarded) */
+        delete: operations["deleteV1AdminCollectionsByNameRows"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/collections/{name}/rows/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a row by UUID */
+        get: operations["getV1AdminCollectionsByNameRowsByUuid"];
+        put?: never;
+        post?: never;
+        /** Delete a row */
+        delete: operations["deleteV1AdminCollectionsByNameRowsByUuid"];
+        options?: never;
+        head?: never;
+        /** Update a row */
+        patch: operations["patchV1AdminCollectionsByNameRowsByUuid"];
+        trace?: never;
+    };
+    "/navigation/menus/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Menu editor payload: full unfiltered tree for a locale
+         * @description Per entry item: target_status (published|unpublished|deleted|missing|routeless), target_title (the localized page title an empty label inherits) and target_url resolved FOR ?locale= (status is locale-sensitive). Includes lock_version.
+         */
+        get: operations["getV1AdminNavigationMenusBySlug"];
+        /** Rename a navigation menu */
+        put: operations["putV1AdminNavigationMenusBySlug"];
+        post?: never;
+        /** Delete a navigation menu (and its items) */
+        delete: operations["deleteV1AdminNavigationMenusBySlug"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/render/templates/{path}/versions/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One version's source */
+        get: operations["getV1AdminRenderTemplatesByPathVersionsByUuid"];
         put?: never;
         post?: never;
         delete?: never;
@@ -497,15 +808,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/analytics/summary": {
+    "/render/templates/{path}/versions": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Analytics summary (KPIs incl. active users) */
-        get: operations["getV1AdminAnalyticsSummary"];
+        /** Version history (newest first; survives delete) */
+        get: operations["getV1AdminRenderTemplatesByPathVersions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -514,16 +825,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/analytics/breakdown": {
+    "/render/templates/{path}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Analytics breakdown: top subjects for one event */
-        get: operations["getV1AdminAnalyticsBreakdown"];
-        put?: never;
+        /** Current template source (DB override or filesystem) */
+        get: operations["getV1AdminRenderTemplatesByPath"];
+        /** Save a template override (create or update; DB-only paths allowed) */
+        put: operations["putV1AdminRenderTemplatesByPath"];
+        post?: never;
+        /** Delete the override (deactivate — history preserved), fall back to filesystem */
+        delete: operations["deleteV1AdminRenderTemplatesByPath"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/seo/meta/{entryUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read SEO meta overrides for an entry */
+        get: operations["getV1AdminSeoMetaByEntryuuid"];
+        /** Upsert SEO meta overrides for an entry */
+        put: operations["putV1AdminSeoMetaByEntryuuid"];
         post?: never;
         delete?: never;
         options?: never;
@@ -531,86 +862,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/collections": {
+    "/workflow/entries/{uuid}/{locale}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List collections */
-        get: operations["getV1AdminCollections"];
-        put?: never;
-        /** Create a collection */
-        post: operations["postV1AdminCollections"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/navigation/menus": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List navigation menus */
-        get: operations["getV1AdminNavigationMenus"];
-        put?: never;
-        /** Create a navigation menu */
-        post: operations["postV1AdminNavigationMenus"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/render/themes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List selectable themes (validator-accepted) and the active one */
-        get: operations["getV1AdminRenderThemes"];
-        put?: never;
-        /** Clone a theme into a new app theme directory (themes/{name}) */
-        post: operations["postV1AdminRenderThemes"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/render/templates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List resolvable templates (filesystem + DB) for a theme */
-        get: operations["getV1AdminRenderTemplates"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workflow/queue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Review queue (in_review submissions) */
-        get: operations["getV1AdminWorkflowQueue"];
+        /** Review state + history for an entry/locale */
+        get: operations["getV1AdminWorkflowEntriesByUuidByLocale"];
         put?: never;
         post?: never;
         delete?: never;
@@ -938,6 +1198,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/form-submissions/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one submission
+         * @description The full submission: the sealed field snapshot (labels/types the visitor saw) and the normalized values. Requires `content.manage`.
+         */
+        get: operations["getV1AdminFormsubmissionsByUuid"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a submission
+         * @description Permanently removes one submission. Requires `content.manage`.
+         */
+        delete: operations["deleteV1AdminFormsubmissionsByUuid"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/extensions/{vendor}/{name}/readme": {
         parameters: {
             query?: never;
@@ -1103,94 +1387,19 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/collections/{name}": {
+    "/navigation/menus/{slug}/items": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get a collection */
-        get: operations["getV1AdminCollectionsByName"];
-        put?: never;
-        post?: never;
-        /** Drop a collection (guarded) */
-        delete: operations["deleteV1AdminCollectionsByName"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/collections/{name}/rows": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List rows in a collection */
-        get: operations["getV1AdminCollectionsByNameRows"];
-        put?: never;
-        /** Create a row */
-        post: operations["postV1AdminCollectionsByNameRows"];
-        /** Delete all rows in a collection (guarded) */
-        delete: operations["deleteV1AdminCollectionsByNameRows"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/collections/{name}/rows/{uuid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a row by UUID */
-        get: operations["getV1AdminCollectionsByNameRowsByUuid"];
-        put?: never;
-        post?: never;
-        /** Delete a row */
-        delete: operations["deleteV1AdminCollectionsByNameRowsByUuid"];
-        options?: never;
-        head?: never;
-        /** Update a row */
-        patch: operations["patchV1AdminCollectionsByNameRowsByUuid"];
-        trace?: never;
-    };
-    "/navigation/menus/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
+        get?: never;
         /**
-         * Menu editor payload: full unfiltered tree for a locale
-         * @description Per entry item: target_status (published|unpublished|deleted|missing|routeless), target_title (the localized page title an empty label inherits) and target_url resolved FOR ?locale= (status is locale-sensitive). Includes lock_version.
+         * Replace a menu tree atomically
+         * @description Whole-tree PUT guarded by lock_version (the GET payload carries it); a stale version is a 409 — reload and retry.
          */
-        get: operations["getV1AdminNavigationMenusBySlug"];
-        /** Rename a navigation menu */
-        put: operations["putV1AdminNavigationMenusBySlug"];
-        post?: never;
-        /** Delete a navigation menu (and its items) */
-        delete: operations["deleteV1AdminNavigationMenusBySlug"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/render/templates/{path}/versions/{uuid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** One version's source */
-        get: operations["getV1AdminRenderTemplatesByPathVersionsByUuid"];
-        put?: never;
+        put: operations["putV1AdminNavigationMenusBySlugItems"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1198,16 +1407,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/render/templates/{path}/versions": {
+    "/entries/{uuid}/routes/{locale}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Version history (newest first; survives delete) */
-        get: operations["getV1AdminRenderTemplatesByPathVersions"];
-        put?: never;
+        get?: never;
+        /**
+         * Assign an entry route
+         * @description Replaces any existing route slug for the entry+locale.
+         */
+        put: operations["putV1AdminEntriesByUuidRoutesByLocale"];
+        post?: never;
+        /**
+         * Remove an entry route
+         * @description Idempotent — succeeds even when no route is assigned.
+         */
+        delete: operations["deleteV1AdminEntriesByUuidRoutesByLocale"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/regions/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save a chrome region
+         * @description Replaces the region's block list and settings. Blocks are validated against their block-type schemas AND the region's server-enforced palette (out-of-palette types 422 with dot paths); settings are a fixed vocabulary. Applies immediately and purges the render page cache. Requires `content.manage`.
+         */
+        put: operations["putV1AdminRegionsBySlug"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1215,61 +1451,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/render/templates/{path}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Current template source (DB override or filesystem) */
-        get: operations["getV1AdminRenderTemplatesByPath"];
-        /** Save a template override (create or update; DB-only paths allowed) */
-        put: operations["putV1AdminRenderTemplatesByPath"];
-        post?: never;
-        /** Delete the override (deactivate — history preserved), fall back to filesystem */
-        delete: operations["deleteV1AdminRenderTemplatesByPath"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/seo/meta/{entryUuid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Read SEO meta overrides for an entry */
-        get: operations["getV1AdminSeoMetaByEntryuuid"];
-        /** Upsert SEO meta overrides for an entry */
-        put: operations["putV1AdminSeoMetaByEntryuuid"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workflow/entries/{uuid}/{locale}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Review state + history for an entry/locale */
-        get: operations["getV1AdminWorkflowEntriesByUuidByLocale"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/content-types/{slug}/schema": {
+    "/collections/{name}/fields/{field}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1279,14 +1461,65 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /** Drop a field (guarded) */
+        delete: operations["deleteV1AdminCollectionsByNameFieldsByField"];
         options?: never;
         head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/collections/{name}/indexes/{field}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove an index */
+        delete: operations["deleteV1AdminCollectionsByNameIndexesByField"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/redirects/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
         /**
-         * Update a content type's field schema
-         * @description Replaces the schema wholesale (not a merge) and bumps the schema version. Filterable-field indexes are rebuilt out-of-band after commit.
+         * Delete a redirect
+         * @description Removes the manual redirect identified by `uuid`.
          */
-        patch: operations["patchV1AdminContenttypesBySlugSchema"];
+        delete: operations["deleteV1AdminRedirectsByUuid"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/entries/{uuid}/schedules/{scheduleUuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Cancel a pending schedule */
+        delete: operations["deleteV1AdminEntriesByUuidSchedulesByScheduleuuid"];
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/users/{uuid}": {
@@ -1313,7 +1546,7 @@ export interface paths {
         patch: operations["patchV1AdminUsersByUuid"];
         trace?: never;
     };
-    "/api-keys/{uuid}/scopes": {
+    "/collections/{name}/fields": {
         parameters: {
             query?: never;
             header?: never;
@@ -1322,18 +1555,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post?: never;
+        /** Add a field */
+        post: operations["postV1AdminCollectionsByNameFields"];
         delete?: never;
         options?: never;
         head?: never;
-        /**
-         * Replace an API key’s scopes
-         * @description Overwrites the key’s scope list in place — the key value is unchanged. Used by the collections admin to grant/revoke per-collection access. Requires `system.access`.
-         */
-        patch: operations["patchV1AdminApikeysByUuidScopes"];
+        patch?: never;
         trace?: never;
     };
-    "/collections/{name}/access": {
+    "/collections/{name}/indexes": {
         parameters: {
             query?: never;
             header?: never;
@@ -1342,15 +1572,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post?: never;
+        /** Add an index */
+        post: operations["postV1AdminCollectionsByNameIndexes"];
         delete?: never;
         options?: never;
         head?: never;
-        /** Replace the access policy */
-        patch: operations["patchV1AdminCollectionsByNameAccess"];
+        patch?: never;
         trace?: never;
     };
-    "/collections/{name}/field-order": {
+    "/render/templates/{path}/versions/{uuid}/restore": {
         parameters: {
             query?: never;
             header?: never;
@@ -1359,12 +1589,80 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post?: never;
+        /** Restore a version (append-as-new-current; reactivates a deleted override) */
+        post: operations["postV1AdminRenderTemplatesByPathVersionsByUuidRestore"];
         delete?: never;
         options?: never;
         head?: never;
-        /** Reorder a collection’s fields */
-        patch: operations["patchV1AdminCollectionsByNameFieldorder"];
+        patch?: never;
+        trace?: never;
+    };
+    "/workflow/entries/{uuid}/{locale}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit a draft for review */
+        post: operations["postV1AdminWorkflowEntriesByUuidByLocaleSubmit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflow/entries/{uuid}/{locale}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve a submission */
+        post: operations["postV1AdminWorkflowEntriesByUuidByLocaleApprove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflow/entries/{uuid}/{locale}/request-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request changes on a submission */
+        post: operations["postV1AdminWorkflowEntriesByUuidByLocaleRequestchanges"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflow/entries/{uuid}/{locale}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw a submission */
+        post: operations["postV1AdminWorkflowEntriesByUuidByLocaleWithdraw"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/block-types/{slug}/activate": {
@@ -1658,7 +1956,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/collections/{name}/fields": {
+    "/collections/{name}/access": {
         parameters: {
             query?: never;
             header?: never;
@@ -1667,15 +1965,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add a field */
-        post: operations["postV1AdminCollectionsByNameFields"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Replace the access policy */
+        patch: operations["patchV1AdminCollectionsByNameAccess"];
         trace?: never;
     };
-    "/collections/{name}/indexes": {
+    "/collections/{name}/field-order": {
         parameters: {
             query?: never;
             header?: never;
@@ -1684,15 +1982,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Add an index */
-        post: operations["postV1AdminCollectionsByNameIndexes"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Reorder a collection’s fields */
+        patch: operations["patchV1AdminCollectionsByNameFieldorder"];
         trace?: never;
     };
-    "/render/templates/{path}/versions/{uuid}/restore": {
+    "/content-types/{slug}/schema": {
         parameters: {
             query?: never;
             header?: never;
@@ -1701,107 +1999,18 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Restore a version (append-as-new-current; reactivates a deleted override) */
-        post: operations["postV1AdminRenderTemplatesByPathVersionsByUuidRestore"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workflow/entries/{uuid}/{locale}/submit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Submit a draft for review */
-        post: operations["postV1AdminWorkflowEntriesByUuidByLocaleSubmit"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workflow/entries/{uuid}/{locale}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Approve a submission */
-        post: operations["postV1AdminWorkflowEntriesByUuidByLocaleApprove"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workflow/entries/{uuid}/{locale}/request-changes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Request changes on a submission */
-        post: operations["postV1AdminWorkflowEntriesByUuidByLocaleRequestchanges"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/workflow/entries/{uuid}/{locale}/withdraw": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Withdraw a submission */
-        post: operations["postV1AdminWorkflowEntriesByUuidByLocaleWithdraw"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/entries/{uuid}/routes/{locale}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
         /**
-         * Assign an entry route
-         * @description Replaces any existing route slug for the entry+locale.
+         * Update a content type's field schema
+         * @description Replaces the schema wholesale (not a merge) and bumps the schema version. Filterable-field indexes are rebuilt out-of-band after commit.
          */
-        put: operations["putV1AdminEntriesByUuidRoutesByLocale"];
-        post?: never;
-        /**
-         * Remove an entry route
-         * @description Idempotent — succeeds even when no route is assigned.
-         */
-        delete: operations["deleteV1AdminEntriesByUuidRoutesByLocale"];
-        options?: never;
-        head?: never;
-        patch?: never;
+        patch: operations["patchV1AdminContenttypesBySlugSchema"];
         trace?: never;
     };
-    "/redirects/{uuid}": {
+    "/form-submissions/{uuid}/read": {
         parameters: {
             query?: never;
             header?: never;
@@ -1810,89 +2019,18 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        post?: never;
-        /**
-         * Delete a redirect
-         * @description Removes the manual redirect identified by `uuid`.
-         */
-        delete: operations["deleteV1AdminRedirectsByUuid"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/entries/{uuid}/schedules/{scheduleUuid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Cancel a pending schedule */
-        delete: operations["deleteV1AdminEntriesByUuidSchedulesByScheduleuuid"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/collections/{name}/fields/{field}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Drop a field (guarded) */
-        delete: operations["deleteV1AdminCollectionsByNameFieldsByField"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/collections/{name}/indexes/{field}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Remove an index */
-        delete: operations["deleteV1AdminCollectionsByNameIndexesByField"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/regions/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Save a chrome region
-         * @description Replaces the region's block list and settings. Blocks are validated against their block-type schemas AND the region's server-enforced palette (out-of-palette types 422 with dot paths); settings are a fixed vocabulary. Applies immediately and purges the render page cache. Requires `content.manage`.
-         */
-        put: operations["putV1AdminRegionsBySlug"];
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Mark a submission read
+         * @description Flips status to `read` (idempotent). Requires `content.manage`.
+         */
+        patch: operations["patchV1AdminFormsubmissionsByUuidRead"];
         trace?: never;
     };
-    "/navigation/menus/{slug}/items": {
+    "/api-keys/{uuid}/scopes": {
         parameters: {
             query?: never;
             header?: never;
@@ -1900,16 +2038,36 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /**
-         * Replace a menu tree atomically
-         * @description Whole-tree PUT guarded by lock_version (the GET payload carries it); a stale version is a 409 — reload and retry.
-         */
-        put: operations["putV1AdminNavigationMenusBySlugItems"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Replace an API key’s scopes
+         * @description Overwrites the key’s scope list in place — the key value is unchanged. Used by the collections admin to grant/revoke per-collection access. Requires `system.access`.
+         */
+        patch: operations["patchV1AdminApikeysByUuidScopes"];
+        trace?: never;
+    };
+    "/api-keys/{uuid}/tenant": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update an API key workspace binding
+         * @description Binds the key to one workspace, or unbinds it with a null tenant_uuid. Requires system.access and tenancy.manage.
+         */
+        patch: operations["patchV1AdminApikeysByUuidTenant"];
         trace?: never;
     };
 }
@@ -2233,6 +2391,915 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getV1AdminAnalyticsSeries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminAnalyticsSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminAnalyticsBreakdown: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminCollections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All collections with their schema. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AdminCollections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "name": "Jane",
+                 *       "label": "example",
+                 *       "fields": "example",
+                 *       "access": "example",
+                 *       "field_order": "example"
+                 *     }
+                 */
+                "application/json": {
+                    name: string;
+                    label?: string | null;
+                    fields?: {
+                        name?: string;
+                        type?: string;
+                        settings?: unknown[];
+                    }[];
+                    access?: unknown[];
+                    field_order?: unknown[];
+                };
+            };
+        };
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Collection created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminNavigationMenus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Menu summaries (slug, name, item_count, lock_version). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AdminNavigationMenus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The created menu. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Slug already exists. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid slug/name. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AdminNavigationMenusReorder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The reordered menu summaries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Payload is not the exact set of existing menus (dupe/unknown/missing). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminRenderThemes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Selectable themes + the currently active theme. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AdminRenderThemes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created; response carries the new theme and the refreshed theme list. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Invalid name/source, name taken, or the themes directory is not writable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminRenderTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Merged listing with per-path origin (db|theme|default). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminWorkflowQueue: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated in-review items enriched with draft summaries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     getV1AdminContenttypes: {
         parameters: {
             query?: never;
@@ -3318,6 +4385,213 @@ export interface operations {
             };
         };
     };
+    getV1AdminFormsubmissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Submission summaries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminFormsubmissionsUnreadcount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The unread count. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminFormsubmissionsExportcsv: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A text/csv attachment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     getV1AdminSettingsGeneral: {
         parameters: {
             query?: never;
@@ -3536,6 +4810,75 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminUsersAssignableroles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Roles the caller may assign and protected target roles. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
             };
             /** @description Unexpected server error. */
             500: {
@@ -4169,7 +5512,8 @@ export interface operations {
                  *       "name": "Jane",
                  *       "scopes": "example",
                  *       "allowed_ips": "example",
-                 *       "expires_at": "example"
+                 *       "expires_at": "example",
+                 *       "tenant_uuid": "example"
                  *     }
                  */
                 "application/json": {
@@ -4177,6 +5521,7 @@ export interface operations {
                     scopes?: unknown[];
                     allowed_ips?: unknown[];
                     expires_at?: string | null;
+                    tenant_uuid?: string | null;
                 };
             };
         };
@@ -4204,6 +5549,8 @@ export interface operations {
                                 key_prefix?: string;
                                 owner_uuid?: string;
                                 owner_label?: string | null;
+                                tenant_uuid?: string | null;
+                                tenant_name?: string | null;
                                 scopes?: unknown[];
                                 allowed_ips?: unknown[];
                                 status?: string;
@@ -5094,11 +6441,226 @@ export interface operations {
             };
         };
     };
-    getV1AdminAnalyticsSeries: {
+    getV1AdminCollectionsByName: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The collection and its schema. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteV1AdminCollectionsByName: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Collection deleted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminCollectionsByNameRows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Paginated rows. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AdminCollectionsByNameRows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -5110,6 +6672,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Row created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Unauthenticated. */
             401: {
                 headers: {
@@ -5163,11 +6732,157 @@ export interface operations {
             };
         };
     };
-    getV1AdminAnalyticsSummary: {
+    deleteV1AdminCollectionsByNameRows: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Rows deleted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminCollectionsByNameRowsByUuid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The row. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteV1AdminCollectionsByNameRowsByUuid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                uuid: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -5179,6 +6894,13 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Row deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Unauthenticated. */
             401: {
                 headers: {
@@ -5232,16 +6954,19 @@ export interface operations {
             };
         };
     };
-    getV1AdminAnalyticsBreakdown: {
+    patchV1AdminCollectionsByNameRowsByUuid: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                name: string;
+                uuid: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Successful response */
+            /** @description Row updated. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5301,16 +7026,18 @@ export interface operations {
             };
         };
     };
-    getV1AdminCollections: {
+    getV1AdminNavigationMenusBySlug: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                slug: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description All collections with their schema. */
+            /** @description Menu + tree + lock_version + echoed locale. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5351,6 +7078,13 @@ export interface operations {
                     };
                 };
             };
+            /** @description Unknown menu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Unexpected server error. */
             500: {
                 headers: {
@@ -5370,131 +7104,416 @@ export interface operations {
             };
         };
     };
-    postV1AdminCollections: {
+    putV1AdminNavigationMenusBySlug: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                slug: string;
+            };
             cookie?: never;
         };
+        requestBody?: never;
+        responses: {
+            /** @description Renamed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown menu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteV1AdminNavigationMenusBySlug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown menu. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminRenderTemplatesByPathVersionsByUuid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The immutable stored source. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown version for this path. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminRenderTemplatesByPathVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versions: {uuid, created_by, created_at, current}. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description This path has never been saved. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminRenderTemplatesByPath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Source + origin; filesystem sources are the copy-from-disk start. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown theme, invalid path, or nothing at this path. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    putV1AdminRenderTemplatesByPath: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+            };
+            cookie?: never;
+        };
+        /** @description The full Twig source to save as the new current version. */
         requestBody: {
             content: {
-                /**
-                 * @example {
-                 *       "name": "Jane",
-                 *       "label": "example",
-                 *       "fields": "example",
-                 *       "access": "example",
-                 *       "field_order": "example"
-                 *     }
-                 */
                 "application/json": {
-                    name: string;
-                    label?: string | null;
-                    fields?: {
-                        name?: string;
-                        type?: string;
-                        settings?: unknown[];
-                    }[];
-                    access?: unknown[];
-                    field_order?: unknown[];
+                    source?: string;
                 };
             };
         };
         responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Collection created. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Validation failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        success: boolean;
-                        message: string;
-                        errors: {
-                            [key: string]: string[];
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1AdminNavigationMenus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Menu summaries (slug, name, item_count, lock_version). */
+            /** @description Saved and live; response carries the new version uuid. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5535,90 +7554,14 @@ export interface operations {
                     };
                 };
             };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    postV1AdminNavigationMenus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
+            /** @description Unknown theme. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description The created menu. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Slug already exists. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid slug/name. */
+            /** @description Invalid path/source, or policy violations ({line, message} list). */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -5644,16 +7587,96 @@ export interface operations {
             };
         };
     };
-    getV1AdminRenderThemes: {
+    deleteV1AdminRenderTemplatesByPath: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                path: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Selectable themes + the currently active theme. */
+            /** @description Override deactivated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description No active override at this path. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminSeoMetaByEntryuuid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entryUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The override row, or an empty object when unset. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5713,16 +7736,18 @@ export interface operations {
             };
         };
     };
-    postV1AdminRenderThemes: {
+    putV1AdminSeoMetaByEntryuuid: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                entryUuid: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Created; response carries the new theme and the refreshed theme list. */
+            /** @description The stored override row after the upsert. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -5763,7 +7788,7 @@ export interface operations {
                     };
                 };
             };
-            /** @description Invalid name/source, name taken, or the themes directory is not writable. */
+            /** @description Non-string field, over-length value, or unknown enum value. */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -5789,85 +7814,19 @@ export interface operations {
             };
         };
     };
-    getV1AdminRenderTemplates: {
+    getV1AdminWorkflowEntriesByUuidByLocale: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                uuid: string;
+                locale: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
         responses: {
-            /** @description Merged listing with per-path origin (db|theme|default). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1AdminWorkflowQueue: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Paginated in-review items enriched with draft summaries. */
+            /** @description State row (draft default) + recent history. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -8653,6 +10612,162 @@ export interface operations {
             };
         };
     };
+    getV1AdminFormsubmissionsByUuid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The submission. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown submission. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteV1AdminFormsubmissionsByUuid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown submission. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     getV1AdminExtensionsByVendorByNameReadme: {
         parameters: {
             query?: never;
@@ -9071,6 +11186,8 @@ export interface operations {
                                 key_prefix?: string;
                                 owner_uuid?: string;
                                 owner_label?: string | null;
+                                tenant_uuid?: string | null;
+                                tenant_name?: string | null;
                                 scopes?: unknown[];
                                 allowed_ips?: unknown[];
                                 status?: string;
@@ -9787,592 +11904,7 @@ export interface operations {
             };
         };
     };
-    getV1AdminCollectionsByName: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The collection and its schema. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteV1AdminCollectionsByName: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Collection deleted. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1AdminCollectionsByNameRows: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Paginated rows. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    postV1AdminCollectionsByNameRows: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Row created. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteV1AdminCollectionsByNameRows: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Rows deleted. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1AdminCollectionsByNameRowsByUuid: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The row. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteV1AdminCollectionsByNameRowsByUuid: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Row deleted. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    patchV1AdminCollectionsByNameRowsByUuid: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Row updated. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1AdminNavigationMenusBySlug: {
+    putV1AdminNavigationMenusBySlugItems: {
         parameters: {
             query?: never;
             header?: never;
@@ -10383,7 +11915,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Menu + tree + lock_version + echoed locale. */
+            /** @description The updated editor payload. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -10431,79 +11963,15 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    putV1AdminNavigationMenusBySlug: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Renamed. */
-            200: {
+            /** @description Stale lock_version. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unknown menu. */
-            404: {
+            /** @description Invalid tree (kind, url, labels, depth, count, target). */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -10528,338 +11996,30 @@ export interface operations {
             };
         };
     };
-    deleteV1AdminNavigationMenusBySlug: {
+    putV1AdminEntriesByUuidRoutesByLocale: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                slug: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unknown menu. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1AdminRenderTemplatesByPathVersionsByUuid: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                path: string;
                 uuid: string;
+                locale: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
-        responses: {
-            /** @description The immutable stored source. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unknown version for this path. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1AdminRenderTemplatesByPathVersions: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                path: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Versions: {uuid, created_by, created_at, current}. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description This path has never been saved. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1AdminRenderTemplatesByPath: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                path: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Source + origin; filesystem sources are the copy-from-disk start. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unknown theme, invalid path, or nothing at this path. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    putV1AdminRenderTemplatesByPath: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                path: string;
-            };
-            cookie?: never;
-        };
-        /** @description The full Twig source to save as the new current version. */
         requestBody: {
             content: {
+                /**
+                 * @example {
+                 *       "slug": "example-slug"
+                 *     }
+                 */
                 "application/json": {
-                    source?: string;
+                    slug: string;
                 };
             };
         };
         responses: {
-            /** @description Saved and live; response carries the new version uuid. */
+            /** @description Route assigned. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -10900,165 +12060,52 @@ export interface operations {
                     };
                 };
             };
-            /** @description Unknown theme. */
+            /** @description No entry with that UUID. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
             };
-            /** @description Invalid path/source, or policy violations ({line, message} list). */
+            /** @description Slug already in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
                 content: {
                     "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteV1AdminRenderTemplatesByPath: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                path: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Override deactivated. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description No active override at this path. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1AdminSeoMetaByEntryuuid: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                entryUuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The override row, or an empty object when unset. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
                         };
                     };
                 };
@@ -11082,85 +12129,7 @@ export interface operations {
             };
         };
     };
-    putV1AdminSeoMetaByEntryuuid: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                entryUuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The stored override row after the upsert. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Non-string field, over-length value, or unknown enum value. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getV1AdminWorkflowEntriesByUuidByLocale: {
+    deleteV1AdminEntriesByUuidRoutesByLocale: {
         parameters: {
             query?: never;
             header?: never;
@@ -11172,7 +12141,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description State row (draft default) + recent history. */
+            /** @description Route removed. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -11232,7 +12201,7 @@ export interface operations {
             };
         };
     };
-    patchV1AdminContenttypesBySlugSchema: {
+    putV1AdminRegionsBySlug: {
         parameters: {
             query?: never;
             header?: never;
@@ -11241,89 +12210,29 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
+        requestBody?: {
             content: {
                 /**
                  * @example {
-                 *       "schema": "example"
+                 *       "blocks": "example",
+                 *       "settings": "example"
                  *     }
                  */
                 "application/json": {
-                    schema: {
-                        name?: string;
-                        type?: string;
-                        required?: boolean | null;
-                        localized?: boolean | null;
-                        filterable?: boolean | null;
-                        filter_type?: string | null;
-                        enum?: string[];
-                        format?: string | null;
-                        reference_type?: string | null;
-                        multiple?: boolean | null;
-                        max_items?: number | null;
-                        reference_slug_field?: string | null;
-                        /** @description Picker-only block-type allowlist for a `blocks` field. */
-                        block_types?: string[];
-                        /** @description Anchored regex body a string/text value must fully match. */
-                        pattern?: string | null;
-                        /** @description Inclusive lower bound for a `number` field (ints coerce). */
-                        min?: number | null;
-                        /** @description Inclusive upper bound for a `number` field (ints coerce). */
-                        max?: number | null;
-                    }[];
+                    /** @description Ordered {id,type,data} block list. */
+                    blocks?: unknown[];
+                    /** @description Fixed per-region settings vocabulary. */
+                    settings?: unknown[];
                 };
             };
         };
         responses: {
-            /** @description Schema updated. */
+            /** @description Region saved. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        success: boolean;
-                        message: string;
-                        data: {
-                            content_type?: {
-                                id?: number;
-                                uuid?: string;
-                                slug?: string;
-                                name?: string;
-                                description?: string | null;
-                                cache_ttl?: number | null;
-                                public_delivery?: boolean;
-                                mount_at_root?: boolean;
-                                status?: string;
-                                schema?: {
-                                    name?: string;
-                                    /** @enum {string} */
-                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json" | "blocks";
-                                    required?: boolean | null;
-                                    localized?: boolean | null;
-                                    filterable?: boolean | null;
-                                    filter_type?: string | null;
-                                    enum?: string[];
-                                    format?: string | null;
-                                    reference_type?: string | null;
-                                    multiple?: boolean | null;
-                                    max_items?: number | null;
-                                    reference_slug_field?: string | null;
-                                    block_types?: string[];
-                                    pattern?: string | null;
-                                    min?: number | null;
-                                    max?: number | null;
-                                }[];
-                                schema_version?: number;
-                                created_by?: string | null;
-                                /** Format: date-time */
-                                created_at?: string;
-                                /** Format: date-time */
-                                updated_at?: string | null;
-                            };
-                        };
-                    };
-                };
+                content?: never;
             };
             /** @description Unauthenticated. */
             401: {
@@ -11359,7 +12268,236 @@ export interface operations {
                     };
                 };
             };
-            /** @description No content type with that slug. */
+            /** @description Unknown region slug. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Out-of-palette block, schema violation, or unknown setting. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteV1AdminCollectionsByNameFieldsByField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                field: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Field dropped. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteV1AdminCollectionsByNameIndexesByField: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                field: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Index removed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteV1AdminRedirectsByUuid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect deleted. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description No redirect with that UUID. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -11376,8 +12514,80 @@ export interface operations {
                     };
                 };
             };
-            /** @description Invalid field schema. */
-            422: {
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteV1AdminEntriesByUuidSchedulesByScheduleuuid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+                scheduleUuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Schedule canceled. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Schedule is not pending. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -11604,55 +12814,312 @@ export interface operations {
             };
         };
     };
-    patchV1AdminApikeysByUuidScopes: {
+    postV1AdminCollectionsByNameFields: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "name": "Jane",
+                 *       "type": "example",
+                 *       "settings": "example"
+                 *     }
+                 */
+                "application/json": {
+                    name: string;
+                    type: string;
+                    settings?: unknown[];
+                };
+            };
+        };
+        responses: {
+            /** @description Field added. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AdminCollectionsByNameIndexes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "field": "example",
+                 *       "unique": true
+                 *     }
+                 */
+                "application/json": {
+                    field: string;
+                    unique?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Index added. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AdminRenderTemplatesByPathVersionsByUuidRestore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                path: string;
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restored; response carries the NEW version uuid. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown version for this path. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The stored version violates the CURRENT policy ({line, message} list). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postV1AdminWorkflowEntriesByUuidByLocaleSubmit: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 uuid: string;
+                locale: string;
             };
             cookie?: never;
         };
-        requestBody?: {
-            content: {
-                /**
-                 * @example {
-                 *       "scopes": "example"
-                 *     }
-                 */
-                "application/json": {
-                    scopes?: unknown[];
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Updated key. */
+            /** @description The review state after the transition. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        success: boolean;
-                        message: string;
-                        data: {
-                            api_key?: {
-                                uuid?: string;
-                                name?: string;
-                                key_prefix?: string;
-                                owner_uuid?: string;
-                                owner_label?: string | null;
-                                scopes?: unknown[];
-                                allowed_ips?: unknown[];
-                                status?: string;
-                                is_rotated?: boolean;
-                                expires_at?: string | null;
-                                revoked_at?: string | null;
-                                created_at?: string | null;
-                            };
-                        };
-                    };
-                };
+                content?: never;
             };
             /** @description Unauthenticated. */
             401: {
@@ -11688,38 +13155,19 @@ export interface operations {
                     };
                 };
             };
-            /** @description No such key. */
+            /** @description Unknown entry/locale (no draft). */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
+                content?: never;
             };
-            /** @description Validation failed */
-            422: {
+            /** @description Illegal transition from the current state. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        success: boolean;
-                        message: string;
-                        errors: {
-                            [key: string]: string[];
-                        };
-                    };
-                };
+                content?: never;
             };
             /** @description Unexpected server error. */
             500: {
@@ -11740,33 +13188,88 @@ export interface operations {
             };
         };
     };
-    patchV1AdminCollectionsByNameAccess: {
+    postV1AdminWorkflowEntriesByUuidByLocaleApprove: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                name: string;
+                uuid: string;
+                locale: string;
             };
             cookie?: never;
         };
-        requestBody?: {
-            content: {
-                /**
-                 * @example {
-                 *       "read": "example",
-                 *       "write": "example",
-                 *       "delete": "example"
-                 *     }
-                 */
-                "application/json": {
-                    read?: string | null;
-                    write?: string | null;
-                    delete?: string | null;
+        requestBody?: never;
+        responses: {
+            /** @description The review state after the transition. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Self-review blocked. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Illegal transition from the current state. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
                 };
             };
         };
+    };
+    postV1AdminWorkflowEntriesByUuidByLocaleRequestchanges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+                locale: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
-            /** @description Access policy updated. */
+            /** @description The review state after the transition. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -11807,21 +13310,19 @@ export interface operations {
                     };
                 };
             };
-            /** @description Validation failed */
+            /** @description Illegal transition from the current state. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A note is required. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        success: boolean;
-                        message: string;
-                        errors: {
-                            [key: string]: string[];
-                        };
-                    };
-                };
+                content?: never;
             };
             /** @description Unexpected server error. */
             500: {
@@ -11842,29 +13343,19 @@ export interface operations {
             };
         };
     };
-    patchV1AdminCollectionsByNameFieldorder: {
+    postV1AdminWorkflowEntriesByUuidByLocaleWithdraw: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                name: string;
+                uuid: string;
+                locale: string;
             };
             cookie?: never;
         };
-        requestBody?: {
-            content: {
-                /**
-                 * @example {
-                 *       "field_order": "example"
-                 *     }
-                 */
-                "application/json": {
-                    field_order?: unknown[];
-                };
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description Field order updated. */
+            /** @description The review state after the transition. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -11888,38 +13379,19 @@ export interface operations {
                     };
                 };
             };
-            /** @description Forbidden. */
+            /** @description Only the submitter or a reviewer may withdraw. */
             403: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
+                content?: never;
             };
-            /** @description Validation failed */
-            422: {
+            /** @description Illegal transition from the current state. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        success: boolean;
-                        message: string;
-                        errors: {
-                            [key: string]: string[];
-                        };
-                    };
-                };
+                content?: never;
             };
             /** @description Unexpected server error. */
             500: {
@@ -13167,6 +14639,8 @@ export interface operations {
                                 key_prefix?: string;
                                 owner_uuid?: string;
                                 owner_label?: string | null;
+                                tenant_uuid?: string | null;
+                                tenant_name?: string | null;
                                 scopes?: unknown[];
                                 allowed_ips?: unknown[];
                                 status?: string;
@@ -13646,1136 +15120,12 @@ export interface operations {
             };
         };
     };
-    postV1AdminCollectionsByNameFields: {
+    patchV1AdminCollectionsByNameAccess: {
         parameters: {
             query?: never;
             header?: never;
             path: {
                 name: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "name": "Jane",
-                 *       "type": "example",
-                 *       "settings": "example"
-                 *     }
-                 */
-                "application/json": {
-                    name: string;
-                    type: string;
-                    settings?: unknown[];
-                };
-            };
-        };
-        responses: {
-            /** @description Field added. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Validation failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        success: boolean;
-                        message: string;
-                        errors: {
-                            [key: string]: string[];
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    postV1AdminCollectionsByNameIndexes: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "field": "example",
-                 *       "unique": true
-                 *     }
-                 */
-                "application/json": {
-                    field: string;
-                    unique?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description Index added. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Validation failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        success: boolean;
-                        message: string;
-                        errors: {
-                            [key: string]: string[];
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    postV1AdminRenderTemplatesByPathVersionsByUuidRestore: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                path: string;
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Restored; response carries the NEW version uuid. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unknown version for this path. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The stored version violates the CURRENT policy ({line, message} list). */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    postV1AdminWorkflowEntriesByUuidByLocaleSubmit: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-                locale: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The review state after the transition. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unknown entry/locale (no draft). */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Illegal transition from the current state. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    postV1AdminWorkflowEntriesByUuidByLocaleApprove: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-                locale: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The review state after the transition. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Self-review blocked. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Illegal transition from the current state. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    postV1AdminWorkflowEntriesByUuidByLocaleRequestchanges: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-                locale: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The review state after the transition. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Illegal transition from the current state. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description A note is required. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    postV1AdminWorkflowEntriesByUuidByLocaleWithdraw: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-                locale: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The review state after the transition. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Only the submitter or a reviewer may withdraw. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Illegal transition from the current state. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    putV1AdminEntriesByUuidRoutesByLocale: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-                locale: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                /**
-                 * @example {
-                 *       "slug": "example-slug"
-                 *     }
-                 */
-                "application/json": {
-                    slug: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Route assigned. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description No entry with that UUID. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Slug already in use. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Validation failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        success: boolean;
-                        message: string;
-                        errors: {
-                            [key: string]: string[];
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteV1AdminEntriesByUuidRoutesByLocale: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-                locale: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Route removed. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteV1AdminRedirectsByUuid: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Redirect deleted. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description No redirect with that UUID. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteV1AdminEntriesByUuidSchedulesByScheduleuuid: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-                scheduleUuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Schedule canceled. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Schedule is not pending. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteV1AdminCollectionsByNameFieldsByField: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-                field: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Field dropped. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteV1AdminCollectionsByNameIndexesByField: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                name: string;
-                field: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Index removed. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    putV1AdminRegionsBySlug: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: string;
             };
             cookie?: never;
         };
@@ -14783,20 +15133,20 @@ export interface operations {
             content: {
                 /**
                  * @example {
-                 *       "blocks": "example",
-                 *       "settings": "example"
+                 *       "read": "example",
+                 *       "write": "example",
+                 *       "delete": "example"
                  *     }
                  */
                 "application/json": {
-                    /** @description Ordered {id,type,data} block list. */
-                    blocks?: unknown[];
-                    /** @description Fixed per-region settings vocabulary. */
-                    settings?: unknown[];
+                    read?: string | null;
+                    write?: string | null;
+                    delete?: string | null;
                 };
             };
         };
         responses: {
-            /** @description Region saved. */
+            /** @description Access policy updated. */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -14837,15 +15187,373 @@ export interface operations {
                     };
                 };
             };
-            /** @description Unknown region slug. */
-            404: {
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    patchV1AdminCollectionsByNameFieldorder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                /**
+                 * @example {
+                 *       "field_order": "example"
+                 *     }
+                 */
+                "application/json": {
+                    field_order?: unknown[];
+                };
+            };
+        };
+        responses: {
+            /** @description Field order updated. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content?: never;
             };
-            /** @description Out-of-palette block, schema violation, or unknown setting. */
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation failed */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    patchV1AdminContenttypesBySlugSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "schema": "example"
+                 *     }
+                 */
+                "application/json": {
+                    schema: {
+                        name?: string;
+                        type?: string;
+                        required?: boolean | null;
+                        localized?: boolean | null;
+                        filterable?: boolean | null;
+                        filter_type?: string | null;
+                        enum?: string[];
+                        format?: string | null;
+                        reference_type?: string | null;
+                        multiple?: boolean | null;
+                        max_items?: number | null;
+                        reference_slug_field?: string | null;
+                        /** @description Picker-only block-type allowlist for a `blocks` field. */
+                        block_types?: string[];
+                        /** @description Anchored regex body a string/text value must fully match. */
+                        pattern?: string | null;
+                        /** @description Inclusive lower bound for a `number` field (ints coerce). */
+                        min?: number | null;
+                        /** @description Inclusive upper bound for a `number` field (ints coerce). */
+                        max?: number | null;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description Schema updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            content_type?: {
+                                id?: number;
+                                uuid?: string;
+                                slug?: string;
+                                name?: string;
+                                description?: string | null;
+                                cache_ttl?: number | null;
+                                public_delivery?: boolean;
+                                mount_at_root?: boolean;
+                                status?: string;
+                                schema?: {
+                                    name?: string;
+                                    /** @enum {string} */
+                                    type?: "string" | "text" | "number" | "boolean" | "datetime" | "enum" | "reference" | "asset" | "json" | "blocks";
+                                    required?: boolean | null;
+                                    localized?: boolean | null;
+                                    filterable?: boolean | null;
+                                    filter_type?: string | null;
+                                    enum?: string[];
+                                    format?: string | null;
+                                    reference_type?: string | null;
+                                    multiple?: boolean | null;
+                                    max_items?: number | null;
+                                    reference_slug_field?: string | null;
+                                    block_types?: string[];
+                                    pattern?: string | null;
+                                    min?: number | null;
+                                    max?: number | null;
+                                }[];
+                                schema_version?: number;
+                                created_by?: string | null;
+                                /** Format: date-time */
+                                created_at?: string;
+                                /** Format: date-time */
+                                updated_at?: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description No content type with that slug. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Invalid field schema. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    patchV1AdminFormsubmissionsByUuidRead: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Marked read. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unknown submission. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14870,23 +15578,57 @@ export interface operations {
             };
         };
     };
-    putV1AdminNavigationMenusBySlugItems: {
+    patchV1AdminApikeysByUuidScopes: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                slug: string;
+                uuid: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                /**
+                 * @example {
+                 *       "scopes": "example"
+                 *     }
+                 */
+                "application/json": {
+                    scopes?: unknown[];
+                };
+            };
+        };
         responses: {
-            /** @description The updated editor payload. */
+            /** @description Updated key. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            api_key?: {
+                                uuid?: string;
+                                name?: string;
+                                key_prefix?: string;
+                                owner_uuid?: string;
+                                owner_label?: string | null;
+                                tenant_uuid?: string | null;
+                                tenant_name?: string | null;
+                                scopes?: unknown[];
+                                allowed_ips?: unknown[];
+                                status?: string;
+                                is_rotated?: boolean;
+                                expires_at?: string | null;
+                                revoked_at?: string | null;
+                                created_at?: string | null;
+                            };
+                        };
+                    };
+                };
             };
             /** @description Unauthenticated. */
             401: {
@@ -14922,26 +15664,177 @@ export interface operations {
                     };
                 };
             };
-            /** @description Unknown menu. */
+            /** @description No such key. */
             404: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
-            };
-            /** @description Stale lock_version. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
                 };
-                content?: never;
             };
-            /** @description Invalid tree (kind, url, labels, depth, count, target). */
+            /** @description Validation failed */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    patchV1AdminApikeysByUuidTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                /**
+                 * @example {
+                 *       "tenant_uuid": "example"
+                 *     }
+                 */
+                "application/json": {
+                    tenant_uuid?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated key. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            api_key?: {
+                                uuid?: string;
+                                name?: string;
+                                key_prefix?: string;
+                                owner_uuid?: string;
+                                owner_label?: string | null;
+                                tenant_uuid?: string | null;
+                                tenant_name?: string | null;
+                                scopes?: unknown[];
+                                allowed_ips?: unknown[];
+                                status?: string;
+                                is_rotated?: boolean;
+                                expires_at?: string | null;
+                                revoked_at?: string | null;
+                                created_at?: string | null;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description No such key. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Workspace not found. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
             };
             /** @description Unexpected server error. */
             500: {

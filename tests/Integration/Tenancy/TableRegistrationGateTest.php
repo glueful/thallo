@@ -42,7 +42,7 @@ final class TableRegistrationGateTest extends AppTestCase
 
     public function testNoRegistryBindingIsANoOp(): void
     {
-        // No contract bound (tenancy extension not active) and none injected => must not register.
+        self::assertFalse($this->container()->has(TenantTableRegistryContract::class));
         self::assertFalse($this->provider()->registerTenantTables($this->appContext()));
     }
 

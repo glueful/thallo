@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "c2b3a82a81665a23883f687290a61c95",
+    "content-hash": "e2ffaf0adb5fc1ccaa428a0d0c3b848d",
     "packages": [
         {
             "name": "composer/semver",
@@ -1141,6 +1141,84 @@
             "time": "2026-06-15T01:45:19+00:00"
         },
         {
+            "name": "glueful/tenancy",
+            "version": "v1.3.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/glueful/tenancy.git",
+                "reference": "fb2378489c8a559a361a26e4654746595306712f"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/glueful/tenancy/zipball/fb2378489c8a559a361a26e4654746595306712f",
+                "reference": "fb2378489c8a559a361a26e4654746595306712f",
+                "shasum": ""
+            },
+            "require": {
+                "glueful/extension-contracts": "^1.3.0",
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "glueful/framework": "^1.67.0",
+                "phpstan/phpstan": "^1.0",
+                "phpunit/phpunit": "^10.5",
+                "squizlabs/php_codesniffer": "^3.6"
+            },
+            "suggest": {
+                "glueful/aegis": "RBAC provider that can govern cross-tenant bypass — grant a role the configured bypass permission (tenancy.access_any / tenancy.manage) to unlock Tenancy::forAnyTenant()."
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "name": "Tenancy",
+                    "version": "1.3.0",
+                    "provider": "Glueful\\Extensions\\Tenancy\\TenancyServiceProvider",
+                    "requires": {
+                        "glueful": ">=1.67.0",
+                        "extensions": []
+                    },
+                    "publisher": "glueful-team",
+                    "categories": [
+                        "multi-tenancy",
+                        "security"
+                    ],
+                    "description": "Shared-database, row-level multi-tenancy for Glueful.",
+                    "displayName": "Tenancy"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Glueful\\Extensions\\Tenancy\\": "src/"
+                },
+                "classmap": [
+                    "migrations/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Shared-database, row-level multi-tenancy for Glueful (tenant resolution, scoping, enforcement).",
+            "homepage": "https://github.com/glueful/tenancy",
+            "keywords": [
+                "glueful",
+                "multi-tenancy",
+                "row-level",
+                "tenancy"
+            ],
+            "support": {
+                "issues": "https://github.com/glueful/tenancy/issues",
+                "source": "https://github.com/glueful/tenancy/tree/v1.3.0"
+            },
+            "time": "2026-07-11T21:21:11+00:00"
+        },
+        {
             "name": "glueful/thallo-analytics",
             "version": "0.1.0",
             "dist": {
@@ -1185,11 +1263,12 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-collections",
-                "reference": "d5f5669a9a0b81d1d072a06b8329db2abec540f1"
+                "reference": "75a359eb15720e8e17d14d681c4877cb2997a98b"
             },
             "require": {
                 "glueful/framework": "^1.64.0",
                 "glueful/thallo-contracts": "*",
+                "glueful/thallo-tenancy": "*",
                 "php": "^8.3"
             },
             "type": "glueful-extension",
@@ -6057,84 +6136,6 @@
         }
     ],
     "packages-dev": [
-        {
-            "name": "glueful/tenancy",
-            "version": "v1.3.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/glueful/tenancy.git",
-                "reference": "fb2378489c8a559a361a26e4654746595306712f"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/glueful/tenancy/zipball/fb2378489c8a559a361a26e4654746595306712f",
-                "reference": "fb2378489c8a559a361a26e4654746595306712f",
-                "shasum": ""
-            },
-            "require": {
-                "glueful/extension-contracts": "^1.3.0",
-                "php": "^8.3"
-            },
-            "require-dev": {
-                "glueful/framework": "^1.67.0",
-                "phpstan/phpstan": "^1.0",
-                "phpunit/phpunit": "^10.5",
-                "squizlabs/php_codesniffer": "^3.6"
-            },
-            "suggest": {
-                "glueful/aegis": "RBAC provider that can govern cross-tenant bypass — grant a role the configured bypass permission (tenancy.access_any / tenancy.manage) to unlock Tenancy::forAnyTenant()."
-            },
-            "type": "glueful-extension",
-            "extra": {
-                "glueful": {
-                    "name": "Tenancy",
-                    "version": "1.3.0",
-                    "provider": "Glueful\\Extensions\\Tenancy\\TenancyServiceProvider",
-                    "requires": {
-                        "glueful": ">=1.67.0",
-                        "extensions": []
-                    },
-                    "publisher": "glueful-team",
-                    "categories": [
-                        "multi-tenancy",
-                        "security"
-                    ],
-                    "description": "Shared-database, row-level multi-tenancy for Glueful.",
-                    "displayName": "Tenancy"
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "Glueful\\Extensions\\Tenancy\\": "src/"
-                },
-                "classmap": [
-                    "migrations/"
-                ]
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Michael Tawiah Sowah",
-                    "email": "michael@glueful.dev"
-                }
-            ],
-            "description": "Shared-database, row-level multi-tenancy for Glueful (tenant resolution, scoping, enforcement).",
-            "homepage": "https://github.com/glueful/tenancy",
-            "keywords": [
-                "glueful",
-                "multi-tenancy",
-                "row-level",
-                "tenancy"
-            ],
-            "support": {
-                "issues": "https://github.com/glueful/tenancy/issues",
-                "source": "https://github.com/glueful/tenancy/tree/v1.3.0"
-            },
-            "time": "2026-07-11T21:21:11+00:00"
-        },
         {
             "name": "myclabs/deep-copy",
             "version": "1.13.4",

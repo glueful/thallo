@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Thallo\Collections\CollectionManager;
 use Thallo\Collections\Data\Actor;
@@ -21,7 +20,7 @@ use Symfony\Component\HttpFoundation\Request;
  * Drives CollectionAdminSchemaController through the container (routes arrive in a later task),
  * asserting the Response and the persisted definition — including the access-policy control.
  */
-final class AdminSchemaApiTest extends AppTestCase
+final class AdminSchemaApiTest extends CollectionsTestCase
 {
     private const NAME = 'gadgets';
 
@@ -153,7 +152,7 @@ final class AdminSchemaApiTest extends AppTestCase
     private function dropCollection(string $name): void
     {
         $schema = $this->container()->get(SchemaBuilderInterface::class);
-        $table  = CollectionManager::tableNameFor($name);
+        $table  = $this->physicalTable($name);
         if ($schema->hasTable($table)) {
             $schema->dropTableIfExists($table);
         }

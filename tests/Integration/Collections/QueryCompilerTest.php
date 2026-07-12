@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Thallo\Collections\CollectionManager;
 use Thallo\Collections\Exceptions\InvalidQueryException;
@@ -19,7 +18,7 @@ use Thallo\Collections\Schema\CollectionDefinition;
  * into the materialized table, and asserts the compiled queries return the expected
  * slices, totals, and projections — or throw InvalidQueryException for bad input.
  */
-final class QueryCompilerTest extends AppTestCase
+final class QueryCompilerTest extends CollectionsTestCase
 {
     private const COLLECTION_NAME = 'querycompilertest';
 
@@ -102,7 +101,7 @@ final class QueryCompilerTest extends AppTestCase
 
     private function tableNameFor(string $name): string
     {
-        return CollectionManager::tableNameFor($name);
+        return $this->physicalTable($name);
     }
 
     private function cleanupCollection(): void

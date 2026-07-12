@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 
-final class MetadataMigrationsTest extends AppTestCase
+final class MetadataMigrationsTest extends CollectionsTestCase
 {
     public function testMetadataTablesExist(): void
     {

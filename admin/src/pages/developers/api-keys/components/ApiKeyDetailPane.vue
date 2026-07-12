@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import {
   useApiKeyMutations,
   apiKeyStatusMeta,
@@ -9,11 +9,13 @@ import {
 } from '@/queries/apiKeys'
 import { useNotify } from '@/composables/useNotify'
 import ApiKeySecretModal from './ApiKeySecretModal.vue'
+import { useAllTenants } from '@/queries/tenants'
+import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 
 const props = defineProps<{ item: ApiKey }>()
 const emit = defineEmits<{ revoked: [uuid: string]; rotated: [item: ApiKey] }>()
 
-const { rotate, revoke } = useApiKeyMutations()
+const { rotate, revoke, updateTenant } = useApiKeyMutations()
 const { success, error: notifyError } = useNotify()
 
 const showRotate = ref(false)
@@ -21,6 +23,28 @@ const graceHours = ref(24)
 const newSecret = ref('')
 const showSecret = ref(false)
 const pendingRevoke = ref(false)
+const access = useTenancyAccessStore()
+const tenants = useAllTenants(() => access.access.manage_platform)
+// Reka UI's ComboboxItem forbids an empty-string value (reserved for "clear selection"), so the
+// "Unbound" option uses a non-empty sentinel that maps back to null at the API boundary.
+const UNBOUND = '__unbound__'
+const selectedTenant = ref(props.item.tenant_uuid ?? UNBOUND)
+const tenantItems = computed(() => [
+  { label: 'Unbound', value: UNBOUND },
+  ...((tenants.data.value ?? []).map((tenant) => ({ label: tenant.name, value: tenant.uuid }))),
+])
+
+async function saveTenantBinding() {
+  try {
+    await updateTenant.mutateAsync({
+      uuid: props.item.uuid,
+      tenantUuid: selectedTenant.value === UNBOUND ? null : selectedTenant.value,
+    })
+    success('Workspace binding updated')
+  } catch (e) {
+    notifyError(e, 'Could not update the workspace binding')
+  }
+}
 
 async function copyPrefix() {
   await navigator.clipboard.writeText(props.item.key_prefix)
@@ -90,6 +114,23 @@ async function confirmRevoke() {
       title="This key has expired"
       description="Rotate it to issue a fresh key with the same settings."
     />
+
+    <!-- Scopes -->
+    <div>
+      <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Workspace</h3>
+      <div v-if="access.access.manage_platform" class="flex gap-2">
+        <USelectMenu v-model="selectedTenant" :items="tenantItems" value-key="value" class="min-w-0 flex-1" />
+        <UButton
+          icon="i-lucide-save"
+          color="neutral"
+          variant="outline"
+          :loading="updateTenant.isLoading.value"
+          aria-label="Save workspace binding"
+          @click="saveTenantBinding"
+        />
+      </div>
+      <p v-else class="text-sm text-muted">{{ item.tenant_name ?? 'Unbound' }}</p>
+    </div>
 
     <!-- Scopes -->
     <div>

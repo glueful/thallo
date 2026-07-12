@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -12,7 +11,7 @@ use Symfony\Component\HttpFoundation\Request;
  * an unauthenticated request gets 401 (not 404), proving the route exists behind the gate.
  * (The disabled → 404 case lives in RemovabilityTest, against a disabled-capability boot.)
  */
-final class AdminRoutesGatedTest extends AppTestCase
+final class AdminRoutesGatedTest extends CollectionsTestCase
 {
     public function testAdminCollectionsRouteIsRegisteredAndRequiresAuth(): void
     {

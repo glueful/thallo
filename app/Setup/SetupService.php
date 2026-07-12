@@ -14,6 +14,7 @@ use Glueful\Auth\PasswordHasher;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Users\Repositories\UserRepository;
 use Thallo\Contracts\Settings\SystemChannel;
+use Thallo\Tenancy\Tenant\SingleStoreTenant;
 
 /**
  * Single source of truth for first-run installation.
@@ -33,6 +34,7 @@ final class SetupService
         private readonly ContentTypeKind $contentTypes,
         private readonly SettingKind $settings,
         private readonly RegionKind $regions,
+        private readonly SingleStoreTenant $singleStore,
     ) {
     }
 
@@ -105,7 +107,8 @@ final class SetupService
                 }
             }
 
-            $seed = new SeedContext('', $siteName, $locale, $userUuid);
+            $tenantUuid = $this->singleStore->ensure('default', $siteName, $userUuid);
+            $seed = new SeedContext($tenantUuid, $siteName, $locale, $userUuid);
             foreach ([$this->contentTypes, $this->settings, $this->regions] as $kind) {
                 foreach ($kind->definitions() as $definition) {
                     $kind->apply($definition, $seed);

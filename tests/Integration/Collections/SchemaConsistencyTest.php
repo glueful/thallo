@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Thallo\Collections\CollectionManager;
 use Thallo\Collections\Repositories\CollectionDefinitionRepository;
@@ -15,7 +14,7 @@ use Thallo\Collections\Schema\CollectionDefinition;
  * write and its DDL in ONE transaction (DDL is transactional on PostgreSQL), and definition
  * updates are guarded by schema_version so a concurrent change can never be silently lost.
  */
-final class SchemaConsistencyTest extends AppTestCase
+final class SchemaConsistencyTest extends CollectionsTestCase
 {
     private const COL = 'consistency_test';
 
@@ -51,7 +50,7 @@ final class SchemaConsistencyTest extends AppTestCase
             // expected
         }
 
-        $table = CollectionManager::tableNameFor(self::COL);
+        $table = $this->physicalTable(self::COL);
         self::assertFalse($this->schema()->hasTable($table), 'no orphan table survives the rollback');
         self::assertNull($this->definitions()->findByName(self::COL), 'no dangling definition row survives');
 
@@ -61,7 +60,7 @@ final class SchemaConsistencyTest extends AppTestCase
             'fields' => [['name' => 'title', 'type' => 'collections.string']],
         ], 'admin', 'u1');
         self::assertSame(self::COL, $def->name);
-        self::assertTrue($this->schema()->hasTable($table));
+        self::assertTrue($this->schema()->hasTable($def->tableName));
     }
 
     public function testVersionGuardedUpdateWritesNothingOnStaleVersion(): void
@@ -82,6 +81,7 @@ final class SchemaConsistencyTest extends AppTestCase
             status: $def->status,
             accessPolicy: $def->accessPolicy,
             fieldOrder: $def->fieldOrder,
+            tenantUuid: $def->tenantUuid,
         );
 
         // Guard mismatch (the row is at $def->schemaVersion, we claim it was at +1) → 0 rows.
@@ -111,7 +111,7 @@ final class SchemaConsistencyTest extends AppTestCase
 
         self::assertSame(2, $next->schemaVersion);
         self::assertTrue(
-            $this->schema()->hasColumn(CollectionManager::tableNameFor(self::COL), 'summary'),
+            $this->schema()->hasColumn($this->physicalTable(self::COL), 'summary'),
             'the column exists exactly when the definition says it does',
         );
     }
@@ -134,7 +134,7 @@ final class SchemaConsistencyTest extends AppTestCase
     private function cleanup(): void
     {
         $schema = $this->schema();
-        $table = CollectionManager::tableNameFor(self::COL);
+        $table = $this->physicalTable(self::COL);
         if ($schema->hasTable($table)) {
             $schema->dropTableIfExists($table);
         }

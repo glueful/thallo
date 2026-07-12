@@ -28,6 +28,8 @@ final class CreateApiKeyData implements RequestData
         public readonly array $allowed_ips = [],
         #[Rule('string')]
         public readonly ?string $expires_at = null,
+        #[Rule('nullable|string')]
+        public readonly ?string $tenant_uuid = null,
     ) {
     }
 }

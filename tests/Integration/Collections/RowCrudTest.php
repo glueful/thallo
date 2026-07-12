@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Thallo\Collections\CollectionManager;
 use Thallo\Collections\Data\Actor;
@@ -15,7 +14,7 @@ use Thallo\Collections\Exceptions\RowValidationException;
 use Thallo\Collections\Schema\CollectionDefinition;
 use Thallo\Collections\Schema\CollectionField;
 
-final class RowCrudTest extends AppTestCase
+final class RowCrudTest extends CollectionsTestCase
 {
     private const COLLECTION_NAME = 'rowcrudtest';
 
@@ -119,7 +118,7 @@ final class RowCrudTest extends AppTestCase
 
     private function tableNameFor(string $name): string
     {
-        return CollectionManager::tableNameFor($name);
+        return $this->physicalTable($name);
     }
 
     private function cleanupCollection(): void

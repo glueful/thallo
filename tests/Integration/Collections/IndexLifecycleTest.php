@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;
 use Thallo\Collections\CollectionManager;
 use Thallo\Collections\Data\Actor;
 use Thallo\Collections\Data\RowRepository;
+use Thallo\Collections\Schema\CollectionPhysicalName;
 
 /**
  * Physical index lifecycle against real PostgreSQL. The index KIND (unique vs plain) is
@@ -17,7 +17,7 @@ use Thallo\Collections\Data\RowRepository;
  * dropping a unique constraint was impossible, and removing a plain index from a
  * unique+indexed field silently dropped the unique constraint instead.
  */
-final class IndexLifecycleTest extends AppTestCase
+final class IndexLifecycleTest extends CollectionsTestCase
 {
     private const COL = 'idx_lifecycle';
 
@@ -131,7 +131,7 @@ final class IndexLifecycleTest extends AppTestCase
     /** @return list<string> */
     private function physicalIndexes(): array
     {
-        $table = CollectionManager::tableNameFor(self::COL);
+        $table = $this->physicalTable(self::COL);
         $stmt = $this->connection()->getPDO()->prepare(
             'SELECT indexname FROM pg_indexes WHERE tablename = :t',
         );
@@ -143,12 +143,12 @@ final class IndexLifecycleTest extends AppTestCase
 
     private function uniqueIndexName(string $column): string
     {
-        return CollectionManager::tableNameFor(self::COL) . "_{$column}_unique";
+        return CollectionPhysicalName::indexName($this->physicalTable(self::COL), $column, 'unique');
     }
 
     private function plainIndexName(string $column): string
     {
-        return CollectionManager::tableNameFor(self::COL) . "_{$column}_index";
+        return CollectionPhysicalName::indexName($this->physicalTable(self::COL), $column, 'plain');
     }
 
     private function reload(): \Thallo\Collections\Schema\CollectionDefinition
@@ -169,7 +169,7 @@ final class IndexLifecycleTest extends AppTestCase
     private function cleanup(): void
     {
         $schema = $this->container()->get(SchemaBuilderInterface::class);
-        $table = CollectionManager::tableNameFor(self::COL);
+        $table = $this->physicalTable(self::COL);
         if ($schema->hasTable($table)) {
             $schema->dropTableIfExists($table);
         }

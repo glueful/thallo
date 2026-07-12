@@ -30,7 +30,7 @@ Real features, each sizeable and previously deferred by choice. Worth doing, but
 |---|---------|--------|-------|
 | A | **Per-tenant custom roles / matrix overrides** | ☐ deferred | Per-tenant deviation from the global `role_matrix`; larger change to `RoleMatrix`. |
 | B | **Public self-serve tenant signup** | ☐ deferred | Unauthenticated workspace creation flow (vs. today's operator-provisioned). |
-| C | **Collections tenancy** | ☐ deferred | Unfence the deliberate `collections.*` fence so collections become tenant-scoped. |
+| C | **Collections tenancy** | ✅ implemented (held) | Per-workspace definitions and structurally isolated `tc_*` physical tables; release verification pending. |
 
 ---
 

@@ -4,14 +4,13 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
 use Thallo\Contracts\Schema\FieldTypeRegistry;
 
 /**
  * Verifies that CollectionsServiceProvider seeds all collections.* field types
  * into the shared FieldTypeRegistry and that none of them collide with content.* keys.
  */
-final class CollectionFieldTypesRegistrationTest extends AppTestCase
+final class CollectionFieldTypesRegistrationTest extends CollectionsTestCase
 {
     /** @var list<string> */
     private const EXPECTED_TYPES = [
