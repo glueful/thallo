@@ -1,6 +1,18 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
 import type { TenancyAccess } from '@/queries/tenancyAccess'
 
+export function inferTenancyEnabledForNavigation(
+  reportedEnabled: boolean,
+  selectedUuid: string | null,
+  access: TenancyAccess,
+): boolean {
+  return (
+    reportedEnabled ||
+    (selectedUuid !== null &&
+      (access.manage_domains || access.manage_members || access.manage_roles === true))
+  )
+}
+
 export function shapeTenancyNav(
   items: NavigationMenuItem[],
   access: TenancyAccess,
@@ -44,10 +56,15 @@ export function shapeTenancyNav(
     if (item.label === 'Settings') {
       shaped.push({
         ...item,
-        children: (item.children ?? []).filter(
-          (child) =>
-            child.to !== '/settings/workspaces' || (tenancyInstalled && access.manage_platform),
-        ),
+        children: (item.children ?? []).filter((child) => {
+          if (child.to === '/settings/workspaces') {
+            return tenancyInstalled && access.manage_platform
+          }
+          if (child.to === '/settings/signup') {
+            return !tenancyEnabled
+          }
+          return true
+        }),
       })
       continue
     }

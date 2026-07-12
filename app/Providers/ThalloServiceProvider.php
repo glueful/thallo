@@ -88,6 +88,23 @@ use App\Http\Controllers\TenancyAccessController;
 use App\Http\Controllers\UserAdminController;
 use App\Http\Controllers\TenantHostCooldownController;
 use App\Http\Controllers\TenantRolesController;
+use App\Http\Controllers\SignupController;
+use App\Signup\ContinuationTokens;
+use App\Signup\DefaultSignupDiagnostics;
+use App\Signup\MemberSignupService;
+use App\Signup\NullSignupChallenge;
+use App\Signup\RejectingSignupChallenge;
+use App\Signup\SignupChallenge;
+use App\Signup\SignupConfig;
+use App\Signup\SignupCoordinator;
+use App\Signup\SignupIntentRepository;
+use App\Signup\SignupMailSender;
+use App\Signup\SignupRolePolicy;
+use App\Signup\SignupTelemetry;
+use App\Signup\SignupThrottle;
+use App\Signup\SignupVerifier;
+use App\Signup\WorkspaceSignupService;
+use Thallo\Contracts\Tenancy\SignupDiagnostics;
 use App\Support\AuthorityAudit;
 use App\Support\AuthorityContinuityGuard;
 use App\Support\AuthorityMutator;
@@ -287,7 +304,58 @@ final class ThalloServiceProvider extends ServiceProvider
             self::platformControllerServices(),
             self::consoleCommandServices(),
             self::formServices(),
+            self::signupServices(),
         );
+    }
+
+    /** @return array<string, array<string, mixed>> */
+    private static function signupServices(): array
+    {
+        $autowired = static fn (string $class): array => [
+            'class' => $class,
+            'shared' => true,
+            'autowire' => true,
+        ];
+
+        return [
+            SignupConfig::class => $autowired(SignupConfig::class),
+            SignupRolePolicy::class => $autowired(SignupRolePolicy::class),
+            SignupIntentRepository::class => $autowired(SignupIntentRepository::class),
+            SignupMailSender::class => $autowired(SignupMailSender::class),
+            SignupTelemetry::class => $autowired(SignupTelemetry::class),
+            SignupVerifier::class => $autowired(SignupVerifier::class),
+            ContinuationTokens::class => $autowired(ContinuationTokens::class),
+            SignupThrottle::class => $autowired(SignupThrottle::class),
+            MemberSignupService::class => $autowired(MemberSignupService::class),
+            WorkspaceSignupService::class => $autowired(WorkspaceSignupService::class),
+            SignupCoordinator::class => $autowired(SignupCoordinator::class),
+            SignupController::class => $autowired(SignupController::class),
+            DefaultSignupDiagnostics::class => $autowired(DefaultSignupDiagnostics::class),
+            SignupDiagnostics::class => [
+                'factory' => static fn (ContainerInterface $container): SignupDiagnostics =>
+                    $container->get(DefaultSignupDiagnostics::class),
+                'shared' => true,
+            ],
+            SignupChallenge::class => [
+                'factory' => [self::class, 'makeSignupChallenge'],
+                'shared' => true,
+            ],
+        ];
+    }
+
+    public static function makeSignupChallenge(ContainerInterface $container): SignupChallenge
+    {
+        $context = $container->get(ApplicationContext::class);
+        $provider = trim((string) config($context, 'signup.challenge.provider', ''));
+        if ($provider === '') {
+            return new NullSignupChallenge();
+        }
+        try {
+            $challenge = $container->has($provider) ? $container->get($provider) : null;
+            return $challenge instanceof SignupChallenge ? $challenge : new RejectingSignupChallenge();
+        } catch (\Throwable) {
+            return new RejectingSignupChallenge();
+        }
     }
 
     /**

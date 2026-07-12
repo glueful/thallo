@@ -29,7 +29,7 @@ Real features, each sizeable and previously deferred by choice. Worth doing, but
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
 | A | **Per-tenant custom roles / matrix overrides** | ✅ implemented (held) | Live-baseline deltas, owner floor, custom-role lifecycle, versioned effective-policy cache, manifest CLI, and Roles UI. |
-| B | **Public self-serve tenant signup** | ☐ deferred | Unauthenticated workspace creation flow (vs. today's operator-provisioned). |
+| B | **Public self-serve signup** | ✅ implemented (held) | Verify-first member signup and workspace creation; per-workspace/platform switches, durable continuation recovery, layered PostgreSQL abuse limits. |
 | C | **Collections tenancy** | ✅ implemented (held) | Per-workspace definitions and structurally isolated `tc_*` physical tables; release verification pending. |
 
 ### Infrastructure hardening

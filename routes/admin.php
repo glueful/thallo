@@ -29,6 +29,7 @@ use App\Http\Controllers\TenancyAccessController;
 use App\Http\Controllers\UserAdminController;
 use App\Http\Controllers\TenantHostCooldownController;
 use App\Http\Controllers\TenantRolesController;
+use App\Http\Controllers\SignupController;
 use Glueful\Api\Webhooks\Http\Controllers\WebhookController;
 use Glueful\Routing\Router;
 
@@ -42,6 +43,10 @@ use Glueful\Routing\Router;
  */
 $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
     $router->group(['middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap']], function (Router $router): void {
+        $router->get('/tenancy/signup/members', [SignupController::class, 'memberSettings'])
+            ->middleware('content_permission:tenant.members.manage');
+        $router->put('/tenancy/signup/members', [SignupController::class, 'updateMemberSettings'])
+            ->middleware('content_permission:tenant.members.manage');
         $router->get('/tenancy/roles', [TenantRolesController::class, 'index'])
             ->middleware('content_permission:tenant.roles.manage');
         $router->put('/tenancy/roles/{slug}/overrides', [TenantRolesController::class, 'overrides'])
@@ -319,6 +324,23 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
     });
 
     $router->group(['middleware' => ['tenant_system', 'auth']], function (Router $router): void {
+        $router->get('/settings/signup', [SignupController::class, 'singleStoreMemberSettings'])
+            ->middleware('content_permission:users.roles.manage');
+        $router->put('/settings/signup', [SignupController::class, 'updateSingleStoreMemberSettings'])
+            ->middleware('content_permission:users.roles.manage');
+        $router->get('/settings/signup/roles', [TenantRolesController::class, 'index'])
+            ->middleware('content_permission:users.roles.manage');
+        $router->put('/settings/signup/roles/{slug}/overrides', [TenantRolesController::class, 'overrides'])
+            ->middleware('content_permission:users.roles.manage');
+        $router->post('/settings/signup/roles/preview', [TenantRolesController::class, 'preview'])
+            ->middleware('content_permission:users.roles.manage');
+        $router->post('/settings/signup/roles', [TenantRolesController::class, 'create'])
+            ->middleware('content_permission:users.roles.manage');
+        $router->patch('/settings/signup/roles/{slug}', [TenantRolesController::class, 'update'])
+            ->middleware('content_permission:users.roles.manage');
+        $router->delete('/settings/signup/roles/{slug}', [TenantRolesController::class, 'delete'])
+            ->middleware('content_permission:users.roles.manage');
+
         // API keys — system-wide list/create/rotate/revoke over the framework `api_keys` store. The
         // plaintext key is returned only on create/rotate. All gated by system.access.
         $router->get('/api-keys', [ApiKeyAdminController::class, 'index'])
@@ -431,6 +453,15 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
         ->middleware('content_permission:tenancy.manage');
 
     $router->post('/tenancy/roles/{tenant}/reset', [TenantRolesController::class, 'reset'])
+        ->middleware('auth')
+        ->middleware('tenant_system')
+        ->middleware('content_permission:tenancy.manage');
+
+    $router->get('/tenancy/signup/workspaces', [SignupController::class, 'workspaceSettings'])
+        ->middleware('auth')
+        ->middleware('tenant_system')
+        ->middleware('content_permission:tenancy.manage');
+    $router->put('/tenancy/signup/workspaces', [SignupController::class, 'updateWorkspaceSettings'])
         ->middleware('auth')
         ->middleware('tenant_system')
         ->middleware('content_permission:tenancy.manage');

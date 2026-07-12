@@ -18,27 +18,31 @@ definePage({ meta: { requiresAuth: true } })
 
 const route = useRoute()
 const uuid = computed(() => String(route.params.uuid ?? ''))
+const singleStoreMode = computed(() => route.path.startsWith('/settings/signup/roles'))
 const access = useTenancyAccessStore()
 const { ensureTargetSelected } = useTenantTarget()
 const payload = ref<RolesPayload>({ roles: [], catalog: {} })
-const selected = ref<string>('owner')
-const grants = ref<string[]>([])
-const revokes = ref<string[]>([])
+const selected = ref('')
 const loading = ref(false)
+const busy = ref(false)
 const error = ref<string | null>(null)
 const preview = ref<{ added: string[]; removed: string[] } | null>(null)
+const search = ref('')
+const showCreate = ref(false)
+const pendingDelete = ref<WorkspaceRole | null>(null)
 const newSlug = ref('')
 const newName = ref('')
 const reassignTo = ref('viewer')
 
-const role = computed(() => payload.value.roles.find((item) => item.slug === selected.value) ?? null)
-const groups = computed(() => {
-  const result: Record<string, Array<[string, RolesPayload['catalog'][string]]>> = {}
-  for (const entry of Object.entries(payload.value.catalog)) {
-    const group = entry[1].group
-    ;(result[group] ??= []).push(entry)
-  }
-  return result
+const role = computed(
+  () => payload.value.roles.find((item) => item.slug === selected.value) ?? null,
+)
+const filteredRoles = computed(() => {
+  const term = search.value.trim().toLowerCase()
+  if (!term) return payload.value.roles
+  return payload.value.roles.filter(
+    (item) => item.name.toLowerCase().includes(term) || item.slug.toLowerCase().includes(term),
+  )
 })
 const replacementRoles = computed(() =>
   payload.value.roles.filter((item) => item.slug !== selected.value && item.status === 'active'),
@@ -46,30 +50,23 @@ const replacementRoles = computed(() =>
 
 function selectRole(next: WorkspaceRole): void {
   selected.value = next.slug
-  grants.value = [...next.grants]
-  revokes.value = [...next.revokes]
   preview.value = null
 }
 
-function effect(capability: string): string {
-  if (grants.value.includes(capability)) return 'grant'
-  if (revokes.value.includes(capability)) return 'revoke'
-  return 'inherit'
+function clearSelection(): void {
+  selected.value = ''
+  preview.value = null
 }
 
-function setEffect(capability: string, next: string): void {
-  grants.value = grants.value.filter((item) => item !== capability)
-  revokes.value = revokes.value.filter((item) => item !== capability)
-  if (next === 'grant') grants.value.push(capability)
-  if (next === 'revoke') revokes.value.push(capability)
-}
-
-async function load(): Promise<void> {
+async function load(preferred = selected.value): Promise<void> {
   loading.value = true
   error.value = null
   try {
-    payload.value = await fetchWorkspaceRoles()
-    selectRole(payload.value.roles.find((item) => item.slug === selected.value) ?? payload.value.roles[0])
+    payload.value = await fetchWorkspaceRoles(singleStoreMode.value)
+    const next = payload.value.roles.find((item) => item.slug === preferred)
+    if (next) selectRole(next)
+    else if (!singleStoreMode.value && payload.value.roles[0]) selectRole(payload.value.roles[0])
+    else clearSelection()
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Unable to load workspace roles.'
   } finally {
@@ -77,25 +74,57 @@ async function load(): Promise<void> {
   }
 }
 
-async function run(operation: () => Promise<unknown>): Promise<void> {
+async function run(operation: () => Promise<unknown>, preferred = selected.value): Promise<void> {
+  busy.value = true
   error.value = null
   try {
     await operation()
-    await load()
+    await load(preferred)
   } catch (caught) {
     error.value = caught instanceof Error ? caught.message : 'Role update failed.'
+  } finally {
+    busy.value = false
   }
 }
 
-async function showPreview(): Promise<void> {
+async function createRole(): Promise<void> {
+  const slug = newSlug.value
+  await run(() => createWorkspaceRole(slug, newName.value, singleStoreMode.value), slug)
+  if (error.value === null) {
+    showCreate.value = false
+    newSlug.value = ''
+    newName.value = ''
+  }
+}
+
+async function removeRole(): Promise<void> {
+  if (!pendingDelete.value) return
+  const deleting = pendingDelete.value
+  await run(() => deleteWorkspaceRole(deleting.slug, reassignTo.value, singleStoreMode.value), '')
+  if (error.value === null) pendingDelete.value = null
+}
+
+async function showPreview(grants: string[], revokes: string[]): Promise<void> {
   if (!role.value) return
-  const result = await previewRoleOverrides(role.value.slug, grants.value, revokes.value)
+  const result = await previewRoleOverrides(role.value.slug, grants, revokes, singleStoreMode.value)
   preview.value = { added: result.preview.added, removed: result.preview.removed }
 }
 
+async function savePermissions(grants: string[], revokes: string[]): Promise<void> {
+  if (!role.value) return
+  await run(
+    () => saveRoleOverrides(role.value!.slug, grants, revokes, singleStoreMode.value),
+    role.value.slug,
+  )
+}
+
 watch(
-  uuid,
-  async (target) => {
+  [uuid, singleStoreMode],
+  async ([target, singleStore]) => {
+    if (singleStore) {
+      await load()
+      return
+    }
     if (target && access.access.manage_roles && (await ensureTargetSelected(target))) await load()
   },
   { immediate: true },
@@ -103,107 +132,236 @@ watch(
 </script>
 
 <template>
-  <UDashboardPanel id="workspace-roles">
-    <template #header><UDashboardNavbar title="Roles" /></template>
+  <UDashboardPanel id="workspace-roles" :ui="{ body: 'overflow-hidden' }">
+    <template #header>
+      <UDashboardNavbar :title="singleStoreMode ? 'Signup roles' : 'Roles'">
+        <template #leading>
+          <UButton
+            v-if="singleStoreMode"
+            to="/settings/signup"
+            icon="i-lucide-arrow-left"
+            color="neutral"
+            variant="ghost"
+            aria-label="Back to signup settings"
+            data-testid="signup-roles-back"
+          />
+        </template>
+      </UDashboardNavbar>
+    </template>
+
     <template #body>
-      <div class="mx-auto grid w-full max-w-6xl gap-6 px-4 py-6 lg:grid-cols-[15rem_1fr] sm:px-6">
-        <aside>
-          <div class="mb-3 flex items-center justify-between">
-            <h2 class="text-sm font-semibold">Workspace roles</h2>
-          </div>
-          <div class="space-y-1" data-testid="roles-list">
-            <button
-              v-for="item in payload.roles"
-              :key="item.slug"
-              type="button"
-              class="flex w-full items-center justify-between rounded px-3 py-2 text-left text-sm hover:bg-elevated"
-              :class="selected === item.slug ? 'bg-elevated font-medium' : ''"
-              @click="selectRole(item)"
-            >
-              <span>{{ item.name }}</span>
-              <UBadge v-if="item.status === 'disabled'" color="neutral" variant="subtle">Disabled</UBadge>
-            </button>
-          </div>
-          <form
-            class="mt-6 space-y-2 border-t border-default pt-4"
-            @submit.prevent="run(() => createWorkspaceRole(newSlug, newName))"
-          >
-            <UInput v-model="newName" placeholder="Role name" aria-label="Role name" />
-            <UInput v-model="newSlug" placeholder="role_slug" aria-label="Role slug" />
-            <UButton type="submit" icon="i-lucide-plus" size="sm" :disabled="!newName || !newSlug">
-              Add role
-            </UButton>
-          </form>
-        </aside>
-
-        <main v-if="role" class="min-w-0" data-testid="role-editor">
-          <div class="flex flex-wrap items-center gap-3 border-b border-default pb-4">
-            <div class="min-w-0 flex-1">
-              <h2 class="truncate text-lg font-semibold">{{ role.name }}</h2>
-              <code class="text-xs text-muted">{{ role.slug }}</code>
-            </div>
-            <template v-if="!role.builtin">
+      <div class="flex h-full min-h-0 p-1">
+        <div
+          class="min-h-0 lg:shrink-0 lg:border-e lg:border-default lg:pe-4"
+          :class="role ? 'hidden lg:block' : 'block'"
+        >
+          <div class="flex h-full min-h-0 w-full flex-col gap-3 lg:w-85 lg:shrink-0">
+            <div class="flex items-center justify-between gap-2">
+              <h2 class="text-lg font-semibold text-highlighted">Roles</h2>
               <UButton
-                :icon="role.status === 'active' ? 'i-lucide-pause' : 'i-lucide-play'"
-                color="neutral"
-                variant="outline"
-                @click="run(() => updateWorkspaceRole(role!.slug, { status: role!.status === 'active' ? 'disabled' : 'active' }))"
-              >
-                {{ role.status === 'active' ? 'Disable' : 'Enable' }}
-              </UButton>
-              <USelect
-                v-model="reassignTo"
-                :items="replacementRoles.map((item) => ({ label: item.name, value: item.slug }))"
-                value-key="value"
-                class="min-w-36"
+                icon="i-lucide-plus"
+                class="rounded-xl px-3"
+                size="sm"
+                aria-label="New role"
+                data-testid="create-workspace-role"
+                @click="showCreate = true"
               />
-              <UButton
-                icon="i-lucide-trash-2"
-                color="error"
-                variant="ghost"
-                @click="run(() => deleteWorkspaceRole(role!.slug, reassignTo))"
-              >Delete</UButton>
-            </template>
-          </div>
+            </div>
 
-          <p v-if="error" class="mt-4 text-sm text-error" role="alert">{{ error }}</p>
-          <div v-if="loading" class="space-y-3 py-6"><USkeleton v-for="i in 5" :key="i" class="h-10" /></div>
-          <div v-else class="space-y-6 py-6">
-            <section v-for="(capabilities, group) in groups" :key="group">
-              <h3 class="mb-2 text-sm font-semibold">{{ group }}</h3>
-              <div class="divide-y divide-default border-y border-default">
-                <div v-for="[slug, definition] in capabilities" :key="slug" class="flex items-center gap-4 py-3">
+            <UInput v-model="search" icon="i-lucide-search" placeholder="Search roles…" />
+
+            <div class="min-h-0 flex-1 overflow-y-auto">
+              <div v-if="loading" class="flex justify-center py-10">
+                <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin text-muted" />
+              </div>
+              <UEmpty
+                v-else-if="!filteredRoles.length"
+                icon="i-lucide-shield"
+                title="No roles"
+                :description="
+                  search ? 'No roles match your search.' : 'Create a role to get started.'
+                "
+              />
+              <div v-else class="flex flex-col gap-0.5" data-testid="roles-list">
+                <button
+                  v-for="item in filteredRoles"
+                  :key="item.slug"
+                  type="button"
+                  class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors"
+                  :class="selected === item.slug ? 'bg-elevated' : 'hover:bg-elevated/50'"
+                  @click="selectRole(item)"
+                >
                   <div class="min-w-0 flex-1">
-                    <p class="text-sm">{{ definition.label }}</p>
-                    <code class="text-xs text-muted">{{ slug }}</code>
+                    <p class="truncate text-sm font-medium text-default">{{ item.name }}</p>
+                    <code class="truncate text-xs text-muted">{{ item.slug }}</code>
                   </div>
-                  <USelect
-                    :model-value="effect(slug)"
-                    :items="role.builtin ? ['inherit', 'grant', 'revoke'] : ['inherit', 'grant']"
-                    class="w-32"
-                    :data-testid="`capability-toggle-${slug}`"
-                    @update:model-value="setEffect(slug, String($event))"
+                  <UBadge
+                    v-if="item.status === 'disabled'"
+                    label="Disabled"
+                    color="neutral"
+                    variant="subtle"
+                    size="xs"
+                  />
+                </button>
+              </div>
+            </div>
+
+            <div class="border-t border-default pt-3 text-xs font-medium text-muted">
+              {{ filteredRoles.length }} roles
+            </div>
+          </div>
+        </div>
+
+        <div class="min-w-0 flex-1 flex-col lg:ps-6" :class="role ? 'flex' : 'hidden lg:flex'">
+          <div v-if="!role" class="m-auto text-center text-sm text-muted">
+            <UIcon name="i-lucide-shield" class="mx-auto mb-2 size-6" />
+            Select a role to view its permissions
+          </div>
+          <template v-else>
+            <UButton
+              class="mb-2 self-start lg:hidden"
+              color="neutral"
+              variant="ghost"
+              size="xs"
+              icon="i-lucide-arrow-left"
+              label="Back"
+              @click="clearSelection"
+            />
+
+            <header
+              class="mb-4 flex items-start justify-between gap-3 rounded-xl border border-default p-4"
+            >
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h1 class="text-lg font-semibold text-highlighted">{{ role.name }}</h1>
+                  <UBadge
+                    v-if="role.builtin"
+                    label="Built-in"
+                    color="neutral"
+                    variant="subtle"
+                    size="xs"
+                  />
+                  <UBadge
+                    v-else-if="role.status === 'disabled'"
+                    label="Disabled"
+                    color="warning"
+                    variant="subtle"
+                    size="xs"
                   />
                 </div>
+                <code class="text-sm text-muted">{{ role.slug }}</code>
               </div>
-            </section>
-          </div>
+              <div v-if="!role.builtin" class="flex shrink-0 items-center gap-1">
+                <UButton
+                  :icon="role.status === 'active' ? 'i-lucide-pause' : 'i-lucide-play'"
+                  color="neutral"
+                  variant="ghost"
+                  size="xs"
+                  :aria-label="role.status === 'active' ? 'Disable role' : 'Enable role'"
+                  :loading="busy"
+                  @click="
+                    run(() =>
+                      updateWorkspaceRole(
+                        role!.slug,
+                        { status: role!.status === 'active' ? 'disabled' : 'active' },
+                        singleStoreMode,
+                      ),
+                    )
+                  "
+                />
+                <UButton
+                  icon="i-lucide-trash-2"
+                  color="error"
+                  variant="ghost"
+                  size="xs"
+                  aria-label="Delete role"
+                  @click="pendingDelete = role"
+                />
+              </div>
+            </header>
 
-          <div class="flex flex-wrap items-center gap-3 border-t border-default pt-4">
-            <UButton data-testid="overrides-preview" color="neutral" variant="outline" @click="showPreview">
-              Preview
-            </UButton>
-            <UButton
-              data-testid="overrides-save"
-              icon="i-lucide-save"
-              @click="run(() => saveRoleOverrides(role!.slug, grants, revokes))"
-            >Save</UButton>
-            <span v-if="preview" class="text-xs text-muted">
-              +{{ preview.added.length }} / -{{ preview.removed.length }}
-            </span>
-          </div>
-        </main>
+            <p v-if="error" class="mb-3 text-sm text-error" role="alert">{{ error }}</p>
+
+            <div class="flex min-h-0 flex-1 flex-col">
+              <div v-if="loading" class="flex flex-1 items-center justify-center py-16">
+                <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
+              </div>
+              <TenantRolePermissionsEditor
+                v-else
+                :key="role.slug"
+                :role="role"
+                :catalog="payload.catalog"
+                :busy="busy"
+                :preview="preview"
+                class="min-h-0 flex-1"
+                @preview="showPreview"
+                @save="savePermissions"
+              />
+            </div>
+          </template>
+        </div>
       </div>
     </template>
   </UDashboardPanel>
+
+  <UModal v-model:open="showCreate" title="New role">
+    <template #body>
+      <form id="workspace-role-form" class="space-y-4" @submit.prevent="createRole">
+        <UFormField label="Name">
+          <UInput v-model="newName" placeholder="Reviewer" class="w-full" />
+        </UFormField>
+        <UFormField label="Slug" hint="Immutable">
+          <UInput v-model="newSlug" placeholder="reviewer" class="w-full" />
+        </UFormField>
+      </form>
+    </template>
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton color="neutral" variant="ghost" @click="showCreate = false">Cancel</UButton>
+        <UButton
+          type="submit"
+          form="workspace-role-form"
+          :loading="busy"
+          :disabled="!newName || !newSlug"
+          >Create role</UButton
+        >
+      </div>
+    </template>
+  </UModal>
+
+  <UModal
+    :open="pendingDelete !== null"
+    title="Delete role"
+    @update:open="
+      (open: boolean) => {
+        if (!open) pendingDelete = null
+      }
+    "
+  >
+    <template #body>
+      <div class="space-y-4">
+        <p class="text-sm text-muted">
+          Delete <span class="text-default">“{{ pendingDelete?.name }}”</span>?
+        </p>
+        <UFormField label="Reassign members to">
+          <USelect
+            v-model="reassignTo"
+            :items="replacementRoles.map((item) => ({ label: item.name, value: item.slug }))"
+            value-key="value"
+            class="w-full"
+          />
+        </UFormField>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton color="neutral" variant="ghost" :disabled="busy" @click="pendingDelete = null">
+          Cancel
+        </UButton>
+        <UButton color="error" icon="i-lucide-trash-2" :loading="busy" @click="removeRole">
+          Delete
+        </UButton>
+      </div>
+    </template>
+  </UModal>
 </template>

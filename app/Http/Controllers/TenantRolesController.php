@@ -18,6 +18,8 @@ use App\Content\Authorization\TenantRoleLifecycle;
 use App\Content\Authorization\TenantRoleLifecycleException;
 use Glueful\Http\Response;
 use Symfony\Component\HttpFoundation\Request;
+use Thallo\Tenancy\System\SystemFlags;
+use Thallo\Tenancy\Tenant\SingleStoreTenant;
 
 final class TenantRolesController
 {
@@ -32,12 +34,14 @@ final class TenantRolesController
         private readonly TenantRoleRepository $roles,
         private readonly TenantRoleLifecycle $lifecycle,
         private readonly PermissionAuthority $permissions,
+        private readonly SystemFlags $flags,
+        private readonly SingleStoreTenant $singleStore,
     ) {
     }
 
     public function index(Request $request): Response
     {
-        $tenantUuid = $this->membership->resolvedTenantUuid();
+        $tenantUuid = $this->tenantUuid($request);
         if ($tenantUuid === null) {
             return Response::error('Workspace context is required.', Response::HTTP_FORBIDDEN);
         }
@@ -162,7 +166,7 @@ final class TenantRolesController
 
     public function assignable(Request $request): Response
     {
-        $tenantUuid = $this->membership->resolvedTenantUuid();
+        $tenantUuid = $this->tenantUuid($request);
         if ($tenantUuid === null) {
             return Response::error('Workspace context is required.', Response::HTTP_FORBIDDEN);
         }
@@ -177,7 +181,7 @@ final class TenantRolesController
 
     public function overrides(Request $request, string $slug): Response
     {
-        $tenantUuid = $this->membership->resolvedTenantUuid();
+        $tenantUuid = $this->tenantUuid($request);
         $principal = $this->principals->resolve($request);
         if ($tenantUuid === null || $principal === null) {
             return Response::error('Workspace context is required.', Response::HTTP_FORBIDDEN);
@@ -199,7 +203,7 @@ final class TenantRolesController
 
     public function preview(Request $request): Response
     {
-        $tenantUuid = $this->membership->resolvedTenantUuid();
+        $tenantUuid = $this->tenantUuid($request);
         if ($tenantUuid === null) {
             return Response::error('Workspace context is required.', Response::HTTP_FORBIDDEN);
         }
@@ -274,6 +278,15 @@ final class TenantRolesController
     /** @return array{0:?string,1:?string} */
     private function tenantActor(Request $request): array
     {
-        return [$this->membership->resolvedTenantUuid(), $this->principals->resolve($request)['uuid'] ?? null];
+        return [$this->tenantUuid($request), $this->principals->resolve($request)['uuid'] ?? null];
+    }
+
+    private function tenantUuid(Request $request): ?string
+    {
+        if (str_starts_with($request->getPathInfo(), '/v1/admin/settings/signup/roles')) {
+            return $this->flags->tenancyEnabled() ? null : $this->singleStore->defaultUuidOrNull();
+        }
+
+        return $this->membership->resolvedTenantUuid();
     }
 }

@@ -113,6 +113,11 @@ const main: NavigationMenuItem[] = [
         to: '/settings/email',
       },
       {
+        label: 'Signup',
+        icon: 'i-lucide-user-plus',
+        to: '/settings/signup',
+      },
+      {
         label: 'Import / Export',
         icon: 'i-lucide-arrow-down-up',
         to: '/settings/import-export',

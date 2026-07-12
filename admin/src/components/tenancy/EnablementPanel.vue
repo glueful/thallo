@@ -43,11 +43,27 @@ const showConfirm = computed(
 </script>
 
 <template>
-  <section class="border-b border-default py-6" aria-labelledby="enablement-heading">
+  <section
+    class="rounded-lg border border-default px-5 py-4"
+    aria-labelledby="enablement-heading"
+  >
     <div class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h2 id="enablement-heading" class="text-base font-semibold">Enablement</h2>
-        <p class="text-sm text-muted mt-1">{{ status.step.replace(/_/g, ' ') }}</p>
+      <div class="min-w-0">
+        <h2 id="enablement-heading" class="text-sm font-semibold text-highlighted">
+          Multi-workspace mode
+        </h2>
+        <p class="mt-1 text-sm text-muted">
+          Turn this single site into many independent workspaces, each with its own content,
+          domains, members, and roles. Enabling runs a one-time migration and finishes after a
+          restart.
+        </p>
+        <p
+          v-if="status.step !== 'off' && status.step !== 'on'"
+          class="mt-2 text-xs text-muted"
+          data-testid="enablement-step"
+        >
+          Step: {{ status.step.replace(/_/g, ' ') }}
+        </p>
       </div>
       <UBadge :color="status.enabled ? 'success' : 'neutral'" variant="subtle">
         {{ status.enabled ? 'Enabled' : 'Disabled' }}

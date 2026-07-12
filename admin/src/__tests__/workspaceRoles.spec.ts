@@ -28,16 +28,37 @@ describe('workspace role queries', () => {
   })
 
   it('previews and drives the custom-role lifecycle', async () => {
-    authFetch.mockResolvedValueOnce({ data: { preview: { before: [], after: [], added: [], removed: [] } } })
+    authFetch.mockResolvedValueOnce({
+      data: { preview: { before: [], after: [], added: [], removed: [] } },
+    })
     await previewRoleOverrides('reviewer', ['content.view'], [])
-    expect(authFetch).toHaveBeenLastCalledWith('/v1/admin/tenancy/roles/preview', expect.any(Object))
+    expect(authFetch).toHaveBeenLastCalledWith(
+      '/v1/admin/tenancy/roles/preview',
+      expect.any(Object),
+    )
 
     authFetch.mockResolvedValue({})
     await createWorkspaceRole('reviewer', 'Reviewer')
     await updateWorkspaceRole('reviewer', { status: 'disabled' })
     await deleteWorkspaceRole('reviewer', 'viewer')
-    expect(authFetch).toHaveBeenLastCalledWith('/v1/admin/tenancy/roles/reviewer?reassign_to=viewer', {
-      method: 'DELETE',
+    expect(authFetch).toHaveBeenLastCalledWith(
+      '/v1/admin/tenancy/roles/reviewer?reassign_to=viewer',
+      {
+        method: 'DELETE',
+      },
+    )
+  })
+
+  it('uses the single-store role surface for signup roles', async () => {
+    authFetch.mockResolvedValueOnce({ data: { roles: [], catalog: {} } })
+    await fetchWorkspaceRoles(true)
+    expect(authFetch).toHaveBeenLastCalledWith('/v1/admin/settings/signup/roles')
+
+    authFetch.mockResolvedValueOnce({})
+    await createWorkspaceRole('subscriber', 'Subscriber', true)
+    expect(authFetch).toHaveBeenLastCalledWith('/v1/admin/settings/signup/roles', {
+      method: 'POST',
+      body: JSON.stringify({ slug: 'subscriber', name: 'Subscriber' }),
     })
   })
 })
