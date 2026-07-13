@@ -1,3 +1,4 @@
+import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 import { useTenantStore } from '@/stores/tenant'
@@ -6,6 +7,11 @@ export function useTenantTarget() {
   const router = useRouter()
   const tenant = useTenantStore()
   const access = useTenancyAccessStore()
+
+  // The currently bound workspace. Workspace-scoped admin pages must call their tenant-scoped APIs
+  // with THIS uuid (it equals the X-Tenant-Id header), not the route uuid — the backend rejects a
+  // path/header mismatch with 403.
+  const selectedUuid = computed(() => tenant.selectedUuid)
 
   async function ensureTargetSelected(uuid: string): Promise<boolean> {
     await tenant.ensureLoaded()
@@ -20,5 +26,5 @@ export function useTenantTarget() {
     await router.push(`/workspaces/${uuid}/${section}`)
   }
 
-  return { ensureTargetSelected, selectThenNavigate }
+  return { ensureTargetSelected, selectThenNavigate, selectedUuid }
 }

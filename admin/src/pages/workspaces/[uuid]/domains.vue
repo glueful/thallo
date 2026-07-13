@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ApiError, apiErrorDetails } from '@/api/errors'
 import { useTenantTarget } from '@/composables/useTenantTarget'
 import { useTenancyAccessStore } from '@/stores/tenancyAccess'
@@ -13,14 +13,21 @@ import {
 definePage({ meta: { requiresAuth: true } })
 
 const route = useRoute()
+const router = useRouter()
 const uuid = computed(() => String(route.params.uuid ?? ''))
 const access = useTenancyAccessStore()
-const { ensureTargetSelected } = useTenantTarget()
+const { ensureTargetSelected, selectedUuid } = useTenantTarget()
 const targetReady = ref(false)
 const denied = ref(false)
-const enabled = computed(() => targetReady.value && access.access.manage_domains)
-const { data: domains, status } = useTenantDomains(uuid, enabled)
-const mutations = useTenantDomainMutations(uuid)
+// Drive the tenant-scoped APIs off the BOUND workspace, not the route uuid: the backend requires the
+// path tenant to equal the X-Tenant-Id header, so keying on the route uuid would 403 the instant the
+// sidebar switcher changes the active workspace (and the global 403-recovery would flick us back).
+const targetUuid = computed(() => selectedUuid.value ?? '')
+const enabled = computed(
+  () => targetReady.value && access.access.manage_domains && targetUuid.value !== '',
+)
+const { data: domains, status } = useTenantDomains(targetUuid, enabled)
+const mutations = useTenantDomainMutations(targetUuid)
 const instructions = ref<(AddedTenantDomain & { host: string }) | null>(null)
 const error = ref<string | null>(null)
 
@@ -38,6 +45,15 @@ watch(
   },
   { immediate: true },
 )
+
+// Follow the sidebar switcher: when the active workspace changes while this page is open, replace the
+// URL with that workspace's domains so the route (and this page's target) stay in step. Without this
+// the URL would keep the old workspace's uuid while the list showed the newly-bound one.
+watch(selectedUuid, (next) => {
+  if (next && next !== uuid.value) {
+    void router.replace(`/workspaces/${next}/domains`)
+  }
+})
 
 async function add(host: string): Promise<void> {
   error.value = null

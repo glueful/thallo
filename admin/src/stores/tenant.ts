@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { useQueryCache } from '@pinia/colada'
 import { fetchMyTenants, type TenantSummary } from '@/queries/tenants'
 import type { PersistOptions } from '@/plugins/pinia-persist-plugin'
 
@@ -20,8 +21,16 @@ export const useTenantStore = defineStore(
     let inflight: Promise<void> | null = null
 
     function select(uuid: string): void {
+      const changed = selectedUuid.value !== uuid
       operatorMode.value = false
       selectedUuid.value = uuid
+      // Switching workspace changes the X-Tenant-Id header sent on every request, but the cached
+      // queries still hold the previous workspace's data — so the UI would show stale data until a
+      // hard reload. Invalidate the whole query cache so active views refetch for the new workspace.
+      // Only on an actual change; re-selecting the current workspace is a no-op.
+      if (changed) {
+        useQueryCache().invalidateQueries()
+      }
     }
 
     function clearSelection(): void {

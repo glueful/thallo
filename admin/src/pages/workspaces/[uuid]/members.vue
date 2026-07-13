@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useTenantTarget } from '@/composables/useTenantTarget'
 import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 import {
@@ -14,14 +14,21 @@ import {
 definePage({ meta: { requiresAuth: true } })
 
 const route = useRoute()
+const router = useRouter()
 const uuid = computed(() => String(route.params.uuid ?? ''))
 const access = useTenancyAccessStore()
-const { ensureTargetSelected } = useTenantTarget()
+const { ensureTargetSelected, selectedUuid } = useTenantTarget()
 const targetReady = ref(false)
 const denied = ref(false)
-const enabled = computed(() => targetReady.value && access.access.manage_members)
-const { data: members, status } = useTenantMembers(uuid, enabled)
-const mutations = useTenantMemberMutations(uuid)
+// Drive the tenant-scoped APIs off the BOUND workspace, not the route uuid: the backend requires the
+// path tenant to equal the X-Tenant-Id header, so keying on the route uuid would 403 the instant the
+// sidebar switcher changes the active workspace (and the global 403-recovery would flick us back).
+const targetUuid = computed(() => selectedUuid.value ?? '')
+const enabled = computed(
+  () => targetReady.value && access.access.manage_members && targetUuid.value !== '',
+)
+const { data: members, status } = useTenantMembers(targetUuid, enabled)
+const mutations = useTenantMemberMutations(targetUuid)
 const error = ref<string | null>(null)
 const assignableRoles = ref<AssignableTenantRole[]>([])
 
@@ -39,6 +46,14 @@ watch(
   },
   { immediate: true },
 )
+
+// Follow the sidebar switcher: when the active workspace changes while this page is open, replace the
+// URL with that workspace's members so the route (and this page's target) stay in step.
+watch(selectedUuid, (next) => {
+  if (next && next !== uuid.value) {
+    void router.replace(`/workspaces/${next}/members`)
+  }
+})
 
 async function mutate(operation: () => Promise<unknown>): Promise<void> {
   error.value = null
