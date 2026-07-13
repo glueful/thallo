@@ -13,9 +13,14 @@ use Glueful\Routing\Router;
  *   2. auth             — group middleware.
  *   3. content_permission — per-route slug. Withdraw is gated content.view only: a reviewer
  *      may lack content.edit; the submitter-or-reviewer rule is enforced in the service (403).
+ *   4. admin_tenant_binding — binds the operator's selected workspace so workflow_review_states/
+ *      transitions scope to it (mirrors routes/admin.php); inert until full resolution.
  */
 $router->group(
-    ['prefix' => '/v1/admin/workflow', 'middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap']],
+    [
+        'prefix' => '/v1/admin/workflow',
+        'middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap', 'admin_tenant_binding'],
+    ],
     function (Router $router): void {
         $router->post('/entries/{uuid}/{locale}/submit', [WorkflowController::class, 'submit'])
             ->middleware('content_permission:content.edit');
