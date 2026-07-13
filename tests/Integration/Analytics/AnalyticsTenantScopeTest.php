@@ -59,6 +59,18 @@ final class AnalyticsTenantScopeTest extends TenantOracleTestCase
         self::assertSame(1, $aSummary['active_users']);
     }
 
+    public function testSummaryReportsScopedUnderBoundTenant(): void
+    {
+        // The admin UI drops platform-level auth panels (logins, active users) when a workspace is
+        // bound, because those rollups carry no tenant and fall out of a scoped read. `scoped` is the
+        // signal it keys off — true under a bound tenant. (The unscoped/tenancy-off case is covered by
+        // AnalyticsApiTest, which boots with tenancy off; under this oracle harness tenancy is always on
+        // and a system-bypass read fail-closes rather than reading globally.)
+        $scoped = $this->runAsTenant(self::$tenantAUuid, fn () => $this->container()->get(AnalyticsQuery::class)
+            ->summary(self::DAY_A, self::DAY_B));
+        self::assertTrue($scoped['scoped']);
+    }
+
     public function testNoTenantContextDropsRawRollupAndWarns(): void
     {
         $spy = new class extends AbstractLogger {

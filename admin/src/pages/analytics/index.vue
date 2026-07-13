@@ -19,6 +19,9 @@ const PRESETS: RangePreset[] = [7, 30, 90]
 const { data: summary } = useAnalyticsSummary(range)
 const kpi = (event: string) => summary.value?.totals?.[event] ?? 0
 const activeUsers = computed(() => summary.value?.active_users ?? 0)
+// When the read is workspace-scoped, auth rollups (logins, active users) carry no tenant and read
+// zero — they're platform-level, not workspace data — so drop those panels in a workspace view.
+const scoped = computed(() => summary.value?.scoped ?? false)
 
 const logins = useAnalyticsSeries('auth.login', range)
 const loginsFailed = useAnalyticsSeries('auth.login_failed', range)
@@ -28,11 +31,16 @@ const activeUsersSeries = useAnalyticsSeries('active_users', range)
 
 const pts = (q: { data: Ref<{ day: string; count: number }[] | undefined> }) => q.data.value ?? []
 
-const activityTrend = computed<LineSeries[]>(() => [
-  { key: 'logins', label: 'Logins', color: 'var(--ui-primary)', points: pts(logins) },
-  { key: 'entries', label: 'Entries', color: 'var(--ui-success)', points: pts(entries) },
-  { key: 'rows', label: 'Rows', color: 'var(--ui-warning)', points: pts(rows) },
-])
+const activityTrend = computed<LineSeries[]>(() => {
+  const series: LineSeries[] = []
+  // Logins is a platform-level auth metric — omit it in a workspace-scoped view.
+  if (!scoped.value) {
+    series.push({ key: 'logins', label: 'Logins', color: 'var(--ui-primary)', points: pts(logins) })
+  }
+  series.push({ key: 'entries', label: 'Entries', color: 'var(--ui-success)', points: pts(entries) })
+  series.push({ key: 'rows', label: 'Rows', color: 'var(--ui-warning)', points: pts(rows) })
+  return series
+})
 const activeUsersTrend = computed<LineSeries[]>(() => [
   { key: 'active', label: 'Active users', color: 'var(--ui-primary)', points: pts(activeUsersSeries) },
 ])
@@ -88,12 +96,12 @@ function setSegment(seg: BreakdownSegment): void {
         </div>
 
         <!-- KPI cards -->
-        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <div data-test="kpi-active" class="rounded-lg border border-default p-4">
+        <div class="grid grid-cols-2 gap-3" :class="scoped ? 'lg:grid-cols-2' : 'lg:grid-cols-4'">
+          <div v-if="!scoped" data-test="kpi-active" class="rounded-lg border border-default p-4">
             <div class="text-xs text-muted">Active users</div>
             <div class="text-2xl font-semibold text-highlighted">{{ fmt(activeUsers) }}</div>
           </div>
-          <div data-test="kpi-logins" class="rounded-lg border border-default p-4">
+          <div v-if="!scoped" data-test="kpi-logins" class="rounded-lg border border-default p-4">
             <div class="text-xs text-muted">Logins</div>
             <div class="text-2xl font-semibold text-highlighted">{{ fmt(kpi('auth.login')) }}</div>
           </div>
@@ -117,8 +125,8 @@ function setSegment(seg: BreakdownSegment): void {
           <AnalyticsLineChart :series="activityTrend" />
         </section>
 
-        <!-- Active users / day + Auth health -->
-        <div class="grid gap-4 lg:grid-cols-2">
+        <!-- Active users / day + Auth health — platform-level auth metrics, hidden in a workspace view -->
+        <div v-if="!scoped" class="grid gap-4 lg:grid-cols-2">
           <section class="rounded-lg border border-default p-4">
             <h2 class="mb-2 text-sm font-medium text-highlighted">Active users / day</h2>
             <AnalyticsLineChart :series="activeUsersTrend" />

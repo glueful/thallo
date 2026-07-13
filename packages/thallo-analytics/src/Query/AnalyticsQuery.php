@@ -122,7 +122,12 @@ final class AnalyticsQuery
     }
 
     /**
-     * @return array{from: string, to: string, totals: array<string, int>, active_users: int}
+     * `scoped` reports whether a tenant was bound for this read: true means the counts reflect a
+     * single workspace (platform-level auth rollups, which carry no tenant, are excluded); false
+     * means an unscoped/global read. The admin UI uses it to drop auth panels in a workspace view.
+     *
+     * @return array{from: string, to: string, totals: array<string, int>, active_users: int,
+     *     scoped: bool}
      */
     public function summary(string $from, string $to): array
     {
@@ -150,6 +155,12 @@ final class AnalyticsQuery
         $stmt->execute($tenant === null ? [$from, $to] : [$from, $to, $tenant]);
         $activeUsers = (int) $stmt->fetchColumn();
 
-        return ['from' => $from, 'to' => $to, 'totals' => $totals, 'active_users' => $activeUsers];
+        return [
+            'from' => $from,
+            'to' => $to,
+            'totals' => $totals,
+            'active_users' => $activeUsers,
+            'scoped' => $tenant !== null,
+        ];
     }
 }

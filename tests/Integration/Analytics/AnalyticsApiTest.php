@@ -101,6 +101,21 @@ final class AnalyticsApiTest extends AppTestCase
         );
     }
 
+    public function testSummaryReportsUnscopedWhenTenancyIsOff(): void
+    {
+        // Default boot has tenancy off, so the read is global (not bound to a workspace) and the
+        // platform auth panels stay visible in the admin UI. `scoped` must reflect that as false.
+        $controller = $this->container()->get(AnalyticsController::class);
+        $req = Request::create('/v1/admin/analytics/summary', 'GET', [
+            'from' => '2025-06-10', 'to' => '2025-06-10',
+        ]);
+        $res = $controller->summary($req);
+
+        self::assertSame(200, $res->getStatusCode());
+        $body = json_decode((string) $res->getContent(), true);
+        self::assertFalse($body['data']['scoped']);
+    }
+
     public function testBreakdownEndpointRequiresEventFromTo(): void
     {
         $controller = $this->container()->get(AnalyticsController::class);

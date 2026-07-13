@@ -6,7 +6,7 @@ import { ref, toValue } from 'vue'
 // vi.mock factories are hoisted above imports, so a captured handle must come through vi.hoisted.
 // We stash the event ref the page passes to useAnalyticsBreakdown, then read it AFTER the click
 // (the page passes a computed<string>; toValue reads its current value post-reactivity-flush).
-const h = vi.hoisted(() => ({ breakdownEventRef: null as unknown }))
+const h = vi.hoisted(() => ({ breakdownEventRef: null as unknown, scoped: false as boolean }))
 
 vi.mock('@/queries/analytics', () => ({
   rangeFor: () => ({ from: '2025-06-01', to: '2025-06-30' }),
@@ -16,6 +16,7 @@ vi.mock('@/queries/analytics', () => ({
       to: '2025-06-30',
       totals: { 'auth.login': 1200, 'content.entry.created': 340, 'collections.row.created': 890 },
       active_users: 128,
+      scoped: h.scoped,
     }),
     status: ref('success'),
     error: ref(null),
@@ -40,7 +41,10 @@ const stubs = {
 }
 
 describe('analytics page', () => {
-  beforeEach(() => setActivePinia(createPinia()))
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    h.scoped = false
+  })
 
   it('renders the four KPI values from the summary', () => {
     const wrapper = mount(AnalyticsPage, { global: { stubs } })
@@ -55,6 +59,21 @@ describe('analytics page', () => {
     const wrapper = mount(AnalyticsPage, { global: { stubs } })
     // Activity trend + active users/day + auth health = 3 line charts.
     expect(wrapper.findAll('[data-test="line-chart"]').length).toBe(3)
+    expect(wrapper.find('[data-test="bar-chart"]').exists()).toBe(true)
+  })
+
+  it('drops platform auth panels in a workspace-scoped view', () => {
+    h.scoped = true
+    const wrapper = mount(AnalyticsPage, { global: { stubs } })
+
+    // Auth KPIs (active users, logins) are hidden; content KPIs remain.
+    expect(wrapper.find('[data-test="kpi-active"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="kpi-logins"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="kpi-entries"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="kpi-rows"]').exists()).toBe(true)
+
+    // Only the Activity trend chart remains; the active-users/day + auth-health row is gone.
+    expect(wrapper.findAll('[data-test="line-chart"]').length).toBe(1)
     expect(wrapper.find('[data-test="bar-chart"]').exists()).toBe(true)
   })
 
