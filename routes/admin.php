@@ -42,7 +42,9 @@ use Glueful\Routing\Router;
  * RouteManifest; the provider must NOT loadRoutesFrom() this file.
  */
 $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
-    $router->group(['middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap']], function (Router $router): void {
+    $router->group([
+        'middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap', 'admin_tenant_binding'],
+    ], function (Router $router): void {
         $router->get('/tenancy/signup/members', [SignupController::class, 'memberSettings'])
             ->middleware('content_permission:tenant.members.manage');
         $router->put('/tenancy/signup/members', [SignupController::class, 'updateMemberSettings'])
@@ -224,7 +226,9 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
             ->middleware('content_permission:content.view');
     });
 
-    $router->group(['middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap']], function (Router $router): void {
+    $router->group([
+        'middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap', 'admin_tenant_binding'],
+    ], function (Router $router): void {
         // Global chrome regions (header/footer block lists) — chrome is content policy.
         $router->get('/regions', [RegionAdminController::class, 'index'])
             ->middleware('content_permission:content.view');
@@ -302,7 +306,9 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
             ->middleware('content_permission:system.access');
     });
 
-    $router->group(['middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap']], function (Router $router): void {
+    $router->group([
+        'middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap', 'admin_tenant_binding'],
+    ], function (Router $router): void {
         // Media library — list/search over blobs + CMS metadata (alt/caption/tags) + usage.
         $router->get('/media', [MediaAdminController::class, 'index'])
             ->middleware('content_permission:content.view');
@@ -430,7 +436,9 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
             ->middleware('content_permission:system.access');
     });
 
-    $router->group(['middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap']], function (Router $router): void {
+    $router->group([
+        'middleware' => ['auth', 'tenant_profile:admin', 'tenant_bootstrap', 'admin_tenant_binding'],
+    ], function (Router $router): void {
         // Import/Export: the glueful/import-export extension owns the job API (under /import-export), but
         // ships no route to download an export result or upload an import file — these Thallo routes fill
         // both gaps (the importer reads from the uploads disk; see config/import_export.php source_roots).
