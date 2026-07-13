@@ -34,6 +34,7 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
 - [ ] **Scheduled publish: auto-retry, recurring, failure notifications** — `M` — **Home:** [scheduled-publish spec](superpowers/specs/2026-06-16-scheduled-publish-design.md).
 - [ ] **SEO: redirect import/export** — `S` — pack ships sitemaps/meta/robots; import/export not built. **Home:** [seo-routing-module spec](superpowers/specs/2026-06-16-seo-routing-module-design.md).
 - [ ] **SEO: `thallo:seo:check` + `redirects:prune` commands** — `S` — not built. **Home:** same spec as above.
+- [ ] **Multi-workspace setup: admin-settable resolution hosts** — `M` — base domain + default hosts are `config/tenancy.php`/`.env`-only today, so activating full resolution requires a hand-edited `.env` + server restart the admin UI never surfaces (the Resolution → Activate button 422s on "At least one default tenant host must be configured"). Make them persisted admin settings so the flow is UI-driven — enable → set base domain/hosts → activate — with at most one "reload to finish" prompt instead of editing `.env` and guessing when to bounce the server. Surfaced by dogfooding on thallodev.dev 2026-07-11. **Home:** _(no design yet)_ — follow-up on shipped multi-tenancy.
 
 ## C. Forms follow-ups (form block v1 deferrals)
 
