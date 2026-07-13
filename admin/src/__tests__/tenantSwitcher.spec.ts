@@ -33,6 +33,8 @@ const USelectMenu = {
   </button></div>`,
 }
 
+const stubs = { USelectMenu, 'u-select-menu': USelectMenu }
+
 describe('TenantSwitcher', () => {
   beforeEach(() => {
     tenantStore.tenants = []
@@ -50,7 +52,7 @@ describe('TenantSwitcher', () => {
     ]
     tenantStore.selectedUuid = 'tenant000001'
     const wrapper = mount(TenantSwitcher, {
-      global: { stubs: { USelectMenu, 'u-select-menu': USelectMenu } },
+      global: { stubs },
     })
 
     expect(wrapper.find('[data-testid="tenant-switcher"]').exists()).toBe(true)
@@ -65,7 +67,7 @@ describe('TenantSwitcher', () => {
     tenantStore.tenants = [{ uuid: 'tenant000001', slug: 'alpha', name: 'Alpha', status: 'active' }]
     tenantStore.selectedUuid = 'tenant000001'
     const wrapper = mount(TenantSwitcher, {
-      global: { stubs: { USelectMenu, 'u-select-menu': USelectMenu } },
+      global: { stubs },
     })
 
     expect(wrapper.find('[data-testid="tenant-switcher"]').exists()).toBe(false)
@@ -78,7 +80,7 @@ describe('TenantSwitcher', () => {
       { uuid: 'tenant000002', slug: 'beta', name: 'Beta', status: 'active' },
     ]
     const wrapper = mount(TenantSwitcher, {
-      global: { stubs: { USelectMenu, 'u-select-menu': USelectMenu } },
+      global: { stubs },
     })
 
     window.dispatchEvent(new CustomEvent('tenant-switch-required'))

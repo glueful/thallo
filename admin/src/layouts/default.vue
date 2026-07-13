@@ -115,12 +115,18 @@ const utilityItems = computed(() => nav.value[1])
       :default-size="16"
       :max-size="16"
       class="bg-elevated/25 border-r-0"
-      :ui="{ footer: 'lg:border-t lg:border-default' }"
+      :ui="{
+        footer: 'lg:border-t lg:border-default',
+        header: 'h-auto min-h-(--ui-header-height) flex-col items-stretch gap-3 py-3',
+      }"
     >
       <template #header="{ collapsed }">
-        <AppLogo v-if="!collapsed" class="w-auto h-10 shrink-0" :show-text="true" />
-        <TenantSwitcher v-if="!collapsed" />
-        <UDashboardSidebarCollapse :class="collapsed ? 'mx-auto' : 'ms-auto'" />
+        <div class="flex items-center gap-1.5">
+          <AppLogo v-if="!collapsed" class="h-10 w-auto shrink-0" :show-text="true" />
+          <UDashboardSidebarCollapse :class="collapsed ? 'mx-auto' : 'ms-auto'" />
+        </div>
+
+        <TenantSwitcher :collapsed="collapsed" />
       </template>
 
       <template #default="{ collapsed }">
