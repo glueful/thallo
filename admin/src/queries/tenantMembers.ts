@@ -19,9 +19,14 @@ export async function fetchAssignableRoles(): Promise<AssignableTenantRole[]> {
 }
 
 export interface TenantMember {
+  // Kept as the mutation key (set-role / remove); never shown in the UI.
   user_uuid: string
   role: TenantRole
   status: string
+  // Friendly identity attached server-side (null when the user can't be resolved).
+  name?: string | null
+  email?: string | null
+  username?: string | null
 }
 
 const qk = (tenantUuid: string) => ['tenancy', 'members', tenantUuid] as const
@@ -34,12 +39,12 @@ export async function fetchMembers(tenantUuid: string): Promise<TenantMember[]> 
 
 export async function addMember(
   tenantUuid: string,
-  userUuid: string,
+  email: string,
   role: TenantRole,
 ): Promise<void> {
   await authFetch(`${runtimeConfig.apiBase}/tenancy/tenants/${tenantUuid}/members`, {
     method: 'POST',
-    body: JSON.stringify({ user_uuid: userUuid, role }),
+    body: JSON.stringify({ email, role }),
   })
 }
 
@@ -76,8 +81,8 @@ export function useTenantMemberMutations(tenantUuid: MaybeRefOrGetter<string>) {
   const invalidate = () => cache.invalidateQueries({ key: qk(toValue(tenantUuid)) })
   return {
     add: useMutation({
-      mutation: (input: { user_uuid: string; role: TenantRole }) =>
-        addMember(toValue(tenantUuid), input.user_uuid, input.role),
+      mutation: (input: { email: string; role: TenantRole }) =>
+        addMember(toValue(tenantUuid), input.email, input.role),
       onSettled: invalidate,
     }),
     setRole: useMutation({

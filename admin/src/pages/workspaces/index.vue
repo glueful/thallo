@@ -35,6 +35,20 @@ const purgeOpen = computed({
   },
 })
 
+// Status → semantic badge color, so state reads at a glance instead of a uniform grey.
+function statusColor(status: string): 'success' | 'warning' | 'info' | 'neutral' {
+  switch (status) {
+    case 'active':
+      return 'success'
+    case 'suspended':
+      return 'warning'
+    case 'provisioning':
+      return 'info'
+    default:
+      return 'neutral' // deleted / unknown
+  }
+}
+
 async function createTenant(input: { slug: string; name: string }): Promise<void> {
   error.value = null
   fieldErrors.value = {}
@@ -97,7 +111,6 @@ async function purge(input: { uuid: string; confirm: string }): Promise<void> {
     <template #header>
       <UDashboardNavbar title="Workspaces">
         <template #right>
-          <OperatorModeToggle v-if="accessStore.access.access_any" />
           <UButton v-if="canManage" icon="i-lucide-plus" @click="() => { createOpen = true }"
             >New workspace</UButton
           >
@@ -105,15 +118,20 @@ async function purge(input: { uuid: string; confirm: string }): Promise<void> {
       </UDashboardNavbar>
     </template>
     <template #body>
-      <div class="mx-auto w-full max-w-6xl px-4 sm:px-6">
-        <p v-if="error" class="py-4 text-sm text-error" role="alert">{{ error }}</p>
+      <div class="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-6 sm:px-6">
+        <div v-if="accessStore.access.access_any" class="flex justify-end">
+          <OperatorModeToggle />
+        </div>
+        <p v-if="error" class="text-sm text-error" role="alert">{{ error }}</p>
         <div
           v-if="repairUuid"
-          class="flex flex-wrap items-center gap-3 border-b border-default py-4"
+          class="flex flex-wrap items-center gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3"
         >
           <UBadge color="warning" variant="subtle">Provisioning</UBadge>
+          <span class="text-sm text-muted">Seeding didn’t finish — retry to complete setup.</span>
           <UButton
             icon="i-lucide-refresh-cw"
+            size="sm"
             :loading="mutations.repair.isLoading.value"
             data-testid="tenant-retry-seed"
             @click="repair(repairUuid)"
@@ -123,88 +141,149 @@ async function purge(input: { uuid: string; confirm: string }): Promise<void> {
           <code v-if="repairCommand" class="text-xs text-muted">{{ repairCommand }}</code>
         </div>
 
-        <div v-if="status === 'pending'" class="grid gap-3 py-6">
-          <USkeleton v-for="i in 3" :key="i" class="h-16 w-full" />
+        <!-- Loading -->
+        <div v-if="status === 'pending'" class="grid gap-3">
+          <USkeleton v-for="i in 3" :key="i" class="h-16 w-full rounded-lg" />
         </div>
-        <ul v-else class="divide-y divide-default" role="list">
-          <li
-            v-for="tenant in tenants ?? []"
-            :key="tenant.uuid"
-            class="flex flex-wrap items-center gap-4 py-4"
-            :data-testid="`tenant-row-${tenant.uuid}`"
+
+        <!-- Empty -->
+        <div
+          v-else-if="(tenants ?? []).length === 0"
+          class="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-default px-6 py-16 text-center"
+        >
+          <div class="flex size-11 items-center justify-center rounded-full bg-elevated">
+            <UIcon name="i-lucide-building-2" class="size-5 text-dimmed" />
+          </div>
+          <div class="space-y-1">
+            <p class="text-sm font-medium text-default">No workspaces yet</p>
+            <p class="text-sm text-muted">Create your first workspace to get started.</p>
+          </div>
+          <UButton
+            v-if="canManage"
+            icon="i-lucide-plus"
+            size="sm"
+            @click="() => { createOpen = true }"
           >
-            <div class="min-w-0 flex-1">
-              <p class="font-medium">{{ tenant.name }}</p>
-              <p class="text-xs text-muted">{{ tenant.slug }}</p>
-              <p
-                v-if="tenant.status === 'deleted' && tenant.purge_after"
-                class="text-xs text-muted"
-              >
-                Restore available until {{ tenant.purge_after }}
-              </p>
-            </div>
-            <UBadge color="neutral" variant="subtle">{{ tenant.status }}</UBadge>
-            <div class="flex items-center gap-1">
-              <UButton
-                icon="i-lucide-globe-2"
-                color="neutral"
-                variant="ghost"
-                @click="selectThenNavigate(tenant.uuid, 'domains')"
-              >
-                Domains
-              </UButton>
-              <UButton
-                icon="i-lucide-users"
-                color="neutral"
-                variant="ghost"
-                @click="selectThenNavigate(tenant.uuid, 'members')"
-              >
-                Members
-              </UButton>
-              <UButton
-                v-if="tenant.status === 'active'"
-                icon="i-lucide-pause"
-                color="neutral"
-                variant="ghost"
-                aria-label="Suspend workspace"
-                @click="mutations.suspend.mutate(tenant.uuid)"
+            New workspace
+          </UButton>
+        </div>
+
+        <!-- List -->
+        <div v-else class="overflow-hidden rounded-lg border border-default">
+          <ul class="divide-y divide-default" role="list">
+            <li
+              v-for="tenant in tenants ?? []"
+              :key="tenant.uuid"
+              class="flex flex-wrap items-center gap-x-4 gap-y-3 px-4 py-3.5 transition-colors hover:bg-elevated/40"
+              :data-testid="`tenant-row-${tenant.uuid}`"
+            >
+              <UAvatar
+                :text="(tenant.name || tenant.slug || '?').charAt(0).toUpperCase()"
+                size="md"
+                class="shrink-0"
               />
-              <UButton
-                v-else-if="tenant.status === 'suspended'"
-                icon="i-lucide-play"
-                color="neutral"
-                variant="ghost"
-                aria-label="Reactivate workspace"
-                @click="mutations.reactivate.mutate(tenant.uuid)"
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-medium text-default">{{ tenant.name }}</p>
+                <p class="truncate font-mono text-xs text-muted">{{ tenant.slug }}</p>
+                <p
+                  v-if="tenant.status === 'deleted' && tenant.purge_after"
+                  class="mt-0.5 text-xs text-dimmed"
+                >
+                  Restore available until {{ tenant.purge_after }}
+                </p>
+              </div>
+
+              <UBadge
+                :label="tenant.status"
+                :color="statusColor(tenant.status)"
+                variant="subtle"
+                size="xs"
+                class="shrink-0 capitalize"
               />
-              <UButton
-                v-if="tenant.status === 'active' || tenant.status === 'suspended'"
-                icon="i-lucide-trash-2"
-                color="error"
-                variant="ghost"
-                aria-label="Move workspace to trash"
-                @click="() => { trashCandidate = tenant }"
-              />
-              <UButton
-                v-if="tenant.status === 'deleted'"
-                icon="i-lucide-rotate-ccw"
-                color="neutral"
-                variant="ghost"
-                aria-label="Restore workspace"
-                @click="restore(tenant.uuid)"
-              />
-              <UButton
-                v-if="tenant.status === 'deleted' && tenantStore.selectedUuid !== tenant.uuid"
-                icon="i-lucide-trash-2"
-                color="error"
-                variant="soft"
-                @click="() => { purgeCandidate = tenant }"
-              >
-                Purge
-              </UButton>
-            </div>
-          </li>
-        </ul>
+
+              <div class="flex items-center gap-1">
+                <UButton
+                  icon="i-lucide-globe-2"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  @click="selectThenNavigate(tenant.uuid, 'domains')"
+                >
+                  Domains
+                </UButton>
+                <UButton
+                  icon="i-lucide-users"
+                  color="neutral"
+                  variant="ghost"
+                  size="sm"
+                  @click="selectThenNavigate(tenant.uuid, 'members')"
+                >
+                  Members
+                </UButton>
+
+                <div
+                  v-if="['active', 'suspended', 'deleted'].includes(tenant.status)"
+                  class="mx-1 h-5 w-px bg-default"
+                  aria-hidden="true"
+                />
+
+                <UTooltip v-if="tenant.status === 'active'" text="Suspend workspace">
+                  <UButton
+                    icon="i-lucide-pause"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Suspend workspace"
+                    @click="mutations.suspend.mutate(tenant.uuid)"
+                  />
+                </UTooltip>
+                <UTooltip v-else-if="tenant.status === 'suspended'" text="Reactivate workspace">
+                  <UButton
+                    icon="i-lucide-play"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Reactivate workspace"
+                    @click="mutations.reactivate.mutate(tenant.uuid)"
+                  />
+                </UTooltip>
+                <UTooltip
+                  v-if="tenant.status === 'active' || tenant.status === 'suspended'"
+                  text="Move to trash"
+                >
+                  <UButton
+                    icon="i-lucide-trash-2"
+                    color="error"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Move workspace to trash"
+                    @click="() => { trashCandidate = tenant }"
+                  />
+                </UTooltip>
+                <UTooltip v-if="tenant.status === 'deleted'" text="Restore workspace">
+                  <UButton
+                    icon="i-lucide-rotate-ccw"
+                    color="neutral"
+                    variant="ghost"
+                    size="sm"
+                    aria-label="Restore workspace"
+                    @click="restore(tenant.uuid)"
+                  />
+                </UTooltip>
+                <UButton
+                  v-if="tenant.status === 'deleted' && tenantStore.selectedUuid !== tenant.uuid"
+                  icon="i-lucide-trash-2"
+                  color="error"
+                  variant="soft"
+                  size="sm"
+                  @click="() => { purgeCandidate = tenant }"
+                >
+                  Purge
+                </UButton>
+              </div>
+            </li>
+          </ul>
+        </div>
       </div>
     </template>
   </UDashboardPanel>

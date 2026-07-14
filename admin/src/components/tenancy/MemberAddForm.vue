@@ -3,19 +3,27 @@ import { computed, ref } from 'vue'
 import type { AssignableTenantRole, TenantRole } from '@/queries/tenantMembers'
 
 defineProps<{ busy?: boolean; error?: string | null; roles?: AssignableTenantRole[] }>()
-const emit = defineEmits<{ submit: [value: { user_uuid: string; role: TenantRole }] }>()
-const userUuid = ref('')
+const emit = defineEmits<{ submit: [value: { email: string; role: TenantRole }] }>()
+const email = ref('')
 const role = ref<TenantRole>('member')
-const valid = computed(() => userUuid.value.trim() !== '')
+const valid = computed(() => email.value.trim() !== '')
 </script>
 
 <template>
   <form
     class="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end"
-    @submit.prevent="valid && emit('submit', { user_uuid: userUuid.trim(), role })"
+    @submit.prevent="valid && emit('submit', { email: email.trim(), role })"
   >
-    <UFormField label="User UUID" name="user_uuid" :error="error || undefined">
-      <UInput v-model="userUuid" name="user_uuid" required class="w-full" />
+    <UFormField label="Email" name="email" :error="error || undefined">
+      <UInput
+        v-model="email"
+        name="email"
+        type="email"
+        placeholder="person@example.com"
+        autocomplete="off"
+        required
+        class="w-full"
+      />
     </UFormField>
     <UFormField label="Role">
       <RolePicker v-model="role" :roles="roles" />

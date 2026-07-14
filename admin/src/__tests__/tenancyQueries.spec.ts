@@ -54,9 +54,13 @@ describe('tenancy queries', () => {
     await addDomain('tenant000001', 'www.example.com')
     expect(authFetch.mock.calls[0]?.[0]).toBe('/v1/admin/tenancy/tenants/tenant000001/domains')
 
-    await addMember('tenant000001', 'user00000001', 'member')
+    await addMember('tenant000001', 'person@example.com', 'member')
     await setMemberRole('tenant000001', 'user00000001', 'admin')
     expect(authFetch.mock.calls[1]?.[0]).toBe('/v1/admin/tenancy/tenants/tenant000001/members')
+    // Members are added by email (resolved to a user server-side), not by raw UUID.
+    expect(authFetch.mock.calls[1]?.[1]?.body).toBe(
+      JSON.stringify({ email: 'person@example.com', role: 'member' }),
+    )
     expect(authFetch.mock.calls[2]?.[0]).toBe(
       '/v1/admin/tenancy/tenants/tenant000001/members/user00000001',
     )
