@@ -16,6 +16,7 @@ export interface ResolutionStatus {
   mode: string
   failure: string | null
   fresh_boot_required: boolean
+  origin_restart_required: boolean
 }
 
 export const qkResolution = () => ['tenancy', 'resolution'] as const
@@ -48,6 +49,15 @@ export async function deactivateResolution(): Promise<ResolutionStatus> {
   )
 }
 
+export async function resetResolution(): Promise<ResolutionStatus> {
+  return unwrap(
+    await authFetch(`${runtimeConfig.apiBase}/tenancy/resolution/reset`, {
+      method: 'POST',
+      body: '{}',
+    }),
+  )
+}
+
 export function useTenancyResolution() {
   return useQuery({ key: qkResolution(), query: fetchResolutionStatus })
 }
@@ -58,5 +68,6 @@ export function useTenancyResolutionMutations() {
   return {
     activate: useMutation({ mutation: activateResolution, onSettled: invalidate }),
     deactivate: useMutation({ mutation: deactivateResolution, onSettled: invalidate }),
+    reset: useMutation({ mutation: resetResolution, onSettled: invalidate }),
   }
 }

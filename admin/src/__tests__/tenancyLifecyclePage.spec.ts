@@ -12,8 +12,12 @@ const UButton = {
 }
 const UBadge = { template: '<span><slot /></span>' }
 const UProgress = { template: '<div />' }
+const UTimeline = { template: '<div />' }
+const UIcon = { template: '<i />' }
+const UAlert = { template: '<div />' }
 const FirstTenantConfirmForm = { template: '<div data-testid="first-tenant-confirm" />' }
 const panelStubs = { UButton, UBadge, UProgress, FirstTenantConfirmForm }
+const resolutionStubs = { UButton, UBadge, UTimeline, UIcon, UAlert }
 
 function enablement(step: EnablementStep): EnablementStatus {
   return {
@@ -30,12 +34,13 @@ function enablement(step: EnablementStep): EnablementStatus {
   }
 }
 
-function resolution(step: ResolutionStep): ResolutionStatus {
+function resolution(step: ResolutionStep, originRestartRequired = false): ResolutionStatus {
   return {
     step,
     mode: step === 'full' ? 'full_resolution' : 'bootstrap_default',
     failure: step === 'failed' ? 'Host verification failed.' : null,
     fresh_boot_required: step === 'awaiting_fresh_boot',
+    origin_restart_required: originRestartRequired,
   }
 }
 
@@ -77,12 +82,36 @@ describe('tenancy lifecycle action map', () => {
   ] as const)('renders the prescribed resolution action at %s', (step, testId) => {
     const wrapper = mount(ResolutionPanel, {
       props: { status: resolution(step) },
-      global: { stubs: { UButton, UBadge } },
+      global: { stubs: resolutionStubs },
     })
 
     expect(wrapper.find(`[data-testid="${testId}"]`).exists()).toBe(true)
     expect(wrapper.emitted('activate')).toBeUndefined()
     expect(wrapper.emitted('deactivate')).toBeUndefined()
+  })
+
+  it('offers Reset activation only at the failed step and emits reset', async () => {
+    const inactive = mount(ResolutionPanel, {
+      props: { status: resolution('inactive') },
+      global: { stubs: resolutionStubs },
+    })
+    expect(inactive.find('[data-testid="resolution-action-reset"]').exists()).toBe(false)
+
+    const failed = mount(ResolutionPanel, {
+      props: { status: resolution('failed') },
+      global: { stubs: resolutionStubs },
+    })
+    const reset = failed.get('[data-testid="resolution-action-reset"]')
+    await reset.trigger('click')
+    expect(failed.emitted('reset')).toHaveLength(1)
+  })
+
+  it('surfaces the restart note when the origin changed since boot', () => {
+    const wrapper = mount(ResolutionPanel, {
+      props: { status: resolution('inactive', true) },
+      global: { stubs: resolutionStubs },
+    })
+    expect(wrapper.find('[data-testid="resolution-restart-note"]').exists()).toBe(true)
   })
 
   it('renders refusal text verbatim', () => {
