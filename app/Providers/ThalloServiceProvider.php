@@ -37,6 +37,7 @@ use App\Content\Authorization\TenantRolePolicyMutator;
 use App\Content\Authorization\TenantRoleRepository;
 use App\Content\Authorization\TenantRoleLifecycle;
 use App\Content\Authorization\ThalloMembershipRoleAuthority;
+use App\Http\Middleware\AdminTenantBindingMiddleware;
 use Glueful\Encryption\EncryptionService;
 use Glueful\Extensions\Audit\Contracts\AuditRecorderInterface;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
@@ -47,6 +48,7 @@ use Glueful\Uploader\Contracts\BlobPublicUrlProvider;
 use Glueful\Uploader\Contracts\BlobRouteMiddlewareProvider;
 use Glueful\Extensions\Contracts\Tenancy\FullTenantResolutionReadiness;
 use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;
+use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;
 use Glueful\Extensions\Contracts\Tenancy\TenantDomainAdministration;
 use Glueful\Extensions\Tenancy\Events\DomainReverificationFailed;
 use Glueful\Extensions\Tenancy\Events\DomainReverified;
@@ -1235,6 +1237,11 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'alias' => ['content_permission'],
             ],
+            AdminTenantBindingMiddleware::class => [
+                'factory' => [self::class, 'makeAdminTenantBinding'],
+                'shared' => true,
+                'alias' => ['admin_tenant_binding'],
+            ],
             RoleMatrix::class => [
                 'class' => RoleMatrix::class,
                 'shared' => true,
@@ -1367,6 +1374,24 @@ final class ThalloServiceProvider extends ServiceProvider
             $container->get(OperatorBypass::class),
             $container->get(AuthenticatedPrincipalResolver::class),
             $container->get(PermissionAuthority::class),
+        );
+    }
+
+    public static function makeAdminTenantBinding(ContainerInterface $container): AdminTenantBindingMiddleware
+    {
+        return new AdminTenantBindingMiddleware(
+            $container->get(ApplicationContext::class),
+            $container->get(AuthenticatedPrincipalResolver::class),
+            $container->get(PermissionAuthority::class),
+            $container->has(TenantAdministration::class)
+                ? $container->get(TenantAdministration::class)
+                : null,
+            $container->has(TenantContextRunner::class)
+                ? $container->get(TenantContextRunner::class)
+                : null,
+            $container->has(FullTenantResolutionReadiness::class)
+                ? $container->get(FullTenantResolutionReadiness::class)
+                : null,
         );
     }
 

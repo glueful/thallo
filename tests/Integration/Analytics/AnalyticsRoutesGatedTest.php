@@ -40,4 +40,20 @@ final class AnalyticsRoutesGatedTest extends AppTestCase
             . 'anonymous), got: ' . $response->getStatusCode() . ' body: ' . $response->getContent()
         );
     }
+
+    public function testAnalyticsRouteBindsSelectedWorkspace(): void
+    {
+        // The analytics read route MUST carry admin_tenant_binding so that under full resolution the
+        // operator's selected workspace is bound and the tenant-scoped rollup reads return that
+        // workspace's data. Dropping it silently reintroduces the cross-workspace read gap, so guard
+        // the wiring structurally (the query-level scoping itself is covered by AnalyticsTenantScopeTest).
+        $match = $this->router()->match(Request::create('/v1/admin/analytics/summary', 'GET'));
+        self::assertNotNull($match, 'GET /v1/admin/analytics/summary must resolve to a route');
+        self::assertNotNull($match['route'], 'analytics summary route must exist');
+        self::assertContains(
+            'admin_tenant_binding',
+            $match['route']->getMiddleware(),
+            'analytics summary route must bind the selected workspace via admin_tenant_binding',
+        );
+    }
 }

@@ -2,7 +2,11 @@
 import { computed, ref } from 'vue'
 import { ApiError } from '@/api/errors'
 import { useTenancyEnablement, useTenancyEnablementMutations } from '@/queries/tenancyEnablement'
-import { useTenancyResolution, useTenancyResolutionMutations } from '@/queries/tenancyResolution'
+import {
+  useTenancyResolution,
+  useTenancyResolutionMutations,
+  type ResolutionStep,
+} from '@/queries/tenancyResolution'
 import { useTenancyDiagnose } from '@/queries/tenancyDiagnose'
 
 definePage({ meta: { requiresAuth: true } })
@@ -50,8 +54,21 @@ function onConfirm(input: { slug: string; name: string }) {
   return run(() => enablementMutations.confirm.mutateAsync(input), refreshEnablement)
 }
 
+// The machine advances one internal step per POST. Auto-advance through the internal steps so the
+// operator clicks once — stopping only where a human is actually needed: a restart, a failure, or
+// full. A mid-activation failure surfaces as a rejected request (422), which `run()` catches; the
+// refetched status then shows the failed state.
+const ACTIVATION_GATES = new Set<ResolutionStep>(['awaiting_fresh_boot', 'full', 'failed'])
+
 function onActivate(retry: boolean) {
-  return run(() => resolutionMutations.activate.mutateAsync(retry), refreshResolution)
+  return run(async () => {
+    let status = await resolutionMutations.activate.mutateAsync(retry)
+    let guard = 0
+    while (!ACTIVATION_GATES.has(status.step) && guard++ < 8) {
+      status = await resolutionMutations.activate.mutateAsync(false)
+    }
+    return status
+  }, refreshResolution)
 }
 </script>
 
@@ -80,6 +97,7 @@ function onActivate(retry: boolean) {
             @action="onEnablementAction"
             @confirm="onConfirm"
           />
+          <!-- Domain routing: set hosts (step 1) then activate (step 2), one card, one narrative. -->
           <ResolutionPanel
             v-if="resolution && enablement?.enabled"
             :status="resolution"
@@ -87,7 +105,12 @@ function onActivate(retry: boolean) {
             :error="error"
             @activate="onActivate"
             @deactivate="run(() => resolutionMutations.deactivate.mutateAsync(), refreshResolution)"
-          />
+            @reset="run(() => resolutionMutations.reset.mutateAsync(), refreshResolution)"
+          >
+            <template #hosts>
+              <PublicOriginSettings embedded />
+            </template>
+          </ResolutionPanel>
           <!-- Dependent on multi-workspace mode: the switch is locked until it's on. -->
           <WorkspaceSignupSettings :workspaces-enabled="enablement?.enabled ?? false" />
           <DiagnoseReport :report="diagnose" :busy="diagnosing" @run="runDiagnose" />

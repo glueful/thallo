@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useTenantTarget } from '@/composables/useTenantTarget'
 import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 import {
@@ -17,10 +17,11 @@ import {
 definePage({ meta: { requiresAuth: true } })
 
 const route = useRoute()
+const router = useRouter()
 const uuid = computed(() => String(route.params.uuid ?? ''))
 const singleStoreMode = computed(() => route.path.startsWith('/settings/signup/roles'))
 const access = useTenancyAccessStore()
-const { ensureTargetSelected } = useTenantTarget()
+const { ensureTargetSelected, selectedUuid } = useTenantTarget()
 const payload = ref<RolesPayload>({ roles: [], catalog: {} })
 const selected = ref('')
 const loading = ref(false)
@@ -129,6 +130,16 @@ watch(
   },
   { immediate: true },
 )
+
+// Follow the sidebar switcher: in workspace mode, when the active workspace changes, replace the URL
+// with that workspace's roles. The [uuid] watch above then re-runs load() for the newly-bound tenant
+// — roles are fetched via the bound-tenant header, so without this the list would stay stale on a
+// switch. (Signup-roles mode has no workspace uuid, so it never navigates.)
+watch(selectedUuid, (next) => {
+  if (!singleStoreMode.value && next && next !== uuid.value) {
+    void router.replace(`/workspaces/${next}/roles`)
+  }
+})
 </script>
 
 <template>

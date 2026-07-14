@@ -90,7 +90,8 @@ describe('tenancy navigation shaping', () => {
       '/workspaces/tenant000001/domains',
       '/workspaces/tenant000001/members',
     ])
-    expect(tenants?.to).toBe('/workspaces/tenant000001/domains')
+    // Expand-only parent: no navigational `to`, clicking toggles the group.
+    expect(tenants?.to).toBeUndefined()
   })
 
   it('shows platform navigation and never leaks placeholder links', () => {
@@ -102,6 +103,8 @@ describe('tenancy navigation shaping', () => {
       true,
     )
     expect(JSON.stringify(shaped)).not.toContain('_selected')
+    // Even for a platform operator the parent is expand-only; the list lives on "All workspaces".
+    expect(shaped.find((item) => item.label === 'Workspaces')?.to).toBeUndefined()
     expect(shaped.find((item) => item.label === 'Settings')?.children).toHaveLength(2)
   })
 })

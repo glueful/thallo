@@ -49,7 +49,9 @@ export function shapeTenancyNav(
       })
       const firstTarget = children[0]?.to
       if (!access.manage_platform && !firstTarget) continue
-      shaped.push({ ...item, to: access.manage_platform ? '/workspaces' : firstTarget, children })
+      // Expand-only parent: strip any `to` so clicking toggles the group instead of navigating.
+      // The destinations still live on the children (e.g. `/workspaces` via "All workspaces").
+      shaped.push({ ...item, to: undefined, children })
       continue
     }
 

@@ -19,6 +19,10 @@ export interface SummaryResponse {
   to: string
   totals: Record<string, number>
   active_users: number
+  // True when the read was bound to a single workspace. Platform-level auth rollups (logins,
+  // active users) carry no tenant and fall out of a scoped read, so the page drops those panels
+  // when this is true. Absent/false on unscoped (single-store or tenancy-off) reads.
+  scoped?: boolean
 }
 export interface BreakdownItem {
   subject: string

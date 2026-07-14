@@ -78,6 +78,8 @@ export default defineConfig(({ mode }) => {
         ui: {
           colors: {
             primary: 'blue',
+            // Success = the design mock's emerald green (Nuxt UI's default success is a limier green).
+            success: 'emerald',
           },
           button: {
             slots: {
