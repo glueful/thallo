@@ -154,7 +154,7 @@ const utilityItems = computed(() => nav.value[1])
       </template>
     </UDashboardSidebar>
     <div
-      class="flex-1 flex flex-col min-w-0 min-h-0 bg-white rounded-2xl m-3 ring ring-default dark:bg-default"
+      class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-white rounded-2xl m-3 ring ring-default dark:bg-default"
     >
       <RouterView />
     </div>
