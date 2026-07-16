@@ -1,19 +1,15 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { visibleNav, resetAdminModules } from '@/registry/adminModules'
-import { registerWorkflowModule } from '@/registry/workflowModule'
+import { describe, it, expect } from 'vitest'
+import { visibleNav } from '@/registry/adminModules'
+import { workflowModule } from '@/registry/workflowModule'
 
 describe('workflow admin module gating (thallo.workflow capability)', () => {
-  beforeEach(() => resetAdminModules())
-
-  it('omits the Review queue nav when thallo.workflow is disabled', () => {
-    registerWorkflowModule()
-    const [main] = visibleNav(() => false)
+  it('omits the Review queue nav when thallo.workflow is not visible', () => {
+    const [main] = visibleNav(() => false, [workflowModule])
     expect(main).toEqual([])
   })
 
-  it('includes the Review queue nav linking to /workflow when enabled', () => {
-    registerWorkflowModule()
-    const [main] = visibleNav((id) => id === 'thallo.workflow')
+  it('includes the Review queue nav linking to /workflow when visible', () => {
+    const [main] = visibleNav((id) => id === 'thallo.workflow', [workflowModule])
     expect(main.map((i) => i.label)).toEqual(['Review queue'])
     expect(main[0].to).toBe('/workflow')
   })

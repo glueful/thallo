@@ -1,5 +1,5 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
-import { registerAdminModule } from './adminModules'
+import type { AdminModule } from './adminModules'
 
 // Global chrome regions (header/footer block lists) — always-on: the edit API is
 // core app surface; the regions render wherever thallo-render is active, and the
@@ -12,6 +12,4 @@ const site: NavigationMenuItem[] = [
   },
 ]
 
-export function registerRegionsModule(): void {
-  registerAdminModule({ id: 'regions', nav: { site } })
-}
+export const regionsModule: AdminModule = { id: 'regions', nav: { site } }

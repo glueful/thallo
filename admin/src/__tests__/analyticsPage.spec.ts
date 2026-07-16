@@ -77,10 +77,10 @@ describe('analytics page', () => {
     expect(wrapper.find('[data-test="bar-chart"]').exists()).toBe(true)
   })
 
-  it('defaults the breakdown to Collections and switches to Content types', async () => {
+  it('defaults the breakdown to Content types and switches to Collections', async () => {
     const wrapper = mount(AnalyticsPage, { global: { stubs } })
-    expect(toValue(h.breakdownEventRef)).toBe('collections.row.created')
-    await wrapper.find('[data-test="seg-types"]').trigger('click')
     expect(toValue(h.breakdownEventRef)).toBe('content.entry.created')
+    await wrapper.find('[data-test="seg-collections"]').trigger('click')
+    expect(toValue(h.breakdownEventRef)).toBe('collections.row.created')
   })
 })

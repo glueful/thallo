@@ -1,5 +1,5 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
-import { registerAdminModule } from './adminModules'
+import type { AdminModule } from './adminModules'
 
 const main: NavigationMenuItem[] = [
   {
@@ -16,6 +16,4 @@ const main: NavigationMenuItem[] = [
   },
 ]
 
-export function registerTenancyModule(): void {
-  registerAdminModule({ id: 'tenancy', requires: ['thallo.tenancy'], nav: { main } })
-}
+export const tenancyModule: AdminModule = { id: 'tenancy', requires: ['thallo.tenancy'], nav: { main } }

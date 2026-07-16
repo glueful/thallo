@@ -8,6 +8,7 @@ const { cfg, session, caps } = vi.hoisted(() => ({
   caps: {
     ensureLoaded: vi.fn().mockResolvedValue(undefined),
     isEnabled: (_: string): boolean => false,
+    status: 'ready' as string,
   },
 }))
 
@@ -26,6 +27,7 @@ describe('install + auth guard', () => {
     cfg.installed = false
     session.isAuthenticated = false
     caps.isEnabled = (_: string): boolean => false
+    caps.status = 'ready'
   })
 
   it('redirects everything to /setup when not installed', () => {
@@ -68,6 +70,43 @@ describe('install + auth guard', () => {
     await expect(
       installAndAuthGuard(to('/forms', { requiresAuth: true, requiresCapability: 'thallo.forms' })),
     ).resolves.toEqual({ path: '/' })
+  })
+
+  // The redirect-home is reserved for a GENUINELY disabled capability (status ready).
+  // A failed discovery fetch must not masquerade as "disabled": the guard lets the route
+  // resolve and the layout's capability boundary renders the Retry panel instead.
+  it('allows a capability-gated route through when discovery errored (unknown ≠ disabled)', async () => {
+    cfg.installed = true
+    session.isAuthenticated = true
+    caps.status = 'error'
+    caps.isEnabled = () => false
+    await expect(
+      installAndAuthGuard(to('/forms', { requiresAuth: true, requiresCapability: 'thallo.forms' })),
+    ).resolves.toBe(true)
+  })
+
+  it('still awaits ensureLoaded before deciding (loading is awaited, not guessed)', async () => {
+    cfg.installed = true
+    session.isAuthenticated = true
+    let settle!: () => void
+    caps.ensureLoaded.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        settle = resolve
+      }),
+    )
+    caps.isEnabled = (id: string) => id === 'thallo.forms'
+
+    const result = installAndAuthGuard(
+      to('/forms', { requiresAuth: true, requiresCapability: 'thallo.forms' }),
+    ) as Promise<unknown>
+    let resolved = false
+    void result.then(() => {
+      resolved = true
+    })
+    await Promise.resolve()
+    expect(resolved).toBe(false) // undecided until discovery settles
+    settle()
+    await expect(result).resolves.toBe(true)
   })
 
   it('allows a capability-gated route when the capability is enabled', async () => {

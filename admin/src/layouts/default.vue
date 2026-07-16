@@ -1,15 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { open, useVisibleNav } from '../navigation/sidebar'
-import { registerCoreModule } from '@/registry/coreModule'
-import { registerCollectionsModule } from '@/registry/collectionsModule'
-import { registerAnalyticsModule } from '@/registry/analyticsModule'
-import { registerWorkflowModule } from '@/registry/workflowModule'
-import { registerNavigationModule } from '@/registry/navigationModule'
-import { registerRegionsModule } from '@/registry/regionsModule'
-import { registerTemplatesModule } from '@/registry/templatesModule'
-import { registerSubmissionsModule } from '@/registry/submissionsModule'
-import { registerTenancyModule } from '@/registry/tenancyModule'
+import CapabilityErrorPanel from '@/components/CapabilityErrorPanel.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useContentTypes } from '@/queries/contentTypes'
 import { useUnreadCount } from '@/queries/formSubmissions'
@@ -19,17 +12,29 @@ import { useTenancyAccessLifecycle } from '@/composables/useTenancyAccessLifecyc
 import { useTenancyEnablement } from '@/queries/tenancyEnablement'
 import { inferTenancyEnabledForNavigation, shapeTenancyNav } from '@/navigation/shapeTenancyNav'
 
-registerCoreModule()
-registerCollectionsModule()
-registerAnalyticsModule()
-registerWorkflowModule()
-registerNavigationModule()
-registerRegionsModule()
-registerTemplatesModule()
-registerSubmissionsModule()
-registerTenancyModule()
+// Menus are DECLARED, not registered: the sidebar reads the static manifest
+// (src/registry/manifest.ts) through useVisibleNav(), so structure exists before first
+// render and per-item visibility is the only dynamic axis.
 const caps = useCapabilitiesStore()
-caps.ensureLoaded() // post-auth: this layout only renders for authenticated users
+void caps.ensureLoaded() // post-auth: this layout only renders for authenticated users
+const route = useRoute()
+
+// Shared capability boundary: when the routed page declares `meta.requiresCapability`
+// and discovery ERRORED, render ONE Retry panel instead of the page — the guard lets
+// such navigations resolve (unknown must never become "disabled"/redirect), and this
+// boundary is the single error surface so capability pages don't each implement one.
+const capabilityBlocked = computed(
+  () => route.meta.requiresCapability !== undefined && caps.status === 'error',
+)
+const retryingCaps = ref(false)
+async function retryCaps(): Promise<void> {
+  retryingCaps.value = true
+  try {
+    await caps.retry()
+  } finally {
+    retryingCaps.value = false
+  }
+}
 const tenant = useTenantStore()
 const tenancyAccess = useTenancyAccessStore()
 useTenancyAccessLifecycle()
@@ -98,7 +103,9 @@ const mainItems = computed(() => {
     enriched,
     tenancyAccess.access,
     tenant.selectedUuid,
-    caps.isEnabled('thallo.tenancy'),
+    // Presentation hint (isVisible, not isEnabled): this only shapes the sidebar; the
+    // tenancy routes themselves stay behind verified capability + server authorization.
+    caps.isVisible('thallo.tenancy'),
     tenancyEnabled.value,
   )
 })
@@ -130,6 +137,11 @@ const utilityItems = computed(() => nav.value[1])
       </template>
 
       <template #default="{ collapsed }">
+        <!-- No skeleton: the STATIC manifest renders core items on the first frame, and
+             pack-gated items resolve from the persisted last-known capability snapshot
+             (isVisible) — so a returning session paints the complete, correct nav
+             immediately. Only a genuinely first-ever session sees gated items arrive
+             once, when discovery lands. -->
         <UNavigationMenu
           :collapsed="collapsed"
           :items="mainItems"
@@ -156,7 +168,8 @@ const utilityItems = computed(() => nav.value[1])
     <div
       class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-white rounded-2xl m-3 ring ring-default dark:bg-default"
     >
-      <RouterView />
+      <CapabilityErrorPanel v-if="capabilityBlocked" :retrying="retryingCaps" @retry="retryCaps" />
+      <RouterView v-else />
     </div>
   </UDashboardGroup>
 </template>

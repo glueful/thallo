@@ -1,5 +1,5 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
-import { registerAdminModule } from './adminModules'
+import type { AdminModule } from './adminModules'
 
 // Analytics admin nav — gated on the `thallo.analytics` capability. The whole "Analytics" entry
 // disappears from the sidebar when the pack is disabled or removed (the backend 404s those routes
@@ -12,6 +12,4 @@ const main: NavigationMenuItem[] = [
   },
 ]
 
-export function registerAnalyticsModule(): void {
-  registerAdminModule({ id: 'analytics', requires: ['thallo.analytics'], nav: { main } })
-}
+export const analyticsModule: AdminModule = { id: 'analytics', requires: ['thallo.analytics'], nav: { main } }

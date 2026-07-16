@@ -7,17 +7,20 @@ import type { NavMenuDetail, NavMenuSummary } from '@/queries/navigation'
 import { ApiError } from '@/api/errors'
 
 const menusData = ref<NavMenuSummary[] | undefined>(undefined)
+const menusLoading = ref(false)
 const detailData = ref<NavMenuDetail | undefined>(undefined)
 const refetch = vi.fn().mockResolvedValue(undefined)
 const saveMock = vi.fn()
 const notify = vi.hoisted(() => ({ success: vi.fn(), error: vi.fn() }))
 const capsEnabled = vi.hoisted(() => ({ value: true }))
+const capsStatus = vi.hoisted(() => ({ value: 'ready' as string }))
+const capsRetry = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const reorderMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const renameMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 const removeMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
 
 vi.mock('@/queries/navigation', () => ({
-  useNavMenus: () => ({ data: menusData }),
+  useNavMenus: () => ({ data: menusData, isLoading: menusLoading }),
   useNavMenu: () => ({ data: detailData, refetch }),
   useNavigationMutations: () => ({
     create: { mutateAsync: vi.fn() },
@@ -31,7 +34,16 @@ vi.mock('@/queries/locales', () => ({
   useLocales: () => ({ data: ref([{ code: 'en' }, { code: 'fr' }]) }),
 }))
 vi.mock('@/stores/capabilities', () => ({
-  useCapabilitiesStore: () => ({ isEnabled: () => capsEnabled.value }),
+  useCapabilitiesStore: () => ({
+    isEnabled: () => capsEnabled.value,
+    get status() {
+      return capsStatus.value
+    },
+    get settled() {
+      return capsStatus.value === 'ready' || capsStatus.value === 'error'
+    },
+    retry: capsRetry,
+  }),
 }))
 vi.mock('@/composables/useNotify', () => ({
   useNotify: () => ({ success: notify.success, error: notify.error }),
@@ -94,6 +106,9 @@ describe('navigation page', () => {
     renameMock.mockClear()
     removeMock.mockClear()
     capsEnabled.value = true
+    capsStatus.value = 'ready'
+    menusLoading.value = false
+    capsRetry.mockClear()
     notify.success.mockClear()
     notify.error.mockClear()
   })
@@ -137,6 +152,54 @@ describe('navigation page', () => {
     const wrapper = mountPage()
     await flushPromises()
     expect(wrapper.find('[data-test="nav-menu-new"]').exists()).toBe(false)
+  })
+
+  // The four capability states are never conflated (flicker/reload fix): while discovery
+  // is still LOADING the page must claim nothing — no lock message, no menu list.
+  it('shows a skeleton, not the lock message, while capabilities are loading', async () => {
+    capsStatus.value = 'loading'
+    capsEnabled.value = false
+    const wrapper = mountPage()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="nav-caps-loading"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('Navigation isn’t enabled.')
+    expect(wrapper.find('[data-testid="capability-error-panel"]').exists()).toBe(false)
+  })
+
+  it('shows the shared Retry panel, not "disabled", when capability discovery errored', async () => {
+    capsStatus.value = 'error'
+    capsEnabled.value = false
+    const wrapper = mountPage()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="capability-error-panel"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('Navigation isn’t enabled.')
+
+    await wrapper.find('[data-testid="capability-error-retry"]').trigger('click')
+    expect(capsRetry).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the lock message only when discovery succeeded and the capability is off', async () => {
+    capsStatus.value = 'ready'
+    capsEnabled.value = false
+    const wrapper = mountPage()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="nav-caps-disabled"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Navigation isn’t enabled.')
+  })
+
+  it('distinguishes menu-list loading from a genuinely empty list', async () => {
+    menusLoading.value = true
+    menusData.value = undefined
+    const wrapper = mountPage()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="nav-menus-loading"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('No menus yet.')
+
+    menusLoading.value = false
+    menusData.value = []
+    await flushPromises()
+    expect(wrapper.find('[data-testid="nav-menus-loading"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('No menus yet.')
   })
 
   it('preserves the selected menu by slug across a reorder', async () => {

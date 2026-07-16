@@ -44,15 +44,24 @@ final class CapabilityAdminApiTest extends AppTestCase
         self::assertSame(['test.dep'], $fake['requires']);
     }
 
-    public function testRouteIsRegisteredUnderAdminPermission(): void
+    public function testRouteIsAuthenticatedDiscoveryWithoutPermissionGate(): void
     {
         $route = $this->findRoute('GET', '/v1/admin/capabilities');
         self::assertNotNull($route, '/v1/admin/capabilities must be registered');
         $middleware = (array) ($route['middleware'] ?? []);
-        self::assertContains(
-            'content_permission:system.access',
-            $middleware,
-            'capabilities endpoint must require system.access',
-        );
+
+        // Discovery is deliberately auth-only: a workspace owner with a pack permission
+        // (e.g. navigation.manage) but WITHOUT system.access must still discover which
+        // modules exist — the previous system.access gate 403'd those users into a
+        // permanently empty capability set (hidden nav; reload never fixed it). Feature
+        // endpoints keep their own content_permission gates.
+        self::assertContains('auth', $middleware, 'capabilities endpoint must stay authenticated');
+        foreach ($middleware as $entry) {
+            self::assertStringNotContainsString(
+                'content_permission:',
+                (string) $entry,
+                'capabilities endpoint is discovery — it must not carry a permission gate',
+            );
+        }
     }
 }

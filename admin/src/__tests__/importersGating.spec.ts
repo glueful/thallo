@@ -74,8 +74,8 @@ describe('format-import gating (thallo.importers capability)', () => {
 
   it('hides the format wizard but keeps the core snapshot import when thallo.importers is disabled', () => {
     const caps = useCapabilitiesStore()
-    // Mark as already-loaded so ensureLoaded() is a no-op and we control the set directly.
-    caps.loaded = true
+    // Mark as already-settled so ensureLoaded() is a no-op and we control the set directly.
+    caps.status = 'ready'
     caps.enabledIds = new Set()
 
     const wrapper = mount(ImportExportPage)
@@ -90,7 +90,7 @@ describe('format-import gating (thallo.importers capability)', () => {
 
   it('shows the format wizard when thallo.importers is enabled', () => {
     const caps = useCapabilitiesStore()
-    caps.loaded = true
+    caps.status = 'ready'
     caps.enabledIds = new Set(['thallo.importers'])
 
     const wrapper = mount(ImportExportPage)

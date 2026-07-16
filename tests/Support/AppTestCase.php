@@ -219,6 +219,15 @@ abstract class AppTestCase extends TestCase
         if (!is_dir($overrideDir)) {
             mkdir($overrideDir, 0755, true);
         }
+
+        // `config/testing/` is NOT purely scratch space: `config/testing/extensions.php` is a
+        // PERMANENT, tracked override (the tenancy-off test shield — see its header). A caller
+        // overriding the same key must RESTORE the pre-existing file afterwards, not unlink it —
+        // the old unconditional unlink deleted the shield on every full-suite run, letting dev
+        // dogfooding state (the enforcement provider `extensions:enable` writes into
+        // config/extensions.php) leak into later tests as intermittent
+        // TenantContextRequiredException failures.
+        $previous = is_file($overrideFile) ? (string) file_get_contents($overrideFile) : null;
         file_put_contents($overrideFile, "<?php\nreturn " . var_export($config, true) . ";\n");
 
         RouteManifest::reset();
@@ -233,9 +242,13 @@ abstract class AppTestCase extends TestCase
                 ->boot()
                 ->getContext();
         } finally {
-            @unlink($overrideFile);
-            if (is_dir($overrideDir) && count((array) scandir($overrideDir)) === 2) {
-                @rmdir($overrideDir);
+            if ($previous !== null) {
+                file_put_contents($overrideFile, $previous);
+            } else {
+                @unlink($overrideFile);
+                if (is_dir($overrideDir) && count((array) scandir($overrideDir)) === 2) {
+                    @rmdir($overrideDir);
+                }
             }
             RouteManifest::reset();
         }

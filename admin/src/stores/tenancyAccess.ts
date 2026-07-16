@@ -40,8 +40,14 @@ export const useTenancyAccessStore = defineStore('tenancyAccess', () => {
     return inflight
   }
 
+  // Stale-while-revalidate: the PREVIOUS flags stay in place until the new answer lands.
+  // Blanking here made every workspace-page mount (ensureTargetSelected revalidates on
+  // entry) momentarily read as "no tenant access", which dropped and re-added the whole
+  // Workspaces sidebar group — the flash. Fail-closed blanking belongs to IDENTITY
+  // changes, and every such caller (the selection/operator-mode watcher, the switcher's
+  // 403 recovery) already calls reset() first; the generation guard in run() keeps a
+  // stale response from clobbering a newer one.
   async function refresh(): Promise<void> {
-    access.value = emptyAccess()
     await run()
   }
 

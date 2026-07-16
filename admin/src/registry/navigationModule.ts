@@ -1,5 +1,5 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
-import { registerAdminModule } from './adminModules'
+import type { AdminModule } from './adminModules'
 
 // Navigation (menu builder) nav — gated on the `thallo.navigation` capability; disappears
 // when the pack is disabled or removed (the backend 404s those routes too — see the
@@ -13,6 +13,4 @@ const site: NavigationMenuItem[] = [
   },
 ]
 
-export function registerNavigationModule(): void {
-  registerAdminModule({ id: 'navigation', requires: ['thallo.navigation'], nav: { site } })
-}
+export const navigationModule: AdminModule = { id: 'navigation', requires: ['thallo.navigation'], nav: { site } }

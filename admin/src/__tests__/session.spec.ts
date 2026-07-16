@@ -75,4 +75,47 @@ describe('session store', () => {
     expect(s.accessToken).toBeNull()
     expect(s.refreshToken).toBeNull()
   })
+
+  // The persist plugin re-serializes the nulled state on a 100ms DEBOUNCE — a tab closed
+  // inside that window would otherwise leave the pre-logout blob (access + refresh token)
+  // restorable. clear() must purge the persisted snapshot synchronously, not wait for the
+  // plugin, and must sweep again after the debounce so the trailing nulls-write leaves no
+  // residual blob behind.
+  it('clear() purges the persisted token snapshot synchronously and after the debounce', async () => {
+    vi.useFakeTimers()
+    try {
+      localStorage.setItem('thallo_session', 'encrypted-blob-with-tokens')
+      const { useSessionStore } = await import('@/stores/session')
+      const s = useSessionStore()
+      s.setSession('tok', 'rtok', { uuid: 'u1', email: 'a@b.c' })
+
+      s.clear()
+
+      // Synchronous removal: tokens are unrecoverable even if the tab dies right now.
+      expect(localStorage.getItem('thallo_session')).toBeNull()
+
+      // Simulate the plugin's trailing debounced write recreating the key with nulls…
+      localStorage.setItem('thallo_session', 'encrypted-nulls-blob')
+      await vi.advanceTimersByTimeAsync(250)
+      // …the post-debounce sweep removes the residue too.
+      expect(localStorage.getItem('thallo_session')).toBeNull()
+    } finally {
+      vi.useRealTimers()
+      localStorage.clear()
+    }
+  })
+
+  it('logout clears the persisted snapshot even when the API call fails', async () => {
+    ;(globalThis.fetch as any).mockRejectedValue(new Error('network down'))
+    localStorage.setItem('thallo_session', 'encrypted-blob-with-tokens')
+    const { useSessionStore } = await import('@/stores/session')
+    const s = useSessionStore()
+    s.setSession('tok', 'rtok', { uuid: 'u1', email: 'a@b.c' })
+
+    await s.logout().catch(() => undefined)
+
+    expect(s.isAuthenticated).toBe(false)
+    expect(localStorage.getItem('thallo_session')).toBeNull()
+    localStorage.clear()
+  })
 })

@@ -415,9 +415,12 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
 
     $router->group(['middleware' => ['tenant_system', 'auth']], function (Router $router): void {
         // Capabilities — reports installed packs whose capability is enabled by the switchboard.
-        // Read-only; consumed by the admin SPA to mount only available modules.
-        $router->get('/capabilities', [CapabilityAdminController::class, 'index'])
-            ->middleware('content_permission:system.access');
+        // Read-only DISCOVERY for the admin SPA (which modules exist), deliberately gated by
+        // auth alone — NOT `system.access`: a workspace owner with e.g. `navigation.manage`
+        // must be able to discover the Navigation module without system-operator rights.
+        // It leaks only pack availability, never data; every actual feature endpoint keeps
+        // its own `content_permission:*` gate.
+        $router->get('/capabilities', [CapabilityAdminController::class, 'index']);
 
     // Utilities — system ops tools (Health, Cache, Scheduled tasks). All gated by system.access.
         $router->get('/health', [HealthAdminController::class, 'show'])

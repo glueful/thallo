@@ -1,5 +1,5 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
-import { registerAdminModule } from './adminModules'
+import type { AdminModule } from './adminModules'
 
 // Collections admin nav — gated on the `thallo.collections` capability. Mirrors coreModule.ts, but
 // registers with a `requires` so the whole "Collections" group disappears from the sidebar when the
@@ -24,6 +24,4 @@ const main: NavigationMenuItem[] = [
   },
 ]
 
-export function registerCollectionsModule(): void {
-  registerAdminModule({ id: 'collections', requires: ['thallo.collections'], nav: { main } })
-}
+export const collectionsModule: AdminModule = { id: 'collections', requires: ['thallo.collections'], nav: { main } }
