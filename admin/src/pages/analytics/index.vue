@@ -51,7 +51,7 @@ const authHealth = computed<LineSeries[]>(() => [
 
 // Breakdown: one event at a time via the segmented control.
 type BreakdownSegment = 'collections' | 'types'
-const segment = ref<BreakdownSegment>('collections')
+const segment = ref<BreakdownSegment>('types')
 const breakdownEvent = computed(() =>
   segment.value === 'collections' ? 'collections.row.created' : 'content.entry.created',
 )
@@ -142,6 +142,15 @@ function setSegment(seg: BreakdownSegment): void {
           <div class="mb-2 flex items-center justify-between">
             <h2 class="text-sm font-medium text-highlighted">Most active</h2>
             <div class="flex gap-1" role="group" aria-label="Breakdown dimension">
+               <UButton
+                data-test="seg-types"
+                size="xs"
+                :variant="segment === 'types' ? 'solid' : 'ghost'"
+                :color="segment === 'types' ? 'primary' : 'neutral'"
+                @click="setSegment('types')"
+              >
+                Content types
+              </UButton>
               <UButton
                 data-test="seg-collections"
                 size="xs"
@@ -150,15 +159,6 @@ function setSegment(seg: BreakdownSegment): void {
                 @click="setSegment('collections')"
               >
                 Collections
-              </UButton>
-              <UButton
-                data-test="seg-types"
-                size="xs"
-                :variant="segment === 'types' ? 'solid' : 'ghost'"
-                :color="segment === 'types' ? 'primary' : 'neutral'"
-                @click="setSegment('types')"
-              >
-                Content types
               </UButton>
             </div>
           </div>
