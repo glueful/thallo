@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { authFetch } from '@/api/authFetch'
 import { runtimeConfig } from '@/runtime/config'
 
@@ -7,15 +7,34 @@ interface CapabilityRow {
   id: string
 }
 
+export type CapabilityStatus = 'idle' | 'loading' | 'ready' | 'error'
+
+// Bounded automatic recovery for a failed INITIAL load: two retries, backing off.
+// Deliberately small — the window-focus refresh and the manual Retry panel are the
+// long-tail recovery paths; this only papers over the boot-time blip.
+const AUTO_RETRY_DELAYS_MS = [2_000, 6_000] as const
+
 /**
  * Enabled capability ids, loaded post-auth from GET /v1/admin/capabilities (Phase B).
- * Drives capability-gated nav (the admin module registry) and route gating. Fails closed:
- * on error the enabled set is empty, so nothing pack-gated shows while core stays visible.
+ * Drives capability-gated nav (the admin module registry) and route gating.
+ *
+ * Availability is a four-state machine, NOT a boolean: `idle | loading | ready | error`.
+ * "We don't know yet" (loading) and "we couldn't find out" (error) are never collapsed
+ * into "no capabilities" — `isEnabled()` still answers `false` in those states (gating
+ * stays fail-closed), but consumers that would take a DESTRUCTIVE rendering decision
+ * (hide a module, redirect a route, show "isn't enabled") must branch on `status`:
+ * skeleton while `loading`, a Retry surface on `error`, and only trust the answer at
+ * `ready`. A failed load keeps the last successful set (empty on first boot), schedules
+ * a bounded automatic retry, and `retry()` is the manual recovery for the error panels.
  */
 export const useCapabilitiesStore = defineStore('capabilities', () => {
   const enabledIds = ref<Set<string>>(new Set())
-  const loaded = ref(false)
+  const status = ref<CapabilityStatus>('idle')
+  /** True once the initial fetch has SETTLED (ready or error) — the skeleton gate. */
+  const settled = computed(() => status.value === 'ready' || status.value === 'error')
   let inflight: Promise<void> | null = null
+  let autoRetriesUsed = 0
+  let autoRetryTimer: ReturnType<typeof setTimeout> | null = null
 
   function isEnabled(id: string): boolean {
     return enabledIds.value.has(id)
@@ -28,22 +47,70 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
     return new Set(rows.map((r) => r.id))
   }
 
-  async function load(): Promise<void> {
-    try {
-      enabledIds.value = await fetchEnabledIds()
-    } catch {
-      enabledIds.value = new Set()
-    } finally {
-      loaded.value = true
+  function clearAutoRetry(): void {
+    if (autoRetryTimer !== null) {
+      clearTimeout(autoRetryTimer)
+      autoRetryTimer = null
     }
   }
 
+  async function load(): Promise<void> {
+    if (status.value !== 'ready') status.value = 'loading'
+    try {
+      enabledIds.value = await fetchEnabledIds()
+      status.value = 'ready'
+      autoRetriesUsed = 0
+      clearAutoRetry()
+    } catch {
+      // Keep the previous set (empty on first boot) — an error is NOT an empty
+      // capability list. Schedule a bounded automatic retry.
+      status.value = 'error'
+      if (autoRetriesUsed < AUTO_RETRY_DELAYS_MS.length) {
+        const delay = AUTO_RETRY_DELAYS_MS[autoRetriesUsed]!
+        autoRetriesUsed += 1
+        clearAutoRetry()
+        autoRetryTimer = setTimeout(() => {
+          autoRetryTimer = null
+          void run()
+        }, delay)
+      }
+    }
+  }
+
+  /** Single-flight wrapper: concurrent callers share one request. */
+  function run(): Promise<void> {
+    inflight ??= load().finally(() => {
+      inflight = null
+    })
+    return inflight
+  }
+
+  /**
+   * Idempotent boot fetch. Resolves immediately at `ready`; at `error` it also resolves
+   * WITHOUT refetching — recovery belongs to the auto-retry timer, the focus refresh,
+   * and `retry()` — so a navigation storm can't hammer a failing endpoint. The router
+   * guard awaits this, then branches on `status`.
+   */
+  function ensureLoaded(): Promise<void> {
+    if (status.value === 'ready' || status.value === 'error') return inflight ?? Promise.resolve()
+    return run()
+  }
+
+  /** Manual recovery (the Retry panels): resets the auto-retry budget and refetches. */
+  function retry(): Promise<void> {
+    clearAutoRetry()
+    autoRetriesUsed = 0
+    return run()
+  }
+
   // Background refetch (window focus): converge an open tab on a server-side pack
-  // enable/disable without a manual reload. Unlike load(), a failure keeps the PREVIOUS
-  // set — a transient network blip during a refetch must not blank the whole gated nav.
+  // enable/disable without a manual reload. Unlike load(), a failure at `ready` keeps
+  // the PREVIOUS set — a transient network blip during a refetch must not blank the
+  // whole gated nav (and must not demote `ready` to `error`). Before `ready`, a
+  // refresh is just the initial load / a retry.
   async function refresh(): Promise<void> {
-    if (!loaded.value) {
-      return ensureLoaded()
+    if (status.value !== 'ready') {
+      return retry()
     }
     try {
       enabledIds.value = await fetchEnabledIds()
@@ -71,21 +138,26 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
     }
   }
 
-  function ensureLoaded(): Promise<void> {
-    if (loaded.value) return Promise.resolve()
-    inflight ??= load().finally(() => {
-      inflight = null
-    })
-    return inflight
-  }
-
   // Clear the cached set so the next ensureLoaded() reloads. Called on login/logout so a second
   // account in the same tab (SPA nav, no reload) never inherits the previous user's capabilities.
   function reset(): void {
     enabledIds.value = new Set()
-    loaded.value = false
+    status.value = 'idle'
     inflight = null
+    autoRetriesUsed = 0
+    clearAutoRetry()
   }
 
-  return { enabledIds, loaded, isEnabled, load, ensureLoaded, refresh, refreshUntilChanged, reset }
+  return {
+    enabledIds,
+    status,
+    settled,
+    isEnabled,
+    load,
+    ensureLoaded,
+    retry,
+    refresh,
+    refreshUntilChanged,
+    reset,
+  }
 })

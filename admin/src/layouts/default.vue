@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { open, useVisibleNav } from '../navigation/sidebar'
+import CapabilityErrorPanel from '@/components/CapabilityErrorPanel.vue'
 import { registerCoreModule } from '@/registry/coreModule'
 import { registerCollectionsModule } from '@/registry/collectionsModule'
 import { registerAnalyticsModule } from '@/registry/analyticsModule'
@@ -29,7 +31,25 @@ registerTemplatesModule()
 registerSubmissionsModule()
 registerTenancyModule()
 const caps = useCapabilitiesStore()
-caps.ensureLoaded() // post-auth: this layout only renders for authenticated users
+void caps.ensureLoaded() // post-auth: this layout only renders for authenticated users
+const route = useRoute()
+
+// Shared capability boundary: when the routed page declares `meta.requiresCapability`
+// and discovery ERRORED, render ONE Retry panel instead of the page — the guard lets
+// such navigations resolve (unknown must never become "disabled"/redirect), and this
+// boundary is the single error surface so capability pages don't each implement one.
+const capabilityBlocked = computed(
+  () => route.meta.requiresCapability !== undefined && caps.status === 'error',
+)
+const retryingCaps = ref(false)
+async function retryCaps(): Promise<void> {
+  retryingCaps.value = true
+  try {
+    await caps.retry()
+  } finally {
+    retryingCaps.value = false
+  }
+}
 const tenant = useTenantStore()
 const tenancyAccess = useTenancyAccessStore()
 useTenancyAccessLifecycle()
@@ -130,23 +150,34 @@ const utilityItems = computed(() => nav.value[1])
       </template>
 
       <template #default="{ collapsed }">
-        <UNavigationMenu
-          :collapsed="collapsed"
-          :items="mainItems"
-          orientation="vertical"
-          tooltip
-          popover
-          :ui="{ link: 'my-1.5' }"
-        />
+        <!-- Stable skeleton until the initial capability fetch SETTLES (ready or error):
+             rendering the menus earlier would paint every pack-gated entry as absent and
+             then flicker them in when the fetch lands. -->
+        <template v-if="caps.settled">
+          <UNavigationMenu
+            :collapsed="collapsed"
+            :items="mainItems"
+            orientation="vertical"
+            tooltip
+            popover
+            :ui="{ link: 'my-1.5' }"
+          />
 
-        <UNavigationMenu
-          :collapsed="collapsed"
-          :items="utilityItems"
-          orientation="vertical"
-          tooltip
-          class="mt-auto"
-          :ui="{ link: 'my-1.5' }"
-        />
+          <UNavigationMenu
+            :collapsed="collapsed"
+            :items="utilityItems"
+            orientation="vertical"
+            tooltip
+            class="mt-auto"
+            :ui="{ link: 'my-1.5' }"
+          />
+        </template>
+        <div v-else class="flex h-full flex-col gap-3 px-2 py-1.5" data-testid="nav-skeleton">
+          <USkeleton v-for="n in 7" :key="n" class="h-6 w-full" />
+          <div class="mt-auto flex flex-col gap-3">
+            <USkeleton v-for="n in 2" :key="`u-${n}`" class="h-6 w-full" />
+          </div>
+        </div>
       </template>
 
       <template #footer="{ collapsed }">
@@ -156,7 +187,8 @@ const utilityItems = computed(() => nav.value[1])
     <div
       class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-white rounded-2xl m-3 ring ring-default dark:bg-default"
     >
-      <RouterView />
+      <CapabilityErrorPanel v-if="capabilityBlocked" :retrying="retryingCaps" @retry="retryCaps" />
+      <RouterView v-else />
     </div>
   </UDashboardGroup>
 </template>

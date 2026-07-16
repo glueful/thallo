@@ -11,6 +11,7 @@ import {
 import { useLocales } from '@/queries/locales'
 import { useContentTypes } from '@/queries/contentTypes'
 import ReferencePicker from '@/fields/components/ReferencePicker.vue'
+import CapabilityErrorPanel from '@/components/CapabilityErrorPanel.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useNotify } from '@/composables/useNotify'
 import { ApiError } from '@/api/errors'
@@ -18,11 +19,26 @@ import MenuTreeEditor from './components/MenuTreeEditor.vue'
 
 definePage({ meta: { requiresAuth: true } })
 
+// This page gates locally (no `meta.requiresCapability`) because a genuinely disabled
+// pack should EXPLAIN itself in place, not redirect home. The states are explicit and
+// never conflated: capability loading → skeleton; capability-discovery error → the
+// shared Retry panel; ready-but-disabled → the lock message; enabled → the editor
+// (whose menu list has its own loading/empty states). `enabled` is true only at
+// `ready`, so the menus query never fires on an unknown capability state.
 const caps = useCapabilitiesStore()
-const enabled = computed(() => caps.isEnabled('thallo.navigation'))
+const enabled = computed(() => caps.status === 'ready' && caps.isEnabled('thallo.navigation'))
+const retryingCaps = ref(false)
+async function retryCaps(): Promise<void> {
+  retryingCaps.value = true
+  try {
+    await caps.retry()
+  } finally {
+    retryingCaps.value = false
+  }
+}
 const { success, error: notifyError } = useNotify()
 
-const { data: menus } = useNavMenus(enabled)
+const { data: menus, isLoading: menusLoading } = useNavMenus(enabled)
 const { data: localeRows } = useLocales()
 const locales = computed(() => (localeRows.value ?? []).map((l) => l.code))
 
@@ -266,8 +282,28 @@ async function save(): Promise<void> {
     </template>
 
     <template #body>
-      <!-- Capability off: one clear empty state, no list, no create. -->
-      <div v-if="!enabled" class="flex h-full flex-col items-center justify-center gap-2 text-muted">
+      <!-- Capability still resolving: neutral skeleton — never the lock message, which
+           would claim "disabled" before anyone knows. -->
+      <div v-if="!caps.settled" class="flex flex-col gap-3 p-4" data-testid="nav-caps-loading">
+        <USkeleton class="h-8 w-64" />
+        <USkeleton class="h-6 w-full" />
+        <USkeleton class="h-6 w-full" />
+        <USkeleton class="h-6 w-2/3" />
+      </div>
+
+      <!-- Capability discovery FAILED: recoverable error, not "disabled". -->
+      <CapabilityErrorPanel
+        v-else-if="caps.status === 'error'"
+        :retrying="retryingCaps"
+        @retry="retryCaps"
+      />
+
+      <!-- Capability genuinely off (discovery succeeded): one clear empty state, no list, no create. -->
+      <div
+        v-else-if="!enabled"
+        class="flex h-full flex-col items-center justify-center gap-2 text-muted"
+        data-testid="nav-caps-disabled"
+      >
         <UIcon name="i-lucide-lock" class="size-8" />
         <p class="text-sm">Navigation isn’t enabled.</p>
       </div>
@@ -327,7 +363,11 @@ async function save(): Promise<void> {
             </div>
           </VueDraggable>
 
-          <p v-if="menuOrder.length === 0" class="text-muted px-3 py-2 text-sm">No menus yet.</p>
+          <!-- Menu list loading vs genuinely empty: "No menus yet" only after the fetch settles. -->
+          <div v-if="menusLoading" class="space-y-2 px-1 py-2" data-testid="nav-menus-loading">
+            <USkeleton v-for="n in 3" :key="n" class="h-9 w-full" />
+          </div>
+          <p v-else-if="menuOrder.length === 0" class="text-muted px-3 py-2 text-sm">No menus yet.</p>
         </aside>
 
         <div class="min-w-0 flex-1">
@@ -398,13 +438,16 @@ async function save(): Promise<void> {
             </div>
           </div>
 
-          <!-- No menu selected: zero-menu empty state with a CTA, else a light hint. -->
+          <!-- No menu selected: zero-menu empty state with a CTA, else a light hint.
+               While the list is still loading, claim nothing (no premature "No menus yet"). -->
           <div v-else class="flex h-full flex-col items-center justify-center gap-3 text-muted">
-            <UIcon name="i-lucide-list-tree" class="size-8" />
-            <p class="text-sm">{{ menuOrder.length === 0 ? 'No menus yet.' : 'Select a menu.' }}</p>
-            <UButton v-if="menuOrder.length === 0" icon="i-lucide-plus" @click="() => { createOpen = true }">
-              New menu
-            </UButton>
+            <template v-if="!menusLoading">
+              <UIcon name="i-lucide-list-tree" class="size-8" />
+              <p class="text-sm">{{ menuOrder.length === 0 ? 'No menus yet.' : 'Select a menu.' }}</p>
+              <UButton v-if="menuOrder.length === 0" icon="i-lucide-plus" @click="() => { createOpen = true }">
+                New menu
+              </UButton>
+            </template>
           </div>
         </div>
       </div>

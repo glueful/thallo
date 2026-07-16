@@ -45,12 +45,19 @@ export function installAndAuthGuard(
 
   // (3) Capability gate: a disabled pack's route is unreachable by direct URL.
   //     Only THIS branch is async — it returns a Promise; the branches above stay synchronous.
+  //
+  //     "Unknown" is never treated as "disabled": the redirect fires only when discovery
+  //     genuinely SUCCEEDED (`ready`) and the capability is absent. On `error` the route is
+  //     allowed to resolve — the layout's capability boundary renders a Retry panel instead
+  //     of the page, and the real feature endpoints stay authorized server-side — so a
+  //     transient discovery failure can't masquerade as "this pack doesn't exist".
   const cap = to.meta.requiresCapability
   if (cap !== undefined && session.isAuthenticated) {
     const caps = useCapabilitiesStore()
-    return caps
-      .ensureLoaded()
-      .then((): true | RouteLocationRaw => (caps.isEnabled(cap) ? true : { path: '/' }))
+    return caps.ensureLoaded().then((): true | RouteLocationRaw => {
+      if (caps.status === 'error') return true
+      return caps.isEnabled(cap) ? true : { path: '/' }
+    })
   }
 
   return true
