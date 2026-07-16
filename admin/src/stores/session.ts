@@ -36,12 +36,16 @@ export interface SessionUser {
 // Declared as a named const (not a fresh object literal at the defineStore call site) so the
 // `persist` key — contributed by the pinia-persist-plugin module augmentation — passes the
 // options type structurally without tripping an excess-property check.
+// Single source of truth for the persisted-session storage key — the persist strategy and
+// clear()'s deterministic purge must never drift apart.
+const SESSION_PERSIST_KEY = 'thallo_session'
+
 const sessionStoreOptions: { persist: PersistOptions } = {
   persist: {
     enabled: true,
     strategies: [
       {
-        key: 'thallo_session',
+        key: SESSION_PERSIST_KEY,
         storage: localStorage,
         encrypt: { secret: import.meta.env.VITE_ADMIN_PERSIST_SECRET ?? 'thallo-admin-dev' },
         mergeStrategy: 'shallow',
@@ -88,11 +92,31 @@ export const useSessionStore = defineStore(
       accessToken.value = null
       refreshToken.value = null
       user.value = null
+
+      // Purge the persisted token snapshot DETERMINISTICALLY. The persist plugin only
+      // re-serializes the nulled state on a 100ms debounce — a tab closed (or hard-navigated)
+      // inside that window would leave the PRE-logout blob, access + refresh token included,
+      // restorable on the next visit. `removeItem` is synchronous and cannot lose that race.
+      // The plugin's trailing debounced write then recreates the key holding encrypted NULLS
+      // (harmless, but it reads as residual token data in devtools), so a second sweep after
+      // the debounce window keeps storage genuinely empty. Tokens are unrecoverable from the
+      // synchronous removal onward regardless of what happens to the timer.
+      purgePersistedSession()
+      setTimeout(purgePersistedSession, 250)
+
       // Drop the previous user's capability set so the next account reloads its own (lazy import
       // avoids a store<->store cycle). NOT called on token refresh — only on identity changes.
       void import('@/stores/capabilities').then((m) => m.useCapabilitiesStore().reset())
       void import('@/stores/tenant').then((m) => m.useTenantStore().reset())
       void import('@/stores/tenancyAccess').then((m) => m.useTenancyAccessStore().reset())
+    }
+
+    function purgePersistedSession(): void {
+      try {
+        localStorage.removeItem(SESSION_PERSIST_KEY)
+      } catch {
+        // storage unavailable (privacy mode) — nothing was persisted to purge
+      }
     }
 
     async function login(email: string, password: string): Promise<void> {
