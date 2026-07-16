@@ -1,5 +1,5 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
-import { registerAdminModule } from './adminModules'
+import type { AdminModule } from './adminModules'
 
 // Theme editor (per-theme templates, custom.css, read-only theme files, theme
 // cloning) — gated on the `thallo.render` capability; the backend routes are
@@ -15,6 +15,4 @@ const site: NavigationMenuItem[] = [
   },
 ]
 
-export function registerTemplatesModule(): void {
-  registerAdminModule({ id: 'templates', requires: ['thallo.render'], nav: { site } })
-}
+export const templatesModule: AdminModule = { id: 'templates', requires: ['thallo.render'], nav: { site } }

@@ -1,5 +1,5 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
-import { registerAdminModule } from './adminModules'
+import type { AdminModule } from './adminModules'
 
 // Review-queue nav — gated on the `thallo.workflow` capability. The whole entry disappears
 // from the sidebar when the pack is disabled or removed (the backend 404s those routes too
@@ -12,6 +12,4 @@ const main: NavigationMenuItem[] = [
   },
 ]
 
-export function registerWorkflowModule(): void {
-  registerAdminModule({ id: 'workflow', requires: ['thallo.workflow'], nav: { main } })
-}
+export const workflowModule: AdminModule = { id: 'workflow', requires: ['thallo.workflow'], nav: { main } }

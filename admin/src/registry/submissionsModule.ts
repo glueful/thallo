@@ -1,5 +1,5 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
-import { registerAdminModule } from './adminModules'
+import type { AdminModule } from './adminModules'
 
 // Form submissions triage — always-on (the form block ships in core, so there is no
 // capability to gate on). The live unread-count badge is injected reactively in
@@ -12,6 +12,4 @@ const main: NavigationMenuItem[] = [
   },
 ]
 
-export function registerSubmissionsModule(): void {
-  registerAdminModule({ id: 'submissions', nav: { main } })
-}
+export const submissionsModule: AdminModule = { id: 'submissions', nav: { main } }

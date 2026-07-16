@@ -1,4 +1,5 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
+import { adminManifest } from './manifest'
 
 export interface AdminModuleNav {
   main?: NavigationMenuItem[]
@@ -13,54 +14,38 @@ export interface AdminModuleNav {
 
 export interface AdminModule {
   id: string
-  /** Capability ids that must ALL be enabled for this module to be visible. Empty/absent = always-on. */
+  /** Capability ids that must ALL be visible for this module to show. Empty/absent = always-on. */
   requires?: string[]
   nav?: AdminModuleNav
 }
 
-const modules: AdminModule[] = []
+function moduleVisible(module: AdminModule, isVisible: (id: string) => boolean): boolean {
+  return (module.requires ?? []).every((id) => isVisible(id))
+}
 
 /**
- * Register a module with the admin registry.
+ * Assemble the two-group sidebar ([main, utilities]) from the visible modules, in manifest
+ * order. Visible modules' `site` items are gathered into ONE expandable "Site" group appended
+ * to main (omitted entirely when no visible module contributes).
  *
- * **Timing constraint:** registration must happen *before* the nav `computed`
- * (`useVisibleNav`) is first evaluated. The internal `modules` array is not
- * reactive, so a module registered after the first render will NOT trigger a
- * nav recompute. Phase C registers the core module in the layout `setup()`
- * before the nav is read. Future runtime/pack integrations must also register
- * before first render.
- */
-export function registerAdminModule(module: AdminModule): void {
-  const i = modules.findIndex((m) => m.id === module.id)
-  if (i >= 0) modules[i] = module
-  else modules.push(module)
-}
-
-export function registeredModules(): AdminModule[] {
-  return modules
-}
-
-export function resetAdminModules(): void {
-  modules.length = 0
-}
-
-function moduleEnabled(module: AdminModule, isEnabled: (id: string) => boolean): boolean {
-  return (module.requires ?? []).every((id) => isEnabled(id))
-}
-
-/**
- * Assemble the two-group sidebar ([main, utilities]) from the enabled modules, in
- * registration order. Enabled modules' `site` items are gathered into ONE expandable
- * "Site" group appended to main (omitted entirely when no enabled module contributes).
+ * Pure over its inputs: the module list is the STATIC `adminManifest` — menus are declared,
+ * never registered at runtime, so labels/routes/ordering always come from current code and
+ * there is no registration-timing constraint. `isVisible` decides per-item visibility; the
+ * sidebar passes the capability store's `isVisible()` (the cached-then-verified presentation
+ * hint). Router guards and feature pages never use this path — they act only on VERIFIED
+ * capability state (`isEnabled()`).
+ *
+ * @param modules test seam — defaults to the static manifest
  */
 export function visibleNav(
-  isEnabled: (id: string) => boolean,
+  isVisible: (id: string) => boolean,
+  modules: readonly AdminModule[] = adminManifest,
 ): [NavigationMenuItem[], NavigationMenuItem[]] {
   const main: NavigationMenuItem[] = []
   const utilities: NavigationMenuItem[] = []
   const site: NavigationMenuItem[] = []
   for (const m of modules) {
-    if (!moduleEnabled(m, isEnabled)) continue
+    if (!moduleVisible(m, isVisible)) continue
     if (m.nav?.main) main.push(...m.nav.main)
     if (m.nav?.utilities) utilities.push(...m.nav.utilities)
     if (m.nav?.site) site.push(...m.nav.site)

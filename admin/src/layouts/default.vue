@@ -3,15 +3,6 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { open, useVisibleNav } from '../navigation/sidebar'
 import CapabilityErrorPanel from '@/components/CapabilityErrorPanel.vue'
-import { registerCoreModule } from '@/registry/coreModule'
-import { registerCollectionsModule } from '@/registry/collectionsModule'
-import { registerAnalyticsModule } from '@/registry/analyticsModule'
-import { registerWorkflowModule } from '@/registry/workflowModule'
-import { registerNavigationModule } from '@/registry/navigationModule'
-import { registerRegionsModule } from '@/registry/regionsModule'
-import { registerTemplatesModule } from '@/registry/templatesModule'
-import { registerSubmissionsModule } from '@/registry/submissionsModule'
-import { registerTenancyModule } from '@/registry/tenancyModule'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useContentTypes } from '@/queries/contentTypes'
 import { useUnreadCount } from '@/queries/formSubmissions'
@@ -21,15 +12,9 @@ import { useTenancyAccessLifecycle } from '@/composables/useTenancyAccessLifecyc
 import { useTenancyEnablement } from '@/queries/tenancyEnablement'
 import { inferTenancyEnabledForNavigation, shapeTenancyNav } from '@/navigation/shapeTenancyNav'
 
-registerCoreModule()
-registerCollectionsModule()
-registerAnalyticsModule()
-registerWorkflowModule()
-registerNavigationModule()
-registerRegionsModule()
-registerTemplatesModule()
-registerSubmissionsModule()
-registerTenancyModule()
+// Menus are DECLARED, not registered: the sidebar reads the static manifest
+// (src/registry/manifest.ts) through useVisibleNav(), so structure exists before first
+// render and per-item visibility is the only dynamic axis.
 const caps = useCapabilitiesStore()
 void caps.ensureLoaded() // post-auth: this layout only renders for authenticated users
 const route = useRoute()
@@ -118,7 +103,9 @@ const mainItems = computed(() => {
     enriched,
     tenancyAccess.access,
     tenant.selectedUuid,
-    caps.isEnabled('thallo.tenancy'),
+    // Presentation hint (isVisible, not isEnabled): this only shapes the sidebar; the
+    // tenancy routes themselves stay behind verified capability + server authorization.
+    caps.isVisible('thallo.tenancy'),
     tenancyEnabled.value,
   )
 })
@@ -150,34 +137,28 @@ const utilityItems = computed(() => nav.value[1])
       </template>
 
       <template #default="{ collapsed }">
-        <!-- Stable skeleton until the initial capability fetch SETTLES (ready or error):
-             rendering the menus earlier would paint every pack-gated entry as absent and
-             then flicker them in when the fetch lands. -->
-        <template v-if="caps.settled">
-          <UNavigationMenu
-            :collapsed="collapsed"
-            :items="mainItems"
-            orientation="vertical"
-            tooltip
-            popover
-            :ui="{ link: 'my-1.5' }"
-          />
+        <!-- No skeleton: the STATIC manifest renders core items on the first frame, and
+             pack-gated items resolve from the persisted last-known capability snapshot
+             (isVisible) — so a returning session paints the complete, correct nav
+             immediately. Only a genuinely first-ever session sees gated items arrive
+             once, when discovery lands. -->
+        <UNavigationMenu
+          :collapsed="collapsed"
+          :items="mainItems"
+          orientation="vertical"
+          tooltip
+          popover
+          :ui="{ link: 'my-1.5' }"
+        />
 
-          <UNavigationMenu
-            :collapsed="collapsed"
-            :items="utilityItems"
-            orientation="vertical"
-            tooltip
-            class="mt-auto"
-            :ui="{ link: 'my-1.5' }"
-          />
-        </template>
-        <div v-else class="flex h-full flex-col gap-3 px-2 py-1.5" data-testid="nav-skeleton">
-          <USkeleton v-for="n in 7" :key="n" class="h-6 w-full" />
-          <div class="mt-auto flex flex-col gap-3">
-            <USkeleton v-for="n in 2" :key="`u-${n}`" class="h-6 w-full" />
-          </div>
-        </div>
+        <UNavigationMenu
+          :collapsed="collapsed"
+          :items="utilityItems"
+          orientation="vertical"
+          tooltip
+          class="mt-auto"
+          :ui="{ link: 'my-1.5' }"
+        />
       </template>
 
       <template #footer="{ collapsed }">

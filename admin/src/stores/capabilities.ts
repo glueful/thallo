@@ -14,6 +14,51 @@ export type CapabilityStatus = 'idle' | 'loading' | 'ready' | 'error'
 // long-tail recovery paths; this only papers over the boot-time blip.
 const AUTO_RETRY_DELAYS_MS = [2_000, 6_000] as const
 
+// Last-known capability snapshot, persisted so a returning session paints the complete
+// sidebar on the FIRST frame instead of waiting for discovery. Keyed by cache-schema
+// version + API base: localStorage is already origin-scoped by the browser, and the
+// apiBase segment covers dev setups where one SPA origin talks to different installs.
+// Installation-keyed on purpose — capabilities are installation-wide pack availability,
+// not caller permissions, so the hint legitimately survives logout/login. NEVER caller
+// authorization; nothing security-relevant may be persisted here.
+const CACHE_VERSION = 'v1'
+const MAX_CACHED_IDS = 100
+const CAPABILITY_ID_SHAPE = /^[a-z][a-z0-9._-]{0,63}$/i
+
+function cacheKey(): string {
+  return `thallo.capabilities.${CACHE_VERSION}:${runtimeConfig.apiBase}`
+}
+
+/**
+ * Sanitizing hydration: a corrupted/foreign blob must never throw during boot (the one
+ * moment this cache exists to make serene) and can only yield inert id strings — the ids
+ * feed membership checks against manifest-declared ids, nothing else.
+ */
+function readCachedIds(): Set<string> {
+  try {
+    const raw = globalThis.localStorage?.getItem(cacheKey())
+    if (raw === null || raw === undefined) return new Set()
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return new Set()
+    return new Set(
+      parsed
+        .filter((v): v is string => typeof v === 'string' && CAPABILITY_ID_SHAPE.test(v))
+        .slice(0, MAX_CACHED_IDS),
+    )
+  } catch {
+    return new Set()
+  }
+}
+
+/** Written ONLY from verified server responses — the cache can never launder itself. */
+function writeCachedIds(ids: Set<string>): void {
+  try {
+    globalThis.localStorage?.setItem(cacheKey(), JSON.stringify([...ids].slice(0, MAX_CACHED_IDS)))
+  } catch {
+    // quota/privacy-mode failures degrade to a cold next boot, nothing more
+  }
+}
+
 /**
  * Enabled capability ids, loaded post-auth from GET /v1/admin/capabilities (Phase B).
  * Drives capability-gated nav (the admin module registry) and route gating.
@@ -26,18 +71,41 @@ const AUTO_RETRY_DELAYS_MS = [2_000, 6_000] as const
  * skeleton while `loading`, a Retry surface on `error`, and only trust the answer at
  * `ready`. A failed load keeps the last successful set (empty on first boot), schedules
  * a bounded automatic retry, and `retry()` is the manual recovery for the error panels.
+ *
+ * Two id sets with DISJOINT consumers (never mix them):
+ * - `visibleIds` / `isVisible()` — the PRESENTATION HINT: hydrated synchronously from the
+ *   persisted last-known snapshot, replaced by every verified server answer. Consumed by
+ *   the sidebar manifest only. Hydration never advances `status`, so nothing that awaits
+ *   or branches on discovery is affected by cache presence.
+ * - `enabledIds` / `isEnabled()` — VERIFIED server state only. Consumed by the router
+ *   guard, feature pages, and anything that ACTS on capability state. A stale cache can
+ *   at worst briefly show a menu entry; clicking it still awaits verified discovery.
  */
 export const useCapabilitiesStore = defineStore('capabilities', () => {
   const enabledIds = ref<Set<string>>(new Set())
+  const visibleIds = ref<Set<string>>(readCachedIds())
   const status = ref<CapabilityStatus>('idle')
-  /** True once the initial fetch has SETTLED (ready or error) — the skeleton gate. */
+  /** True once the initial fetch has SETTLED (ready or error) — the state-branch gate. */
   const settled = computed(() => status.value === 'ready' || status.value === 'error')
   let inflight: Promise<void> | null = null
   let autoRetriesUsed = 0
   let autoRetryTimer: ReturnType<typeof setTimeout> | null = null
 
+  /** Verified server truth — router guard / feature pages / anything that acts. */
   function isEnabled(id: string): boolean {
     return enabledIds.value.has(id)
+  }
+
+  /** Presentation hint (cache-then-verified) — the sidebar manifest ONLY. */
+  function isVisible(id: string): boolean {
+    return visibleIds.value.has(id)
+  }
+
+  /** The single point where server truth lands: verified, visible, and the cache move together. */
+  function acceptVerified(ids: Set<string>): void {
+    enabledIds.value = ids
+    visibleIds.value = new Set(ids)
+    writeCachedIds(ids)
   }
 
   async function fetchEnabledIds(): Promise<Set<string>> {
@@ -57,7 +125,7 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
   async function load(): Promise<void> {
     if (status.value !== 'ready') status.value = 'loading'
     try {
-      enabledIds.value = await fetchEnabledIds()
+      acceptVerified(await fetchEnabledIds())
       status.value = 'ready'
       autoRetriesUsed = 0
       clearAutoRetry()
@@ -113,7 +181,7 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
       return retry()
     }
     try {
-      enabledIds.value = await fetchEnabledIds()
+      acceptVerified(await fetchEnabledIds())
     } catch {
       // keep the previous set
     }
@@ -138,8 +206,11 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
     }
   }
 
-  // Clear the cached set so the next ensureLoaded() reloads. Called on login/logout so a second
-  // account in the same tab (SPA nav, no reload) never inherits the previous user's capabilities.
+  // Clear the VERIFIED set so the next ensureLoaded() reloads. Called on login/logout so a
+  // second account in the same tab (SPA nav, no reload) never inherits the previous session's
+  // verified state. `visibleIds` deliberately survives: it is the installation-wide
+  // presentation hint (pack availability, not caller permissions), so the next session keeps
+  // its warm first paint; the post-login fetch reconciles it.
   function reset(): void {
     enabledIds.value = new Set()
     status.value = 'idle'
@@ -150,9 +221,11 @@ export const useCapabilitiesStore = defineStore('capabilities', () => {
 
   return {
     enabledIds,
+    visibleIds,
     status,
     settled,
     isEnabled,
+    isVisible,
     load,
     ensureLoaded,
     retry,

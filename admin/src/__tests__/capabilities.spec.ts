@@ -7,10 +7,13 @@ vi.mock('@/runtime/config', () => ({ runtimeConfig: { apiBase: '/v1/admin' } }))
 
 import { useCapabilitiesStore } from '@/stores/capabilities'
 
+const CACHE_KEY = 'thallo.capabilities.v1:/v1/admin'
+
 describe('capabilities store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     authFetch.mockReset()
+    localStorage.clear()
   })
 
   afterEach(() => {
@@ -202,5 +205,110 @@ describe('capabilities store', () => {
     expect(authFetch).toHaveBeenCalledTimes(2)
     expect(store.isEnabled('thallo.forms')).toBe(false)
     expect(store.isEnabled('thallo.render')).toBe(true)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Persisted presentation hint (visibleIds) vs verified state (enabledIds).
+// ---------------------------------------------------------------------------
+describe('capabilities store — persisted visibility hint', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    authFetch.mockReset()
+    localStorage.clear()
+  })
+
+  afterEach(() => {
+    useCapabilitiesStore().reset()
+    vi.useRealTimers()
+  })
+
+  it('hydrates visibleIds from the cache WITHOUT advancing status or verified state', () => {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(['thallo.navigation', 'thallo.analytics']))
+    const store = useCapabilitiesStore()
+
+    // Presentation hint is warm on the first frame…
+    expect(store.isVisible('thallo.navigation')).toBe(true)
+    expect(store.isVisible('thallo.analytics')).toBe(true)
+    // …but NOTHING authoritative moved: status untouched, verified empty. A stale
+    // cache can show a menu entry; it can never pass a guard or a feature page.
+    expect(store.status).toBe('idle')
+    expect(store.settled).toBe(false)
+    expect(store.isEnabled('thallo.navigation')).toBe(false)
+  })
+
+  it('a verified answer replaces the hint and persists it for the next session', async () => {
+    localStorage.setItem(CACHE_KEY, JSON.stringify(['thallo.stale-pack']))
+    authFetch.mockResolvedValue({ data: { capabilities: [{ id: 'thallo.navigation' }] } })
+    const store = useCapabilitiesStore()
+    expect(store.isVisible('thallo.stale-pack')).toBe(true)
+
+    await store.ensureLoaded()
+
+    expect(store.isVisible('thallo.stale-pack')).toBe(false) // hint reconciled
+    expect(store.isVisible('thallo.navigation')).toBe(true)
+    expect(store.isEnabled('thallo.navigation')).toBe(true)
+    expect(JSON.parse(localStorage.getItem(CACHE_KEY) ?? '[]')).toEqual(['thallo.navigation'])
+  })
+
+  it('a failed initial load keeps the cached hint visible (availability posture)', async () => {
+    vi.useFakeTimers()
+    localStorage.setItem(CACHE_KEY, JSON.stringify(['thallo.navigation']))
+    authFetch.mockRejectedValue(new Error('down'))
+    const store = useCapabilitiesStore()
+
+    await store.load()
+
+    expect(store.status).toBe('error')
+    expect(store.isVisible('thallo.navigation')).toBe(true) // sidebar stays intact
+    expect(store.isEnabled('thallo.navigation')).toBe(false) // authority stays closed
+  })
+
+  it('sanitizes hydration: corrupted or foreign blobs are inert and never throw', () => {
+    localStorage.setItem(CACHE_KEY, '{not json[')
+    expect(() => useCapabilitiesStore()).not.toThrow()
+
+    setActivePinia(createPinia())
+    localStorage.setItem(
+      CACHE_KEY,
+      JSON.stringify(['thallo.ok', 42, null, { evil: true }, '<script>alert(1)</script>', '']),
+    )
+    const store = useCapabilitiesStore()
+    expect(store.isVisible('thallo.ok')).toBe(true)
+    expect(store.visibleIds.size).toBe(1) // everything malformed dropped
+  })
+
+  it('caps hydration at the bounded id budget', () => {
+    localStorage.setItem(
+      CACHE_KEY,
+      JSON.stringify(Array.from({ length: 250 }, (_, i) => `thallo.pack${i}`)),
+    )
+    const store = useCapabilitiesStore()
+    expect(store.visibleIds.size).toBe(100)
+  })
+
+  it('the cache is never written from unverified values (no self-laundering)', async () => {
+    vi.useFakeTimers()
+    localStorage.setItem(CACHE_KEY, JSON.stringify(['thallo.hint']))
+    authFetch.mockRejectedValue(new Error('down'))
+    const store = useCapabilitiesStore()
+
+    await store.load() // fails; hint stays visible
+
+    // The stored blob is byte-identical: hydrated values never round-trip back.
+    expect(localStorage.getItem(CACHE_KEY)).toBe(JSON.stringify(['thallo.hint']))
+    expect(store.status).toBe('error')
+  })
+
+  it('reset() clears verified state but the install-scoped hint survives for the next login', async () => {
+    authFetch.mockResolvedValue({ data: { capabilities: [{ id: 'thallo.navigation' }] } })
+    const store = useCapabilitiesStore()
+    await store.ensureLoaded()
+
+    store.reset() // logout/login boundary
+
+    expect(store.status).toBe('idle')
+    expect(store.isEnabled('thallo.navigation')).toBe(false) // authority cleared
+    expect(store.isVisible('thallo.navigation')).toBe(true) // warm paint preserved
   })
 })

@@ -1,5 +1,5 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
-import { registerAdminModule } from './adminModules'
+import type { AdminModule } from './adminModules'
 
 // The first-party (core) admin nav, registered as an always-on module (no `requires`).
 // Pack modules register their own nav with a `requires` capability id elsewhere.
@@ -152,6 +152,4 @@ const main: NavigationMenuItem[] = [
   },
 ]
 
-export function registerCoreModule(): void {
-  registerAdminModule({ id: 'core', nav: { main } })
-}
+export const coreModule: AdminModule = { id: 'core', nav: { main } }
