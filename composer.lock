@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1441abd4e3929fc18f2744d711affcb5",
+    "content-hash": "2489aa12684c7869ba76eb37b56e7fec",
     "packages": [
         {
             "name": "composer/semver",
@@ -416,16 +416,16 @@
         },
         {
             "name": "glueful/aegis",
-            "version": "v1.13.1",
+            "version": "v1.14.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/aegis.git",
-                "reference": "8933565bd42058e4dc6908de45fe17c561963def"
+                "reference": "cc63c4bd94e9e7a2a84f1a8b0360323c2440666d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/aegis/zipball/8933565bd42058e4dc6908de45fe17c561963def",
-                "reference": "8933565bd42058e4dc6908de45fe17c561963def",
+                "url": "https://api.github.com/repos/glueful/aegis/zipball/cc63c4bd94e9e7a2a84f1a8b0360323c2440666d",
+                "reference": "cc63c4bd94e9e7a2a84f1a8b0360323c2440666d",
                 "shasum": ""
             },
             "require": {
@@ -441,7 +441,7 @@
                 "glueful": {
                     "icon": "assets/icon.png",
                     "name": "Aegis",
-                    "version": "1.13.1",
+                    "version": "1.14.0",
                     "provider": "Glueful\\Extensions\\Aegis\\Services\\AegisServiceProvider",
                     "requires": {
                         "glueful": ">=1.63.0",
@@ -479,9 +479,9 @@
             "homepage": "https://github.com/glueful/aegis",
             "support": {
                 "issues": "https://github.com/glueful/aegis/issues",
-                "source": "https://github.com/glueful/aegis/tree/v1.13.1"
+                "source": "https://github.com/glueful/aegis/tree/v1.14.0"
             },
-            "time": "2026-06-26T00:30:24+00:00"
+            "time": "2026-07-16T22:51:49+00:00"
         },
         {
             "name": "glueful/audit",
@@ -655,16 +655,16 @@
         },
         {
             "name": "glueful/extension-contracts",
-            "version": "v1.3.0",
+            "version": "v1.4.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/contracts.git",
-                "reference": "eece752a42a07dee7a58d9d063f58e2244484bfe"
+                "reference": "ab9de0e900599087ce7909a6864d699818aa7357"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/contracts/zipball/eece752a42a07dee7a58d9d063f58e2244484bfe",
-                "reference": "eece752a42a07dee7a58d9d063f58e2244484bfe",
+                "url": "https://api.github.com/repos/glueful/contracts/zipball/ab9de0e900599087ce7909a6864d699818aa7357",
+                "reference": "ab9de0e900599087ce7909a6864d699818aa7357",
                 "shasum": ""
             },
             "require": {
@@ -725,22 +725,22 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/contracts/issues",
-                "source": "https://github.com/glueful/contracts/tree/v1.3.0"
+                "source": "https://github.com/glueful/contracts/tree/v1.4.0"
             },
-            "time": "2026-07-11T21:18:35+00:00"
+            "time": "2026-07-16T08:23:45+00:00"
         },
         {
             "name": "glueful/framework",
-            "version": "v1.69.0",
+            "version": "v1.70.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "c63a0820381bf15b28a2160d473acb74c4cec2b2"
+                "reference": "b4d72320a7f5f4d720d35403537f2b40ae0ac000"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/c63a0820381bf15b28a2160d473acb74c4cec2b2",
-                "reference": "c63a0820381bf15b28a2160d473acb74c4cec2b2",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/b4d72320a7f5f4d720d35403537f2b40ae0ac000",
+                "reference": "b4d72320a7f5f4d720d35403537f2b40ae0ac000",
                 "shasum": ""
             },
             "require": {
@@ -835,7 +835,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-14T02:26:43+00:00"
+            "time": "2026-07-16T07:53:30+00:00"
         },
         {
             "name": "glueful/i18n",
@@ -1333,10 +1333,10 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-importers",
-                "reference": "85361cc97a119be1bb80aab926490e42ded8abc9"
+                "reference": "75ad2be918f26847be549393372da066f550f8e8"
             },
             "require": {
-                "glueful/aegis": "^1.13.1",
+                "glueful/aegis": "^1.14.0",
                 "glueful/framework": "^1.64.0",
                 "glueful/import-export": "^1.1.1",
                 "glueful/thallo-contracts": "*",
