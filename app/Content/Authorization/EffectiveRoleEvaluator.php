@@ -11,6 +11,7 @@ final class EffectiveRoleEvaluator
         private readonly TenantRoleOverrideRepository $overrides,
         private readonly CapabilityCatalog $catalog,
         private readonly ?TenantRoleRepository $roles = null,
+        private readonly ?BuiltinRoleAvailabilityRepository $availability = null,
     ) {
     }
 
@@ -29,6 +30,13 @@ final class EffectiveRoleEvaluator
             }
             sort($effective);
             return $effective;
+        }
+        // A workspace-disabled built-in evaluates to ZERO capabilities — same fail-closed
+        // semantics as a disabled custom role above. Disabling requires reassignment, so no
+        // legitimate membership holds a disabled role; anything still referencing it is
+        // stale/corrupted and must not keep access. (`owner` can never be disabled.)
+        if ($this->availability !== null && $this->availability->isDisabled($tenantUuid, $role)) {
+            return [];
         }
         $matrix = $this->baseline->capabilities();
         $effective = array_fill_keys($matrix[$role] ?? [], true);

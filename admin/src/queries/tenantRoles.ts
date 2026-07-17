@@ -75,7 +75,9 @@ export async function createWorkspaceRole(
 
 export async function updateWorkspaceRole(
   slug: string,
-  change: { name: string } | { status: 'active' | 'disabled' },
+  change:
+    | { name: string }
+    | { status: 'active' | 'disabled'; reassign_to?: string; signup_role?: string },
   singleStore = false,
 ): Promise<void> {
   await authFetch(`${rolesBase(singleStore)}/${encodeURIComponent(slug)}`, {

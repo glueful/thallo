@@ -34,6 +34,16 @@ const pendingDelete = ref<WorkspaceRole | null>(null)
 const newSlug = ref('')
 const newName = ref('')
 const reassignTo = ref('viewer')
+// Built-in disable flow (design: retire unused defaults): optional replacement selects —
+// the backend enforces when each is actually required (members held / signup role).
+// NONE is a sentinel, not '': Reka UI's SelectItem forbids empty-string values (it
+// reserves '' for clearing the selection), so "no choice" needs a real value that the
+// submit maps back to omission.
+const NONE = '__none__'
+const pendingBuiltinDisable = ref<WorkspaceRole | null>(null)
+const builtinReassignTo = ref(NONE)
+const builtinSignupRole = ref(NONE)
+const showInactive = ref(false)
 
 const role = computed(
   () => payload.value.roles.find((item) => item.slug === selected.value) ?? null,
@@ -47,6 +57,14 @@ const filteredRoles = computed(() => {
 })
 const replacementRoles = computed(() =>
   payload.value.roles.filter((item) => item.slug !== selected.value && item.status === 'active'),
+)
+// Sidebar grouping: disabled roles collapse under "Inactive roles" — discoverable and
+// re-enableable, but out of the way for workspaces that retired the defaults.
+const activeFilteredRoles = computed(() =>
+  filteredRoles.value.filter((item) => item.status !== 'disabled'),
+)
+const inactiveFilteredRoles = computed(() =>
+  filteredRoles.value.filter((item) => item.status === 'disabled'),
 )
 
 function selectRole(next: WorkspaceRole): void {
@@ -105,6 +123,40 @@ async function removeRole(): Promise<void> {
   if (error.value === null) pendingDelete.value = null
 }
 
+function requestStatusToggle(target: WorkspaceRole): void {
+  if (target.builtin && target.status === 'active') {
+    // Built-in disable may need replacements (members / signup role) — collect via modal.
+    builtinReassignTo.value = NONE
+    builtinSignupRole.value = NONE
+    pendingBuiltinDisable.value = target
+    return
+  }
+  void run(() =>
+    updateWorkspaceRole(
+      target.slug,
+      { status: target.status === 'active' ? 'disabled' : 'active' },
+      singleStoreMode.value,
+    ),
+  )
+}
+
+async function disableBuiltinRole(): Promise<void> {
+  const target = pendingBuiltinDisable.value
+  if (!target) return
+  await run(() =>
+    updateWorkspaceRole(
+      target.slug,
+      {
+        status: 'disabled',
+        ...(builtinReassignTo.value !== NONE ? { reassign_to: builtinReassignTo.value } : {}),
+        ...(builtinSignupRole.value !== NONE ? { signup_role: builtinSignupRole.value } : {}),
+      },
+      singleStoreMode.value,
+    ),
+  )
+  if (error.value === null) pendingBuiltinDisable.value = null
+}
+
 async function showPreview(grants: string[], revokes: string[]): Promise<void> {
   if (!role.value) return
   const result = await previewRoleOverrides(role.value.slug, grants, revokes, singleStoreMode.value)
@@ -126,7 +178,20 @@ watch(
       await load()
       return
     }
-    if (target && access.access.manage_roles && (await ensureTargetSelected(target))) await load()
+    if (!target) return
+    // The access store starts EMPTY on a hard refresh (never persisted) — await its
+    // answer instead of reading a mid-flight false, or load() never fires and the page
+    // stays blank until a remount ("unknown is not no", imperative-watcher edition).
+    // Bind the workspace FIRST (ensureTargetSelected also revalidates access for the
+    // bound tenant), THEN gate on manage_roles — checking before binding would consult
+    // the previous workspace's flags. No access is an explicit message, never a blank.
+    await access.ensureLoaded()
+    if (!(await ensureTargetSelected(target))) return
+    if (access.access.manage_roles) {
+      await load()
+    } else {
+      error.value = 'You do not have permission to manage roles in this workspace.'
+    }
   },
   { immediate: true },
 )
@@ -195,7 +260,7 @@ watch(selectedUuid, (next) => {
               />
               <div v-else class="flex flex-col gap-0.5" data-testid="roles-list">
                 <button
-                  v-for="item in filteredRoles"
+                  v-for="item in activeFilteredRoles"
                   :key="item.slug"
                   type="button"
                   class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors"
@@ -206,14 +271,39 @@ watch(selectedUuid, (next) => {
                     <p class="truncate text-sm font-medium text-default">{{ item.name }}</p>
                     <code class="truncate text-xs text-muted">{{ item.slug }}</code>
                   </div>
-                  <UBadge
-                    v-if="item.status === 'disabled'"
-                    label="Disabled"
-                    color="neutral"
-                    variant="subtle"
-                    size="xs"
-                  />
                 </button>
+
+                <!-- Retired roles stay discoverable + re-enableable, out of the way. -->
+                <template v-if="inactiveFilteredRoles.length">
+                  <button
+                    type="button"
+                    class="mt-2 flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs font-medium text-muted"
+                    data-testid="inactive-roles-toggle"
+                    @click="showInactive = !showInactive"
+                  >
+                    <UIcon
+                      :name="showInactive ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+                      class="size-3.5"
+                    />
+                    Inactive roles ({{ inactiveFilteredRoles.length }})
+                  </button>
+                  <template v-if="showInactive">
+                    <button
+                      v-for="item in inactiveFilteredRoles"
+                      :key="item.slug"
+                      type="button"
+                      class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left opacity-70 transition-colors"
+                      :class="selected === item.slug ? 'bg-elevated' : 'hover:bg-elevated/50'"
+                      @click="selectRole(item)"
+                    >
+                      <div class="min-w-0 flex-1">
+                        <p class="truncate text-sm font-medium text-default">{{ item.name }}</p>
+                        <code class="truncate text-xs text-muted">{{ item.slug }}</code>
+                      </div>
+                      <UBadge label="Disabled" color="neutral" variant="subtle" size="xs" />
+                    </button>
+                  </template>
+                </template>
               </div>
             </div>
 
@@ -253,7 +343,7 @@ watch(selectedUuid, (next) => {
                     size="xs"
                   />
                   <UBadge
-                    v-else-if="role.status === 'disabled'"
+                    v-if="role.status === 'disabled'"
                     label="Disabled"
                     color="warning"
                     variant="subtle"
@@ -262,25 +352,21 @@ watch(selectedUuid, (next) => {
                 </div>
                 <code class="text-sm text-muted">{{ role.slug }}</code>
               </div>
-              <div v-if="!role.builtin" class="flex shrink-0 items-center gap-1">
+              <div v-if="role.slug !== 'owner'" class="flex shrink-0 items-center gap-1">
+                <!-- Owner is the anti-lockout role: never disableable. Other built-ins can be
+                     retired per workspace; custom roles keep their existing toggle + delete. -->
                 <UButton
                   :icon="role.status === 'active' ? 'i-lucide-pause' : 'i-lucide-play'"
                   color="neutral"
                   variant="ghost"
                   size="xs"
+                  data-testid="role-status-toggle"
                   :aria-label="role.status === 'active' ? 'Disable role' : 'Enable role'"
                   :loading="busy"
-                  @click="
-                    run(() =>
-                      updateWorkspaceRole(
-                        role!.slug,
-                        { status: role!.status === 'active' ? 'disabled' : 'active' },
-                        singleStoreMode,
-                      ),
-                    )
-                  "
+                  @click="requestStatusToggle(role!)"
                 />
                 <UButton
+                  v-if="!role.builtin"
                   icon="i-lucide-trash-2"
                   color="error"
                   variant="ghost"
@@ -371,6 +457,82 @@ watch(selectedUuid, (next) => {
         </UButton>
         <UButton color="error" icon="i-lucide-trash-2" :loading="busy" @click="removeRole">
           Delete
+        </UButton>
+      </div>
+    </template>
+  </UModal>
+
+  <UModal
+    :open="pendingBuiltinDisable !== null"
+    title="Disable built-in role"
+    @update:open="
+      (open: boolean) => {
+        if (!open) pendingBuiltinDisable = null
+      }
+    "
+  >
+    <template #body>
+      <div class="space-y-4">
+        <p class="text-sm text-muted">
+          Disable <span class="text-default">“{{ pendingBuiltinDisable?.name }}”</span> for this
+          workspace? It disappears from role pickers and member signup; its definition and any
+          saved permission changes are kept and apply again if you re-enable it.
+        </p>
+        <UFormField
+          label="Reassign members to"
+          help="Required only if members currently hold this role."
+        >
+          <USelect
+            v-model="builtinReassignTo"
+            :items="[
+              { label: 'No reassignment', value: NONE },
+              ...replacementRoles
+                .filter((item) => item.slug !== pendingBuiltinDisable?.slug)
+                .map((item) => ({ label: item.name, value: item.slug })),
+            ]"
+            value-key="value"
+            class="w-full"
+            data-testid="builtin-reassign-select"
+          />
+        </UFormField>
+        <UFormField
+          label="New signup role"
+          help="Required only if member signup currently assigns this role."
+        >
+          <USelect
+            v-model="builtinSignupRole"
+            :items="[
+              { label: 'Keep current signup role', value: NONE },
+              ...replacementRoles
+                .filter((item) => item.slug !== pendingBuiltinDisable?.slug)
+                .map((item) => ({ label: item.name, value: item.slug })),
+            ]"
+            value-key="value"
+            class="w-full"
+            data-testid="builtin-signup-select"
+          />
+        </UFormField>
+        <p v-if="error" class="text-sm text-error" role="alert">{{ error }}</p>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          :disabled="busy"
+          @click="pendingBuiltinDisable = null"
+        >
+          Cancel
+        </UButton>
+        <UButton
+          color="warning"
+          icon="i-lucide-pause"
+          :loading="busy"
+          data-testid="builtin-disable-confirm"
+          @click="disableBuiltinRole"
+        >
+          Disable
         </UButton>
       </div>
     </template>

@@ -26,6 +26,7 @@ use App\Content\Authorization\OperatorBypass;
 use App\Content\Authorization\AuthenticatedPrincipalResolver;
 use App\Content\Authorization\PermissionAuthority;
 use App\Content\Authorization\CapabilityCatalog;
+use App\Content\Authorization\BuiltinRoleAvailabilityRepository;
 use App\Content\Authorization\EffectiveRoleEvaluator;
 use App\Content\Authorization\EffectiveRoleMatrix;
 use App\Content\Authorization\PolicyManifest;
@@ -1264,6 +1265,11 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             TenantRoleRepository::class => [
                 'class' => TenantRoleRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            BuiltinRoleAvailabilityRepository::class => [
+                'class' => BuiltinRoleAvailabilityRepository::class,
                 'shared' => true,
                 'autowire' => true,
             ],
