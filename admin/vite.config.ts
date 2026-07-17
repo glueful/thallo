@@ -80,16 +80,8 @@ export default defineConfig(({ mode }) => {
             primary: 'blue',
             // Success = the design mock's emerald green (Nuxt UI's default success is a limier green).
             success: 'emerald',
+            neutral: 'slate'
           },
-          button: {
-            slots: {
-              base: 'cursor-pointer',
-            },
-          },
-          // App-wide modal look: no header/footer dividers, larger corner radius.
-          // `divide-y` is on the base `content` slot, but the default `rounded-lg` lives on the
-          // `fullscreen:false` variant (composed after the base), so the radius must be overridden
-          // there or the variant wins.
           modal: {
             slots: {
               content: 'divide-y-0',

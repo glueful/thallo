@@ -3,10 +3,25 @@
 
 @theme {
   /* Your custom design tokens go here */
+  --color-mirage-50: #f4f6fb;
+  --color-mirage-100: #e8ecf6;
+  --color-mirage-200: #cbd7ec;
+  --color-mirage-300: #9db6dc;
+  --color-mirage-400: #6990c7;
+  --color-mirage-500: #4672b1;
+  --color-mirage-600: #345995;
+  --color-mirage-700: #2b4779;
+  --color-mirage-800: #273e65;
+  --color-mirage-900: #253655;
+  --color-mirage-950: #111827;
 }
 
 @layer base {
   body {
     @apply bg-neutral-50 dark:bg-neutral-950;
+  }
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
   }
 }

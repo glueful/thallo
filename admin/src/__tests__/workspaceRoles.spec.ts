@@ -40,6 +40,19 @@ describe('workspace role queries', () => {
     authFetch.mockResolvedValue({})
     await createWorkspaceRole('reviewer', 'Reviewer')
     await updateWorkspaceRole('reviewer', { status: 'disabled' })
+
+    // Built-in disable carries the optional replacement fields the backend guards on:
+    // reassign_to when members hold the role, signup_role when member signup assigns it.
+    await updateWorkspaceRole('member', {
+      status: 'disabled',
+      reassign_to: 'viewer',
+      signup_role: 'viewer',
+    })
+    expect(authFetch).toHaveBeenLastCalledWith('/v1/admin/tenancy/roles/member', {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'disabled', reassign_to: 'viewer', signup_role: 'viewer' }),
+    })
+
     await deleteWorkspaceRole('reviewer', 'viewer')
     expect(authFetch).toHaveBeenLastCalledWith(
       '/v1/admin/tenancy/roles/reviewer?reassign_to=viewer',

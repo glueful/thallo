@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Content\Authorization\AuthenticatedPrincipalResolver;
+use App\Content\Authorization\BuiltinRoleAvailabilityRepository;
 use App\Content\Authorization\CapabilityCatalog;
 use App\Content\Authorization\EffectiveRoleMatrix;
 use App\Content\Authorization\PermissionAuthority;
@@ -16,6 +17,7 @@ use App\Content\Authorization\TenantRolePolicyMutator;
 use App\Content\Authorization\TenantRoleRepository;
 use App\Content\Authorization\TenantRoleLifecycle;
 use App\Content\Authorization\TenantRoleLifecycleException;
+use App\Content\Authorization\ThalloMembershipRoleAuthority;
 use Glueful\Http\Response;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Tenancy\System\SystemFlags;
@@ -36,6 +38,8 @@ final class TenantRolesController
         private readonly PermissionAuthority $permissions,
         private readonly SystemFlags $flags,
         private readonly SingleStoreTenant $singleStore,
+        private readonly BuiltinRoleAvailabilityRepository $availability,
+        private readonly ThalloMembershipRoleAuthority $authority,
     ) {
     }
 
@@ -62,7 +66,10 @@ final class TenantRolesController
                 'slug' => $role,
                 'name' => ucfirst($role),
                 'builtin' => true,
-                'status' => 'active',
+                // Per-workspace availability: a disabled built-in stays listed (collapsed
+                // under "Inactive roles" in the UI, discoverable + re-enableable) but is
+                // withheld from every assignment surface via the role authority.
+                'status' => $this->availability->isDisabled($tenantUuid, $role) ? 'disabled' : 'active',
                 'baseline' => $matrix[$role] ?? [],
                 'grants' => $grants,
                 'revokes' => $revokes,
@@ -128,6 +135,38 @@ final class TenantRolesController
         if (($hasName ? 1 : 0) + ($status !== null ? 1 : 0) !== 1) {
             return Response::validation(['role' => 'Change exactly one of name or status.']);
         }
+        // Built-in roles: only availability can change — their names and capability
+        // baselines are code-defined vocabulary (config/tenancy.php), never rows.
+        if (in_array($slug, $this->catalog->reservedRoles(), true)) {
+            if ($hasName) {
+                return Response::validation(['name' => 'Built-in roles cannot be renamed.']);
+            }
+            try {
+                if ($status === 'disabled') {
+                    $reassign = $body['reassign_to'] ?? null;
+                    $signupRole = $body['signup_role'] ?? null;
+                    $this->lifecycle->disableBuiltin(
+                        $tenantUuid,
+                        $slug,
+                        is_string($reassign) ? $reassign : null,
+                        is_string($signupRole) ? $signupRole : null,
+                        $actorUuid,
+                    );
+                } elseif ($status === 'active') {
+                    $this->lifecycle->enableBuiltin($tenantUuid, $slug, $actorUuid);
+                } else {
+                    return Response::validation(['status' => 'Status must be active or disabled.']);
+                }
+                return Response::success(['role' => [
+                    'slug' => $slug,
+                    'name' => ucfirst($slug),
+                    'builtin' => true,
+                    'status' => $this->availability->isDisabled($tenantUuid, $slug) ? 'disabled' : 'active',
+                ]]);
+            } catch (TenantRoleLifecycleException $exception) {
+                return Response::validation($exception->errors ?: ['role' => $exception->getMessage()]);
+            }
+        }
         try {
             if ($hasName) {
                 $this->lifecycle->rename($tenantUuid, $slug, (string) $body['name'], $actorUuid);
@@ -170,13 +209,11 @@ final class TenantRolesController
         if ($tenantUuid === null) {
             return Response::error('Workspace context is required.', Response::HTTP_FORBIDDEN);
         }
-        $roles = array_map(static fn (string $slug): array => [
-            'slug' => $slug, 'name' => ucfirst($slug), 'builtin' => true,
-        ], $this->catalog->reservedRoles());
-        foreach ($this->roles->all($tenantUuid, true) as $role) {
-            $roles[] = ['slug' => $role['slug'], 'name' => $role['name'], 'builtin' => false];
-        }
-        return Response::success(['roles' => $roles]);
+        // Single source: the same MembershipRoleAuthority the tenancy engine and the
+        // signup role policy consult — picker, assignment, and signup can never drift.
+        return Response::success([
+            'roles' => $this->authority->assignableRoles($tenantUuid),
+        ]);
     }
 
     public function overrides(Request $request, string $slug): Response
