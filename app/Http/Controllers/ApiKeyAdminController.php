@@ -171,12 +171,14 @@ final class ApiKeyAdminController
         ], 'API key created.');
     }
 
-    /** POST /v1/admin/api-keys/{uuid}/rotate — issue a successor; old key stays valid for a grace window. */
+    /** POST /v1/admin/api-keys/{uuid}/rotate — issue a successor; old key expiry bounded by a grace window. */
     #[ApiOperation(
         summary: 'Rotate an API key',
         description: 'Issues a new key inheriting the scopes/IPs/expiry of the old one, and sets the '
-            . 'old key to expire after a grace window (`grace_hours`, default 24, max 720). Both keys '
-            . 'work during the window. Returns the new plaintext once. Requires `system.access`.',
+            . 'old key to expire at the grace deadline (`grace_hours`, default 24, max 720) or at its '
+            . 'own original expiry, whichever is EARLIER — rotation never extends a superseded key '
+            . '(framework 1.71.0). Both keys work until the applied `old_expires_at`. Returns the new '
+            . 'plaintext once. Requires `system.access`.',
         tags: ['API Keys'],
     )]
     #[ApiResponse(200, schema: ApiKeyRotatedData::class, description: 'New key + one-time plaintext + old key expiry.')]
@@ -197,9 +199,11 @@ final class ApiKeyAdminController
 
         [$result, $newRow] = $this->connection->transaction(function () use ($key, $grace): array {
             $result = ApiKeyService::rotate($this->context, $key, $grace);
+            // Exact successor lookup via the framework's `new_uuid` (1.71.0) —
+            // the previous rotated_from_id + created_at DESC heuristic was
+            // ambiguous for two rotations within the same second.
             $newRow = db($this->context)->table('api_keys')
-                ->where('rotated_from_id', '=', $key->id)
-                ->orderBy('created_at', 'desc')
+                ->where('uuid', '=', (string) $result['new_uuid'])
                 ->first();
             if (is_array($newRow)) {
                 $this->bindings->copyBinding((string) $key->uuid, (string) $newRow['uuid']);
