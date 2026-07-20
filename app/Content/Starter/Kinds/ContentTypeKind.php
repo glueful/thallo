@@ -6,18 +6,22 @@ namespace App\Content\Starter\Kinds;
 
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Schema\ContentTypeSchema;
+use App\Content\Schema\SchemaParseException;
 use App\Content\Starter\AbstractStarterKind;
 use App\Content\Starter\Fingerprint;
 use App\Content\Starter\SeedContext;
 use App\Content\Starter\StarterApplyResult;
 use App\Content\Starter\StarterDefinition;
 use Glueful\Database\Connection;
+use Thallo\Contracts\Starter\StarterContentTypeDefinition;
+use Thallo\Contracts\Starter\StarterContributorRegistry;
 
 final class ContentTypeKind extends AbstractStarterKind
 {
     public function __construct(
         private readonly ContentTypeRepository $types,
         private readonly Connection $db,
+        private readonly ?StarterContributorRegistry $contributors = null,
     ) {
     }
 
@@ -28,11 +32,16 @@ final class ContentTypeKind extends AbstractStarterKind
 
     public function definitions(): array
     {
-        return array_map(fn(array $payload): StarterDefinition => new StarterDefinition(
+        $fixed = array_map(fn(array $payload): StarterDefinition => new StarterDefinition(
             sourceId: 'content_type:' . $payload['slug'],
             definitionKey: (string) $payload['slug'],
             payload: $payload,
         ), $this->payloads());
+
+        $definitions = [...$fixed, ...$this->contributedDefinitions()];
+        $this->assertNoDuplicates($definitions);
+
+        return $definitions;
     }
 
     public function fingerprint(StarterDefinition $definition): string
@@ -135,6 +144,92 @@ final class ContentTypeKind extends AbstractStarterKind
             'mount_at_root' => $root,
             'schema' => ContentTypeSchema::fromArray($schema)->toArray(),
         ];
+    }
+
+    /**
+     * Converted contributed definitions, in registration/contributor order. Each contributor's
+     * VOs are validated and converted to the internal {@see StarterDefinition} shape BEFORE this
+     * method returns — nothing here or downstream (TenantSeeder/StarterSync) writes to storage
+     * until the full fixed+contributed set has been assembled and passed the duplicate check in
+     * {@see definitions()}.
+     *
+     * @return list<StarterDefinition>
+     */
+    private function contributedDefinitions(): array
+    {
+        $definitions = [];
+        foreach ($this->contributors?->all() ?? [] as $contributor) {
+            foreach ($contributor->contentTypeDefinitions() as $definition) {
+                $definitions[] = $this->convert($definition);
+            }
+        }
+        return $definitions;
+    }
+
+    private function convert(StarterContentTypeDefinition $definition): StarterDefinition
+    {
+        $sourceId = trim($definition->sourceId);
+        if ($sourceId === '') {
+            throw new \InvalidArgumentException('starter content-type contribution has an empty sourceId');
+        }
+        $slug = trim($definition->slug);
+        if ($slug === '') {
+            throw new \InvalidArgumentException("starter content-type contribution '{$sourceId}' has an empty slug");
+        }
+        $name = trim($definition->name);
+        if ($name === '') {
+            throw new \InvalidArgumentException("starter content-type contribution '{$sourceId}' has an empty name");
+        }
+        if ($definition->cacheTtl !== null && $definition->cacheTtl < 0) {
+            throw new \InvalidArgumentException(
+                "starter content-type contribution '{$sourceId}' has a negative cacheTtl"
+            );
+        }
+
+        try {
+            $schema = ContentTypeSchema::fromArray($definition->schema)->toArray();
+        } catch (SchemaParseException $e) {
+            throw new SchemaParseException(
+                "starter content-type contribution '{$sourceId}' has an invalid schema: " . $e->getMessage(),
+                previous: $e,
+            );
+        }
+
+        return new StarterDefinition(
+            sourceId: $definition->sourceId,
+            definitionKey: $slug,
+            payload: [
+                'slug' => $slug,
+                'name' => $name,
+                'description' => $definition->description,
+                'cache_ttl' => $definition->cacheTtl,
+                'public_delivery' => $definition->publicDelivery,
+                'mount_at_root' => $definition->mountAtRoot,
+                'schema' => $schema,
+            ],
+        );
+    }
+
+    /** @param list<StarterDefinition> $definitions */
+    private function assertNoDuplicates(array $definitions): void
+    {
+        $seenSourceIds = [];
+        $seenSlugs = [];
+        foreach ($definitions as $definition) {
+            if (isset($seenSourceIds[$definition->sourceId])) {
+                throw new \InvalidArgumentException(
+                    "duplicate starter content-type sourceId '{$definition->sourceId}'"
+                );
+            }
+            $seenSourceIds[$definition->sourceId] = true;
+
+            if (isset($seenSlugs[$definition->definitionKey])) {
+                throw new \InvalidArgumentException(
+                    "duplicate starter content-type slug '{$definition->definitionKey}'"
+                );
+            }
+            $seenSlugs[$definition->definitionKey] = true;
+        }
     }
 
     /** @param array<string,mixed> $row @return array<string,mixed> */

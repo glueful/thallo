@@ -657,6 +657,9 @@ final class ThalloServiceProvider extends ServiceProvider
         ];
 
         return [
+            \Thallo\Contracts\Starter\StarterContributorRegistry::class => $autowired(
+                \App\Content\Starter\DefaultStarterContributorRegistry::class
+            ),
             \App\Content\Starter\Kinds\ContentTypeKind::class => $autowired(
                 \App\Content\Starter\Kinds\ContentTypeKind::class
             ),
