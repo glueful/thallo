@@ -7,6 +7,68 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Commerce adoption + content linkage foundation** (`packages/thallo-commerce`, slice 1
+  of the ecommerce content-integration track): `glueful/commerce` runs embedded with
+  per-workspace data behind the standard `thallo.commerce` capability — a three-mode
+  tenant resolution (`''` sentinel / widened default tenant / enforcement request tenant,
+  live-evaluated, bound through Commerce's host seam without touching the shared
+  resolver), a canonical product→entry enrichment link (`thallo_commerce_product_links`,
+  one entry per product and one product per entry, admin API with expectation-guarded
+  relink, sorted 64-bit advisory-lock serialization, after-commit audit events, proven
+  under real two-connection PostgreSQL races), lifecycle cleanup (entry-delete and
+  product-tombstone listeners, a batch-limited `thallo:commerce:links:reconcile` sweep,
+  `thallo:commerce:diagnose`), workspace integration (a tenant-adoption contributor that
+  rekeys links and Commerce rows during enforcement activation under the write barrier;
+  a fail-closed workspace purge that delegates Commerce-table deletion to Commerce's own
+  purge service and refuses to report success while Commerce data could remain), and an
+  idempotent starter **Product page** content type (localized headline/summary + blocks
+  region; SEO stays with thallo-seo) provisioned for fresh/future tenants automatically
+  and adopted into existing workspaces via the explicit
+  `thallo:tenant:sync --all --kind=content_type` step. Host seams added for it:
+  tenant-adoption contributors (`thallo-tenancy`) and typed starter content-type
+  contributors (`thallo-contracts`), both byte-inert with zero contributors. Marketplace
+  stays disabled; diagnostics flag it as unsupported in v1. Commerce is temporarily
+  consumed via a local path repository (`dev-dev`) until its host-integration seams
+  publish.
+- **Storefront rendering** (`packages/thallo-commerce`, slice 2 of the ecommerce
+  content-integration track): rendered shop pages, cart, and checkout over the embedded
+  `glueful/commerce`, in Thallo's own theme system — commerce authoritative, enrichment
+  optional, no checkout logic rebuilt in the pack. A pack-owned catalog namespace
+  (`/{shop-prefix}` default `/shop`, one normalized path segment validated at boot;
+  `/{prefix}/products/{slug}`, `/{prefix}/categories/{slug}`) plus stable root-level
+  workflow paths (`/cart`, `/checkout`, `/checkout/return|cancel|confirmation/{ref}`) that
+  register ahead of Render's catch-all; one `ShopUrlGenerator` is the sole source of every
+  catalog/cart/checkout URL. Slug renames gain a transactional reservation ledger
+  (`thallo_commerce_product_slugs`, PostgreSQL advisory locks, old-slug 301s, loop-safe
+  against a live product reclaiming its own history) via a new Commerce-local
+  `SlugLifecycleAuthority` seam invoked inside Commerce's own create/rename transactions.
+  Four starter blocks (`product-grid`, `featured-product`, `add-to-cart`, `mini-cart`) and
+  six page templates (index, product detail, category archive, cart, checkout, order
+  confirmation) ship batteries-included via the same starter-contributor pattern slice 1
+  established for content types, now generalized to block types
+  (`StarterBlockTypeContributor`/`StarterBlockTypeRegistry`); a dependency-free `shop.js`
+  intercepts the plain PRG forms for instant cart/count/quote updates without ever losing
+  the no-JS fallback, proven by an executable Node DOM test. Cart mutations use a new
+  idempotent Commerce `putLine(...)` primitive (add/update/remove converge instead of
+  double-adding on replay); checkout placement gains a durable
+  `thallo_commerce_checkout_attempts` ledger and an optional Commerce
+  `CheckoutAttemptAuthority` seam so a retried placement replays the same order/credential
+  rather than creating a second one or losing the payment-collector call, and a new
+  `CheckoutPresentation` mapper closes Commerce's provider-neutral payment payload into a
+  typed `manual | redirect | reference | unavailable` view model the storefront can render
+  safely. Guest order credentials live only in a capped, encrypted, `HttpOnly` cookie;
+  every `/_shop` mutation is guarded by an Origin/Fetch-Metadata CSRF check against a new
+  shared `CanonicalPublicOriginResolver` contract — the same trusted-origin authority the
+  existing tenant-owned-blob media URLs now resolve through too, so media and storefront
+  CSRF can never disagree. A tenant/locale/theme/appearance-fingerprint/path/page-keyed
+  shop cache purges on every storefront-visible catalog mutation (price, stock — including
+  checkout/refund/cancel — media, category/tag/attribute, add-on) via a new broad
+  `StorefrontCatalogChanged` Commerce event, plus the existing global theme/appearance
+  events; `/cart`, `/checkout`, and every `/_shop` response stay `private, no-store`.
+  Render gains two additive seams for this (a reserved-path contributor registry and a
+  template-path contributor between the active theme and the default fallback), both
+  byte-identical with zero contributors. Marketplace/seller presentation, customer
+  accounts, and Payvia credentialing are out of scope for v1.
 - **Full tenant resolution and operations**: verified custom domains plus
   subdomain fallback for public delivery, header/JWT resolution for the admin,
   a resumable fresh-boot activation flow, tenant/domain/membership HTTP and CLI

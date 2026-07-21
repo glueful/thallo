@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2489aa12684c7869ba76eb37b56e7fec",
+    "content-hash": "a086c2dcbdc4ddbe8093053d0705df5c",
     "packages": [
         {
             "name": "composer/semver",
@@ -562,6 +562,88 @@
             "time": "2026-06-30T21:32:09+00:00"
         },
         {
+            "name": "glueful/commerce",
+            "version": "v1.3.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/glueful/commerce.git",
+                "reference": "ab44a91368749d85ab736c613ad360f31deed908"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/glueful/commerce/zipball/ab44a91368749d85ab736c613ad360f31deed908",
+                "reference": "ab44a91368749d85ab736c613ad360f31deed908",
+                "shasum": ""
+            },
+            "require": {
+                "glueful/extension-contracts": "^1.5.0",
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "glueful/framework": "^1.71.0",
+                "phpstan/phpstan": "^1.0",
+                "phpunit/phpunit": "^10.5",
+                "squizlabs/php_codesniffer": "^3.6"
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "icon": "assets/icon.png",
+                    "name": "Commerce",
+                    "version": "1.3.0",
+                    "provider": "Glueful\\Extensions\\Commerce\\CommerceServiceProvider",
+                    "requires": {
+                        "glueful": ">=1.71.0",
+                        "extensions": []
+                    },
+                    "publisher": "glueful-team",
+                    "categories": [
+                        "commerce",
+                        "checkout",
+                        "orders"
+                    ],
+                    "description": "Commerce primitives for products, carts, orders, inventory, discounts, checkout, and payments.",
+                    "displayName": "Commerce",
+                    "galleryBanner": {
+                        "color": "#0F766E",
+                        "theme": "dark"
+                    }
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Glueful\\Extensions\\Commerce\\": "src/"
+                },
+                "classmap": [
+                    "migrations/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Commerce primitives for Glueful apps: products, carts, orders, inventory, discounts, checkout, and payment integration.",
+            "keywords": [
+                "cart",
+                "checkout",
+                "commerce",
+                "discounts",
+                "inventory",
+                "orders"
+            ],
+            "support": {
+                "issues": "https://github.com/glueful/commerce/issues",
+                "source": "https://github.com/glueful/commerce/tree/v1.3.0"
+            },
+            "time": "2026-07-21T23:36:27+00:00"
+        },
+        {
             "name": "glueful/email-notification",
             "version": "v1.12.0",
             "source": {
@@ -655,20 +737,20 @@
         },
         {
             "name": "glueful/extension-contracts",
-            "version": "v1.4.0",
+            "version": "v1.5.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/contracts.git",
-                "reference": "ab9de0e900599087ce7909a6864d699818aa7357"
+                "reference": "780b5cb8391b0ea60be44dcb1d11837e1be5ac1e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/contracts/zipball/ab9de0e900599087ce7909a6864d699818aa7357",
-                "reference": "ab9de0e900599087ce7909a6864d699818aa7357",
+                "url": "https://api.github.com/repos/glueful/contracts/zipball/780b5cb8391b0ea60be44dcb1d11837e1be5ac1e",
+                "reference": "780b5cb8391b0ea60be44dcb1d11837e1be5ac1e",
                 "shasum": ""
             },
             "require": {
-                "glueful/framework": "^1.65.3",
+                "glueful/framework": "^1.71.0",
                 "php": "^8.3"
             },
             "require-dev": {
@@ -681,9 +763,9 @@
                 "glueful": {
                     "icon": "assets/icon.png",
                     "name": "Extension Contracts",
-                    "version": "1.3.0",
+                    "version": "1.5.0",
                     "requires": {
-                        "glueful": ">=1.65.3",
+                        "glueful": ">=1.71.0",
                         "extensions": []
                     },
                     "publisher": "glueful-team",
@@ -725,22 +807,22 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/contracts/issues",
-                "source": "https://github.com/glueful/contracts/tree/v1.4.0"
+                "source": "https://github.com/glueful/contracts/tree/v1.5.0"
             },
-            "time": "2026-07-16T08:23:45+00:00"
+            "time": "2026-07-20T05:18:25+00:00"
         },
         {
             "name": "glueful/framework",
-            "version": "v1.70.0",
+            "version": "v1.71.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "b4d72320a7f5f4d720d35403537f2b40ae0ac000"
+                "reference": "3e621c5889245ae6893b1a0368d290c4ffffbd6e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/b4d72320a7f5f4d720d35403537f2b40ae0ac000",
-                "reference": "b4d72320a7f5f4d720d35403537f2b40ae0ac000",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/3e621c5889245ae6893b1a0368d290c4ffffbd6e",
+                "reference": "3e621c5889245ae6893b1a0368d290c4ffffbd6e",
                 "shasum": ""
             },
             "require": {
@@ -835,7 +917,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-16T07:53:30+00:00"
+            "time": "2026-07-20T05:09:20+00:00"
         },
         {
             "name": "glueful/i18n",
@@ -1292,6 +1374,47 @@
                 }
             ],
             "description": "Developer-defined data collections with a public CRUD/query API, as a removable Thallo capability pack.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "glueful/thallo-commerce",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-commerce",
+                "reference": "6f11b195c3b7f9abbf85b27d258d003f1103a015"
+            },
+            "require": {
+                "glueful/commerce": "^1.3.0",
+                "glueful/extension-contracts": "*",
+                "glueful/framework": "^1.71.0",
+                "glueful/thallo-contracts": "*",
+                "glueful/thallo-tenancy": "*",
+                "php": "^8.3"
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "provider": "Thallo\\Commerce\\CommerceIntegrationServiceProvider"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Commerce\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Commerce adoption + product-to-entry content linkage for Thallo, as a removable capability pack.",
             "transport-options": {
                 "relative": true
             }
@@ -2755,16 +2878,16 @@
         },
         {
             "name": "nette/utils",
-            "version": "v4.1.4",
+            "version": "v4.1.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/nette/utils.git",
-                "reference": "7da6c396d7ebe142bc857c20479d5e70a5e1aac7"
+                "reference": "b043439dbdf954e6c28b5ea7e34b0100f83165e0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nette/utils/zipball/7da6c396d7ebe142bc857c20479d5e70a5e1aac7",
-                "reference": "7da6c396d7ebe142bc857c20479d5e70a5e1aac7",
+                "url": "https://api.github.com/repos/nette/utils/zipball/b043439dbdf954e6c28b5ea7e34b0100f83165e0",
+                "reference": "b043439dbdf954e6c28b5ea7e34b0100f83165e0",
                 "shasum": ""
             },
             "require": {
@@ -2784,7 +2907,7 @@
             },
             "suggest": {
                 "ext-gd": "to use Image",
-                "ext-iconv": "to use Strings::webalize(), toAscii(), chr() and reverse()",
+                "ext-iconv": "to use Strings::chr(), ord() and reverse()",
                 "ext-intl": "to use Strings::webalize(), toAscii(), normalize() and compare()",
                 "ext-json": "to use Nette\\Utils\\Json",
                 "ext-mbstring": "to use Strings::lower() etc...",
@@ -2840,9 +2963,9 @@
             ],
             "support": {
                 "issues": "https://github.com/nette/utils/issues",
-                "source": "https://github.com/nette/utils/tree/v4.1.4"
+                "source": "https://github.com/nette/utils/tree/v4.1.5"
             },
-            "time": "2026-05-11T20:49:54+00:00"
+            "time": "2026-07-17T23:02:45+00:00"
         },
         {
             "name": "nyholm/psr7",

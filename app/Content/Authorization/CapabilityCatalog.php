@@ -34,6 +34,9 @@ final class CapabilityCatalog
         'collections.data.manage' => [
             'label' => 'Manage collection data', 'group' => 'Collections', 'platform_only' => false,
         ],
+        'commerce.manage' => [
+            'label' => 'Manage commerce product-content links', 'group' => 'Commerce', 'platform_only' => false,
+        ],
     ];
 
     /** @return array<string, array{label:string,group:string,platform_only:bool}> */
