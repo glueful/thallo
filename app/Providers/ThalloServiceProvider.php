@@ -12,6 +12,7 @@ use App\Content\Delivery\FilterCompiler;
 use App\Content\Delivery\ReferenceFilterResolver;
 use App\Content\Delivery\ReferenceResolver;
 use App\Content\Delivery\SortCompiler;
+use App\Content\Delivery\ThalloCanonicalPublicOriginResolver;
 use App\Content\Forms\DefaultFormSealer;
 use App\Content\Forms\FormFieldDerivation;
 use App\Content\Forms\FormMailSender;
@@ -200,12 +201,14 @@ use App\Content\Seo\RouteResolver;
 use App\Content\Services\MigrationService;
 use App\Content\Authoring\EngineContentWriter;
 use App\Content\Authoring\EngineDraftSummaryReader;
+use App\Content\Authoring\EngineEntryExistenceReader;
 use App\Content\Delivery\EngineEntryTargetResolver;
 use App\Content\Context\EngineContext;
 use App\Content\Delivery\EngineContentDeliveryReader;
 use App\Content\Delivery\EngineEntryListReader;
 use App\Content\Delivery\EngineFacetCountsReader;
 use App\Content\Delivery\EngineIndexableContentReader;
+use App\Content\Delivery\EnginePublishedEntryBlocksReader;
 use App\Content\Schema\FieldTypes\DefaultFieldTypeRegistry;
 use App\Content\Schema\FieldTypes\EditorialFieldTypes;
 use App\Content\Services\PublishService;
@@ -215,10 +218,12 @@ use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Cache\CacheStore;
 use Thallo\Contracts\Authoring\ContentWriter;
 use Thallo\Contracts\Content\BlockEditableFieldResolver;
+use Thallo\Contracts\Content\EntryExistenceReader;
 use Thallo\Contracts\Content\RegionReader;
 use Thallo\Contracts\Content\RichHtmlSanitizer;
 use Thallo\Contracts\Authoring\DraftSummaryReader;
 use Thallo\Contracts\Authoring\PublishGate;
+use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
 use Thallo\Contracts\Delivery\EntryTargetResolver;
 use Thallo\Contracts\Delivery\MediaUrlResolver;
 use Thallo\Contracts\Settings\AdminUrlProvider;
@@ -233,6 +238,7 @@ use Thallo\Contracts\Delivery\EntryListReader;
 use Thallo\Contracts\Delivery\FacetCountsReader;
 use Thallo\Contracts\Delivery\PreviewSessionVerifier;
 use Thallo\Contracts\Delivery\PreviewThemeValidator;
+use Thallo\Contracts\Delivery\PublishedEntryBlocksReader;
 use Thallo\Contracts\Delivery\ReferenceTargetResolver;
 use Thallo\Contracts\Search\IndexableContentReader;
 use Thallo\Contracts\Schema\FieldTypeRegistry;
@@ -576,6 +582,11 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared'   => true,
                 'autowire' => true,
             ],
+            EntryExistenceReader::class => [
+                'class'    => EngineEntryExistenceReader::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
             \App\Content\Delivery\DeliveryItemShaper::class => [
                 'class'    => \App\Content\Delivery\DeliveryItemShaper::class,
                 'shared'   => true,
@@ -603,6 +614,15 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             EntryListReader::class => [
                 'class'    => EngineEntryListReader::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            // Commerce-Slice-2 Fix B: route-independent, tenant-scoped, published-only entry
+            // read — the seam Thallo\Render\EntryBlocksRenderer composes to render a
+            // route-less linked entry's blocks region (PublicRouteResolver::resolveEntry()
+            // requires a live entry_routes row and cannot serve one).
+            PublishedEntryBlocksReader::class => [
+                'class'    => EnginePublishedEntryBlocksReader::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
@@ -659,6 +679,9 @@ final class ThalloServiceProvider extends ServiceProvider
         return [
             \Thallo\Contracts\Starter\StarterContributorRegistry::class => $autowired(
                 \App\Content\Starter\DefaultStarterContributorRegistry::class
+            ),
+            \Thallo\Contracts\Starter\StarterBlockTypeRegistry::class => $autowired(
+                \App\Content\Starter\DefaultStarterBlockTypeRegistry::class
             ),
             \App\Content\Starter\Kinds\ContentTypeKind::class => $autowired(
                 \App\Content\Starter\Kinds\ContentTypeKind::class
@@ -1103,6 +1126,23 @@ final class ThalloServiceProvider extends ServiceProvider
         );
     }
 
+    public static function makeCanonicalPublicOriginResolver(
+        ContainerInterface $container
+    ): CanonicalPublicOriginResolver {
+        return new ThalloCanonicalPublicOriginResolver(
+            $container->get(SystemFlags::class),
+            $container->has(CurrentTenantResolver::class)
+                ? $container->get(CurrentTenantResolver::class)
+                : null,
+            $container->has(TenantAdministration::class)
+                ? $container->get(TenantAdministration::class)
+                : null,
+            $container->has(TenantDomainAdministration::class)
+                ? $container->get(TenantDomainAdministration::class)
+                : null,
+        );
+    }
+
     public static function makeBlobRouteMiddlewareProvider(
         ContainerInterface $container
     ): BlobRouteMiddlewareProvider {
@@ -1506,6 +1546,10 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             BlobPublicUrlProvider::class => [
                 'factory' => [self::class, 'makeBlobPublicUrlProvider'],
+                'shared' => true,
+            ],
+            CanonicalPublicOriginResolver::class => [
+                'factory' => [self::class, 'makeCanonicalPublicOriginResolver'],
                 'shared' => true,
             ],
             BlobRouteMiddlewareProvider::class => [

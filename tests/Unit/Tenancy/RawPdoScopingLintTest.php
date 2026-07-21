@@ -47,6 +47,8 @@ final class RawPdoScopingLintTest extends TestCase
      *  - RowRepository: TRUNCATE targets a dynamic collection table (collections are NOT owned).
      *  - SchemaIntrospector / UniquenessPreflight: retrofit engine introspection/preflight READS.
      *  - AuthorityContinuityGuard: global advisory lock only; RoleAuthority: global RBAC reads.
+     *  - ProductLinkRepository: advisory-lock only (pg_advisory_xact_lock); row CRUD goes
+     *    through the builder (covered by the interceptor), same shape as SingleStoreTenant.
      */
     private const SYSTEM_READERS = [
         'packages/thallo-analytics/src/Query/AnalyticsQuery.php',
@@ -74,6 +76,14 @@ final class RawPdoScopingLintTest extends TestCase
         'packages/thallo-tenancy/src/Tenant/SingleStoreTenant.php',
         // Specialized purge: validated physical-table DDL + scoped reads under PurgeJob's barrier.
         'packages/thallo-collections/src/Purge/CollectionsPurgeHandler.php',
+        // Advisory-lock only — see the docblock above.
+        'packages/thallo-commerce/src/Links/ProductLinkRepository.php',
+        // Storefront-rendering slice 2, Tasks 8/10: same shape — pg_advisory_xact_lock only
+        // (slug/checkout-attempt reservation locking); owned-row CRUD
+        // (thallo_commerce_product_slugs, thallo_commerce_checkout_attempts) goes through the
+        // builder (covered by the interceptor).
+        'packages/thallo-commerce/src/Shop/PackSlugLifecycleAuthority.php',
+        'packages/thallo-commerce/src/Shop/PackCheckoutAttemptAuthority.php',
     ];
 
     /**

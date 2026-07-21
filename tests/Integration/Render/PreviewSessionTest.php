@@ -469,6 +469,65 @@ final class PreviewSessionTest extends AppTestCase
         self::assertStringNotContainsString('/_preview-assets/', (string) $plain->getContent());
     }
 
+    /**
+     * Fix C (Commerce-Slice-2 review): {@see \Thallo\Render\Http\Controllers\RenderController::
+     * themedEnv()} built the preview-session {@see \Thallo\Render\ThemeLocator} WITHOUT the
+     * frozen contributed template dirs {@see \Thallo\Render\RenderServiceProvider::
+     * makeThemeLocator()} passes for the BOOT theme — so a pack-contributed template (here,
+     * `blocks/mini-cart.twig` from thallo-commerce's `ShopTemplatePathContributor`) vanished
+     * from a non-default-theme preview even though the SAME block renders fine on a live,
+     * boot-theme page. This fixture theme is DELIBERATELY minimal — a bare `theme.json`, no
+     * `entry.twig` override (unlike {@see makeAltTheme()}, whose own override is for a
+     * different test and would shadow the render pack's default `entry.twig` — the one that
+     * actually calls `blocks()`) — so the app-theme/contributed/pack-default chain is exercised
+     * honestly: `entry.twig` and `blocks/mini-cart.twig` both fall through to their respective
+     * defaults (pack default, contributed dir), which is exactly the chain Fix C repairs.
+     */
+    public function testThemedPreviewResolvesAPackContributedShopBlockTemplate(): void
+    {
+        $themeDir = $this->appContext()->getBasePath() . '/themes/fixcpreview';
+        // A `templates/` subdir MUST exist even though it stays empty (deliberately no
+        // entry.twig override here — see docblock): Twig\Loader\FilesystemLoader's
+        // constructor THROWS for a configured path that isn't a real directory, and
+        // themedEnv()'s catch-all would then silently fall back to the (unaffected) boot
+        // environment — silently defeating this test rather than exercising the fix.
+        @mkdir($themeDir . '/templates', 0755, true);
+        file_put_contents($themeDir . '/theme.json', json_encode(['name' => 'fixcpreview']));
+        try {
+            $entryUuid = $this->seedBlocksEntry([['id' => 'mc1', 'type' => 'mini-cart', 'data' => []]]);
+            $token = $this->container()->get(PreviewMinter::class)->mint($entryUuid, 'en', null, 'fixcpreview');
+
+            $res = $this->handle(Request::create('/_preview/' . $token, 'GET'));
+
+            self::assertSame(200, $res->getStatusCode());
+            self::assertStringContainsString('thallo-block-mini-cart', (string) $res->getContent());
+        } finally {
+            @unlink($themeDir . '/theme.json');
+            @rmdir($themeDir . '/templates');
+            @rmdir($themeDir);
+        }
+    }
+
+    /** A draft entry of a fresh content type with a `body: blocks` field, for block-render tests. */
+    private function seedBlocksEntry(array $blocks): string
+    {
+        $types = new ContentTypeRepository($this->connection());
+        $typeUuid = $types->create([
+            'slug' => 'preview_blocks_fixc_' . bin2hex(random_bytes(3)),
+            'name' => 'Preview Blocks Fix C Test',
+            'public_delivery' => true,
+            'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
+        $entry = $entries->createEntry($typeUuid, 'en', 1, 'user00000001');
+        $entries->saveDraft($entry, 'en', ['title' => 'Blocks preview', 'body' => $blocks], 1, 0, 'user00000001');
+
+        return $entry;
+    }
+
     public function testPreviewAssetRouteServesOnlyTheSignedThemeSafely(): void
     {
         $this->makeAltTheme();

@@ -24,6 +24,7 @@ abstract class AppTestCase extends TestCase
         'signup_continuations', 'signup_verifiers', 'signup_intents',
         'signup_rate_counters', 'signup_daily_counters',
         'tenant_role_overrides', 'tenant_roles', 'tenant_role_policy',
+        'thallo_commerce_product_links', 'thallo_commerce_product_slugs', 'thallo_commerce_checkout_attempts',
         'block_type_migrations',
         'blobs',
         'block_types',

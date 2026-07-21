@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Content\Media;
 
+use App\Content\Delivery\ThalloCanonicalPublicOriginResolver;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Contracts\Tenancy\FullTenantResolutionReadiness;
@@ -11,6 +12,7 @@ use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;
 use Glueful\Extensions\Contracts\Tenancy\TenantDomainAdministration;
 use Glueful\Uploader\Contracts\BlobPublicUrlProvider;
 use RuntimeException;
+use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
 use Thallo\Tenancy\System\SystemFlags;
 
 /** Derives a blob owner's canonical public origin without importing tenancy models. */
@@ -45,36 +47,18 @@ final class TenantBlobPublicUrlProvider implements BlobPublicUrlProvider
             throw new RuntimeException('Cannot derive a canonical origin for an ownerless blob.');
         }
 
-        $scheme = (string) config($this->context, 'tenancy.public_origin.scheme', 'https');
-        $default = $this->flags->defaultTenantUuid();
-        if ($tenantUuid === $default) {
-            $hosts = config($this->context, 'tenancy.public_origin.default_hosts', []);
-            if (is_array($hosts) && is_string($hosts[0] ?? null) && $hosts[0] !== '') {
-                return $scheme . '://' . $hosts[0];
-            }
-        }
+        // Host-selection precedence lives in ONE place — the shared origin contract. This
+        // provider owns only the blob -> owning-tenant lookup above.
+        return $this->origin()->originForTenant($this->context, $tenantUuid);
+    }
 
-        foreach ($this->domains->listDomains($this->context, $tenantUuid) as $domain) {
-            if (
-                ($domain['verification_status'] ?? '') === 'verified'
-                && ($domain['status'] ?? '') === 'active'
-                && is_string($domain['host'] ?? null)
-            ) {
-                return $scheme . '://' . $domain['host'];
-            }
-        }
-
-        $tenant = $this->tenants->getTenant($this->context, $tenantUuid);
-        $base = config($this->context, 'tenancy.public_origin.base_domain');
-        if (
-            $tenant !== null
-            && ($tenant['status'] ?? '') === 'active'
-            && is_string($base)
-            && $base !== ''
-        ) {
-            return $scheme . '://' . $tenant['slug'] . '.' . $base;
-        }
-
-        throw new RuntimeException('Cannot derive the tenant blob canonical origin.');
+    private function origin(): CanonicalPublicOriginResolver
+    {
+        // Built directly rather than DI-injected: this provider's own constructor is a public
+        // contract exercised by direct construction in tests (6 positional args), so it stays
+        // unchanged. The resolver is stateless plumbing over the same dependencies already held
+        // here; currentOrigin()'s tenant-resolution path is never used from this call site, so no
+        // CurrentTenantResolver is threaded through.
+        return new ThalloCanonicalPublicOriginResolver($this->flags, null, $this->tenants, $this->domains);
     }
 }

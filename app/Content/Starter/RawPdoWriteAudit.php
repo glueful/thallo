@@ -40,6 +40,17 @@ final class RawPdoWriteAudit implements StaticWriteAudit
         'packages/thallo-tenancy/src/Reverification/DomainReverificationSweep.php',
         'packages/thallo-tenancy/src/Tenant/SingleStoreTenant.php',
         'packages/thallo-collections/src/Purge/CollectionsPurgeHandler.php',
+        // ProductLinkRepository::lockIdentities(): pg_advisory_xact_lock only — no owned-row
+        // mutation via raw PDO. Its row CRUD (insert/delete/find) goes through the BUILDER
+        // (covered by the interceptor), matching SingleStoreTenant's identical classification.
+        'packages/thallo-commerce/src/Links/ProductLinkRepository.php',
+        // Storefront-rendering slice 2, Tasks 8/10: PackSlugLifecycleAuthority/
+        // PackCheckoutAttemptAuthority's getPDO() is pg_advisory_xact_lock only (slug/checkout-
+        // attempt reservation locking); every owned-row read/write (thallo_commerce_product_slugs,
+        // thallo_commerce_checkout_attempts) goes through the BUILDER (covered by the
+        // interceptor) — same shape as ProductLinkRepository immediately above.
+        'packages/thallo-commerce/src/Shop/PackSlugLifecycleAuthority.php',
+        'packages/thallo-commerce/src/Shop/PackCheckoutAttemptAuthority.php',
     ];
 
     private const SYSTEM_WRITERS = [
