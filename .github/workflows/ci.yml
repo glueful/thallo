@@ -92,19 +92,31 @@ jobs:
             -c "ALTER DATABASE app_test SET lock_timeout = '30s';" \
             -c "ALTER DATABASE app_test SET statement_timeout = '120s';"
 
-      # TEMP DIAGNOSTIC: run phpunit directly (not via `composer ci`) and stream a real-time
-      # per-test event log. Each test emits `Test Preparation Started (…)` BEFORE its setUp and
-      # `Test Prepared (…)` AFTER setUp — so whatever wedges is the LAST line in the job log,
-      # named exactly, and we can tell a setUp-fixture hang (last line = Preparation Started)
-      # from a test-body hang (last line = Prepared). enforceTimeLimit only wraps the body, so
-      # a setUp hang is invisible to it — this log is not. `php://stderr` can't be used as the
-      # target (the framework error handler turns its LOCK_EX warning into an exception), so we
-      # write to a file and tail -f the phase lines. Revert to `composer ci` once named.
+      # TEMP DIAGNOSTIC v2: the tail -f streaming variant printed nothing (PHPUnit recreates
+      # the event-log file, so tail followed a dead inode). This version is deterministic:
+      # run phpunit under a HARD 10-minute watchdog, then ALWAYS print the tail of the
+      # per-test event log — the last `Test Prepared (…)` line IS the wedged test, and the
+      # event timestamps distinguish a true hang from a slow-grind (e.g. every test eating a
+      # 30s lock timeout looks frozen from the buffered dots). On failure, also print
+      # surviving php processes (a wedged proc_open child shows up as an orphan) and
+      # pg_stat_activity (what each DB session was waiting on). Revert to `composer ci`
+      # once the culprit is named.
       - name: Run CI
         run: |
           composer phpcs
           composer test:reset-db
           composer test:migrate
-          : > /tmp/pu_events.log
-          ( tail -f /tmp/pu_events.log | grep --line-buffered -E "Test (Preparation Started|Prepared) \(App" ) &
-          vendor/bin/phpunit --log-events-verbose-text /tmp/pu_events.log
+          set +e
+          timeout --signal=KILL 600 vendor/bin/phpunit --log-events-verbose-text /tmp/pu_events.log
+          STATUS=$?
+          echo ""
+          echo "=== phpunit exit status: $STATUS (137 = killed by the 10-min watchdog) ==="
+          echo "=== last 60 event-log lines — the wedged test is the LAST one listed ==="
+          tail -n 60 /tmp/pu_events.log || true
+          if [ "$STATUS" -ne 0 ]; then
+            echo "=== surviving php processes (orphaned proc_open children show here) ==="
+            ps auxww | grep -E "php" | grep -v grep || true
+            echo "=== postgres session states ==="
+            PGPASSWORD=postgres psql -h 127.0.0.1 -U postgres -d app_test -c "select pid, state, wait_event_type, wait_event, now()-query_start as query_age, left(query,120) as query from pg_stat_activity where datname='app_test' order by query_start;" || true
+          fi
+          exit $STATUS
