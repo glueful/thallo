@@ -971,7 +971,13 @@ describe('editor page Design action', () => {
     }))
     vi.doMock('@/queries/locales', () => ({ useLocales: () => ({ data: ref([]) }) }))
     vi.doMock('@/stores/capabilities', () => ({
-      useCapabilitiesStore: () => ({ has: () => false, enabled: () => false }),
+      useCapabilitiesStore: () => ({ isEnabled: () => false, isVisible: () => false }),
+    }))
+    // Task 12 registered a real entry-editor panel (commerce-link) whose useGate wraps
+    // useCommerceMeta() — mock it so this Design-action test (unrelated to Commerce) never
+    // depends on the real query/client stack.
+    vi.doMock('@/queries/commerceMeta', () => ({
+      useCommerceMeta: () => ({ data: ref(undefined), status: ref('error') }),
     }))
     const { default: EditorPage } = await import('@/pages/content/[type]/[uuid]/index.vue')
     const wrapper = mount(EditorPage, {

@@ -8,6 +8,7 @@ import ProductForm from '../components/ProductForm.vue'
 import VariantsPanel from '../components/VariantsPanel.vue'
 import MediaPanel from '../components/MediaPanel.vue'
 import CategoriesTab from '../components/CategoriesTab.vue'
+import ProductEntryLinkPanel from '@/components/commerce/ProductEntryLinkPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,6 +26,8 @@ const tabItems = [
   { label: 'Variants', value: 'variants' },
   { label: 'Media', value: 'media' },
   { label: 'Categories', value: 'categories' },
+  // Task 12: the bidirectional product<->entry linkage panel, product-mode side.
+  { label: 'Content', value: 'content' },
 ]
 
 const pendingDelete = ref(false)
@@ -115,6 +118,13 @@ async function confirmDelete() {
           :key="product.uuid"
           :product="product"
           :can-manage="canManage"
+        />
+
+        <ProductEntryLinkPanel
+          v-else-if="tab === 'content'"
+          :key="product.uuid"
+          mode="product"
+          :product-uuid="product.uuid"
         />
       </template>
     </template>

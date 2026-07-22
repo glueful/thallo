@@ -8,6 +8,15 @@ vi.mock('@/stores/capabilities', () => ({
   useCapabilitiesStore: () => ({ isEnabled: (id: string) => enabledIds.has(id) }),
 }))
 
+// Task 12: the real manifest now contains the commerce-link panel, whose useGate
+// (useCommerceLinkGate) wraps useCommerceMeta() — mock it here so the "real manifest" describe
+// block below can drive loading/error/can_view through the SAME query surface the gate reads.
+const metaStatus = ref<'pending' | 'error' | 'success'>('success')
+const metaData = ref<{ can_view: boolean } | undefined>({ can_view: true })
+vi.mock('@/queries/commerceMeta', () => ({
+  useCommerceMeta: () => ({ data: metaData, status: metaStatus }),
+}))
+
 import {
   useVisibleEditorPanels,
   entryEditorPanels,
@@ -127,8 +136,24 @@ describe('useVisibleEditorPanels', () => {
     const { ids } = mountWith([])
     expect(ids()).toEqual([])
   })
+})
 
-  it('defaults to the real (currently empty) manifest when no panels argument is passed', () => {
+// ── Real manifest — commerce-link panel (Task 12) ─────────────────────────────────────────────
+//
+// Unlike the synthetic-panel tests above, these mount the REAL `entryEditorPanels` array (no
+// override argument), exercising the actual `requiresCapability`/`useGate` wiring registered in
+// registry/entryEditorPanels.ts end-to-end: capability gating via the mocked capabilities store,
+// and the `commerce.view` permission gating via the mocked useCommerceMeta() the panel's
+// useCommerceLinkGate wraps.
+describe('real manifest — commerce-link panel', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    enabledIds.clear()
+    metaStatus.value = 'success'
+    metaData.value = { can_view: true }
+  })
+
+  function mountReal() {
     let panelsRef!: ReturnType<typeof useVisibleEditorPanels>
     const Comp = defineComponent({
       setup() {
@@ -137,7 +162,49 @@ describe('useVisibleEditorPanels', () => {
       },
     })
     mount(Comp, { global: { plugins: [createPinia()] } })
-    expect(entryEditorPanels).toEqual([])
-    expect(panelsRef.value).toEqual([])
+    return { ids: () => panelsRef.value.map((p) => p.id) }
+  }
+
+  it('the manifest declares exactly the commerce-link panel, labeled "Commerce"', () => {
+    expect(entryEditorPanels.map((p) => p.id)).toEqual(['commerce-link'])
+    expect(entryEditorPanels[0]!.label).toBe('Commerce')
+  })
+
+  it('capability disabled → exactly the built-in tabs (no contributed panels admitted at all)', () => {
+    // thallo.commerce is never added to enabledIds here — never admitted regardless of the
+    // gate's own (ready) state, mirroring "omits a panel whose required capability is not
+    // enabled" above, but against the real manifest instead of a synthetic panel.
+    const { ids } = mountReal()
+    expect(ids()).toEqual([])
+  })
+
+  it('capability enabled but the meta query is still loading → withheld, never flickers in', () => {
+    enabledIds.add('thallo.commerce')
+    metaStatus.value = 'pending'
+    const { ids } = mountReal()
+    expect(ids()).toEqual([])
+  })
+
+  it('capability enabled but the meta query failed (e.g. a 403) → hidden', () => {
+    enabledIds.add('thallo.commerce')
+    metaStatus.value = 'error'
+    const { ids } = mountReal()
+    expect(ids()).toEqual([])
+  })
+
+  it('capability enabled, meta settled, but can_view is false → hidden', () => {
+    enabledIds.add('thallo.commerce')
+    metaStatus.value = 'success'
+    metaData.value = { can_view: false }
+    const { ids } = mountReal()
+    expect(ids()).toEqual([])
+  })
+
+  it('capability enabled, meta settled, can_view true → admitted as Commerce', () => {
+    enabledIds.add('thallo.commerce')
+    metaStatus.value = 'success'
+    metaData.value = { can_view: true }
+    const { ids } = mountReal()
+    expect(ids()).toEqual(['commerce-link'])
   })
 })

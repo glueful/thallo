@@ -532,10 +532,18 @@ export function useCommerceProducts(filters: MaybeRefOrGetter<ProductListFilters
   })
 }
 
-export function useCommerceProduct(uuid: MaybeRefOrGetter<string>) {
+/** `enabled` defaults to always-on (every existing caller passes a route-derived, always-present
+ * uuid); Task 12's linking panel passes a reactive `enabled` so a not-yet-resolved linked-product
+ * uuid (entry-mode's by-entry lookup, before it settles) never fires a bogus empty-uuid fetch —
+ * this ALSO guards against an empty uuid on its own, regardless of `enabled`. */
+export function useCommerceProduct(
+  uuid: MaybeRefOrGetter<string>,
+  enabled: MaybeRefOrGetter<boolean> = true,
+) {
   return useQuery({
     key: () => qk.commerceProduct(toValue(uuid)),
     query: () => fetchProduct(toValue(uuid)),
+    enabled: () => toValue(enabled) && !!toValue(uuid),
   })
 }
 

@@ -1,5 +1,6 @@
-import { computed, ref, type Component, type ComputedRef, type Ref } from 'vue'
+import { computed, defineAsyncComponent, ref, type Component, type ComputedRef, type Ref } from 'vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
+import { useCommerceLinkGate } from '@/queries/commerceLinking'
 
 /**
  * Plain, reactive context handed to a panel's `useGate`/`props`. The entry editor builds
@@ -43,14 +44,30 @@ export interface EntryEditorPanel {
 }
 
 /**
- * The STATIC entry-editor side-tab manifest: every panel a content type's editor can ever
- * show beyond the built-ins (Publishing, SEO, Versions), declared in render order. Starts
- * EMPTY — register a panel here when its feature lands (e.g. the commerce panel).
+ * Task 12 (admin-commerce-area plan, slice 3): the Commerce entry-editor panel — the bidirectional
+ * product<->entry linkage panel (ProductEntryLinkPanel.vue, entry-side mode), wired through the
+ * thin CommerceLinkPanel.vue wrapper. `requiresCapability` gates on the extension being enabled
+ * at all; `useGate` (useCommerceLinkGate, queries/commerceLinking.ts) separately gates on the
+ * CALLER's own `commerce.view` permission via the shared meta query — settle-before-admit, so a
+ * still-loading or denied gate never flickers the tab in and back out.
  */
-export const entryEditorPanels: readonly EntryEditorPanel[] = [
-  // Register contributed editor panels here, e.g.:
-  // commerceEntryPanel,
-]
+const commerceEntryPanel: EntryEditorPanel = {
+  id: 'commerce-link',
+  label: 'Commerce',
+  order: 10,
+  requiresCapability: 'thallo.commerce',
+  useGate: () => useCommerceLinkGate(),
+  component: defineAsyncComponent(
+    () => import('@/pages/content/[type]/[uuid]/components/CommerceLinkPanel.vue'),
+  ),
+  props: (ctx) => ({ entryUuid: ctx.uuid }),
+}
+
+/**
+ * The STATIC entry-editor side-tab manifest: every panel a content type's editor can ever
+ * show beyond the built-ins (Publishing, SEO, Versions), declared in render order.
+ */
+export const entryEditorPanels: readonly EntryEditorPanel[] = [commerceEntryPanel]
 
 /** Shared default gate for panels without a `useGate` — always `'ready'`, never mutated. */
 const alwaysReady: Readonly<Ref<'ready' | 'hidden' | 'loading'>> = ref('ready')
