@@ -77,5 +77,20 @@ jobs:
       - name: Cache extension discovery
         run: php glueful extensions:cache
 
+      # Safety net + diagnostic: a deadlocked or runaway query must fail FAST with the
+      # offending test named, never hang the job. lock_timeout aborts a query that waits
+      # >30s for a lock (surfaces cross-session deadlocks); statement_timeout aborts any
+      # single query running >120s (surfaces a runaway/blocked statement). Both are set on
+      # the database so every test connection inherits them and survive the schema reset
+      # inside `composer ci` (ALTER DATABASE settings persist across a DROP SCHEMA). The
+      # generous ceilings leave real migrations and tests untouched.
+      - name: Arm DB timeouts (fail fast + name the culprit instead of hanging)
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -d app_test \
+            -c "ALTER DATABASE app_test SET lock_timeout = '30s';" \
+            -c "ALTER DATABASE app_test SET statement_timeout = '120s';"
+
       - name: Run CI
         run: composer ci
