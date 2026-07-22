@@ -706,21 +706,26 @@ describe('order refund action', () => {
     expect(refundMock.mock.calls[0]![0].input.amount).toBe(1230)
   })
 
-  it('forwards a trimmed reason and the restock flag', async () => {
+  it('forwards a trimmed reason; restock is disabled and always submits false', async () => {
+    // The backend requires line attribution for restock and no line selector exists yet —
+    // the checkbox is DISABLED (a control that can only 422 must not be offered), so the
+    // submitted flag is pinned false.
     refundMock.mockResolvedValue(refund())
     const wrapper = await openRefund({ grand_total: 999999 })
 
     await wrapper.find('[data-test="refund-amount-input"]').setValue('5.00')
     await wrapper.find('[data-test="refund-reason-input"]').setValue('  customer request  ')
-    const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
-    await checkbox!.vm.$emit('update:modelValue', true)
+    const restockCheckbox = wrapper.find('[data-test="refund-restock-checkbox"] button, [data-test="refund-restock-checkbox"] input')
+    if (restockCheckbox.exists()) {
+      expect(restockCheckbox.attributes('disabled')).toBeDefined()
+    }
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
     expect(refundMock.mock.calls[0]![0].input).toEqual({
       amount: 500,
       reason: 'customer request',
-      restock: true,
+      restock: false,
     })
   })
 

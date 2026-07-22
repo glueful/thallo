@@ -163,7 +163,17 @@ async function submit() {
           <UTextarea v-model="reason" class="w-full" :rows="3" data-test="refund-reason-input" />
         </UFormField>
 
-        <UCheckbox v-model="restock" label="Restock inventory" data-test="refund-restock-checkbox" />
+        <!-- The backend has NO order-level restock: RefundService::validateLines() requires
+             line attribution whenever restock is requested, and this slideover ships no
+             line selector yet — an enabled checkbox would ALWAYS 422. Disabled until a
+             line-attribution UI lands; the flag is still submitted (always false). -->
+        <UCheckbox
+          v-model="restock"
+          disabled
+          label="Restock inventory"
+          help="Restocking requires selecting order lines — not available yet."
+          data-test="refund-restock-checkbox"
+        />
 
         <UAlert
           v-if="submitError"
