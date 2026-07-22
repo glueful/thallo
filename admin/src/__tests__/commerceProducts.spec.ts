@@ -2036,6 +2036,41 @@ describe('AttributesTab (product assignment)', () => {
     expect(wrapper.find('[data-test="attribute-assignment-unknown"]').exists()).toBe(false)
   })
 
+  it('keeps an included attribute in the saved payload after the visible page changes (wholesale replace must not drop off-page selections)', async () => {
+    // The PUT replaces ALL assignments — a checked attribute that scrolls off-page via
+    // search/pagination before Save must still be submitted, or it gets silently WIPED.
+    attributesPage.value = {
+      attributes: [attribute({ uuid: 'a1', slug: 'color', name: 'Color', values: [] })],
+      total: 2,
+      current_page: 1,
+      per_page: 1,
+    }
+    setAttributesMock.mockResolvedValue([])
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    // Include a1 while it is visible.
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[0]!.vm.$emit('update:modelValue', true)
+    await flushPromises()
+
+    // Simulate paging/searching away: the visible page now shows only a2.
+    attributesPage.value = {
+      attributes: [attribute({ uuid: 'a2', slug: 'size', name: 'Size', values: [] })],
+      total: 2,
+      current_page: 2,
+      per_page: 1,
+    }
+    await flushPromises()
+
+    await wrapper.find('[data-test="attribute-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setAttributesMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      rows: [{ attribute_uuid: 'a1', values: [], used_for_variants: false, visible: true }],
+    })
+  })
+
   it('adds a custom attribute row and saves it with a name and free-text values, no attribute_uuid', async () => {
     attributesPage.value = { attributes: [], total: 0, current_page: 1, per_page: 24 }
     setAttributesMock.mockResolvedValue([

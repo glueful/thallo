@@ -290,17 +290,18 @@ function removeCustomRow(key: string) {
 }
 
 function buildPayloadRows(): ProductAttributeAssignmentInput[] {
-  const attributeRows: ProductAttributeAssignmentInput[] = rows.value
-    .filter((attr) => assignState[attr.uuid]?.included)
-    .map((attr) => {
-      const entry = assignState[attr.uuid]!
-      return {
-        attribute_uuid: attr.uuid,
-        values: entry.values,
-        used_for_variants: entry.used_for_variants,
-        visible: entry.visible,
-      }
-    })
+  // Build from assignState — NEVER from rows.value: the attribute list is paginated and
+  // searchable, so a checked attribute can be off-page at Save time. The PUT is a
+  // wholesale replace; filtering by the visible page would silently drop (and therefore
+  // WIPE) every included assignment not currently in view.
+  const attributeRows: ProductAttributeAssignmentInput[] = Object.entries(assignState)
+    .filter(([, entry]) => entry.included)
+    .map(([uuid, entry]) => ({
+      attribute_uuid: uuid,
+      values: entry.values,
+      used_for_variants: entry.used_for_variants,
+      visible: entry.visible,
+    }))
 
   const custom: ProductAttributeAssignmentInput[] = customRows
     .filter((row) => row.name.trim() !== '')
