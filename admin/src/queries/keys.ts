@@ -37,6 +37,7 @@ export const qk = {
   commerceProducts: () => ['commerce-products'] as const,
   commerceProduct: (uuid: string) => ['commerce-product', uuid] as const,
   commerceCategories: () => ['commerce-categories'] as const,
+  commerceTags: () => ['commerce-tags'] as const,
   commerceLink: (productUuid: string) => ['commerce-link', productUuid] as const,
   commerceLinkByEntry: (entryUuid: string) => ['commerce-link-by-entry', entryUuid] as const,
   commerceEntrySearch: (q: string) => ['commerce-entry-search', q] as const,

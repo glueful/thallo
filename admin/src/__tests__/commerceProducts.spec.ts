@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
-import { ref } from 'vue'
-import type { CommerceCategory, CommerceProduct, ProductListPage } from '@/queries/commerceCatalog'
+import { ref, toValue } from 'vue'
+import type { CommerceCategory, CommerceProduct, CommerceTag, ProductListPage, TagListPage } from '@/queries/commerceCatalog'
 
 // ── Shared mock state (referenced inside vi.mock factories) ────────────────────────────────────
 //
@@ -85,6 +85,14 @@ const categoryCreateMock = vi.hoisted(() => vi.fn())
 const categoryUpdateMock = vi.hoisted(() => vi.fn())
 const categoryRemoveMock = vi.hoisted(() => vi.fn())
 
+const tagsPage = ref<TagListPage | undefined>(undefined)
+const tagsStatus = ref<'pending' | 'error' | 'success'>('success')
+const lastTagsFilters = vi.hoisted(() => ({ current: undefined as unknown }))
+const setTagsMock = vi.hoisted(() => vi.fn())
+const tagCreateMock = vi.hoisted(() => vi.fn())
+const tagUpdateMock = vi.hoisted(() => vi.fn())
+const tagRemoveMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceCatalog')>()
   return {
@@ -106,12 +114,22 @@ vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
       detachMedia: { mutateAsync: detachMediaMock, isLoading: ref(false) },
       reorderMedia: { mutateAsync: reorderMediaMock, isLoading: ref(false) },
       setCategories: { mutateAsync: setCategoriesMock, isLoading: ref(false) },
+      setTags: { mutateAsync: setTagsMock, isLoading: ref(false) },
     }),
     useCommerceCategories: () => ({ data: categoriesData, status: categoriesStatus }),
     useCommerceCategoryMutations: () => ({
       create: { mutateAsync: categoryCreateMock, isLoading: ref(false) },
       update: { mutateAsync: categoryUpdateMock, isLoading: ref(false) },
       remove: { mutateAsync: categoryRemoveMock, isLoading: ref(false) },
+    }),
+    useCommerceTags: (filters: unknown) => {
+      lastTagsFilters.current = filters
+      return { data: tagsPage, status: tagsStatus }
+    },
+    useCommerceTagMutations: () => ({
+      create: { mutateAsync: tagCreateMock, isLoading: ref(false) },
+      update: { mutateAsync: tagUpdateMock, isLoading: ref(false) },
+      remove: { mutateAsync: tagRemoveMock, isLoading: ref(false) },
     }),
   }
 })
@@ -121,6 +139,7 @@ import ProductForm from '@/pages/commerce/products/components/ProductForm.vue'
 import VariantsPanel from '@/pages/commerce/products/components/VariantsPanel.vue'
 import MediaPanel from '@/pages/commerce/products/components/MediaPanel.vue'
 import CategoriesTab from '@/pages/commerce/products/components/CategoriesTab.vue'
+import TagsTab from '@/pages/commerce/products/components/TagsTab.vue'
 import ProductsIndex from '@/pages/commerce/products/index.vue'
 import ProductDetail from '@/pages/commerce/products/[uuid]/index.vue'
 import { ApiError } from '@/api/errors'
@@ -176,6 +195,15 @@ function category(overrides: Partial<CommerceCategory> = {}): CommerceCategory {
     name: 'Category 1',
     description: null,
     position: 0,
+    ...overrides,
+  }
+}
+
+function tag(overrides: Partial<CommerceTag> = {}): CommerceTag {
+  return {
+    uuid: 'tag1',
+    slug: 'tag-1',
+    name: 'Tag 1',
     ...overrides,
   }
 }
@@ -245,6 +273,13 @@ beforeEach(() => {
   categoryCreateMock.mockReset()
   categoryUpdateMock.mockReset()
   categoryRemoveMock.mockReset()
+  tagsPage.value = { tags: [], total: 0, current_page: 1, per_page: 24 }
+  tagsStatus.value = 'success'
+  lastTagsFilters.current = undefined
+  setTagsMock.mockReset()
+  tagCreateMock.mockReset()
+  tagUpdateMock.mockReset()
+  tagRemoveMock.mockReset()
   notify.success.mockReset()
   notify.warning.mockReset()
   notify.error.mockReset()
@@ -501,6 +536,29 @@ describe('commerce products list page', () => {
     // Management mode: no `product` prop, so CRUD controls render.
     expect(wrapper.find('[data-test="category-add"]').exists()).toBe(true)
   })
+
+  // Task 19a: taxonomy grows a THIRD tab (Products | Categories | Tags).
+
+  it('switches to the Tags tab, hiding the Products-only controls, and renders TagsTab', async () => {
+    productsPage.value = { products: [product({ uuid: 'p1', name: 'Widget' })], total: 1, current_page: 1, per_page: 24 }
+    tagsPage.value = { tags: [tag({ uuid: 'tag1', name: 'Tag 1' })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="tag-row"]').exists()).toBe(false)
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    expect(tabs.map((t) => t.text())).toEqual(['Products', 'Categories', 'Tags'])
+    const tagsTab = tabs.find((t) => t.text() === 'Tags')
+    await tagsTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="new-product"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="product-row"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="tag-row"]').exists()).toBe(true)
+    // Management mode: no `product` prop, so CRUD controls render.
+    expect(wrapper.find('[data-test="tag-add"]').exists()).toBe(true)
+  })
 })
 
 // ── Product detail page ──────────────────────────────────────────────────────────────────────
@@ -601,6 +659,24 @@ describe('commerce product detail page', () => {
     expect(wrapper.find('[data-test="category-add"]').exists()).toBe(false)
     // Fresh mount = unobserved assignment: the honest "not loaded" state, never a guessed selection.
     expect(wrapper.find('[data-test="category-assignment-unknown"]').exists()).toBe(true)
+  })
+
+  it('switches to the Tags tab and renders TagsTab in assignment mode', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget' })
+    tagsPage.value = { tags: [tag({ uuid: 'tag1', name: 'Tag 1' })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mount(ProductDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    const tagsTab = tabs.find((t) => t.text() === 'Tags')
+    await tagsTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="tag-assignment-section"]').exists()).toBe(true)
+    // Assignment mode: CRUD controls are always hidden, even though can_manage is true.
+    expect(wrapper.find('[data-test="tag-add"]').exists()).toBe(false)
+    // Fresh mount = unobserved assignment: the honest "not loaded" state, never a guessed selection.
+    expect(wrapper.find('[data-test="tag-assignment-unknown"]').exists()).toBe(true)
   })
 })
 
@@ -1214,6 +1290,230 @@ describe('CategoriesTab (product assignment)', () => {
     const wrapper = mountAssignment(product({ uuid: 'p1' }), false)
 
     expect(wrapper.find('[data-test="category-assignment-save"]').exists()).toBe(false)
+    const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
+    expect(checkbox!.props('disabled')).toBe(true)
+  })
+})
+
+// ── TagsTab: management mode (no `product` prop) — tag CRUD + pagination/search ────────────
+
+describe('TagsTab (tag management)', () => {
+  function mountTab(canManage = true) {
+    return mount(TagsTab, { props: { canManage }, global: { stubs: { Modal: teleportStub } } })
+  }
+
+  it('renders each tag', () => {
+    tagsPage.value = {
+      tags: [tag({ uuid: 't1', name: 'Sale', slug: 'sale' }), tag({ uuid: 't2', name: 'New', slug: 'new' })],
+      total: 2,
+      current_page: 1,
+      per_page: 24,
+    }
+    const wrapper = mountTab()
+
+    expect(wrapper.findAll('[data-test="tag-row"]')).toHaveLength(2)
+    expect(wrapper.text()).toContain('Sale')
+  })
+
+  it('shows the loading state', () => {
+    tagsStatus.value = 'pending'
+    const wrapper = mountTab()
+    expect(wrapper.find('[data-test="tags-loading"]').exists()).toBe(true)
+  })
+
+  it('shows the error state', () => {
+    tagsStatus.value = 'error'
+    const wrapper = mountTab()
+    expect(wrapper.find('[data-test="tags-error"]').exists()).toBe(true)
+  })
+
+  it('shows the empty state when there are no tags', () => {
+    tagsPage.value = { tags: [], total: 0, current_page: 1, per_page: 24 }
+    const wrapper = mountTab()
+    expect(wrapper.find('[data-test="tags-empty"]').exists()).toBe(true)
+  })
+
+  it('sends the typed search as the q filter after the debounce settles', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mountTab()
+
+      await wrapper.find('[data-test="tag-search"]').setValue('sal')
+      // Not yet applied — still debouncing.
+      expect((toValue(lastTagsFilters.current) as { q?: string }).q).toBeUndefined()
+
+      await vi.advanceTimersByTimeAsync(300)
+      expect((toValue(lastTagsFilters.current) as { q?: string }).q).toBe('sal')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows pagination controls only once there is at least one tag', async () => {
+    tagsPage.value = { tags: [], total: 0, current_page: 1, per_page: 24 }
+    const wrapper = mountTab()
+    expect(wrapper.text()).not.toContain('Rows per page')
+
+    tagsPage.value = { tags: [tag()], total: 1, current_page: 1, per_page: 24 }
+    await flushPromises()
+    expect(wrapper.text()).toContain('Rows per page')
+  })
+
+  it('creates a tag from the add form', async () => {
+    tagsPage.value = { tags: [], total: 0, current_page: 1, per_page: 24 }
+    tagCreateMock.mockResolvedValue(tag({ uuid: 'new-1', name: 'New', slug: 'new' }))
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="tag-add"]').trigger('click')
+    await wrapper.find('[data-test="tag-name-input"]').setValue('New')
+    await wrapper.find('[data-test="tag-slug-input"]').setValue('new')
+    await wrapper.find('#tag-form').trigger('submit')
+    await flushPromises()
+
+    expect(tagCreateMock).toHaveBeenCalledWith({ slug: 'new', name: 'New' })
+  })
+
+  it('surfaces a duplicate-slug 422 message instead of vanishing it', async () => {
+    tagsPage.value = { tags: [], total: 0, current_page: 1, per_page: 24 }
+    tagCreateMock.mockRejectedValue(new ApiError('Validation failed', 422, { slug: 'Slug already in use.' }, {}))
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="tag-add"]').trigger('click')
+    await wrapper.find('[data-test="tag-name-input"]').setValue('Dup')
+    await wrapper.find('[data-test="tag-slug-input"]').setValue('dup')
+    await wrapper.find('#tag-form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="tag-form-error"]').text()).toContain('Slug already in use.')
+  })
+
+  it('updates a tag via the edit form, sending ONLY the name — slug is immutable', async () => {
+    tagsPage.value = { tags: [tag({ uuid: 't1', name: 'Old', slug: 'old' })], total: 1, current_page: 1, per_page: 24 }
+    tagUpdateMock.mockResolvedValue(tag({ uuid: 't1', name: 'New name', slug: 'old' }))
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="tag-edit"]').trigger('click')
+    // The slug field is disabled while editing — it can be shown, never submitted.
+    expect(wrapper.find('[data-test="tag-slug-input"]').attributes('disabled')).toBeDefined()
+    await wrapper.find('[data-test="tag-name-input"]').setValue('New name')
+    await wrapper.find('#tag-form').trigger('submit')
+    await flushPromises()
+
+    expect(tagUpdateMock).toHaveBeenCalledWith({ uuid: 't1', input: { name: 'New name' } })
+  })
+
+  it('surfaces the slug-immutability 422 message on tag update', async () => {
+    tagsPage.value = { tags: [tag({ uuid: 't1', name: 'Old', slug: 'old' })], total: 1, current_page: 1, per_page: 24 }
+    tagUpdateMock.mockRejectedValue(
+      new ApiError('Validation failed', 422, { slug: 'slug is immutable and cannot be changed after creation.' }, {}),
+    )
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="tag-edit"]').trigger('click')
+    await wrapper.find('#tag-form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="tag-form-error"]').text()).toContain(
+      'slug is immutable and cannot be changed after creation.',
+    )
+  })
+
+  it('requires confirmation before deleting a tag', async () => {
+    tagsPage.value = { tags: [tag({ uuid: 't1', name: 'Old' })], total: 1, current_page: 1, per_page: 24 }
+    tagRemoveMock.mockResolvedValue(undefined)
+    const wrapper = mountTab()
+
+    expect(wrapper.find('[data-test="tag-delete-confirm"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="tag-delete"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="tag-delete-confirm"]').exists()).toBe(true)
+    expect(tagRemoveMock).not.toHaveBeenCalled()
+
+    await wrapper.find('[data-test="tag-delete-confirm"]').trigger('click')
+    await flushPromises()
+    expect(tagRemoveMock).toHaveBeenCalledWith('t1')
+  })
+
+  it('hides all mutation controls when can_manage is false, keeping tags visible', () => {
+    tagsPage.value = { tags: [tag({ uuid: 't1', name: 'Old' })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mountTab(false)
+
+    expect(wrapper.find('[data-test="tag-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="tag-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="tag-delete"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="tag-row"]').exists()).toBe(true)
+  })
+})
+
+// ── TagsTab: assignment mode (`product` prop given) ─────────────────────────────────────────
+
+describe('TagsTab (product assignment)', () => {
+  function mountAssignment(p: CommerceProduct, canManage = true) {
+    return mount(TagsTab, { props: { product: p, canManage } })
+  }
+
+  it('shows the honest not-loaded state on fresh mount (never a guessed selection)', () => {
+    tagsPage.value = { tags: [tag({ uuid: 't1', name: 'Tag 1' })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    expect(wrapper.find('[data-test="tag-assignment-unknown"]').exists()).toBe(true)
+    const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
+    expect(checkbox!.props('modelValue')).toBe(false)
+  })
+
+  it('hides tag CRUD controls in assignment mode even when can_manage is true', () => {
+    tagsPage.value = { tags: [tag({ uuid: 't1', name: 'Tag 1' })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    expect(wrapper.find('[data-test="tag-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="tag-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="tag-delete"]').exists()).toBe(false)
+  })
+
+  it('selects tags and saves the exact uuid list, then reflects the positively-known set', async () => {
+    tagsPage.value = {
+      tags: [tag({ uuid: 't1', name: 'Tag 1' }), tag({ uuid: 't2', name: 'Tag 2' })],
+      total: 2,
+      current_page: 1,
+      per_page: 24,
+    }
+    setTagsMock.mockResolvedValue([tag({ uuid: 't1', name: 'Tag 1' })])
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[0]!.vm.$emit('update:modelValue', true)
+    await wrapper.find('[data-test="tag-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setTagsMock).toHaveBeenCalledWith({ productUuid: 'p1', tagUuids: ['t1'] })
+    // Once the set-list response comes back, the unknown-state banner clears — the set is now
+    // positively established, not a guess.
+    expect(wrapper.find('[data-test="tag-assignment-unknown"]').exists()).toBe(false)
+  })
+
+  it('surfaces a validation 422 message on save without discarding the current selection', async () => {
+    tagsPage.value = { tags: [tag({ uuid: 't1', name: 'Tag 1' })], total: 1, current_page: 1, per_page: 24 }
+    setTagsMock.mockRejectedValue(
+      new ApiError('Validation failed', 422, { tag_uuids: 'tag_uuids must reference existing tags in this tenant.' }, {}),
+    )
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[0]!.vm.$emit('update:modelValue', true)
+    await wrapper.find('[data-test="tag-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="tag-assignment-error"]').text()).toContain(
+      'tag_uuids must reference existing tags in this tenant.',
+    )
+  })
+
+  it('hides the save control and disables checkboxes when can_manage is false', () => {
+    tagsPage.value = { tags: [tag({ uuid: 't1', name: 'Tag 1' })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mountAssignment(product({ uuid: 'p1' }), false)
+
+    expect(wrapper.find('[data-test="tag-assignment-save"]').exists()).toBe(false)
     const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
     expect(checkbox!.props('disabled')).toBe(true)
   })

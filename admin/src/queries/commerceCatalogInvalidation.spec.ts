@@ -39,7 +39,7 @@ describe('useCommerceProductMutations invalidation', () => {
     const mutations = useCommerceProductMutations() as unknown as Record<
       'create' | 'update' | 'remove' | 'bulkStatus' | 'createVariant' | 'updateVariant' | 'bulkPrice' |
         'setChildren' | 'stockAdjust' | 'attachMedia' | 'updateMedia' | 'detachMedia' | 'reorderMedia' |
-        'setCategories',
+        'setCategories' | 'setTags',
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
     return { mutations, qk }
@@ -49,6 +49,16 @@ describe('useCommerceProductMutations invalidation', () => {
     const { useCommerceCategoryMutations } = await import('@/queries/commerceCatalog')
     const { qk } = await import('@/queries/keys')
     const mutations = useCommerceCategoryMutations() as unknown as Record<
+      'create' | 'update' | 'remove',
+      { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
+    >
+    return { mutations, qk }
+  }
+
+  async function tagBundle() {
+    const { useCommerceTagMutations } = await import('@/queries/commerceCatalog')
+    const { qk } = await import('@/queries/keys')
+    const mutations = useCommerceTagMutations() as unknown as Record<
       'create' | 'update' | 'remove',
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
@@ -226,5 +236,42 @@ describe('useCommerceProductMutations invalidation', () => {
     mutations.remove.onSettled?.(undefined, undefined, 'cat00000001')
 
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceCategories() }]])
+  })
+
+  // Task 19a: product tag assignment invalidates ONLY the owning product — the tag LIST
+  // (`useCommerceTags()`) shows no per-tag product count, so a product's own assignment
+  // changing never makes anything it renders stale (mirrors setCategories above).
+
+  it('setTags invalidates the owning product only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.setTags.onSettled?.(undefined, undefined, {
+      productUuid: 'prod00000001',
+      tagUuids: ['tag00000001'],
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+  })
+
+  // Task 19a: tag CRUD mutations invalidate the shared tag list only.
+
+  it('tag create invalidates the tag list only', async () => {
+    const { mutations, qk } = await tagBundle()
+    mutations.create.onSettled?.(undefined, undefined, undefined)
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceTags() }]])
+  })
+
+  it('tag update invalidates the tag list only', async () => {
+    const { mutations, qk } = await tagBundle()
+    mutations.update.onSettled?.(undefined, undefined, { uuid: 'tag00000001', input: { name: 'New' } })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceTags() }]])
+  })
+
+  it('tag remove invalidates the tag list only', async () => {
+    const { mutations, qk } = await tagBundle()
+    mutations.remove.onSettled?.(undefined, undefined, 'tag00000001')
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceTags() }]])
   })
 })

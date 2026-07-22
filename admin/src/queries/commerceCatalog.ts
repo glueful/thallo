@@ -196,6 +196,45 @@ export interface UpdateCategoryInput {
   position?: number | null
 }
 
+/** A `commerce_tags` row (design spec Layer 6 §2, `007_CreateCommerceCatalogBreadthTables.php`) —
+ * FLAT, unlike categories: no `parent_uuid`/`description`/`position`, just `slug`/`name`. CRUD'd
+ * independently of products, then attached/detached via `PUT /commerce/products/{uuid}/tags`'s
+ * set-list replace, exactly like categories. `GET /commerce/tags` IS paginated though
+ * (`TagRepository::paginatedFor()`), unlike `fetchCategories()`'s flat unpaginated list — mirrors
+ * `fetchProducts()`'s `Response::paginated` envelope instead. */
+export interface CommerceTag {
+  uuid: string
+  slug: string
+  name: string
+}
+
+export interface TagListFilters {
+  q?: string
+  page?: number
+  perPage?: number
+}
+
+export interface TagListPage {
+  tags: CommerceTag[]
+  total: number
+  current_page: number
+  per_page: number
+}
+
+/** `POST /commerce/tags` body (CreateTagData). */
+export interface CreateTagInput {
+  slug: string
+  name: string
+}
+
+/** `PATCH /commerce/tags/{uuid}` body — rename only. `TagService::rename()`'s own docblock: slug
+ * is immutable (referenced by storefront filters) and the key's mere PRESENCE in the request
+ * throws a 422 (`array_key_exists('slug', $changes)`), even when its value matches the current
+ * slug — so `updateTag()` below must never include it. */
+export interface UpdateTagInput {
+  name: string
+}
+
 // The admin envelopes are doc-only in the OpenAPI schema (see collections.ts's identical note), so
 // normalize the raw JSON into the stricter hand-written shapes above at the boundary.
 function normalizeVariant(raw: Record<string, unknown>): CommerceVariant {
@@ -233,6 +272,14 @@ function normalizeCategory(raw: Record<string, unknown>): CommerceCategory {
     name: String(raw.name ?? ''),
     description: typeof raw.description === 'string' ? raw.description : null,
     position: typeof raw.position === 'number' ? raw.position : 0,
+  }
+}
+
+function normalizeTag(raw: Record<string, unknown>): CommerceTag {
+  return {
+    uuid: String(raw.uuid ?? ''),
+    slug: String(raw.slug ?? ''),
+    name: String(raw.name ?? ''),
   }
 }
 
@@ -513,6 +560,73 @@ export async function setProductCategories(
   return Array.isArray(rows) ? rows.map((c) => normalizeCategory(c as Record<string, unknown>)) : []
 }
 
+/** `GET /commerce/tags` — paginated (unlike `fetchCategories()`'s flat list): `TagListQuery`'s
+ * exact param set is `{q, page, per_page}`. */
+export async function fetchTags(filters: TagListFilters = {}): Promise<TagListPage> {
+  const { data, error, response } = await client.GET('/commerce/tags', {
+    params: {
+      query: {
+        q: filters.q || undefined,
+        page: filters.page,
+        per_page: filters.perPage,
+      },
+    },
+  })
+  if (error) throw toApiError(error, response)
+  const body = data as
+    | { data?: unknown[]; current_page?: number; per_page?: number; total?: number }
+    | undefined
+  const rows = Array.isArray(body?.data) ? body.data : []
+  return {
+    tags: rows.map((t) => normalizeTag(t as Record<string, unknown>)),
+    total: body?.total ?? 0,
+    current_page: body?.current_page ?? filters.page ?? 1,
+    per_page: body?.per_page ?? filters.perPage ?? 24,
+  }
+}
+
+export async function createTag(input: CreateTagInput): Promise<CommerceTag> {
+  const { data, error, response } = await client.POST('/commerce/tags', {
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeTag((raw ?? {}) as Record<string, unknown>)
+}
+
+/** Only ever sends `{ name }` — never `slug` (see `UpdateTagInput`'s docblock: the backend
+ * rejects the update wholesale if the `slug` key is present at all). */
+export async function updateTag(uuid: string, input: UpdateTagInput): Promise<CommerceTag> {
+  const { data, error, response } = await client.PATCH('/commerce/tags/{uuid}', {
+    params: { path: { uuid } },
+    body: { name: input.name } as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeTag((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function deleteTag(uuid: string): Promise<void> {
+  const { error, response } = await client.DELETE('/commerce/tags/{uuid}', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+}
+
+/** `PUT /commerce/products/{uuid}/tags` (SetProductTagsData) — a wholesale set-list replace,
+ * exactly like `setProductCategories()`: the SUBMITTED list becomes the product's entire tag
+ * assignment, and the response is the fresh list of attached tag rows. There is no admin GET for
+ * a product's current tags, so this response is the only source of truth the SPA ever has. */
+export async function setProductTags(productUuid: string, tagUuids: string[]): Promise<CommerceTag[]> {
+  const { data, error, response } = await client.PUT('/commerce/products/{uuid}/tags', {
+    params: { path: { uuid: productUuid } },
+    body: { tag_uuids: tagUuids } as never,
+  })
+  if (error) throw toApiError(error, response)
+  const rows = (data as { data?: unknown[] } | undefined)?.data
+  return Array.isArray(rows) ? rows.map((t) => normalizeTag(t as Record<string, unknown>)) : []
+}
+
 // ── Query/mutation wrappers ──────────────────────────────────────────────────
 
 export function useCommerceProducts(filters: MaybeRefOrGetter<ProductListFilters>) {
@@ -640,6 +754,15 @@ export function useCommerceProductMutations() {
         setProductCategories(vars.productUuid, vars.categoryUuids),
       onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
     }),
+    // Task 19a: product tag assignment — invalidates ONLY the owning product, same reasoning as
+    // setCategories above. Never invalidates commerceTags(): the shared tag list shows no
+    // per-tag product count, so a product's own assignment changing never makes anything
+    // useCommerceTags() renders stale.
+    setTags: useMutation({
+      mutation: (vars: { productUuid: string; tagUuids: string[] }) =>
+        setProductTags(vars.productUuid, vars.tagUuids),
+      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+    }),
   }
 }
 
@@ -668,6 +791,43 @@ export function useCommerceCategoryMutations() {
     remove: useMutation({
       mutation: (uuid: string) => deleteCategory(uuid),
       onSettled: invalidateCategories,
+    }),
+  }
+}
+
+/** Paginated, filtered (`q`) tag list — mirrors `useCommerceProducts()`/`useCommerceReviews()`'s
+ * filter-suffixed key pattern rather than `useCommerceCategories()`'s bare one, since `fetchTags()`
+ * (unlike `fetchCategories()`) takes real filters. */
+export function useCommerceTags(filters: MaybeRefOrGetter<TagListFilters>) {
+  return useQuery({
+    key: () => {
+      const f = toValue(filters)
+      return [...qk.commerceTags(), f.q ?? '', f.page ?? 1, f.perPage ?? 24]
+    },
+    query: () => fetchTags(toValue(filters)),
+  })
+}
+
+/** Tag CRUD mutations — a separate hook from `useCommerceProductMutations()`, mirroring
+ * `useCommerceCategoryMutations()`: tags are their own top-level resource (not scoped to a single
+ * product); every one invalidates the shared tag list (every filter/page variant), the only thing
+ * any `useCommerceTags()` consumer renders from. */
+export function useCommerceTagMutations() {
+  const cache = useQueryCache()
+  const invalidateTags = () => cache.invalidateQueries({ key: qk.commerceTags() })
+
+  return {
+    create: useMutation({
+      mutation: (input: CreateTagInput) => createTag(input),
+      onSettled: invalidateTags,
+    }),
+    update: useMutation({
+      mutation: (vars: { uuid: string; input: UpdateTagInput }) => updateTag(vars.uuid, vars.input),
+      onSettled: invalidateTags,
+    }),
+    remove: useMutation({
+      mutation: (uuid: string) => deleteTag(uuid),
+      onSettled: invalidateTags,
     }),
   }
 }

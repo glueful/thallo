@@ -945,4 +945,248 @@ describe('commerce catalog query layer', () => {
       category_uuids: 'category_uuids must reference existing categories in this tenant.',
     })
   })
+
+  // ── Task 19a: tag CRUD + product assignment ───────────────────────────────────────────────
+  // Unlike categories, tags are FLAT (no parent/description/position) and the list IS paginated
+  // (`TagRepository::paginatedFor()`), so these mirror both the category CRUD tests AND
+  // fetchProducts's paginated-envelope tests.
+
+  it('parses the real Response::paginated envelope and normalizes tags', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Tags retrieved',
+        data: [
+          { uuid: 'tag1', slug: 'sale', name: 'Sale' },
+          { uuid: 'tag2', slug: 'new', name: 'New' },
+        ],
+        current_page: 2,
+        per_page: 10,
+        total: 12,
+      }),
+    )
+
+    const { fetchTags } = await import('@/queries/commerceCatalog')
+    const page = await fetchTags({ page: 2, perPage: 10 })
+
+    expect(page.tags).toHaveLength(2)
+    expect(page.tags[0]).toEqual({ uuid: 'tag1', slug: 'sale', name: 'Sale' })
+    expect(page.total).toBe(12)
+    expect(page.current_page).toBe(2)
+    expect(page.per_page).toBe(10)
+  })
+
+  it('defaults to an empty tag list when the envelope has no data array', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ data: null }))
+
+    const { fetchTags } = await import('@/queries/commerceCatalog')
+    await expect(fetchTags()).resolves.toEqual({ tags: [], total: 0, current_page: 1, per_page: 24 })
+  })
+
+  it('sends the q/page/per_page query params exactly as given', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ success: true, message: 'Tags retrieved', data: [] }))
+
+    const { fetchTags } = await import('@/queries/commerceCatalog')
+    await fetchTags({ q: 'sal', page: 3, perPage: 50 })
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    const url = new URL(req.url)
+    expect(url.searchParams.get('q')).toBe('sal')
+    expect(url.searchParams.get('page')).toBe('3')
+    expect(url.searchParams.get('per_page')).toBe('50')
+  })
+
+  it('throws ApiError when the tag list request fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Forbidden' }, 403),
+    )
+
+    const { fetchTags } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(fetchTags()).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('creates a tag and returns the normalized record', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: true,
+          message: 'Tag created',
+          data: { uuid: 'new-tag', slug: 'new-tag', name: 'New Tag' },
+        },
+        201,
+      ),
+    )
+
+    const { createTag } = await import('@/queries/commerceCatalog')
+    const tag = await createTag({ slug: 'new-tag', name: 'New Tag' })
+
+    expect(tag.uuid).toBe('new-tag')
+    expect(tag.name).toBe('New Tag')
+  })
+
+  it('sends the create-tag request body exactly as { slug, name }', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Tag created', data: { uuid: 't1', slug: 't1', name: 'T1' } }),
+    )
+
+    const { createTag } = await import('@/queries/commerceCatalog')
+    await createTag({ slug: 't1', name: 'T1' })
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({ slug: 't1', name: 'T1' })
+  })
+
+  it('surfaces a duplicate-slug constraint from a 422 on tag create', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { slug: 'Slug already in use.' } },
+        },
+        422,
+      ),
+    )
+
+    const { createTag } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await createTag({ slug: 'dup', name: 'Dup' })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({ slug: 'Slug already in use.' })
+  })
+
+  it('updates a tag by uuid', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Tag updated',
+        data: { uuid: 't1', slug: 't1', name: 'Renamed' },
+      }),
+    )
+
+    const { updateTag } = await import('@/queries/commerceCatalog')
+    const tag = await updateTag('t1', { name: 'Renamed' })
+    expect(tag.name).toBe('Renamed')
+  })
+
+  it('sends the update-tag request body as { name } only — slug is immutable and never sent', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Tag updated', data: { uuid: 't1', slug: 't1', name: 'Renamed' } }),
+    )
+
+    const { updateTag } = await import('@/queries/commerceCatalog')
+    await updateTag('t1', { name: 'Renamed' })
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({ name: 'Renamed' })
+  })
+
+  it('surfaces the slug-immutability constraint from a 422 on tag update', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { slug: 'slug is immutable and cannot be changed after creation.' } },
+        },
+        422,
+      ),
+    )
+
+    const { updateTag } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await updateTag('t1', { name: 'Renamed' })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      slug: 'slug is immutable and cannot be changed after creation.',
+    })
+  })
+
+  it('deletes a tag with no return value', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+
+    const { deleteTag } = await import('@/queries/commerceCatalog')
+    await expect(deleteTag('t1')).resolves.toBeUndefined()
+  })
+
+  it('throws ApiError when tag delete fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Not found' }, 404),
+    )
+
+    const { deleteTag } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(deleteTag('missing')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('sets product tags and returns the normalized attached list', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Product tags updated',
+        data: [{ uuid: 'tag1', slug: 'sale', name: 'Sale' }],
+      }),
+    )
+
+    const { setProductTags } = await import('@/queries/commerceCatalog')
+    const tags = await setProductTags('p1', ['tag1'])
+    expect(tags).toHaveLength(1)
+    expect(tags[0]!.uuid).toBe('tag1')
+  })
+
+  it('sends the set-tags request body exactly as { tag_uuids }', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Product tags updated', data: [] }),
+    )
+
+    const { setProductTags } = await import('@/queries/commerceCatalog')
+    await setProductTags('p1', ['tag1', 'tag2'])
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({ tag_uuids: ['tag1', 'tag2'] })
+  })
+
+  it('surfaces the "must reference existing tags" constraint from a set-tags 422', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            details: { tag_uuids: 'tag_uuids must reference existing tags in this tenant.' },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { setProductTags } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await setProductTags('p1', ['missing'])
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      tag_uuids: 'tag_uuids must reference existing tags in this tenant.',
+    })
+  })
 })
