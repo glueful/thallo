@@ -139,27 +139,45 @@ final class ShopCatalogTest extends AppTestCase
 
     public function testEmptyShopPrefixThrowsAtBoot(): void
     {
-        $this->assertPrefixThrowsAtBoot('');
+        $this->assertPrefixIsRejected('');
     }
 
     public function testMultiSegmentShopPrefixThrowsAtBoot(): void
     {
-        $this->assertPrefixThrowsAtBoot('a/b');
+        $this->assertPrefixIsRejected('a/b');
     }
 
-    private function assertPrefixThrowsAtBoot(string $badPrefix): void
+    private function assertPrefixIsRejected(string $badPrefix): void
     {
         $this->flags()->forget('tenancy.schema_state');
         $this->flags()->forget('tenancy.default_tenant_uuid');
 
+        // The framework swallows extension-boot throwables (it logs "Extensions boot failed" and
+        // continues), so a misconfigured prefix does NOT abort boot(). The pack resolves
+        // ShopUrlGenerator eagerly in its boot() to validate the prefix; the RuntimeException that
+        // validation raises therefore surfaces the moment ShopUrlGenerator is resolved (during that
+        // eager pass, and on every shop route). Assert on THAT resolution — and keep the assertions
+        // OUTSIDE the catch: `self::fail()`/`assert*()` raise an AssertionFailedError, which extends
+        // RuntimeException, so a `catch (\RuntimeException)` around them would swallow the failure and
+        // let the test pass vacuously (the bug this rewrite fixes).
+        $caught = null;
         try {
-            self::bootAppWithConfigOverride('thallo-commerce', ['shop_prefix' => $badPrefix]);
-            self::fail('expected boot to throw for shop_prefix = ' . var_export($badPrefix, true));
-        } catch (\RuntimeException $e) {
-            self::assertStringContainsString('shop_prefix', $e->getMessage());
+            $context = self::bootAppWithConfigOverride('thallo-commerce', ['shop_prefix' => $badPrefix]);
+            try {
+                $context->getContainer()->get(ShopUrlGenerator::class);
+            } catch (\RuntimeException $e) {
+                $caught = $e;
+            }
         } finally {
             self::resetSharedRepositoryConnection();
         }
+
+        self::assertInstanceOf(
+            \RuntimeException::class,
+            $caught,
+            'shop_prefix = ' . var_export($badPrefix, true) . ' must be rejected when ShopUrlGenerator resolves',
+        );
+        self::assertStringContainsString('shop_prefix', $caught->getMessage());
     }
 
     // ------------------------------------------------------------------
