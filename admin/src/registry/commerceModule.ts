@@ -11,7 +11,9 @@ import type { AdminModule } from './adminModules'
 // not new nav entries. Task 14 appends Discounts the same way. Task 15a appends Settings ONLY once
 // its first tab (Shipping zones) is green — 15b/15c (classes, tax rates) extend the SAME Settings
 // page later without a further nav change. Task 16 appends Reviews the same way now that
-// moderation (approve/spam/delete/bulk) is green.
+// moderation (approve/spam/delete/bulk) is green. Task 17 appends Customers the same way — a
+// read-only surface (no mutation endpoint exists at all), so unlike every entry before it there is
+// no can_manage gating anywhere behind this nav item.
 const main: NavigationMenuItem[] = [
   {
     label: 'Commerce',
@@ -23,6 +25,7 @@ const main: NavigationMenuItem[] = [
       { label: 'Discounts', to: '/commerce/discounts' },
       { label: 'Settings', to: '/commerce/settings' },
       { label: 'Reviews', to: '/commerce/reviews' },
+      { label: 'Customers', to: '/commerce/customers' },
     ],
   },
 ]
