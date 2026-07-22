@@ -4,9 +4,53 @@ on:
   push:
   pull_request:
 
+# The Integration suite is split into two measured, time-balanced shards (~110s local each;
+# timing source: a --log-junit run aggregated per directory, 2026-07-22). A NEW top-level entry
+# under tests/Integration — directory OR loose *Test.php — MUST be added to exactly one shard
+# list below; the "Shard coverage guard" step fails every job if an entry is unassigned, so a
+# new directory can never silently skip CI.
+env:
+  INTEGRATION_SHARD_A: >-
+    tests/Integration/Render
+    tests/Integration/Commerce
+    tests/Integration/Search
+  INTEGRATION_SHARD_B: >-
+    tests/Integration/Tenancy
+    tests/Integration/Analytics
+    tests/Integration/Authority
+    tests/Integration/Capabilities
+    tests/Integration/Collections
+    tests/Integration/Console
+    tests/Integration/Content
+    tests/Integration/Contracts
+    tests/Integration/Forms
+    tests/Integration/Http
+    tests/Integration/ImportExport
+    tests/Integration/Importers
+    tests/Integration/Indexing
+    tests/Integration/Migrations
+    tests/Integration/Navigation
+    tests/Integration/Pipeline
+    tests/Integration/Routing
+    tests/Integration/Seo
+    tests/Integration/Settings
+    tests/Integration/Setup
+    tests/Integration/Signup
+    tests/Integration/Workflow
+    tests/Integration/ApiKeyScopesTest.php
+    tests/Integration/DeliveryFlowTest.php
+    tests/Integration/FoundationFlowTest.php
+    tests/Integration/PreviewFlowTest.php
+
 jobs:
   test:
+    name: ${{ matrix.shard }}
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [lint-unit, integration-a, integration-b]
 
     services:
       postgres:
@@ -71,19 +115,46 @@ jobs:
           extensions: pdo_pgsql
           coverage: none
 
+      - name: Cache composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: ${{ runner.os }}-composer-${{ hashFiles('composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
 
       - name: Cache extension discovery
         run: php glueful extensions:cache
 
+      # Every tests/Integration entry must be assigned to exactly one shard, or the split
+      # silently stops running new directories. Fails loudly with the unassigned names.
+      - name: Shard coverage guard
+        run: |
+          covered=$(printf '%s %s' "$INTEGRATION_SHARD_A" "$INTEGRATION_SHARD_B" | tr ' ' '\n' | sed '/^$/d; s#^tests/Integration/##' | sort)
+          actual=$(ls tests/Integration | sort)
+          missing=$(comm -23 <(echo "$actual") <(echo "$covered"))
+          stale=$(comm -13 <(echo "$actual") <(echo "$covered"))
+          if [ -n "$missing" ]; then
+            echo "::error::tests/Integration entries not assigned to any shard (add them to a shard list in ci.yml):"
+            echo "$missing"
+            exit 1
+          fi
+          if [ -n "$stale" ]; then
+            echo "::error::shard lists reference tests/Integration entries that no longer exist (remove them from ci.yml):"
+            echo "$stale"
+            exit 1
+          fi
+          echo "Shard coverage OK"
+
       # Safety net + diagnostic: a deadlocked or runaway query must fail FAST with the
       # offending test named, never hang the job. lock_timeout aborts a query that waits
       # >30s for a lock (surfaces cross-session deadlocks); statement_timeout aborts any
       # single query running >120s (surfaces a runaway/blocked statement). Both are set on
       # the database so every test connection inherits them and survive the schema reset
-      # inside `composer ci` (ALTER DATABASE settings persist across a DROP SCHEMA). The
-      # generous ceilings leave real migrations and tests untouched.
+      # below (ALTER DATABASE settings persist across a DROP SCHEMA). The generous
+      # ceilings leave real migrations and tests untouched.
       - name: Arm DB timeouts (fail fast + name the culprit instead of hanging)
         env:
           PGPASSWORD: postgres
@@ -92,11 +163,26 @@ jobs:
             -c "ALTER DATABASE app_test SET lock_timeout = '30s';" \
             -c "ALTER DATABASE app_test SET statement_timeout = '120s';"
 
-      # A 15-minute watchdog wraps the whole ci script as a last-resort backstop: a wedged
-      # test aborts at 120s via phpunit.xml's enforceTimeLimit, and DB stalls abort via the
-      # lock/statement timeouts armed above — but if something ever slips past all of those,
-      # the job still ends instead of burning minutes until someone cancels it. (The verbose
-      # per-test event log used to hunt the 2026-07 race-child wedge has been removed — it
-      # cost real minutes writing a line per assertion.)
-      - name: Run CI
-        run: timeout --signal=KILL 900 composer ci
+      - name: Reset and migrate test database
+        run: |
+          composer test:reset-db
+          composer test:migrate
+
+      # A 15-minute watchdog wraps each shard as a last-resort backstop: a wedged test
+      # aborts at 120s via phpunit.xml's enforceTimeLimit, and DB stalls abort via the
+      # timeouts armed above — but if something ever slips past all of those, the job
+      # still ends instead of burning minutes until someone cancels it.
+      - name: Run shard
+        run: |
+          case "${{ matrix.shard }}" in
+            lint-unit)
+              composer phpcs
+              timeout --signal=KILL 900 vendor/bin/phpunit --testsuite Feature,Unit
+              ;;
+            integration-a)
+              timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_A
+              ;;
+            integration-b)
+              timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_B
+              ;;
+          esac
