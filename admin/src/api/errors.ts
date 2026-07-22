@@ -51,6 +51,33 @@ function flattenFieldErrors(errors: ApiErrorBody['errors']): Record<string, stri
   return out
 }
 
+/**
+ * `Response::validation()` (framework `Http/Response.php`) renders a controller-caught
+ * `ValidationException` as `{ error: { code, timestamp, request_id, details: { field: message } } }`
+ * — a DIFFERENT envelope from the global exception handler's `{ errors: { field: [message] } }`
+ * (`Http/Exceptions/Handler.php::renderValidationException()`, used only when a ValidationException
+ * escapes uncaught, e.g. a DTO hydration failure). Every commerce catalog mutation that manually
+ * catches its own ValidationException (variant/children/stock business-rule 422s — see
+ * commerceCatalog.ts) uses the former, so `errors` alone misses them entirely and the specific
+ * constraint message (e.g. "Only grouped products can have children.") would silently vanish.
+ *
+ * `error.details` is also reused for machine-readable failure codes (STALE_DRAFT,
+ * BLOCK_MIGRATION_IN_PROGRESS — see canvas-page.spec.ts), always shaped `{ code, ...}`. Those are
+ * consumed via `apiErrorCode()`/`apiErrorDetails()`, never as field messages, so this only treats
+ * `details` as a field-error map when every value is a non-empty string AND there's no `code` key.
+ */
+function fieldErrorsFromDetails(details: unknown): Record<string, string> {
+  if (typeof details !== 'object' || details === null || Array.isArray(details)) return {}
+  const entries = Object.entries(details as Record<string, unknown>)
+  if (entries.length === 0 || 'code' in (details as Record<string, unknown>)) return {}
+  const out: Record<string, string> = {}
+  for (const [field, message] of entries) {
+    if (typeof message !== 'string' || message.trim() === '') return {}
+    out[field] = message
+  }
+  return out
+}
+
 function messageFromBody(body: unknown, fallback: string): string {
   if (isErrorBody(body) && typeof body.message === 'string' && body.message.trim() !== '') {
     return body.message
@@ -93,7 +120,11 @@ export function toApiError(
   const status = response?.status ?? 0
   const fallbackMessage = error instanceof Error ? error.message : fallback
   const message = messageFromBody(error, fallbackMessage)
-  const fieldErrors = flattenFieldErrors(isErrorBody(error) ? error.errors : undefined)
+  let fieldErrors = flattenFieldErrors(isErrorBody(error) ? error.errors : undefined)
+  if (Object.keys(fieldErrors).length === 0 && isErrorBody(error)) {
+    const details = (error as { error?: { details?: unknown } }).error?.details
+    fieldErrors = fieldErrorsFromDetails(details)
+  }
   return new ApiError(message, status, fieldErrors, error ?? null)
 }
 

@@ -287,4 +287,258 @@ describe('commerce catalog query layer', () => {
     const { ApiError } = await import('@/api/errors')
     await expect(bulkStatusUpdate(['p1'], 'bogus')).rejects.toBeInstanceOf(ApiError)
   })
+
+  // ── Task 10b: variant lifecycle, bulk price, children, stock ──────────────────────────────
+
+  it('creates a variant and returns the normalized record', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: true,
+          message: 'Variant created',
+          data: {
+            uuid: 'v2',
+            sku: 'SKU-2',
+            price: 2500,
+            compare_at_price: null,
+            currency: 'USD',
+            status: 'active',
+            position: 1,
+          },
+        },
+        201,
+      ),
+    )
+
+    const { createProductVariant } = await import('@/queries/commerceCatalog')
+    const variant = await createProductVariant('p1', { sku: 'SKU-2', price: 2500, currency: 'USD' })
+
+    expect(variant.uuid).toBe('v2')
+    expect(variant.sku).toBe('SKU-2')
+    expect(variant.price).toBe(2500)
+  })
+
+  it('surfaces the "cannot add variant to a non-purchasable product" constraint from a 422', async () => {
+    // Response::validation() shape (Http/Response.php) — the shape AdminProductController's
+    // manually-caught ValidationException actually returns for this business rule, distinct
+    // from the global handler's top-level `errors` shape used for DTO hydration failures.
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            details: { product_uuid: "Cannot add variants to a 'grouped' product." },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { createProductVariant } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await createProductVariant('p1', { sku: 'SKU-3', price: 100, currency: 'USD' })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      product_uuid: "Cannot add variants to a 'grouped' product.",
+    })
+  })
+
+  it('updates a variant by uuid', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Variant updated',
+        data: {
+          uuid: 'v1',
+          sku: 'SKU-1',
+          price: 3000,
+          compare_at_price: null,
+          currency: 'USD',
+          status: 'active',
+          position: 0,
+        },
+      }),
+    )
+
+    const { updateProductVariant } = await import('@/queries/commerceCatalog')
+    const variant = await updateProductVariant('v1', { price: 3000 })
+    expect(variant.price).toBe(3000)
+  })
+
+  it('surfaces a duplicate-SKU constraint from a 422 on variant update', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        { success: false, message: 'Validation failed', error: { code: 422, details: { sku: 'SKU already in use.' } } },
+        422,
+      ),
+    )
+
+    const { updateProductVariant } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await updateProductVariant('v1', { sku: 'TAKEN' })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({ sku: 'SKU already in use.' })
+  })
+
+  it('sends the bulk-price request body exactly as { items }', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Bulk variant price update processed',
+        data: { applied: ['v1', 'v2'], failed: [] },
+      }),
+    )
+
+    const { bulkUpdateVariantPrices } = await import('@/queries/commerceCatalog')
+    const result = await bulkUpdateVariantPrices([
+      { uuid: 'v1', price: 1000 },
+      { uuid: 'v2', price: 2000 },
+    ])
+
+    expect(result.applied).toEqual(['v1', 'v2'])
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({
+      items: [
+        { uuid: 'v1', price: 1000 },
+        { uuid: 'v2', price: 2000 },
+      ],
+    })
+  })
+
+  it('throws ApiError on a bulk-price validation failure (hydration-level, top-level errors)', async () => {
+    // BulkPriceData/BulkPriceItemData are ValidatesSelf DTOs — their own-request checks (dup
+    // uuids, >100 items, negative price) run during hydration and escape uncaught, so THIS
+    // failure uses the global handler's top-level `errors` shape, not `error.details`.
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        { success: false, message: 'The given data was invalid.', errors: { items: ['items must not contain duplicate uuids.'] } },
+        422,
+      ),
+    )
+
+    const { bulkUpdateVariantPrices } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(bulkUpdateVariantPrices([{ uuid: 'v1', price: -5 }])).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('sets product children and returns the normalized child products', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Product children updated',
+        data: [
+          {
+            uuid: 'child-1',
+            slug: 'child-one',
+            name: 'Child One',
+            description: null,
+            type: 'physical',
+            status: 'active',
+            tax_class: null,
+            created_at: null,
+            updated_at: null,
+          },
+        ],
+      }),
+    )
+
+    const { setProductChildren } = await import('@/queries/commerceCatalog')
+    const children = await setProductChildren('p1', ['child-1'])
+    expect(children).toHaveLength(1)
+    expect(children[0]!.uuid).toBe('child-1')
+  })
+
+  it('sends the children request body exactly as { child_uuids }', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ success: true, message: 'Product children updated', data: [] }))
+
+    const { setProductChildren } = await import('@/queries/commerceCatalog')
+    await setProductChildren('p1', ['child-1', 'child-2'])
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({ child_uuids: ['child-1', 'child-2'] })
+  })
+
+  it('surfaces the "only grouped products can have children" constraint from a 422', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { type: 'Only grouped products can have children.' } },
+        },
+        422,
+      ),
+    )
+
+    const { setProductChildren } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await setProductChildren('p1', ['child-1'])
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      type: 'Only grouped products can have children.',
+    })
+  })
+
+  it('sends the stock-adjust request body exactly, including reason', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Stock adjusted',
+        data: { variant_uuid: 'v1', quantity: 42 },
+      }),
+    )
+
+    const { adjustVariantStock } = await import('@/queries/commerceCatalog')
+    const result = await adjustVariantStock('v1', { delta: -3, reason: 'damaged' })
+
+    expect(result).toEqual({ variant_uuid: 'v1', quantity: 42 })
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({ delta: -3, reason: 'damaged' })
+  })
+
+  it('surfaces the "stock cannot go below zero" constraint from a 422', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { quantity: 'Stock cannot go below zero.' } },
+        },
+        422,
+      ),
+    )
+
+    const { adjustVariantStock } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await adjustVariantStock('v1', { delta: -1000, reason: 'adjustment' })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      quantity: 'Stock cannot go below zero.',
+    })
+  })
 })

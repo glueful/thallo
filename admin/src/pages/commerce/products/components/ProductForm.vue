@@ -95,6 +95,9 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       <span class="text-muted">Base price</span>
       <span class="ml-2 font-medium text-default">{{ basePriceText }}</span>
       <span class="ml-1 text-xs text-muted">({{ baseVariant?.sku }})</span>
+      <!-- Read-only: the Variants tab (Task 10b) is the single place variant pricing is edited,
+           so this display never doubles as an editable base-price field. -->
+      <span class="ml-2 text-xs text-muted">— edit pricing in the Variants tab.</span>
     </div>
 
     <div class="grid grid-cols-2 gap-4">

@@ -56,6 +56,11 @@ const createMock = vi.hoisted(() => vi.fn())
 const updateMock = vi.hoisted(() => vi.fn())
 const removeMock = vi.hoisted(() => vi.fn())
 const bulkStatusMock = vi.hoisted(() => vi.fn())
+const createVariantMock = vi.hoisted(() => vi.fn())
+const updateVariantMock = vi.hoisted(() => vi.fn())
+const bulkPriceMock = vi.hoisted(() => vi.fn())
+const setChildrenMock = vi.hoisted(() => vi.fn())
+const stockAdjustMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceCatalog')>()
@@ -68,14 +73,22 @@ vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
       update: { mutateAsync: updateMock, isLoading: ref(false) },
       remove: { mutateAsync: removeMock, isLoading: ref(false) },
       bulkStatus: { mutateAsync: bulkStatusMock, isLoading: ref(false) },
+      createVariant: { mutateAsync: createVariantMock, isLoading: ref(false) },
+      updateVariant: { mutateAsync: updateVariantMock, isLoading: ref(false) },
+      bulkPrice: { mutateAsync: bulkPriceMock, isLoading: ref(false) },
+      setChildren: { mutateAsync: setChildrenMock, isLoading: ref(false) },
+      stockAdjust: { mutateAsync: stockAdjustMock, isLoading: ref(false) },
     }),
   }
 })
 
 import ProductsTable from '@/pages/commerce/products/components/ProductsTable.vue'
 import ProductForm from '@/pages/commerce/products/components/ProductForm.vue'
+import VariantsPanel from '@/pages/commerce/products/components/VariantsPanel.vue'
 import ProductsIndex from '@/pages/commerce/products/index.vue'
 import ProductDetail from '@/pages/commerce/products/[uuid]/index.vue'
+import { ApiError } from '@/api/errors'
+import type { CommerceVariant } from '@/queries/commerceCatalog'
 
 function product(overrides: Partial<CommerceProduct> = {}): CommerceProduct {
   return {
@@ -89,6 +102,19 @@ function product(overrides: Partial<CommerceProduct> = {}): CommerceProduct {
     created_at: '2026-01-01 00:00:00',
     updated_at: '2026-01-02 00:00:00',
     variants: [],
+    ...overrides,
+  }
+}
+
+function variant(overrides: Partial<CommerceVariant> = {}): CommerceVariant {
+  return {
+    uuid: 'v1',
+    sku: 'SKU-1',
+    price: 1999,
+    compare_at_price: null,
+    currency: 'USD',
+    status: 'active',
+    position: 0,
     ...overrides,
   }
 }
@@ -130,6 +156,11 @@ beforeEach(() => {
   updateMock.mockReset()
   removeMock.mockReset()
   bulkStatusMock.mockReset()
+  createVariantMock.mockReset()
+  updateVariantMock.mockReset()
+  bulkPriceMock.mockReset()
+  setChildrenMock.mockReset()
+  stockAdjustMock.mockReset()
   notify.success.mockReset()
   notify.warning.mockReset()
   notify.error.mockReset()
@@ -409,5 +440,230 @@ describe('commerce product detail page', () => {
 
     expect(removeMock).toHaveBeenCalledWith('p1')
     expect(routerPush).toHaveBeenCalledWith('/commerce/products')
+  })
+
+  it('switches to the Variants tab and renders VariantsPanel', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget', variants: [variant()] })
+    const wrapper = mount(ProductDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="variant-row"]').exists()).toBe(false)
+
+    // reka-ui's TabsTrigger activates on mousedown (or focus/keydown), not `click` — see
+    // TabsTrigger.vue's `@mousedown.left` handler.
+    const tabs = wrapper.findAll('[role="tab"]')
+    const variantsTab = tabs.find((t) => t.text() === 'Variants')
+    await variantsTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="variant-row"]').exists()).toBe(true)
+  })
+})
+
+// ── VariantsPanel: variant lifecycle, bulk price, stock, children ──────────────────────────
+
+describe('VariantsPanel', () => {
+  function mountPanel(p: CommerceProduct, canManage = true) {
+    return mount(VariantsPanel, { props: { product: p, canManage } })
+  }
+
+  it('renders each variant with its exact formatted price', () => {
+    const p = product({ variants: [variant({ uuid: 'v1', sku: 'SKU-1', price: 123456 })] })
+    const wrapper = mountPanel(p)
+    expect(wrapper.findAll('[data-test="variant-row"]')).toHaveLength(1)
+    expect(wrapper.find('[data-test="variant-price"]').text()).toContain('$1,234.56')
+  })
+
+  it('shows the empty state when there are no variants', () => {
+    const wrapper = mountPanel(product({ variants: [] }))
+    expect(wrapper.find('[data-test="variants-empty"]').exists()).toBe(true)
+  })
+
+  it('hides mutation controls when can_manage is false, keeping variant rows visible', () => {
+    const p = product({ variants: [variant()] })
+    const wrapper = mountPanel(p, false)
+
+    expect(wrapper.find('[data-test="variant-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="variant-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="stock-adjust"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="variant-select"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="variant-row"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="variant-price"]').exists()).toBe(true)
+  })
+
+  it('creates a variant from the add-variant form', async () => {
+    createVariantMock.mockResolvedValue(variant({ uuid: 'v2', sku: 'SKU-2' }))
+    const p = product({ uuid: 'p1', variants: [] })
+    const wrapper = mountPanel(p)
+
+    await wrapper.find('[data-test="variant-add"]').trigger('click')
+    await wrapper.find('[data-test="variant-sku-input"]').setValue('SKU-2')
+    await wrapper.find('[data-test="variant-price-input"]').setValue('2500')
+    await wrapper.find('[data-test="variant-currency-input"]').setValue('USD')
+
+    await wrapper.find('#variant-add-form').trigger('submit')
+    await flushPromises()
+
+    expect(createVariantMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      input: { sku: 'SKU-2', price: 2500, currency: 'USD', status: 'active' },
+    })
+  })
+
+  it('surfaces the "cannot add variant to type" 422 message instead of vanishing it', async () => {
+    createVariantMock.mockRejectedValue(
+      new ApiError('Validation failed', 422, { product_uuid: "Cannot add variants to a 'grouped' product." }, {}),
+    )
+    const p = product({ uuid: 'p1', type: 'grouped', variants: [] })
+    const wrapper = mountPanel(p)
+
+    await wrapper.find('[data-test="variant-add"]').trigger('click')
+    await wrapper.find('[data-test="variant-sku-input"]').setValue('SKU-2')
+    await wrapper.find('[data-test="variant-price-input"]').setValue('2500')
+    await wrapper.find('[data-test="variant-currency-input"]').setValue('USD')
+    await wrapper.find('#variant-add-form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="variant-form-error"]').text()).toContain(
+      "Cannot add variants to a 'grouped' product.",
+    )
+  })
+
+  it('updates a variant via the inline edit form', async () => {
+    updateVariantMock.mockResolvedValue(variant({ uuid: 'v1', price: 3000 }))
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1', sku: 'SKU-1', price: 1999 })] })
+    const wrapper = mountPanel(p)
+
+    await wrapper.find('[data-test="variant-edit"]').trigger('click')
+    await wrapper.find('[data-test="variant-edit-price-input"]').setValue('3000')
+    await wrapper.find(`#variant-edit-form-v1`).trigger('submit')
+    await flushPromises()
+
+    expect(updateVariantMock).toHaveBeenCalledWith({
+      uuid: 'v1',
+      productUuid: 'p1',
+      input: { sku: 'SKU-1', price: 3000, status: 'active' },
+    })
+  })
+
+  it('surfaces a duplicate-SKU 422 message on variant update', async () => {
+    updateVariantMock.mockRejectedValue(new ApiError('Validation failed', 422, { sku: 'SKU already in use.' }, {}))
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1' })] })
+    const wrapper = mountPanel(p)
+
+    await wrapper.find('[data-test="variant-edit"]').trigger('click')
+    await wrapper.find(`#variant-edit-form-v1`).trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="variant-edit-error"]').text()).toContain('SKU already in use.')
+  })
+
+  it('applies a bulk price to every selected variant with an exact payload', async () => {
+    bulkPriceMock.mockResolvedValue({ applied: ['v1', 'v2'], failed: [] })
+    const p = product({
+      uuid: 'p1',
+      variants: [variant({ uuid: 'v1' }), variant({ uuid: 'v2', sku: 'SKU-2' })],
+    })
+    const wrapper = mountPanel(p)
+
+    expect(wrapper.find('[data-test="bulk-price-bar"]').exists()).toBe(false)
+
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[0]!.vm.$emit('update:modelValue', true)
+    await checkboxes[1]!.vm.$emit('update:modelValue', true)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="bulk-price-bar"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="bulk-price-input"]').setValue('5000')
+    await wrapper.find('[data-test="bulk-price-apply"]').trigger('click')
+    await flushPromises()
+
+    expect(bulkPriceMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      items: [
+        { uuid: 'v1', price: 5000 },
+        { uuid: 'v2', price: 5000 },
+      ],
+    })
+    // Selection clears once applied.
+    expect(wrapper.find('[data-test="bulk-price-bar"]').exists()).toBe(false)
+  })
+
+  it('adjusts stock with an exact request body including the reason', async () => {
+    stockAdjustMock.mockResolvedValue({ variant_uuid: 'v1', quantity: 12 })
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1' })] })
+    const wrapper = mountPanel(p)
+
+    await wrapper.find('[data-test="stock-adjust"]').trigger('click')
+    await wrapper.find('[data-test="stock-adjust-delta"]').setValue('-3')
+    await wrapper.find('[data-test="stock-adjust-reason"]').setValue('damaged')
+    await wrapper.find('[data-test="stock-adjust-apply"]').trigger('click')
+    await flushPromises()
+
+    expect(stockAdjustMock).toHaveBeenCalledWith({
+      variantUuid: 'v1',
+      productUuid: 'p1',
+      input: { delta: -3, reason: 'damaged' },
+    })
+    expect(wrapper.find('[data-test="variant-stock-quantity"]').text()).toContain('12')
+  })
+
+  it('surfaces a "stock cannot go below zero" 422 message', async () => {
+    stockAdjustMock.mockRejectedValue(
+      new ApiError('Validation failed', 422, { quantity: 'Stock cannot go below zero.' }, {}),
+    )
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1' })] })
+    const wrapper = mountPanel(p)
+
+    await wrapper.find('[data-test="stock-adjust"]').trigger('click')
+    await wrapper.find('[data-test="stock-adjust-delta"]').setValue('-9999')
+    await wrapper.find('[data-test="stock-adjust-apply"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="stock-adjust-error"]').text()).toContain('Stock cannot go below zero.')
+  })
+
+  it('hides the children editor for a non-grouped product', () => {
+    const wrapper = mountPanel(product({ type: 'physical' }))
+    expect(wrapper.find('[data-test="children-section"]').exists()).toBe(false)
+  })
+
+  it('shows the children editor for a grouped product and sets children with an exact payload', async () => {
+    setChildrenMock.mockResolvedValue([
+      { uuid: 'child-1', slug: 'child-one', name: 'Child One', description: null, type: 'physical', status: 'active', tax_class: null, created_at: null, updated_at: null, variants: [] },
+    ])
+    const p = product({ uuid: 'p1', type: 'grouped' })
+    const wrapper = mountPanel(p)
+
+    expect(wrapper.find('[data-test="children-section"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="children-input"]').setValue('child-1, child-2')
+    await wrapper.find('[data-test="children-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setChildrenMock).toHaveBeenCalledWith({ productUuid: 'p1', childUuids: ['child-1', 'child-2'] })
+    expect(wrapper.find('[data-test="children-list"]').text()).toContain('Child One')
+  })
+
+  it('surfaces the "only grouped products can have children" 422 message', async () => {
+    setChildrenMock.mockRejectedValue(
+      new ApiError('Validation failed', 422, { type: 'Only grouped products can have children.' }, {}),
+    )
+    const wrapper = mountPanel(product({ uuid: 'p1', type: 'grouped' }))
+
+    await wrapper.find('[data-test="children-input"]').setValue('child-1')
+    await wrapper.find('[data-test="children-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="children-error"]').text()).toContain(
+      'Only grouped products can have children.',
+    )
+  })
+
+  it('hides the children save control when can_manage is false', () => {
+    const wrapper = mountPanel(product({ type: 'grouped' }), false)
+    expect(wrapper.find('[data-test="children-section"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="children-save"]').exists()).toBe(false)
   })
 })

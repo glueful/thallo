@@ -91,6 +91,43 @@ export interface BulkStatusResult {
   failed: Array<{ uuid: string; reason: string }>
 }
 
+/** `PATCH /commerce/variants/{uuid}` body (UpdateVariantData — see its own docblock: the
+ * controller reads the raw body, so every field is optional and an explicit `null` on
+ * `shipping_class_uuid` clears the assignment while an omitted key preserves it). */
+export interface UpdateVariantInput {
+  sku?: string
+  price?: number
+  currency?: string
+  option_values?: unknown[]
+  compare_at_price?: number | null
+  status?: string | null
+  shipping_class_uuid?: string | null
+}
+
+/** One `{uuid, price}` element of `POST /commerce/variants/bulk-price`'s `items` array
+ * (BulkPriceItemData) — `price` is minor units, never a decimal amount. */
+export interface BulkPriceItem {
+  uuid: string
+  price: number
+}
+
+/** `POST /commerce/stock/{variantUuid}/adjust` body (StockAdjustmentData). `reason` defaults to
+ * `'adjustment'` server-side when omitted, but callers here always send it explicitly so the
+ * request body stays self-describing. */
+export interface StockAdjustInput {
+  delta: number
+  reason?: string
+  reference_uuid?: string | null
+}
+
+/** `{ variant_uuid, quantity }` — the resulting on-hand quantity AFTER the adjustment. There is no
+ * admin GET for a variant's current stock (only this adjust endpoint), so this response is the
+ * only source of truth the SPA has for a variant's quantity. */
+export interface StockAdjustResult {
+  variant_uuid: string
+  quantity: number
+}
+
 // The admin envelopes are doc-only in the OpenAPI schema (see collections.ts's identical note), so
 // normalize the raw JSON into the stricter hand-written shapes above at the boundary.
 function normalizeVariant(raw: Record<string, unknown>): CommerceVariant {
@@ -203,6 +240,78 @@ export async function bulkStatusUpdate(uuids: string[], status: string): Promise
   return { applied: raw?.applied ?? [], failed: raw?.failed ?? [] }
 }
 
+export async function createProductVariant(
+  productUuid: string,
+  input: ProductVariantInput,
+): Promise<CommerceVariant> {
+  const { data, error, response } = await client.POST('/commerce/products/{uuid}/variants', {
+    params: { path: { uuid: productUuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeVariant((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function updateProductVariant(
+  variantUuid: string,
+  input: UpdateVariantInput,
+): Promise<CommerceVariant> {
+  const { data, error, response } = await client.PATCH('/commerce/variants/{uuid}', {
+    params: { path: { uuid: variantUuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeVariant((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function bulkUpdateVariantPrices(items: BulkPriceItem[]): Promise<BulkStatusResult> {
+  const { data, error, response } = await client.POST('/commerce/variants/bulk-price', {
+    body: { items } as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (
+    data as
+      | { data?: { applied?: string[]; failed?: Array<{ uuid: string; reason: string }> } }
+      | undefined
+  )?.data
+  return { applied: raw?.applied ?? [], failed: raw?.failed ?? [] }
+}
+
+/** `PUT /commerce/products/{uuid}/children` — a wholesale replace (SetProductChildrenData): the
+ * SUBMITTED list becomes the product's entire child set, and the response is the fresh list of
+ * child products (ordered). There is no admin GET for the current children, so this response —
+ * and any prior successful call's response — is the only source of truth the SPA has. */
+export async function setProductChildren(
+  productUuid: string,
+  childUuids: string[],
+): Promise<CommerceProduct[]> {
+  const { data, error, response } = await client.PUT('/commerce/products/{uuid}/children', {
+    params: { path: { uuid: productUuid } },
+    body: { child_uuids: childUuids } as never,
+  })
+  if (error) throw toApiError(error, response)
+  const rows = (data as { data?: unknown[] } | undefined)?.data
+  return Array.isArray(rows) ? rows.map((p) => normalizeProduct(p as Record<string, unknown>)) : []
+}
+
+export async function adjustVariantStock(
+  variantUuid: string,
+  input: StockAdjustInput,
+): Promise<StockAdjustResult> {
+  const { data, error, response } = await client.POST('/commerce/stock/{variantUuid}/adjust', {
+    params: { path: { variantUuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: { variant_uuid?: string; quantity?: number } } | undefined)?.data
+  return {
+    variant_uuid: raw?.variant_uuid ?? variantUuid,
+    quantity: typeof raw?.quantity === 'number' ? raw.quantity : 0,
+  }
+}
+
 // ── Query/mutation wrappers ──────────────────────────────────────────────────
 
 export function useCommerceProducts(filters: MaybeRefOrGetter<ProductListFilters>) {
@@ -230,7 +339,15 @@ export function useCommerceProduct(uuid: MaybeRefOrGetter<string>) {
 }
 
 /** Product mutations. `create`/`bulkStatus` invalidate the list; `update`/`remove` invalidate both
- * the single product and the list (its row may now be stale — status, name, etc.). */
+ * the single product and the list (its row may now be stale — status, name, etc.).
+ *
+ * The variant/children/stock mutations below (Task 10b) invalidate ONLY `qk.commerceProduct(uuid)`,
+ * never the list: none of the fields ProductsTable renders (name, slug, type, status, updated_at —
+ * see ProductsTable.vue's `columns`) come from a variant, the children set, or stock, so a list
+ * invalidation would just be a wasted refetch. Every one of them requires the caller to pass the
+ * owning `productUuid` explicitly (mirroring `update`/`remove`'s `uuid`) rather than reading it off
+ * the mutation's response, so the invalidation still runs correctly even when the call fails.
+ */
 export function useCommerceProductMutations() {
   const cache = useQueryCache()
   const invalidateList = () => cache.invalidateQueries({ key: qk.commerceProducts() })
@@ -238,6 +355,7 @@ export function useCommerceProductMutations() {
     cache.invalidateQueries({ key: qk.commerceProduct(uuid) })
     invalidateList()
   }
+  const invalidateProductOnly = (uuid: string) => cache.invalidateQueries({ key: qk.commerceProduct(uuid) })
 
   return {
     create: useMutation({
@@ -257,6 +375,31 @@ export function useCommerceProductMutations() {
       mutation: (vars: { uuids: string[]; status: string }) =>
         bulkStatusUpdate(vars.uuids, vars.status),
       onSettled: invalidateList,
+    }),
+    createVariant: useMutation({
+      mutation: (vars: { productUuid: string; input: ProductVariantInput }) =>
+        createProductVariant(vars.productUuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+    }),
+    updateVariant: useMutation({
+      mutation: (vars: { uuid: string; productUuid: string; input: UpdateVariantInput }) =>
+        updateProductVariant(vars.uuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+    }),
+    bulkPrice: useMutation({
+      mutation: (vars: { productUuid: string; items: BulkPriceItem[] }) =>
+        bulkUpdateVariantPrices(vars.items),
+      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+    }),
+    setChildren: useMutation({
+      mutation: (vars: { productUuid: string; childUuids: string[] }) =>
+        setProductChildren(vars.productUuid, vars.childUuids),
+      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+    }),
+    stockAdjust: useMutation({
+      mutation: (vars: { variantUuid: string; productUuid: string; input: StockAdjustInput }) =>
+        adjustVariantStock(vars.variantUuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
     }),
   }
 }

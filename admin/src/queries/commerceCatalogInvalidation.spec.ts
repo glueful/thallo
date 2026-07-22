@@ -37,7 +37,8 @@ describe('useCommerceProductMutations invalidation', () => {
     // The colada mock spreads each mutation's options onto its return value, exposing
     // onSettled; the real return type doesn't carry it, hence the cast.
     const mutations = useCommerceProductMutations() as unknown as Record<
-      'create' | 'update' | 'remove' | 'bulkStatus',
+      'create' | 'update' | 'remove' | 'bulkStatus' | 'createVariant' | 'updateVariant' | 'bulkPrice' |
+        'setChildren' | 'stockAdjust',
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
     return { mutations, qk }
@@ -75,5 +76,63 @@ describe('useCommerceProductMutations invalidation', () => {
       [{ key: qk.commerceProduct('prod00000002') }],
       [{ key: qk.commerceProducts() }],
     ])
+  })
+
+  // Task 10b: variant/children/stock mutations invalidate ONLY the owning product, never the
+  // list — no field ProductsTable renders (name/slug/type/status/updated_at) is affected by a
+  // variant, the children set, or stock. Every one of these mutation's vars carries the owning
+  // `productUuid` explicitly (never inferred from the mutation's own response), so the pinned
+  // invalidation still runs correctly even on failure.
+
+  it('createVariant invalidates the owning product only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.createVariant.onSettled?.(undefined, undefined, {
+      productUuid: 'prod00000001',
+      input: { sku: 'SKU-1', price: 100, currency: 'USD' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+  })
+
+  it('updateVariant invalidates the owning product only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.updateVariant.onSettled?.(undefined, undefined, {
+      uuid: 'var00000001',
+      productUuid: 'prod00000001',
+      input: { price: 200 },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+  })
+
+  it('bulkPrice invalidates the owning product only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.bulkPrice.onSettled?.(undefined, undefined, {
+      productUuid: 'prod00000001',
+      items: [{ uuid: 'var00000001', price: 300 }],
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+  })
+
+  it('setChildren invalidates the owning product only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.setChildren.onSettled?.(undefined, undefined, {
+      productUuid: 'prod00000001',
+      childUuids: ['prod00000002'],
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+  })
+
+  it('stockAdjust invalidates the owning product only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.stockAdjust.onSettled?.(undefined, undefined, {
+      variantUuid: 'var00000001',
+      productUuid: 'prod00000001',
+      input: { delta: -5, reason: 'damaged' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
   })
 })

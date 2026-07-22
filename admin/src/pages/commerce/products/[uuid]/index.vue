@@ -5,6 +5,7 @@ import { useCommerceProduct, useCommerceProductMutations } from '@/queries/comme
 import { useCommerceMeta } from '@/queries/commerceMeta'
 import { useNotify } from '@/composables/useNotify'
 import ProductForm from '../components/ProductForm.vue'
+import VariantsPanel from '../components/VariantsPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -16,9 +17,12 @@ const { data: meta } = useCommerceMeta()
 const canManage = computed(() => meta.value?.can_manage ?? false)
 const { remove } = useCommerceProductMutations()
 
-// Sole tab today (Task 10a) — Task 10b/c/d append Variants/Media/Categories here.
+// Task 10c/d append Media/Categories here.
 const tab = ref('details')
-const tabItems = [{ label: 'Details', value: 'details' }]
+const tabItems = [
+  { label: 'Details', value: 'details' },
+  { label: 'Variants', value: 'variants' },
+]
 
 const pendingDelete = ref(false)
 async function confirmDelete() {
@@ -84,6 +88,13 @@ async function confirmDelete() {
 
         <ProductForm
           v-if="tab === 'details'"
+          :key="product.uuid"
+          :product="product"
+          :can-manage="canManage"
+        />
+
+        <VariantsPanel
+          v-else-if="tab === 'variants'"
           :key="product.uuid"
           :product="product"
           :can-manage="canManage"
