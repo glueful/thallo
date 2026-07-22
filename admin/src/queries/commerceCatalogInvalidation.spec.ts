@@ -39,7 +39,8 @@ describe('useCommerceProductMutations invalidation', () => {
     const mutations = useCommerceProductMutations() as unknown as Record<
       'create' | 'update' | 'remove' | 'bulkStatus' | 'createVariant' | 'updateVariant' | 'bulkPrice' |
         'setChildren' | 'stockAdjust' | 'attachMedia' | 'updateMedia' | 'detachMedia' | 'reorderMedia' |
-        'setCategories' | 'setTags' | 'setAttributes' | 'createAddon' | 'updateAddon' | 'removeAddon',
+        'setCategories' | 'setTags' | 'setAttributes' | 'createAddon' | 'updateAddon' | 'removeAddon' |
+        'attachDownload' | 'updateDownload' | 'removeDownload',
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
     return { mutations, qk }
@@ -382,5 +383,41 @@ describe('useCommerceProductMutations invalidation', () => {
     })
 
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProductAddons('prod00000001') }]])
+  })
+
+  // Task 19d: variant downloads are PER-VARIANT (deeper than add-ons' per-product scope), so every
+  // one of attach/update/remove invalidates ONLY qk.commerceVariantDownloads(variantUuid) — never
+  // the product detail or the add-ons list: no admin product endpoint embeds `downloads` in its
+  // payload, same reasoning as createAddon/updateAddon/removeAddon above.
+
+  it('attachDownload invalidates the owning variant’s download list only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.attachDownload.onSettled?.(undefined, undefined, {
+      variantUuid: 'var00000001',
+      input: { blob_uuid: 'blob00000001', name: 'Ebook (PDF)' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceVariantDownloads('var00000001') }]])
+  })
+
+  it('updateDownload invalidates the owning variant’s download list only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.updateDownload.onSettled?.(undefined, undefined, {
+      uuid: 'down00000001',
+      variantUuid: 'var00000001',
+      input: { name: 'Ebook (2nd edition)' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceVariantDownloads('var00000001') }]])
+  })
+
+  it('removeDownload invalidates the owning variant’s download list only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.removeDownload.onSettled?.(undefined, undefined, {
+      uuid: 'down00000001',
+      variantUuid: 'var00000001',
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceVariantDownloads('var00000001') }]])
   })
 })

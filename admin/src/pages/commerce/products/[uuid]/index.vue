@@ -11,6 +11,7 @@ import CategoriesTab from '../components/CategoriesTab.vue'
 import TagsTab from '../components/TagsTab.vue'
 import AttributesTab from '../components/AttributesTab.vue'
 import AddonsPanel from '../components/AddonsPanel.vue'
+import DownloadsPanel from '../components/DownloadsPanel.vue'
 import ProductEntryLinkPanel from '@/components/commerce/ProductEntryLinkPanel.vue'
 
 const route = useRoute()
@@ -36,6 +37,9 @@ const tabItems = [
   // Task 19c: per-product add-ons — a real per-product GET, unlike Categories/Tags/Attributes'
   // assignment sections (see AddonsPanel.vue's file-level comment).
   { label: 'Add-ons', value: 'addons' },
+  // Task 19d: per-variant digital downloads — a real per-variant GET, same reasoning as Add-ons
+  // above (see DownloadsPanel.vue's file-level comment).
+  { label: 'Downloads', value: 'downloads' },
   // Task 12: the bidirectional product<->entry linkage panel, product-mode side.
   { label: 'Content', value: 'content' },
 ]
@@ -146,6 +150,13 @@ async function confirmDelete() {
 
         <AddonsPanel
           v-else-if="tab === 'addons'"
+          :key="product.uuid"
+          :product="product"
+          :can-manage="canManage"
+        />
+
+        <DownloadsPanel
+          v-else-if="tab === 'downloads'"
           :key="product.uuid"
           :product="product"
           :can-manage="canManage"

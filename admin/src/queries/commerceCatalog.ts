@@ -407,6 +407,85 @@ export interface UpdateAddonInput {
   status?: string
 }
 
+export const DOWNLOAD_STATUSES = ['active', 'inactive'] as const
+export type CommerceDownloadStatus = (typeof DOWNLOAD_STATUSES)[number]
+
+/** A `commerce_downloads` row (design spec Layer 6 §2, `008_CreateCommerceCustomerDeliveryTables.php`)
+ * — PER-VARIANT (unlike `CommerceAddon`'s per-product scope): `GET /commerce/variants/{uuid}/downloads`
+ * IS a real admin read path (`DownloadService::list()`/`DownloadRepository::forVariant()`, ordered by
+ * position), so `DownloadsPanel.vue` hydrates directly from it once a variant's section is expanded —
+ * no "unknown assignment" placeholder dance needed (mirrors `CommerceAddon`'s docblock).
+ * `download_limit`/`expiry_days` are both nullable and `null` is a REAL value (unlimited downloads /
+ * never expires) — never "unset" (`DownloadService::normalizeNonNegativeInt()`'s own docblock).
+ * Money-free: a download definition carries no price of its own — delivery is bundled into the
+ * owning variant's own price, so no `useMoney` import is needed anywhere in this domain. */
+export interface CommerceDownload {
+  uuid: string
+  variant_uuid: string
+  blob_uuid: string
+  name: string
+  download_limit: number | null
+  expiry_days: number | null
+  position: number
+  status: string
+}
+
+/** `POST /commerce/variants/{uuid}/downloads` body (CreateDownloadData). The referenced blob must
+ * already exist, be `active`, and be PRIVATE (`DownloadService::assertBlobAttachable()` — the
+ * INVERSE of product media, which requires public) — the picker that sources `blob_uuid` must
+ * upload/pick with `visibility: 'private'` (see `MediaPickerModal`'s `visibility` prop). */
+export interface AttachDownloadInput {
+  blob_uuid: string
+  name: string
+  download_limit?: number | null
+  expiry_days?: number | null
+  position?: number | null
+}
+
+/** `PATCH /commerce/downloads/{uuid}` body (UpdateDownloadData) — the controller reads the raw body
+ * (see its own docblock: distinguishes an ABSENT key, "leave unchanged", from an explicit `null` on
+ * `download_limit`/`expiry_days`, a real unlimited/never value), so only present keys are applied
+ * server-side. `DownloadsPanel.vue` always sends the full shape on every save regardless (mirrors
+ * `UpdateAddonInput`'s docblock), never a sparse diff. `blob_uuid` is absent on purpose — the
+ * definition's blob can never be changed after attach, only detached and re-attached. */
+export interface UpdateDownloadInput {
+  name?: string
+  download_limit?: number | null
+  expiry_days?: number | null
+  position?: number | null
+  status?: string
+}
+
+/**
+ * A digital-download grant projection (`AdminGrantController::projection()`) — the operator
+ * kill-switch/audit surface (design spec §8) over an ALREADY-ISSUED grant: revoke, and the audited
+ * full-refund access override set/clear.
+ *
+ * STAGED, NOT WIRED INTO ANY COMPONENT. Confirmed against `AdminRouteCatalog` (only
+ * `grants.revoke`/`grants.refund_override.set`/`grants.refund_override.clear` exist — nothing
+ * lists a grant) and `AdminOrderController::show()`'s own payload (`lines`/`events`/
+ * `seller_orders` — none of which carries a grant uuid, even though `events` DOES log
+ * `download.grant_revoked`/`download.override_set`/`download.override_cleared` entries emitted
+ * BY these very mutations) that there is NO admin GET/listing endpoint anywhere in the shipped
+ * backend surface a grant uuid could be read from. A grant is therefore unreachable from this
+ * admin SPA today. `revokeGrant()`/`setGrantRefundOverride()`/`clearGrantRefundOverride()` and
+ * `useCommerceGrantMutations()` below exist so the query layer is complete against the real,
+ * shipped backend contract — this is an intentional, honest cut: wire them into a component only
+ * once a grant-listing endpoint ships for a uuid to come from.
+ */
+export interface CommerceGrant {
+  grant_uuid: string
+  order_uuid: string
+  name: string
+  remaining: number | null
+  expires_at: string | null
+  mint_count: number
+  last_minted_at: string | null
+  revoked_at: string | null
+  refund_access_override_at: string | null
+  refund_access_override_by: string | null
+}
+
 // The admin envelopes are doc-only in the OpenAPI schema (see collections.ts's identical note), so
 // normalize the raw JSON into the stricter hand-written shapes above at the boundary.
 function normalizeVariant(raw: Record<string, unknown>): CommerceVariant {
@@ -511,6 +590,36 @@ function normalizeAddon(raw: Record<string, unknown>): CommerceAddon {
     price_delta: typeof raw.price_delta === 'number' ? raw.price_delta : 0,
     position: typeof raw.position === 'number' ? raw.position : 0,
     status: String(raw.status ?? 'active'),
+  }
+}
+
+function normalizeDownload(raw: Record<string, unknown>): CommerceDownload {
+  return {
+    uuid: String(raw.uuid ?? ''),
+    variant_uuid: String(raw.variant_uuid ?? ''),
+    blob_uuid: String(raw.blob_uuid ?? ''),
+    name: String(raw.name ?? ''),
+    download_limit: typeof raw.download_limit === 'number' ? raw.download_limit : null,
+    expiry_days: typeof raw.expiry_days === 'number' ? raw.expiry_days : null,
+    position: typeof raw.position === 'number' ? raw.position : 0,
+    status: String(raw.status ?? 'active'),
+  }
+}
+
+function normalizeGrant(raw: Record<string, unknown>): CommerceGrant {
+  return {
+    grant_uuid: String(raw.grant_uuid ?? ''),
+    order_uuid: String(raw.order_uuid ?? ''),
+    name: String(raw.name ?? ''),
+    remaining: typeof raw.remaining === 'number' ? raw.remaining : null,
+    expires_at: typeof raw.expires_at === 'string' ? raw.expires_at : null,
+    mint_count: typeof raw.mint_count === 'number' ? raw.mint_count : 0,
+    last_minted_at: typeof raw.last_minted_at === 'string' ? raw.last_minted_at : null,
+    revoked_at: typeof raw.revoked_at === 'string' ? raw.revoked_at : null,
+    refund_access_override_at:
+      typeof raw.refund_access_override_at === 'string' ? raw.refund_access_override_at : null,
+    refund_access_override_by:
+      typeof raw.refund_access_override_by === 'string' ? raw.refund_access_override_by : null,
   }
 }
 
@@ -1011,6 +1120,79 @@ export async function deleteProductAddon(uuid: string): Promise<void> {
   if (error) throw toApiError(error, response)
 }
 
+/** `GET /commerce/variants/{uuid}/downloads` — a real per-variant admin read path (unlike media/
+ * children/tags/categories/attributes' assignment endpoints), ordered by position
+ * (`DownloadRepository::forVariant()`). */
+export async function fetchVariantDownloads(variantUuid: string): Promise<CommerceDownload[]> {
+  const { data, error, response } = await client.GET('/commerce/variants/{uuid}/downloads', {
+    params: { path: { uuid: variantUuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const rows = (data as { data?: unknown[] } | undefined)?.data
+  return Array.isArray(rows) ? rows.map((d) => normalizeDownload(d as Record<string, unknown>)) : []
+}
+
+export async function attachVariantDownload(
+  variantUuid: string,
+  input: AttachDownloadInput,
+): Promise<CommerceDownload> {
+  const { data, error, response } = await client.POST('/commerce/variants/{uuid}/downloads', {
+    params: { path: { uuid: variantUuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeDownload((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function updateDownload(uuid: string, input: UpdateDownloadInput): Promise<CommerceDownload> {
+  const { data, error, response } = await client.PATCH('/commerce/downloads/{uuid}', {
+    params: { path: { uuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeDownload((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function deleteDownload(uuid: string): Promise<void> {
+  const { error, response } = await client.DELETE('/commerce/downloads/{uuid}', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+}
+
+/** `POST /commerce/grants/{uuid}/revoke` (`AdminGrantController::revoke()`) — see `CommerceGrant`'s
+ * docblock: staged against the real endpoint, not wired into any component. Takes no request body. */
+export async function revokeGrant(uuid: string): Promise<CommerceGrant> {
+  const { data, error, response } = await client.POST('/commerce/grants/{uuid}/revoke', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeGrant((raw ?? {}) as Record<string, unknown>)
+}
+
+/** `PUT /commerce/grants/{uuid}/refund-access-override` — see `CommerceGrant`'s docblock. */
+export async function setGrantRefundOverride(uuid: string): Promise<CommerceGrant> {
+  const { data, error, response } = await client.PUT('/commerce/grants/{uuid}/refund-access-override', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeGrant((raw ?? {}) as Record<string, unknown>)
+}
+
+/** `DELETE /commerce/grants/{uuid}/refund-access-override` — see `CommerceGrant`'s docblock. */
+export async function clearGrantRefundOverride(uuid: string): Promise<CommerceGrant> {
+  const { data, error, response } = await client.DELETE('/commerce/grants/{uuid}/refund-access-override', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeGrant((raw ?? {}) as Record<string, unknown>)
+}
+
 // ── Query/mutation wrappers ──────────────────────────────────────────────────
 
 export function useCommerceProducts(filters: MaybeRefOrGetter<ProductListFilters>) {
@@ -1056,6 +1238,17 @@ export function useCommerceProductAddons(productUuid: MaybeRefOrGetter<string>) 
   })
 }
 
+/** A variant's download definitions — a real admin GET (see `CommerceDownload`'s docblock), so
+ * `DownloadsPanel.vue` hydrates directly from this once a variant's section is expanded, no
+ * "unknown assignment" placeholder needed (mirrors `useCommerceProductAddons()` above). */
+export function useCommerceVariantDownloads(variantUuid: MaybeRefOrGetter<string>) {
+  return useQuery({
+    key: () => qk.commerceVariantDownloads(toValue(variantUuid)),
+    query: () => fetchVariantDownloads(toValue(variantUuid)),
+    enabled: () => !!toValue(variantUuid),
+  })
+}
+
 /** Product mutations. `create`/`bulkStatus` invalidate the list; `update`/`remove` invalidate both
  * the single product and the list (its row may now be stale — status, name, etc.).
  *
@@ -1076,6 +1269,8 @@ export function useCommerceProductMutations() {
   const invalidateProductOnly = (uuid: string) => cache.invalidateQueries({ key: qk.commerceProduct(uuid) })
   const invalidateAddons = (productUuid: string) =>
     cache.invalidateQueries({ key: qk.commerceProductAddons(productUuid) })
+  const invalidateDownloads = (variantUuid: string) =>
+    cache.invalidateQueries({ key: qk.commerceVariantDownloads(variantUuid) })
 
   return {
     create: useMutation({
@@ -1191,6 +1386,38 @@ export function useCommerceProductMutations() {
       mutation: (vars: { uuid: string; productUuid: string }) => deleteProductAddon(vars.uuid),
       onSettled: (_d, _e, vars) => invalidateAddons(vars.productUuid),
     }),
+    // Task 19d: variant downloads — PER-VARIANT (deeper than add-ons' per-product scope, but the
+    // same "no standalone top-level management surface" reasoning applies), so these fold in here
+    // too. Every one invalidates ONLY qk.commerceVariantDownloads(variantUuid) — never the product
+    // detail or the addons list: no admin product endpoint embeds `downloads` in its payload
+    // (AdminProductController/ProductService reference no download table), so a wider invalidation
+    // would just be a wasted refetch, same reasoning as createAddon/updateAddon/removeAddon above.
+    attachDownload: useMutation({
+      mutation: (vars: { variantUuid: string; input: AttachDownloadInput }) =>
+        attachVariantDownload(vars.variantUuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidateDownloads(vars.variantUuid),
+    }),
+    updateDownload: useMutation({
+      mutation: (vars: { uuid: string; variantUuid: string; input: UpdateDownloadInput }) =>
+        updateDownload(vars.uuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidateDownloads(vars.variantUuid),
+    }),
+    removeDownload: useMutation({
+      mutation: (vars: { uuid: string; variantUuid: string }) => deleteDownload(vars.uuid),
+      onSettled: (_d, _e, vars) => invalidateDownloads(vars.variantUuid),
+    }),
+  }
+}
+
+/** Grant operator mutations (revoke / refund-access override set-clear) — see `CommerceGrant`'s
+ * docblock: STAGED against the real endpoints, intentionally unwired from any component (there is
+ * no admin GET/listing endpoint anywhere a grant uuid could be read from). No `onSettled`
+ * invalidation: there is no cached grant list/query anywhere in this app for these to invalidate. */
+export function useCommerceGrantMutations() {
+  return {
+    revoke: useMutation({ mutation: (uuid: string) => revokeGrant(uuid) }),
+    setRefundOverride: useMutation({ mutation: (uuid: string) => setGrantRefundOverride(uuid) }),
+    clearRefundOverride: useMutation({ mutation: (uuid: string) => clearGrantRefundOverride(uuid) }),
   }
 }
 

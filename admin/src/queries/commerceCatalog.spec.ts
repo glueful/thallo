@@ -1934,4 +1934,330 @@ describe('commerce catalog query layer', () => {
     const { ApiError } = await import('@/api/errors')
     await expect(deleteProductAddon('missing')).rejects.toBeInstanceOf(ApiError)
   })
+
+  // ── Task 19d: variant downloads — PER-VARIANT (not per-product like add-ons): `GET
+  // /commerce/variants/{uuid}/downloads` IS a real per-variant admin read path, same "real GET"
+  // reasoning as fetchProductAddons above.
+
+  it('parses the real Response::success envelope and normalizes downloads, ordered by position', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Downloads retrieved',
+        data: [
+          {
+            uuid: 'd1',
+            variant_uuid: 'v1',
+            blob_uuid: 'blob-1',
+            name: 'Ebook (PDF)',
+            download_limit: 3,
+            expiry_days: 30,
+            position: 0,
+            status: 'active',
+          },
+          {
+            uuid: 'd2',
+            variant_uuid: 'v1',
+            blob_uuid: 'blob-2',
+            name: 'Bonus chapter',
+            download_limit: null,
+            expiry_days: null,
+            position: 1,
+            status: 'inactive',
+          },
+        ],
+      }),
+    )
+
+    const { fetchVariantDownloads } = await import('@/queries/commerceCatalog')
+    const rows = await fetchVariantDownloads('v1')
+
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toEqual({
+      uuid: 'd1',
+      variant_uuid: 'v1',
+      blob_uuid: 'blob-1',
+      name: 'Ebook (PDF)',
+      download_limit: 3,
+      expiry_days: 30,
+      position: 0,
+      status: 'active',
+    })
+    // null download_limit/expiry_days is a REAL value (unlimited/never), preserved exactly.
+    expect(rows[1]!.download_limit).toBeNull()
+    expect(rows[1]!.expiry_days).toBeNull()
+  })
+
+  it('defaults to an empty download list when the envelope has no data array', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ data: null }))
+
+    const { fetchVariantDownloads } = await import('@/queries/commerceCatalog')
+    await expect(fetchVariantDownloads('v1')).resolves.toEqual([])
+  })
+
+  it('throws ApiError when the download list request fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ message: 'Forbidden' }, 403))
+
+    const { fetchVariantDownloads } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(fetchVariantDownloads('v1')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('sends the attach-download request body exactly as given, to the owning variant path', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        {
+          success: true,
+          message: 'Download attached',
+          data: {
+            uuid: 'new-download',
+            variant_uuid: 'v1',
+            blob_uuid: 'blob-1',
+            name: 'Ebook (PDF)',
+            download_limit: 3,
+            expiry_days: 30,
+            position: 0,
+            status: 'active',
+          },
+        },
+        201,
+      ),
+    )
+
+    const { attachVariantDownload } = await import('@/queries/commerceCatalog')
+    const row = await attachVariantDownload('v1', {
+      blob_uuid: 'blob-1',
+      name: 'Ebook (PDF)',
+      download_limit: 3,
+      expiry_days: 30,
+      position: 0,
+    })
+
+    expect(row.uuid).toBe('new-download')
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(req.url).toContain('/commerce/variants/v1/downloads')
+    expect(await req.clone().json()).toEqual({
+      blob_uuid: 'blob-1',
+      name: 'Ebook (PDF)',
+      download_limit: 3,
+      expiry_days: 30,
+      position: 0,
+    })
+  })
+
+  it('surfaces "blob_uuid must reference an existing, active, private blob" from an attach 422', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            details: { blob_uuid: 'blob_uuid must reference an existing, active, private blob.' },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { attachVariantDownload } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await attachVariantDownload('v1', { blob_uuid: 'blob-1', name: 'Ebook' })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      blob_uuid: 'blob_uuid must reference an existing, active, private blob.',
+    })
+  })
+
+  it('surfaces "variant not found" from an attach 404', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ success: false, message: 'Resource not found.' }, 404),
+    )
+
+    const { attachVariantDownload } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(
+      attachVariantDownload('missing', { blob_uuid: 'blob-1', name: 'Ebook' }),
+    ).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('sends the update-download request body exactly as given, to /commerce/downloads/{uuid}, and returns the normalized record', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Download updated',
+        data: {
+          uuid: 'd1',
+          variant_uuid: 'v1',
+          blob_uuid: 'blob-1',
+          name: 'Ebook (2nd edition)',
+          download_limit: null,
+          expiry_days: null,
+          position: 1,
+          status: 'inactive',
+        },
+      }),
+    )
+
+    const { updateDownload } = await import('@/queries/commerceCatalog')
+    const row = await updateDownload('d1', {
+      name: 'Ebook (2nd edition)',
+      download_limit: null,
+      expiry_days: null,
+      position: 1,
+      status: 'inactive',
+    })
+
+    expect(row.name).toBe('Ebook (2nd edition)')
+    expect(row.download_limit).toBeNull()
+    expect(row.status).toBe('inactive')
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(req.url).toContain('/commerce/downloads/d1')
+    expect(req.method).toBe('PATCH')
+    // Explicit nulls for download_limit/expiry_days are REAL values (unlimited/never) and must be
+    // sent, not omitted (the backend distinguishes an absent key from an explicit null).
+    expect(await req.clone().json()).toEqual({
+      name: 'Ebook (2nd edition)',
+      download_limit: null,
+      expiry_days: null,
+      position: 1,
+      status: 'inactive',
+    })
+  })
+
+  it('deletes a download with no return value', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+
+    const { deleteDownload } = await import('@/queries/commerceCatalog')
+    await expect(deleteDownload('d1')).resolves.toBeUndefined()
+  })
+
+  it('throws ApiError when download delete fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ message: 'Not found' }, 404))
+
+    const { deleteDownload } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(deleteDownload('missing')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  // ── Task 19d: grants — STAGED plumbing (see CommerceGrant's docblock in commerceCatalog.ts):
+  // there is no admin listing endpoint for a grant, so these three mutations are never wired into
+  // a component, but the query layer against the real, shipped endpoints is still pinned exactly.
+
+  it('revokeGrant POSTs to /commerce/grants/{uuid}/revoke with no body and returns the normalized projection', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Grant revoked',
+        data: {
+          grant_uuid: 'g1',
+          order_uuid: 'o1',
+          name: 'Ebook (PDF)',
+          remaining: 2,
+          expires_at: '2026-02-01 00:00:00',
+          mint_count: 1,
+          last_minted_at: '2026-01-15 00:00:00',
+          revoked_at: '2026-01-20 00:00:00',
+          refund_access_override_at: null,
+          refund_access_override_by: null,
+        },
+      }),
+    )
+
+    const { revokeGrant } = await import('@/queries/commerceCatalog')
+    const grant = await revokeGrant('g1')
+
+    expect(grant.grant_uuid).toBe('g1')
+    expect(grant.revoked_at).toBe('2026-01-20 00:00:00')
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(req.method).toBe('POST')
+    expect(req.url).toContain('/commerce/grants/g1/revoke')
+    expect(await req.clone().text()).toBe('')
+  })
+
+  it('surfaces a 409 when revoking an already-revoked grant', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ success: false, message: 'Grant is already revoked.' }, 409),
+    )
+
+    const { revokeGrant } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await revokeGrant('g1')
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).message).toBe('Grant is already revoked.')
+  })
+
+  it('setGrantRefundOverride PUTs to /commerce/grants/{uuid}/refund-access-override with no body', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Override set',
+        data: {
+          grant_uuid: 'g1',
+          order_uuid: 'o1',
+          name: 'Ebook (PDF)',
+          remaining: 2,
+          expires_at: null,
+          mint_count: 1,
+          last_minted_at: null,
+          revoked_at: null,
+          refund_access_override_at: '2026-01-20 00:00:00',
+          refund_access_override_by: 'admin1',
+        },
+      }),
+    )
+
+    const { setGrantRefundOverride } = await import('@/queries/commerceCatalog')
+    const grant = await setGrantRefundOverride('g1')
+
+    expect(grant.refund_access_override_by).toBe('admin1')
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(req.method).toBe('PUT')
+    expect(req.url).toContain('/commerce/grants/g1/refund-access-override')
+  })
+
+  it('clearGrantRefundOverride DELETEs to /commerce/grants/{uuid}/refund-access-override', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Override cleared',
+        data: {
+          grant_uuid: 'g1',
+          order_uuid: 'o1',
+          name: 'Ebook (PDF)',
+          remaining: 2,
+          expires_at: null,
+          mint_count: 1,
+          last_minted_at: null,
+          revoked_at: null,
+          refund_access_override_at: null,
+          refund_access_override_by: null,
+        },
+      }),
+    )
+
+    const { clearGrantRefundOverride } = await import('@/queries/commerceCatalog')
+    const grant = await clearGrantRefundOverride('g1')
+
+    expect(grant.refund_access_override_at).toBeNull()
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(req.method).toBe('DELETE')
+    expect(req.url).toContain('/commerce/grants/g1/refund-access-override')
+  })
 })

@@ -7,6 +7,7 @@ import type {
   CommerceAttribute,
   CommerceAttributeValue,
   CommerceCategory,
+  CommerceDownload,
   CommerceProduct,
   CommerceTag,
   AttributeListPage,
@@ -121,6 +122,13 @@ const createAddonMock = vi.hoisted(() => vi.fn())
 const updateAddonMock = vi.hoisted(() => vi.fn())
 const removeAddonMock = vi.hoisted(() => vi.fn())
 
+const downloadsData = ref<CommerceDownload[] | undefined>(undefined)
+const downloadsStatus = ref<'pending' | 'error' | 'success'>('success')
+const lastDownloadsVariantUuid = vi.hoisted(() => ({ current: undefined as unknown }))
+const attachDownloadMock = vi.hoisted(() => vi.fn())
+const updateDownloadMock = vi.hoisted(() => vi.fn())
+const removeDownloadMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceCatalog')>()
   return {
@@ -147,10 +155,17 @@ vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
       createAddon: { mutateAsync: createAddonMock, isLoading: ref(false) },
       updateAddon: { mutateAsync: updateAddonMock, isLoading: ref(false) },
       removeAddon: { mutateAsync: removeAddonMock, isLoading: ref(false) },
+      attachDownload: { mutateAsync: attachDownloadMock, isLoading: ref(false) },
+      updateDownload: { mutateAsync: updateDownloadMock, isLoading: ref(false) },
+      removeDownload: { mutateAsync: removeDownloadMock, isLoading: ref(false) },
     }),
     useCommerceProductAddons: (uuid: unknown) => {
       lastAddonsProductUuid.current = uuid
       return { data: addonsData, status: addonsStatus }
+    },
+    useCommerceVariantDownloads: (uuid: unknown) => {
+      lastDownloadsVariantUuid.current = uuid
+      return { data: downloadsData, status: downloadsStatus }
     },
     useCommerceCategories: () => ({ data: categoriesData, status: categoriesStatus }),
     useCommerceCategoryMutations: () => ({
@@ -190,6 +205,7 @@ import CategoriesTab from '@/pages/commerce/products/components/CategoriesTab.vu
 import TagsTab from '@/pages/commerce/products/components/TagsTab.vue'
 import AttributesTab from '@/pages/commerce/products/components/AttributesTab.vue'
 import AddonsPanel from '@/pages/commerce/products/components/AddonsPanel.vue'
+import DownloadsPanel from '@/pages/commerce/products/components/DownloadsPanel.vue'
 import ProductsIndex from '@/pages/commerce/products/index.vue'
 import ProductDetail from '@/pages/commerce/products/[uuid]/index.vue'
 import { ApiError } from '@/api/errors'
@@ -294,6 +310,20 @@ function addon(overrides: Partial<CommerceAddon> = {}): CommerceAddon {
   }
 }
 
+function download(overrides: Partial<CommerceDownload> = {}): CommerceDownload {
+  return {
+    uuid: 'd1',
+    variant_uuid: 'v1',
+    blob_uuid: 'blob-1',
+    name: 'Ebook (PDF)',
+    download_limit: 3,
+    expiry_days: 30,
+    position: 0,
+    status: 'active',
+    ...overrides,
+  }
+}
+
 const RouterLinkStub = { props: ['to'], template: '<a :href="to"><slot /></a>' }
 // UModal/USlideover teleport their body/footer out of the wrapper — stub both to render the
 // slots inline, mirroring collectionsFieldEditor.spec.ts's DropConfirmModal precedent.
@@ -382,6 +412,12 @@ beforeEach(() => {
   createAddonMock.mockReset()
   updateAddonMock.mockReset()
   removeAddonMock.mockReset()
+  downloadsData.value = undefined
+  downloadsStatus.value = 'success'
+  lastDownloadsVariantUuid.current = undefined
+  attachDownloadMock.mockReset()
+  updateDownloadMock.mockReset()
+  removeDownloadMock.mockReset()
   notify.success.mockReset()
   notify.warning.mockReset()
   notify.error.mockReset()
@@ -844,6 +880,35 @@ describe('commerce product detail page', () => {
     expect(wrapper.find('[data-test="addon-row"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('Gift wrap')
     expect(lastAddonsProductUuid.current).toBeTruthy()
+  })
+
+  it('switches to the Downloads tab and renders DownloadsPanel, hydrated from the real per-variant GET once expanded', async () => {
+    singleProduct.value = product({
+      uuid: 'p1',
+      name: 'Widget',
+      type: 'digital',
+      variants: [variant({ uuid: 'v1' })],
+    })
+    downloadsData.value = [download({ uuid: 'd1', name: 'Ebook (PDF)' })]
+    const wrapper = mount(ProductDetail, {
+      global: { stubs: { ...pageStubs, MediaPickerModal: MediaPickerModalStub } },
+    })
+    await flushPromises()
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    const downloadsTab = tabs.find((t) => t.text() === 'Downloads')
+    await downloadsTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+
+    // Collapsed by default: the per-variant GET isn't fired until the section is expanded.
+    expect(wrapper.find('[data-test="download-variant-row"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="download-row"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="download-variant-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="download-row"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Ebook (PDF)')
   })
 })
 
@@ -2643,5 +2708,338 @@ describe('AddonsPanel', () => {
     await wrapper.find('[data-test="addon-delete-confirm"]').trigger('click')
     await flushPromises()
     expect(removeAddonMock).toHaveBeenCalledWith({ uuid: 'a1', productUuid: 'p1' })
+  })
+})
+
+// ── DownloadsPanel: per-variant digital-download CRUD — a real per-variant GET (unlike
+// Categories/Tags/Attributes' assignment sections), but only fetched once a variant's section is
+// expanded (only one at a time, mirroring VariantsPanel's adjustingUuid/editingUuid pattern). ────
+
+describe('DownloadsPanel', () => {
+  function mountPanel(
+    p: CommerceProduct = product({ uuid: 'p1', type: 'digital', variants: [variant({ uuid: 'v1' })] }),
+    canManage = true,
+  ) {
+    return mount(DownloadsPanel, {
+      props: { product: p, canManage },
+      global: { stubs: { Modal: teleportStub, MediaPickerModal: MediaPickerModalStub } },
+    })
+  }
+
+  async function expandFirstVariant(wrapper: ReturnType<typeof mount>) {
+    await wrapper.find('[data-test="download-variant-toggle"]').trigger('click')
+    await flushPromises()
+  }
+
+  async function pickAFile(wrapper: ReturnType<typeof mount>) {
+    await wrapper.find('[data-test="download-choose-file"]').trigger('click')
+    await wrapper.find('[data-test="media-picker-stub-pick"]').trigger('click')
+    await flushPromises()
+  }
+
+  // ── List: honest collapsed-by-default state, real GET once expanded, loading/error/empty ────
+
+  it('shows the no-variants state when the product has no variants', () => {
+    const wrapper = mountPanel(product({ uuid: 'p1', type: 'digital', variants: [] }))
+    expect(wrapper.find('[data-test="downloads-no-variants"]').exists()).toBe(true)
+  })
+
+  it('renders a row per variant, collapsed by default (the per-variant GET is not fired)', () => {
+    const wrapper = mountPanel(
+      product({ uuid: 'p1', type: 'digital', variants: [variant({ uuid: 'v1' }), variant({ uuid: 'v2', sku: 'SKU-2' })] }),
+    )
+    expect(wrapper.findAll('[data-test="download-variant-row"]')).toHaveLength(2)
+    expect(wrapper.find('[data-test="download-row"]').exists()).toBe(false)
+  })
+
+  it('expands a variant and renders each download from the real per-variant GET, with exact limit/expiry text', async () => {
+    downloadsData.value = [
+      download({ uuid: 'd1', name: 'Ebook (PDF)', download_limit: 3, expiry_days: 30 }),
+      download({ uuid: 'd2', name: 'Bonus chapter', download_limit: null, expiry_days: null, status: 'inactive' }),
+    ]
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+
+    const rows = wrapper.findAll('[data-test="download-row"]')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]!.text()).toContain('Ebook (PDF)')
+    const limits = wrapper.findAll('[data-test="download-limit"]')
+    const expiries = wrapper.findAll('[data-test="download-expiry"]')
+    expect(limits[0]!.text()).toBe('3 download(s)')
+    expect(expiries[0]!.text()).toBe('Expires 30 day(s) after purchase')
+    expect(limits[1]!.text()).toBe('Unlimited downloads')
+    expect(expiries[1]!.text()).toBe('Never expires')
+    expect(toValue(lastDownloadsVariantUuid.current)).toBe('v1')
+  })
+
+  it('shows the loading state for the expanded variant', async () => {
+    downloadsStatus.value = 'pending'
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+    expect(wrapper.find('[data-test="downloads-loading"]').exists()).toBe(true)
+  })
+
+  it('shows the error state for the expanded variant', async () => {
+    downloadsStatus.value = 'error'
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+    expect(wrapper.find('[data-test="downloads-error"]').exists()).toBe(true)
+  })
+
+  it('shows the empty state for the expanded variant', async () => {
+    downloadsData.value = []
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+    expect(wrapper.find('[data-test="downloads-empty"]').exists()).toBe(true)
+  })
+
+  it('collapsing an expanded variant hides its downloads section again', async () => {
+    downloadsData.value = [download({ uuid: 'd1' })]
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+    expect(wrapper.find('[data-test="download-row"]').exists()).toBe(true)
+
+    await expandFirstVariant(wrapper) // toggling again collapses
+    expect(wrapper.find('[data-test="download-row"]').exists()).toBe(false)
+  })
+
+  // ── Gating: digital-only attach, can_manage ─────────────────────────────────────────────────
+
+  it('shows the digital-only gate notice and hides Add download for a non-digital product', async () => {
+    downloadsData.value = []
+    const wrapper = mountPanel(
+      product({ uuid: 'p1', type: 'physical', variants: [variant({ uuid: 'v1' })] }),
+    )
+    expect(wrapper.find('[data-test="downloads-type-gate"]').exists()).toBe(true)
+
+    await expandFirstVariant(wrapper)
+    expect(wrapper.find('[data-test="download-add"]').exists()).toBe(false)
+  })
+
+  it('hides the digital-only gate notice for a digital product', () => {
+    const wrapper = mountPanel(product({ uuid: 'p1', type: 'digital', variants: [variant({ uuid: 'v1' })] }))
+    expect(wrapper.find('[data-test="downloads-type-gate"]').exists()).toBe(false)
+  })
+
+  it('hides add/edit/detach controls and the form when can_manage is false, keeping rows visible', async () => {
+    downloadsData.value = [download({ uuid: 'd1', name: 'Ebook (PDF)' })]
+    const wrapper = mountPanel(
+      product({ uuid: 'p1', type: 'digital', variants: [variant({ uuid: 'v1' })] }),
+      false,
+    )
+    await expandFirstVariant(wrapper)
+
+    expect(wrapper.find('[data-test="download-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="download-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="download-delete"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="download-row"]').exists()).toBe(true)
+    // The variant toggle itself is a read (GET), never gated on can_manage.
+    expect(wrapper.find('[data-test="download-variant-toggle"]').exists()).toBe(true)
+  })
+
+  // ── Attach: blob picker reuse (MediaPickerModal precedent), exact payload ──────────────────
+
+  it('attaches a download via the picker with the exact payload (blank limit/expiry/position -> null)', async () => {
+    downloadsData.value = []
+    attachDownloadMock.mockResolvedValue(download({ uuid: 'new-d', name: 'Ebook (PDF)' }))
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+
+    await wrapper.find('[data-test="download-add"]').trigger('click')
+    await pickAFile(wrapper)
+    expect(wrapper.find('[data-test="download-chosen-blob"]').text()).toContain('blob-new')
+
+    await wrapper.find('[data-test="download-name-input"]').setValue('Ebook (PDF)')
+    await wrapper.find('#download-form').trigger('submit')
+    await flushPromises()
+
+    expect(attachDownloadMock).toHaveBeenCalledWith({
+      variantUuid: 'v1',
+      input: {
+        blob_uuid: 'blob-new',
+        name: 'Ebook (PDF)',
+        download_limit: null,
+        expiry_days: null,
+        position: null,
+      },
+    })
+  })
+
+  it('attaches with explicit limit/expiry/position, converted to whole numbers', async () => {
+    downloadsData.value = []
+    attachDownloadMock.mockResolvedValue(download({ uuid: 'new-d' }))
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+
+    await wrapper.find('[data-test="download-add"]').trigger('click')
+    await pickAFile(wrapper)
+    await wrapper.find('[data-test="download-name-input"]').setValue('Ebook (PDF)')
+    await wrapper.find('[data-test="download-limit-input"]').setValue('5')
+    await wrapper.find('[data-test="download-expiry-input"]').setValue('14')
+    await wrapper.find('[data-test="download-position-input"]').setValue('2')
+    await wrapper.find('#download-form').trigger('submit')
+    await flushPromises()
+
+    expect(attachDownloadMock).toHaveBeenCalledWith({
+      variantUuid: 'v1',
+      input: {
+        blob_uuid: 'blob-new',
+        name: 'Ebook (PDF)',
+        download_limit: 5,
+        expiry_days: 14,
+        position: 2,
+      },
+    })
+  })
+
+  it('rejects submit without a name, without calling the mutation', async () => {
+    downloadsData.value = []
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+    await wrapper.find('[data-test="download-add"]').trigger('click')
+    await pickAFile(wrapper)
+    await wrapper.find('#download-form').trigger('submit')
+    await flushPromises()
+
+    expect(attachDownloadMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="download-form-error"]').text()).toContain('Name is required.')
+  })
+
+  it('rejects submit without choosing a file first, without calling the mutation', async () => {
+    downloadsData.value = []
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+    await wrapper.find('[data-test="download-add"]').trigger('click')
+    await wrapper.find('[data-test="download-name-input"]').setValue('Ebook')
+    await wrapper.find('#download-form').trigger('submit')
+    await flushPromises()
+
+    expect(attachDownloadMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="download-form-error"]').text()).toContain('Choose a file first.')
+  })
+
+  it('rejects an invalid download limit client-side, without calling the mutation', async () => {
+    downloadsData.value = []
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+    await wrapper.find('[data-test="download-add"]').trigger('click')
+    await pickAFile(wrapper)
+    await wrapper.find('[data-test="download-name-input"]').setValue('Ebook')
+    await wrapper.find('[data-test="download-limit-input"]').setValue('not-a-number')
+    await wrapper.find('#download-form').trigger('submit')
+    await flushPromises()
+
+    expect(attachDownloadMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="download-form-error"]').text()).toContain(
+      'Download limit must be a whole, non-negative number',
+    )
+  })
+
+  it('rejects an invalid expiry-days value client-side, without calling the mutation', async () => {
+    downloadsData.value = []
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+    await wrapper.find('[data-test="download-add"]').trigger('click')
+    await pickAFile(wrapper)
+    await wrapper.find('[data-test="download-name-input"]').setValue('Ebook')
+    await wrapper.find('[data-test="download-expiry-input"]').setValue('-5')
+    await wrapper.find('#download-form').trigger('submit')
+    await flushPromises()
+
+    expect(attachDownloadMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="download-form-error"]').text()).toContain(
+      'Expiry days must be a whole, non-negative number',
+    )
+  })
+
+  it('surfaces a server 422 message instead of vanishing it', async () => {
+    downloadsData.value = []
+    attachDownloadMock.mockRejectedValue(
+      new ApiError('Validation failed', 422, { name: 'name is required.' }, {}),
+    )
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+    await wrapper.find('[data-test="download-add"]').trigger('click')
+    await pickAFile(wrapper)
+    await wrapper.find('[data-test="download-name-input"]').setValue('Ebook')
+    await wrapper.find('#download-form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="download-form-error"]').text()).toContain('name is required.')
+  })
+
+  // ── Edit: pre-populates from the row, no "choose file" (blob is immutable after attach) ─────
+
+  it('opens the edit form pre-populated from a download row and submits the exact update payload, including status', async () => {
+    downloadsData.value = [
+      download({ uuid: 'd1', name: 'Ebook (PDF)', download_limit: 3, expiry_days: 30, position: 1, status: 'active' }),
+    ]
+    updateDownloadMock.mockResolvedValue(download({ uuid: 'd1', status: 'inactive' }))
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+
+    await wrapper.find('[data-test="download-edit"]').trigger('click')
+
+    expect((wrapper.find('[data-test="download-name-input"]').element as HTMLInputElement).value).toBe(
+      'Ebook (PDF)',
+    )
+    expect((wrapper.find('[data-test="download-limit-input"]').element as HTMLInputElement).value).toBe('3')
+    expect((wrapper.find('[data-test="download-expiry-input"]').element as HTMLInputElement).value).toBe('30')
+    expect((wrapper.find('[data-test="download-position-input"]').element as HTMLInputElement).value).toBe('1')
+    // The blob can never change after attach (UpdateDownloadData has no blob_uuid field) — no
+    // "choose file" affordance in edit mode.
+    expect(wrapper.find('[data-test="download-choose-file"]').exists()).toBe(false)
+
+    selectByTestId(wrapper, 'download-status-input').vm.$emit('update:modelValue', 'inactive')
+    await wrapper.find('#download-form').trigger('submit')
+    await flushPromises()
+
+    expect(updateDownloadMock).toHaveBeenCalledWith({
+      uuid: 'd1',
+      variantUuid: 'v1',
+      input: { name: 'Ebook (PDF)', download_limit: 3, expiry_days: 30, position: 1, status: 'inactive' },
+    })
+  })
+
+  it('pre-populates blank limit/expiry as empty inputs (unlimited/never), and saves them back as null', async () => {
+    downloadsData.value = [
+      download({ uuid: 'd1', name: 'Bonus chapter', download_limit: null, expiry_days: null, position: 0 }),
+    ]
+    updateDownloadMock.mockResolvedValue(download({ uuid: 'd1' }))
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+
+    await wrapper.find('[data-test="download-edit"]').trigger('click')
+    expect((wrapper.find('[data-test="download-limit-input"]').element as HTMLInputElement).value).toBe('')
+    expect((wrapper.find('[data-test="download-expiry-input"]').element as HTMLInputElement).value).toBe('')
+
+    await wrapper.find('#download-form').trigger('submit')
+    await flushPromises()
+
+    expect(updateDownloadMock).toHaveBeenCalledWith({
+      uuid: 'd1',
+      variantUuid: 'v1',
+      input: { name: 'Bonus chapter', download_limit: null, expiry_days: null, position: 0, status: 'active' },
+    })
+  })
+
+  // ── Detach: requires confirmation ───────────────────────────────────────────────────────────
+
+  it('requires confirmation before detaching a download', async () => {
+    downloadsData.value = [download({ uuid: 'd1', name: 'Ebook (PDF)' })]
+    removeDownloadMock.mockResolvedValue(undefined)
+    const wrapper = mountPanel()
+    await expandFirstVariant(wrapper)
+
+    expect(wrapper.find('[data-test="download-delete-confirm"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="download-delete"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="download-delete-confirm"]').exists()).toBe(true)
+    expect(removeDownloadMock).not.toHaveBeenCalled()
+
+    await wrapper.find('[data-test="download-delete-confirm"]').trigger('click')
+    await flushPromises()
+    expect(removeDownloadMock).toHaveBeenCalledWith({ uuid: 'd1', variantUuid: 'v1' })
   })
 })

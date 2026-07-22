@@ -13,6 +13,17 @@ const props = defineProps<{
   multiple?: boolean
   /** Which tab to land on when opened — the dropzone opens on Upload, the library button on Library. */
   initialTab?: 'upload' | 'library'
+  /** Visibility for files uploaded through this picker's Upload tab. Defaults to 'public' — every
+   * pre-existing caller (content asset fields, product media) needs a publicly servable blob. A
+   * caller with a private-only backend contract (e.g. digital-download definitions —
+   * `DownloadService::assertBlobAttachable()` requires the referenced blob to be PRIVATE) overrides
+   * this to 'private'. The Library tab needs no matching override: `MediaAdminController::index()`
+   * lists every blob regardless of visibility already. */
+  visibility?: 'public' | 'private'
+  /** Media-library type filter for the Library tab (mirrors `MediaAdminController::applyTypeFilter`:
+   * image|video|audio|doc). Defaults to 'image' — every pre-existing caller only ever picks images.
+   * Pass '' for no filter (e.g. a digital-download deliverable can be any file type). */
+  mediaType?: string
 }>()
 const open = defineModel<boolean>('open', { default: false })
 const emit = defineEmits<{ select: [uuid: string] }>()
@@ -38,8 +49,10 @@ async function uploadSelected(): Promise<void> {
   try {
     for (const file of list) {
       // Content assets must be public: the admin preview (/blobs/{uuid}) and
-      // the live-site MediaUrlResolver both serve public blobs only.
-      const asset = await upload.mutateAsync({ file, visibility: 'public' })
+      // the live-site MediaUrlResolver both serve public blobs only. A caller
+      // with a private-only contract overrides this via the `visibility` prop
+      // (see its own docblock).
+      const asset = await upload.mutateAsync({ file, visibility: props.visibility ?? 'public' })
       if (asset.blob_uuid) emit('select', asset.blob_uuid)
     }
     open.value = false
@@ -62,7 +75,7 @@ const perPage = 24
 const { data, status } = useMediaList(
   () => page.value,
   () => perPage,
-  () => 'image',
+  () => props.mediaType ?? 'image',
   () => debounced.value || undefined,
 )
 
