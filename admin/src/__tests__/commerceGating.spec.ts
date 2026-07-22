@@ -6,7 +6,8 @@ import { commerceModule } from '@/registry/commerceModule'
 // `thallo.commerce` with NO navigation contributed yet. Task 12 completed the P3 activation
 // boundary (design spec §6/§9): Commerce → Products appeared once Products AND bidirectional
 // linking had both landed — the first user-visible nav entry for the whole area. Task 13a appends
-// Orders to the SAME Commerce group rather than registering a second top-level entry.
+// Orders to the SAME Commerce group rather than registering a second top-level entry. Task 14
+// appends Discounts the same way.
 describe('commerce admin module gating (thallo.commerce capability)', () => {
   it('is registered with the correct id and capability requirement', () => {
     expect(commerceModule.id).toBe('commerce')
@@ -19,7 +20,7 @@ describe('commerce admin module gating (thallo.commerce capability)', () => {
     expect(utilities).toEqual([])
   })
 
-  it('contributes Commerce → Products, Orders when thallo.commerce IS visible', () => {
+  it('contributes Commerce → Products, Orders, Discounts when thallo.commerce IS visible', () => {
     const [main, utilities] = visibleNav((id) => id === 'thallo.commerce', [commerceModule])
     expect(utilities).toEqual([])
     expect(main).toEqual([
@@ -30,6 +31,7 @@ describe('commerce admin module gating (thallo.commerce capability)', () => {
         children: [
           { label: 'Products', to: '/commerce/products' },
           { label: 'Orders', to: '/commerce/orders' },
+          { label: 'Discounts', to: '/commerce/discounts' },
         ],
       },
     ])

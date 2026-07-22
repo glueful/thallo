@@ -8,7 +8,7 @@ import type { AdminModule } from './adminModules'
 // bidirectional linking have both landed: design spec §6/§9's first user-visible activation
 // boundary. Task 13a appends Orders to the SAME `main` array rather than registering a second
 // top-level Commerce entry — later Orders sub-tasks (13b/c/d) build on the same list/detail pages,
-// not new nav entries.
+// not new nav entries. Task 14 appends Discounts the same way.
 const main: NavigationMenuItem[] = [
   {
     label: 'Commerce',
@@ -17,6 +17,7 @@ const main: NavigationMenuItem[] = [
     children: [
       { label: 'Products', to: '/commerce/products' },
       { label: 'Orders', to: '/commerce/orders' },
+      { label: 'Discounts', to: '/commerce/discounts' },
     ],
   },
 ]
