@@ -63,13 +63,20 @@ function flattenFieldErrors(errors: ApiErrorBody['errors']): Record<string, stri
  *
  * `error.details` is also reused for machine-readable failure codes (STALE_DRAFT,
  * BLOCK_MIGRATION_IN_PROGRESS — see canvas-page.spec.ts), always shaped `{ code, ...}`. Those are
- * consumed via `apiErrorCode()`/`apiErrorDetails()`, never as field messages, so this only treats
- * `details` as a field-error map when every value is a non-empty string AND there's no `code` key.
+ * consumed via `apiErrorCode()`/`apiErrorDetails()`, never as field messages. But `code` is ALSO a
+ * legitimate FIELD name (a discount's code — "Code is required." arrives as details.code), so the
+ * machine-shape detection requires the code VALUE to look like a machine code (UPPER_SNAKE), not
+ * merely the key to exist — otherwise a real field message would be silently swallowed.
  */
+function looksLikeMachineCode(value: unknown): boolean {
+  return typeof value === 'string' && /^[A-Z][A-Z0-9_]*$/.test(value)
+}
+
 function fieldErrorsFromDetails(details: unknown): Record<string, string> {
   if (typeof details !== 'object' || details === null || Array.isArray(details)) return {}
-  const entries = Object.entries(details as Record<string, unknown>)
-  if (entries.length === 0 || 'code' in (details as Record<string, unknown>)) return {}
+  const record = details as Record<string, unknown>
+  const entries = Object.entries(record)
+  if (entries.length === 0 || looksLikeMachineCode(record.code)) return {}
   const out: Record<string, string> = {}
   for (const [field, message] of entries) {
     if (typeof message !== 'string' || message.trim() === '') return {}

@@ -124,7 +124,11 @@ function windowText(d: CommerceDiscount): string {
 
     <template v-if="canManage" #actions-cell="{ row }">
       <div class="flex justify-end gap-1">
+        <!-- The form can only faithfully round-trip percentage/fixed. Editing any other
+             type (free_shipping rows exist in the wild) would silently resend a coerced
+             type and corrupt the discount — so those rows get no edit affordance. -->
         <UButton
+          v-if="row.original.type === 'percentage' || row.original.type === 'fixed'"
           color="neutral"
           variant="ghost"
           size="xs"

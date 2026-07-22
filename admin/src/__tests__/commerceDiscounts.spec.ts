@@ -317,6 +317,33 @@ describe('commerce discounts list page', () => {
     expect(wrapper.text()).toContain('End date must be after start date.')
   })
 
+  it('maps a real details.code FIELD message through toApiError (not swallowed as a machine code)', async () => {
+    // The backend's only forField('code') 422: Response::validation({code: "Code is required."})
+    // arrives as error.details = {code: "..."} — a HUMAN message under a field named 'code'.
+    // The machine-code heuristic must not swallow it (it only skips UPPER_SNAKE values).
+    const { toApiError } = await import('@/api/errors')
+    const err = toApiError(
+      {
+        success: false,
+        message: 'Validation failed',
+        error: { code: 422, details: { code: 'Code is required.' } },
+      },
+      new Response(null, { status: 422 }),
+    )
+    expect(err.fieldErrors).toEqual({ code: 'Code is required.' })
+
+    // And a genuine machine-shaped details payload still maps to NO field errors.
+    const machine = toApiError(
+      {
+        success: false,
+        message: 'Stale draft',
+        error: { code: 409, details: { code: 'STALE_DRAFT', current_version: 4 } },
+      },
+      new Response(null, { status: 409 }),
+    )
+    expect(machine.fieldErrors).toEqual({})
+  })
+
   it('surfaces a 422 duplicate-code rejection instead of vanishing it', async () => {
     createMock.mockRejectedValue(new ApiError('Validation failed', 422, { code: 'Code already in use.' }, {}))
     const wrapper = mount(DiscountsIndex, { global: { stubs: pageStubs } })
