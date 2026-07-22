@@ -165,6 +165,11 @@ async function submitForm() {
   const parsedPriority = Number.parseInt(form.priorityInput, 10)
   const priority = Number.isFinite(parsedPriority) ? parsedPriority : 0
 
+  // `class` null semantics DIFFER per verb server-side: on create, null defaults to
+  // 'standard'; on UPDATE, null means "don't touch" (planUpdate applies class only when
+  // non-null) — so a blanked field on edit must send 'standard' explicitly, or the help
+  // text's "defaults to 'standard'" promise silently no-ops.
+  const trimmedClass = form.classInput.trim()
   const payload = {
     country,
     state: form.stateInput.trim() === '' ? null : form.stateInput.trim(),
@@ -173,7 +178,7 @@ async function submitForm() {
     label,
     priority,
     shipping_taxable: form.shippingTaxable,
-    class: form.classInput.trim() === '' ? null : form.classInput.trim(),
+    class: trimmedClass === '' ? (editingRate.value ? 'standard' : null) : trimmedClass,
   }
 
   try {

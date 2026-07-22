@@ -1200,6 +1200,30 @@ describe('TaxRatesPanel: rate create/edit', () => {
     )
   })
 
+  it("sends class:'standard' when the Class field is blanked on an EDIT (null would silently no-op server-side)", async () => {
+    // planUpdate() applies class only when non-null — so edit-blank must send 'standard'
+    // explicitly to honor the help text; create-blank keeps null (create defaults it).
+    ratesPage.value = {
+      rates: [taxRate({ uuid: 'r1', class: 'reduced' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    updateRateMock.mockResolvedValue(taxRate({ class: 'standard' }))
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="rate-edit"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="rate-class-input"]').setValue('')
+    await wrapper.find('form#rate-form').trigger('submit')
+    await flushPromises()
+
+    expect(updateRateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ input: expect.objectContaining({ class: 'standard' }) }),
+    )
+  })
+
   it('surfaces a 422 field error inline', async () => {
     // Plain error-body object — see ZonesPanel's identical 422 test for why a directly-constructed
     // ApiError can't be used here (this file's module registry is reset per test).
