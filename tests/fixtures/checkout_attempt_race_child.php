@@ -34,6 +34,17 @@ use Glueful\Extensions\Commerce\Orders\CheckoutAttemptContext;
 use Glueful\Extensions\Commerce\Orders\CheckoutService;
 use Glueful\Framework;
 
+// The framework's env() reads $_ENV only. CI supplies config (DB_PGSQL_*, DB_POOLING_ENABLED)
+// via the job environment, which PHP's variables_order (no `E` on the runners) and Dotenv's
+// immutable-skip leave absent from $_ENV — this child then silently boots with config DEFAULTS
+// (database "glueful", pooling ON) and wedges in the pool's acquire path instead of using the
+// test database, blocking the parent test until its time limit. Mirror the process env into
+// $_ENV BEFORE boot so every config value resolves — the same preamble as
+// scripts/run-test-migrations.php, and for exactly the same reason.
+foreach (getenv() as $key => $value) {
+    $_ENV[$key] ??= $value;
+}
+
 [, $argsJson] = $argv;
 /** @var array<string,mixed> $args */
 $args = json_decode((string) $argsJson, true, 512, JSON_THROW_ON_ERROR);
