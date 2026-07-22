@@ -338,6 +338,75 @@ export interface CommerceProductAttribute {
   position: number
 }
 
+export const ADDON_FIELD_TYPES = ['select', 'checkbox', 'text'] as const
+export type CommerceAddonFieldType = (typeof ADDON_FIELD_TYPES)[number]
+
+export const ADDON_STATUSES = ['active', 'inactive'] as const
+export type CommerceAddonStatus = (typeof ADDON_STATUSES)[number]
+
+/** One `commerce_product_addons.choices` element (`AddonService::normalizeChoices()`) — SELECT-type
+ * add-ons only; `checkbox`/`text` add-ons carry a single `price_delta` on the row itself and
+ * `choices` is always `null` for them (see `CommerceAddon`'s docblock). */
+export interface CommerceAddonChoice {
+  key: string
+  label: string
+  /** Minor-unit SIGNED integer delta (`AddonService::normalizeChoices()`'s own docblock: "a
+   * signed integer price_delta per choice") — format with `useMoney`, never `Number()`. */
+  price_delta: number
+}
+
+/** A `commerce_product_addons` row (design spec Layer 6 §2, `007_CreateCommerceCatalogBreadthTables.php`)
+ * — PER-PRODUCT (not a tenant-wide taxonomy like tags/categories/attributes): `GET
+ * /commerce/products/{uuid}/addons` IS a real admin read path (unlike media/children/tag/category/
+ * attribute assignment, which have no admin GET), so `AddonsPanel.vue` hydrates from it directly —
+ * no "unknown assignment" placeholder state needed.
+ *
+ * `field_type === 'select'` carries a non-empty `choices` list and a forced `price_delta` of 0 on
+ * the row itself (`AddonService::create()`/`planUpdate()`: `price_delta` is always overwritten to
+ * 0 for select add-ons, regardless of what's submitted); `checkbox`/`text` carry `choices: null`
+ * and their own signed `price_delta` instead. A definition edit never touches an existing cart/
+ * order line — `AddonSnapshot` bakes display AND price fields into the line at selection time, so
+ * an edit only ever affects FUTURE selections (`AddonService`'s own class docblock) — and
+ * `status: 'inactive'` similarly only removes an add-on from new selections, never from
+ * already-placed orders. */
+export interface CommerceAddon {
+  uuid: string
+  product_uuid: string
+  name: string
+  field_type: string
+  required: boolean
+  choices: CommerceAddonChoice[] | null
+  price_delta: number
+  position: number
+  status: string
+}
+
+/** `POST /commerce/products/{uuid}/addons` body (CreateAddonData). */
+export interface CreateAddonInput {
+  name: string
+  field_type: string
+  required?: boolean
+  choices?: Array<{ key: string; label: string; price_delta: number }> | null
+  price_delta?: number
+  position?: number | null
+  status?: string
+}
+
+/** `PATCH /commerce/addons/{uuid}` body (UpdateAddonData) — the controller reads the raw body (see
+ * its own docblock), so only present keys are applied server-side; `AddonsPanel.vue` always sends
+ * the FULL shape on every save regardless (mirrors `AttributesTab`'s value-edit form's "always
+ * submits every field" discipline), never a sparse diff, so `field_type`/`choices`/`price_delta`
+ * can never fall out of sync with each other mid-edit. */
+export interface UpdateAddonInput {
+  name?: string
+  field_type?: string
+  required?: boolean
+  choices?: Array<{ key: string; label: string; price_delta: number }> | null
+  price_delta?: number
+  position?: number | null
+  status?: string
+}
+
 // The admin envelopes are doc-only in the OpenAPI schema (see collections.ts's identical note), so
 // normalize the raw JSON into the stricter hand-written shapes above at the boundary.
 function normalizeVariant(raw: Record<string, unknown>): CommerceVariant {
@@ -419,6 +488,29 @@ function normalizeProductAttribute(raw: Record<string, unknown>): CommerceProduc
     used_for_variants: Boolean(raw.used_for_variants),
     visible: raw.visible === undefined || raw.visible === null ? true : Boolean(raw.visible),
     position: typeof raw.position === 'number' ? raw.position : 0,
+  }
+}
+
+function normalizeAddonChoice(raw: Record<string, unknown>): CommerceAddonChoice {
+  return {
+    key: String(raw.key ?? ''),
+    label: String(raw.label ?? ''),
+    price_delta: typeof raw.price_delta === 'number' ? raw.price_delta : 0,
+  }
+}
+
+function normalizeAddon(raw: Record<string, unknown>): CommerceAddon {
+  const choices = Array.isArray(raw.choices) ? raw.choices : null
+  return {
+    uuid: String(raw.uuid ?? ''),
+    product_uuid: String(raw.product_uuid ?? ''),
+    name: String(raw.name ?? ''),
+    field_type: String(raw.field_type ?? 'text'),
+    required: Boolean(raw.required),
+    choices: choices ? choices.map((c) => normalizeAddonChoice(c as Record<string, unknown>)) : null,
+    price_delta: typeof raw.price_delta === 'number' ? raw.price_delta : 0,
+    position: typeof raw.position === 'number' ? raw.position : 0,
+    status: String(raw.status ?? 'active'),
   }
 }
 
@@ -877,6 +969,48 @@ export async function setProductAttributes(
     : []
 }
 
+/** `GET /commerce/products/{uuid}/addons` — a real per-product admin read path (unlike media/
+ * children/tags/categories/attributes' assignment endpoints, which have none — see `CommerceAddon`'s
+ * docblock), ordered by position (`AddonRepository::forProduct()`). */
+export async function fetchProductAddons(productUuid: string): Promise<CommerceAddon[]> {
+  const { data, error, response } = await client.GET('/commerce/products/{uuid}/addons', {
+    params: { path: { uuid: productUuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const rows = (data as { data?: unknown[] } | undefined)?.data
+  return Array.isArray(rows) ? rows.map((a) => normalizeAddon(a as Record<string, unknown>)) : []
+}
+
+export async function createProductAddon(
+  productUuid: string,
+  input: CreateAddonInput,
+): Promise<CommerceAddon> {
+  const { data, error, response } = await client.POST('/commerce/products/{uuid}/addons', {
+    params: { path: { uuid: productUuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeAddon((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function updateProductAddon(uuid: string, input: UpdateAddonInput): Promise<CommerceAddon> {
+  const { data, error, response } = await client.PATCH('/commerce/addons/{uuid}', {
+    params: { path: { uuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeAddon((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function deleteProductAddon(uuid: string): Promise<void> {
+  const { error, response } = await client.DELETE('/commerce/addons/{uuid}', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+}
+
 // ── Query/mutation wrappers ──────────────────────────────────────────────────
 
 export function useCommerceProducts(filters: MaybeRefOrGetter<ProductListFilters>) {
@@ -911,6 +1045,17 @@ export function useCommerceProduct(
   })
 }
 
+/** A product's add-on definitions — a real admin GET (see `CommerceAddon`'s docblock), so
+ * `AddonsPanel.vue` hydrates directly from this, no "unknown assignment" placeholder needed
+ * (unlike `useCommerceProduct`'s siblings for media/children/tags/categories/attributes). */
+export function useCommerceProductAddons(productUuid: MaybeRefOrGetter<string>) {
+  return useQuery({
+    key: () => qk.commerceProductAddons(toValue(productUuid)),
+    query: () => fetchProductAddons(toValue(productUuid)),
+    enabled: () => !!toValue(productUuid),
+  })
+}
+
 /** Product mutations. `create`/`bulkStatus` invalidate the list; `update`/`remove` invalidate both
  * the single product and the list (its row may now be stale — status, name, etc.).
  *
@@ -929,6 +1074,8 @@ export function useCommerceProductMutations() {
     invalidateList()
   }
   const invalidateProductOnly = (uuid: string) => cache.invalidateQueries({ key: qk.commerceProduct(uuid) })
+  const invalidateAddons = (productUuid: string) =>
+    cache.invalidateQueries({ key: qk.commerceProductAddons(productUuid) })
 
   return {
     create: useMutation({
@@ -1021,6 +1168,28 @@ export function useCommerceProductMutations() {
       mutation: (vars: { productUuid: string; rows: ProductAttributeAssignmentInput[] }) =>
         setProductAttributes(vars.productUuid, vars.rows),
       onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+    }),
+    // Task 19c: product add-ons — PER-PRODUCT (unlike tags/categories/attributes' tenant-wide
+    // CRUD, add-ons have no top-level management surface of their own), so these fold in here
+    // alongside variants/media/children/stock rather than getting a standalone
+    // useCommerceAddonMutations() hook. Every one invalidates ONLY
+    // qk.commerceProductAddons(productUuid) — never the product detail: no admin product endpoint
+    // embeds `addons` in its payload (confirmed against AdminProductController/ProductService —
+    // nothing there references the add-ons table), so a product detail invalidation would just be
+    // a wasted refetch, same reasoning as variants/media/stock above.
+    createAddon: useMutation({
+      mutation: (vars: { productUuid: string; input: CreateAddonInput }) =>
+        createProductAddon(vars.productUuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidateAddons(vars.productUuid),
+    }),
+    updateAddon: useMutation({
+      mutation: (vars: { uuid: string; productUuid: string; input: UpdateAddonInput }) =>
+        updateProductAddon(vars.uuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidateAddons(vars.productUuid),
+    }),
+    removeAddon: useMutation({
+      mutation: (vars: { uuid: string; productUuid: string }) => deleteProductAddon(vars.uuid),
+      onSettled: (_d, _e, vars) => invalidateAddons(vars.productUuid),
     }),
   }
 }

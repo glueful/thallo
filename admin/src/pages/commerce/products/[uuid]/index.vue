@@ -10,6 +10,7 @@ import MediaPanel from '../components/MediaPanel.vue'
 import CategoriesTab from '../components/CategoriesTab.vue'
 import TagsTab from '../components/TagsTab.vue'
 import AttributesTab from '../components/AttributesTab.vue'
+import AddonsPanel from '../components/AddonsPanel.vue'
 import ProductEntryLinkPanel from '@/components/commerce/ProductEntryLinkPanel.vue'
 
 const route = useRoute()
@@ -32,6 +33,9 @@ const tabItems = [
   { label: 'Tags', value: 'tags' },
   // Task 19b: attribute assignment, same reasoning as Tags above.
   { label: 'Attributes', value: 'attributes' },
+  // Task 19c: per-product add-ons — a real per-product GET, unlike Categories/Tags/Attributes'
+  // assignment sections (see AddonsPanel.vue's file-level comment).
+  { label: 'Add-ons', value: 'addons' },
   // Task 12: the bidirectional product<->entry linkage panel, product-mode side.
   { label: 'Content', value: 'content' },
 ]
@@ -135,6 +139,13 @@ async function confirmDelete() {
 
         <AttributesTab
           v-else-if="tab === 'attributes'"
+          :key="product.uuid"
+          :product="product"
+          :can-manage="canManage"
+        />
+
+        <AddonsPanel
+          v-else-if="tab === 'addons'"
           :key="product.uuid"
           :product="product"
           :can-manage="canManage"

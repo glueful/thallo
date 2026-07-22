@@ -36,6 +36,7 @@ export const qk = {
   commerceMeta: () => ['commerce-meta'] as const,
   commerceProducts: () => ['commerce-products'] as const,
   commerceProduct: (uuid: string) => ['commerce-product', uuid] as const,
+  commerceProductAddons: (productUuid: string) => ['commerce-product-addons', productUuid] as const,
   commerceCategories: () => ['commerce-categories'] as const,
   commerceTags: () => ['commerce-tags'] as const,
   commerceAttributes: () => ['commerce-attributes'] as const,

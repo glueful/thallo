@@ -3,6 +3,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref, toValue } from 'vue'
 import type {
+  CommerceAddon,
   CommerceAttribute,
   CommerceAttributeValue,
   CommerceCategory,
@@ -113,6 +114,13 @@ const attributeCreateValueMock = vi.hoisted(() => vi.fn())
 const attributeUpdateValueMock = vi.hoisted(() => vi.fn())
 const attributeRemoveValueMock = vi.hoisted(() => vi.fn())
 
+const addonsData = ref<CommerceAddon[] | undefined>(undefined)
+const addonsStatus = ref<'pending' | 'error' | 'success'>('success')
+const lastAddonsProductUuid = vi.hoisted(() => ({ current: undefined as unknown }))
+const createAddonMock = vi.hoisted(() => vi.fn())
+const updateAddonMock = vi.hoisted(() => vi.fn())
+const removeAddonMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceCatalog')>()
   return {
@@ -136,7 +144,14 @@ vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
       setCategories: { mutateAsync: setCategoriesMock, isLoading: ref(false) },
       setTags: { mutateAsync: setTagsMock, isLoading: ref(false) },
       setAttributes: { mutateAsync: setAttributesMock, isLoading: ref(false) },
+      createAddon: { mutateAsync: createAddonMock, isLoading: ref(false) },
+      updateAddon: { mutateAsync: updateAddonMock, isLoading: ref(false) },
+      removeAddon: { mutateAsync: removeAddonMock, isLoading: ref(false) },
     }),
+    useCommerceProductAddons: (uuid: unknown) => {
+      lastAddonsProductUuid.current = uuid
+      return { data: addonsData, status: addonsStatus }
+    },
     useCommerceCategories: () => ({ data: categoriesData, status: categoriesStatus }),
     useCommerceCategoryMutations: () => ({
       create: { mutateAsync: categoryCreateMock, isLoading: ref(false) },
@@ -174,6 +189,7 @@ import MediaPanel from '@/pages/commerce/products/components/MediaPanel.vue'
 import CategoriesTab from '@/pages/commerce/products/components/CategoriesTab.vue'
 import TagsTab from '@/pages/commerce/products/components/TagsTab.vue'
 import AttributesTab from '@/pages/commerce/products/components/AttributesTab.vue'
+import AddonsPanel from '@/pages/commerce/products/components/AddonsPanel.vue'
 import ProductsIndex from '@/pages/commerce/products/index.vue'
 import ProductDetail from '@/pages/commerce/products/[uuid]/index.vue'
 import { ApiError } from '@/api/errors'
@@ -263,6 +279,21 @@ function attribute(overrides: Partial<CommerceAttribute> = {}): CommerceAttribut
   }
 }
 
+function addon(overrides: Partial<CommerceAddon> = {}): CommerceAddon {
+  return {
+    uuid: 'addon1',
+    product_uuid: 'p1',
+    name: 'Gift wrap',
+    field_type: 'checkbox',
+    required: false,
+    choices: null,
+    price_delta: 300,
+    position: 0,
+    status: 'active',
+    ...overrides,
+  }
+}
+
 const RouterLinkStub = { props: ['to'], template: '<a :href="to"><slot /></a>' }
 // UModal/USlideover teleport their body/footer out of the wrapper — stub both to render the
 // slots inline, mirroring collectionsFieldEditor.spec.ts's DropConfirmModal precedent.
@@ -345,6 +376,12 @@ beforeEach(() => {
   attributeCreateValueMock.mockReset()
   attributeUpdateValueMock.mockReset()
   attributeRemoveValueMock.mockReset()
+  addonsData.value = undefined
+  addonsStatus.value = 'success'
+  lastAddonsProductUuid.current = undefined
+  createAddonMock.mockReset()
+  updateAddonMock.mockReset()
+  removeAddonMock.mockReset()
   notify.success.mockReset()
   notify.warning.mockReset()
   notify.error.mockReset()
@@ -789,6 +826,24 @@ describe('commerce product detail page', () => {
     expect(wrapper.find('[data-test="attribute-add"]').exists()).toBe(false)
     // Fresh mount = unobserved assignment: the honest "not loaded" state, never a guessed selection.
     expect(wrapper.find('[data-test="attribute-assignment-unknown"]').exists()).toBe(true)
+  })
+
+  it('switches to the Add-ons tab and renders AddonsPanel, hydrated from the real per-product GET', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget' })
+    addonsData.value = [addon({ uuid: 'a1', name: 'Gift wrap' })]
+    const wrapper = mount(ProductDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    const addonsTab = tabs.find((t) => t.text() === 'Add-ons')
+    await addonsTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+
+    // Unlike Categories/Tags/Attributes' assignment sections, add-ons have a real admin GET — the
+    // row renders straight from it, no "assignment not loaded" placeholder involved at all.
+    expect(wrapper.find('[data-test="addon-row"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Gift wrap')
+    expect(lastAddonsProductUuid.current).toBeTruthy()
   })
 })
 
@@ -2159,5 +2214,434 @@ describe('AttributesTab (product assignment)', () => {
     expect(wrapper.find('[data-test="attribute-assign-custom-add"]').exists()).toBe(false)
     const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
     expect(checkbox!.props('disabled')).toBe(true)
+  })
+})
+
+// ── AddonsPanel: per-product add-on CRUD — a real per-product GET (unlike Categories/Tags/
+// Attributes' assignment sections, which have none), so this suite never needs an "unknown
+// assignment" fixture; every list assertion below asserts straight off `addonsData`. ─────────────
+
+describe('AddonsPanel', () => {
+  function mountPanel(p: CommerceProduct = product({ uuid: 'p1' }), canManage = true) {
+    return mount(AddonsPanel, {
+      props: { product: p, canManage },
+      global: { stubs: { Modal: teleportStub } },
+    })
+  }
+
+  // ── List: real GET, loading/error/empty, money display ─────────────────────────────────────
+
+  it('renders each add-on from the real per-product GET', () => {
+    addonsData.value = [
+      addon({ uuid: 'a1', name: 'Gift wrap', field_type: 'checkbox', price_delta: 300 }),
+      addon({ uuid: 'a2', name: 'Engraving', field_type: 'text', price_delta: 0 }),
+    ]
+    const wrapper = mountPanel()
+
+    expect(wrapper.findAll('[data-test="addon-row"]')).toHaveLength(2)
+    expect(wrapper.text()).toContain('Gift wrap')
+    expect(wrapper.text()).toContain('Engraving')
+    expect(lastAddonsProductUuid.current).toBeTruthy()
+  })
+
+  it('shows the loading state', () => {
+    addonsStatus.value = 'pending'
+    const wrapper = mountPanel()
+    expect(wrapper.find('[data-test="addons-loading"]').exists()).toBe(true)
+  })
+
+  it('shows the error state', () => {
+    addonsStatus.value = 'error'
+    const wrapper = mountPanel()
+    expect(wrapper.find('[data-test="addons-error"]').exists()).toBe(true)
+  })
+
+  it('shows the empty state when there are no add-ons', () => {
+    addonsData.value = []
+    const wrapper = mountPanel()
+    expect(wrapper.find('[data-test="addons-empty"]').exists()).toBe(true)
+  })
+
+  it('always shows the snapshot-immutability notice, regardless of can_manage', () => {
+    addonsData.value = []
+    const wrapper = mountPanel(product({ uuid: 'p1' }), false)
+    expect(wrapper.find('[data-test="addon-snapshot-notice"]').exists()).toBe(true)
+  })
+
+  it('formats a checkbox/text add-on price delta with useMoney, never a raw digit string', () => {
+    addonsData.value = [addon({ uuid: 'a1', name: 'Gift wrap', field_type: 'checkbox', price_delta: 350 })]
+    const wrapper = mountPanel()
+
+    expect(wrapper.find('[data-test="addon-price"]').text()).toBe('$3.50')
+  })
+
+  it('formats a SELECT add-on’s per-choice deltas (including a negative one) and shows no row-level price', () => {
+    addonsData.value = [
+      addon({
+        uuid: 'a1',
+        name: 'Color',
+        field_type: 'select',
+        price_delta: 0,
+        choices: [
+          { key: 'red', label: 'Red', price_delta: 100 },
+          { key: 'small', label: 'Small', price_delta: -125 },
+        ],
+      }),
+    ]
+    const wrapper = mountPanel()
+
+    expect(wrapper.find('[data-test="addon-price"]').exists()).toBe(false)
+    const choicePrices = wrapper.findAll('[data-test="addon-choice-price"]')
+    expect(choicePrices.map((c) => c.text())).toEqual(['$1.00', '-$1.25'])
+  })
+
+  it('hides add/edit/delete controls and the form when can_manage is false, keeping rows visible', () => {
+    addonsData.value = [addon({ uuid: 'a1', name: 'Gift wrap' })]
+    const wrapper = mountPanel(product({ uuid: 'p1' }), false)
+
+    expect(wrapper.find('[data-test="addon-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="addon-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="addon-delete"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="addon-row"]').exists()).toBe(true)
+  })
+
+  // ── Create: money exactness (signed decimal -> exact minor units, never Number()) ──────────
+
+  it('creates a checkbox add-on, converting a signed decimal price delta into exact minor units', async () => {
+    addonsData.value = []
+    createAddonMock.mockResolvedValue(
+      addon({ uuid: 'new-1', name: 'Gift wrap', field_type: 'checkbox', price_delta: 350 }),
+    )
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="addon-add"]').trigger('click')
+    selectByTestId(wrapper, 'addon-field-type-input').vm.$emit('update:modelValue', 'checkbox')
+    await flushPromises()
+
+    await wrapper.find('[data-test="addon-name-input"]').setValue('Gift wrap')
+    await wrapper.find('[data-test="addon-price-delta-input"]').setValue('3.50')
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(createAddonMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      input: {
+        name: 'Gift wrap',
+        field_type: 'checkbox',
+        required: false,
+        choices: null,
+        price_delta: 350,
+        position: null,
+        status: 'active',
+      },
+    })
+  })
+
+  it('creates a text add-on with a NEGATIVE price delta, preserving the sign through exact minor units', async () => {
+    addonsData.value = []
+    createAddonMock.mockResolvedValue(
+      addon({ uuid: 'new-2', name: 'Discount slot', field_type: 'text', price_delta: -200 }),
+    )
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="addon-add"]').trigger('click')
+    await wrapper.find('[data-test="addon-name-input"]').setValue('Discount slot')
+    await wrapper.find('[data-test="addon-price-delta-input"]').setValue('-2.00')
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(createAddonMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      input: {
+        name: 'Discount slot',
+        field_type: 'text',
+        required: false,
+        choices: null,
+        price_delta: -200,
+        position: null,
+        status: 'active',
+      },
+    })
+  })
+
+  it('defaults a blank price delta to 0 minor units', async () => {
+    addonsData.value = []
+    createAddonMock.mockResolvedValue(addon({ uuid: 'new-3' }))
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="addon-add"]').trigger('click')
+    await wrapper.find('[data-test="addon-name-input"]').setValue('Custom note')
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(createAddonMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      input: expect.objectContaining({ price_delta: 0 }),
+    })
+  })
+
+  it('creates a SELECT add-on with choices, converting each exact price delta (one negative) into minor units', async () => {
+    addonsData.value = []
+    createAddonMock.mockResolvedValue(
+      addon({
+        uuid: 'new-4',
+        name: 'Color',
+        field_type: 'select',
+        required: true,
+        position: 2,
+        choices: [
+          { key: 'red', label: 'Red', price_delta: 100 },
+          { key: 'small', label: 'Small', price_delta: -125 },
+        ],
+      }),
+    )
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="addon-add"]').trigger('click')
+    selectByTestId(wrapper, 'addon-field-type-input').vm.$emit('update:modelValue', 'select')
+    await flushPromises()
+
+    await wrapper.find('[data-test="addon-name-input"]').setValue('Color')
+    await wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]!.vm.$emit('update:modelValue', true)
+    await wrapper.find('[data-test="addon-position-input"]').setValue('2')
+
+    await wrapper.find('[data-test="addon-choice-add"]').trigger('click')
+    await wrapper.find('[data-test="addon-choice-add"]').trigger('click')
+    const keyInputs = wrapper.findAll('[data-test="addon-choice-key-input"]')
+    await keyInputs[0]!.setValue('red')
+    await keyInputs[1]!.setValue('small')
+    const labelInputs = wrapper.findAll('[data-test="addon-choice-label-input"]')
+    await labelInputs[0]!.setValue('Red')
+    await labelInputs[1]!.setValue('Small')
+    const deltaInputs = wrapper.findAll('[data-test="addon-choice-price-delta-input"]')
+    await deltaInputs[0]!.setValue('1.00')
+    await deltaInputs[1]!.setValue('-1.25')
+
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(createAddonMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      input: {
+        name: 'Color',
+        field_type: 'select',
+        required: true,
+        choices: [
+          { key: 'red', label: 'Red', price_delta: 100 },
+          { key: 'small', label: 'Small', price_delta: -125 },
+        ],
+        price_delta: 0,
+        position: 2,
+        status: 'active',
+      },
+    })
+  })
+
+  // ── Create: client-side validation ──────────────────────────────────────────────────────────
+
+  it('rejects a SELECT add-on with no choices client-side, without calling the mutation', async () => {
+    addonsData.value = []
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="addon-add"]').trigger('click')
+    selectByTestId(wrapper, 'addon-field-type-input').vm.$emit('update:modelValue', 'select')
+    await flushPromises()
+
+    await wrapper.find('[data-test="addon-name-input"]').setValue('Color')
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(createAddonMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="addon-choices-error"]').text()).toContain('Add at least one choice.')
+  })
+
+  it('rejects duplicate choice keys client-side, without calling the mutation', async () => {
+    addonsData.value = []
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="addon-add"]').trigger('click')
+    selectByTestId(wrapper, 'addon-field-type-input').vm.$emit('update:modelValue', 'select')
+    await flushPromises()
+    await wrapper.find('[data-test="addon-name-input"]').setValue('Color')
+
+    await wrapper.find('[data-test="addon-choice-add"]').trigger('click')
+    await wrapper.find('[data-test="addon-choice-add"]').trigger('click')
+    const keyInputs = wrapper.findAll('[data-test="addon-choice-key-input"]')
+    await keyInputs[0]!.setValue('red')
+    await keyInputs[1]!.setValue('red')
+    const labelInputs = wrapper.findAll('[data-test="addon-choice-label-input"]')
+    await labelInputs[0]!.setValue('Red')
+    await labelInputs[1]!.setValue('Crimson')
+    const deltaInputs = wrapper.findAll('[data-test="addon-choice-price-delta-input"]')
+    await deltaInputs[0]!.setValue('1.00')
+    await deltaInputs[1]!.setValue('1.50')
+
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(createAddonMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="addon-choices-error"]').text()).toContain('Duplicate choice key')
+  })
+
+  it('rejects an invalid price delta client-side, without calling the mutation', async () => {
+    addonsData.value = []
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="addon-add"]').trigger('click')
+    await wrapper.find('[data-test="addon-name-input"]').setValue('Gift wrap')
+    await wrapper.find('[data-test="addon-price-delta-input"]').setValue('not-a-number')
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(createAddonMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="addon-form-error"]').text()).toContain('Enter a valid price delta')
+  })
+
+  it('rejects a non-numeric position client-side, without calling the mutation', async () => {
+    addonsData.value = []
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="addon-add"]').trigger('click')
+    await wrapper.find('[data-test="addon-name-input"]').setValue('Gift wrap')
+    await wrapper.find('[data-test="addon-position-input"]').setValue('abc')
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(createAddonMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="addon-form-error"]').text()).toContain(
+      'Position must be a whole, non-negative number.',
+    )
+  })
+
+  it('removes a choice row before saving', async () => {
+    addonsData.value = []
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="addon-add"]').trigger('click')
+    selectByTestId(wrapper, 'addon-field-type-input').vm.$emit('update:modelValue', 'select')
+    await flushPromises()
+
+    await wrapper.find('[data-test="addon-choice-add"]').trigger('click')
+    expect(wrapper.findAll('[data-test="addon-choice-row"]')).toHaveLength(1)
+
+    await wrapper.find('[data-test="addon-choice-remove"]').trigger('click')
+    expect(wrapper.findAll('[data-test="addon-choice-row"]')).toHaveLength(0)
+  })
+
+  it('surfaces a server 422 message instead of vanishing it', async () => {
+    addonsData.value = []
+    createAddonMock.mockRejectedValue(new ApiError('Validation failed', 422, { name: 'Name is required.' }, {}))
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="addon-add"]').trigger('click')
+    await wrapper.find('[data-test="addon-name-input"]').setValue('Gift wrap')
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="addon-form-error"]').text()).toContain('Name is required.')
+  })
+
+  // ── Edit: pre-populates from the row (including choices), submits the FULL replace payload ──
+
+  it('opens the edit form pre-populated from a CHECKBOX add-on row and submits the exact update payload', async () => {
+    addonsData.value = [
+      addon({
+        uuid: 'a1',
+        name: 'Gift wrap',
+        field_type: 'checkbox',
+        required: true,
+        price_delta: 350,
+        position: 1,
+        status: 'inactive',
+      }),
+    ]
+    updateAddonMock.mockResolvedValue(addon({ uuid: 'a1' }))
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="addon-edit"]').trigger('click')
+
+    expect((wrapper.find('[data-test="addon-name-input"]').element as HTMLInputElement).value).toBe('Gift wrap')
+    expect((wrapper.find('[data-test="addon-price-delta-input"]').element as HTMLInputElement).value).toBe('3.50')
+    expect((wrapper.find('[data-test="addon-position-input"]').element as HTMLInputElement).value).toBe('1')
+
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(updateAddonMock).toHaveBeenCalledWith({
+      uuid: 'a1',
+      productUuid: 'p1',
+      input: {
+        name: 'Gift wrap',
+        field_type: 'checkbox',
+        required: true,
+        choices: null,
+        price_delta: 350,
+        position: 1,
+        status: 'inactive',
+      },
+    })
+  })
+
+  it('opens the edit form pre-populated from a SELECT add-on row, including its choices, and submits the update', async () => {
+    addonsData.value = [
+      addon({
+        uuid: 'a1',
+        name: 'Color',
+        field_type: 'select',
+        price_delta: 0,
+        choices: [
+          { key: 'red', label: 'Red', price_delta: 100 },
+          { key: 'small', label: 'Small', price_delta: -125 },
+        ],
+      }),
+    ]
+    updateAddonMock.mockResolvedValue(addon({ uuid: 'a1' }))
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="addon-edit"]').trigger('click')
+
+    const keyInputs = wrapper.findAll('[data-test="addon-choice-key-input"]')
+    expect(keyInputs.map((i) => (i.element as HTMLInputElement).value)).toEqual(['red', 'small'])
+    const deltaInputs = wrapper.findAll('[data-test="addon-choice-price-delta-input"]')
+    expect(deltaInputs.map((i) => (i.element as HTMLInputElement).value)).toEqual(['1.00', '-1.25'])
+
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(updateAddonMock).toHaveBeenCalledWith({
+      uuid: 'a1',
+      productUuid: 'p1',
+      input: {
+        name: 'Color',
+        field_type: 'select',
+        required: false,
+        choices: [
+          { key: 'red', label: 'Red', price_delta: 100 },
+          { key: 'small', label: 'Small', price_delta: -125 },
+        ],
+        price_delta: 0,
+        position: 0,
+        status: 'active',
+      },
+    })
+  })
+
+  // ── Delete: requires confirmation ───────────────────────────────────────────────────────────
+
+  it('requires confirmation before deleting an add-on', async () => {
+    addonsData.value = [addon({ uuid: 'a1', name: 'Gift wrap' })]
+    removeAddonMock.mockResolvedValue(undefined)
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    expect(wrapper.find('[data-test="addon-delete-confirm"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="addon-delete"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="addon-delete-confirm"]').exists()).toBe(true)
+    expect(removeAddonMock).not.toHaveBeenCalled()
+
+    await wrapper.find('[data-test="addon-delete-confirm"]').trigger('click')
+    await flushPromises()
+    expect(removeAddonMock).toHaveBeenCalledWith({ uuid: 'a1', productUuid: 'p1' })
   })
 })

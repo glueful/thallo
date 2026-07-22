@@ -1623,4 +1623,315 @@ describe('commerce catalog query layer', () => {
       attributes: 'attributes must reference existing attributes in this tenant.',
     })
   })
+
+  // ── Task 19c: product add-ons — PER-PRODUCT (not a tenant-wide taxonomy like tags/categories/
+  // attributes): `GET /commerce/products/{uuid}/addons` IS a real per-product admin read path,
+  // unlike every other product-scoped sub-resource above (media/children/tags/categories/
+  // attributes assignment, which have none — see `CommerceAddon`'s docblock).
+
+  it('parses the real Response::success envelope and normalizes a mix of checkbox and select add-ons', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Add-ons retrieved',
+        data: [
+          {
+            uuid: 'addon1',
+            product_uuid: 'p1',
+            name: 'Gift wrap',
+            field_type: 'checkbox',
+            required: false,
+            choices: null,
+            price_delta: 300,
+            position: 0,
+            status: 'active',
+          },
+          {
+            uuid: 'addon2',
+            product_uuid: 'p1',
+            name: 'Color',
+            field_type: 'select',
+            required: true,
+            choices: [
+              { key: 'red', label: 'Red', price_delta: 100 },
+              { key: 'blue', label: 'Blue', price_delta: 200 },
+            ],
+            price_delta: 0,
+            position: 1,
+            status: 'active',
+          },
+        ],
+      }),
+    )
+
+    const { fetchProductAddons } = await import('@/queries/commerceCatalog')
+    const rows = await fetchProductAddons('p1')
+
+    expect(rows).toHaveLength(2)
+    expect(rows[0]).toEqual({
+      uuid: 'addon1',
+      product_uuid: 'p1',
+      name: 'Gift wrap',
+      field_type: 'checkbox',
+      required: false,
+      choices: null,
+      price_delta: 300,
+      position: 0,
+      status: 'active',
+    })
+    expect(rows[1]!.choices).toEqual([
+      { key: 'red', label: 'Red', price_delta: 100 },
+      { key: 'blue', label: 'Blue', price_delta: 200 },
+    ])
+  })
+
+  it('defaults to an empty add-on list when the envelope has no data array', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ data: null }))
+
+    const { fetchProductAddons } = await import('@/queries/commerceCatalog')
+    await expect(fetchProductAddons('p1')).resolves.toEqual([])
+  })
+
+  it('throws ApiError when the add-on list request fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ message: 'Forbidden' }, 403))
+
+    const { fetchProductAddons } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(fetchProductAddons('p1')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('creates a checkbox add-on and returns the normalized record', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: true,
+          message: 'Add-on created',
+          data: {
+            uuid: 'new-addon',
+            product_uuid: 'p1',
+            name: 'Gift wrap',
+            field_type: 'checkbox',
+            required: false,
+            choices: null,
+            price_delta: 300,
+            position: 0,
+            status: 'active',
+          },
+        },
+        201,
+      ),
+    )
+
+    const { createProductAddon } = await import('@/queries/commerceCatalog')
+    const addonRow = await createProductAddon('p1', {
+      name: 'Gift wrap',
+      field_type: 'checkbox',
+      price_delta: 300,
+    })
+
+    expect(addonRow.uuid).toBe('new-addon')
+    expect(addonRow.price_delta).toBe(300)
+  })
+
+  it('sends the create-addon request body exactly as given, to the owning product path', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Add-on created',
+        data: {
+          uuid: 'a1',
+          product_uuid: 'p1',
+          name: 'Color',
+          field_type: 'select',
+          required: true,
+          choices: [{ key: 'red', label: 'Red', price_delta: 100 }],
+          price_delta: 0,
+          position: 2,
+          status: 'active',
+        },
+      }),
+    )
+
+    const { createProductAddon } = await import('@/queries/commerceCatalog')
+    await createProductAddon('p1', {
+      name: 'Color',
+      field_type: 'select',
+      required: true,
+      choices: [{ key: 'red', label: 'Red', price_delta: 100 }],
+      price_delta: 0,
+      position: 2,
+      status: 'active',
+    })
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(req.url).toContain('/commerce/products/p1/addons')
+    expect(await req.clone().json()).toEqual({
+      name: 'Color',
+      field_type: 'select',
+      required: true,
+      choices: [{ key: 'red', label: 'Red', price_delta: 100 }],
+      price_delta: 0,
+      position: 2,
+      status: 'active',
+    })
+  })
+
+  it('surfaces "select addons require a non-empty choices list" from a create 422', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { choices: 'select addons require a non-empty choices list.' } },
+        },
+        422,
+      ),
+    )
+
+    const { createProductAddon } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await createProductAddon('p1', { name: 'Color', field_type: 'select' })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      choices: 'select addons require a non-empty choices list.',
+    })
+  })
+
+  it('surfaces "product not found" from a create 404', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ success: false, message: 'Resource not found.' }, 404),
+    )
+
+    const { createProductAddon } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(
+      createProductAddon('missing', { name: 'Gift wrap', field_type: 'checkbox' }),
+    ).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('updates an add-on by uuid and returns the normalized record', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Add-on updated',
+        data: {
+          uuid: 'a1',
+          product_uuid: 'p1',
+          name: 'Deluxe gift wrap',
+          field_type: 'checkbox',
+          required: false,
+          choices: null,
+          price_delta: 500,
+          position: 0,
+          status: 'inactive',
+        },
+      }),
+    )
+
+    const { updateProductAddon } = await import('@/queries/commerceCatalog')
+    const addonRow = await updateProductAddon('a1', {
+      name: 'Deluxe gift wrap',
+      price_delta: 500,
+      status: 'inactive',
+    })
+    expect(addonRow.name).toBe('Deluxe gift wrap')
+    expect(addonRow.status).toBe('inactive')
+  })
+
+  it('sends the update-addon request body exactly as given, to /commerce/addons/{uuid}', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Add-on updated',
+        data: {
+          uuid: 'a1',
+          product_uuid: 'p1',
+          name: 'Gift wrap',
+          field_type: 'checkbox',
+          required: false,
+          choices: null,
+          price_delta: 350,
+          position: 1,
+          status: 'active',
+        },
+      }),
+    )
+
+    const { updateProductAddon } = await import('@/queries/commerceCatalog')
+    await updateProductAddon('a1', {
+      name: 'Gift wrap',
+      field_type: 'checkbox',
+      required: false,
+      choices: null,
+      price_delta: 350,
+      position: 1,
+      status: 'active',
+    })
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(req.url).toContain('/commerce/addons/a1')
+    expect(await req.clone().json()).toEqual({
+      name: 'Gift wrap',
+      field_type: 'checkbox',
+      required: false,
+      choices: null,
+      price_delta: 350,
+      position: 1,
+      status: 'active',
+    })
+  })
+
+  it('surfaces a duplicate-choice-key constraint from an update 422', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { 'choices.1.key': 'Duplicate choice key.' } },
+        },
+        422,
+      ),
+    )
+
+    const { updateProductAddon } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await updateProductAddon('a1', {
+        field_type: 'select',
+        choices: [
+          { key: 'red', label: 'Red', price_delta: 100 },
+          { key: 'red', label: 'Crimson', price_delta: 150 },
+        ],
+      })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      'choices.1.key': 'Duplicate choice key.',
+    })
+  })
+
+  it('deletes an add-on with no return value', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+
+    const { deleteProductAddon } = await import('@/queries/commerceCatalog')
+    await expect(deleteProductAddon('a1')).resolves.toBeUndefined()
+  })
+
+  it('throws ApiError when add-on delete fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ message: 'Not found' }, 404))
+
+    const { deleteProductAddon } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(deleteProductAddon('missing')).rejects.toBeInstanceOf(ApiError)
+  })
 })

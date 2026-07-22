@@ -39,7 +39,7 @@ describe('useCommerceProductMutations invalidation', () => {
     const mutations = useCommerceProductMutations() as unknown as Record<
       'create' | 'update' | 'remove' | 'bulkStatus' | 'createVariant' | 'updateVariant' | 'bulkPrice' |
         'setChildren' | 'stockAdjust' | 'attachMedia' | 'updateMedia' | 'detachMedia' | 'reorderMedia' |
-        'setCategories' | 'setTags' | 'setAttributes',
+        'setCategories' | 'setTags' | 'setAttributes' | 'createAddon' | 'updateAddon' | 'removeAddon',
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
     return { mutations, qk }
@@ -346,5 +346,41 @@ describe('useCommerceProductMutations invalidation', () => {
     mutations.removeValue.onSettled?.(undefined, undefined, 'val00000001')
 
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceAttributes() }]])
+  })
+
+  // Task 19c: product add-ons are PER-PRODUCT (no tenant-wide list of their own, unlike tags/
+  // categories/attributes), so every one of create/update/remove invalidates ONLY
+  // qk.commerceProductAddons(productUuid) — never the product detail: no admin product endpoint
+  // embeds `addons` in its payload, same reasoning as variants/media/stock above.
+
+  it('createAddon invalidates the owning product’s add-on list only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.createAddon.onSettled?.(undefined, undefined, {
+      productUuid: 'prod00000001',
+      input: { name: 'Gift wrap', field_type: 'checkbox' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProductAddons('prod00000001') }]])
+  })
+
+  it('updateAddon invalidates the owning product’s add-on list only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.updateAddon.onSettled?.(undefined, undefined, {
+      uuid: 'addon0000001',
+      productUuid: 'prod00000001',
+      input: { name: 'Deluxe gift wrap' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProductAddons('prod00000001') }]])
+  })
+
+  it('removeAddon invalidates the owning product’s add-on list only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.removeAddon.onSettled?.(undefined, undefined, {
+      uuid: 'addon0000001',
+      productUuid: 'prod00000001',
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProductAddons('prod00000001') }]])
   })
 })
