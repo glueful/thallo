@@ -58,6 +58,7 @@ describe('the static manifest', () => {
       'navigation',
       'regions',
       'templates',
+      'commerce',
       'submissions',
       'tenancy',
     ])

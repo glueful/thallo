@@ -33,4 +33,10 @@ export const qk = {
     ['form-submissions', 'list', formKey, status] as const,
   formSubmission: (uuid: string) => ['form-submissions', 'detail', uuid] as const,
   formSubmissionsUnread: () => ['form-submissions', 'unread'] as const,
+  commerceMeta: () => ['commerce-meta'] as const,
+  commerceProducts: () => ['commerce-products'] as const,
+  commerceProduct: (uuid: string) => ['commerce-product', uuid] as const,
+  commerceLink: (productUuid: string) => ['commerce-link', productUuid] as const,
+  commerceLinkByEntry: (entryUuid: string) => ['commerce-link-by-entry', entryUuid] as const,
+  commerceEntrySearch: (q: string) => ['commerce-entry-search', q] as const,
 }

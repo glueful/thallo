@@ -6,6 +6,7 @@ import { workflowModule } from './workflowModule'
 import { navigationModule } from './navigationModule'
 import { regionsModule } from './regionsModule'
 import { templatesModule } from './templatesModule'
+import { commerceModule } from './commerceModule'
 import { submissionsModule } from './submissionsModule'
 import { tenancyModule } from './tenancyModule'
 
@@ -27,6 +28,7 @@ export const adminManifest: readonly AdminModule[] = [
   navigationModule,
   regionsModule,
   templatesModule,
+  commerceModule,
   submissionsModule,
   tenancyModule,
 ]
