@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch, watchEffect } from 'vue'
+import { computed, reactive, ref, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { useContentTypes } from '@/queries/contentTypes'
 import { useDraft, useSaveDraft } from '@/queries/drafts'
@@ -17,6 +17,7 @@ import SeoPanel from './components/SeoPanel.vue'
 import VersionsPanel from './components/VersionsPanel.vue'
 import WorkflowPanel from './components/WorkflowPanel.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
+import { useVisibleEditorPanels, type EntryEditorPanelContext } from '@/registry/entryEditorPanels'
 import { slugify } from '@/utils/slugify'
 import LocaleSwitcher from './components/LocaleSwitcher.vue'
 import LocaleRoutesModal from './components/LocaleRoutesModal.vue'
@@ -35,17 +36,36 @@ const workflowEnabled = computed(() => caps.isEnabled('thallo.workflow'))
 // Sidebar tabs: Publishing is home; SEO joins when its pack is enabled. v-show keeps
 // panel state (dirty slug, open schedule) alive across tab switches.
 const sideTab = ref('publishing')
-const sideTabItems = computed(() => [
-  { label: 'Publishing', value: 'publishing' },
-  ...(seoEnabled.value ? [{ label: 'SEO', value: 'seo' }] : []),
-  { label: 'Versions', value: 'versions' },
-])
 
 const { success, warning, error: notifyError } = useNotify()
 
 // The locale being edited. Starts at the default but is driven by the header switcher; the draft,
 // save mutation, and PublishPanel all follow it.
 const locale = ref(String(route.query.locale ?? runtimeConfig.defaultLocale))
+
+// Reactive context shared by every manifest-contributed editor panel (entryEditorPanels
+// registry). `reactive()` unwraps the underlying refs, so reading `panelCtx.locale` etc.
+// from inside a panel's `useGate`/`props` stays live across a locale/route change without
+// the editor ever calling into the panel again.
+const panelCtx: EntryEditorPanelContext = reactive({ uuid, locale, type })
+const visiblePanels = useVisibleEditorPanels(panelCtx)
+
+const sideTabItems = computed(() => [
+  { label: 'Publishing', value: 'publishing' },
+  ...(seoEnabled.value ? [{ label: 'SEO', value: 'seo' }] : []),
+  { label: 'Versions', value: 'versions' },
+  ...visiblePanels.value.map((p) => ({ label: p.label, value: p.id })),
+])
+
+// A contributed panel's gate can settle to 'hidden' AFTER it was selected (e.g. a capability
+// toggles off mid-session). Built-in tabs are never affected — only reset away from a
+// panel id that just dropped out of the visible list, so stale panel content never renders.
+watch(visiblePanels, (panels) => {
+  const builtIn = sideTab.value === 'publishing' || sideTab.value === 'seo' || sideTab.value === 'versions'
+  if (!builtIn && !panels.some((p) => p.id === sideTab.value)) {
+    sideTab.value = 'publishing'
+  }
+})
 
 // The content-type schema drives the field editor.
 const { data: contentTypes } = useContentTypes()
@@ -397,6 +417,13 @@ async function onSave(): Promise<boolean> {
               :uuid="uuid"
               :locale="locale"
               :type="type"
+            />
+            <component
+              :is="panel.component"
+              v-for="panel in visiblePanels"
+              :key="`${panel.id}-${uuid}-${locale}`"
+              v-show="sideTab === panel.id"
+              v-bind="panel.props?.(panelCtx) ?? {}"
             />
           </UCard>
         </div>
