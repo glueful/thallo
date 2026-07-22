@@ -671,3 +671,278 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
     expect(page.zones[0]!.methods).toEqual([])
   })
 })
+
+// ── Task 15b: shipping classes ──────────────────────────────────────────────────────────────
+
+describe('commerce settings (shipping classes) query layer', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  function classBody(overrides: Record<string, unknown> = {}) {
+    return {
+      uuid: 'c1',
+      slug: 'fragile',
+      name: 'Fragile',
+      revision: 0,
+      created_at: '2026-01-01 00:00:00',
+      updated_at: null,
+      ...overrides,
+    }
+  }
+
+  // ── fetchShippingClasses: envelope, params, normalization ───────────────────────────────────
+
+  it('parses the real Response::paginated envelope and normalizes classes', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Shipping classes retrieved',
+        data: [classBody()],
+        current_page: 1,
+        per_page: 24,
+        total: 1,
+      }),
+    )
+
+    const { fetchShippingClasses } = await import('@/queries/commerceSettings')
+    const page = await fetchShippingClasses({ page: 1, perPage: 24 })
+
+    expect(page.classes).toHaveLength(1)
+    const cls = page.classes[0]!
+    expect(cls.uuid).toBe('c1')
+    expect(cls.slug).toBe('fragile')
+    expect(cls.name).toBe('Fragile')
+    expect(page.total).toBe(1)
+    expect(page.current_page).toBe(1)
+    expect(page.per_page).toBe(24)
+  })
+
+  it('sends q/page/per_page as the exact ShippingClassListQuery param set', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: [], current_page: 2, per_page: 10, total: 0 }))
+
+    const { fetchShippingClasses } = await import('@/queries/commerceSettings')
+    await fetchShippingClasses({ q: 'frag', page: 2, perPage: 10 })
+
+    const requested = fetchMock.mock.calls[0]![0]
+    const requestedUrl = typeof requested === 'string' ? requested : (requested as Request).url
+    const url = new URL(requestedUrl, 'http://localhost')
+    expect(url.pathname).toBe('/v1/admin/commerce/shipping/classes')
+    expect(url.searchParams.get('q')).toBe('frag')
+    expect(url.searchParams.get('page')).toBe('2')
+    expect(url.searchParams.get('per_page')).toBe('10')
+  })
+
+  it('defaults an empty page to zero total and the requested paging', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ data: {} }))
+
+    const { fetchShippingClasses } = await import('@/queries/commerceSettings')
+    const page = await fetchShippingClasses({ page: 3, perPage: 50 })
+
+    expect(page.classes).toEqual([])
+    expect(page.total).toBe(0)
+    expect(page.current_page).toBe(3)
+    expect(page.per_page).toBe(50)
+  })
+
+  it('throws ApiError when the list request fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Forbidden' }, 403),
+    )
+
+    const { fetchShippingClasses } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    await expect(fetchShippingClasses()).rejects.toBeInstanceOf(ApiError)
+  })
+
+  // ── fetchShippingClass (show) ────────────────────────────────────────────────────────────────
+
+  it('fetches and normalizes a single class', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ success: true, message: 'Shipping class retrieved', data: classBody() }),
+    )
+
+    const { fetchShippingClass } = await import('@/queries/commerceSettings')
+    const cls = await fetchShippingClass('c1')
+
+    expect(cls.uuid).toBe('c1')
+    expect(cls.slug).toBe('fragile')
+  })
+
+  it('throws ApiError for a 404 class', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Resource not found.' }, 404),
+    )
+
+    const { fetchShippingClass } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    await expect(fetchShippingClass('missing')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  // ── createShippingClass: exact CreateShippingClassData body ─────────────────────────────────
+
+  it('createShippingClass posts the exact CreateShippingClassData body and normalizes the created class', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Shipping class created', data: classBody() }, 201),
+    )
+
+    const { createShippingClass } = await import('@/queries/commerceSettings')
+    const cls = await createShippingClass({ slug: 'fragile', name: 'Fragile' })
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('POST')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/shipping/classes')
+    expect(await request.clone().json()).toEqual({ slug: 'fragile', name: 'Fragile' })
+    expect(cls.uuid).toBe('c1')
+  })
+
+  it('createShippingClass surfaces a 422 duplicate-slug rejection as a keyed field error', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            timestamp: '2026-01-01T00:00:00Z',
+            request_id: 'req_1',
+            details: { slug: 'Slug already in use.' },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { createShippingClass } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await createShippingClass({ slug: 'fragile', name: 'Fragile' })
+    } catch (e) {
+      caught = e
+    }
+    expect((caught as InstanceType<typeof ApiError>).status).toBe(422)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors.slug).toBe('Slug already in use.')
+  })
+
+  // ── updateShippingClass: exact PATCH endpoint + name-only body ──────────────────────────────
+
+  it('updateShippingClass PATCHes the exact endpoint with only name and normalizes the result', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Shipping class updated',
+        data: classBody({ name: 'Extra Fragile', revision: 1 }),
+      }),
+    )
+
+    const { updateShippingClass } = await import('@/queries/commerceSettings')
+    const cls = await updateShippingClass('c1', { name: 'Extra Fragile' })
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('PATCH')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/shipping/classes/c1',
+    )
+    expect(await request.clone().json()).toEqual({ name: 'Extra Fragile' })
+    expect(cls.name).toBe('Extra Fragile')
+    expect(cls.revision).toBe(1)
+  })
+
+  it('updateShippingClass surfaces a 422 for an attempted slug change', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            timestamp: '2026-01-01T00:00:00Z',
+            request_id: 'req_1',
+            details: { slug: 'slug is immutable and cannot be changed after creation.' },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { updateShippingClass } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await updateShippingClass('c1', { name: 'x', slug: 'new-slug' } as never)
+    } catch (e) {
+      caught = e
+    }
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors.slug).toBe(
+      'slug is immutable and cannot be changed after creation.',
+    )
+  })
+
+  it('updateShippingClass surfaces a 404 for an unknown or since-deleted class', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Resource not found.' }, 404),
+    )
+
+    const { updateShippingClass } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    await expect(updateShippingClass('missing', { name: 'x' })).rejects.toBeInstanceOf(ApiError)
+  })
+
+  // ── deleteShippingClass: exact DELETE endpoint + the referenced-class 409 ───────────────────
+
+  it('deleteShippingClass DELETEs the exact endpoint', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+
+    const { deleteShippingClass } = await import('@/queries/commerceSettings')
+    await deleteShippingClass('c1')
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('DELETE')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/shipping/classes/c1',
+    )
+  })
+
+  it('deleteShippingClass surfaces the server 409 message verbatim when still referenced by a variant', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'This shipping class is still assigned to one or more variants. Detach it first.',
+          error: { code: 409, timestamp: '2026-01-01T00:00:00Z', request_id: 'req_1' },
+        },
+        409,
+      ),
+    )
+
+    const { deleteShippingClass } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await deleteShippingClass('c1')
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).status).toBe(409)
+    expect((caught as InstanceType<typeof ApiError>).message).toBe(
+      'This shipping class is still assigned to one or more variants. Detach it first.',
+    )
+  })
+
+  it('deleteShippingClass surfaces a 404 for an unknown class', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Resource not found.' }, 404),
+    )
+
+    const { deleteShippingClass } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    await expect(deleteShippingClass('missing')).rejects.toBeInstanceOf(ApiError)
+  })
+})

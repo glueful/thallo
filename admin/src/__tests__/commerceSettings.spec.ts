@@ -9,6 +9,8 @@ import type {
   CommerceShippingMethod,
   CommerceShippingLocation,
   ShippingZoneListPage,
+  CommerceShippingClass,
+  ShippingClassListPage,
 } from '@/queries/commerceSettings'
 
 const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
@@ -28,6 +30,8 @@ vi.mock('@/queries/commerceMeta', () => ({
 
 const zonesPage = ref<ShippingZoneListPage | undefined>(undefined)
 const zonesStatus = ref<'pending' | 'error' | 'success'>('success')
+const classesPage = ref<ShippingClassListPage | undefined>(undefined)
+const classesStatus = ref<'pending' | 'error' | 'success'>('success')
 
 // Task 15a: mutation mocks, same `{ mutateAsync, isLoading }` shape established by
 // commerceOrders.spec.ts/commerceProducts.spec.ts — the real hooks call `useMutation`/
@@ -39,6 +43,11 @@ const setLocationsMock = vi.hoisted(() => vi.fn())
 const createMethodMock = vi.hoisted(() => vi.fn())
 const updateMethodMock = vi.hoisted(() => vi.fn())
 const deleteMethodMock = vi.hoisted(() => vi.fn())
+
+// Task 15b: shipping-class mutation mocks, same shape as the zone mocks above.
+const createClassMock = vi.hoisted(() => vi.fn())
+const updateClassMock = vi.hoisted(() => vi.fn())
+const deleteClassMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/queries/commerceSettings', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceSettings')>()
@@ -54,10 +63,17 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
       updateMethod: { mutateAsync: updateMethodMock, isLoading: ref(false) },
       deleteMethod: { mutateAsync: deleteMethodMock, isLoading: ref(false) },
     }),
+    useCommerceShippingClasses: () => ({ data: classesPage, status: classesStatus }),
+    useCommerceShippingClassMutations: () => ({
+      createClass: { mutateAsync: createClassMock, isLoading: ref(false) },
+      updateClass: { mutateAsync: updateClassMock, isLoading: ref(false) },
+      deleteClass: { mutateAsync: deleteClassMock, isLoading: ref(false) },
+    }),
   }
 })
 
 import ZonesPanel from '@/pages/commerce/settings/components/ZonesPanel.vue'
+import ClassesPanel from '@/pages/commerce/settings/components/ClassesPanel.vue'
 import SettingsIndex from '@/pages/commerce/settings/index.vue'
 
 function location(overrides: Partial<CommerceShippingLocation> = {}): CommerceShippingLocation {
@@ -95,6 +111,18 @@ function zone(overrides: Partial<CommerceShippingZone> = {}): CommerceShippingZo
   }
 }
 
+function shippingClass(overrides: Partial<CommerceShippingClass> = {}): CommerceShippingClass {
+  return {
+    uuid: 'c1',
+    slug: 'fragile',
+    name: 'Fragile',
+    revision: 0,
+    created_at: '2026-01-01 00:00:00',
+    updated_at: null,
+    ...overrides,
+  }
+}
+
 // USlideover/UModal teleport their body/footer out of the wrapper — stub both to render the slots
 // inline (mirrors commerceOrders.spec.ts/commerceProducts.spec.ts's established pattern).
 const SlideoverStub = { props: ['open'], template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>' }
@@ -125,6 +153,8 @@ beforeEach(() => {
   }
   zonesPage.value = { zones: [zone()], total: 1, current_page: 1, per_page: 24 }
   zonesStatus.value = 'success'
+  classesPage.value = { classes: [shippingClass()], total: 1, current_page: 1, per_page: 24 }
+  classesStatus.value = 'success'
   createZoneMock.mockReset()
   updateZoneMock.mockReset()
   deleteZoneMock.mockReset()
@@ -132,6 +162,9 @@ beforeEach(() => {
   createMethodMock.mockReset()
   updateMethodMock.mockReset()
   deleteMethodMock.mockReset()
+  createClassMock.mockReset()
+  updateClassMock.mockReset()
+  deleteClassMock.mockReset()
   notify.success.mockReset()
   notify.warning.mockReset()
   notify.error.mockReset()
@@ -139,6 +172,10 @@ beforeEach(() => {
 
 function mountPanel() {
   return mount(ZonesPanel, { props: { canManage: true }, global: { stubs: pageStubs } })
+}
+
+function mountClassesPanel(canManage = true) {
+  return mount(ClassesPanel, { props: { canManage }, global: { stubs: pageStubs } })
 }
 
 // ── Zones list: rows, loading/empty/error ───────────────────────────────────────────────────
@@ -640,15 +677,187 @@ describe('ZonesPanel: read-only state', () => {
   })
 })
 
+// ── Task 15b: ClassesPanel ───────────────────────────────────────────────────────────────────
+
+describe('ClassesPanel: classes list', () => {
+  it('renders a row per class with slug and name', async () => {
+    classesPage.value = {
+      classes: [shippingClass({ uuid: 'c1', slug: 'fragile', name: 'Fragile' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    const wrapper = mountClassesPanel()
+    await flushPromises()
+
+    const rows = wrapper.findAll('[data-test="class-row"]')
+    expect(rows).toHaveLength(1)
+    expect(wrapper.find('[data-test="class-slug"]').text()).toBe('fragile')
+    expect(wrapper.find('[data-test="class-name"]').text()).toBe('Fragile')
+  })
+
+  it('shows the loading state', async () => {
+    classesStatus.value = 'pending'
+    const wrapper = mountClassesPanel()
+    expect(wrapper.find('[data-test="classes-loading"]').exists()).toBe(true)
+  })
+
+  it('shows the error state', async () => {
+    classesStatus.value = 'error'
+    const wrapper = mountClassesPanel()
+    expect(wrapper.find('[data-test="classes-error"]').exists()).toBe(true)
+  })
+
+  it('shows the empty state', async () => {
+    classesPage.value = { classes: [], total: 0, current_page: 1, per_page: 24 }
+    const wrapper = mountClassesPanel()
+    await flushPromises()
+    expect(wrapper.find('[data-test="classes-empty"]').exists()).toBe(true)
+  })
+})
+
+describe('ClassesPanel: create/edit/delete', () => {
+  it('creates a class with the entered slug and name', async () => {
+    createClassMock.mockResolvedValue(shippingClass({ uuid: 'c2', slug: 'bulky', name: 'Bulky' }))
+    const wrapper = mountClassesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-class"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="class-slug-input"]').setValue('bulky')
+    await wrapper.find('[data-test="class-name-input"]').setValue('Bulky')
+    await wrapper.find('form#class-form').trigger('submit')
+    await flushPromises()
+
+    expect(createClassMock).toHaveBeenCalledTimes(1)
+    expect(createClassMock).toHaveBeenCalledWith({ slug: 'bulky', name: 'Bulky' })
+    expect(notify.success).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects a blank slug or name client-side without calling the mutation', async () => {
+    const wrapper = mountClassesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-class"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="class-name-input"]').setValue('Bulky')
+    await wrapper.find('form#class-form').trigger('submit')
+    await flushPromises()
+
+    expect(createClassMock).not.toHaveBeenCalled()
+  })
+
+  it('pre-fills the edit form with the slug locked and submits an update with name only', async () => {
+    updateClassMock.mockResolvedValue(shippingClass({ name: 'Extra Fragile' }))
+    const wrapper = mountClassesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="class-edit"]').trigger('click')
+    await flushPromises()
+    const slugInput = wrapper.find('[data-test="class-slug-input"]')
+    expect((slugInput.element as HTMLInputElement).value).toBe('fragile')
+    expect((slugInput.element as HTMLInputElement).disabled).toBe(true)
+
+    await wrapper.find('[data-test="class-name-input"]').setValue('Extra Fragile')
+    await wrapper.find('form#class-form').trigger('submit')
+    await flushPromises()
+
+    expect(updateClassMock).toHaveBeenCalledWith({ uuid: 'c1', input: { name: 'Extra Fragile' } })
+  })
+
+  it('surfaces a 422 duplicate-slug field error inline', async () => {
+    // Plain error-body object — see ZonesPanel's identical "surfaces a 422 duplicate-name field
+    // error inline" test above for why a directly-constructed ApiError can't be used here.
+    createClassMock.mockRejectedValue({
+      success: false,
+      message: 'Validation failed',
+      error: {
+        code: 422,
+        timestamp: '2026-01-01T00:00:00Z',
+        request_id: 'req_1',
+        details: { slug: 'Slug already in use.' },
+      },
+    })
+    const wrapper = mountClassesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-class"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="class-slug-input"]').setValue('fragile')
+    await wrapper.find('[data-test="class-name-input"]').setValue('Fragile')
+    await wrapper.find('form#class-form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Slug already in use.')
+  })
+
+  it('deletes a class only after confirming', async () => {
+    deleteClassMock.mockResolvedValue(undefined)
+    const wrapper = mountClassesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="class-delete"]').trigger('click')
+    await flushPromises()
+    expect(deleteClassMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="class-delete-confirm"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="class-delete-confirm"]').trigger('click')
+    await flushPromises()
+    expect(deleteClassMock).toHaveBeenCalledWith('c1')
+  })
+
+  it('surfaces the referenced-class 409 refusal as a toast, verbatim, rather than removing the row', async () => {
+    // Plain error-body object, same reasoning as the 422 test above.
+    deleteClassMock.mockRejectedValue({
+      success: false,
+      message: 'This shipping class is still assigned to one or more variants. Detach it first.',
+      error: { code: 409, timestamp: '2026-01-01T00:00:00Z', request_id: 'req_1' },
+    })
+    const wrapper = mountClassesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="class-delete"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="class-delete-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(deleteClassMock).toHaveBeenCalledWith('c1')
+    expect(notify.error).toHaveBeenCalledTimes(1)
+    expect(notify.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'This shipping class is still assigned to one or more variants. Detach it first.',
+      }),
+      expect.any(String),
+    )
+    // The row is still present — a 409 refusal must never be treated as a successful delete.
+    expect(wrapper.find('[data-test="class-row"]').exists()).toBe(true)
+  })
+})
+
+describe('ClassesPanel: read-only state', () => {
+  it('hides every mutation control while still rendering class content', async () => {
+    const wrapper = mountClassesPanel(false)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="new-class"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="class-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="class-delete"]').exists()).toBe(false)
+
+    // Read-only content stays visible.
+    expect(wrapper.find('[data-test="class-slug"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="class-name"]').exists()).toBe(true)
+  })
+})
+
 // ── Settings tab shell ───────────────────────────────────────────────────────────────────────
 
 describe('Settings page tab shell', () => {
-  it('renders only the completed Shipping zones tab (no Shipping classes / Tax rates tabs yet)', async () => {
+  it('renders both the completed Shipping zones and Shipping classes tabs (no Tax rates tab yet)', async () => {
     const wrapper = mount(SettingsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Shipping zones')
-    expect(wrapper.text()).not.toContain('Shipping classes')
+    expect(wrapper.text()).toContain('Shipping classes')
     expect(wrapper.text()).not.toContain('Tax rates')
     expect(wrapper.findComponent(ZonesPanel).exists()).toBe(true)
   })
@@ -659,6 +868,23 @@ describe('Settings page tab shell', () => {
     await flushPromises()
 
     expect(wrapper.findComponent(ZonesPanel).props('canManage')).toBe(false)
+  })
+
+  it('switches to the Shipping classes tab, rendering ClassesPanel with can_manage passed through', async () => {
+    metaData.value = { ...metaData.value, can_manage: false }
+    const wrapper = mount(SettingsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.findComponent(ClassesPanel).exists()).toBe(false)
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    const classesTab = tabs.find((t) => t.text() === 'Shipping classes')
+    await classesTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+
+    expect(wrapper.findComponent(ZonesPanel).exists()).toBe(false)
+    expect(wrapper.findComponent(ClassesPanel).exists()).toBe(true)
+    expect(wrapper.findComponent(ClassesPanel).props('canManage')).toBe(false)
   })
 })
 

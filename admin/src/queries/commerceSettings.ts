@@ -8,6 +8,10 @@ import { qk } from './keys'
 // (`AdminShippingZoneController` / `Glueful\Extensions\Commerce\Http\Admin\AdminShippingZoneController`,
 // backed by `ShippingZoneService`). Only the Settings shell's "Shipping zones" tab lands here — Task
 // 15b (shipping classes) and Task 15c (tax rates) extend this same file later.
+//
+// Task 15b adds shipping-class CRUD (`AdminShippingClassController` /
+// `Glueful\Extensions\Commerce\Http\Admin\AdminShippingClassController`, backed by
+// `ShippingClassService`) — see the "Shipping classes" section further down.
 
 /** `ShippingZoneService::LOCATION_KINDS` — a zone location's `kind`. */
 export const SHIPPING_LOCATION_KINDS = ['country', 'state', 'postcode_pattern'] as const
@@ -384,6 +388,191 @@ export function useCommerceShippingZoneMutations() {
     deleteMethod: useMutation({
       mutation: (vars: { uuid: string; zoneUuid: string }) => deleteShippingMethod(vars.uuid),
       onSettled: (_d, _e, vars) => invalidateMethods(vars.zoneUuid),
+    }),
+  }
+}
+
+// ── Task 15b: shipping classes ────────────────────────────────────────────────
+
+/**
+ * A `commerce_shipping_classes` row (`009_CreateCommerceShippingTaxTables.php`). `slug` is an
+ * immutable pricing identity once created (`ShippingClassService`'s own class docblock):
+ * `per_class_table` shipping-method config references classes BY SLUG while variants retain the
+ * class UUID, so a slug rename would silently change live shipping charges. Only `name` is ever
+ * PATCHable — a `slug` key present ANYWHERE in the PATCH payload is rejected 422 by the server,
+ * loudly, not silently dropped. `tenant_uuid` is deliberately excluded, same principle as every
+ * other projection in this file.
+ *
+ * There is no `description` column on this table, nor a `description` field on
+ * `CreateShippingClassData`/`UpdateShippingClassData` — verified directly against the DTOs and
+ * migration 009. This projection (and the panel built on it) omits it rather than inventing a
+ * field the API doesn't accept.
+ */
+export interface CommerceShippingClass {
+  uuid: string
+  slug: string
+  name: string
+  revision: number
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ShippingClassListFilters {
+  /** Case-insensitive literal substring match on class name or slug (`ShippingClassListQuery::$q`). */
+  q?: string
+  page?: number
+  perPage?: number
+}
+
+export interface ShippingClassListPage {
+  classes: CommerceShippingClass[]
+  total: number
+  current_page: number
+  per_page: number
+}
+
+/** The exact `CreateShippingClassData` request body shape (`Http/DTOs/CreateShippingClassData.php`). */
+export interface CreateShippingClassInput {
+  slug: string
+  name: string
+}
+
+/** The exact `UpdateShippingClassData` request body shape (`Http/DTOs/UpdateShippingClassData.php`)
+ * — `slug` is deliberately absent: it's immutable after creation, and `ShippingClassService::update()`
+ * rejects a `slug` key present ANYWHERE in the raw PATCH payload with 422 rather than silently
+ * ignoring it (unlike `UpdateMethodInput`'s silently-dropped-`kind` precedent above — the spec here
+ * calls for a loud rejection instead, mirroring the zone-method docblock's own distinction). */
+export interface UpdateShippingClassInput {
+  name?: string | null
+}
+
+function normalizeClass(raw: Record<string, unknown>): CommerceShippingClass {
+  return {
+    uuid: String(raw.uuid ?? ''),
+    slug: String(raw.slug ?? ''),
+    name: String(raw.name ?? ''),
+    revision: typeof raw.revision === 'number' ? raw.revision : 0,
+    created_at: typeof raw.created_at === 'string' ? raw.created_at : null,
+    updated_at: typeof raw.updated_at === 'string' ? raw.updated_at : null,
+  }
+}
+
+/** `GET /commerce/shipping/classes` — `ShippingClassListQuery`'s exact param set is
+ * `{q, page, per_page}`. */
+export async function fetchShippingClasses(
+  filters: ShippingClassListFilters = {},
+): Promise<ShippingClassListPage> {
+  const { data, error, response } = await client.GET('/commerce/shipping/classes', {
+    params: { query: { q: filters.q || undefined, page: filters.page, per_page: filters.perPage } },
+  })
+  if (error) throw toApiError(error, response)
+  const body = data as
+    | { data?: unknown[]; current_page?: number; per_page?: number; total?: number }
+    | undefined
+  const rows = Array.isArray(body?.data) ? body.data : []
+  return {
+    classes: rows.map((c) => normalizeClass(c as Record<string, unknown>)),
+    total: body?.total ?? 0,
+    current_page: body?.current_page ?? filters.page ?? 1,
+    per_page: body?.per_page ?? filters.perPage ?? 24,
+  }
+}
+
+/** `GET /commerce/shipping/classes/{uuid}` — wired up for parity with the endpoint contract, same
+ * as `fetchShippingZone()` above; ClassesPanel edits directly off the rows already held by the
+ * list (no detail-route consumer in this task). */
+export async function fetchShippingClass(uuid: string): Promise<CommerceShippingClass> {
+  const { data, error, response } = await client.GET('/commerce/shipping/classes/{uuid}', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  if (!raw) throw new ApiError('Shipping class not found.', response?.status ?? 404, {}, data)
+  return normalizeClass(raw as Record<string, unknown>)
+}
+
+export async function createShippingClass(
+  input: CreateShippingClassInput,
+): Promise<CommerceShippingClass> {
+  const { data, error, response } = await client.POST('/commerce/shipping/classes', {
+    body: { slug: input.slug, name: input.name } as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeClass((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function updateShippingClass(
+  uuid: string,
+  input: UpdateShippingClassInput,
+): Promise<CommerceShippingClass> {
+  const { data, error, response } = await client.PATCH('/commerce/shipping/classes/{uuid}', {
+    params: { path: { uuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeClass((raw ?? {}) as Record<string, unknown>)
+}
+
+/** `DELETE /commerce/shipping/classes/{uuid}` — 204 on success; 409
+ * (`ShippingClassInUseException`, "…still assigned to one or more variants. Detach it first.")
+ * while any variant currently references the class — that message surfaces verbatim via
+ * `toApiError`, never replaced (mirrors `deleteDiscount()`'s identical redeemed-discount note in
+ * commerceDiscounts.ts). */
+export async function deleteShippingClass(uuid: string): Promise<void> {
+  const { error, response } = await client.DELETE('/commerce/shipping/classes/{uuid}', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+}
+
+// ── Query wrappers ───────────────────────────────────────────────────────────
+
+export function useCommerceShippingClasses(filters: MaybeRefOrGetter<ShippingClassListFilters>) {
+  return useQuery({
+    key: () => {
+      const f = toValue(filters)
+      return [...qk.commerceShippingClasses(), f.q ?? '', f.page ?? 1, f.perPage ?? 24]
+    },
+    query: () => fetchShippingClasses(toValue(filters)),
+  })
+}
+
+export function useCommerceShippingClass(uuid: MaybeRefOrGetter<string>) {
+  return useQuery({
+    key: () => qk.commerceShippingClass(toValue(uuid)),
+    query: () => fetchShippingClass(toValue(uuid)),
+    enabled: () => !!toValue(uuid),
+  })
+}
+
+/**
+ * `createClass` invalidates ONLY the classes list — a brand-new class has no existing detail-key
+ * consumer yet (mirrors `useCommerceShippingZoneMutations()`'s `createZone` precedent exactly).
+ * `updateClass`/`deleteClass` invalidate BOTH the class detail key and the list.
+ */
+export function useCommerceShippingClassMutations() {
+  const cache = useQueryCache()
+  const invalidateList = () => cache.invalidateQueries({ key: qk.commerceShippingClasses() })
+  const invalidateClass = (uuid: string) => {
+    cache.invalidateQueries({ key: qk.commerceShippingClass(uuid) })
+    invalidateList()
+  }
+
+  return {
+    createClass: useMutation({
+      mutation: (input: CreateShippingClassInput) => createShippingClass(input),
+      onSettled: invalidateList,
+    }),
+    updateClass: useMutation({
+      mutation: (vars: { uuid: string; input: UpdateShippingClassInput }) =>
+        updateShippingClass(vars.uuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidateClass(vars.uuid),
+    }),
+    deleteClass: useMutation({
+      mutation: (uuid: string) => deleteShippingClass(uuid),
+      onSettled: (_d, _e, uuid) => invalidateClass(uuid),
     }),
   }
 }

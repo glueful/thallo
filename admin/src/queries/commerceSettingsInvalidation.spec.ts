@@ -188,3 +188,80 @@ describe('useCommerceShippingZoneMutations invalidation', () => {
     ])
   })
 })
+
+// ── Task 15b: shipping class CRUD invalidation ──────────────────────────────────────────────
+//
+// Pins the same shape as the zone-mutation contract above: `createClass` invalidates ONLY the
+// classes list (a brand-new class has no existing detail-key consumer yet). `updateClass`/
+// `deleteClass` invalidate BOTH the class detail key and the list.
+
+describe('useCommerceShippingClassMutations invalidation', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    cacheInvalidate.mockClear()
+  })
+
+  async function classBundle() {
+    const { useCommerceShippingClassMutations } = await import('@/queries/commerceSettings')
+    const { qk } = await import('@/queries/keys')
+    const mutations = useCommerceShippingClassMutations() as unknown as Record<
+      'createClass' | 'updateClass' | 'deleteClass',
+      { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
+    >
+    return { mutations, qk }
+  }
+
+  it('createClass invalidates ONLY the classes list', async () => {
+    const { mutations, qk } = await classBundle()
+    mutations.createClass.onSettled?.(undefined, undefined, { slug: 'fragile', name: 'Fragile' })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceShippingClasses() }]])
+  })
+
+  it('updateClass invalidates the class detail AND the list', async () => {
+    const { mutations, qk } = await classBundle()
+    mutations.updateClass.onSettled?.(undefined, undefined, { uuid: 'c1', input: { name: 'Extra Fragile' } })
+
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceShippingClass('c1') }],
+      [{ key: qk.commerceShippingClasses() }],
+    ])
+  })
+
+  it('updateClass still invalidates both keys when the mutation itself failed (an immutable-slug 422, say)', async () => {
+    const { mutations, qk } = await classBundle()
+    mutations.updateClass.onSettled?.(undefined, new Error('slug is immutable.'), {
+      uuid: 'c2',
+      input: { name: 'x' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceShippingClass('c2') }],
+      [{ key: qk.commerceShippingClasses() }],
+    ])
+  })
+
+  it('deleteClass invalidates the class detail AND the list', async () => {
+    const { mutations, qk } = await classBundle()
+    mutations.deleteClass.onSettled?.(undefined, undefined, 'c3')
+
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceShippingClass('c3') }],
+      [{ key: qk.commerceShippingClasses() }],
+    ])
+  })
+
+  it('deleteClass still invalidates both keys when the mutation itself failed (a referenced-class 409, say)', async () => {
+    const { mutations, qk } = await classBundle()
+    mutations.deleteClass.onSettled?.(
+      undefined,
+      new Error('This shipping class is still assigned to one or more variants. Detach it first.'),
+      'c4',
+    )
+
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceShippingClass('c4') }],
+      [{ key: qk.commerceShippingClasses() }],
+    ])
+  })
+})
