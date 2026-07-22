@@ -141,20 +141,22 @@ describe('useCommerceOrderMutations invalidation', () => {
     ])
   })
 
-  // ── addNote (Task 13d): ONLY the notes key ──────────────────────────────────────────────────
-  // Unlike every lifecycle action above, adding a note changes no field OrdersTable or the order
-  // detail's own primary fields render through `qk.commerceOrder()` — it invalidates ONLY its own
-  // `qk.commerceOrderNotes()` key, mirroring commerceCatalog.ts's variant/media/stock mutations
-  // that invalidate a single narrow key rather than cascading to the list.
+  // ── addNote (Task 13d): notes key + order detail ────────────────────────────────────────────
+  // Adding a note records a `note.added` event in commerce_order_events, which the detail's
+  // Status timeline renders via `order.events` — so addNote must refresh the order detail too
+  // (same-page staleness otherwise). The orders LIST stays untouched (no list column changes).
 
-  it('addNote invalidates ONLY the order notes key', async () => {
+  it('addNote invalidates the order notes key and the order detail (never the list)', async () => {
     const { mutations, qk } = await bundle()
     mutations.addNote.onSettled?.(undefined, undefined, {
       uuid: 'o8',
       input: { body: 'Called customer.' },
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceOrderNotes('o8') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceOrderNotes('o8') }],
+      [{ key: qk.commerceOrder('o8') }],
+    ])
   })
 
   it('addNote still invalidates the notes key when the mutation itself failed (a 422, say)', async () => {
@@ -165,6 +167,9 @@ describe('useCommerceOrderMutations invalidation', () => {
       { uuid: 'o9', input: { body: 'x', visibility: 'internal', notify: true } },
     )
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceOrderNotes('o9') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceOrderNotes('o9') }],
+      [{ key: qk.commerceOrder('o9') }],
+    ])
   })
 })

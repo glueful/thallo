@@ -535,7 +535,10 @@ export function useOrderRefunds(uuid: MaybeRefOrGetter<string>) {
  * list) — a completed refund changes what BOTH of those would return, even though no page consumes
  * the cross-order one yet.
  *
- * `addNote` (Task 13d) invalidates ONLY its own `qk.commerceOrderNotes()` key — unlike every
+ * `addNote` (Task 13d) invalidates its own `qk.commerceOrderNotes()` key AND the order
+ * detail: the backend records a `note.added` row in commerce_order_events, which the detail's
+ * Status timeline renders via `order.events` — notes-only invalidation left that same-page
+ * card stale. Unlike every
  * lifecycle action above, a note changes no field `OrdersTable` or the order detail's own primary
  * fields render (the dedicated notes list reads through the separate `/notes` endpoint, not
  * `order.events`), so this mirrors commerceCatalog.ts's variant/media/stock mutations' single
@@ -554,6 +557,8 @@ export function useCommerceOrderMutations() {
   }
   const invalidateNotes = (uuid: string) => {
     cache.invalidateQueries({ key: qk.commerceOrderNotes(uuid) })
+    // note.added also lands in order.events (the detail's Status timeline) — refresh it too.
+    cache.invalidateQueries({ key: qk.commerceOrder(uuid) })
   }
 
   return {
