@@ -1189,4 +1189,438 @@ describe('commerce catalog query layer', () => {
       tag_uuids: 'tag_uuids must reference existing tags in this tenant.',
     })
   })
+
+  // ── Task 19b: attribute + value CRUD, product attribute assignment ─────────────────────────
+  // Attributes are paginated like tags, but each row embeds a `values` sub-collection
+  // (`AttributeService::list()` batch-loads them) and — unlike tags — BOTH slug and name stay
+  // editable after creation (no immutability trap), so the update tests below assert the FULL
+  // form is sent rather than a name-only payload.
+
+  it('parses the real Response::paginated envelope and normalizes attributes with embedded values', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Attributes retrieved',
+        data: [
+          {
+            uuid: 'attr1',
+            slug: 'color',
+            name: 'Color',
+            position: 0,
+            values: [
+              { uuid: 'val1', slug: 'red', value: 'Red', position: 0 },
+              { uuid: 'val2', slug: 'blue', value: 'Blue', position: 1 },
+            ],
+          },
+        ],
+        current_page: 2,
+        per_page: 10,
+        total: 12,
+      }),
+    )
+
+    const { fetchAttributes } = await import('@/queries/commerceCatalog')
+    const page = await fetchAttributes({ page: 2, perPage: 10 })
+
+    expect(page.attributes).toHaveLength(1)
+    expect(page.attributes[0]!.uuid).toBe('attr1')
+    expect(page.attributes[0]!.values).toEqual([
+      { uuid: 'val1', slug: 'red', value: 'Red', position: 0 },
+      { uuid: 'val2', slug: 'blue', value: 'Blue', position: 1 },
+    ])
+    expect(page.total).toBe(12)
+    expect(page.current_page).toBe(2)
+    expect(page.per_page).toBe(10)
+  })
+
+  it('defaults to an empty attribute list when the envelope has no data array', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ data: null }))
+
+    const { fetchAttributes } = await import('@/queries/commerceCatalog')
+    await expect(fetchAttributes()).resolves.toEqual({ attributes: [], total: 0, current_page: 1, per_page: 24 })
+  })
+
+  it('defaults an attribute row with no values array to an empty values list', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Attributes retrieved',
+        data: [{ uuid: 'attr1', slug: 'color', name: 'Color', position: 0 }],
+      }),
+    )
+
+    const { fetchAttributes } = await import('@/queries/commerceCatalog')
+    const page = await fetchAttributes()
+    expect(page.attributes[0]!.values).toEqual([])
+  })
+
+  it('sends the q/page/per_page query params exactly as given for attributes', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ success: true, message: 'Attributes retrieved', data: [] }))
+
+    const { fetchAttributes } = await import('@/queries/commerceCatalog')
+    await fetchAttributes({ q: 'col', page: 3, perPage: 50 })
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    const url = new URL(req.url)
+    expect(url.searchParams.get('q')).toBe('col')
+    expect(url.searchParams.get('page')).toBe('3')
+    expect(url.searchParams.get('per_page')).toBe('50')
+  })
+
+  it('throws ApiError when the attribute list request fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Forbidden' }, 403),
+    )
+
+    const { fetchAttributes } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(fetchAttributes()).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('creates an attribute and returns the normalized record', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: true,
+          message: 'Attribute created',
+          data: { uuid: 'new-attr', slug: 'size', name: 'Size', position: 0, values: [] },
+        },
+        201,
+      ),
+    )
+
+    const { createAttribute } = await import('@/queries/commerceCatalog')
+    const attribute = await createAttribute({ slug: 'size', name: 'Size' })
+
+    expect(attribute.uuid).toBe('new-attr')
+    expect(attribute.name).toBe('Size')
+    expect(attribute.values).toEqual([])
+  })
+
+  it('sends the create-attribute request body exactly as { slug, name, position }', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Attribute created', data: { uuid: 'a1', slug: 'a1', name: 'A1', values: [] } }),
+    )
+
+    const { createAttribute } = await import('@/queries/commerceCatalog')
+    await createAttribute({ slug: 'a1', name: 'A1', position: 2 })
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({ slug: 'a1', name: 'A1', position: 2 })
+  })
+
+  it('surfaces a duplicate-slug constraint from a 422 on attribute create', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { slug: 'Slug already in use.' } },
+        },
+        422,
+      ),
+    )
+
+    const { createAttribute } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await createAttribute({ slug: 'dup', name: 'Dup' })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({ slug: 'Slug already in use.' })
+  })
+
+  it('updates an attribute by uuid, sending slug/name/position — attribute slug stays editable', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Attribute updated',
+        data: { uuid: 'attr1', slug: 'colour', name: 'Colour', position: 1, values: [] },
+      }),
+    )
+
+    const { updateAttribute } = await import('@/queries/commerceCatalog')
+    const attribute = await updateAttribute('attr1', { slug: 'colour', name: 'Colour', position: 1 })
+    expect(attribute.name).toBe('Colour')
+    expect(attribute.slug).toBe('colour')
+  })
+
+  it('sends the update-attribute request body exactly as given, including slug', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Attribute updated', data: { uuid: 'attr1', slug: 'colour', name: 'Colour', values: [] } }),
+    )
+
+    const { updateAttribute } = await import('@/queries/commerceCatalog')
+    await updateAttribute('attr1', { slug: 'colour', name: 'Colour', position: 1 })
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({ slug: 'colour', name: 'Colour', position: 1 })
+  })
+
+  it('deletes an attribute with no return value', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+
+    const { deleteAttribute } = await import('@/queries/commerceCatalog')
+    await expect(deleteAttribute('attr1')).resolves.toBeUndefined()
+  })
+
+  it('throws ApiError when attribute delete fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Not found' }, 404),
+    )
+
+    const { deleteAttribute } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(deleteAttribute('missing')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('creates an attribute value and returns the normalized record', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: true,
+          message: 'Attribute value created',
+          data: { uuid: 'val1', attribute_uuid: 'attr1', slug: 'red', value: 'Red', position: 0 },
+        },
+        201,
+      ),
+    )
+
+    const { createAttributeValue } = await import('@/queries/commerceCatalog')
+    const value = await createAttributeValue('attr1', { slug: 'red', value: 'Red' })
+
+    expect(value.uuid).toBe('val1')
+    expect(value.value).toBe('Red')
+  })
+
+  it('sends the create-value request body exactly as { slug, value, position } to the owning attribute', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Attribute value created',
+        data: { uuid: 'val1', attribute_uuid: 'attr1', slug: 'red', value: 'Red', position: 0 },
+      }),
+    )
+
+    const { createAttributeValue } = await import('@/queries/commerceCatalog')
+    await createAttributeValue('attr1', { slug: 'red', value: 'Red', position: 0 })
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(req.url).toContain('/commerce/attributes/attr1/values')
+    expect(await req.clone().json()).toEqual({ slug: 'red', value: 'Red', position: 0 })
+  })
+
+  it('surfaces the composite-conflict "slug already in use for this attribute" 422 on value create', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { slug: 'Slug already in use for this attribute.' } },
+        },
+        422,
+      ),
+    )
+
+    const { createAttributeValue } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await createAttributeValue('attr1', { slug: 'red', value: 'Red' })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      slug: 'Slug already in use for this attribute.',
+    })
+  })
+
+  it('updates an attribute value by uuid', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Attribute value updated',
+        data: { uuid: 'val1', attribute_uuid: 'attr1', slug: 'red', value: 'Crimson', position: 0 },
+      }),
+    )
+
+    const { updateAttributeValue } = await import('@/queries/commerceCatalog')
+    const value = await updateAttributeValue('val1', { value: 'Crimson' })
+    expect(value.value).toBe('Crimson')
+  })
+
+  it('surfaces the composite-conflict "slug already in use for this attribute" 422 on value update', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { slug: 'Slug already in use for this attribute.' } },
+        },
+        422,
+      ),
+    )
+
+    const { updateAttributeValue } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await updateAttributeValue('val1', { slug: 'red' })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      slug: 'Slug already in use for this attribute.',
+    })
+  })
+
+  it('deletes an attribute value with no return value', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+
+    const { deleteAttributeValue } = await import('@/queries/commerceCatalog')
+    await expect(deleteAttributeValue('val1')).resolves.toBeUndefined()
+  })
+
+  it('throws ApiError when attribute value delete fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Not found' }, 404),
+    )
+
+    const { deleteAttributeValue } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(deleteAttributeValue('missing')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('sets product attributes and returns the normalized attached rows', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Product attributes updated',
+        data: [
+          {
+            uuid: 'pa1',
+            product_uuid: 'p1',
+            attribute_uuid: 'attr1',
+            attribute_slug: 'color',
+            attribute_name: 'Color',
+            name: null,
+            values: ['red'],
+            used_for_variants: true,
+            visible: true,
+            position: 0,
+          },
+        ],
+      }),
+    )
+
+    const { setProductAttributes } = await import('@/queries/commerceCatalog')
+    const rows = await setProductAttributes('p1', [
+      { attribute_uuid: 'attr1', values: ['red'], used_for_variants: true, visible: true },
+    ])
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toEqual({
+      uuid: 'pa1',
+      product_uuid: 'p1',
+      attribute_uuid: 'attr1',
+      attribute_slug: 'color',
+      attribute_name: 'Color',
+      name: null,
+      values: ['red'],
+      used_for_variants: true,
+      visible: true,
+      position: 0,
+    })
+  })
+
+  it('sends the set-attributes request body exactly as { attributes: [...] }, including custom rows', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Product attributes updated', data: [] }),
+    )
+
+    const { setProductAttributes } = await import('@/queries/commerceCatalog')
+    await setProductAttributes('p1', [
+      { attribute_uuid: 'attr1', values: ['red'], used_for_variants: true, visible: true },
+      { name: 'Material', values: ['Cotton', 'Wool'], used_for_variants: false, visible: true },
+    ])
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({
+      attributes: [
+        { attribute_uuid: 'attr1', values: ['red'], used_for_variants: true, visible: true },
+        { name: 'Material', values: ['Cotton', 'Wool'], used_for_variants: false, visible: true },
+      ],
+    })
+  })
+
+  it('surfaces the composite-conflict "must not reference the same attribute more than once" 422 on set', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            details: { attributes: 'attributes must not reference the same attribute more than once.' },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { setProductAttributes } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await setProductAttributes('p1', [
+        { attribute_uuid: 'attr1', values: [] },
+        { attribute_uuid: 'attr1', values: [] },
+      ])
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      attributes: 'attributes must not reference the same attribute more than once.',
+    })
+  })
+
+  it('surfaces the "must reference existing attributes" constraint from a set-attributes 422', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            details: { attributes: 'attributes must reference existing attributes in this tenant.' },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { setProductAttributes } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await setProductAttributes('p1', [{ attribute_uuid: 'missing', values: [] }])
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      attributes: 'attributes must reference existing attributes in this tenant.',
+    })
+  })
 })

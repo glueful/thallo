@@ -9,6 +9,7 @@ import VariantsPanel from '../components/VariantsPanel.vue'
 import MediaPanel from '../components/MediaPanel.vue'
 import CategoriesTab from '../components/CategoriesTab.vue'
 import TagsTab from '../components/TagsTab.vue'
+import AttributesTab from '../components/AttributesTab.vue'
 import ProductEntryLinkPanel from '@/components/commerce/ProductEntryLinkPanel.vue'
 
 const route = useRoute()
@@ -29,6 +30,8 @@ const tabItems = [
   { label: 'Categories', value: 'categories' },
   // Task 19a: tag assignment, same reasoning as Categories above.
   { label: 'Tags', value: 'tags' },
+  // Task 19b: attribute assignment, same reasoning as Tags above.
+  { label: 'Attributes', value: 'attributes' },
   // Task 12: the bidirectional product<->entry linkage panel, product-mode side.
   { label: 'Content', value: 'content' },
 ]
@@ -125,6 +128,13 @@ async function confirmDelete() {
 
         <TagsTab
           v-else-if="tab === 'tags'"
+          :key="product.uuid"
+          :product="product"
+          :can-manage="canManage"
+        />
+
+        <AttributesTab
+          v-else-if="tab === 'attributes'"
           :key="product.uuid"
           :product="product"
           :can-manage="canManage"

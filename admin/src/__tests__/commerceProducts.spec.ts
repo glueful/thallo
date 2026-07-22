@@ -2,7 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref, toValue } from 'vue'
-import type { CommerceCategory, CommerceProduct, CommerceTag, ProductListPage, TagListPage } from '@/queries/commerceCatalog'
+import type {
+  CommerceAttribute,
+  CommerceAttributeValue,
+  CommerceCategory,
+  CommerceProduct,
+  CommerceTag,
+  AttributeListPage,
+  ProductListPage,
+  TagListPage,
+} from '@/queries/commerceCatalog'
 
 // ── Shared mock state (referenced inside vi.mock factories) ────────────────────────────────────
 //
@@ -93,6 +102,17 @@ const tagCreateMock = vi.hoisted(() => vi.fn())
 const tagUpdateMock = vi.hoisted(() => vi.fn())
 const tagRemoveMock = vi.hoisted(() => vi.fn())
 
+const attributesPage = ref<AttributeListPage | undefined>(undefined)
+const attributesStatus = ref<'pending' | 'error' | 'success'>('success')
+const lastAttributesFilters = vi.hoisted(() => ({ current: undefined as unknown }))
+const setAttributesMock = vi.hoisted(() => vi.fn())
+const attributeCreateMock = vi.hoisted(() => vi.fn())
+const attributeUpdateMock = vi.hoisted(() => vi.fn())
+const attributeRemoveMock = vi.hoisted(() => vi.fn())
+const attributeCreateValueMock = vi.hoisted(() => vi.fn())
+const attributeUpdateValueMock = vi.hoisted(() => vi.fn())
+const attributeRemoveValueMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceCatalog')>()
   return {
@@ -115,6 +135,7 @@ vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
       reorderMedia: { mutateAsync: reorderMediaMock, isLoading: ref(false) },
       setCategories: { mutateAsync: setCategoriesMock, isLoading: ref(false) },
       setTags: { mutateAsync: setTagsMock, isLoading: ref(false) },
+      setAttributes: { mutateAsync: setAttributesMock, isLoading: ref(false) },
     }),
     useCommerceCategories: () => ({ data: categoriesData, status: categoriesStatus }),
     useCommerceCategoryMutations: () => ({
@@ -131,6 +152,18 @@ vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
       update: { mutateAsync: tagUpdateMock, isLoading: ref(false) },
       remove: { mutateAsync: tagRemoveMock, isLoading: ref(false) },
     }),
+    useCommerceAttributes: (filters: unknown) => {
+      lastAttributesFilters.current = filters
+      return { data: attributesPage, status: attributesStatus }
+    },
+    useCommerceAttributeMutations: () => ({
+      create: { mutateAsync: attributeCreateMock, isLoading: ref(false) },
+      update: { mutateAsync: attributeUpdateMock, isLoading: ref(false) },
+      remove: { mutateAsync: attributeRemoveMock, isLoading: ref(false) },
+      createValue: { mutateAsync: attributeCreateValueMock, isLoading: ref(false) },
+      updateValue: { mutateAsync: attributeUpdateValueMock, isLoading: ref(false) },
+      removeValue: { mutateAsync: attributeRemoveValueMock, isLoading: ref(false) },
+    }),
   }
 })
 
@@ -140,6 +173,7 @@ import VariantsPanel from '@/pages/commerce/products/components/VariantsPanel.vu
 import MediaPanel from '@/pages/commerce/products/components/MediaPanel.vue'
 import CategoriesTab from '@/pages/commerce/products/components/CategoriesTab.vue'
 import TagsTab from '@/pages/commerce/products/components/TagsTab.vue'
+import AttributesTab from '@/pages/commerce/products/components/AttributesTab.vue'
 import ProductsIndex from '@/pages/commerce/products/index.vue'
 import ProductDetail from '@/pages/commerce/products/[uuid]/index.vue'
 import { ApiError } from '@/api/errors'
@@ -204,6 +238,27 @@ function tag(overrides: Partial<CommerceTag> = {}): CommerceTag {
     uuid: 'tag1',
     slug: 'tag-1',
     name: 'Tag 1',
+    ...overrides,
+  }
+}
+
+function attributeValue(overrides: Partial<CommerceAttributeValue> = {}): CommerceAttributeValue {
+  return {
+    uuid: 'val1',
+    slug: 'red',
+    value: 'Red',
+    position: 0,
+    ...overrides,
+  }
+}
+
+function attribute(overrides: Partial<CommerceAttribute> = {}): CommerceAttribute {
+  return {
+    uuid: 'attr1',
+    slug: 'color',
+    name: 'Color',
+    position: 0,
+    values: [],
     ...overrides,
   }
 }
@@ -280,6 +335,16 @@ beforeEach(() => {
   tagCreateMock.mockReset()
   tagUpdateMock.mockReset()
   tagRemoveMock.mockReset()
+  attributesPage.value = { attributes: [], total: 0, current_page: 1, per_page: 24 }
+  attributesStatus.value = 'success'
+  lastAttributesFilters.current = undefined
+  setAttributesMock.mockReset()
+  attributeCreateMock.mockReset()
+  attributeUpdateMock.mockReset()
+  attributeRemoveMock.mockReset()
+  attributeCreateValueMock.mockReset()
+  attributeUpdateValueMock.mockReset()
+  attributeRemoveValueMock.mockReset()
   notify.success.mockReset()
   notify.warning.mockReset()
   notify.error.mockReset()
@@ -548,7 +613,6 @@ describe('commerce products list page', () => {
     expect(wrapper.find('[data-test="tag-row"]').exists()).toBe(false)
 
     const tabs = wrapper.findAll('[role="tab"]')
-    expect(tabs.map((t) => t.text())).toEqual(['Products', 'Categories', 'Tags'])
     const tagsTab = tabs.find((t) => t.text() === 'Tags')
     await tagsTab!.trigger('mousedown', { button: 0 })
     await flushPromises()
@@ -558,6 +622,36 @@ describe('commerce products list page', () => {
     expect(wrapper.find('[data-test="tag-row"]').exists()).toBe(true)
     // Management mode: no `product` prop, so CRUD controls render.
     expect(wrapper.find('[data-test="tag-add"]').exists()).toBe(true)
+  })
+
+  // Task 19b: taxonomy grows a FOURTH tab (Products | Categories | Tags | Attributes).
+
+  it('renders exactly four tabs: Products, Categories, Tags, Attributes', async () => {
+    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    expect(tabs.map((t) => t.text())).toEqual(['Products', 'Categories', 'Tags', 'Attributes'])
+  })
+
+  it('switches to the Attributes tab, hiding the Products-only controls, and renders AttributesTab', async () => {
+    productsPage.value = { products: [product({ uuid: 'p1', name: 'Widget' })], total: 1, current_page: 1, per_page: 24 }
+    attributesPage.value = { attributes: [attribute({ uuid: 'attr1', name: 'Color' })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="attribute-row"]').exists()).toBe(false)
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    const attributesTab = tabs.find((t) => t.text() === 'Attributes')
+    await attributesTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="new-product"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="product-row"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="attribute-row"]').exists()).toBe(true)
+    // Management mode: no `product` prop, so CRUD controls render.
+    expect(wrapper.find('[data-test="attribute-add"]').exists()).toBe(true)
   })
 })
 
@@ -677,6 +771,24 @@ describe('commerce product detail page', () => {
     expect(wrapper.find('[data-test="tag-add"]').exists()).toBe(false)
     // Fresh mount = unobserved assignment: the honest "not loaded" state, never a guessed selection.
     expect(wrapper.find('[data-test="tag-assignment-unknown"]').exists()).toBe(true)
+  })
+
+  it('switches to the Attributes tab and renders AttributesTab in assignment mode', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget' })
+    attributesPage.value = { attributes: [attribute({ uuid: 'attr1', name: 'Color' })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mount(ProductDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    const attributesTab = tabs.find((t) => t.text() === 'Attributes')
+    await attributesTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="attribute-assignment-section"]').exists()).toBe(true)
+    // Assignment mode: CRUD controls are always hidden, even though can_manage is true.
+    expect(wrapper.find('[data-test="attribute-add"]').exists()).toBe(false)
+    // Fresh mount = unobserved assignment: the honest "not loaded" state, never a guessed selection.
+    expect(wrapper.find('[data-test="attribute-assignment-unknown"]').exists()).toBe(true)
   })
 })
 
@@ -1514,6 +1626,502 @@ describe('TagsTab (product assignment)', () => {
     const wrapper = mountAssignment(product({ uuid: 'p1' }), false)
 
     expect(wrapper.find('[data-test="tag-assignment-save"]').exists()).toBe(false)
+    const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
+    expect(checkbox!.props('disabled')).toBe(true)
+  })
+})
+
+// ── AttributesTab: management mode (no `product` prop) — attribute CRUD + nested values editor ──
+// Unlike tags/categories, attributes carry a VALUES sub-collection (embedded, batch-loaded by
+// `AttributeService::list()`) and — unlike tags — the slug stays editable after creation
+// (`AttributeService::update()` has no tag-style immutability trap), so the edit-form test below
+// asserts the FULL {slug, name, position} payload rather than a name-only one.
+
+describe('AttributesTab (attribute management)', () => {
+  function mountTab(canManage = true) {
+    return mount(AttributesTab, { props: { canManage }, global: { stubs: { Modal: teleportStub } } })
+  }
+
+  it('renders each attribute', () => {
+    attributesPage.value = {
+      attributes: [attribute({ uuid: 'a1', name: 'Color', slug: 'color' }), attribute({ uuid: 'a2', name: 'Size', slug: 'size' })],
+      total: 2,
+      current_page: 1,
+      per_page: 24,
+    }
+    const wrapper = mountTab()
+
+    expect(wrapper.findAll('[data-test="attribute-row"]')).toHaveLength(2)
+    expect(wrapper.text()).toContain('Color')
+  })
+
+  it('shows the loading state', () => {
+    attributesStatus.value = 'pending'
+    const wrapper = mountTab()
+    expect(wrapper.find('[data-test="attributes-loading"]').exists()).toBe(true)
+  })
+
+  it('shows the error state', () => {
+    attributesStatus.value = 'error'
+    const wrapper = mountTab()
+    expect(wrapper.find('[data-test="attributes-error"]').exists()).toBe(true)
+  })
+
+  it('shows the empty state when there are no attributes', () => {
+    attributesPage.value = { attributes: [], total: 0, current_page: 1, per_page: 24 }
+    const wrapper = mountTab()
+    expect(wrapper.find('[data-test="attributes-empty"]').exists()).toBe(true)
+  })
+
+  it('sends the typed search as the q filter after the debounce settles', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mountTab()
+
+      await wrapper.find('[data-test="attribute-search"]').setValue('col')
+      expect((toValue(lastAttributesFilters.current) as { q?: string }).q).toBeUndefined()
+
+      await vi.advanceTimersByTimeAsync(300)
+      expect((toValue(lastAttributesFilters.current) as { q?: string }).q).toBe('col')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('shows pagination controls only once there is at least one attribute', async () => {
+    attributesPage.value = { attributes: [], total: 0, current_page: 1, per_page: 24 }
+    const wrapper = mountTab()
+    expect(wrapper.text()).not.toContain('Rows per page')
+
+    attributesPage.value = { attributes: [attribute()], total: 1, current_page: 1, per_page: 24 }
+    await flushPromises()
+    expect(wrapper.text()).toContain('Rows per page')
+  })
+
+  it('creates an attribute from the add form', async () => {
+    attributesPage.value = { attributes: [], total: 0, current_page: 1, per_page: 24 }
+    attributeCreateMock.mockResolvedValue(attribute({ uuid: 'new-1', name: 'Material', slug: 'material' }))
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="attribute-add"]').trigger('click')
+    await wrapper.find('[data-test="attribute-name-input"]').setValue('Material')
+    await wrapper.find('[data-test="attribute-slug-input"]').setValue('material')
+    await wrapper.find('#attribute-form').trigger('submit')
+    await flushPromises()
+
+    expect(attributeCreateMock).toHaveBeenCalledWith({ slug: 'material', name: 'Material', position: 0 })
+  })
+
+  it('surfaces a duplicate-slug 422 message instead of vanishing it', async () => {
+    attributesPage.value = { attributes: [], total: 0, current_page: 1, per_page: 24 }
+    attributeCreateMock.mockRejectedValue(new ApiError('Validation failed', 422, { slug: 'Slug already in use.' }, {}))
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="attribute-add"]').trigger('click')
+    await wrapper.find('[data-test="attribute-name-input"]').setValue('Dup')
+    await wrapper.find('[data-test="attribute-slug-input"]').setValue('dup')
+    await wrapper.find('#attribute-form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="attribute-form-error"]').text()).toContain('Slug already in use.')
+  })
+
+  it('updates an attribute via the edit form, sending slug/name/position — attribute slug stays editable', async () => {
+    attributesPage.value = {
+      attributes: [attribute({ uuid: 'a1', name: 'Old', slug: 'old' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    attributeUpdateMock.mockResolvedValue(attribute({ uuid: 'a1', name: 'New name', slug: 'new-slug' }))
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="attribute-edit"]').trigger('click')
+    // Unlike tags, the slug field stays editable while editing an attribute.
+    expect(wrapper.find('[data-test="attribute-slug-input"]').attributes('disabled')).toBeUndefined()
+    await wrapper.find('[data-test="attribute-name-input"]').setValue('New name')
+    await wrapper.find('[data-test="attribute-slug-input"]').setValue('new-slug')
+    await wrapper.find('#attribute-form').trigger('submit')
+    await flushPromises()
+
+    expect(attributeUpdateMock).toHaveBeenCalledWith({
+      uuid: 'a1',
+      input: { name: 'New name', slug: 'new-slug', position: 0 },
+    })
+  })
+
+  it('requires confirmation before deleting an attribute', async () => {
+    attributesPage.value = { attributes: [attribute({ uuid: 'a1', name: 'Old' })], total: 1, current_page: 1, per_page: 24 }
+    attributeRemoveMock.mockResolvedValue(undefined)
+    const wrapper = mountTab()
+
+    expect(wrapper.find('[data-test="attribute-delete-confirm"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="attribute-delete"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="attribute-delete-confirm"]').exists()).toBe(true)
+    expect(attributeRemoveMock).not.toHaveBeenCalled()
+
+    await wrapper.find('[data-test="attribute-delete-confirm"]').trigger('click')
+    await flushPromises()
+    expect(attributeRemoveMock).toHaveBeenCalledWith('a1')
+  })
+
+  it('hides all mutation controls when can_manage is false, keeping attributes visible', () => {
+    attributesPage.value = { attributes: [attribute({ uuid: 'a1', name: 'Old' })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mountTab(false)
+
+    expect(wrapper.find('[data-test="attribute-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="attribute-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="attribute-delete"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="attribute-row"]').exists()).toBe(true)
+  })
+
+  // ── Nested values editor: add/edit/delete values per attribute ──────────────────────────────
+
+  it('expands an attribute row to show its values, empty state included', async () => {
+    attributesPage.value = {
+      attributes: [attribute({ uuid: 'a1', name: 'Color', slug: 'color', values: [] })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    const wrapper = mountTab()
+
+    expect(wrapper.find('[data-test="attribute-values-panel"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="attribute-values-toggle"]').trigger('click')
+    expect(wrapper.find('[data-test="attribute-values-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="attribute-values-empty"]').exists()).toBe(true)
+  })
+
+  it('lists each value once an attribute is expanded', async () => {
+    attributesPage.value = {
+      attributes: [
+        attribute({
+          uuid: 'a1',
+          name: 'Color',
+          values: [
+            attributeValue({ uuid: 'v1', value: 'Red', slug: 'red' }),
+            attributeValue({ uuid: 'v2', value: 'Blue', slug: 'blue' }),
+          ],
+        }),
+      ],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="attribute-values-toggle"]').trigger('click')
+    expect(wrapper.findAll('[data-test="attribute-value-row"]')).toHaveLength(2)
+    expect(wrapper.text()).toContain('Red')
+    expect(wrapper.text()).toContain('Blue')
+  })
+
+  it('adds a value to an attribute from the nested add-value form', async () => {
+    attributesPage.value = {
+      attributes: [attribute({ uuid: 'a1', name: 'Color', values: [] })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    attributeCreateValueMock.mockResolvedValue(attributeValue({ uuid: 'v1', value: 'Red', slug: 'red' }))
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="attribute-values-toggle"]').trigger('click')
+    await wrapper.find('[data-test="attribute-value-add"]').trigger('click')
+    await wrapper.find('[data-test="attribute-value-value-input"]').setValue('Red')
+    await wrapper.find('[data-test="attribute-value-slug-input"]').setValue('red')
+    await wrapper.find('#attribute-value-form').trigger('submit')
+    await flushPromises()
+
+    expect(attributeCreateValueMock).toHaveBeenCalledWith({
+      attributeUuid: 'a1',
+      input: { slug: 'red', value: 'Red', position: 0 },
+    })
+  })
+
+  it('surfaces the composite-conflict "slug already in use for this attribute" 422 on add-value, not vanishing it', async () => {
+    attributesPage.value = {
+      attributes: [attribute({ uuid: 'a1', name: 'Color', values: [] })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    attributeCreateValueMock.mockRejectedValue(
+      new ApiError('Validation failed', 422, { slug: 'Slug already in use for this attribute.' }, {}),
+    )
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="attribute-values-toggle"]').trigger('click')
+    await wrapper.find('[data-test="attribute-value-add"]').trigger('click')
+    await wrapper.find('[data-test="attribute-value-value-input"]').setValue('Red')
+    await wrapper.find('[data-test="attribute-value-slug-input"]').setValue('red')
+    await wrapper.find('#attribute-value-form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="attribute-value-form-error"]').text()).toContain(
+      'Slug already in use for this attribute.',
+    )
+  })
+
+  it('edits a value via the nested edit form', async () => {
+    attributesPage.value = {
+      attributes: [
+        attribute({ uuid: 'a1', name: 'Color', values: [attributeValue({ uuid: 'v1', value: 'Red', slug: 'red' })] }),
+      ],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    attributeUpdateValueMock.mockResolvedValue(attributeValue({ uuid: 'v1', value: 'Crimson', slug: 'red' }))
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="attribute-values-toggle"]').trigger('click')
+    await wrapper.find('[data-test="attribute-value-edit"]').trigger('click')
+    await wrapper.find('[data-test="attribute-value-value-input"]').setValue('Crimson')
+    await wrapper.find('#attribute-value-form').trigger('submit')
+    await flushPromises()
+
+    expect(attributeUpdateValueMock).toHaveBeenCalledWith({
+      uuid: 'v1',
+      input: { slug: 'red', value: 'Crimson', position: 0 },
+    })
+  })
+
+  it('requires confirmation before deleting a value', async () => {
+    attributesPage.value = {
+      attributes: [
+        attribute({ uuid: 'a1', name: 'Color', values: [attributeValue({ uuid: 'v1', value: 'Red', slug: 'red' })] }),
+      ],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    attributeRemoveValueMock.mockResolvedValue(undefined)
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="attribute-values-toggle"]').trigger('click')
+    expect(wrapper.find('[data-test="attribute-value-delete-confirm"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="attribute-value-delete"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="attribute-value-delete-confirm"]').exists()).toBe(true)
+    expect(attributeRemoveValueMock).not.toHaveBeenCalled()
+
+    await wrapper.find('[data-test="attribute-value-delete-confirm"]').trigger('click')
+    await flushPromises()
+    expect(attributeRemoveValueMock).toHaveBeenCalledWith('v1')
+  })
+
+  it('hides value mutation controls when can_manage is false, keeping values visible', async () => {
+    attributesPage.value = {
+      attributes: [
+        attribute({ uuid: 'a1', name: 'Color', values: [attributeValue({ uuid: 'v1', value: 'Red', slug: 'red' })] }),
+      ],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    const wrapper = mountTab(false)
+
+    await wrapper.find('[data-test="attribute-values-toggle"]').trigger('click')
+    expect(wrapper.find('[data-test="attribute-value-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="attribute-value-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="attribute-value-delete"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="attribute-value-row"]').exists()).toBe(true)
+  })
+})
+
+// ── AttributesTab: assignment mode (`product` prop given) ──────────────────────────────────
+// Assignment rows are far richer than tags/categories' bare uuid list (SetProductAttributesData:
+// each row is `{attribute_uuid?, name?, values?, used_for_variants?, visible?, position?}`), so
+// these pin the EXACT payload shape for both an attribute-linked row and a custom (name-only) row.
+
+describe('AttributesTab (product assignment)', () => {
+  function mountAssignment(p: CommerceProduct, canManage = true) {
+    return mount(AttributesTab, { props: { product: p, canManage } })
+  }
+
+  it('shows the honest not-loaded state on fresh mount (never a guessed selection)', () => {
+    attributesPage.value = {
+      attributes: [
+        attribute({ uuid: 'a1', name: 'Color', values: [attributeValue({ uuid: 'v1', value: 'Red', slug: 'red' })] }),
+      ],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    expect(wrapper.find('[data-test="attribute-assignment-unknown"]').exists()).toBe(true)
+    const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
+    expect(checkbox!.props('modelValue')).toBe(false)
+  })
+
+  it('hides attribute CRUD and value CRUD controls in assignment mode even when can_manage is true', async () => {
+    attributesPage.value = {
+      attributes: [
+        attribute({ uuid: 'a1', name: 'Color', values: [attributeValue({ uuid: 'v1', value: 'Red', slug: 'red' })] }),
+      ],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    expect(wrapper.find('[data-test="attribute-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="attribute-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="attribute-delete"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="attribute-values-toggle"]').trigger('click')
+    expect(wrapper.find('[data-test="attribute-value-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="attribute-value-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="attribute-value-delete"]').exists()).toBe(false)
+  })
+
+  it('builds and saves the exact row shape for an included attribute — attribute_uuid + selected value slugs + flags', async () => {
+    attributesPage.value = {
+      attributes: [
+        attribute({
+          uuid: 'a1',
+          name: 'Color',
+          values: [
+            attributeValue({ uuid: 'v1', value: 'Red', slug: 'red' }),
+            attributeValue({ uuid: 'v2', value: 'Blue', slug: 'blue' }),
+          ],
+        }),
+      ],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    setAttributesMock.mockResolvedValue([
+      {
+        uuid: 'pa1',
+        product_uuid: 'p1',
+        attribute_uuid: 'a1',
+        attribute_slug: 'color',
+        attribute_name: 'Color',
+        name: null,
+        values: ['red'],
+        used_for_variants: true,
+        visible: true,
+        position: 0,
+      },
+    ])
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    // [0] include the attribute.
+    let checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[0]!.vm.$emit('update:modelValue', true)
+    await flushPromises()
+
+    // Once included: [0] include, [1] value "red", [2] value "blue", [3] used-for-variants, [4] visible.
+    checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    expect(checkboxes).toHaveLength(5)
+    await checkboxes[1]!.vm.$emit('update:modelValue', true)
+    await checkboxes[3]!.vm.$emit('update:modelValue', true)
+
+    await wrapper.find('[data-test="attribute-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setAttributesMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      rows: [{ attribute_uuid: 'a1', values: ['red'], used_for_variants: true, visible: true }],
+    })
+    // Once the set-list response comes back, the unknown-state banner clears — the assignment is
+    // now positively established, not a guess.
+    expect(wrapper.find('[data-test="attribute-assignment-unknown"]').exists()).toBe(false)
+  })
+
+  it('adds a custom attribute row and saves it with a name and free-text values, no attribute_uuid', async () => {
+    attributesPage.value = { attributes: [], total: 0, current_page: 1, per_page: 24 }
+    setAttributesMock.mockResolvedValue([
+      {
+        uuid: 'pa1',
+        product_uuid: 'p1',
+        attribute_uuid: null,
+        attribute_slug: null,
+        attribute_name: null,
+        name: 'Material',
+        values: ['Cotton', 'Wool'],
+        used_for_variants: false,
+        visible: true,
+        position: 0,
+      },
+    ])
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="attribute-assign-custom-add"]').trigger('click')
+    await wrapper.find('[data-test="attribute-assign-custom-name"]').setValue('Material')
+    await wrapper.find('[data-test="attribute-assign-custom-values"]').setValue('Cotton, Wool')
+
+    await wrapper.find('[data-test="attribute-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setAttributesMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      rows: [{ name: 'Material', values: ['Cotton', 'Wool'], used_for_variants: false, visible: true }],
+    })
+  })
+
+  it('removes a custom attribute row before saving', async () => {
+    attributesPage.value = { attributes: [], total: 0, current_page: 1, per_page: 24 }
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    await wrapper.find('[data-test="attribute-assign-custom-add"]').trigger('click')
+    expect(wrapper.find('[data-test="attribute-assign-custom-row"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="attribute-assign-custom-remove"]').trigger('click')
+    expect(wrapper.find('[data-test="attribute-assign-custom-row"]').exists()).toBe(false)
+  })
+
+  it('surfaces the composite-conflict "must not reference the same attribute more than once" 422 without discarding the selection', async () => {
+    attributesPage.value = {
+      attributes: [
+        attribute({ uuid: 'a1', name: 'Color', values: [attributeValue({ uuid: 'v1', value: 'Red', slug: 'red' })] }),
+      ],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    setAttributesMock.mockRejectedValue(
+      new ApiError(
+        'Validation failed',
+        422,
+        { attributes: 'attributes must not reference the same attribute more than once.' },
+        {},
+      ),
+    )
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[0]!.vm.$emit('update:modelValue', true)
+    await wrapper.find('[data-test="attribute-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="attribute-assignment-error"]').text()).toContain(
+      'attributes must not reference the same attribute more than once.',
+    )
+    // The selection survives the failed save.
+    expect(wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]!.props('modelValue')).toBe(true)
+  })
+
+  it('hides the save control and disables checkboxes when can_manage is false', () => {
+    attributesPage.value = {
+      attributes: [
+        attribute({ uuid: 'a1', name: 'Color', values: [attributeValue({ uuid: 'v1', value: 'Red', slug: 'red' })] }),
+      ],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    const wrapper = mountAssignment(product({ uuid: 'p1' }), false)
+
+    expect(wrapper.find('[data-test="attribute-assignment-save"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="attribute-assign-custom-add"]').exists()).toBe(false)
     const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
     expect(checkbox!.props('disabled')).toBe(true)
   })

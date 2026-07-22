@@ -235,6 +235,109 @@ export interface UpdateTagInput {
   name: string
 }
 
+/** A `commerce_attribute_values` row (design spec Layer 6 §2) — embedded inside its owning
+ * `CommerceAttribute.values`, position-ordered. There is no standalone value GET: the owning
+ * attribute's list/show response (embedded) and the direct value create/update mutations
+ * (returning this same shape) are the only read paths. */
+export interface CommerceAttributeValue {
+  uuid: string
+  slug: string
+  value: string
+  position: number
+}
+
+/** A `commerce_attributes` row (design spec Layer 6 §2) with its `values` embedded
+ * (`AttributeService::list()`/`show()` batch-load them — never a separate values fetch, mirrors
+ * `CommerceProduct.variants`). Unlike tags, BOTH `slug` and `name` stay editable after creation
+ * (`AttributeService::update()` — no tag-style immutability lock), so `UpdateAttributeInput`
+ * below carries no special-case. */
+export interface CommerceAttribute {
+  uuid: string
+  slug: string
+  name: string
+  position: number
+  values: CommerceAttributeValue[]
+}
+
+export interface AttributeListFilters {
+  q?: string
+  page?: number
+  perPage?: number
+}
+
+export interface AttributeListPage {
+  attributes: CommerceAttribute[]
+  total: number
+  current_page: number
+  per_page: number
+}
+
+/** `POST /commerce/attributes` body (CreateAttributeData). */
+export interface CreateAttributeInput {
+  slug: string
+  name: string
+  position?: number | null
+}
+
+/** `PATCH /commerce/attributes/{uuid}` body (UpdateAttributeData) — the controller reads the raw
+ * body (see its own docblock), so only present keys are applied; unlike `UpdateTagInput`, `slug`
+ * IS safe to send (attribute slugs stay editable — see `CommerceAttribute`'s docblock). */
+export interface UpdateAttributeInput {
+  slug?: string | null
+  name?: string | null
+  position?: number | null
+}
+
+/** `POST /commerce/attributes/{uuid}/values` body (CreateAttributeValueData). */
+export interface CreateAttributeValueInput {
+  slug: string
+  value: string
+  position?: number | null
+}
+
+/** `PATCH /commerce/attribute-values/{uuid}` body (UpdateAttributeValueData) — only present keys
+ * are applied server-side; this form always submits every field, which is idempotent (unlike
+ * tags' slug-presence trap). */
+export interface UpdateAttributeValueInput {
+  slug?: string | null
+  value?: string | null
+  position?: number | null
+}
+
+/** One element of `PUT /commerce/products/{uuid}/attributes`'s `attributes` array
+ * (`SetProductAttributesData` — shape/business validation both happen in
+ * `AttributeService::setProductAttributes()`, nested-DTO support for arbitrary request arrays
+ * being pending, same substitute documented on `ReorderMediaData`). Exactly ONE of
+ * `attribute_uuid` (references a tenant attribute; `values` must be that attribute's existing
+ * value SLUGS) or a non-empty `name` (a one-off custom row; `values` is free text) is given —
+ * never both, never neither. */
+export interface ProductAttributeAssignmentInput {
+  attribute_uuid?: string | null
+  name?: string | null
+  values?: string[]
+  used_for_variants?: boolean
+  visible?: boolean
+  position?: number | null
+}
+
+/** A `commerce_product_attributes` row as returned by `setProductAttributes` — the ONLY read path
+ * for a product's attribute assignment (there is no admin GET), exactly like
+ * `CommerceProductMedia`'s docblock. `attribute_slug`/`attribute_name` are joined in for
+ * attribute-linked rows (`AttributeService::productAttributesPayload()`); both are `null` on a
+ * custom row. */
+export interface CommerceProductAttribute {
+  uuid: string
+  product_uuid: string
+  attribute_uuid: string | null
+  attribute_slug: string | null
+  attribute_name: string | null
+  name: string | null
+  values: string[]
+  used_for_variants: boolean
+  visible: boolean
+  position: number
+}
+
 // The admin envelopes are doc-only in the OpenAPI schema (see collections.ts's identical note), so
 // normalize the raw JSON into the stricter hand-written shapes above at the boundary.
 function normalizeVariant(raw: Record<string, unknown>): CommerceVariant {
@@ -280,6 +383,42 @@ function normalizeTag(raw: Record<string, unknown>): CommerceTag {
     uuid: String(raw.uuid ?? ''),
     slug: String(raw.slug ?? ''),
     name: String(raw.name ?? ''),
+  }
+}
+
+function normalizeAttributeValue(raw: Record<string, unknown>): CommerceAttributeValue {
+  return {
+    uuid: String(raw.uuid ?? ''),
+    slug: String(raw.slug ?? ''),
+    value: String(raw.value ?? ''),
+    position: typeof raw.position === 'number' ? raw.position : 0,
+  }
+}
+
+function normalizeAttribute(raw: Record<string, unknown>): CommerceAttribute {
+  const values = Array.isArray(raw.values) ? raw.values : []
+  return {
+    uuid: String(raw.uuid ?? ''),
+    slug: String(raw.slug ?? ''),
+    name: String(raw.name ?? ''),
+    position: typeof raw.position === 'number' ? raw.position : 0,
+    values: values.map((v) => normalizeAttributeValue(v as Record<string, unknown>)),
+  }
+}
+
+function normalizeProductAttribute(raw: Record<string, unknown>): CommerceProductAttribute {
+  const values = Array.isArray(raw.values) ? raw.values : []
+  return {
+    uuid: String(raw.uuid ?? ''),
+    product_uuid: String(raw.product_uuid ?? ''),
+    attribute_uuid: typeof raw.attribute_uuid === 'string' ? raw.attribute_uuid : null,
+    attribute_slug: typeof raw.attribute_slug === 'string' ? raw.attribute_slug : null,
+    attribute_name: typeof raw.attribute_name === 'string' ? raw.attribute_name : null,
+    name: typeof raw.name === 'string' ? raw.name : null,
+    values: values.map((v) => String(v)),
+    used_for_variants: Boolean(raw.used_for_variants),
+    visible: raw.visible === undefined || raw.visible === null ? true : Boolean(raw.visible),
+    position: typeof raw.position === 'number' ? raw.position : 0,
   }
 }
 
@@ -627,6 +766,117 @@ export async function setProductTags(productUuid: string, tagUuids: string[]): P
   return Array.isArray(rows) ? rows.map((t) => normalizeTag(t as Record<string, unknown>)) : []
 }
 
+/** `GET /commerce/attributes` — paginated (`AttributeListQuery`'s exact param set is
+ * `{q, page, per_page}`, mirrors `fetchTags()`), each row with its `values` embedded
+ * (`AttributeService::list()` batch-loads them — never a separate per-attribute fetch). */
+export async function fetchAttributes(filters: AttributeListFilters = {}): Promise<AttributeListPage> {
+  const { data, error, response } = await client.GET('/commerce/attributes', {
+    params: {
+      query: {
+        q: filters.q || undefined,
+        page: filters.page,
+        per_page: filters.perPage,
+      },
+    },
+  })
+  if (error) throw toApiError(error, response)
+  const body = data as
+    | { data?: unknown[]; current_page?: number; per_page?: number; total?: number }
+    | undefined
+  const rows = Array.isArray(body?.data) ? body.data : []
+  return {
+    attributes: rows.map((a) => normalizeAttribute(a as Record<string, unknown>)),
+    total: body?.total ?? 0,
+    current_page: body?.current_page ?? filters.page ?? 1,
+    per_page: body?.per_page ?? filters.perPage ?? 24,
+  }
+}
+
+export async function createAttribute(input: CreateAttributeInput): Promise<CommerceAttribute> {
+  const { data, error, response } = await client.POST('/commerce/attributes', {
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeAttribute((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function updateAttribute(
+  uuid: string,
+  input: UpdateAttributeInput,
+): Promise<CommerceAttribute> {
+  const { data, error, response } = await client.PATCH('/commerce/attributes/{uuid}', {
+    params: { path: { uuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeAttribute((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function deleteAttribute(uuid: string): Promise<void> {
+  const { error, response } = await client.DELETE('/commerce/attributes/{uuid}', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+}
+
+/** `POST /commerce/attributes/{uuid}/values` — the response is the created value row directly
+ * (not wrapped in its owning attribute); the attribute uuid in the path names the OWNER, never a
+ * field on the returned/normalized value itself (mirrors `CommerceAttributeValue`'s shape). */
+export async function createAttributeValue(
+  attributeUuid: string,
+  input: CreateAttributeValueInput,
+): Promise<CommerceAttributeValue> {
+  const { data, error, response } = await client.POST('/commerce/attributes/{uuid}/values', {
+    params: { path: { uuid: attributeUuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeAttributeValue((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function updateAttributeValue(
+  uuid: string,
+  input: UpdateAttributeValueInput,
+): Promise<CommerceAttributeValue> {
+  const { data, error, response } = await client.PATCH('/commerce/attribute-values/{uuid}', {
+    params: { path: { uuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeAttributeValue((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function deleteAttributeValue(uuid: string): Promise<void> {
+  const { error, response } = await client.DELETE('/commerce/attribute-values/{uuid}', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+}
+
+/** `PUT /commerce/products/{uuid}/attributes` (`SetProductAttributesData`) — a wholesale set-list
+ * replace, exactly like `setProductTags()`/`setProductCategories()`, except each row carries real
+ * payload (values/flags/position) rather than being a bare uuid — see
+ * `ProductAttributeAssignmentInput`'s docblock. There is no admin GET for a product's current
+ * attribute assignment, so the response is the only source of truth the SPA ever has. */
+export async function setProductAttributes(
+  productUuid: string,
+  rows: ProductAttributeAssignmentInput[],
+): Promise<CommerceProductAttribute[]> {
+  const { data, error, response } = await client.PUT('/commerce/products/{uuid}/attributes', {
+    params: { path: { uuid: productUuid } },
+    body: { attributes: rows } as never,
+  })
+  if (error) throw toApiError(error, response)
+  const result = (data as { data?: unknown[] } | undefined)?.data
+  return Array.isArray(result)
+    ? result.map((r) => normalizeProductAttribute(r as Record<string, unknown>))
+    : []
+}
+
 // ── Query/mutation wrappers ──────────────────────────────────────────────────
 
 export function useCommerceProducts(filters: MaybeRefOrGetter<ProductListFilters>) {
@@ -763,6 +1013,15 @@ export function useCommerceProductMutations() {
         setProductTags(vars.productUuid, vars.tagUuids),
       onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
     }),
+    // Task 19b: product attribute assignment — invalidates ONLY the owning product, same
+    // reasoning as setTags/setCategories above. Never invalidates commerceAttributes(): the
+    // shared attribute list shows no per-attribute product count, so a product's own assignment
+    // changing never makes anything useCommerceAttributes() renders stale.
+    setAttributes: useMutation({
+      mutation: (vars: { productUuid: string; rows: ProductAttributeAssignmentInput[] }) =>
+        setProductAttributes(vars.productUuid, vars.rows),
+      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+    }),
   }
 }
 
@@ -828,6 +1087,60 @@ export function useCommerceTagMutations() {
     remove: useMutation({
       mutation: (uuid: string) => deleteTag(uuid),
       onSettled: invalidateTags,
+    }),
+  }
+}
+
+/** Paginated, filtered (`q`) attribute list — mirrors `useCommerceTags()`'s filter-suffixed key
+ * pattern; each attribute's `values` come embedded (see `fetchAttributes()`'s docblock), so there
+ * is no separate values query. */
+export function useCommerceAttributes(filters: MaybeRefOrGetter<AttributeListFilters>) {
+  return useQuery({
+    key: () => {
+      const f = toValue(filters)
+      return [...qk.commerceAttributes(), f.q ?? '', f.page ?? 1, f.perPage ?? 24]
+    },
+    query: () => fetchAttributes(toValue(filters)),
+  })
+}
+
+/** Attribute CRUD + value CRUD mutations — a separate hook from `useCommerceProductMutations()`,
+ * mirroring `useCommerceTagMutations()`: attributes (and their values) are their own top-level
+ * resource, not scoped to a single product. Every one — attribute create/update/remove AND value
+ * create/update/remove — invalidates the shared attribute list (every filter/page variant): a
+ * value has no independent read path (it's embedded in its owning attribute's row), so a value
+ * mutation has nothing narrower to invalidate than the whole list. */
+export function useCommerceAttributeMutations() {
+  const cache = useQueryCache()
+  const invalidateAttributes = () => cache.invalidateQueries({ key: qk.commerceAttributes() })
+
+  return {
+    create: useMutation({
+      mutation: (input: CreateAttributeInput) => createAttribute(input),
+      onSettled: invalidateAttributes,
+    }),
+    update: useMutation({
+      mutation: (vars: { uuid: string; input: UpdateAttributeInput }) =>
+        updateAttribute(vars.uuid, vars.input),
+      onSettled: invalidateAttributes,
+    }),
+    remove: useMutation({
+      mutation: (uuid: string) => deleteAttribute(uuid),
+      onSettled: invalidateAttributes,
+    }),
+    createValue: useMutation({
+      mutation: (vars: { attributeUuid: string; input: CreateAttributeValueInput }) =>
+        createAttributeValue(vars.attributeUuid, vars.input),
+      onSettled: invalidateAttributes,
+    }),
+    updateValue: useMutation({
+      mutation: (vars: { uuid: string; input: UpdateAttributeValueInput }) =>
+        updateAttributeValue(vars.uuid, vars.input),
+      onSettled: invalidateAttributes,
+    }),
+    removeValue: useMutation({
+      mutation: (uuid: string) => deleteAttributeValue(uuid),
+      onSettled: invalidateAttributes,
     }),
   }
 }

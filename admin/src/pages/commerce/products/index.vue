@@ -16,6 +16,7 @@ import ProductsTable from './components/ProductsTable.vue'
 import ProductCreateSlideover from './components/ProductCreateSlideover.vue'
 import CategoriesTab from './components/CategoriesTab.vue'
 import TagsTab from './components/TagsTab.vue'
+import AttributesTab from './components/AttributesTab.vue'
 
 const router = useRouter()
 const { success, warning, error: notifyError } = useNotify()
@@ -26,11 +27,14 @@ const canManage = computed(() => meta.value?.can_manage ?? false)
 // Task 10d: taxonomy lives as a tab within the Products AREA (design spec §6), not a separate
 // nav item — CategoriesTab.vue (management mode: no `product` prop) mounts here.
 // Task 19a: Tags joins as a third tab, same reasoning — TagsTab.vue (management mode) mounts here.
-const tab = ref<'products' | 'categories' | 'tags'>('products')
+// Task 19b: Attributes joins as a fourth tab, same reasoning — AttributesTab.vue (management mode)
+// mounts here.
+const tab = ref<'products' | 'categories' | 'tags' | 'attributes'>('products')
 const tabItems = [
   { label: 'Products', value: 'products' },
   { label: 'Categories', value: 'categories' },
   { label: 'Tags', value: 'tags' },
+  { label: 'Attributes', value: 'attributes' },
 ]
 
 // ── Filters ──────────────────────────────────────────────────────────────────
@@ -215,6 +219,8 @@ async function confirmDelete() {
       <CategoriesTab v-else-if="tab === 'categories'" :can-manage="canManage" />
 
       <TagsTab v-else-if="tab === 'tags'" :can-manage="canManage" />
+
+      <AttributesTab v-else-if="tab === 'attributes'" :can-manage="canManage" />
     </template>
   </UDashboardPanel>
 

@@ -39,7 +39,7 @@ describe('useCommerceProductMutations invalidation', () => {
     const mutations = useCommerceProductMutations() as unknown as Record<
       'create' | 'update' | 'remove' | 'bulkStatus' | 'createVariant' | 'updateVariant' | 'bulkPrice' |
         'setChildren' | 'stockAdjust' | 'attachMedia' | 'updateMedia' | 'detachMedia' | 'reorderMedia' |
-        'setCategories' | 'setTags',
+        'setCategories' | 'setTags' | 'setAttributes',
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
     return { mutations, qk }
@@ -60,6 +60,16 @@ describe('useCommerceProductMutations invalidation', () => {
     const { qk } = await import('@/queries/keys')
     const mutations = useCommerceTagMutations() as unknown as Record<
       'create' | 'update' | 'remove',
+      { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
+    >
+    return { mutations, qk }
+  }
+
+  async function attributeBundle() {
+    const { useCommerceAttributeMutations } = await import('@/queries/commerceCatalog')
+    const { qk } = await import('@/queries/keys')
+    const mutations = useCommerceAttributeMutations() as unknown as Record<
+      'create' | 'update' | 'remove' | 'createValue' | 'updateValue' | 'removeValue',
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
     return { mutations, qk }
@@ -273,5 +283,68 @@ describe('useCommerceProductMutations invalidation', () => {
     mutations.remove.onSettled?.(undefined, undefined, 'tag00000001')
 
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceTags() }]])
+  })
+
+  // Task 19b: product attribute assignment invalidates ONLY the owning product — the attribute
+  // LIST (`useCommerceAttributes()`) shows no per-attribute product count, so a product's own
+  // assignment changing never makes anything it renders stale (mirrors setTags/setCategories).
+
+  it('setAttributes invalidates the owning product only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.setAttributes.onSettled?.(undefined, undefined, {
+      productUuid: 'prod00000001',
+      rows: [{ attribute_uuid: 'attr00000001', values: ['red'] }],
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+  })
+
+  // Task 19b: attribute CRUD AND value CRUD both invalidate the shared attribute list only — a
+  // value has no independent read path (it's embedded in its owning attribute's row), so a value
+  // mutation has nothing narrower to invalidate than the whole list.
+
+  it('attribute create invalidates the attribute list only', async () => {
+    const { mutations, qk } = await attributeBundle()
+    mutations.create.onSettled?.(undefined, undefined, undefined)
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceAttributes() }]])
+  })
+
+  it('attribute update invalidates the attribute list only', async () => {
+    const { mutations, qk } = await attributeBundle()
+    mutations.update.onSettled?.(undefined, undefined, { uuid: 'attr00000001', input: { name: 'New' } })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceAttributes() }]])
+  })
+
+  it('attribute remove invalidates the attribute list only', async () => {
+    const { mutations, qk } = await attributeBundle()
+    mutations.remove.onSettled?.(undefined, undefined, 'attr00000001')
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceAttributes() }]])
+  })
+
+  it('attribute createValue invalidates the attribute list only', async () => {
+    const { mutations, qk } = await attributeBundle()
+    mutations.createValue.onSettled?.(undefined, undefined, {
+      attributeUuid: 'attr00000001',
+      input: { slug: 'red', value: 'Red' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceAttributes() }]])
+  })
+
+  it('attribute updateValue invalidates the attribute list only', async () => {
+    const { mutations, qk } = await attributeBundle()
+    mutations.updateValue.onSettled?.(undefined, undefined, { uuid: 'val00000001', input: { value: 'Crimson' } })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceAttributes() }]])
+  })
+
+  it('attribute removeValue invalidates the attribute list only', async () => {
+    const { mutations, qk } = await attributeBundle()
+    mutations.removeValue.onSettled?.(undefined, undefined, 'val00000001')
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceAttributes() }]])
   })
 })
