@@ -796,4 +796,272 @@ describe('commerce orders query layer', () => {
     const { ApiError } = await import('@/api/errors')
     await expect(fetchRefund('missing')).rejects.toBeInstanceOf(ApiError)
   })
+
+  // ── Order notes (Task 13d): GET/POST /commerce/orders/{uuid}/notes ─────────────────────────
+  // `notes()` filters `eventsForOrder()` to `type === 'note.added'` rows and returns them in the
+  // SAME ascending-id (chronological) order as the underlying event query — never re-sorted here.
+  // `addNote()`'s 200 response is `{ order_uuid, note: {...} }`, not a full event row (mirrors
+  // createRefund()'s "immediate response before the DB fills in its own defaults" precedent) —
+  // the fetcher resolves to void; callers rely on invalidation to refetch the notes list.
+
+  function noteEventBody(overrides: Record<string, unknown> = {}) {
+    return {
+      uuid: 'ev1',
+      order_uuid: 'o1',
+      type: 'note.added',
+      payload: { body: 'Called customer, confirmed address.', visibility: 'internal', notify: false, actor_uuid: 'admin1' },
+      actor_uuid: 'admin1',
+      visibility: 'internal',
+      created_at: '2026-01-02 00:00:00',
+      ...overrides,
+    }
+  }
+
+  it('fetchOrderNotes GETs the exact endpoint and normalizes body/visibility/actor from the event payload', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Notes retrieved', data: [noteEventBody()] }),
+    )
+
+    const { fetchOrderNotes } = await import('@/queries/commerceOrders')
+    const notes = await fetchOrderNotes('o1')
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('GET')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/orders/o1/notes')
+    expect(notes).toHaveLength(1)
+    expect(notes[0]).toEqual({
+      uuid: 'ev1',
+      body: 'Called customer, confirmed address.',
+      visibility: 'internal',
+      notify: false,
+      actor_uuid: 'admin1',
+      created_at: '2026-01-02 00:00:00',
+    })
+  })
+
+  it('fetchOrderNotes preserves the chronological (ascending) order returned by the server', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Notes retrieved',
+        data: [
+          noteEventBody({ uuid: 'ev1', payload: { body: 'first', visibility: 'internal', notify: false } }),
+          noteEventBody({ uuid: 'ev2', payload: { body: 'second', visibility: 'internal', notify: false } }),
+        ],
+      }),
+    )
+
+    const { fetchOrderNotes } = await import('@/queries/commerceOrders')
+    const notes = await fetchOrderNotes('o1')
+    expect(notes.map((n) => n.body)).toEqual(['first', 'second'])
+  })
+
+  it('fetchOrderNotes defaults to an empty list when the order has no notes', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ success: true, message: 'Notes retrieved', data: [] }),
+    )
+
+    const { fetchOrderNotes } = await import('@/queries/commerceOrders')
+    expect(await fetchOrderNotes('o1')).toEqual([])
+  })
+
+  it('fetchOrderNotes throws ApiError for a 404 order', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Resource not found.' }, 404),
+    )
+
+    const { fetchOrderNotes } = await import('@/queries/commerceOrders')
+    const { ApiError } = await import('@/api/errors')
+    await expect(fetchOrderNotes('missing')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('addOrderNote posts the exact CreateOrderNoteData body, defaulting visibility/notify', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Note added',
+        data: { order_uuid: 'o1', note: { body: 'Shipped a day late.', visibility: 'internal', notify: false, actor_uuid: 'admin1' } },
+      }),
+    )
+
+    const { addOrderNote } = await import('@/queries/commerceOrders')
+    await addOrderNote('o1', { body: 'Shipped a day late.' })
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('POST')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/orders/o1/notes')
+    expect(await request.clone().json()).toEqual({
+      body: 'Shipped a day late.',
+      visibility: 'internal',
+      notify: false,
+    })
+  })
+
+  it('addOrderNote forwards an explicit visibility/notify when passed', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Note added',
+        data: { order_uuid: 'o1', note: { body: 'Refund issued, notifying customer.', visibility: 'customer', notify: true, actor_uuid: 'admin1' } },
+      }),
+    )
+
+    const { addOrderNote } = await import('@/queries/commerceOrders')
+    await addOrderNote('o1', { body: 'Refund issued, notifying customer.', visibility: 'customer', notify: true })
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(await request.clone().json()).toEqual({
+      body: 'Refund issued, notifying customer.',
+      visibility: 'customer',
+      notify: true,
+    })
+  })
+
+  it('addOrderNote surfaces a 422 notify/visibility mismatch as a keyed field error (error.details.notify)', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            timestamp: '2026-01-01T00:00:00Z',
+            request_id: 'req_1',
+            details: { notify: 'notify requires visibility to be customer.' },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { addOrderNote } = await import('@/queries/commerceOrders')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await addOrderNote('o1', { body: 'x', visibility: 'internal', notify: true })
+    } catch (e) {
+      caught = e
+    }
+    expect((caught as InstanceType<typeof ApiError>).status).toBe(422)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors.notify).toBe(
+      'notify requires visibility to be customer.',
+    )
+  })
+
+  it('addOrderNote throws ApiError for a 404 order', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Resource not found.' }, 404),
+    )
+
+    const { addOrderNote } = await import('@/queries/commerceOrders')
+    const { ApiError } = await import('@/api/errors')
+    await expect(addOrderNote('missing', { body: 'x' })).rejects.toBeInstanceOf(ApiError)
+  })
+
+  // ── Invoice data (Task 13d): GET /commerce/orders/{uuid}/invoice-data ───────────────────────
+  // Mirrors InvoiceData::build()'s exact key set field-for-field (Invoices/InvoiceData.php) —
+  // `*_minor` amounts stay genuine integers (never coerced through Number()), `refunds` is
+  // whatever the server already filtered to completed-only, and `schema_version` is passed through
+  // rather than assumed.
+
+  function invoiceDataBody(overrides: Record<string, unknown> = {}) {
+    return {
+      success: true,
+      message: 'Invoice data retrieved',
+      data: {
+        schema_version: 1,
+        seller: { name: 'Acme Supply Co.', address: '1 Market St', tax_id: 'TAX-1' },
+        buyer: { email: 'buyer@example.com', addresses: { shipping: { country: 'US' }, billing: null } },
+        order: {
+          number: 'ORD-2002',
+          dates: { placed_at: '2026-01-01 00:00:00', created_at: '2026-01-01 00:00:00', updated_at: null },
+          currency: 'USD',
+          status: 'paid',
+        },
+        lines: [
+          { name: 'Widget', sku: 'SKU-1', quantity: 2, unit_minor: 1000, subtotal_minor: 2000, addons: [] },
+        ],
+        totals: {
+          subtotal_minor: 2000,
+          discount_minor: 0,
+          shipping_minor: 500,
+          tax_minor: 0,
+          grand_minor: 2500,
+          refunded_minor: 0,
+        },
+        refunds: [{ date: '2026-01-15 10:00:00', amount_minor: 500, method: 'original' }],
+        ...overrides,
+      },
+    }
+  }
+
+  it('fetchOrderInvoiceData GETs the exact endpoint and normalizes the full payload', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse(invoiceDataBody()))
+
+    const { fetchOrderInvoiceData } = await import('@/queries/commerceOrders')
+    const invoice = await fetchOrderInvoiceData('o1')
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('GET')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/orders/o1/invoice-data')
+
+    expect(invoice.schema_version).toBe(1)
+    expect(invoice.seller).toEqual({ name: 'Acme Supply Co.', address: '1 Market St', tax_id: 'TAX-1' })
+    expect(invoice.buyer.email).toBe('buyer@example.com')
+    expect(invoice.buyer.addresses).toEqual({ shipping: { country: 'US' }, billing: null })
+    expect(invoice.order).toEqual({
+      number: 'ORD-2002',
+      dates: { placed_at: '2026-01-01 00:00:00', created_at: '2026-01-01 00:00:00', updated_at: null },
+      currency: 'USD',
+      status: 'paid',
+    })
+    expect(invoice.lines).toEqual([
+      { name: 'Widget', sku: 'SKU-1', quantity: 2, unit_minor: 1000, subtotal_minor: 2000, addons: [] },
+    ])
+    expect(invoice.totals).toEqual({
+      subtotal_minor: 2000,
+      discount_minor: 0,
+      shipping_minor: 500,
+      tax_minor: 0,
+      grand_minor: 2500,
+      refunded_minor: 0,
+    })
+    expect(invoice.refunds).toEqual([{ date: '2026-01-15 10:00:00', amount_minor: 500, method: 'original' }])
+    for (const v of Object.values(invoice.totals)) expect(typeof v).toBe('number')
+  })
+
+  it('fetchOrderInvoiceData normalizes a null seller identity to present-as-null, never missing', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(invoiceDataBody({ seller: { name: null, address: null, tax_id: null } })),
+    )
+
+    const { fetchOrderInvoiceData } = await import('@/queries/commerceOrders')
+    const invoice = await fetchOrderInvoiceData('o1')
+    expect(invoice.seller).toEqual({ name: null, address: null, tax_id: null })
+  })
+
+  it('fetchOrderInvoiceData defaults lines/refunds to empty arrays when absent', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(invoiceDataBody({ lines: [], refunds: [] })),
+    )
+
+    const { fetchOrderInvoiceData } = await import('@/queries/commerceOrders')
+    const invoice = await fetchOrderInvoiceData('o1')
+    expect(invoice.lines).toEqual([])
+    expect(invoice.refunds).toEqual([])
+  })
+
+  it('fetchOrderInvoiceData throws ApiError for a 404 order', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Resource not found.' }, 404),
+    )
+
+    const { fetchOrderInvoiceData } = await import('@/queries/commerceOrders')
+    const { ApiError } = await import('@/api/errors')
+    await expect(fetchOrderInvoiceData('missing')).rejects.toBeInstanceOf(ApiError)
+  })
 })

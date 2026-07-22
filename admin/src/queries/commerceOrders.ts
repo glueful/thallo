@@ -534,6 +534,12 @@ export function useOrderRefunds(uuid: MaybeRefOrGetter<string>) {
  * `refund` additionally invalidates the two refund-specific keys (per-order list + the cross-order
  * list) — a completed refund changes what BOTH of those would return, even though no page consumes
  * the cross-order one yet.
+ *
+ * `addNote` (Task 13d) invalidates ONLY its own `qk.commerceOrderNotes()` key — unlike every
+ * lifecycle action above, a note changes no field `OrdersTable` or the order detail's own primary
+ * fields render (the dedicated notes list reads through the separate `/notes` endpoint, not
+ * `order.events`), so this mirrors commerceCatalog.ts's variant/media/stock mutations' single
+ * narrow invalidation rather than cascading to the order detail or list.
  */
 export function useCommerceOrderMutations() {
   const cache = useQueryCache()
@@ -545,6 +551,9 @@ export function useCommerceOrderMutations() {
     invalidate(uuid)
     cache.invalidateQueries({ key: qk.commerceOrderRefunds(uuid) })
     cache.invalidateQueries({ key: qk.commerceRefunds() })
+  }
+  const invalidateNotes = (uuid: string) => {
+    cache.invalidateQueries({ key: qk.commerceOrderNotes(uuid) })
   }
 
   return {
@@ -565,5 +574,241 @@ export function useCommerceOrderMutations() {
         createRefund(vars.uuid, vars.input, vars.idempotencyKey),
       onSettled: (_d, _e, vars) => invalidateRefund(vars.uuid),
     }),
+    addNote: useMutation({
+      mutation: (vars: { uuid: string; input: CreateOrderNoteInput }) => addOrderNote(vars.uuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidateNotes(vars.uuid),
+    }),
   }
+}
+
+// ── Notes (Task 13d) ─────────────────────────────────────────────────────────
+//
+// Endpoints: `GET`/`POST /commerce/orders/{uuid}/notes` (AdminOrderController::notes()/addNote()).
+// A note is a `commerce_order_events` row of `type: 'note.added'` — the SAME table/shape as
+// `CommerceOrderEvent` above (note.added entries also live in `order.events`, per that interface's
+// own docblock) — but `notes()` pre-filters to just those rows and returns them in the SAME
+// ascending-id (chronological) order `eventsForOrder()` already produces, so this fetcher never
+// re-sorts. `addNote()`'s 200 response is `{ order_uuid, note: {...} }` — the in-memory note this
+// request just built, not a full event row (no `uuid`/`created_at`) — mirroring `createRefund()`'s
+// "immediate response before the DB fills in its own defaults" precedent, so this resolves to
+// `void`; callers rely on the notes-key invalidation to refetch the authoritative list.
+
+/** A `commerce_order_events` row of `type: 'note.added'`, flattened from its `payload` for direct
+ * display — `visibility`/`actor_uuid` are read from the event's own top-level columns (the
+ * authoritative source `recordEvent()` writes), falling back to the payload's duplicate copy only
+ * if the top-level column is somehow absent. */
+export interface CommerceOrderNote {
+  uuid: string
+  body: string
+  visibility: string
+  notify: boolean
+  actor_uuid: string | null
+  created_at: string | null
+}
+
+/** The exact `CreateOrderNoteData` request body shape (`Http/DTOs/CreateOrderNoteData.php`).
+ * `visibility` defaults to `'internal'` and `notify` to `false` — OrderNotes.vue ships no
+ * visibility/notify UI (task-13d brief scope), so every note it submits is an internal,
+ * non-notifying one; both remain overridable here for callers/tests that need the full DTO
+ * surface (`notify: true` REQUIRES `visibility: 'customer'` server-side or the request 422s). */
+export interface CreateOrderNoteInput {
+  body: string
+  visibility?: 'internal' | 'customer'
+  notify?: boolean
+}
+
+function normalizeOrderNote(raw: Record<string, unknown>): CommerceOrderNote {
+  const payload = (typeof raw.payload === 'object' && raw.payload !== null ? raw.payload : {}) as Record<
+    string,
+    unknown
+  >
+  return {
+    uuid: String(raw.uuid ?? ''),
+    body: typeof payload.body === 'string' ? payload.body : '',
+    visibility:
+      typeof raw.visibility === 'string'
+        ? raw.visibility
+        : typeof payload.visibility === 'string'
+          ? payload.visibility
+          : 'internal',
+    notify: payload.notify === true,
+    actor_uuid:
+      typeof raw.actor_uuid === 'string'
+        ? raw.actor_uuid
+        : typeof payload.actor_uuid === 'string'
+          ? payload.actor_uuid
+          : null,
+    created_at: typeof raw.created_at === 'string' ? raw.created_at : null,
+  }
+}
+
+/** `GET /commerce/orders/{uuid}/notes` (AdminOrderController::notes(), view-graded). */
+export async function fetchOrderNotes(orderUuid: string): Promise<CommerceOrderNote[]> {
+  const { data, error, response } = await client.GET('/commerce/orders/{uuid}/notes', {
+    params: { path: { uuid: orderUuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const body = data as { data?: unknown[] } | undefined
+  const rows = Array.isArray(body?.data) ? body.data : []
+  return rows.map((r) => normalizeOrderNote(r as Record<string, unknown>))
+}
+
+/** `POST /commerce/orders/{uuid}/notes` (AdminOrderController::addNote(), manage-graded). */
+export async function addOrderNote(orderUuid: string, input: CreateOrderNoteInput): Promise<void> {
+  const { error, response } = await client.POST('/commerce/orders/{uuid}/notes', {
+    params: { path: { uuid: orderUuid } },
+    body: {
+      body: input.body,
+      visibility: input.visibility ?? 'internal',
+      notify: input.notify ?? false,
+    } as never,
+  })
+  if (error) throw toApiError(error, response)
+}
+
+export function useOrderNotes(uuid: MaybeRefOrGetter<string>) {
+  return useQuery({
+    key: () => qk.commerceOrderNotes(toValue(uuid)),
+    query: () => fetchOrderNotes(toValue(uuid)),
+    enabled: () => !!toValue(uuid),
+  })
+}
+
+// ── Invoice data (Task 13d) ──────────────────────────────────────────────────
+//
+// Endpoint: `GET /commerce/orders/{uuid}/invoice-data` (AdminOrderController::invoiceData(),
+// view-graded) — mirrors `InvoiceData::build()` (Invoices/InvoiceData.php) field-for-field. Every
+// `*_minor` amount is a genuine integer minor-unit value (format with `useMoney`, never `Number()`)
+// and `refunds` is already completed-only, exactly whitelisted (`date`, `amount_minor`, `method` —
+// never `reason`) by the backend itself.
+
+export interface CommerceInvoiceLine {
+  name: string
+  sku: string
+  quantity: number
+  /** Minor-unit integer amount — format with `useMoney`, never `Number()`. */
+  unit_minor: number
+  /** Minor-unit integer amount — format with `useMoney`, never `Number()`. */
+  subtotal_minor: number
+  addons: CommerceOrderLineAddon[]
+}
+
+export interface CommerceInvoiceRefund {
+  date: string | null
+  /** Minor-unit integer amount — format with `useMoney`, never `Number()`. */
+  amount_minor: number
+  method: string
+}
+
+export interface CommerceInvoiceData {
+  schema_version: number
+  seller: { name: string | null; address: string | null; tax_id: string | null }
+  buyer: { email: string | null; addresses: CommerceOrderAddresses | null }
+  order: {
+    number: string | null
+    dates: { placed_at: string | null; created_at: string | null; updated_at: string | null }
+    currency: string | null
+    status: string | null
+  }
+  lines: CommerceInvoiceLine[]
+  totals: {
+    subtotal_minor: number
+    discount_minor: number
+    shipping_minor: number
+    tax_minor: number
+    grand_minor: number
+    refunded_minor: number
+  }
+  refunds: CommerceInvoiceRefund[]
+}
+
+function normalizeInvoiceLine(raw: Record<string, unknown>): CommerceInvoiceLine {
+  const addons = Array.isArray(raw.addons) ? raw.addons : []
+  return {
+    name: String(raw.name ?? ''),
+    sku: String(raw.sku ?? ''),
+    quantity: typeof raw.quantity === 'number' ? raw.quantity : 0,
+    unit_minor: typeof raw.unit_minor === 'number' ? raw.unit_minor : 0,
+    subtotal_minor: typeof raw.subtotal_minor === 'number' ? raw.subtotal_minor : 0,
+    addons: addons.map((a) => normalizeOrderLineAddon(a as Record<string, unknown>)),
+  }
+}
+
+function normalizeInvoiceRefund(raw: Record<string, unknown>): CommerceInvoiceRefund {
+  return {
+    date: typeof raw.date === 'string' ? raw.date : null,
+    amount_minor: typeof raw.amount_minor === 'number' ? raw.amount_minor : 0,
+    method: String(raw.method ?? ''),
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
+function normalizeInvoiceData(raw: Record<string, unknown>): CommerceInvoiceData {
+  const seller = asRecord(raw.seller)
+  const buyer = asRecord(raw.buyer)
+  const orderInfo = asRecord(raw.order)
+  const dates = asRecord(orderInfo.dates)
+  const totals = asRecord(raw.totals)
+  const lines = Array.isArray(raw.lines) ? raw.lines : []
+  const refunds = Array.isArray(raw.refunds) ? raw.refunds : []
+
+  return {
+    schema_version: typeof raw.schema_version === 'number' ? raw.schema_version : 1,
+    seller: {
+      name: typeof seller.name === 'string' ? seller.name : null,
+      address: typeof seller.address === 'string' ? seller.address : null,
+      tax_id: typeof seller.tax_id === 'string' ? seller.tax_id : null,
+    },
+    buyer: {
+      email: typeof buyer.email === 'string' ? buyer.email : null,
+      addresses: normalizeAddresses(buyer.addresses),
+    },
+    order: {
+      number: typeof orderInfo.number === 'string' ? orderInfo.number : null,
+      dates: {
+        placed_at: typeof dates.placed_at === 'string' ? dates.placed_at : null,
+        created_at: typeof dates.created_at === 'string' ? dates.created_at : null,
+        updated_at: typeof dates.updated_at === 'string' ? dates.updated_at : null,
+      },
+      currency: typeof orderInfo.currency === 'string' ? orderInfo.currency : null,
+      status: typeof orderInfo.status === 'string' ? orderInfo.status : null,
+    },
+    lines: lines.map((l) => normalizeInvoiceLine(l as Record<string, unknown>)),
+    totals: {
+      subtotal_minor: typeof totals.subtotal_minor === 'number' ? totals.subtotal_minor : 0,
+      discount_minor: typeof totals.discount_minor === 'number' ? totals.discount_minor : 0,
+      shipping_minor: typeof totals.shipping_minor === 'number' ? totals.shipping_minor : 0,
+      tax_minor: typeof totals.tax_minor === 'number' ? totals.tax_minor : 0,
+      grand_minor: typeof totals.grand_minor === 'number' ? totals.grand_minor : 0,
+      refunded_minor: typeof totals.refunded_minor === 'number' ? totals.refunded_minor : 0,
+    },
+    refunds: refunds.map((r) => normalizeInvoiceRefund(r as Record<string, unknown>)),
+  }
+}
+
+/** `GET /commerce/orders/{uuid}/invoice-data` (AdminOrderController::invoiceData()). */
+export async function fetchOrderInvoiceData(orderUuid: string): Promise<CommerceInvoiceData> {
+  const { data, error, response } = await client.GET('/commerce/orders/{uuid}/invoice-data', {
+    params: { path: { uuid: orderUuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeInvoiceData(asRecord(raw))
+}
+
+/** `enabled` defaults to always-on but OrderDetail passes a modal-open ref so the request only
+ * fires once the invoice section is actually opened (mirrors `useCommerceProduct()`'s identical
+ * `enabled` parameter). */
+export function useOrderInvoiceData(
+  uuid: MaybeRefOrGetter<string>,
+  enabled: MaybeRefOrGetter<boolean> = true,
+) {
+  return useQuery({
+    key: () => qk.commerceOrderInvoiceData(toValue(uuid)),
+    query: () => fetchOrderInvoiceData(toValue(uuid)),
+    enabled: () => toValue(enabled) && !!toValue(uuid),
+  })
 }

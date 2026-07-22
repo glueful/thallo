@@ -44,4 +44,6 @@ export const qk = {
   commerceOrder: (uuid: string) => ['commerce-order', uuid] as const,
   commerceOrderRefunds: (orderUuid: string) => ['commerce-order-refunds', orderUuid] as const,
   commerceRefunds: () => ['commerce-refunds'] as const,
+  commerceOrderNotes: (orderUuid: string) => ['commerce-order-notes', orderUuid] as const,
+  commerceOrderInvoiceData: (orderUuid: string) => ['commerce-order-invoice-data', orderUuid] as const,
 }

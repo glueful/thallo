@@ -4,7 +4,13 @@ import { join } from 'node:path'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref, toValue } from 'vue'
-import type { CommerceOrder, CommerceRefund, OrderListPage } from '@/queries/commerceOrders'
+import type {
+  CommerceOrder,
+  CommerceRefund,
+  CommerceOrderNote,
+  CommerceInvoiceData,
+  OrderListPage,
+} from '@/queries/commerceOrders'
 
 const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
 vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
@@ -58,6 +64,12 @@ const fulfillMock = vi.hoisted(() => vi.fn())
 const refundMock = vi.hoisted(() => vi.fn())
 const orderRefunds = ref<CommerceRefund[] | undefined>(undefined)
 const orderRefundsStatus = ref<'pending' | 'error' | 'success'>('success')
+// Task 13d: notes list + add-note mutation, and invoice-data read query — same established shapes.
+const addNoteMock = vi.hoisted(() => vi.fn())
+const orderNotes = ref<CommerceOrderNote[] | undefined>(undefined)
+const orderNotesStatus = ref<'pending' | 'error' | 'success'>('success')
+const invoiceData = ref<CommerceInvoiceData | undefined>(undefined)
+const invoiceDataStatus = ref<'pending' | 'error' | 'success'>('success')
 
 vi.mock('@/queries/commerceOrders', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceOrders')>()
@@ -69,11 +81,14 @@ vi.mock('@/queries/commerceOrders', async (importOriginal) => {
     },
     useCommerceOrder: () => ({ data: singleOrder, status: singleStatus }),
     useOrderRefunds: () => ({ data: orderRefunds, status: orderRefundsStatus }),
+    useOrderNotes: () => ({ data: orderNotes, status: orderNotesStatus }),
+    useOrderInvoiceData: () => ({ data: invoiceData, status: invoiceDataStatus }),
     useCommerceOrderMutations: () => ({
       cancel: { mutateAsync: cancelMock, isLoading: ref(false) },
       markPaid: { mutateAsync: markPaidMock, isLoading: ref(false) },
       fulfill: { mutateAsync: fulfillMock, isLoading: ref(false) },
       refund: { mutateAsync: refundMock, isLoading: ref(false) },
+      addNote: { mutateAsync: addNoteMock, isLoading: ref(false) },
     }),
   }
 })
@@ -129,11 +144,50 @@ function refund(overrides: Partial<CommerceRefund> = {}): CommerceRefund {
   }
 }
 
+function note(overrides: Partial<CommerceOrderNote> = {}): CommerceOrderNote {
+  return {
+    uuid: 'ev1',
+    body: 'Called customer, confirmed address.',
+    visibility: 'internal',
+    notify: false,
+    actor_uuid: 'admin1',
+    created_at: '2026-01-02 00:00:00',
+    ...overrides,
+  }
+}
+
+function invoiceDataFixture(overrides: Partial<CommerceInvoiceData> = {}): CommerceInvoiceData {
+  return {
+    schema_version: 1,
+    seller: { name: 'Acme Supply Co.', address: '1 Market St', tax_id: 'TAX-1' },
+    buyer: { email: 'buyer@example.com', addresses: null },
+    order: {
+      number: 'ORD-2002',
+      dates: { placed_at: '2026-01-01 00:00:00', created_at: '2026-01-01 00:00:00', updated_at: null },
+      currency: 'USD',
+      status: 'paid',
+    },
+    lines: [
+      { name: 'Widget', sku: 'SKU-1', quantity: 2, unit_minor: 1000, subtotal_minor: 2000, addons: [] },
+    ],
+    totals: {
+      subtotal_minor: 2000,
+      discount_minor: 0,
+      shipping_minor: 500,
+      tax_minor: 0,
+      grand_minor: 2500,
+      refunded_minor: 0,
+    },
+    refunds: [],
+    ...overrides,
+  }
+}
+
 const RouterLinkStub = { props: ['to'], template: '<a :href="to"><slot /></a>' }
-// USlideover teleports its body/footer out of the wrapper — stub it to render the slots inline
-// (mirrors commerceProducts.spec.ts's identical Slideover stub for ProductCreateSlideover).
+// USlideover/UModal teleport their body/footer out of the wrapper — stub both to render the
+// slots inline (mirrors commerceProducts.spec.ts's identical Modal + Slideover teleport stubs).
 const SlideoverStub = { props: ['open'], template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>' }
-const pageStubs = { RouterLink: RouterLinkStub, Slideover: SlideoverStub }
+const pageStubs = { RouterLink: RouterLinkStub, Slideover: SlideoverStub, Modal: SlideoverStub }
 
 /** Find the Reka SelectRoot ancestor of a USelect carrying `dataTest`, and drive it directly —
  * USelect's options render in a portal, so opening the dropdown in jsdom is unreliable; emitting
@@ -170,6 +224,11 @@ beforeEach(() => {
   refundMock.mockReset()
   orderRefunds.value = []
   orderRefundsStatus.value = 'success'
+  addNoteMock.mockReset()
+  orderNotes.value = []
+  orderNotesStatus.value = 'success'
+  invoiceData.value = undefined
+  invoiceDataStatus.value = 'success'
   notify.success.mockReset()
   notify.warning.mockReset()
   notify.error.mockReset()
@@ -941,6 +1000,211 @@ describe('order refund action', () => {
     expect(refundRows[0]!.text()).toContain('$59.00')
     // A fully-refunded order has no more legal lifecycle actions.
     expect(wrapper.find('[data-test="order-actions"]').exists()).toBe(false)
+  })
+})
+
+// ── Order notes (Task 13d): append-only list + gated add-note form ─────────────────────────
+
+describe('order notes section', () => {
+  beforeEach(() => {
+    routeState.params = { uuid: 'o1' }
+    singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+  })
+
+  it('shows the loading state', async () => {
+    orderNotesStatus.value = 'pending'
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="order-notes-loading"]').exists()).toBe(true)
+  })
+
+  it('shows the error state', async () => {
+    orderNotesStatus.value = 'error'
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="order-notes-error"]').exists()).toBe(true)
+  })
+
+  it('shows the empty state when the order has no notes', async () => {
+    orderNotes.value = []
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="order-notes-empty"]').exists()).toBe(true)
+  })
+
+  it('renders one row per note in the exact (chronological) order the server returned', async () => {
+    orderNotes.value = [
+      note({ uuid: 'ev1', body: 'first note', created_at: '2026-01-02 00:00:00' }),
+      note({ uuid: 'ev2', body: 'second note', created_at: '2026-01-03 00:00:00' }),
+    ]
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    const rows = wrapper.findAll('[data-test="order-note"]')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]!.text()).toContain('first note')
+    expect(rows[1]!.text()).toContain('second note')
+  })
+
+  it('hides the add-note form for a view-only user, while the notes list stays visible', async () => {
+    metaData.value = { ...metaData.value, can_manage: false }
+    orderNotes.value = [note({ body: 'existing note' })]
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-note-input"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="order-note-submit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="order-note"]').exists()).toBe(true)
+  })
+
+  it('shows the add-note form for a manager', async () => {
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-note-input"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="order-note-submit"]').exists()).toBe(true)
+  })
+
+  it('submits the exact { body, visibility: internal, notify: false } payload for the owning order', async () => {
+    addNoteMock.mockResolvedValue(undefined)
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-note-input"]').setValue('  Called customer.  ')
+    await wrapper.find('[data-test="order-note-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(addNoteMock).toHaveBeenCalledTimes(1)
+    expect(addNoteMock.mock.calls[0]![0]).toEqual({
+      uuid: 'o1',
+      input: { body: 'Called customer.', visibility: 'internal', notify: false },
+    })
+  })
+
+  it('clears the input after a successful submit', async () => {
+    addNoteMock.mockResolvedValue(undefined)
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    const input = wrapper.find('[data-test="order-note-input"]')
+    await input.setValue('A note.')
+    await wrapper.find('[data-test="order-note-submit"]').trigger('click')
+    await flushPromises()
+
+    expect((wrapper.find('[data-test="order-note-input"]').element as HTMLTextAreaElement).value).toBe('')
+  })
+
+  it('rejects a blank note client-side without calling the mutation', async () => {
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-note-input"]').setValue('   ')
+    await wrapper.find('[data-test="order-note-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(addNoteMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="order-note-error"]').exists()).toBe(true)
+  })
+
+  it('surfaces the server error message inline on failure', async () => {
+    addNoteMock.mockRejectedValue(new Error('Validation failed'))
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-note-input"]').setValue('x')
+    await wrapper.find('[data-test="order-note-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-note-error"]').text()).toContain('Validation failed')
+  })
+
+  it('reflects the newly added note once the (simulated) invalidation-triggered refetch lands', async () => {
+    addNoteMock.mockResolvedValue(undefined)
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="order-notes-empty"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="order-note-input"]').setValue('Called customer.')
+    await wrapper.find('[data-test="order-note-submit"]').trigger('click')
+    await flushPromises()
+
+    orderNotes.value = [note({ body: 'Called customer.' })]
+    await flushPromises()
+
+    const rows = wrapper.findAll('[data-test="order-note"]')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.text()).toContain('Called customer.')
+  })
+})
+
+// ── Invoice data (Task 13d): view-graded read-only trigger + modal ──────────────────────────
+
+describe('order invoice data', () => {
+  beforeEach(() => {
+    routeState.params = { uuid: 'o1' }
+    singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+  })
+
+  it('shows the invoice trigger regardless of can_manage (view-graded)', async () => {
+    metaData.value = { ...metaData.value, can_manage: false }
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="order-invoice"]').exists()).toBe(true)
+  })
+
+  it('shows the loading state once opened', async () => {
+    invoiceDataStatus.value = 'pending'
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    await wrapper.find('[data-test="order-invoice"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="order-invoice-loading"]').exists()).toBe(true)
+  })
+
+  it('shows the error state once opened', async () => {
+    invoiceDataStatus.value = 'error'
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    await wrapper.find('[data-test="order-invoice"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="order-invoice-error"]').exists()).toBe(true)
+  })
+
+  it('renders seller, order, line items, totals, and refunds with exact money strings', async () => {
+    invoiceData.value = invoiceDataFixture({
+      refunds: [{ date: '2026-01-15 10:00:00', amount_minor: 500, method: 'original' }],
+    })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    await wrapper.find('[data-test="order-invoice"]').trigger('click')
+    await flushPromises()
+
+    const text = wrapper.text()
+    expect(text).toContain('Acme Supply Co.')
+    expect(text).toContain('ORD-2002')
+    expect(text).toContain('buyer@example.com')
+
+    const lines = wrapper.findAll('[data-test="order-invoice-line"]')
+    expect(lines).toHaveLength(1)
+    expect(lines[0]!.text()).toContain('Widget')
+    expect(lines[0]!.text()).toContain('$10.00')
+    expect(lines[0]!.text()).toContain('$20.00')
+
+    expect(wrapper.find('[data-test="order-invoice-total-grand"]').text()).toContain('$25.00')
+
+    const refunds = wrapper.findAll('[data-test="order-invoice-refund"]')
+    expect(refunds).toHaveLength(1)
+    expect(refunds[0]!.text()).toContain('$5.00')
+  })
+
+  it('renders a null seller identity as present-but-empty, never crashing', async () => {
+    invoiceData.value = invoiceDataFixture({ seller: { name: null, address: null, tax_id: null } })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    await wrapper.find('[data-test="order-invoice"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-invoice-error"]').exists()).toBe(false)
   })
 })
 

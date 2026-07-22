@@ -40,7 +40,7 @@ describe('useCommerceOrderMutations invalidation', () => {
     // The colada mock spreads each mutation's options onto its return value, exposing
     // onSettled; the real return type doesn't carry it, hence the cast.
     const mutations = useCommerceOrderMutations() as unknown as Record<
-      'cancel' | 'markPaid' | 'fulfill' | 'refund',
+      'cancel' | 'markPaid' | 'fulfill' | 'refund' | 'addNote',
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
     return { mutations, qk }
@@ -139,5 +139,32 @@ describe('useCommerceOrderMutations invalidation', () => {
       [{ key: qk.commerceOrderRefunds('o7') }],
       [{ key: qk.commerceRefunds() }],
     ])
+  })
+
+  // ── addNote (Task 13d): ONLY the notes key ──────────────────────────────────────────────────
+  // Unlike every lifecycle action above, adding a note changes no field OrdersTable or the order
+  // detail's own primary fields render through `qk.commerceOrder()` — it invalidates ONLY its own
+  // `qk.commerceOrderNotes()` key, mirroring commerceCatalog.ts's variant/media/stock mutations
+  // that invalidate a single narrow key rather than cascading to the list.
+
+  it('addNote invalidates ONLY the order notes key', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.addNote.onSettled?.(undefined, undefined, {
+      uuid: 'o8',
+      input: { body: 'Called customer.' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceOrderNotes('o8') }]])
+  })
+
+  it('addNote still invalidates the notes key when the mutation itself failed (a 422, say)', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.addNote.onSettled?.(
+      undefined,
+      new Error('notify requires visibility to be customer.'),
+      { uuid: 'o9', input: { body: 'x', visibility: 'internal', notify: true } },
+    )
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceOrderNotes('o9') }]])
   })
 })

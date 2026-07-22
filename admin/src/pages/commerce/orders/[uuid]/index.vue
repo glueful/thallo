@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import type { TableColumn } from '@nuxt/ui'
 import {
   useCommerceOrder,
   useOrderRefunds,
+  useOrderInvoiceData,
   type CommerceOrderAddress,
   type CommerceOrderLine,
 } from '@/queries/commerceOrders'
 import { useCommerceMeta } from '@/queries/commerceMeta'
 import { useMoney } from '@/composables/useMoney'
 import OrderActions from '../components/OrderActions.vue'
+import OrderNotes from '../components/OrderNotes.vue'
 
 const route = useRoute()
 const uuid = computed(() => String(route.params.uuid))
@@ -20,6 +22,13 @@ const { data: refunds, status: refundsStatus } = useOrderRefunds(uuid)
 const { data: meta } = useCommerceMeta()
 const canManage = computed(() => meta.value?.can_manage ?? false)
 const { format } = useMoney()
+
+// Invoice data (Task 13d): view-graded (AdminRouteCatalog 'orders.invoice_data' -> 'view') —
+// the trigger is visible regardless of canManage. Fetched lazily: `enabled` is gated on
+// `invoiceOpen` so the request only fires once the modal is actually opened, mirroring
+// `useCommerceProduct()`'s identical on-demand `enabled` parameter.
+const invoiceOpen = ref(false)
+const { data: invoice, status: invoiceStatus } = useOrderInvoiceData(uuid, invoiceOpen)
 
 // useMoney().format() throws until /commerce/meta resolves — guard so an unsettled meta query
 // (still pending on first paint) never crashes the render (mirrors ProductForm.vue).
@@ -156,6 +165,17 @@ const billingDisplay = computed(() => {
         </template>
         <template #title>{{ order?.order_number ?? 'Order' }}</template>
         <template #right>
+          <UButton
+            v-if="order"
+            variant="ghost"
+            color="neutral"
+            size="sm"
+            icon="i-lucide-receipt"
+            data-test="order-invoice"
+            @click="invoiceOpen = true"
+          >
+            Invoice
+          </UButton>
           <UBadge
             v-if="order"
             :color="statusColor(order.status)"
@@ -357,7 +377,108 @@ const billingDisplay = computed(() => {
             </li>
           </ul>
         </UCard>
+
+        <!-- Notes (Task 13d): list is view-graded (always visible); the add-note form is
+             manage-graded, hidden for a view-only user inside OrderNotes itself. -->
+        <OrderNotes :order-uuid="uuid" :can-manage="canManage" />
       </div>
+
+      <!-- Invoice data (Task 13d): view-graded read-only modal, fetched lazily once opened. Lives
+           inside the SAME #body slot as everything above -- UDashboardPanel's default slot has a
+           fallback that renders #header/#body/#footer itself, but that fallback is skipped
+           entirely once the caller supplies ANY default-slot content, so this modal must stay
+           nested inside a named slot, never a bare sibling of <UDashboardPanel>. -->
+      <UModal v-model:open="invoiceOpen" title="Invoice data" :ui="{ content: 'sm:max-w-2xl' }">
+      <template #body>
+        <div data-test="order-invoice-modal" class="flex flex-col gap-4 text-sm">
+          <div
+            v-if="invoiceStatus === 'pending'"
+            class="flex justify-center py-6"
+            data-test="order-invoice-loading"
+          >
+            <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
+          </div>
+          <UAlert
+            v-else-if="invoiceStatus === 'error'"
+            color="error"
+            variant="subtle"
+            icon="i-lucide-triangle-alert"
+            title="Couldn’t load invoice data"
+            description="Something went wrong loading this order's invoice data. Try again."
+            data-test="order-invoice-error"
+          />
+          <template v-else-if="invoice">
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div>
+                <h4 class="mb-1 text-xs font-medium uppercase text-muted">Seller</h4>
+                <p data-test="order-invoice-seller-name">{{ invoice.seller.name ?? '—' }}</p>
+                <p v-if="invoice.seller.address" class="text-muted">{{ invoice.seller.address }}</p>
+                <p v-if="invoice.seller.tax_id" class="text-muted">{{ invoice.seller.tax_id }}</p>
+              </div>
+              <div>
+                <h4 class="mb-1 text-xs font-medium uppercase text-muted">Order</h4>
+                <p>{{ invoice.order.number ?? '—' }} · {{ invoice.order.status ?? '—' }}</p>
+                <p class="text-muted">{{ invoice.buyer.email ?? '—' }}</p>
+                <p class="text-muted">{{ fmtDateTime(invoice.order.dates.placed_at ?? invoice.order.dates.created_at) }}</p>
+              </div>
+            </div>
+
+            <UTable
+              :data="invoice.lines"
+              :columns="[
+                { accessorKey: 'name', header: 'Product' },
+                { accessorKey: 'sku', header: 'SKU' },
+                { accessorKey: 'quantity', header: 'Qty' },
+                { accessorKey: 'unit_minor', header: 'Unit price' },
+                { accessorKey: 'subtotal_minor', header: 'Subtotal' },
+              ]"
+              :ui="{ td: 'align-middle' }"
+            >
+              <template #name-cell="{ row }">
+                <span data-test="order-invoice-line" class="font-medium text-default">
+                  {{ row.original.name }} ({{ row.original.sku }}, {{ money(row.original.unit_minor) }},
+                  {{ money(row.original.subtotal_minor) }})
+                </span>
+              </template>
+              <template #unit_minor-cell="{ row }">{{ money(row.original.unit_minor) }}</template>
+              <template #subtotal_minor-cell="{ row }">{{ money(row.original.subtotal_minor) }}</template>
+            </UTable>
+
+            <dl class="grid grid-cols-2 gap-y-2 sm:max-w-xs">
+              <dt class="text-muted">Subtotal</dt>
+              <dd class="text-right" data-test="order-invoice-total-subtotal">{{ money(invoice.totals.subtotal_minor) }}</dd>
+              <dt class="text-muted">Discount</dt>
+              <dd class="text-right" data-test="order-invoice-total-discount">{{ money(invoice.totals.discount_minor) }}</dd>
+              <dt class="text-muted">Shipping</dt>
+              <dd class="text-right" data-test="order-invoice-total-shipping">{{ money(invoice.totals.shipping_minor) }}</dd>
+              <dt class="text-muted">Tax</dt>
+              <dd class="text-right" data-test="order-invoice-total-tax">{{ money(invoice.totals.tax_minor) }}</dd>
+              <dt class="text-muted">Refunded</dt>
+              <dd class="text-right" data-test="order-invoice-total-refunded">{{ money(invoice.totals.refunded_minor) }}</dd>
+              <dt class="font-medium text-default">Grand total</dt>
+              <dd class="text-right font-medium text-default" data-test="order-invoice-total-grand">
+                {{ money(invoice.totals.grand_minor) }}
+              </dd>
+            </dl>
+
+            <div v-if="invoice.refunds.length > 0">
+              <h4 class="mb-1 text-xs font-medium uppercase text-muted">Refunds</h4>
+              <ul class="flex flex-col gap-1">
+                <li
+                  v-for="(r, i) in invoice.refunds"
+                  :key="i"
+                  data-test="order-invoice-refund"
+                  class="flex items-center justify-between gap-2"
+                >
+                  <span>{{ money(r.amount_minor) }} — {{ r.method }}</span>
+                  <span class="text-muted">{{ fmtDateTime(r.date) }}</span>
+                </li>
+              </ul>
+            </div>
+          </template>
+        </div>
+      </template>
+    </UModal>
     </template>
   </UDashboardPanel>
 </template>
