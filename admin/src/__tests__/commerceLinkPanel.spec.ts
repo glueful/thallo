@@ -334,6 +334,27 @@ describe('ProductEntryLinkPanel — entry mode', () => {
     expect(unlinkOrder).toBeLessThan(linkOrder)
   })
 
+  it('messages the partial state honestly when the unlink succeeds but the follow-up link fails', async () => {
+    entryLinkData.value = link({ product_uuid: 'prodOld', entry_uuid: 'entry1' })
+    linkedProductData.value = product({ uuid: 'prodOld', name: 'Old Product' })
+    productSearchResults.value = [product({ uuid: 'prodNew', name: 'New Product' })]
+    unlinkMock.mockResolvedValue(undefined)
+    linkMock.mockRejectedValue(new ApiError('conflict', 409, {}, {}))
+    const wrapper = mountEntry('entry1')
+
+    await wrapper.find('[data-test="product-search-result"]').trigger('click')
+    await wrapper.find('[data-test="link-relink"]').trigger('click')
+    await wrapper.find('[data-test="relink-confirm-submit"]').trigger('click')
+    await flushPromises()
+
+    // The entry is genuinely unlinked now — the panel must say SO, and must NOT claim a
+    // concurrent change (the misleading 409 copy) for this move-specific partial state.
+    const notice = wrapper.find('[data-test="link-move-incomplete"]')
+    expect(notice.exists()).toBe(true)
+    expect(notice.text()).toContain('New Product')
+    expect(wrapper.find('[data-test="link-conflict"]').exists()).toBe(false)
+  })
+
   it('hides mutation controls when can_manage is false, keeping the linked-product state visible', () => {
     metaData.value = { ...metaData.value, can_manage: false }
     entryLinkData.value = link({ product_uuid: 'prodX', entry_uuid: 'entry1' })

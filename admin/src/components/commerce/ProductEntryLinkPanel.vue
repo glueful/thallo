@@ -148,7 +148,14 @@ async function submitFirstLink() {
   }
 }
 
+/**
+ * Entry-mode move partial state: the unlink succeeded but the follow-up link failed —
+ * the entry is genuinely unlinked now. Holds the target product's label for the message.
+ */
+const moveIncomplete = ref<string | null>(null)
+
 function requestRelink() {
+  moveIncomplete.value = null
   pendingRelink.value = true
 }
 function cancelRelink() {
@@ -170,10 +177,19 @@ async function confirmRelink() {
     } else if (isEntryMode.value && selectedProduct.value && currentProductUuid.value) {
       // Moving an entry to a DIFFERENT product has no single CAS'd call — the CAS token is
       // scoped to the TARGET product's own link, not this entry's previous one — so this
-      // unlinks the current product first, then links the new one. A conflict on either call
-      // surfaces the same "changed underneath you" state.
+      // unlinks the current product first, then links the new one. A failure AFTER the
+      // unlink succeeded is a distinct partial state (the entry is now unlinked, the move
+      // did not complete) and must be messaged as such — never as a concurrent-change 409.
       await unlink.mutateAsync({ productUuid: currentProductUuid.value, entryUuid: entryUuid.value })
-      await link.mutateAsync({ productUuid: selectedProduct.value.uuid, entryUuid: entryUuid.value })
+      try {
+        await link.mutateAsync({ productUuid: selectedProduct.value.uuid, entryUuid: entryUuid.value })
+      } catch (linkError) {
+        pendingRelink.value = false
+        moveIncomplete.value = selectedProduct.value?.name ?? 'the selected product'
+        resetPickers()
+        notifyError(linkError, 'Move did not complete')
+        return
+      }
     }
     pendingRelink.value = false
     resetPickers()
@@ -272,6 +288,16 @@ async function confirmUnlink() {
           <p v-else class="text-sm text-muted" data-test="link-none">Not linked to any product yet.</p>
         </template>
       </div>
+
+      <UAlert
+        v-if="moveIncomplete"
+        color="warning"
+        variant="subtle"
+        icon="i-lucide-unlink"
+        title="The entry is now unlinked."
+        :description="`The previous link was removed, but linking to ${moveIncomplete} did not complete. Link again to finish the move.`"
+        data-test="link-move-incomplete"
+      />
 
       <UAlert
         v-if="conflict"
