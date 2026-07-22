@@ -210,6 +210,23 @@ final class AdminMountParityTest extends AppTestCase
         }
     }
 
+    public function testAManageModeGateIsTraversedLiveThroughTheRealKernel(): void
+    {
+        // The GET smoke above only crosses view-mode gates. Drive one manage-mode route
+        // (products.store) end-to-end: the empty body may 422 on DTO validation, but the
+        // request must get PAST auth + workspace binding + content_permission:commerce.manage —
+        // i.e. never 401/403/404. (T7's authorization matrix adds the valid-DTO success case.)
+        $key = $this->seedAdminManageApiKey();
+
+        $response = $this->handle($this->apiKeyRequest('POST', '/v1/admin/commerce/products', $key));
+        self::assertNotContains(
+            $response->getStatusCode(),
+            [401, 403, 404],
+            'manage-mode gate must be traversed (auth + binding + permission passed): '
+                . $response->getContent(),
+        );
+    }
+
     // -- helpers --------------------------------------------------------------------------------
 
     /** @return array<string,string> catalog key => mode */
