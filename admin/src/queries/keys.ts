@@ -55,4 +55,6 @@ export const qk = {
   commerceShippingClass: (uuid: string) => ['commerce-shipping-class', uuid] as const,
   commerceTaxRates: () => ['commerce-tax-rates'] as const,
   commerceTaxRate: (uuid: string) => ['commerce-tax-rate', uuid] as const,
+  commerceReviews: () => ['commerce-reviews'] as const,
+  commerceReview: (uuid: string) => ['commerce-review', uuid] as const,
 }

@@ -8,7 +8,7 @@ import { commerceModule } from '@/registry/commerceModule'
 // linking had both landed — the first user-visible nav entry for the whole area. Task 13a appends
 // Orders to the SAME Commerce group rather than registering a second top-level entry. Task 14
 // appends Discounts the same way. Task 15a appends Settings the same way once its first tab
-// (Shipping zones) is green.
+// (Shipping zones) is green. Task 16 appends Reviews the same way once moderation is green.
 describe('commerce admin module gating (thallo.commerce capability)', () => {
   it('is registered with the correct id and capability requirement', () => {
     expect(commerceModule.id).toBe('commerce')
@@ -21,7 +21,7 @@ describe('commerce admin module gating (thallo.commerce capability)', () => {
     expect(utilities).toEqual([])
   })
 
-  it('contributes Commerce → Products, Orders, Discounts, Settings when thallo.commerce IS visible', () => {
+  it('contributes Commerce → Products, Orders, Discounts, Settings, Reviews when thallo.commerce IS visible', () => {
     const [main, utilities] = visibleNav((id) => id === 'thallo.commerce', [commerceModule])
     expect(utilities).toEqual([])
     expect(main).toEqual([
@@ -34,6 +34,7 @@ describe('commerce admin module gating (thallo.commerce capability)', () => {
           { label: 'Orders', to: '/commerce/orders' },
           { label: 'Discounts', to: '/commerce/discounts' },
           { label: 'Settings', to: '/commerce/settings' },
+          { label: 'Reviews', to: '/commerce/reviews' },
         ],
       },
     ])
