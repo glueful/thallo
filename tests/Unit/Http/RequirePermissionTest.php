@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Unit\Http;
 
+use App\Content\Authorization\PermissionRequirementAuthority;
 use App\Content\Http\RequirePermission;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
@@ -86,33 +87,33 @@ final class RequirePermissionTest extends TestCase
 
     public function testResourceForDerivesLocaleScopedResourceFromRouteParam(): void
     {
-        $mw = new RequirePermission($this->contextWithoutContainer());
+        $authority = new PermissionRequirementAuthority($this->contextWithoutContainer());
         $request = new Request();
         $request->attributes->set('_route_params', ['uuid' => 'e1abcdefghij', 'locale' => 'fr']);
 
-        self::assertSame('locale:fr', $this->resourceFor($mw, $request));
+        self::assertSame('locale:fr', $this->resourceFor($authority, $request));
     }
 
     public function testResourceForFallsBackToCoarseWithoutLocaleParam(): void
     {
-        $mw = new RequirePermission($this->contextWithoutContainer());
+        $authority = new PermissionRequirementAuthority($this->contextWithoutContainer());
 
-        self::assertSame('thallo', $this->resourceFor($mw, new Request()));
+        self::assertSame('thallo', $this->resourceFor($authority, new Request()));
 
         $noLocale = new Request();
         $noLocale->attributes->set('_route_params', ['uuid' => 'e1abcdefghij']);
-        self::assertSame('thallo', $this->resourceFor($mw, $noLocale));
+        self::assertSame('thallo', $this->resourceFor($authority, $noLocale));
 
         $empty = new Request();
         $empty->attributes->set('_route_params', ['locale' => '']);
-        self::assertSame('thallo', $this->resourceFor($mw, $empty));
+        self::assertSame('thallo', $this->resourceFor($authority, $empty));
     }
 
-    private function resourceFor(RequirePermission $mw, Request $request): string
+    private function resourceFor(PermissionRequirementAuthority $authority, Request $request): string
     {
-        $method = new \ReflectionMethod($mw, 'resourceFor');
+        $method = new \ReflectionMethod($authority, 'resourceFor');
         $method->setAccessible(true);
-        return $method->invoke($mw, $request);
+        return $method->invoke($authority, $request);
     }
 
     private function contextWithoutContainer(): ApplicationContext

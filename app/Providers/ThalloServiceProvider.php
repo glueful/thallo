@@ -30,6 +30,8 @@ use App\Content\Authorization\CapabilityCatalog;
 use App\Content\Authorization\BuiltinRoleAvailabilityRepository;
 use App\Content\Authorization\EffectiveRoleEvaluator;
 use App\Content\Authorization\EffectiveRoleMatrix;
+use App\Content\Authorization\PermissionImplicationSource;
+use App\Content\Authorization\PermissionRequirementAuthority;
 use App\Content\Authorization\PolicyManifest;
 use App\Content\Authorization\RolePolicyDiagnostics;
 use App\Content\Authorization\RoleMatrix;
@@ -1281,6 +1283,10 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'alias' => ['content_permission'],
             ],
+            PermissionRequirementAuthority::class => [
+                'factory' => [self::class, 'makePermissionRequirementAuthority'],
+                'shared' => true,
+            ],
             AdminTenantBindingMiddleware::class => [
                 'factory' => [self::class, 'makeAdminTenantBinding'],
                 'shared' => true,
@@ -1418,6 +1424,20 @@ final class ThalloServiceProvider extends ServiceProvider
     {
         return new RequirePermission(
             $container->get(ApplicationContext::class),
+            $container->get(PermissionRequirementAuthority::class),
+        );
+    }
+
+    public static function makePermissionRequirementAuthority(
+        ContainerInterface $container,
+    ): PermissionRequirementAuthority {
+        return new PermissionRequirementAuthority(
+            $container->get(ApplicationContext::class),
+            // Identity implications until a declarative source is bound (the capability
+            // catalog becomes the production PermissionImplicationSource).
+            $container->has(PermissionImplicationSource::class)
+                ? $container->get(PermissionImplicationSource::class)
+                : null,
             $container->get(TenantMembershipRoleReader::class),
             $container->get(EffectiveRoleMatrix::class),
             $container->get(OperatorBypass::class),
