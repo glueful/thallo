@@ -97,14 +97,14 @@ function normalizeVariant(raw: Record<string, unknown>): CommerceVariant {
   return {
     uuid: String(raw.uuid ?? ''),
     sku: String(raw.sku ?? ''),
-    price: typeof raw.price === 'number' ? raw.price : Number(raw.price ?? 0),
-    compare_at_price:
-      raw.compare_at_price === null || raw.compare_at_price === undefined
-        ? null
-        : Number(raw.compare_at_price),
+    // Amounts are JSON numbers from the API; anything else is malformed and becomes the
+    // neutral fallback rather than a silently Number()-coerced guess (money display goes
+    // through useMoney, which rejects unsafe values — keep this boundary equally strict).
+    price: typeof raw.price === 'number' ? raw.price : 0,
+    compare_at_price: typeof raw.compare_at_price === 'number' ? raw.compare_at_price : null,
     currency: String(raw.currency ?? ''),
     status: String(raw.status ?? 'active'),
-    position: typeof raw.position === 'number' ? raw.position : Number(raw.position ?? 0),
+    position: typeof raw.position === 'number' ? raw.position : 0,
   }
 }
 
