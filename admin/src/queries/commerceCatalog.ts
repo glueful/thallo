@@ -128,6 +128,38 @@ export interface StockAdjustResult {
   quantity: number
 }
 
+export const MEDIA_ROLES = ['cover', 'gallery'] as const
+export type CommerceMediaRole = (typeof MEDIA_ROLES)[number]
+
+/** A `commerce_product_media` row (AttachMediaData/UpdateMediaData, design spec Layer 6 §2). There
+ * is no admin GET for a product's media list — attach returns only the single created row, and
+ * reorder is the one endpoint that ever returns the full set — so the SPA tracks known rows itself
+ * from mutation responses, exactly like `setProductChildren`'s children list. */
+export interface CommerceProductMedia {
+  uuid: string
+  product_uuid: string
+  variant_uuid: string | null
+  blob_uuid: string
+  role: string
+  position: number
+  alt: string | null
+}
+
+/** `POST /commerce/products/{uuid}/media` body (AttachMediaData). */
+export interface AttachMediaInput {
+  blob_uuid: string
+  role?: string
+  alt?: string | null
+  variant_uuid?: string | null
+}
+
+/** `PATCH /commerce/media/{uuid}` body (UpdateMediaData) — only present keys are applied. */
+export interface UpdateProductMediaInput {
+  role?: string | null
+  alt?: string | null
+  position?: number | null
+}
+
 // The admin envelopes are doc-only in the OpenAPI schema (see collections.ts's identical note), so
 // normalize the raw JSON into the stricter hand-written shapes above at the boundary.
 function normalizeVariant(raw: Record<string, unknown>): CommerceVariant {
@@ -142,6 +174,18 @@ function normalizeVariant(raw: Record<string, unknown>): CommerceVariant {
     currency: String(raw.currency ?? ''),
     status: String(raw.status ?? 'active'),
     position: typeof raw.position === 'number' ? raw.position : 0,
+  }
+}
+
+function normalizeMedia(raw: Record<string, unknown>): CommerceProductMedia {
+  return {
+    uuid: String(raw.uuid ?? ''),
+    product_uuid: String(raw.product_uuid ?? ''),
+    variant_uuid: typeof raw.variant_uuid === 'string' ? raw.variant_uuid : null,
+    blob_uuid: String(raw.blob_uuid ?? ''),
+    role: String(raw.role ?? 'gallery'),
+    position: typeof raw.position === 'number' ? raw.position : 0,
+    alt: typeof raw.alt === 'string' ? raw.alt : null,
   }
 }
 
@@ -312,6 +356,59 @@ export async function adjustVariantStock(
   }
 }
 
+export async function attachProductMedia(
+  productUuid: string,
+  input: AttachMediaInput,
+): Promise<CommerceProductMedia> {
+  const { data, error, response } = await client.POST('/commerce/products/{uuid}/media', {
+    params: { path: { uuid: productUuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeMedia((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function updateProductMedia(
+  mediaUuid: string,
+  input: UpdateProductMediaInput,
+): Promise<CommerceProductMedia> {
+  const { data, error, response } = await client.PATCH('/commerce/media/{uuid}', {
+    params: { path: { uuid: mediaUuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeMedia((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function detachProductMedia(mediaUuid: string): Promise<void> {
+  const { error, response } = await client.DELETE('/commerce/media/{uuid}', {
+    params: { path: { uuid: mediaUuid } },
+  })
+  if (error) throw toApiError(error, response)
+}
+
+/** `PUT /commerce/products/{uuid}/media/order` (ReorderMediaData) — the backend wants
+ * `positions: [{uuid, position}]`, not a bare uuid array, so this derives that shape from a plain
+ * ordered uuid list (position = its array index). Callers must pass EVERY visible media uuid: the
+ * service only repositions entries present in the list, so a partial list would silently leave the
+ * omitted rows' positions unchanged. Returns the fresh ordered list — the only source of truth for
+ * a product's media the SPA ever gets back (mirrors `setProductChildren`'s note). */
+export async function reorderProductMedia(
+  productUuid: string,
+  orderedUuids: string[],
+): Promise<CommerceProductMedia[]> {
+  const positions = orderedUuids.map((uuid, index) => ({ uuid, position: index }))
+  const { data, error, response } = await client.PUT('/commerce/products/{uuid}/media/order', {
+    params: { path: { uuid: productUuid } },
+    body: { positions } as never,
+  })
+  if (error) throw toApiError(error, response)
+  const rows = (data as { data?: unknown[] } | undefined)?.data
+  return Array.isArray(rows) ? rows.map((m) => normalizeMedia(m as Record<string, unknown>)) : []
+}
+
 // ── Query/mutation wrappers ──────────────────────────────────────────────────
 
 export function useCommerceProducts(filters: MaybeRefOrGetter<ProductListFilters>) {
@@ -399,6 +496,27 @@ export function useCommerceProductMutations() {
     stockAdjust: useMutation({
       mutation: (vars: { variantUuid: string; productUuid: string; input: StockAdjustInput }) =>
         adjustVariantStock(vars.variantUuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+    }),
+    // Task 10c: media mutations, same invalidation reasoning as variants/children/stock above —
+    // every one of these vars carries the owning `productUuid` explicitly.
+    attachMedia: useMutation({
+      mutation: (vars: { productUuid: string; input: AttachMediaInput }) =>
+        attachProductMedia(vars.productUuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+    }),
+    updateMedia: useMutation({
+      mutation: (vars: { uuid: string; productUuid: string; input: UpdateProductMediaInput }) =>
+        updateProductMedia(vars.uuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+    }),
+    detachMedia: useMutation({
+      mutation: (vars: { uuid: string; productUuid: string }) => detachProductMedia(vars.uuid),
+      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+    }),
+    reorderMedia: useMutation({
+      mutation: (vars: { productUuid: string; orderedUuids: string[] }) =>
+        reorderProductMedia(vars.productUuid, vars.orderedUuids),
       onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
     }),
   }

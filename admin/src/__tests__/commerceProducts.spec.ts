@@ -29,6 +29,12 @@ vi.mock('@/queries/commerceMeta', () => ({
 const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
 vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
 
+// MediaPanel's thumbnails resolve blob uuids through this helper — deterministic path, no need
+// for the real runtime-config-derived URL (mirrors assetFieldLibrary.spec.ts's mock).
+vi.mock('@/queries/media', () => ({
+  blobDisplayUrl: (uuid: string) => `/blobs/${uuid}`,
+}))
+
 const routeState = vi.hoisted(() => ({
   params: {} as Record<string, string>,
   query: {} as Record<string, string>,
@@ -61,6 +67,10 @@ const updateVariantMock = vi.hoisted(() => vi.fn())
 const bulkPriceMock = vi.hoisted(() => vi.fn())
 const setChildrenMock = vi.hoisted(() => vi.fn())
 const stockAdjustMock = vi.hoisted(() => vi.fn())
+const attachMediaMock = vi.hoisted(() => vi.fn())
+const updateMediaMock = vi.hoisted(() => vi.fn())
+const detachMediaMock = vi.hoisted(() => vi.fn())
+const reorderMediaMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceCatalog')>()
@@ -78,6 +88,10 @@ vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
       bulkPrice: { mutateAsync: bulkPriceMock, isLoading: ref(false) },
       setChildren: { mutateAsync: setChildrenMock, isLoading: ref(false) },
       stockAdjust: { mutateAsync: stockAdjustMock, isLoading: ref(false) },
+      attachMedia: { mutateAsync: attachMediaMock, isLoading: ref(false) },
+      updateMedia: { mutateAsync: updateMediaMock, isLoading: ref(false) },
+      detachMedia: { mutateAsync: detachMediaMock, isLoading: ref(false) },
+      reorderMedia: { mutateAsync: reorderMediaMock, isLoading: ref(false) },
     }),
   }
 })
@@ -85,10 +99,11 @@ vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
 import ProductsTable from '@/pages/commerce/products/components/ProductsTable.vue'
 import ProductForm from '@/pages/commerce/products/components/ProductForm.vue'
 import VariantsPanel from '@/pages/commerce/products/components/VariantsPanel.vue'
+import MediaPanel from '@/pages/commerce/products/components/MediaPanel.vue'
 import ProductsIndex from '@/pages/commerce/products/index.vue'
 import ProductDetail from '@/pages/commerce/products/[uuid]/index.vue'
 import { ApiError } from '@/api/errors'
-import type { CommerceVariant } from '@/queries/commerceCatalog'
+import type { CommerceVariant, CommerceProductMedia } from '@/queries/commerceCatalog'
 
 function product(overrides: Partial<CommerceProduct> = {}): CommerceProduct {
   return {
@@ -119,11 +134,37 @@ function variant(overrides: Partial<CommerceVariant> = {}): CommerceVariant {
   }
 }
 
+function media(overrides: Partial<CommerceProductMedia> = {}): CommerceProductMedia {
+  return {
+    uuid: 'm1',
+    product_uuid: 'p1',
+    variant_uuid: null,
+    blob_uuid: 'blob-1',
+    role: 'gallery',
+    position: 0,
+    alt: null,
+    ...overrides,
+  }
+}
+
 const RouterLinkStub = { props: ['to'], template: '<a :href="to"><slot /></a>' }
 // UModal/USlideover teleport their body/footer out of the wrapper — stub both to render the
 // slots inline, mirroring collectionsFieldEditor.spec.ts's DropConfirmModal precedent.
 const teleportStub = { props: ['open'], template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>' }
 const pageStubs = { RouterLink: RouterLinkStub, Modal: teleportStub, Slideover: teleportStub }
+
+// MediaPanel reuses the app's asset picker (MediaPickerModal — see AssetField.vue) rather than
+// building a new uploader. Its own upload/library behavior is exercised in assetFieldLibrary.spec.ts;
+// here it's stubbed down to the one thing MediaPanel depends on: opening on demand and emitting a
+// chosen blob uuid through `select`.
+const MediaPickerModalStub = {
+  props: ['open', 'multiple', 'initialTab'],
+  emits: ['select', 'update:open'],
+  template:
+    '<div v-if="open" data-test="media-picker-stub">' +
+    '<button type="button" data-test="media-picker-stub-pick" @click="$emit(\'select\', \'blob-new\')">Pick</button>' +
+    '</div>',
+}
 
 /** Find the Reka SelectRoot ancestor of a USelect carrying `dataTest`, and drive it directly —
  * USelect's options render in a portal, so opening the dropdown in jsdom is unreliable; emitting
@@ -161,6 +202,10 @@ beforeEach(() => {
   bulkPriceMock.mockReset()
   setChildrenMock.mockReset()
   stockAdjustMock.mockReset()
+  attachMediaMock.mockReset()
+  updateMediaMock.mockReset()
+  detachMediaMock.mockReset()
+  reorderMediaMock.mockReset()
   notify.success.mockReset()
   notify.warning.mockReset()
   notify.error.mockReset()
@@ -458,6 +503,25 @@ describe('commerce product detail page', () => {
 
     expect(wrapper.find('[data-test="variant-row"]').exists()).toBe(true)
   })
+
+  it('switches to the Media tab and renders MediaPanel', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget' })
+    const wrapper = mount(ProductDetail, {
+      global: { stubs: { ...pageStubs, MediaPickerModal: MediaPickerModalStub } },
+    })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(false)
+
+    // reka-ui's TabsTrigger activates on mousedown (or focus/keydown), not `click` — see
+    // TabsTrigger.vue's `@mousedown.left` handler.
+    const tabs = wrapper.findAll('[role="tab"]')
+    const mediaTab = tabs.find((t) => t.text() === 'Media')
+    await mediaTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(true)
+  })
 })
 
 // ── VariantsPanel: variant lifecycle, bulk price, stock, children ──────────────────────────
@@ -665,5 +729,198 @@ describe('VariantsPanel', () => {
     const wrapper = mountPanel(product({ type: 'grouped' }), false)
     expect(wrapper.find('[data-test="children-section"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="children-save"]').exists()).toBe(false)
+  })
+})
+
+// ── MediaPanel: attach/reorder/update/detach, stable ordering, read-only, rollback ─────────
+
+describe('MediaPanel', () => {
+  function mountPanel(p: CommerceProduct, canManage = true) {
+    return mount(MediaPanel, {
+      props: { product: p, canManage },
+      global: { stubs: { MediaPickerModal: MediaPickerModalStub } },
+    })
+  }
+
+  async function attachOne(wrapper: ReturnType<typeof mount>) {
+    await wrapper.find('[data-test="media-add"]').trigger('click')
+    await wrapper.find('[data-test="media-picker-stub-pick"]').trigger('click')
+    await flushPromises()
+  }
+
+  it('shows the empty state when there is no media yet', () => {
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+    expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="media-row"]').exists()).toBe(false)
+  })
+
+  it('attaches media via the picker and renders the row', async () => {
+    attachMediaMock.mockResolvedValue(media({ uuid: 'm1', blob_uuid: 'blob-1', role: 'gallery' }))
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await attachOne(wrapper)
+
+    expect(attachMediaMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      input: { blob_uuid: 'blob-new', role: 'gallery' },
+    })
+    expect(wrapper.findAll('[data-test="media-row"]')).toHaveLength(1)
+    expect(wrapper.find('[data-test="media-thumb"]').attributes('src')).toBe('/blobs/blob-1')
+  })
+
+  it('surfaces the "blob already attached" 422 message on attach failure', async () => {
+    attachMediaMock.mockRejectedValue(
+      new ApiError('Validation failed', 422, { blob_uuid: 'This blob is already attached to the product.' }, {}),
+    )
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+
+    await attachOne(wrapper)
+
+    expect(wrapper.find('[data-test="media-attach-error"]').text()).toContain(
+      'This blob is already attached to the product.',
+    )
+    expect(wrapper.find('[data-test="media-row"]').exists()).toBe(false)
+  })
+
+  it('updates alt text via the inline edit form', async () => {
+    attachMediaMock.mockResolvedValue(media({ uuid: 'm1', blob_uuid: 'blob-1', role: 'gallery' }))
+    updateMediaMock.mockResolvedValue(media({ uuid: 'm1', blob_uuid: 'blob-1', role: 'gallery', alt: 'Front view' }))
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+    await attachOne(wrapper)
+
+    await wrapper.find('[data-test="media-edit"]').trigger('click')
+    await wrapper.find('[data-test="media-edit-alt-input"]').setValue('Front view')
+    await wrapper.find('[data-test="media-edit-save"]').trigger('click')
+    await flushPromises()
+
+    expect(updateMediaMock).toHaveBeenCalledWith({
+      uuid: 'm1',
+      productUuid: 'p1',
+      input: { alt: 'Front view', role: 'gallery' },
+    })
+    expect(wrapper.find('[data-test="media-alt"]').text()).toContain('Front view')
+  })
+
+  it('surfaces a validation 422 message on media update', async () => {
+    attachMediaMock.mockResolvedValue(media({ uuid: 'm1' }))
+    updateMediaMock.mockRejectedValue(new ApiError('Validation failed', 422, { alt: 'Alt text too long.' }, {}))
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+    await attachOne(wrapper)
+
+    await wrapper.find('[data-test="media-edit"]').trigger('click')
+    await wrapper.find('[data-test="media-edit-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="media-edit-error"]').text()).toContain('Alt text too long.')
+  })
+
+  it('promotes a row to cover and demotes the previously-known local cover', async () => {
+    attachMediaMock
+      .mockResolvedValueOnce(media({ uuid: 'm1', blob_uuid: 'blob-1', role: 'cover', position: 0 }))
+      .mockResolvedValueOnce(media({ uuid: 'm2', blob_uuid: 'blob-2', role: 'gallery', position: 1 }))
+    updateMediaMock.mockResolvedValue(media({ uuid: 'm2', blob_uuid: 'blob-2', role: 'cover', position: 1 }))
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+    await attachOne(wrapper)
+    await attachOne(wrapper)
+
+    await wrapper.findAll('[data-test="media-edit"]')[1]!.trigger('click')
+    selectByTestId(wrapper, 'media-edit-role-input').vm.$emit('update:modelValue', 'cover')
+    await wrapper.find('[data-test="media-edit-save"]').trigger('click')
+    await flushPromises()
+
+    expect(updateMediaMock).toHaveBeenCalledWith({
+      uuid: 'm2',
+      productUuid: 'p1',
+      input: { alt: null, role: 'cover' },
+    })
+    const badges = wrapper.findAll('[data-test="media-role-badge"]')
+    expect(badges.map((b) => b.text())).toEqual(['gallery', 'cover'])
+  })
+
+  it('detaches media and removes the row', async () => {
+    attachMediaMock.mockResolvedValue(media({ uuid: 'm1' }))
+    detachMediaMock.mockResolvedValue(undefined)
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+    await attachOne(wrapper)
+    expect(wrapper.findAll('[data-test="media-row"]')).toHaveLength(1)
+
+    await wrapper.find('[data-test="media-detach"]').trigger('click')
+    await flushPromises()
+
+    expect(detachMediaMock).toHaveBeenCalledWith({ uuid: 'm1', productUuid: 'p1' })
+    expect(wrapper.find('[data-test="media-row"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(true)
+  })
+
+  it('renders media rows ordered by position and reorders with the full uuid list on move', async () => {
+    attachMediaMock
+      .mockResolvedValueOnce(media({ uuid: 'm1', blob_uuid: 'blob-1', position: 0 }))
+      .mockResolvedValueOnce(media({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }))
+    reorderMediaMock.mockResolvedValue([
+      media({ uuid: 'm2', blob_uuid: 'blob-2', position: 0 }),
+      media({ uuid: 'm1', blob_uuid: 'blob-1', position: 1 }),
+    ])
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+    await attachOne(wrapper)
+    await attachOne(wrapper)
+
+    expect(wrapper.findAll('[data-test="media-row"]').map((r) => r.attributes('data-uuid'))).toEqual([
+      'm1',
+      'm2',
+    ])
+
+    await wrapper.findAll('[data-test="media-move-down"]')[0]!.trigger('click')
+    await flushPromises()
+
+    expect(reorderMediaMock).toHaveBeenCalledWith({ productUuid: 'p1', orderedUuids: ['m2', 'm1'] })
+    expect(wrapper.findAll('[data-test="media-row"]').map((r) => r.attributes('data-uuid'))).toEqual([
+      'm2',
+      'm1',
+    ])
+  })
+
+  it('rolls back an optimistic reorder when the mutation fails', async () => {
+    attachMediaMock
+      .mockResolvedValueOnce(media({ uuid: 'm1', blob_uuid: 'blob-1', position: 0 }))
+      .mockResolvedValueOnce(media({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }))
+    reorderMediaMock.mockRejectedValue(new ApiError('Validation failed', 422, {}, {}))
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+    await attachOne(wrapper)
+    await attachOne(wrapper)
+
+    await wrapper.findAll('[data-test="media-move-down"]')[0]!.trigger('click')
+    await flushPromises()
+
+    expect(reorderMediaMock).toHaveBeenCalledWith({ productUuid: 'p1', orderedUuids: ['m2', 'm1'] })
+    // Reverted to the pre-reorder order once the mutation rejects.
+    expect(wrapper.findAll('[data-test="media-row"]').map((r) => r.attributes('data-uuid'))).toEqual([
+      'm1',
+      'm2',
+    ])
+  })
+
+  it('hides mutation controls when can_manage is false, keeping media rows visible', async () => {
+    attachMediaMock
+      .mockResolvedValueOnce(media({ uuid: 'm1', position: 0 }))
+      .mockResolvedValueOnce(media({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }))
+    const wrapper = mountPanel(product({ uuid: 'p1' }))
+    await attachOne(wrapper)
+    await attachOne(wrapper)
+    expect(wrapper.find('[data-test="media-move-down"]').exists()).toBe(true)
+
+    await wrapper.setProps({ canManage: false })
+
+    expect(wrapper.find('[data-test="media-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="media-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="media-detach"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="media-move-up"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="media-move-down"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-test="media-row"]')).toHaveLength(2)
+  })
+
+  it('hides the Add media button when can_manage is false with no media yet', () => {
+    const wrapper = mountPanel(product({ uuid: 'p1' }), false)
+    expect(wrapper.find('[data-test="media-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(true)
   })
 })

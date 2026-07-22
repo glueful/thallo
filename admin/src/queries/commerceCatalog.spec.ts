@@ -541,4 +541,180 @@ describe('commerce catalog query layer', () => {
       quantity: 'Stock cannot go below zero.',
     })
   })
+
+  // ── Task 10c: media attach/update/detach/reorder ──────────────────────────────────────────
+
+  it('attaches media and returns the normalized record', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: true,
+          message: 'Media attached',
+          data: {
+            uuid: 'm1',
+            product_uuid: 'p1',
+            variant_uuid: null,
+            blob_uuid: 'blob-1',
+            role: 'gallery',
+            position: 0,
+            alt: null,
+          },
+        },
+        201,
+      ),
+    )
+
+    const { attachProductMedia } = await import('@/queries/commerceCatalog')
+    const media = await attachProductMedia('p1', { blob_uuid: 'blob-1' })
+
+    expect(media.uuid).toBe('m1')
+    expect(media.blob_uuid).toBe('blob-1')
+    expect(media.role).toBe('gallery')
+    expect(media.position).toBe(0)
+  })
+
+  it('sends the attach request body exactly as given', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Media attached',
+        data: { uuid: 'm1', product_uuid: 'p1', variant_uuid: null, blob_uuid: 'blob-1', role: 'cover', position: 0, alt: 'Front view' },
+      }),
+    )
+
+    const { attachProductMedia } = await import('@/queries/commerceCatalog')
+    await attachProductMedia('p1', { blob_uuid: 'blob-1', role: 'cover', alt: 'Front view' })
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({ blob_uuid: 'blob-1', role: 'cover', alt: 'Front view' })
+  })
+
+  it('surfaces the "blob already attached" constraint from a 422', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { blob_uuid: 'This blob is already attached to the product.' } },
+        },
+        422,
+      ),
+    )
+
+    const { attachProductMedia } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await attachProductMedia('p1', { blob_uuid: 'blob-1' })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      blob_uuid: 'This blob is already attached to the product.',
+    })
+  })
+
+  it('updates a media row by uuid', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Media updated',
+        data: { uuid: 'm1', product_uuid: 'p1', variant_uuid: null, blob_uuid: 'blob-1', role: 'cover', position: 0, alt: 'Updated alt' },
+      }),
+    )
+
+    const { updateProductMedia } = await import('@/queries/commerceCatalog')
+    const media = await updateProductMedia('m1', { alt: 'Updated alt', role: 'cover' })
+    expect(media.alt).toBe('Updated alt')
+    expect(media.role).toBe('cover')
+  })
+
+  it('throws ApiError when a media update fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Not found' }, 404),
+    )
+
+    const { updateProductMedia } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(updateProductMedia('missing', { alt: 'x' })).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('detaches media with no return value', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+
+    const { detachProductMedia } = await import('@/queries/commerceCatalog')
+    await expect(detachProductMedia('m1')).resolves.toBeUndefined()
+  })
+
+  it('throws ApiError when detach fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Not found' }, 404),
+    )
+
+    const { detachProductMedia } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(detachProductMedia('missing')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('reorders media and returns the normalized ordered list', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Media reordered',
+        data: [
+          { uuid: 'm2', product_uuid: 'p1', variant_uuid: null, blob_uuid: 'blob-2', role: 'gallery', position: 0, alt: null },
+          { uuid: 'm1', product_uuid: 'p1', variant_uuid: null, blob_uuid: 'blob-1', role: 'cover', position: 1, alt: null },
+        ],
+      }),
+    )
+
+    const { reorderProductMedia } = await import('@/queries/commerceCatalog')
+    const media = await reorderProductMedia('p1', ['m2', 'm1'])
+    expect(media.map((m) => m.uuid)).toEqual(['m2', 'm1'])
+  })
+
+  it('sends the reorder request body as positions with every uuid and its index', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ success: true, message: 'Media reordered', data: [] }))
+
+    const { reorderProductMedia } = await import('@/queries/commerceCatalog')
+    await reorderProductMedia('p1', ['m3', 'm1', 'm2'])
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({
+      positions: [
+        { uuid: 'm3', position: 0 },
+        { uuid: 'm1', position: 1 },
+        { uuid: 'm2', position: 2 },
+      ],
+    })
+  })
+
+  it('surfaces the "unknown media item" constraint from a reorder 422', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { 'positions.0.uuid': 'Unknown media item for this product.' } },
+        },
+        422,
+      ),
+    )
+
+    const { reorderProductMedia } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await reorderProductMedia('p1', ['not-attached'])
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      'positions.0.uuid': 'Unknown media item for this product.',
+    })
+  })
 })

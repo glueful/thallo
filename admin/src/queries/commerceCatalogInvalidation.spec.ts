@@ -38,7 +38,7 @@ describe('useCommerceProductMutations invalidation', () => {
     // onSettled; the real return type doesn't carry it, hence the cast.
     const mutations = useCommerceProductMutations() as unknown as Record<
       'create' | 'update' | 'remove' | 'bulkStatus' | 'createVariant' | 'updateVariant' | 'bulkPrice' |
-        'setChildren' | 'stockAdjust',
+        'setChildren' | 'stockAdjust' | 'attachMedia' | 'updateMedia' | 'detachMedia' | 'reorderMedia',
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
     return { mutations, qk }
@@ -131,6 +131,50 @@ describe('useCommerceProductMutations invalidation', () => {
       variantUuid: 'var00000001',
       productUuid: 'prod00000001',
       input: { delta: -5, reason: 'damaged' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+  })
+
+  // Task 10c: media mutations invalidate ONLY the owning product, same reasoning as variants
+  // above — no field ProductsTable renders comes from product media.
+
+  it('attachMedia invalidates the owning product only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.attachMedia.onSettled?.(undefined, undefined, {
+      productUuid: 'prod00000001',
+      input: { blob_uuid: 'blob00000001' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+  })
+
+  it('updateMedia invalidates the owning product only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.updateMedia.onSettled?.(undefined, undefined, {
+      uuid: 'media0000001',
+      productUuid: 'prod00000001',
+      input: { alt: 'Updated' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+  })
+
+  it('detachMedia invalidates the owning product only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.detachMedia.onSettled?.(undefined, undefined, {
+      uuid: 'media0000001',
+      productUuid: 'prod00000001',
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+  })
+
+  it('reorderMedia invalidates the owning product only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.reorderMedia.onSettled?.(undefined, undefined, {
+      productUuid: 'prod00000001',
+      orderedUuids: ['media0000001', 'media0000002'],
     })
 
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])

@@ -6,6 +6,7 @@ import { useCommerceMeta } from '@/queries/commerceMeta'
 import { useNotify } from '@/composables/useNotify'
 import ProductForm from '../components/ProductForm.vue'
 import VariantsPanel from '../components/VariantsPanel.vue'
+import MediaPanel from '../components/MediaPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,11 +18,12 @@ const { data: meta } = useCommerceMeta()
 const canManage = computed(() => meta.value?.can_manage ?? false)
 const { remove } = useCommerceProductMutations()
 
-// Task 10c/d append Media/Categories here.
+// Task 10d appends Categories here.
 const tab = ref('details')
 const tabItems = [
   { label: 'Details', value: 'details' },
   { label: 'Variants', value: 'variants' },
+  { label: 'Media', value: 'media' },
 ]
 
 const pendingDelete = ref(false)
@@ -95,6 +97,13 @@ async function confirmDelete() {
 
         <VariantsPanel
           v-else-if="tab === 'variants'"
+          :key="product.uuid"
+          :product="product"
+          :can-manage="canManage"
+        />
+
+        <MediaPanel
+          v-else-if="tab === 'media'"
           :key="product.uuid"
           :product="product"
           :can-manage="canManage"
