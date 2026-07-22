@@ -1,12 +1,13 @@
 <script setup lang="ts">
 // Task 15a (admin-commerce-area plan, slice 3): Settings shell — started with only the completed
-// Shipping zones tab. Task 15b adds the Shipping classes tab below; Task 15c (Tax rates) adds its
-// own tab here once its own panel lands, never before (no incomplete tabs, mirrors the nav's
-// "append only once green" discipline).
+// Shipping zones tab. Task 15b added the Shipping classes tab; Task 15c adds the Tax rates tab
+// below, completing phase P5 (no incomplete tabs, mirrors the nav's "append only once green"
+// discipline).
 import { computed, ref } from 'vue'
 import { useCommerceMeta } from '@/queries/commerceMeta'
 import ZonesPanel from './components/ZonesPanel.vue'
 import ClassesPanel from './components/ClassesPanel.vue'
+import TaxRatesPanel from './components/TaxRatesPanel.vue'
 
 const { data: meta } = useCommerceMeta()
 const canManage = computed(() => meta.value?.can_manage ?? false)
@@ -15,6 +16,7 @@ const tab = ref('zones')
 const tabItems = [
   { label: 'Shipping zones', value: 'zones' },
   { label: 'Shipping classes', value: 'classes' },
+  { label: 'Tax rates', value: 'rates' },
 ]
 </script>
 
@@ -32,6 +34,9 @@ const tabItems = [
       </template>
       <template v-else-if="tab === 'classes'">
         <ClassesPanel :can-manage="canManage" />
+      </template>
+      <template v-else-if="tab === 'rates'">
+        <TaxRatesPanel :can-manage="canManage" />
       </template>
     </template>
   </UDashboardPanel>

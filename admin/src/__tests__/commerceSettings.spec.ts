@@ -11,6 +11,8 @@ import type {
   ShippingZoneListPage,
   CommerceShippingClass,
   ShippingClassListPage,
+  CommerceTaxRate,
+  TaxRateListPage,
 } from '@/queries/commerceSettings'
 
 const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
@@ -32,6 +34,8 @@ const zonesPage = ref<ShippingZoneListPage | undefined>(undefined)
 const zonesStatus = ref<'pending' | 'error' | 'success'>('success')
 const classesPage = ref<ShippingClassListPage | undefined>(undefined)
 const classesStatus = ref<'pending' | 'error' | 'success'>('success')
+const ratesPage = ref<TaxRateListPage | undefined>(undefined)
+const ratesStatus = ref<'pending' | 'error' | 'success'>('success')
 
 // Task 15a: mutation mocks, same `{ mutateAsync, isLoading }` shape established by
 // commerceOrders.spec.ts/commerceProducts.spec.ts — the real hooks call `useMutation`/
@@ -48,6 +52,11 @@ const deleteMethodMock = vi.hoisted(() => vi.fn())
 const createClassMock = vi.hoisted(() => vi.fn())
 const updateClassMock = vi.hoisted(() => vi.fn())
 const deleteClassMock = vi.hoisted(() => vi.fn())
+
+// Task 15c: tax-rate mutation mocks, same shape as the zone/class mocks above.
+const createRateMock = vi.hoisted(() => vi.fn())
+const updateRateMock = vi.hoisted(() => vi.fn())
+const deleteRateMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/queries/commerceSettings', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceSettings')>()
@@ -69,11 +78,18 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
       updateClass: { mutateAsync: updateClassMock, isLoading: ref(false) },
       deleteClass: { mutateAsync: deleteClassMock, isLoading: ref(false) },
     }),
+    useCommerceTaxRates: () => ({ data: ratesPage, status: ratesStatus }),
+    useCommerceTaxRateMutations: () => ({
+      createRate: { mutateAsync: createRateMock, isLoading: ref(false) },
+      updateRate: { mutateAsync: updateRateMock, isLoading: ref(false) },
+      deleteRate: { mutateAsync: deleteRateMock, isLoading: ref(false) },
+    }),
   }
 })
 
 import ZonesPanel from '@/pages/commerce/settings/components/ZonesPanel.vue'
 import ClassesPanel from '@/pages/commerce/settings/components/ClassesPanel.vue'
+import TaxRatesPanel from '@/pages/commerce/settings/components/TaxRatesPanel.vue'
 import SettingsIndex from '@/pages/commerce/settings/index.vue'
 
 function location(overrides: Partial<CommerceShippingLocation> = {}): CommerceShippingLocation {
@@ -123,6 +139,24 @@ function shippingClass(overrides: Partial<CommerceShippingClass> = {}): Commerce
   }
 }
 
+function taxRate(overrides: Partial<CommerceTaxRate> = {}): CommerceTaxRate {
+  return {
+    uuid: 'r1',
+    country: 'US',
+    state: null,
+    postcode_pattern: null,
+    rate_bps: 875,
+    label: 'Sales Tax',
+    priority: 0,
+    shipping_taxable: false,
+    class: 'standard',
+    revision: 0,
+    created_at: '2026-01-01 00:00:00',
+    updated_at: null,
+    ...overrides,
+  }
+}
+
 // USlideover/UModal teleport their body/footer out of the wrapper — stub both to render the slots
 // inline (mirrors commerceOrders.spec.ts/commerceProducts.spec.ts's established pattern).
 const SlideoverStub = { props: ['open'], template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>' }
@@ -155,6 +189,8 @@ beforeEach(() => {
   zonesStatus.value = 'success'
   classesPage.value = { classes: [shippingClass()], total: 1, current_page: 1, per_page: 24 }
   classesStatus.value = 'success'
+  ratesPage.value = { rates: [taxRate()], total: 1, current_page: 1, per_page: 24 }
+  ratesStatus.value = 'success'
   createZoneMock.mockReset()
   updateZoneMock.mockReset()
   deleteZoneMock.mockReset()
@@ -165,6 +201,9 @@ beforeEach(() => {
   createClassMock.mockReset()
   updateClassMock.mockReset()
   deleteClassMock.mockReset()
+  createRateMock.mockReset()
+  updateRateMock.mockReset()
+  deleteRateMock.mockReset()
   notify.success.mockReset()
   notify.warning.mockReset()
   notify.error.mockReset()
@@ -176,6 +215,10 @@ function mountPanel() {
 
 function mountClassesPanel(canManage = true) {
   return mount(ClassesPanel, { props: { canManage }, global: { stubs: pageStubs } })
+}
+
+function mountRatesPanel(canManage = true) {
+  return mount(TaxRatesPanel, { props: { canManage }, global: { stubs: pageStubs } })
 }
 
 // ── Zones list: rows, loading/empty/error ───────────────────────────────────────────────────
@@ -849,16 +892,382 @@ describe('ClassesPanel: read-only state', () => {
   })
 })
 
+// ── Task 15c: TaxRatesPanel ──────────────────────────────────────────────────────────────────
+//
+// `rate_bps` is bps of a percent, IDENTICAL convention to a `percentage` discount's `value`
+// (commerceSettings.ts's own `CommerceTaxRate` docblock) — the form must round-trip it via
+// `parseMajorAmountToMinorUnits(input, 2)`/`minorToDecimalString(bps, 2)` EXACTLY like
+// DiscountForm.vue's percentage handling, never `Number()`.
+
+describe('TaxRatesPanel: rates list', () => {
+  it('renders a row per rate with label, country, percent, class, and priority', async () => {
+    ratesPage.value = {
+      rates: [taxRate({ uuid: 'r1', country: 'US', label: 'Sales Tax', rate_bps: 875, class: 'standard', priority: 3 })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+
+    const rows = wrapper.findAll('[data-test="rate-row"]')
+    expect(rows).toHaveLength(1)
+    expect(wrapper.find('[data-test="rate-label"]').text()).toBe('Sales Tax')
+    expect(wrapper.find('[data-test="rate-country"]').text()).toBe('US')
+    expect(wrapper.find('[data-test="rate-percent"]').text()).toBe('8.75%')
+    expect(wrapper.find('[data-test="rate-class"]').text()).toBe('standard')
+    expect(wrapper.find('[data-test="rate-priority"]').text()).toContain('3')
+  })
+
+  it('shows an integer percent without a trailing fraction (1000 bps -> "10%")', async () => {
+    ratesPage.value = { rates: [taxRate({ rate_bps: 1000 })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+    expect(wrapper.find('[data-test="rate-percent"]').text()).toBe('10%')
+  })
+
+  it('shows the exact fractional percent for a non-round bps value (875 -> "8.75%")', async () => {
+    ratesPage.value = { rates: [taxRate({ rate_bps: 875 })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+    expect(wrapper.find('[data-test="rate-percent"]').text()).toBe('8.75%')
+  })
+
+  it('shows the 100% boundary exactly (10000 bps -> "100%")', async () => {
+    ratesPage.value = { rates: [taxRate({ rate_bps: 10000 })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+    expect(wrapper.find('[data-test="rate-percent"]').text()).toBe('100%')
+  })
+
+  it('shows the state/postcode narrowing when present, nothing when absent', async () => {
+    ratesPage.value = {
+      rates: [taxRate({ state: 'US:CA', postcode_pattern: '90*' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+    expect(wrapper.find('[data-test="rate-location"]').text()).toContain('US:CA')
+    expect(wrapper.find('[data-test="rate-location"]').text()).toContain('90*')
+
+    ratesPage.value = { rates: [taxRate({ state: null, postcode_pattern: null })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper2 = mountRatesPanel()
+    await flushPromises()
+    expect(wrapper2.find('[data-test="rate-location"]').exists()).toBe(false)
+  })
+
+  it('shows a shipping-taxable badge only when true', async () => {
+    ratesPage.value = { rates: [taxRate({ shipping_taxable: true })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+    expect(wrapper.find('[data-test="rate-shipping-taxable"]').exists()).toBe(true)
+
+    ratesPage.value = { rates: [taxRate({ shipping_taxable: false })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper2 = mountRatesPanel()
+    await flushPromises()
+    expect(wrapper2.find('[data-test="rate-shipping-taxable"]').exists()).toBe(false)
+  })
+
+  it('shows the loading state', async () => {
+    ratesStatus.value = 'pending'
+    const wrapper = mountRatesPanel()
+    expect(wrapper.find('[data-test="rates-loading"]').exists()).toBe(true)
+  })
+
+  it('shows the error state', async () => {
+    ratesStatus.value = 'error'
+    const wrapper = mountRatesPanel()
+    expect(wrapper.find('[data-test="rates-error"]').exists()).toBe(true)
+  })
+
+  it('shows the empty state', async () => {
+    ratesPage.value = { rates: [], total: 0, current_page: 1, per_page: 24 }
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+    expect(wrapper.find('[data-test="rates-empty"]').exists()).toBe(true)
+  })
+})
+
+describe('TaxRatesPanel: rate create/edit', () => {
+  it('creates a rate, converting the entered percent to exact bps', async () => {
+    createRateMock.mockResolvedValue(taxRate({ uuid: 'r2', country: 'CA', rate_bps: 500, label: 'GST' }))
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-rate"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="rate-country-input"]').setValue('ca')
+    await wrapper.find('[data-test="rate-label-input"]').setValue('GST')
+    await wrapper.find('[data-test="rate-percent-input"]').setValue('5.00')
+    await wrapper.find('form#rate-form').trigger('submit')
+    await flushPromises()
+
+    expect(createRateMock).toHaveBeenCalledTimes(1)
+    expect(createRateMock).toHaveBeenCalledWith({
+      country: 'ca',
+      state: null,
+      postcode_pattern: null,
+      rate_bps: 500,
+      label: 'GST',
+      priority: 0,
+      shipping_taxable: false,
+      class: null,
+    })
+    expect(notify.success).toHaveBeenCalledTimes(1)
+  })
+
+  it('allows a 0% rate — bps 0 is a valid boundary (unlike a percentage discount, which requires >=1)', async () => {
+    createRateMock.mockResolvedValue(taxRate({ uuid: 'r3', rate_bps: 0 }))
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-rate"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="rate-country-input"]').setValue('US')
+    await wrapper.find('[data-test="rate-label-input"]').setValue('Zero Rate')
+    await wrapper.find('[data-test="rate-percent-input"]').setValue('0.00')
+    await wrapper.find('form#rate-form').trigger('submit')
+    await flushPromises()
+
+    expect(createRateMock).toHaveBeenCalledWith(expect.objectContaining({ rate_bps: 0 }))
+  })
+
+  it('captures optional state/postcode/priority/shipping-taxable/class fields', async () => {
+    createRateMock.mockResolvedValue(taxRate({ uuid: 'r4' }))
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-rate"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="rate-country-input"]').setValue('US')
+    await wrapper.find('[data-test="rate-state-input"]').setValue('US:CA')
+    await wrapper.find('[data-test="rate-postcode-input"]').setValue('90*')
+    await wrapper.find('[data-test="rate-label-input"]').setValue('CA Sales Tax')
+    await wrapper.find('[data-test="rate-percent-input"]').setValue('7.25')
+    await wrapper.find('[data-test="rate-priority-input"]').setValue('5')
+    await wrapper.find('[data-test="rate-class-input"]').setValue('reduced')
+    // UCheckbox's root is a Reka UI CheckboxRoot (a <button>, not a native input) — drive it
+    // directly, same as `selectRootByTestId()`'s reasoning for USelect elsewhere in this file
+    // (mirrors commerceProducts.spec.ts's established `CheckboxRoot` + `update:modelValue` pattern).
+    await wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]!.vm.$emit('update:modelValue', true)
+    await wrapper.find('form#rate-form').trigger('submit')
+    await flushPromises()
+
+    expect(createRateMock).toHaveBeenCalledWith({
+      country: 'US',
+      state: 'US:CA',
+      postcode_pattern: '90*',
+      rate_bps: 725,
+      label: 'CA Sales Tax',
+      priority: 5,
+      shipping_taxable: true,
+      class: 'reduced',
+    })
+  })
+
+  it('rejects a blank country or label client-side without calling the mutation', async () => {
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-rate"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="rate-percent-input"]').setValue('5.00')
+    await wrapper.find('form#rate-form').trigger('submit')
+    await flushPromises()
+
+    expect(createRateMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects an unparseable percent client-side without calling the mutation', async () => {
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-rate"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="rate-country-input"]').setValue('US')
+    await wrapper.find('[data-test="rate-label-input"]').setValue('Sales Tax')
+    await wrapper.find('[data-test="rate-percent-input"]').setValue('abc')
+    await wrapper.find('form#rate-form').trigger('submit')
+    await flushPromises()
+
+    expect(createRateMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="rate-form-error"]').exists()).toBe(true)
+  })
+
+  it('rejects a percent above 100 client-side without calling the mutation', async () => {
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-rate"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="rate-country-input"]').setValue('US')
+    await wrapper.find('[data-test="rate-label-input"]').setValue('Sales Tax')
+    await wrapper.find('[data-test="rate-percent-input"]').setValue('100.01')
+    await wrapper.find('form#rate-form').trigger('submit')
+    await flushPromises()
+
+    expect(createRateMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="rate-form-error"]').exists()).toBe(true)
+  })
+
+  it('pre-fills the edit form with the exact percent round-trip and submits an update with the full field set', async () => {
+    ratesPage.value = {
+      rates: [
+        taxRate({
+          uuid: 'r1',
+          country: 'US',
+          state: 'US:CA',
+          postcode_pattern: '90*',
+          rate_bps: 875,
+          label: 'Sales Tax',
+          priority: 5,
+          shipping_taxable: true,
+          class: 'reduced',
+        }),
+      ],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    updateRateMock.mockResolvedValue(taxRate({ label: 'Updated Tax' }))
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="rate-edit"]').trigger('click')
+    await flushPromises()
+
+    expect((wrapper.find('[data-test="rate-country-input"]').element as HTMLInputElement).value).toBe('US')
+    expect((wrapper.find('[data-test="rate-state-input"]').element as HTMLInputElement).value).toBe('US:CA')
+    expect((wrapper.find('[data-test="rate-postcode-input"]').element as HTMLInputElement).value).toBe('90*')
+    expect((wrapper.find('[data-test="rate-percent-input"]').element as HTMLInputElement).value).toBe('8.75')
+    expect((wrapper.find('[data-test="rate-label-input"]').element as HTMLInputElement).value).toBe('Sales Tax')
+    expect((wrapper.find('[data-test="rate-priority-input"]').element as HTMLInputElement).value).toBe('5')
+    expect((wrapper.find('[data-test="rate-class-input"]').element as HTMLInputElement).value).toBe('reduced')
+    // See the "captures optional ... fields" test above for why CheckboxRoot is driven directly.
+    expect(wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]!.props('modelValue')).toBe(true)
+
+    await wrapper.find('[data-test="rate-label-input"]').setValue('Updated Tax')
+    await wrapper.find('form#rate-form').trigger('submit')
+    await flushPromises()
+
+    expect(updateRateMock).toHaveBeenCalledWith({
+      uuid: 'r1',
+      input: {
+        country: 'US',
+        state: 'US:CA',
+        postcode_pattern: '90*',
+        rate_bps: 875,
+        label: 'Updated Tax',
+        priority: 5,
+        shipping_taxable: true,
+        class: 'reduced',
+      },
+    })
+  })
+
+  it('round-trips the 100% boundary (10000 bps) through the edit form without float drift', async () => {
+    ratesPage.value = { rates: [taxRate({ rate_bps: 10000 })], total: 1, current_page: 1, per_page: 24 }
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="rate-edit"]').trigger('click')
+    await flushPromises()
+    expect((wrapper.find('[data-test="rate-percent-input"]').element as HTMLInputElement).value).toBe('100.00')
+  })
+
+  it('clears state and postcode_pattern when left blank on an edit that previously had them', async () => {
+    ratesPage.value = {
+      rates: [taxRate({ uuid: 'r1', state: 'US:CA', postcode_pattern: '90210' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    updateRateMock.mockResolvedValue(taxRate({ state: null, postcode_pattern: null }))
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="rate-edit"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="rate-state-input"]').setValue('')
+    await wrapper.find('[data-test="rate-postcode-input"]').setValue('')
+    await wrapper.find('form#rate-form').trigger('submit')
+    await flushPromises()
+
+    expect(updateRateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ input: expect.objectContaining({ state: null, postcode_pattern: null }) }),
+    )
+  })
+
+  it('surfaces a 422 field error inline', async () => {
+    // Plain error-body object — see ZonesPanel's identical 422 test for why a directly-constructed
+    // ApiError can't be used here (this file's module registry is reset per test).
+    createRateMock.mockRejectedValue({
+      success: false,
+      message: 'Validation failed',
+      error: {
+        code: 422,
+        timestamp: '2026-01-01T00:00:00Z',
+        request_id: 'req_1',
+        details: { country: 'country must be an ISO-3166 alpha-2 code.' },
+      },
+    })
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-rate"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="rate-country-input"]').setValue('USA')
+    await wrapper.find('[data-test="rate-label-input"]').setValue('Bad')
+    await wrapper.find('[data-test="rate-percent-input"]').setValue('5.00')
+    await wrapper.find('form#rate-form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('country must be an ISO-3166 alpha-2 code.')
+  })
+
+  it('deletes a rate only after confirming', async () => {
+    deleteRateMock.mockResolvedValue(undefined)
+    const wrapper = mountRatesPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="rate-delete"]').trigger('click')
+    await flushPromises()
+    expect(deleteRateMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="rate-delete-confirm"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="rate-delete-confirm"]').trigger('click')
+    await flushPromises()
+    expect(deleteRateMock).toHaveBeenCalledWith('r1')
+  })
+})
+
+describe('TaxRatesPanel: read-only state', () => {
+  it('hides every mutation control while still rendering rate content', async () => {
+    const wrapper = mountRatesPanel(false)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="new-rate"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="rate-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="rate-delete"]').exists()).toBe(false)
+
+    // Read-only content stays visible.
+    expect(wrapper.find('[data-test="rate-label"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="rate-percent"]').exists()).toBe(true)
+  })
+})
+
 // ── Settings tab shell ───────────────────────────────────────────────────────────────────────
 
 describe('Settings page tab shell', () => {
-  it('renders both the completed Shipping zones and Shipping classes tabs (no Tax rates tab yet)', async () => {
+  it('renders all three completed tabs: Shipping zones, Shipping classes, and Tax rates', async () => {
     const wrapper = mount(SettingsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
 
     expect(wrapper.text()).toContain('Shipping zones')
     expect(wrapper.text()).toContain('Shipping classes')
-    expect(wrapper.text()).not.toContain('Tax rates')
+    expect(wrapper.text()).toContain('Tax rates')
     expect(wrapper.findComponent(ZonesPanel).exists()).toBe(true)
   })
 
@@ -885,6 +1294,24 @@ describe('Settings page tab shell', () => {
     expect(wrapper.findComponent(ZonesPanel).exists()).toBe(false)
     expect(wrapper.findComponent(ClassesPanel).exists()).toBe(true)
     expect(wrapper.findComponent(ClassesPanel).props('canManage')).toBe(false)
+  })
+
+  it('switches to the Tax rates tab, rendering TaxRatesPanel with can_manage passed through', async () => {
+    metaData.value = { ...metaData.value, can_manage: false }
+    const wrapper = mount(SettingsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.findComponent(TaxRatesPanel).exists()).toBe(false)
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    const ratesTab = tabs.find((t) => t.text() === 'Tax rates')
+    await ratesTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+
+    expect(wrapper.findComponent(ZonesPanel).exists()).toBe(false)
+    expect(wrapper.findComponent(ClassesPanel).exists()).toBe(false)
+    expect(wrapper.findComponent(TaxRatesPanel).exists()).toBe(true)
+    expect(wrapper.findComponent(TaxRatesPanel).props('canManage')).toBe(false)
   })
 })
 

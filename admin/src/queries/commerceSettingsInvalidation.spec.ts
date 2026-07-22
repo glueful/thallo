@@ -265,3 +265,76 @@ describe('useCommerceShippingClassMutations invalidation', () => {
     ])
   })
 })
+
+// ── Task 15c: tax-rate CRUD invalidation ────────────────────────────────────────────────────
+//
+// Pins the same shape as the zone/class-mutation contracts above: `createRate` invalidates ONLY
+// the rates list (a brand-new rate has no existing detail-key consumer yet). `updateRate`/
+// `deleteRate` invalidate BOTH the rate detail key and the list.
+
+describe('useCommerceTaxRateMutations invalidation', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    cacheInvalidate.mockClear()
+  })
+
+  async function rateBundle() {
+    const { useCommerceTaxRateMutations } = await import('@/queries/commerceSettings')
+    const { qk } = await import('@/queries/keys')
+    const mutations = useCommerceTaxRateMutations() as unknown as Record<
+      'createRate' | 'updateRate' | 'deleteRate',
+      { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
+    >
+    return { mutations, qk }
+  }
+
+  it('createRate invalidates ONLY the rates list', async () => {
+    const { mutations, qk } = await rateBundle()
+    mutations.createRate.onSettled?.(undefined, undefined, { country: 'US', rate_bps: 875, label: 'Sales Tax' })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceTaxRates() }]])
+  })
+
+  it('updateRate invalidates the rate detail AND the list', async () => {
+    const { mutations, qk } = await rateBundle()
+    mutations.updateRate.onSettled?.(undefined, undefined, { uuid: 'r1', input: { label: 'Updated Tax' } })
+
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceTaxRate('r1') }],
+      [{ key: qk.commerceTaxRates() }],
+    ])
+  })
+
+  it('updateRate still invalidates both keys when the mutation itself failed (a stranded-state 422, say)', async () => {
+    const { mutations, qk } = await rateBundle()
+    mutations.updateRate.onSettled?.(undefined, new Error("state's country prefix must equal this rate's country."), {
+      uuid: 'r2',
+      input: { country: 'CA' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceTaxRate('r2') }],
+      [{ key: qk.commerceTaxRates() }],
+    ])
+  })
+
+  it('deleteRate invalidates the rate detail AND the list', async () => {
+    const { mutations, qk } = await rateBundle()
+    mutations.deleteRate.onSettled?.(undefined, undefined, 'r3')
+
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceTaxRate('r3') }],
+      [{ key: qk.commerceTaxRates() }],
+    ])
+  })
+
+  it('deleteRate still invalidates both keys when the mutation itself failed (an unknown rate, say)', async () => {
+    const { mutations, qk } = await rateBundle()
+    mutations.deleteRate.onSettled?.(undefined, new Error('Resource not found.'), 'r4')
+
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceTaxRate('r4') }],
+      [{ key: qk.commerceTaxRates() }],
+    ])
+  })
+})

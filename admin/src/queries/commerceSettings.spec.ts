@@ -946,3 +946,384 @@ describe('commerce settings (shipping classes) query layer', () => {
     await expect(deleteShippingClass('missing')).rejects.toBeInstanceOf(ApiError)
   })
 })
+
+// ── Task 15c: tax rates ──────────────────────────────────────────────────────────────────────
+//
+// `rate_bps` is a genuine basis-points integer, 0..10000 inclusive (10000 = 100%) — verified
+// directly against `TaxRateService::normalizeBps()` and `DbTaxCalculator::applyRate()`'s
+// `intdiv($amount * $bps + 5000, 10000)`. This is the EXACT SAME convention as a `percentage`
+// discount's `value` field (commerceDiscounts.ts's own docblock: `value / 100` is the percent),
+// so the query layer here stores/echoes the raw integer untouched — no /100 or *100 anywhere in
+// this file; percent<->bps conversion is a UI-layer concern (TaxRatesPanel.vue), exactly like
+// DiscountForm.vue never touches commerceDiscounts.ts's `value` either.
+describe('commerce settings (tax rates) query layer', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  function rateBody(overrides: Record<string, unknown> = {}) {
+    return {
+      uuid: 'r1',
+      country: 'US',
+      state: null,
+      postcode_pattern: null,
+      rate_bps: 875,
+      label: 'Sales Tax',
+      priority: 0,
+      shipping_taxable: false,
+      class: 'standard',
+      revision: 0,
+      created_at: '2026-01-01 00:00:00',
+      updated_at: null,
+      ...overrides,
+    }
+  }
+
+  // ── fetchTaxRates: envelope, params, ordering, normalization ────────────────────────────────
+
+  it('parses the real Response::paginated envelope and normalizes every field untouched', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Tax rates retrieved',
+        data: [rateBody({ state: 'US:CA', postcode_pattern: '90*', priority: 5, shipping_taxable: true, class: 'reduced' })],
+        current_page: 1,
+        per_page: 24,
+        total: 1,
+      }),
+    )
+
+    const { fetchTaxRates } = await import('@/queries/commerceSettings')
+    const page = await fetchTaxRates({ page: 1, perPage: 24 })
+
+    expect(page.rates).toHaveLength(1)
+    const rate = page.rates[0]!
+    expect(rate.uuid).toBe('r1')
+    expect(rate.country).toBe('US')
+    expect(rate.state).toBe('US:CA')
+    expect(rate.postcode_pattern).toBe('90*')
+    // The RAW bps integer, never divided by 100 at this layer.
+    expect(rate.rate_bps).toBe(875)
+    expect(rate.label).toBe('Sales Tax')
+    expect(rate.priority).toBe(5)
+    expect(rate.shipping_taxable).toBe(true)
+    expect(rate.class).toBe('reduced')
+    expect(page.total).toBe(1)
+    expect(page.current_page).toBe(1)
+    expect(page.per_page).toBe(24)
+  })
+
+  it('sends country/class/page/per_page as the exact TaxRateListQuery param set', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: [], current_page: 2, per_page: 10, total: 0 }))
+
+    const { fetchTaxRates } = await import('@/queries/commerceSettings')
+    await fetchTaxRates({ country: 'ca', class: 'reduced', page: 2, perPage: 10 })
+
+    const requested = fetchMock.mock.calls[0]![0]
+    const requestedUrl = typeof requested === 'string' ? requested : (requested as Request).url
+    const url = new URL(requestedUrl, 'http://localhost')
+    expect(url.pathname).toBe('/v1/admin/commerce/tax/rates')
+    expect(url.searchParams.get('country')).toBe('ca')
+    expect(url.searchParams.get('class')).toBe('reduced')
+    expect(url.searchParams.get('page')).toBe('2')
+    expect(url.searchParams.get('per_page')).toBe('10')
+  })
+
+  it('preserves the server-returned (country ASC, priority ASC, uuid ASC) evaluation order — never re-sorts', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Tax rates retrieved',
+        data: [
+          rateBody({ uuid: 'r-low-priority', country: 'US', priority: 0 }),
+          rateBody({ uuid: 'r-high-priority', country: 'US', priority: 5 }),
+        ],
+        current_page: 1,
+        per_page: 24,
+        total: 2,
+      }),
+    )
+
+    const { fetchTaxRates } = await import('@/queries/commerceSettings')
+    const page = await fetchTaxRates()
+
+    expect(page.rates.map((r) => r.uuid)).toEqual(['r-low-priority', 'r-high-priority'])
+  })
+
+  it('defaults an empty page to zero total and the requested paging', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ data: {} }))
+
+    const { fetchTaxRates } = await import('@/queries/commerceSettings')
+    const page = await fetchTaxRates({ page: 3, perPage: 50 })
+
+    expect(page.rates).toEqual([])
+    expect(page.total).toBe(0)
+    expect(page.current_page).toBe(3)
+    expect(page.per_page).toBe(50)
+  })
+
+  it('throws ApiError when the list request fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Forbidden' }, 403),
+    )
+
+    const { fetchTaxRates } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    await expect(fetchTaxRates()).rejects.toBeInstanceOf(ApiError)
+  })
+
+  // ── fetchTaxRate (show) ──────────────────────────────────────────────────────────────────────
+
+  it('fetches and normalizes a single rate', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ success: true, message: 'Tax rate retrieved', data: rateBody() }),
+    )
+
+    const { fetchTaxRate } = await import('@/queries/commerceSettings')
+    const rate = await fetchTaxRate('r1')
+
+    expect(rate.uuid).toBe('r1')
+    expect(rate.rate_bps).toBe(875)
+  })
+
+  it('throws ApiError for a 404 rate', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Resource not found.' }, 404),
+    )
+
+    const { fetchTaxRate } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    await expect(fetchTaxRate('missing')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  // ── createTaxRate: exact CreateTaxRateData body ─────────────────────────────────────────────
+
+  it('createTaxRate posts the exact CreateTaxRateData body and normalizes the created rate', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Tax rate created', data: rateBody() }, 201),
+    )
+
+    const { createTaxRate } = await import('@/queries/commerceSettings')
+    const rate = await createTaxRate({
+      country: 'US',
+      state: null,
+      postcode_pattern: null,
+      rate_bps: 875,
+      label: 'Sales Tax',
+      priority: null,
+      shipping_taxable: null,
+      class: null,
+    })
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('POST')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/tax/rates')
+    expect(await request.clone().json()).toEqual({
+      country: 'US',
+      state: null,
+      postcode_pattern: null,
+      rate_bps: 875,
+      label: 'Sales Tax',
+      priority: null,
+      shipping_taxable: null,
+      class: null,
+    })
+    expect(rate.uuid).toBe('r1')
+    expect(rate.rate_bps).toBe(875)
+  })
+
+  it('createTaxRate surfaces the exact bps-out-of-bounds 422 field error verbatim', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            timestamp: '2026-01-01T00:00:00Z',
+            request_id: 'req_1',
+            details: { rate_bps: 'rate_bps must be an integer between 0 and 10000 inclusive.' },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { createTaxRate } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await createTaxRate({ country: 'US', rate_bps: 10001, label: 'Bad' })
+    } catch (e) {
+      caught = e
+    }
+    expect((caught as InstanceType<typeof ApiError>).status).toBe(422)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors.rate_bps).toBe(
+      'rate_bps must be an integer between 0 and 10000 inclusive.',
+    )
+  })
+
+  it('createTaxRate surfaces the exact mismatched-state-prefix 422 field error verbatim', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            timestamp: '2026-01-01T00:00:00Z',
+            request_id: 'req_1',
+            details: { state: "state's country prefix must equal this rate's country (US)." },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { createTaxRate } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await createTaxRate({ country: 'US', state: 'CA:ON', rate_bps: 500, label: 'Mismatch' })
+    } catch (e) {
+      caught = e
+    }
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors.state).toBe(
+      "state's country prefix must equal this rate's country (US).",
+    )
+  })
+
+  it('createTaxRate surfaces the exact malformed-postcode 422 field error verbatim', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            timestamp: '2026-01-01T00:00:00Z',
+            request_id: 'req_1',
+            details: {
+              postcode_pattern: 'postcode_pattern must be an exact value or end with a single trailing wildcard (*).',
+            },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { createTaxRate } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await createTaxRate({ country: 'US', postcode_pattern: '9**', rate_bps: 500, label: 'Bad' })
+    } catch (e) {
+      caught = e
+    }
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors.postcode_pattern).toBe(
+      'postcode_pattern must be an exact value or end with a single trailing wildcard (*).',
+    )
+  })
+
+  // ── updateTaxRate: exact PATCH endpoint + partial body ──────────────────────────────────────
+
+  it('updateTaxRate PATCHes the exact endpoint with only the given keys and normalizes the result', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Tax rate updated',
+        data: rateBody({ rate_bps: 750, label: 'Updated Tax', revision: 1 }),
+      }),
+    )
+
+    const { updateTaxRate } = await import('@/queries/commerceSettings')
+    const rate = await updateTaxRate('r1', { rate_bps: 750, label: 'Updated Tax' })
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('PATCH')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/tax/rates/r1')
+    expect(await request.clone().json()).toEqual({ rate_bps: 750, label: 'Updated Tax' })
+    expect(rate.rate_bps).toBe(750)
+    expect(rate.label).toBe('Updated Tax')
+    expect(rate.revision).toBe(1)
+  })
+
+  it('updateTaxRate sends explicit nulls to clear state and postcode_pattern', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Tax rate updated',
+        data: rateBody({ state: null, postcode_pattern: null, revision: 1 }),
+      }),
+    )
+
+    const { updateTaxRate } = await import('@/queries/commerceSettings')
+    const rate = await updateTaxRate('r1', { state: null, postcode_pattern: null })
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(await request.clone().json()).toEqual({ state: null, postcode_pattern: null })
+    expect(rate.state).toBeNull()
+    expect(rate.postcode_pattern).toBeNull()
+  })
+
+  it('updateTaxRate surfaces a 422 when a country change strands the existing state prefix', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            timestamp: '2026-01-01T00:00:00Z',
+            request_id: 'req_1',
+            details: { state: "state's country prefix must equal this rate's country (CA)." },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { updateTaxRate } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    await expect(updateTaxRate('r1', { country: 'CA' })).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('updateTaxRate surfaces a 404 for an unknown or since-deleted rate', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Resource not found.' }, 404),
+    )
+
+    const { updateTaxRate } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    await expect(updateTaxRate('missing', { label: 'x' })).rejects.toBeInstanceOf(ApiError)
+  })
+
+  // ── deleteTaxRate: exact DELETE endpoint (unconditional — no cross-table guard) ─────────────
+
+  it('deleteTaxRate DELETEs the exact endpoint', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(new Response(null, { status: 204 }))
+
+    const { deleteTaxRate } = await import('@/queries/commerceSettings')
+    await deleteTaxRate('r1')
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('DELETE')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/tax/rates/r1')
+  })
+
+  it('deleteTaxRate surfaces a 404 for an unknown rate', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Resource not found.' }, 404),
+    )
+
+    const { deleteTaxRate } = await import('@/queries/commerceSettings')
+    const { ApiError } = await import('@/api/errors')
+    await expect(deleteTaxRate('missing')).rejects.toBeInstanceOf(ApiError)
+  })
+})

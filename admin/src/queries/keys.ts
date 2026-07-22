@@ -53,4 +53,6 @@ export const qk = {
   commerceShippingZoneMethods: (zoneUuid: string) => ['commerce-shipping-zone-methods', zoneUuid] as const,
   commerceShippingClasses: () => ['commerce-shipping-classes'] as const,
   commerceShippingClass: (uuid: string) => ['commerce-shipping-class', uuid] as const,
+  commerceTaxRates: () => ['commerce-tax-rates'] as const,
+  commerceTaxRate: (uuid: string) => ['commerce-tax-rate', uuid] as const,
 }

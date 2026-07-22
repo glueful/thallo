@@ -576,3 +576,227 @@ export function useCommerceShippingClassMutations() {
     }),
   }
 }
+
+// ── Task 15c: tax rates ────────────────────────────────────────────────────────
+
+/**
+ * A `commerce_tax_rates` row (`009_CreateCommerceShippingTaxTables.php`, `TaxRateService`'s own
+ * class docblock). `rate_bps` is a genuine basis-points integer, 0..10000 inclusive (10000 =
+ * 100%) — verified against `TaxRateService::normalizeBps()` and `DbTaxCalculator::applyRate()`'s
+ * `intdiv($amount * $bps + 5000, 10000)`. This is EXACTLY the same convention as a `percentage`
+ * discount's `value` (commerceDiscounts.ts's own docblock: `value / 100` is the percent) — the
+ * query layer stores/echoes the raw integer untouched; percent<->bps conversion belongs to
+ * TaxRatesPanel.vue, mirroring DiscountForm.vue's identical division of labor.
+ *
+ * `state`, when present, is `COUNTRY:REGION` whose country prefix equals this row's OWN
+ * `country` (`TaxRateService::normalizeState()`) — unlike a shipping-zone location's `state`,
+ * which only needs to match the incoming ADDRESS's country. `postcode_pattern` follows the same
+ * exact-or-single-trailing-wildcard grammar as a zone location's postcode. `class` is the open
+ * vocabulary rule, defaulting server-side to `'standard'` when omitted. Unlike shipping zones,
+ * a tax rate has no cross-table reference to guard at delete time — DELETE is unconditional once
+ * claimed. `tenant_uuid` is deliberately excluded, same principle as every other projection here.
+ */
+export interface CommerceTaxRate {
+  uuid: string
+  country: string
+  state: string | null
+  postcode_pattern: string | null
+  rate_bps: number
+  label: string
+  priority: number
+  shipping_taxable: boolean
+  class: string
+  revision: number
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface TaxRateListFilters {
+  /** ISO-3166 alpha-2 country code (`TaxRateListQuery::$country`). */
+  country?: string
+  /** Tax class slug (`TaxRateListQuery::$class`). */
+  class?: string
+  page?: number
+  perPage?: number
+}
+
+export interface TaxRateListPage {
+  rates: CommerceTaxRate[]
+  total: number
+  current_page: number
+  per_page: number
+}
+
+/** The exact `CreateTaxRateData` request body shape (`Http/DTOs/CreateTaxRateData.php`). */
+export interface CreateTaxRateInput {
+  country: string
+  state?: string | null
+  postcode_pattern?: string | null
+  rate_bps: number
+  label: string
+  priority?: number | null
+  shipping_taxable?: boolean | null
+  class?: string | null
+}
+
+/** The exact `UpdateTaxRateData` request body shape (`Http/DTOs/UpdateTaxRateData.php`) — the
+ * controller reads the raw JSON body directly, so only present keys are applied server-side
+ * (mirrors `UpdateZoneInput`'s identical note); an explicit `null` for `state`/`postcode_pattern`
+ * clears the column rather than being ignored. */
+export interface UpdateTaxRateInput {
+  country?: string | null
+  state?: string | null
+  postcode_pattern?: string | null
+  rate_bps?: number | null
+  label?: string | null
+  priority?: number | null
+  shipping_taxable?: boolean | null
+  class?: string | null
+}
+
+function normalizeTaxRate(raw: Record<string, unknown>): CommerceTaxRate {
+  return {
+    uuid: String(raw.uuid ?? ''),
+    country: String(raw.country ?? ''),
+    state: typeof raw.state === 'string' ? raw.state : null,
+    postcode_pattern: typeof raw.postcode_pattern === 'string' ? raw.postcode_pattern : null,
+    rate_bps: typeof raw.rate_bps === 'number' ? raw.rate_bps : 0,
+    label: String(raw.label ?? ''),
+    priority: typeof raw.priority === 'number' ? raw.priority : 0,
+    shipping_taxable: raw.shipping_taxable === true,
+    class: String(raw.class ?? 'standard'),
+    revision: typeof raw.revision === 'number' ? raw.revision : 0,
+    created_at: typeof raw.created_at === 'string' ? raw.created_at : null,
+    updated_at: typeof raw.updated_at === 'string' ? raw.updated_at : null,
+  }
+}
+
+/** `GET /commerce/tax/rates` — `TaxRateListQuery`'s exact param set is
+ * `{country, class, page, per_page}`. Rows are returned in the server's own
+ * (country ASC, priority ASC, uuid ASC) order — the SAME order `DbTaxCalculator`'s rate
+ * selection walks the candidate list in — and this fetcher never re-sorts them. */
+export async function fetchTaxRates(filters: TaxRateListFilters = {}): Promise<TaxRateListPage> {
+  const { data, error, response } = await client.GET('/commerce/tax/rates', {
+    params: {
+      query: {
+        country: filters.country || undefined,
+        class: filters.class || undefined,
+        page: filters.page,
+        per_page: filters.perPage,
+      },
+    },
+  })
+  if (error) throw toApiError(error, response)
+  const body = data as
+    | { data?: unknown[]; current_page?: number; per_page?: number; total?: number }
+    | undefined
+  const rows = Array.isArray(body?.data) ? body.data : []
+  return {
+    rates: rows.map((r) => normalizeTaxRate(r as Record<string, unknown>)),
+    total: body?.total ?? 0,
+    current_page: body?.current_page ?? filters.page ?? 1,
+    per_page: body?.per_page ?? filters.perPage ?? 24,
+  }
+}
+
+/** `GET /commerce/tax/rates/{uuid}` — wired up for parity with the endpoint contract, same as
+ * `fetchShippingClass()` above; TaxRatesPanel edits directly off the rows already held by the
+ * list (no detail-route consumer in this task). */
+export async function fetchTaxRate(uuid: string): Promise<CommerceTaxRate> {
+  const { data, error, response } = await client.GET('/commerce/tax/rates/{uuid}', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  if (!raw) throw new ApiError('Tax rate not found.', response?.status ?? 404, {}, data)
+  return normalizeTaxRate(raw as Record<string, unknown>)
+}
+
+export async function createTaxRate(input: CreateTaxRateInput): Promise<CommerceTaxRate> {
+  const { data, error, response } = await client.POST('/commerce/tax/rates', {
+    body: {
+      country: input.country,
+      state: input.state ?? null,
+      postcode_pattern: input.postcode_pattern ?? null,
+      rate_bps: input.rate_bps,
+      label: input.label,
+      priority: input.priority ?? null,
+      shipping_taxable: input.shipping_taxable ?? null,
+      class: input.class ?? null,
+    } as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeTaxRate((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function updateTaxRate(
+  uuid: string,
+  input: UpdateTaxRateInput,
+): Promise<CommerceTaxRate> {
+  const { data, error, response } = await client.PATCH('/commerce/tax/rates/{uuid}', {
+    params: { path: { uuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeTaxRate((raw ?? {}) as Record<string, unknown>)
+}
+
+/** `DELETE /commerce/tax/rates/{uuid}` — 204 on success; unconditional once claimed (a tax rate
+ * has no cross-table reference to guard, unlike a shipping class's referenced-by-variant 409). */
+export async function deleteTaxRate(uuid: string): Promise<void> {
+  const { error, response } = await client.DELETE('/commerce/tax/rates/{uuid}', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+}
+
+// ── Query wrappers ───────────────────────────────────────────────────────────
+
+export function useCommerceTaxRates(filters: MaybeRefOrGetter<TaxRateListFilters>) {
+  return useQuery({
+    key: () => {
+      const f = toValue(filters)
+      return [...qk.commerceTaxRates(), f.country ?? '', f.class ?? '', f.page ?? 1, f.perPage ?? 24]
+    },
+    query: () => fetchTaxRates(toValue(filters)),
+  })
+}
+
+export function useCommerceTaxRate(uuid: MaybeRefOrGetter<string>) {
+  return useQuery({
+    key: () => qk.commerceTaxRate(toValue(uuid)),
+    query: () => fetchTaxRate(toValue(uuid)),
+    enabled: () => !!toValue(uuid),
+  })
+}
+
+/**
+ * `createRate` invalidates ONLY the rates list — a brand-new rate has no existing detail-key
+ * consumer yet (mirrors `useCommerceShippingClassMutations()`'s `createClass` precedent exactly).
+ * `updateRate`/`deleteRate` invalidate BOTH the rate detail key and the list.
+ */
+export function useCommerceTaxRateMutations() {
+  const cache = useQueryCache()
+  const invalidateList = () => cache.invalidateQueries({ key: qk.commerceTaxRates() })
+  const invalidateRate = (uuid: string) => {
+    cache.invalidateQueries({ key: qk.commerceTaxRate(uuid) })
+    invalidateList()
+  }
+
+  return {
+    createRate: useMutation({
+      mutation: (input: CreateTaxRateInput) => createTaxRate(input),
+      onSettled: invalidateList,
+    }),
+    updateRate: useMutation({
+      mutation: (vars: { uuid: string; input: UpdateTaxRateInput }) => updateTaxRate(vars.uuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidateRate(vars.uuid),
+    }),
+    deleteRate: useMutation({
+      mutation: (uuid: string) => deleteTaxRate(uuid),
+      onSettled: (_d, _e, uuid) => invalidateRate(uuid),
+    }),
+  }
+}
