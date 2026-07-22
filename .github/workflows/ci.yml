@@ -92,5 +92,19 @@ jobs:
             -c "ALTER DATABASE app_test SET lock_timeout = '30s';" \
             -c "ALTER DATABASE app_test SET statement_timeout = '120s';"
 
+      # TEMP DIAGNOSTIC: run phpunit directly (not via `composer ci`) and stream a real-time
+      # per-test event log. Each test emits `Test Preparation Started (…)` BEFORE its setUp and
+      # `Test Prepared (…)` AFTER setUp — so whatever wedges is the LAST line in the job log,
+      # named exactly, and we can tell a setUp-fixture hang (last line = Preparation Started)
+      # from a test-body hang (last line = Prepared). enforceTimeLimit only wraps the body, so
+      # a setUp hang is invisible to it — this log is not. `php://stderr` can't be used as the
+      # target (the framework error handler turns its LOCK_EX warning into an exception), so we
+      # write to a file and tail -f the phase lines. Revert to `composer ci` once named.
       - name: Run CI
-        run: composer ci
+        run: |
+          composer phpcs
+          composer test:reset-db
+          composer test:migrate
+          : > /tmp/pu_events.log
+          ( tail -f /tmp/pu_events.log | grep --line-buffered -E "Test (Preparation Started|Prepared) \(App" ) &
+          vendor/bin/phpunit --log-events-verbose-text /tmp/pu_events.log
