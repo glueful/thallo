@@ -7,12 +7,16 @@ import {
   type CommerceOrderAddress,
   type CommerceOrderLine,
 } from '@/queries/commerceOrders'
+import { useCommerceMeta } from '@/queries/commerceMeta'
 import { useMoney } from '@/composables/useMoney'
+import OrderActions from '../components/OrderActions.vue'
 
 const route = useRoute()
 const uuid = computed(() => String(route.params.uuid))
 
 const { data: order, status } = useCommerceOrder(uuid)
+const { data: meta } = useCommerceMeta()
+const canManage = computed(() => meta.value?.can_manage ?? false)
 const { format } = useMoney()
 
 // useMoney().format() throws until /commerce/meta resolves — guard so an unsettled meta query
@@ -163,6 +167,10 @@ const billingDisplay = computed(() => {
       />
 
       <div v-else-if="order" class="flex flex-col gap-6">
+        <!-- Lifecycle actions (Task 13b): cancel / mark-paid / fulfill — renders nothing when
+             can_manage is false or the current status has no legal action. -->
+        <OrderActions :order="order" :can-manage="canManage" />
+
         <!-- Customer -->
         <UCard>
           <template #header>

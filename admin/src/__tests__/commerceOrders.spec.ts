@@ -44,6 +44,14 @@ const singleOrder = ref<CommerceOrder | undefined>(undefined)
 const singleStatus = ref<'pending' | 'error' | 'success'>('success')
 const lastOrdersFilters = vi.hoisted(() => ({ current: undefined as unknown }))
 
+// Task 13b: lifecycle mutation mocks, same shape as commerceProducts.spec.ts's
+// useCommerceProductMutations mock (`{ mutateAsync, isLoading }` per action) — the real hook
+// calls `useMutation`/`useQueryCache` from '@pinia/colada', which this file's harness (plain
+// `setActivePinia(createPinia())`, no `PiniaColada` plugin) never installs.
+const cancelMock = vi.hoisted(() => vi.fn())
+const markPaidMock = vi.hoisted(() => vi.fn())
+const fulfillMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/queries/commerceOrders', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceOrders')>()
   return {
@@ -53,6 +61,11 @@ vi.mock('@/queries/commerceOrders', async (importOriginal) => {
       return { data: ordersPage, status: ordersStatus }
     },
     useCommerceOrder: () => ({ data: singleOrder, status: singleStatus }),
+    useCommerceOrderMutations: () => ({
+      cancel: { mutateAsync: cancelMock, isLoading: ref(false) },
+      markPaid: { mutateAsync: markPaidMock, isLoading: ref(false) },
+      fulfill: { mutateAsync: fulfillMock, isLoading: ref(false) },
+    }),
   }
 })
 
@@ -119,6 +132,9 @@ beforeEach(() => {
   singleOrder.value = undefined
   singleStatus.value = 'success'
   lastOrdersFilters.current = undefined
+  cancelMock.mockReset()
+  markPaidMock.mockReset()
+  fulfillMock.mockReset()
 })
 
 // ── OrdersTable: rows (number, customer, status badge, total, date), loading/empty/error ───────
@@ -354,14 +370,213 @@ describe('commerce order detail page', () => {
     expect(wrapper.find('[data-test="order-events-empty"]').exists()).toBe(true)
   })
 
-  it('renders no mutation controls at all — 13a is strictly read-only', async () => {
-    singleOrder.value = order()
+})
+
+// ── Order lifecycle actions (Task 13b): cancel / mark-paid / fulfill ───────────────────────────
+// Visibility mirrors OrderStateMachine::ALLOWED exactly (see canCancelOrder()/canMarkOrderPaid()/
+// canFulfillOrder() in commerceOrders.ts): pending_payment -> [cancel, mark-paid]; paid ->
+// [cancel, fulfill]; fulfilled/canceled/refunded -> none (refund is Task 13c, out of scope here).
+
+describe('order lifecycle actions', () => {
+  beforeEach(() => {
+    routeState.params = { uuid: 'o1' }
+  })
+
+  it('pending_payment shows cancel and mark-paid, never fulfill', async () => {
+    singleOrder.value = order({ uuid: 'o1', status: 'pending_payment' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-cancel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="order-mark-paid"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="order-fulfill"]').exists()).toBe(false)
+  })
+
+  it('paid shows cancel and fulfill, never mark-paid', async () => {
+    singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-cancel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="order-mark-paid"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="order-fulfill"]').exists()).toBe(true)
+  })
+
+  it.each(['fulfilled', 'canceled', 'refunded'])(
+    'status %s shows no lifecycle actions at all',
+    async (status) => {
+      singleOrder.value = order({ uuid: 'o1', status })
+      const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+      await flushPromises()
+
+      expect(wrapper.find('[data-test="order-cancel"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="order-mark-paid"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="order-fulfill"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="order-actions"]').exists()).toBe(false)
+    },
+  )
+
+  it('hides every action when can_manage is false, regardless of status', async () => {
+    metaData.value = { ...metaData.value, can_manage: false }
+    singleOrder.value = order({ uuid: 'o1', status: 'pending_payment' })
     const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
     await flushPromises()
 
     expect(wrapper.find('[data-test="order-cancel"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="order-mark-paid"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="order-fulfill"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="order-actions"]').exists()).toBe(false)
+  })
+
+  // ── Cancel: confirm step, exact payload ───────────────────────────────────────────────────
+
+  it('cancel requires confirmation before calling the mutation', async () => {
+    singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-cancel"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="order-cancel-confirm"]').exists()).toBe(true)
+    expect(cancelMock).not.toHaveBeenCalled()
+
+    await wrapper.find('[data-test="order-cancel-confirm"]').trigger('click')
+    await flushPromises()
+    expect(cancelMock).toHaveBeenCalledTimes(1)
+    expect(cancelMock).toHaveBeenCalledWith('o1')
+  })
+
+  it('dismissing the cancel confirm never calls the mutation', async () => {
+    singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-cancel"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="order-cancel-dismiss"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-cancel-confirm"]').exists()).toBe(false)
+    expect(cancelMock).not.toHaveBeenCalled()
+  })
+
+  // ── Mark paid: confirm step, exact payload ────────────────────────────────────────────────
+
+  it('mark-paid requires confirmation and calls the mutation with the order uuid', async () => {
+    singleOrder.value = order({ uuid: 'o1', status: 'pending_payment' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-mark-paid"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="order-mark-paid-confirm"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="order-mark-paid-confirm"]').trigger('click')
+    await flushPromises()
+    expect(markPaidMock).toHaveBeenCalledTimes(1)
+    expect(markPaidMock).toHaveBeenCalledWith('o1')
+  })
+
+  // ── Fulfill: confirm step carries the DTO's tracking_ref field ───────────────────────────────
+
+  it('fulfill sends the entered tracking_ref in the request payload', async () => {
+    singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-fulfill"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="order-fulfill-tracking-ref"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="order-fulfill-tracking-ref"]').setValue('TRACK-123')
+    await wrapper.find('[data-test="order-fulfill-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(fulfillMock).toHaveBeenCalledTimes(1)
+    expect(fulfillMock).toHaveBeenCalledWith({ uuid: 'o1', input: { tracking_ref: 'TRACK-123' } })
+  })
+
+  it('fulfill sends tracking_ref: null when left blank', async () => {
+    singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-fulfill"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="order-fulfill-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(fulfillMock).toHaveBeenCalledWith({ uuid: 'o1', input: { tracking_ref: null } })
+  })
+
+  // ── Server-rejection surfacing: the server stays authoritative ────────────────────────────────
+
+  it('renders the server 409 message inline and keeps the confirm panel open for retry', async () => {
+    const { ApiError } = await import('@/api/errors')
+    cancelMock.mockRejectedValue(new ApiError('Invalid order transition paid -> paid.', 409, {}, null))
+    singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-cancel"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="order-cancel-confirm"]').trigger('click')
+    await flushPromises()
+
+    const errorAlert = wrapper.find('[data-test="order-action-error"]')
+    expect(errorAlert.exists()).toBe(true)
+    expect(errorAlert.text()).toContain('Invalid order transition paid -> paid.')
+    // Server stays authoritative: the confirm panel stays open so the user can retry or dismiss —
+    // the failure never silently closes it as if the action had gone through.
+    expect(wrapper.find('[data-test="order-cancel-confirm"]').exists()).toBe(true)
+  })
+
+  // ── Detail refetch reflects the new status after a successful action (mock sequence) ────────
+  // `useCommerceOrder` is mocked to a plain ref in this suite (see the module mock above), so
+  // there's no real Pinia Colada cache to invalidate here — this simulates what that invalidation
+  // + refetch WOULD produce: the query's own `data` ref receiving the freshly reloaded order.
+
+  it('reflects the canceled status once the (simulated) refetch lands', async () => {
+    cancelMock.mockResolvedValue(undefined)
+    singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-detail-status"]').text()).toBe('paid')
+    expect(wrapper.find('[data-test="order-cancel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="order-fulfill"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="order-cancel"]').trigger('click')
+    await wrapper.find('[data-test="order-cancel-confirm"]').trigger('click')
+    await flushPromises()
+    expect(cancelMock).toHaveBeenCalledWith('o1')
+
+    // The invalidation-triggered refetch resolving with the now-canceled order.
+    singleOrder.value = order({ uuid: 'o1', status: 'canceled' })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-detail-status"]').text()).toBe('canceled')
+    expect(wrapper.find('[data-test="order-cancel"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="order-fulfill"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="order-actions"]').exists()).toBe(false)
+  })
+
+  it('reflects the fulfilled status once the (simulated) refetch lands', async () => {
+    fulfillMock.mockResolvedValue(undefined)
+    singleOrder.value = order({ uuid: 'o1', status: 'paid', fulfillment_status: 'unfulfilled' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-fulfill"]').trigger('click')
+    await wrapper.find('[data-test="order-fulfill-confirm"]').trigger('click')
+    await flushPromises()
+    expect(fulfillMock).toHaveBeenCalledWith({ uuid: 'o1', input: { tracking_ref: null } })
+
+    singleOrder.value = order({ uuid: 'o1', status: 'fulfilled', fulfillment_status: 'fulfilled' })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-detail-status"]').text()).toBe('fulfilled')
+    expect(wrapper.find('[data-test="order-actions"]').exists()).toBe(false)
   })
 })
 

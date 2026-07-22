@@ -1,4 +1,4 @@
-import { useQuery } from '@pinia/colada'
+import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { client } from '@/api/client'
 import { ApiError, toApiError } from '@/api/errors'
@@ -258,4 +258,105 @@ export function useCommerceOrder(uuid: MaybeRefOrGetter<string>) {
     query: () => fetchOrder(toValue(uuid)),
     enabled: () => !!toValue(uuid),
   })
+}
+
+// ── Lifecycle actions (Task 13b) ─────────────────────────────────────────────
+//
+// Endpoints: `POST /commerce/orders/{uuid}/cancel`, `/mark-paid`, `/fulfill`
+// (AdminOrderController::cancel()/markPaid()/fulfill()). Cancel and mark-paid take no request
+// body at all (both handlers accept only `Request $request, string $uuid` — no DTO parameter);
+// fulfill's body is exactly `FulfillOrderData` (Http/DTOs/FulfillOrderData.php): one optional,
+// nullable string. Every success response is the SAME `Response::success($order, ...)` envelope
+// `fetchOrder()` already parses, so all three fetchers reuse `normalizeOrder()` below.
+
+/** The exact (and only) request body `POST /commerce/orders/{uuid}/fulfill` accepts — mirrors
+ * `FulfillOrderData` field-for-field. */
+export interface FulfillOrderInput {
+  tracking_ref?: string | null
+}
+
+/**
+ * Which lifecycle actions are legal from a given `commerce_orders.status`, mirroring
+ * `OrderStateMachine::ALLOWED` (Orders/OrderStateMachine.php) exactly:
+ *   pending_payment -> [paid, canceled]
+ *   paid            -> [fulfilled, canceled, refunded]
+ *   fulfilled       -> [refunded]
+ * `canCancelOrder()` covers BOTH `pending_payment` and `paid` — the only two source states the
+ * `canceled` target is reachable from (`transition()`/`assertTransition()` are called with a
+ * FIXED target per endpoint, never a caller-chosen one). `canMarkOrderPaid()`/`canFulfillOrder()`
+ * each cover their own single legal source state. Refund (`paid`/`fulfilled` -> `refunded`) is
+ * Task 13c and intentionally not modeled here.
+ *
+ * These three functions are presentation guidance ONLY — they decide which buttons `OrderActions`
+ * renders, never whether a request is allowed. The server re-asserts the same transition inside
+ * its own CAS (`OrderRepository::transition()`) and rejects an illegal or since-changed status
+ * with a 409 regardless of what the client believed was legal a moment ago; `OrderActions` always
+ * surfaces that 409 inline rather than assuming its own guard was sufficient.
+ */
+export function canCancelOrder(status: string): boolean {
+  return status === 'pending_payment' || status === 'paid'
+}
+export function canMarkOrderPaid(status: string): boolean {
+  return status === 'pending_payment'
+}
+export function canFulfillOrder(status: string): boolean {
+  return status === 'paid'
+}
+
+export async function cancelOrder(uuid: string): Promise<CommerceOrder> {
+  const { data, error, response } = await client.POST('/commerce/orders/{uuid}/cancel', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeOrder((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function markOrderPaid(uuid: string): Promise<CommerceOrder> {
+  const { data, error, response } = await client.POST('/commerce/orders/{uuid}/mark-paid', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeOrder((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function fulfillOrder(uuid: string, input: FulfillOrderInput): Promise<CommerceOrder> {
+  const { data, error, response } = await client.POST('/commerce/orders/{uuid}/fulfill', {
+    params: { path: { uuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeOrder((raw ?? {}) as Record<string, unknown>)
+}
+
+/**
+ * Every lifecycle action invalidates BOTH the order's own detail query AND the list — unlike
+ * commerceCatalog.ts's per-product-only mutations (variant/media/stock), a lifecycle transition
+ * changes `status` (and for fulfill, `fulfillment_status`), fields `OrdersTable` itself renders, so
+ * the list can never skip invalidation the way those product-detail-only mutations do. Mirrors
+ * `update`/`remove`'s ordering in `useCommerceProductMutations()`: detail first, then list.
+ */
+export function useCommerceOrderMutations() {
+  const cache = useQueryCache()
+  const invalidate = (uuid: string) => {
+    cache.invalidateQueries({ key: qk.commerceOrder(uuid) })
+    cache.invalidateQueries({ key: qk.commerceOrders() })
+  }
+
+  return {
+    cancel: useMutation({
+      mutation: (uuid: string) => cancelOrder(uuid),
+      onSettled: (_d, _e, uuid) => invalidate(uuid),
+    }),
+    markPaid: useMutation({
+      mutation: (uuid: string) => markOrderPaid(uuid),
+      onSettled: (_d, _e, uuid) => invalidate(uuid),
+    }),
+    fulfill: useMutation({
+      mutation: (vars: { uuid: string; input: FulfillOrderInput }) => fulfillOrder(vars.uuid, vars.input),
+      onSettled: (_d, _e, vars) => invalidate(vars.uuid),
+    }),
+  }
 }
