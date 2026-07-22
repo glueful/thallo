@@ -83,6 +83,35 @@ function groupDigits(digits: string, separator: string): string {
 }
 
 /**
+ * Parse a user-typed MAJOR-unit decimal string (e.g. "12.34") into an exact minor-unit `BigInt`
+ * (e.g. `1234n`), mirroring `splitMinorUnits`'s discipline in reverse: the string is validated and
+ * parsed as plain digit groups via a regex + `BigInt`, NEVER coerced through `Number` — so no
+ * float rounding can smuggle in an off-by-one-minor-unit amount (task-13c brief, Refunds).
+ *
+ * Returns `null` — never throws — for anything that isn't a plain unsigned decimal with AT MOST
+ * `exponent` fractional digits: empty/whitespace-only input, a sign, thousands separators,
+ * multiple decimal points, non-digit characters, or MORE fractional digits than the currency's own
+ * minor-unit resolution (e.g. `"12.345"` at exponent 2 is finer granularity than the currency
+ * has — every minor unit boundary must be exact, so this rejects rather than rounds). Fewer
+ * fractional digits than `exponent` are right-padded with zeros (`"12.3"` at exponent 2 -> 1230),
+ * matching how `splitMinorUnits` pads the fraction on the way out.
+ */
+export function parseMajorAmountToMinorUnits(input: string, exponent: number): bigint | null {
+  if (!Number.isInteger(exponent) || exponent < 0) {
+    throw new Error(`parseMajorAmountToMinorUnits: invalid currency_exponent ${exponent}.`)
+  }
+
+  const trimmed = input.trim()
+  const pattern = exponent === 0 ? /^\d+$/ : new RegExp(`^\\d+(\\.\\d{1,${exponent}})?$`)
+  if (!pattern.test(trimmed)) return null
+
+  const [integerPart, fractionPart = ''] = trimmed.split('.')
+  const scale = 10n ** BigInt(exponent)
+  const fractionMinor = exponent === 0 ? 0n : BigInt(fractionPart.padEnd(exponent, '0'))
+  return BigInt(integerPart) * scale + fractionMinor
+}
+
+/**
  * Format an exact minor-unit amount as a localized currency string, never passing the full
  * decimal amount through JavaScript `Number`. The amount is parsed straight to `BigInt` and
  * split into major/fraction with `10n ** BigInt(exponent)`; `Intl.NumberFormat(...)

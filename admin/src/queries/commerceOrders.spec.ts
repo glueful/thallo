@@ -477,4 +477,323 @@ describe('commerce orders query layer', () => {
     expect(canFulfillOrder('canceled')).toBe(false)
     expect(canFulfillOrder('refunded')).toBe(false)
   })
+
+  it('canRefundOrder is legal from paid and fulfilled only', async () => {
+    const { canRefundOrder } = await import('@/queries/commerceOrders')
+    expect(canRefundOrder('paid')).toBe(true)
+    expect(canRefundOrder('fulfilled')).toBe(true)
+    expect(canRefundOrder('pending_payment')).toBe(false)
+    expect(canRefundOrder('canceled')).toBe(false)
+    expect(canRefundOrder('refunded')).toBe(false)
+  })
+
+  // ── Refunds (Task 13c): create, per-order list, cross-order list/show ──────────────────────
+
+  function refundBody(overrides: Record<string, unknown> = {}) {
+    return {
+      success: true,
+      message: 'Refund recorded',
+      data: {
+        uuid: 'r1',
+        order_uuid: 'o1',
+        amount: 1234,
+        currency: 'USD',
+        method: 'manual',
+        status: 'completed',
+        reason: 'customer request',
+        restocked: false,
+        initiated_by: 'admin1',
+        completed_at: '2026-01-03 00:00:00',
+        lines: [],
+        ...overrides,
+      },
+    }
+  }
+
+  it('createRefund posts the exact body and Idempotency-Key header, and parses the refund', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse(refundBody()))
+
+    const { createRefund } = await import('@/queries/commerceOrders')
+    const refund = await createRefund(
+      'o1',
+      { amount: 1234, reason: 'customer request', restock: false },
+      'idem-key-1',
+    )
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('POST')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/orders/o1/refunds')
+    expect(request.headers.get('idempotency-key')).toBe('idem-key-1')
+    expect(await request.clone().json()).toEqual({
+      amount: 1234,
+      reason: 'customer request',
+      lines: null,
+      restock: false,
+    })
+    expect(refund.uuid).toBe('r1')
+    expect(refund.amount).toBe(1234)
+    expect(refund.status).toBe('completed')
+    expect(refund.reason).toBe('customer request')
+  })
+
+  it('createRefund sends reason: null and restock: false when omitted', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse(refundBody()))
+
+    const { createRefund } = await import('@/queries/commerceOrders')
+    await createRefund('o1', { amount: 1234 }, 'idem-key-2')
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(await request.clone().json()).toEqual({
+      amount: 1234,
+      reason: null,
+      lines: null,
+      restock: false,
+    })
+  })
+
+  it('normalizes a refund missing created_at/updated_at/provider_ref (the immediate store() response shape)', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Refund recorded',
+        data: {
+          uuid: 'r2',
+          order_uuid: 'o1',
+          amount: 500,
+          currency: 'USD',
+          method: 'manual',
+          status: 'completed',
+          reason: null,
+          restocked: false,
+          initiated_by: null,
+          lines: [],
+          // created_at/updated_at/completed_at/failure_reason deliberately absent —
+          // RefundService::buildRow() never sets them on the in-memory row it returns.
+        },
+      }),
+    )
+
+    const { createRefund } = await import('@/queries/commerceOrders')
+    const refund = await createRefund('o1', { amount: 500 }, 'idem-key-3')
+
+    expect(refund.created_at).toBeNull()
+    expect(refund.updated_at).toBeNull()
+    expect(refund.completed_at).toBeNull()
+    expect(refund.failure_reason).toBeNull()
+  })
+
+  it('surfaces the server 409 message verbatim for a concurrent/idempotency conflict', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'This idempotency key was already used with a different request.',
+          error: { code: 409, timestamp: '2026-01-01T00:00:00Z', request_id: 'req_1' },
+        },
+        409,
+      ),
+    )
+
+    const { createRefund } = await import('@/queries/commerceOrders')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await createRefund('o1', { amount: 100 }, 'idem-key-4')
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).status).toBe(409)
+    expect((caught as InstanceType<typeof ApiError>).message).toBe(
+      'This idempotency key was already used with a different request.',
+    )
+  })
+
+  it('surfaces a 422 amount-ceiling rejection as a keyed field error (error.details.refund)', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            timestamp: '2026-01-01T00:00:00Z',
+            request_id: 'req_2',
+            details: { refund: 'amount: exceeds the remaining refundable balance.' },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { createRefund } = await import('@/queries/commerceOrders')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await createRefund('o1', { amount: 999999 }, 'idem-key-5')
+    } catch (e) {
+      caught = e
+    }
+    expect((caught as InstanceType<typeof ApiError>).status).toBe(422)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors.refund).toBe(
+      'amount: exceeds the remaining refundable balance.',
+    )
+  })
+
+  it('surfaces a 422 restock-without-lines rejection under error.details.lines', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            timestamp: '2026-01-01T00:00:00Z',
+            request_id: 'req_3',
+            details: { lines: 'lines: required when restock is requested.' },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { createRefund } = await import('@/queries/commerceOrders')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await createRefund('o1', { amount: 100, restock: true }, 'idem-key-6')
+    } catch (e) {
+      caught = e
+    }
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors.lines).toBe(
+      'lines: required when restock is requested.',
+    )
+  })
+
+  it('fetchOrderRefunds GETs the exact per-order endpoint and attaches lines', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Refunds retrieved',
+        data: [
+          refundBody({
+            uuid: 'r1',
+            lines: [{ order_line_uuid: 'l1', quantity: 1, amount: 500 }],
+          }).data,
+        ],
+      }),
+    )
+
+    const { fetchOrderRefunds } = await import('@/queries/commerceOrders')
+    const refunds = await fetchOrderRefunds('o1')
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('GET')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/orders/o1/refunds')
+    expect(refunds).toHaveLength(1)
+    expect(refunds[0]!.uuid).toBe('r1')
+    expect(refunds[0]!.lines).toEqual([{ order_line_uuid: 'l1', quantity: 1, amount: 500 }])
+  })
+
+  it('fetchOrderRefunds defaults to an empty list when the order has none', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ success: true, message: 'Refunds retrieved', data: [] }),
+    )
+
+    const { fetchOrderRefunds } = await import('@/queries/commerceOrders')
+    const refunds = await fetchOrderRefunds('o1')
+    expect(refunds).toEqual([])
+  })
+
+  it('fetchOrderRefunds throws ApiError for a 404 order', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Resource not found.' }, 404),
+    )
+
+    const { fetchOrderRefunds } = await import('@/queries/commerceOrders')
+    const { ApiError } = await import('@/api/errors')
+    await expect(fetchOrderRefunds('missing')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('fetchRefunds sends the exact RefundListQuery param set, omitting empty filters', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({ data: [], current_page: 1, per_page: 24, total: 0 }),
+    )
+
+    const { fetchRefunds } = await import('@/queries/commerceOrders')
+    await fetchRefunds({ status: 'completed', order: 'o1', from: '2026-01-01', to: '2026-01-31' })
+
+    const requested = fetchMock.mock.calls[0]![0]
+    const url = new URL(typeof requested === 'string' ? requested : (requested as Request).url, 'http://localhost')
+    expect(url.pathname).toBe('/v1/admin/commerce/refunds')
+    expect(url.searchParams.get('status')).toBe('completed')
+    expect(url.searchParams.get('order')).toBe('o1')
+    expect(url.searchParams.get('from')).toBe('2026-01-01')
+    expect(url.searchParams.get('to')).toBe('2026-01-31')
+  })
+
+  it('fetchRefunds omits every filter param entirely when none are set', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: [], current_page: 1, per_page: 24, total: 0 }))
+
+    const { fetchRefunds } = await import('@/queries/commerceOrders')
+    await fetchRefunds({})
+
+    const requested = fetchMock.mock.calls[0]![0]
+    const url = new URL(typeof requested === 'string' ? requested : (requested as Request).url, 'http://localhost')
+    expect(url.searchParams.has('status')).toBe(false)
+    expect(url.searchParams.has('order')).toBe(false)
+    expect(url.searchParams.has('from')).toBe(false)
+    expect(url.searchParams.has('to')).toBe(false)
+  })
+
+  it('fetchRefunds parses the paginated envelope and normalizes rows without lines (paginatedForTenant never attaches them)', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Refunds retrieved',
+        data: [refundBody().data],
+        current_page: 2,
+        per_page: 10,
+        total: 15,
+      }),
+    )
+
+    const { fetchRefunds } = await import('@/queries/commerceOrders')
+    const page = await fetchRefunds({ page: 2, perPage: 10 })
+
+    expect(page.refunds).toHaveLength(1)
+    expect(page.refunds[0]!.lines).toEqual([])
+    expect(page.total).toBe(15)
+    expect(page.current_page).toBe(2)
+    expect(page.per_page).toBe(10)
+  })
+
+  it('fetchRefund GETs the exact show endpoint and normalizes without lines', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse(refundBody()))
+
+    const { fetchRefund } = await import('@/queries/commerceOrders')
+    const refund = await fetchRefund('r1')
+
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('GET')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/refunds/r1')
+    expect(refund.uuid).toBe('r1')
+    expect(refund.lines).toEqual([])
+  })
+
+  it('fetchRefund throws ApiError for a 404 refund', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Resource not found.' }, 404),
+    )
+
+    const { fetchRefund } = await import('@/queries/commerceOrders')
+    const { ApiError } = await import('@/api/errors')
+    await expect(fetchRefund('missing')).rejects.toBeInstanceOf(ApiError)
+  })
 })

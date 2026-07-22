@@ -11,9 +11,11 @@ import {
   canCancelOrder,
   canMarkOrderPaid,
   canFulfillOrder,
+  canRefundOrder,
   type CommerceOrder,
 } from '@/queries/commerceOrders'
 import { toApiError } from '@/api/errors'
+import RefundSlideover from './RefundSlideover.vue'
 
 const props = defineProps<{
   order: CommerceOrder
@@ -25,7 +27,10 @@ const { cancel, markPaid, fulfill } = useCommerceOrderMutations()
 const canCancel = computed(() => props.canManage && canCancelOrder(props.order.status))
 const canMarkPaid = computed(() => props.canManage && canMarkOrderPaid(props.order.status))
 const canFulfill = computed(() => props.canManage && canFulfillOrder(props.order.status))
-const hasAnyAction = computed(() => canCancel.value || canMarkPaid.value || canFulfill.value)
+const canRefund = computed(() => props.canManage && canRefundOrder(props.order.status))
+const hasAnyAction = computed(() => canCancel.value || canMarkPaid.value || canFulfill.value || canRefund.value)
+
+const refundSlideoverOpen = ref(false)
 
 type PendingAction = 'cancel' | 'mark-paid' | 'fulfill' | null
 const pendingAction = ref<PendingAction>(null)
@@ -113,6 +118,17 @@ async function confirmFulfill() {
         @click="openConfirm('fulfill')"
       >
         Fulfill
+      </UButton>
+      <UButton
+        v-if="canRefund"
+        color="error"
+        variant="outline"
+        size="sm"
+        icon="i-lucide-undo-2"
+        data-test="order-refund"
+        @click="refundSlideoverOpen = true"
+      >
+        Refund
       </UButton>
     </div>
 
@@ -216,5 +232,7 @@ async function confirmFulfill() {
         </UButton>
       </div>
     </div>
+
+    <RefundSlideover :order="order" v-model:open="refundSlideoverOpen" />
   </div>
 </template>

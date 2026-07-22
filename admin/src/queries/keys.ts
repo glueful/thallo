@@ -42,4 +42,6 @@ export const qk = {
   commerceEntrySearch: (q: string) => ['commerce-entry-search', q] as const,
   commerceOrders: () => ['commerce-orders'] as const,
   commerceOrder: (uuid: string) => ['commerce-order', uuid] as const,
+  commerceOrderRefunds: (orderUuid: string) => ['commerce-order-refunds', orderUuid] as const,
+  commerceRefunds: () => ['commerce-refunds'] as const,
 }

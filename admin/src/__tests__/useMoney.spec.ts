@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { useMoney } from '@/composables/useMoney'
+import { useMoney, parseMajorAmountToMinorUnits } from '@/composables/useMoney'
 
 const USD = { currency: 'USD', currency_exponent: 2 }
 const JPY = { currency: 'JPY', currency_exponent: 0 }
@@ -62,5 +62,71 @@ describe('useMoney — exponent-safe BigInt money formatting', () => {
   it('rejects an unsafe-integer number amount', () => {
     const { format } = useMoney(USD)
     expect(() => format(Number.MAX_SAFE_INTEGER + 1)).toThrow()
+  })
+})
+
+// parseMajorAmountToMinorUnits() — the inverse of splitMinorUnits(): a user-typed MAJOR-unit
+// decimal string parsed to an exact minor-unit BigInt via regex + BigInt only, never Number
+// (task-13c brief, Refunds — "NO float arithmetic").
+describe('parseMajorAmountToMinorUnits — decimal-string to exact minor units', () => {
+  it('parses a full two-decimal amount at exponent 2', () => {
+    expect(parseMajorAmountToMinorUnits('12.34', 2)).toBe(1234n)
+  })
+
+  it('right-pads a short fraction at exponent 2 ("12.3" -> 1230)', () => {
+    expect(parseMajorAmountToMinorUnits('12.3', 2)).toBe(1230n)
+  })
+
+  it('parses a whole amount with no decimal point at exponent 2', () => {
+    expect(parseMajorAmountToMinorUnits('12', 2)).toBe(1200n)
+  })
+
+  it('parses the finest fraction a 3-decimal currency allows ("0.001" -> 1)', () => {
+    expect(parseMajorAmountToMinorUnits('0.001', 3)).toBe(1n)
+  })
+
+  it('parses a whole amount at exponent 0 (e.g. JPY)', () => {
+    expect(parseMajorAmountToMinorUnits('1234', 0)).toBe(1234n)
+  })
+
+  it('rejects a decimal point at exponent 0', () => {
+    expect(parseMajorAmountToMinorUnits('12.3', 0)).toBeNull()
+  })
+
+  it('rejects more fractional digits than the currency exponent allows ("12.345" at exponent 2)', () => {
+    expect(parseMajorAmountToMinorUnits('12.345', 2)).toBeNull()
+  })
+
+  it('rejects non-numeric input', () => {
+    expect(parseMajorAmountToMinorUnits('abc', 2)).toBeNull()
+  })
+
+  it('rejects an empty or whitespace-only string', () => {
+    expect(parseMajorAmountToMinorUnits('', 2)).toBeNull()
+    expect(parseMajorAmountToMinorUnits('   ', 2)).toBeNull()
+  })
+
+  it('rejects a negative amount', () => {
+    expect(parseMajorAmountToMinorUnits('-12.34', 2)).toBeNull()
+  })
+
+  it('rejects a trailing decimal point with no fractional digits', () => {
+    expect(parseMajorAmountToMinorUnits('12.', 2)).toBeNull()
+  })
+
+  it('rejects multiple decimal points', () => {
+    expect(parseMajorAmountToMinorUnits('12.3.4', 2)).toBeNull()
+  })
+
+  it('rejects a thousands separator', () => {
+    expect(parseMajorAmountToMinorUnits('1,234.56', 2)).toBeNull()
+  })
+
+  it('tolerates surrounding whitespace', () => {
+    expect(parseMajorAmountToMinorUnits('  12.34  ', 2)).toBe(1234n)
+  })
+
+  it('parses an amount far beyond Number.MAX_SAFE_INTEGER exactly', () => {
+    expect(parseMajorAmountToMinorUnits('123456789012345678.90', 2)).toBe(12345678901234567890n)
   })
 })

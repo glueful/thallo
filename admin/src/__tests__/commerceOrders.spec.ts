@@ -4,7 +4,10 @@ import { join } from 'node:path'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref, toValue } from 'vue'
-import type { CommerceOrder, OrderListPage } from '@/queries/commerceOrders'
+import type { CommerceOrder, CommerceRefund, OrderListPage } from '@/queries/commerceOrders'
+
+const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
+vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
 
 // ── Shared mock state (referenced inside vi.mock factories) ────────────────────────────────────
 // Mirrors commerceProducts.spec.ts's established pattern: real refs (not vi.hoisted()) so they
@@ -51,6 +54,10 @@ const lastOrdersFilters = vi.hoisted(() => ({ current: undefined as unknown }))
 const cancelMock = vi.hoisted(() => vi.fn())
 const markPaidMock = vi.hoisted(() => vi.fn())
 const fulfillMock = vi.hoisted(() => vi.fn())
+// Task 13c: refund mutation mock, same `{ mutateAsync, isLoading }` shape as the other three.
+const refundMock = vi.hoisted(() => vi.fn())
+const orderRefunds = ref<CommerceRefund[] | undefined>(undefined)
+const orderRefundsStatus = ref<'pending' | 'error' | 'success'>('success')
 
 vi.mock('@/queries/commerceOrders', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceOrders')>()
@@ -61,10 +68,12 @@ vi.mock('@/queries/commerceOrders', async (importOriginal) => {
       return { data: ordersPage, status: ordersStatus }
     },
     useCommerceOrder: () => ({ data: singleOrder, status: singleStatus }),
+    useOrderRefunds: () => ({ data: orderRefunds, status: orderRefundsStatus }),
     useCommerceOrderMutations: () => ({
       cancel: { mutateAsync: cancelMock, isLoading: ref(false) },
       markPaid: { mutateAsync: markPaidMock, isLoading: ref(false) },
       fulfill: { mutateAsync: fulfillMock, isLoading: ref(false) },
+      refund: { mutateAsync: refundMock, isLoading: ref(false) },
     }),
   }
 })
@@ -100,8 +109,31 @@ function order(overrides: Partial<CommerceOrder> = {}): CommerceOrder {
   }
 }
 
+function refund(overrides: Partial<CommerceRefund> = {}): CommerceRefund {
+  return {
+    uuid: 'r1',
+    order_uuid: 'o1',
+    amount: 1234,
+    currency: 'USD',
+    method: 'manual',
+    status: 'completed',
+    reason: null,
+    restocked: false,
+    failure_reason: null,
+    initiated_by: 'admin1',
+    created_at: '2026-01-03 00:00:00',
+    updated_at: '2026-01-03 00:00:00',
+    completed_at: '2026-01-03 00:00:00',
+    lines: [],
+    ...overrides,
+  }
+}
+
 const RouterLinkStub = { props: ['to'], template: '<a :href="to"><slot /></a>' }
-const pageStubs = { RouterLink: RouterLinkStub }
+// USlideover teleports its body/footer out of the wrapper — stub it to render the slots inline
+// (mirrors commerceProducts.spec.ts's identical Slideover stub for ProductCreateSlideover).
+const SlideoverStub = { props: ['open'], template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>' }
+const pageStubs = { RouterLink: RouterLinkStub, Slideover: SlideoverStub }
 
 /** Find the Reka SelectRoot ancestor of a USelect carrying `dataTest`, and drive it directly —
  * USelect's options render in a portal, so opening the dropdown in jsdom is unreliable; emitting
@@ -135,6 +167,12 @@ beforeEach(() => {
   cancelMock.mockReset()
   markPaidMock.mockReset()
   fulfillMock.mockReset()
+  refundMock.mockReset()
+  orderRefunds.value = []
+  orderRefundsStatus.value = 'success'
+  notify.success.mockReset()
+  notify.warning.mockReset()
+  notify.error.mockReset()
 })
 
 // ── OrdersTable: rows (number, customer, status badge, total, date), loading/empty/error ───────
@@ -372,17 +410,17 @@ describe('commerce order detail page', () => {
 
 })
 
-// ── Order lifecycle actions (Task 13b): cancel / mark-paid / fulfill ───────────────────────────
+// ── Order lifecycle actions (Task 13b/13c): cancel / mark-paid / fulfill / refund ──────────────
 // Visibility mirrors OrderStateMachine::ALLOWED exactly (see canCancelOrder()/canMarkOrderPaid()/
-// canFulfillOrder() in commerceOrders.ts): pending_payment -> [cancel, mark-paid]; paid ->
-// [cancel, fulfill]; fulfilled/canceled/refunded -> none (refund is Task 13c, out of scope here).
+// canFulfillOrder()/canRefundOrder() in commerceOrders.ts): pending_payment -> [cancel, mark-paid];
+// paid -> [cancel, fulfill, refund]; fulfilled -> [refund only]; canceled/refunded -> none.
 
 describe('order lifecycle actions', () => {
   beforeEach(() => {
     routeState.params = { uuid: 'o1' }
   })
 
-  it('pending_payment shows cancel and mark-paid, never fulfill', async () => {
+  it('pending_payment shows cancel and mark-paid, never fulfill or refund', async () => {
     singleOrder.value = order({ uuid: 'o1', status: 'pending_payment' })
     const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
     await flushPromises()
@@ -390,9 +428,10 @@ describe('order lifecycle actions', () => {
     expect(wrapper.find('[data-test="order-cancel"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="order-mark-paid"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="order-fulfill"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="order-refund"]').exists()).toBe(false)
   })
 
-  it('paid shows cancel and fulfill, never mark-paid', async () => {
+  it('paid shows cancel, fulfill, and refund, never mark-paid', async () => {
     singleOrder.value = order({ uuid: 'o1', status: 'paid' })
     const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
     await flushPromises()
@@ -400,9 +439,22 @@ describe('order lifecycle actions', () => {
     expect(wrapper.find('[data-test="order-cancel"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="order-mark-paid"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="order-fulfill"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="order-refund"]').exists()).toBe(true)
   })
 
-  it.each(['fulfilled', 'canceled', 'refunded'])(
+  it('fulfilled shows refund only', async () => {
+    singleOrder.value = order({ uuid: 'o1', status: 'fulfilled' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-cancel"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="order-mark-paid"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="order-fulfill"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="order-refund"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="order-actions"]').exists()).toBe(true)
+  })
+
+  it.each(['canceled', 'refunded'])(
     'status %s shows no lifecycle actions at all',
     async (status) => {
       singleOrder.value = order({ uuid: 'o1', status })
@@ -412,19 +464,21 @@ describe('order lifecycle actions', () => {
       expect(wrapper.find('[data-test="order-cancel"]').exists()).toBe(false)
       expect(wrapper.find('[data-test="order-mark-paid"]').exists()).toBe(false)
       expect(wrapper.find('[data-test="order-fulfill"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="order-refund"]').exists()).toBe(false)
       expect(wrapper.find('[data-test="order-actions"]').exists()).toBe(false)
     },
   )
 
   it('hides every action when can_manage is false, regardless of status', async () => {
     metaData.value = { ...metaData.value, can_manage: false }
-    singleOrder.value = order({ uuid: 'o1', status: 'pending_payment' })
+    singleOrder.value = order({ uuid: 'o1', status: 'paid' })
     const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
     await flushPromises()
 
     expect(wrapper.find('[data-test="order-cancel"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="order-mark-paid"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="order-fulfill"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="order-refund"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="order-actions"]').exists()).toBe(false)
   })
 
@@ -576,11 +630,314 @@ describe('order lifecycle actions', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="order-detail-status"]').text()).toBe('fulfilled')
-    expect(wrapper.find('[data-test="order-actions"]').exists()).toBe(false)
+    // Fulfilled still has ONE legal action (refund) — order-actions stays rendered, but fulfill
+    // itself is no longer offered.
+    expect(wrapper.find('[data-test="order-fulfill"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="order-refund"]').exists()).toBe(true)
   })
 })
 
 // ── Capability gating: both new routes require auth + thallo.commerce ──────────────────────
+
+// ── Refunds (Task 13c): slideover, exact minor-unit conversion, ceiling, error surfacing,
+// refunds list section, invalidation-triggered refetch ────────────────────────────────────────
+
+describe('order refund action', () => {
+  beforeEach(() => {
+    routeState.params = { uuid: 'o1' }
+  })
+
+  async function openRefund(overrides: Partial<CommerceOrder> = {}) {
+    singleOrder.value = order({
+      uuid: 'o1',
+      status: 'paid',
+      grand_total: 5900,
+      refunded_total: 0,
+      ...overrides,
+    })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    await wrapper.find('[data-test="order-refund"]').trigger('click')
+    await flushPromises()
+    return wrapper
+  }
+
+  it('shows the amount input, refundable ceiling, reason, and restock fields once opened', async () => {
+    const wrapper = await openRefund()
+
+    expect(wrapper.find('[data-test="refund-amount-input"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="refund-reason-input"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="refund-restock-checkbox"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="refund-submit"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="refund-ceiling"]').text()).toContain('$59.00')
+  })
+
+  it('shows the ceiling reduced by any prior refunded_total', async () => {
+    const wrapper = await openRefund({ grand_total: 5900, refunded_total: 900 })
+    expect(wrapper.find('[data-test="refund-ceiling"]').text()).toContain('$50.00')
+  })
+
+  // ── Exact decimal -> minor-unit conversion in the submitted payload ─────────────────────────
+
+  it('converts a typed "12.34" (exponent 2) into exact minor units (1234) in the request', async () => {
+    refundMock.mockResolvedValue(refund({ amount: 1234 }))
+    const wrapper = await openRefund({ grand_total: 999999 })
+
+    await wrapper.find('[data-test="refund-amount-input"]').setValue('12.34')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(refundMock).toHaveBeenCalledTimes(1)
+    const call = refundMock.mock.calls[0]![0]
+    expect(call.uuid).toBe('o1')
+    expect(call.input).toEqual({ amount: 1234, reason: null, restock: false })
+    expect(typeof call.idempotencyKey).toBe('string')
+    expect(call.idempotencyKey.length).toBeGreaterThan(0)
+  })
+
+  it('right-pads a short fraction ("12.3" -> 1230) exactly as parseMajorAmountToMinorUnits does', async () => {
+    refundMock.mockResolvedValue(refund({ amount: 1230 }))
+    const wrapper = await openRefund({ grand_total: 999999 })
+
+    await wrapper.find('[data-test="refund-amount-input"]').setValue('12.3')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(refundMock.mock.calls[0]![0].input.amount).toBe(1230)
+  })
+
+  it('forwards a trimmed reason and the restock flag', async () => {
+    refundMock.mockResolvedValue(refund())
+    const wrapper = await openRefund({ grand_total: 999999 })
+
+    await wrapper.find('[data-test="refund-amount-input"]').setValue('5.00')
+    await wrapper.find('[data-test="refund-reason-input"]').setValue('  customer request  ')
+    const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
+    await checkbox!.vm.$emit('update:modelValue', true)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(refundMock.mock.calls[0]![0].input).toEqual({
+      amount: 500,
+      reason: 'customer request',
+      restock: true,
+    })
+  })
+
+  it('sends reason: null when left blank', async () => {
+    refundMock.mockResolvedValue(refund())
+    const wrapper = await openRefund({ grand_total: 999999 })
+
+    await wrapper.find('[data-test="refund-amount-input"]').setValue('5.00')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(refundMock.mock.calls[0]![0].input.reason).toBeNull()
+  })
+
+  // ── Client-side validation: rejects BEFORE calling the mutation (server stays authoritative) ──
+
+  it.each([
+    ['', 'Enter an amount.'],
+    ['abc', 'Enter a valid amount (up to 2 decimal places).'],
+    ['12.345', 'Enter a valid amount (up to 2 decimal places).'],
+    ['0', 'Amount must be at least the smallest currency unit.'],
+    ['-5', 'Enter a valid amount (up to 2 decimal places).'],
+  ])('rejects amount %j client-side without calling the mutation', async (typed, expectedError) => {
+    const wrapper = await openRefund({ grand_total: 5900 })
+
+    await wrapper.find('[data-test="refund-amount-input"]').setValue(typed)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(refundMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain(expectedError)
+  })
+
+  it('rejects an amount above the client-computed ceiling without calling the mutation', async () => {
+    const wrapper = await openRefund({ grand_total: 5900, refunded_total: 0 })
+
+    await wrapper.find('[data-test="refund-amount-input"]').setValue('100.00')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(refundMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('exceeds the refundable balance')
+  })
+
+  it('accepts an amount exactly at the ceiling', async () => {
+    refundMock.mockResolvedValue(refund({ amount: 5900 }))
+    const wrapper = await openRefund({ grand_total: 5900, refunded_total: 0 })
+
+    await wrapper.find('[data-test="refund-amount-input"]').setValue('59.00')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(refundMock).toHaveBeenCalledTimes(1)
+    expect(refundMock.mock.calls[0]![0].input.amount).toBe(5900)
+  })
+
+  // ── Server rejection surfacing: the server stays authoritative ──────────────────────────────
+
+  it('surfaces a 422 amount-ceiling rejection (error.details.refund) inline and keeps the slideover open', async () => {
+    // A plain framework error-body object (Response::validation()'s exact envelope shape) rather
+    // than a directly-constructed ApiError: RefundSlideover's own `toApiError()` runs against
+    // whichever `@/api/errors` module instance THIS test file's `vi.resetModules()` (setup.ts)
+    // left live — an `instanceof ApiError` check against an ApiError built from a separately
+    // re-imported class would fail cross-module-identity, silently losing `fieldErrors`. The real
+    // server response is a plain object anyway, so this is the more faithful shape besides.
+    refundMock.mockRejectedValue({
+      success: false,
+      message: 'Validation failed',
+      error: {
+        code: 422,
+        timestamp: '2026-01-01T00:00:00Z',
+        request_id: 'req_1',
+        details: { refund: 'amount: exceeds the remaining refundable balance.' },
+      },
+    })
+    const wrapper = await openRefund({ grand_total: 999999 })
+
+    await wrapper.find('[data-test="refund-amount-input"]').setValue('12.34')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    const errorEl = wrapper.find('[data-test="refund-error"]')
+    expect(errorEl.exists()).toBe(true)
+    expect(errorEl.text()).toContain('amount: exceeds the remaining refundable balance.')
+    // Stays open for retry — never silently closes as if it had gone through.
+    expect(wrapper.find('[data-test="refund-amount-input"]').exists()).toBe(true)
+  })
+
+  it('surfaces a 409 idempotency conflict message verbatim', async () => {
+    refundMock.mockRejectedValue({
+      success: false,
+      message: 'This idempotency key was already used with a different request.',
+      error: { code: 409, timestamp: '2026-01-01T00:00:00Z', request_id: 'req_2' },
+    })
+    const wrapper = await openRefund({ grand_total: 999999 })
+
+    await wrapper.find('[data-test="refund-amount-input"]').setValue('12.34')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="refund-error"]').text()).toContain(
+      'This idempotency key was already used with a different request.',
+    )
+  })
+
+  // ── Success: closes the slideover and notifies ──────────────────────────────────────────────
+
+  it('closes the slideover and shows a success toast once the refund is recorded', async () => {
+    refundMock.mockResolvedValue(refund({ amount: 1234 }))
+    const wrapper = await openRefund({ grand_total: 999999 })
+
+    await wrapper.find('[data-test="refund-amount-input"]').setValue('12.34')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(notify.success).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-test="refund-amount-input"]').exists()).toBe(false)
+  })
+
+  it('dismissing the slideover never calls the mutation', async () => {
+    const wrapper = await openRefund()
+    await wrapper.find('[data-test="refund-dismiss"]').trigger('click')
+    await flushPromises()
+
+    expect(refundMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="refund-amount-input"]').exists()).toBe(false)
+  })
+
+  // ── Refunds list section (per-order GET) ────────────────────────────────────────────────────
+
+  describe('refunds list section', () => {
+    it('shows the loading state', async () => {
+      orderRefundsStatus.value = 'pending'
+      singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+      const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+      await flushPromises()
+      expect(wrapper.find('[data-test="refunds-loading"]').exists()).toBe(true)
+    })
+
+    it('shows the error state', async () => {
+      orderRefundsStatus.value = 'error'
+      singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+      const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+      await flushPromises()
+      expect(wrapper.find('[data-test="refunds-error"]').exists()).toBe(true)
+    })
+
+    it('shows the empty state when the order has no refunds', async () => {
+      orderRefunds.value = []
+      singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+      const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+      await flushPromises()
+      expect(wrapper.find('[data-test="refunds-empty"]').exists()).toBe(true)
+    })
+
+    it('renders a row per refund with exact money, status, reason, and restocked flag', async () => {
+      orderRefunds.value = [
+        refund({ uuid: 'r1', amount: 1234, status: 'completed', reason: 'customer request', restocked: true }),
+        refund({ uuid: 'r2', amount: 500, status: 'pending', reason: null, restocked: false }),
+      ]
+      singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+      const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+      await flushPromises()
+
+      const rows = wrapper.findAll('[data-test="refund-row"]')
+      expect(rows).toHaveLength(2)
+      expect(rows[0]!.text()).toContain('$12.34')
+      expect(rows[0]!.text()).toContain('completed')
+      expect(rows[0]!.text()).toContain('customer request')
+      expect(rows[0]!.text()).toContain('Restocked')
+      expect(rows[1]!.text()).toContain('$5.00')
+      expect(rows[1]!.text()).toContain('pending')
+    })
+  })
+
+  // ── Invalidation-triggered refetch: status timeline + refunds list reflect the new state ─────
+  // `useCommerceOrder`/`useOrderRefunds` are mocked to plain refs in this suite, so there's no
+  // real Pinia Colada cache to invalidate — this simulates what useCommerceOrderMutations().refund's
+  // invalidation WOULD produce: both query refs receiving their freshly reloaded data.
+
+  it('reflects the new refund row and a refund.completed timeline entry once the (simulated) refetch lands', async () => {
+    refundMock.mockResolvedValue(refund({ uuid: 'r1', amount: 5900 }))
+    const wrapper = await openRefund({ uuid: 'o1', grand_total: 5900, refunded_total: 0, status: 'paid' })
+
+    expect(wrapper.find('[data-test="refunds-empty"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="refund-amount-input"]').setValue('59.00')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(refundMock).toHaveBeenCalledTimes(1)
+
+    // The invalidation-triggered refetch: order now fully refunded, with the audit event
+    // attached, and its own refunds list carrying the new row.
+    singleOrder.value = order({
+      uuid: 'o1',
+      status: 'refunded',
+      grand_total: 5900,
+      refunded_total: 5900,
+      events: [
+        { uuid: 'e1', type: 'refund.completed', payload: { refund_uuid: 'r1', amount: 5900 }, actor_uuid: null, visibility: 'internal', created_at: '2026-01-03 00:00:00' },
+      ],
+    })
+    orderRefunds.value = [refund({ uuid: 'r1', amount: 5900, status: 'completed' })]
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-detail-status"]').text()).toBe('refunded')
+    const timelineRows = wrapper.findAll('[data-test="order-event-row"]')
+    expect(timelineRows).toHaveLength(1)
+    expect(timelineRows[0]!.text()).toContain('refund.completed')
+
+    const refundRows = wrapper.findAll('[data-test="refund-row"]')
+    expect(refundRows).toHaveLength(1)
+    expect(refundRows[0]!.text()).toContain('$59.00')
+    // A fully-refunded order has no more legal lifecycle actions.
+    expect(wrapper.find('[data-test="order-actions"]').exists()).toBe(false)
+  })
+})
 
 describe('commerce orders route gating', () => {
   const ROOT = process.cwd()

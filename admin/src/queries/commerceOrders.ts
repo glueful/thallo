@@ -331,18 +331,220 @@ export async function fulfillOrder(uuid: string, input: FulfillOrderInput): Prom
   return normalizeOrder((raw ?? {}) as Record<string, unknown>)
 }
 
+// ── Refunds (Task 13c) ───────────────────────────────────────────────────────
+//
+// Endpoints: `POST`/`GET /commerce/orders/{uuid}/refunds` (create / per-order list) plus the
+// cross-order `GET /commerce/refunds` (list) and `GET /commerce/refunds/{uuid}` (show) —
+// AdminRefundController::store()/index()/list()/show(). A `commerce_refunds` row
+// (`006_CreateCommerceRefundTables.php`) is exactly the field set RefundService::buildRow()
+// builds. `lines` (the sibling `commerce_refund_lines` rows) is attached by `store()` and by the
+// per-order `index()` (RefundRepository::listForOrder()), but NOT by the cross-order
+// `list()`/`show()` (paginatedForTenant()/findByUuid() never join lines) — normalized as an
+// optional-defaulting-to-empty array here, same principle as CommerceOrder's
+// list-omits-lines/events note. `created_at`/`updated_at`/`provider_ref`/`failure_reason` are
+// similarly ABSENT from the immediate store() response (it returns the in-memory row buildRow()
+// constructed, before the DB fills in its own defaults) but present once re-fetched via
+// index()/list()/show() — every field stays defensively nullable/defaulted for that reason.
+
+export interface CommerceRefundLine {
+  order_line_uuid: string
+  quantity: number
+  amount: number
+}
+
+export interface CommerceRefund {
+  uuid: string
+  order_uuid: string
+  /** Minor-unit integer amount — format with `useMoney`, never `Number()`. */
+  amount: number
+  currency: string
+  /** `'manual' | 'gateway'` (RefundService's two issuance paths). */
+  method: string
+  /** `'pending' | 'completed' | 'failed'`. */
+  status: string
+  reason: string | null
+  restocked: boolean
+  failure_reason: string | null
+  initiated_by: string | null
+  created_at: string | null
+  updated_at: string | null
+  completed_at: string | null
+  lines: CommerceRefundLine[]
+}
+
+/** The exact `CreateRefundData` request body shape (`Http/DTOs/CreateRefundData.php`) — `amount`
+ * omitted/null means "refund the remaining balance" server-side (RefundService::validate()), but
+ * RefundSlideover always sends an explicit amount (task-13c brief: the client always computes and
+ * submits exact minor units, never relies on server-side defaulting). `lines` (per-order-line
+ * attribution) is accepted for parity with the DTO but has no UI in this task — restock without
+ * lines is a legitimate request the server itself rejects with a 422, surfaced verbatim. */
+export interface CreateRefundInput {
+  amount?: number | null
+  reason?: string | null
+  lines?: CommerceRefundLine[] | null
+  restock?: boolean
+}
+
+export interface RefundListFilters {
+  status?: string
+  order?: string
+  from?: string
+  to?: string
+  page?: number
+  perPage?: number
+}
+
+export interface RefundListPage {
+  refunds: CommerceRefund[]
+  total: number
+  current_page: number
+  per_page: number
+}
+
+function normalizeRefundLine(raw: Record<string, unknown>): CommerceRefundLine {
+  return {
+    order_line_uuid: String(raw.order_line_uuid ?? ''),
+    quantity: typeof raw.quantity === 'number' ? raw.quantity : 0,
+    amount: typeof raw.amount === 'number' ? raw.amount : 0,
+  }
+}
+
+function normalizeRefund(raw: Record<string, unknown>): CommerceRefund {
+  const lines = Array.isArray(raw.lines) ? raw.lines : []
+  return {
+    uuid: String(raw.uuid ?? ''),
+    order_uuid: String(raw.order_uuid ?? ''),
+    amount: typeof raw.amount === 'number' ? raw.amount : 0,
+    currency: String(raw.currency ?? ''),
+    method: String(raw.method ?? ''),
+    status: String(raw.status ?? 'pending'),
+    reason: typeof raw.reason === 'string' ? raw.reason : null,
+    restocked: raw.restocked === true,
+    failure_reason: typeof raw.failure_reason === 'string' ? raw.failure_reason : null,
+    initiated_by: typeof raw.initiated_by === 'string' ? raw.initiated_by : null,
+    created_at: typeof raw.created_at === 'string' ? raw.created_at : null,
+    updated_at: typeof raw.updated_at === 'string' ? raw.updated_at : null,
+    completed_at: typeof raw.completed_at === 'string' ? raw.completed_at : null,
+    lines: lines.map((l) => normalizeRefundLine(l as Record<string, unknown>)),
+  }
+}
+
+/** Legal refund source statuses, mirroring `OrderStateMachine::ALLOWED` exactly: both `paid` and
+ * `fulfilled` transition to `refunded` — `pending_payment`/`canceled`/`refunded` never do. Same
+ * presentation-guidance-only caveat as `canCancelOrder()` et al. above: the server's own
+ * validate() (`status: order must be paid or fulfilled to accept a refund.`) stays authoritative. */
+export function canRefundOrder(status: string): boolean {
+  return status === 'paid' || status === 'fulfilled'
+}
+
+/** `POST /commerce/orders/{uuid}/refunds` (AdminRefundController::store()) — REQUIRES a non-empty
+ * `Idempotency-Key` header (max 128 chars) or the server itself returns 422; RefundSlideover
+ * generates a fresh one per open so retries within the same attempt replay idempotently while a
+ * freshly reopened slideover always starts a genuinely new request. */
+export async function createRefund(
+  orderUuid: string,
+  input: CreateRefundInput,
+  idempotencyKey: string,
+): Promise<CommerceRefund> {
+  const { data, error, response } = await client.POST('/commerce/orders/{uuid}/refunds', {
+    params: { path: { uuid: orderUuid } },
+    headers: { 'Idempotency-Key': idempotencyKey },
+    body: {
+      amount: input.amount ?? null,
+      reason: input.reason ?? null,
+      lines: input.lines ?? null,
+      restock: input.restock ?? false,
+    } as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeRefund((raw ?? {}) as Record<string, unknown>)
+}
+
+/** `GET /commerce/orders/{uuid}/refunds` (AdminRefundController::index(), per-order list) — every
+ * row carries its `lines` (RefundRepository::listForOrder() attaches them in one batched query). */
+export async function fetchOrderRefunds(orderUuid: string): Promise<CommerceRefund[]> {
+  const { data, error, response } = await client.GET('/commerce/orders/{uuid}/refunds', {
+    params: { path: { uuid: orderUuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const body = data as { data?: unknown[] } | undefined
+  const rows = Array.isArray(body?.data) ? body.data : []
+  return rows.map((r) => normalizeRefund(r as Record<string, unknown>))
+}
+
+/** `GET /commerce/refunds` (AdminRefundController::list(), cross-order admin list) —
+ * `RefundListQuery`'s exact param set; `paginatedForTenant()` never attaches `lines`. No admin page
+ * consumes this yet (task-13c scope is the per-order slideover + list), kept here — with the
+ * cross-order `show()` fetcher below — because the brief's endpoint contract explicitly covers
+ * both, and a future global Refunds surface can build on an already-verified shape. */
+export async function fetchRefunds(filters: RefundListFilters = {}): Promise<RefundListPage> {
+  const { data, error, response } = await client.GET('/commerce/refunds', {
+    params: {
+      query: {
+        status: filters.status || undefined,
+        order: filters.order || undefined,
+        from: filters.from || undefined,
+        to: filters.to || undefined,
+        page: filters.page,
+        per_page: filters.perPage,
+      },
+    },
+  })
+  if (error) throw toApiError(error, response)
+  const body = data as
+    | { data?: unknown[]; current_page?: number; per_page?: number; total?: number }
+    | undefined
+  const rows = Array.isArray(body?.data) ? body.data : []
+  return {
+    refunds: rows.map((r) => normalizeRefund(r as Record<string, unknown>)),
+    total: body?.total ?? 0,
+    current_page: body?.current_page ?? filters.page ?? 1,
+    per_page: body?.per_page ?? filters.perPage ?? 24,
+  }
+}
+
+/** `GET /commerce/refunds/{uuid}` (AdminRefundController::show()) — `findByUuid()` never attaches
+ * `lines`, so this always normalizes to an empty `lines` array. */
+export async function fetchRefund(uuid: string): Promise<CommerceRefund> {
+  const { data, error, response } = await client.GET('/commerce/refunds/{uuid}', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  if (!raw) throw new ApiError('Refund not found.', response?.status ?? 404, {}, data)
+  return normalizeRefund(raw as Record<string, unknown>)
+}
+
+export function useOrderRefunds(uuid: MaybeRefOrGetter<string>) {
+  return useQuery({
+    key: () => qk.commerceOrderRefunds(toValue(uuid)),
+    query: () => fetchOrderRefunds(toValue(uuid)),
+    enabled: () => !!toValue(uuid),
+  })
+}
+
 /**
  * Every lifecycle action invalidates BOTH the order's own detail query AND the list — unlike
  * commerceCatalog.ts's per-product-only mutations (variant/media/stock), a lifecycle transition
  * changes `status` (and for fulfill, `fulfillment_status`), fields `OrdersTable` itself renders, so
  * the list can never skip invalidation the way those product-detail-only mutations do. Mirrors
  * `update`/`remove`'s ordering in `useCommerceProductMutations()`: detail first, then list.
+ *
+ * `refund` additionally invalidates the two refund-specific keys (per-order list + the cross-order
+ * list) — a completed refund changes what BOTH of those would return, even though no page consumes
+ * the cross-order one yet.
  */
 export function useCommerceOrderMutations() {
   const cache = useQueryCache()
   const invalidate = (uuid: string) => {
     cache.invalidateQueries({ key: qk.commerceOrder(uuid) })
     cache.invalidateQueries({ key: qk.commerceOrders() })
+  }
+  const invalidateRefund = (uuid: string) => {
+    invalidate(uuid)
+    cache.invalidateQueries({ key: qk.commerceOrderRefunds(uuid) })
+    cache.invalidateQueries({ key: qk.commerceRefunds() })
   }
 
   return {
@@ -357,6 +559,11 @@ export function useCommerceOrderMutations() {
     fulfill: useMutation({
       mutation: (vars: { uuid: string; input: FulfillOrderInput }) => fulfillOrder(vars.uuid, vars.input),
       onSettled: (_d, _e, vars) => invalidate(vars.uuid),
+    }),
+    refund: useMutation({
+      mutation: (vars: { uuid: string; input: CreateRefundInput; idempotencyKey: string }) =>
+        createRefund(vars.uuid, vars.input, vars.idempotencyKey),
+      onSettled: (_d, _e, vars) => invalidateRefund(vars.uuid),
     }),
   }
 }

@@ -40,7 +40,7 @@ describe('useCommerceOrderMutations invalidation', () => {
     // The colada mock spreads each mutation's options onto its return value, exposing
     // onSettled; the real return type doesn't carry it, hence the cast.
     const mutations = useCommerceOrderMutations() as unknown as Record<
-      'cancel' | 'markPaid' | 'fulfill',
+      'cancel' | 'markPaid' | 'fulfill' | 'refund',
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
     return { mutations, qk }
@@ -100,6 +100,44 @@ describe('useCommerceOrderMutations invalidation', () => {
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceOrder('o5') }],
       [{ key: qk.commerceOrders() }],
+    ])
+  })
+
+  // ── Refund (Task 13c): order detail + orders list + BOTH refund-specific keys ───────────────
+  // A completed refund changes the order's own status/refunded_total (detail + list, same as every
+  // other lifecycle action) AND invalidates the two refund keys this task adds: the per-order list
+  // (`commerceOrderRefunds`) the detail page's Refunds section reads, and the cross-order list
+  // (`commerceRefunds`) no page consumes yet but which the brief pins explicitly.
+
+  it('refund invalidates the order detail, the orders list, AND both refund keys', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.refund.onSettled?.(undefined, undefined, {
+      uuid: 'o6',
+      input: { amount: 500 },
+      idempotencyKey: 'idem-1',
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceOrder('o6') }],
+      [{ key: qk.commerceOrders() }],
+      [{ key: qk.commerceOrderRefunds('o6') }],
+      [{ key: qk.commerceRefunds() }],
+    ])
+  })
+
+  it('refund still invalidates all four keys when the mutation itself failed (a 422, say)', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.refund.onSettled?.(
+      undefined,
+      new Error('amount: exceeds the remaining refundable balance.'),
+      { uuid: 'o7', input: { amount: 999999 }, idempotencyKey: 'idem-2' },
+    )
+
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceOrder('o7') }],
+      [{ key: qk.commerceOrders() }],
+      [{ key: qk.commerceOrderRefunds('o7') }],
+      [{ key: qk.commerceRefunds() }],
     ])
   })
 })

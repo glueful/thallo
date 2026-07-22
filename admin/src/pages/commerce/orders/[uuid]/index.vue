@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import type { TableColumn } from '@nuxt/ui'
 import {
   useCommerceOrder,
+  useOrderRefunds,
   type CommerceOrderAddress,
   type CommerceOrderLine,
 } from '@/queries/commerceOrders'
@@ -15,6 +16,7 @@ const route = useRoute()
 const uuid = computed(() => String(route.params.uuid))
 
 const { data: order, status } = useCommerceOrder(uuid)
+const { data: refunds, status: refundsStatus } = useOrderRefunds(uuid)
 const { data: meta } = useCommerceMeta()
 const canManage = computed(() => meta.value?.can_manage ?? false)
 const { format } = useMoney()
@@ -49,6 +51,21 @@ function statusColor(s: string): 'success' | 'info' | 'warning' | 'error' | 'neu
       return 'error'
     case 'refunded':
       return 'neutral'
+    default:
+      return 'neutral'
+  }
+}
+
+// Task 13c: `commerce_refunds.status` is `'pending' | 'completed' | 'failed'` — see
+// CommerceRefund's docblock in commerceOrders.ts.
+function refundStatusColor(s: string): 'success' | 'warning' | 'error' | 'neutral' {
+  switch (s) {
+    case 'completed':
+      return 'success'
+    case 'pending':
+      return 'warning'
+    case 'failed':
+      return 'error'
     default:
       return 'neutral'
   }
@@ -228,6 +245,58 @@ const billingDisplay = computed(() => {
               {{ money(order.grand_total) }}
             </dd>
           </dl>
+        </UCard>
+
+        <!-- Refunds (Task 13c) — per-order GET, amounts via useMoney. A completed refund appears
+             in the status timeline below too (RefundService::applyCompletion() records a
+             `refund.completed`/`refund.failed` order event), reflected after the mutation's
+             invalidation-triggered refetch of both this list and the order detail itself. -->
+        <UCard :ui="{ body: refunds && refunds.length > 0 ? 'p-0' : undefined }">
+          <template #header>
+            <h3 class="text-sm font-medium">Refunds</h3>
+          </template>
+          <div
+            v-if="refundsStatus === 'pending'"
+            class="flex justify-center py-6"
+            data-test="refunds-loading"
+          >
+            <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin text-muted" />
+          </div>
+          <UAlert
+            v-else-if="refundsStatus === 'error'"
+            color="error"
+            variant="subtle"
+            icon="i-lucide-triangle-alert"
+            title="Couldn’t load refunds"
+            description="Something went wrong loading this order's refunds. Try again."
+            data-test="refunds-error"
+          />
+          <UEmpty
+            v-else-if="!refunds || refunds.length === 0"
+            icon="i-lucide-undo-2"
+            title="No refunds yet"
+            data-test="refunds-empty"
+          />
+          <ul v-else class="flex flex-col divide-y divide-default">
+            <li
+              v-for="r in refunds"
+              :key="r.uuid"
+              data-test="refund-row"
+              class="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"
+            >
+              <div class="flex items-center gap-2">
+                <span class="font-medium text-default" data-test="refund-amount">{{ money(r.amount) }}</span>
+                <UBadge :color="refundStatusColor(r.status)" variant="subtle" size="sm" data-test="refund-status">
+                  {{ r.status }}
+                </UBadge>
+                <UBadge v-if="r.restocked" color="neutral" variant="subtle" size="sm">Restocked</UBadge>
+              </div>
+              <div class="flex items-center gap-3 text-muted">
+                <span v-if="r.reason" data-test="refund-reason">{{ r.reason }}</span>
+                <span>{{ fmtDateTime(r.completed_at ?? r.created_at) }}</span>
+              </div>
+            </li>
+          </ul>
         </UCard>
 
         <!-- Addresses -->
