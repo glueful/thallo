@@ -219,6 +219,7 @@ use App\Content\Validation\FieldValidator;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Cache\CacheStore;
 use Thallo\Contracts\Authoring\ContentWriter;
+use Thallo\Contracts\Authorization\PermissionRequirementAuthority as PermissionRequirementAuthorityContract;
 use Thallo\Contracts\Content\BlockEditableFieldResolver;
 use Thallo\Contracts\Content\EntryExistenceReader;
 use Thallo\Contracts\Content\RegionReader;
@@ -1286,6 +1287,15 @@ final class ThalloServiceProvider extends ServiceProvider
             PermissionRequirementAuthority::class => [
                 'factory' => [self::class, 'makePermissionRequirementAuthority'],
                 'shared' => true,
+                // Task 8 (admin-commerce-area plan, slice 3): aliased to the neutral
+                // Thallo\Contracts\Authorization\PermissionRequirementAuthority contract so a
+                // first-party pack (e.g. thallo-commerce's `/meta` endpoint) can depend on the
+                // SAME shared instance without referencing this `App\` namespace directly — packs
+                // may not depend on the engine app. The alias belongs on THIS (the concrete)
+                // definition, not a separate binding for the contract — mirrors
+                // packSlugLifecycleAuthorityDefinition()'s identical reasoning in
+                // CommerceIntegrationServiceProvider.
+                'alias' => [PermissionRequirementAuthorityContract::class],
             ],
             AdminTenantBindingMiddleware::class => [
                 'factory' => [self::class, 'makeAdminTenantBinding'],

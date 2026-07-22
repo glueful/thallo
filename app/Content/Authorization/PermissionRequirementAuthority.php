@@ -8,6 +8,7 @@ use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Permissions\PermissionManager;
 use Symfony\Component\HttpFoundation\Request;
+use Thallo\Contracts\Authorization\PermissionRequirementAuthority as PermissionRequirementAuthorityContract;
 
 /**
  * The single authorization authority for permission REQUIREMENTS (spec §4.2).
@@ -27,8 +28,15 @@ use Symfony\Component\HttpFoundation\Request;
  * Empty requirements and empty key-scope lists deny; wildcard scope matching keeps the
  * framework's fnmatch semantics. All of RequirePermission's fail-closed branches and the
  * tenant-mode matrix/bypass evaluation are preserved here unchanged.
+ *
+ * Implements the neutral {@see PermissionRequirementAuthorityContract} (Task 8,
+ * admin-commerce-area plan slice 3) so a first-party pack (e.g. thallo-commerce's `/meta`
+ * endpoint) can depend on the SAME effective-permission decision without referencing this
+ * `App\` namespace directly — packs may not depend on the engine app. `ThalloServiceProvider`
+ * binds the contract to THIS shared instance (see `makePermissionRequirementAuthority()`), so
+ * the contract and the `content_permission` route middleware can never disagree.
  */
-final class PermissionRequirementAuthority
+final class PermissionRequirementAuthority implements PermissionRequirementAuthorityContract
 {
     public function __construct(
         private readonly ApplicationContext $context,
