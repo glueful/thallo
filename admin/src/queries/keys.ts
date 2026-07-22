@@ -40,4 +40,6 @@ export const qk = {
   commerceLink: (productUuid: string) => ['commerce-link', productUuid] as const,
   commerceLinkByEntry: (entryUuid: string) => ['commerce-link-by-entry', entryUuid] as const,
   commerceEntrySearch: (q: string) => ['commerce-entry-search', q] as const,
+  commerceOrders: () => ['commerce-orders'] as const,
+  commerceOrder: (uuid: string) => ['commerce-order', uuid] as const,
 }
