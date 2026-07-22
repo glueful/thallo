@@ -9,7 +9,9 @@ import { commerceModule } from '@/registry/commerceModule'
 // Orders to the SAME Commerce group rather than registering a second top-level entry. Task 14
 // appends Discounts the same way. Task 15a appends Settings the same way once its first tab
 // (Shipping zones) is green. Task 16 appends Reviews the same way once moderation is green. Task 17
-// appends Customers the same way (a read-only surface, no can_manage gating behind it).
+// appends Customers the same way (a read-only surface, no can_manage gating behind it). Task 18
+// (completing phase P6) PREPENDS Overview (reports) as the FIRST child instead of appending — the
+// landing page for the whole area, ahead of Products.
 describe('commerce admin module gating (thallo.commerce capability)', () => {
   it('is registered with the correct id and capability requirement', () => {
     expect(commerceModule.id).toBe('commerce')
@@ -22,7 +24,7 @@ describe('commerce admin module gating (thallo.commerce capability)', () => {
     expect(utilities).toEqual([])
   })
 
-  it('contributes Commerce → Products, Orders, Discounts, Settings, Reviews, Customers when thallo.commerce IS visible', () => {
+  it('contributes Commerce → Overview, Products, Orders, Discounts, Settings, Reviews, Customers when thallo.commerce IS visible, with Overview FIRST', () => {
     const [main, utilities] = visibleNav((id) => id === 'thallo.commerce', [commerceModule])
     expect(utilities).toEqual([])
     expect(main).toEqual([
@@ -31,6 +33,7 @@ describe('commerce admin module gating (thallo.commerce capability)', () => {
         icon: 'i-lucide-shopping-cart',
         defaultOpen: false,
         children: [
+          { label: 'Overview', to: '/commerce' },
           { label: 'Products', to: '/commerce/products' },
           { label: 'Orders', to: '/commerce/orders' },
           { label: 'Discounts', to: '/commerce/discounts' },
@@ -40,5 +43,10 @@ describe('commerce admin module gating (thallo.commerce capability)', () => {
         ],
       },
     ])
+  })
+
+  it('places Overview strictly first among the Commerce children', () => {
+    const [main] = visibleNav((id) => id === 'thallo.commerce', [commerceModule])
+    expect(main[0]!.children![0]).toEqual({ label: 'Overview', to: '/commerce' })
   })
 })

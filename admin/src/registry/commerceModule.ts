@@ -13,13 +13,17 @@ import type { AdminModule } from './adminModules'
 // page later without a further nav change. Task 16 appends Reviews the same way now that
 // moderation (approve/spam/delete/bulk) is green. Task 17 appends Customers the same way — a
 // read-only surface (no mutation endpoint exists at all), so unlike every entry before it there is
-// no can_manage gating anywhere behind this nav item.
+// no can_manage gating anywhere behind this nav item. Task 18 (completing phase P6) PREPENDS
+// Overview (reports) as the FIRST child — the landing page for the whole area, ahead of Products —
+// rather than appending like every prior task; every entry before it stays in the SAME relative
+// order.
 const main: NavigationMenuItem[] = [
   {
     label: 'Commerce',
     icon: 'i-lucide-shopping-cart',
     defaultOpen: false,
     children: [
+      { label: 'Overview', to: '/commerce' },
       { label: 'Products', to: '/commerce/products' },
       { label: 'Orders', to: '/commerce/orders' },
       { label: 'Discounts', to: '/commerce/discounts' },

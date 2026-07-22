@@ -59,4 +59,12 @@ export const qk = {
   commerceReview: (uuid: string) => ['commerce-review', uuid] as const,
   commerceCustomers: () => ['commerce-customers'] as const,
   commerceCustomer: (key: string) => ['commerce-customer', key] as const,
+  commerceReportSales: (from: string, to: string, group: string) =>
+    ['commerce-report-sales', from, to, group] as const,
+  commerceReportProducts: (from: string, to: string, sort: string, page: number, perPage: number) =>
+    ['commerce-report-products', from, to, sort, page, perPage] as const,
+  commerceReportCustomers: (from: string, to: string, group: string) =>
+    ['commerce-report-customers', from, to, group] as const,
+  commerceReportStock: (status: string, page: number, perPage: number) =>
+    ['commerce-report-stock', status, page, perPage] as const,
 }
