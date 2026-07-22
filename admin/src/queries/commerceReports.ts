@@ -387,7 +387,9 @@ export function useCommerceReportStock(filters: MaybeRefOrGetter<StockReportFilt
   return useQuery({
     key: () => {
       const f = toValue(filters)
-      return qk.commerceReportStock(f.status ?? '', f.page ?? 1, f.perPage ?? 24)
+      // threshold is a live query param — omitting it from the key would collide two
+      // callers with different thresholds onto one cached result.
+      return qk.commerceReportStock(f.status ?? '', f.threshold ?? '', f.page ?? 1, f.perPage ?? 24)
     },
     query: () => fetchCommerceReportStock(toValue(filters)),
   })

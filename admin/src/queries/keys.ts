@@ -65,6 +65,6 @@ export const qk = {
     ['commerce-report-products', from, to, sort, page, perPage] as const,
   commerceReportCustomers: (from: string, to: string, group: string) =>
     ['commerce-report-customers', from, to, group] as const,
-  commerceReportStock: (status: string, page: number, perPage: number) =>
-    ['commerce-report-stock', status, page, perPage] as const,
+  commerceReportStock: (status: string, threshold: number | '', page: number, perPage: number) =>
+    ['commerce-report-stock', status, threshold, page, perPage] as const,
 }
