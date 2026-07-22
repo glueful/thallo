@@ -1302,6 +1302,14 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            // The catalog IS the production PermissionImplicationSource (its `implies`
+            // vocabulary drives satisfiersFor()) — bind through a factory that resolves
+            // the SAME shared CapabilityCatalog instance rather than a second one.
+            PermissionImplicationSource::class => [
+                'factory' => static fn (ContainerInterface $container): PermissionImplicationSource =>
+                    $container->get(CapabilityCatalog::class),
+                'shared' => true,
+            ],
             PolicyManifest::class => [
                 'class' => PolicyManifest::class,
                 'shared' => true,

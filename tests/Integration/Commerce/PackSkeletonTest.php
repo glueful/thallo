@@ -49,6 +49,29 @@ final class PackSkeletonTest extends AppTestCase
         self::assertContains('idx_commerce_product_link_tenant_product', $indexNames);
     }
 
+    public function testCommercePermissionsAreSeededWithViewAndRenamedManageLabel(): void
+    {
+        $rows = $this->connection()->table('permissions')
+            ->select(['slug', 'name', 'category', 'is_system'])
+            ->whereIn('slug', ['commerce.view', 'commerce.manage'])
+            ->get();
+
+        $bySlug = [];
+        foreach ($rows as $row) {
+            $bySlug[$row['slug']] = $row;
+        }
+
+        self::assertArrayHasKey('commerce.view', $bySlug);
+        self::assertSame('View commerce', $bySlug['commerce.view']['name']);
+        self::assertSame('commerce', $bySlug['commerce.view']['category']);
+        self::assertTrue((bool) $bySlug['commerce.view']['is_system']);
+
+        self::assertArrayHasKey('commerce.manage', $bySlug);
+        self::assertSame('Manage commerce', $bySlug['commerce.manage']['name']);
+        self::assertSame('commerce', $bySlug['commerce.manage']['category']);
+        self::assertTrue((bool) $bySlug['commerce.manage']['is_system']);
+    }
+
     public function testCapabilityIsRegisteredAndEnabledByDefault(): void
     {
         $caps = $this->container()->get(CapabilityRegistry::class);
