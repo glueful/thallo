@@ -22,8 +22,10 @@ const roleItems = MEDIA_ROLES.map((r) => ({ label: r, value: r }))
 // There is no admin GET for a product's media list — attach returns only the row it created and
 // reorder is the one endpoint that ever returns the full set — so, exactly like VariantsPanel's
 // `knownChildren`, this panel tracks known rows itself from mutation responses for the lifetime
-// of the component.
-const knownMedia = ref<CommerceProductMedia[]>([])
+// of the component. `null` = never observed this session (existing media may exist server-side
+// but is not returned by any admin GET) — distinct from `[]`, which is only reached after a
+// mutation response positively established the set. Never claim "no media" for the unknown state.
+const knownMedia = ref<CommerceProductMedia[] | null>(null)
 
 // ── Attach ───────────────────────────────────────────────────────────────────────────────────
 
@@ -41,7 +43,7 @@ async function handlePicked(blobUuid: string) {
       productUuid: props.product.uuid,
       input: { blob_uuid: blobUuid, role: 'gallery' },
     })
-    knownMedia.value = [...knownMedia.value, row].sort((a, b) => a.position - b.position)
+    knownMedia.value = [...(knownMedia.value ?? []), row].sort((a, b) => a.position - b.position)
   } catch (e) {
     const err = toApiError(e)
     attachError.value = Object.values(err.fieldErrors)[0] ?? err.message
@@ -77,7 +79,7 @@ async function saveEdit() {
       productUuid: props.product.uuid,
       input: { alt: editAlt.value || null, role: editRole.value },
     })
-    knownMedia.value = knownMedia.value.map((m) => {
+    knownMedia.value = (knownMedia.value ?? []).map((m) => {
       if (m.uuid === uuid) return updated
       // At most one cover: promoting this row demotes any other locally-known cover row —
       // mirrors ProductMediaService::demoteCover(), which already enforced this server-side, so
@@ -98,7 +100,7 @@ async function saveEdit() {
 async function detach(row: CommerceProductMedia) {
   try {
     await detachMedia.mutateAsync({ uuid: row.uuid, productUuid: props.product.uuid })
-    knownMedia.value = knownMedia.value.filter((m) => m.uuid !== row.uuid)
+    knownMedia.value = (knownMedia.value ?? []).filter((m) => m.uuid !== row.uuid)
   } catch (e) {
     notifyError(e, 'Couldn’t remove media')
   }
@@ -109,10 +111,12 @@ async function detach(row: CommerceProductMedia) {
 const reorderError = ref<string | null>(null)
 
 async function move(index: number, direction: -1 | 1) {
+  const rows = knownMedia.value
+  if (rows === null) return
   const target = index + direction
-  if (target < 0 || target >= knownMedia.value.length) return
+  if (target < 0 || target >= rows.length) return
 
-  const previous = knownMedia.value
+  const previous = rows
   const next = [...previous]
   const [row] = next.splice(index, 1)
   next.splice(target, 0, row as CommerceProductMedia)
@@ -169,7 +173,16 @@ async function move(index: number, direction: -1 | 1) {
     />
 
     <UAlert
-      v-if="knownMedia.length === 0"
+      v-if="knownMedia === null"
+      color="neutral"
+      variant="subtle"
+      icon="i-lucide-images"
+      title="Media not loaded"
+      description="Existing media isn't shown here yet — attaching or reordering refreshes the list for this session."
+      data-test="media-unknown"
+    />
+    <UAlert
+      v-else-if="knownMedia.length === 0"
       color="neutral"
       variant="subtle"
       icon="i-lucide-image-off"
@@ -178,7 +191,7 @@ async function move(index: number, direction: -1 | 1) {
     />
 
     <div
-      v-for="(row, index) in knownMedia"
+      v-for="(row, index) in knownMedia ?? []"
       :key="row.uuid"
       data-test="media-row"
       :data-uuid="row.uuid"
@@ -214,7 +227,7 @@ async function move(index: number, direction: -1 | 1) {
             icon="i-lucide-chevron-down"
             aria-label="Move down"
             data-test="media-move-down"
-            :disabled="index === knownMedia.length - 1"
+            :disabled="knownMedia !== null && index === knownMedia.length - 1"
             @click="move(index, 1)"
           />
           <UButton

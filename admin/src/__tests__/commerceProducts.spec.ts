@@ -520,7 +520,10 @@ describe('commerce product detail page', () => {
     await mediaTab!.trigger('mousedown', { button: 0 })
     await flushPromises()
 
-    expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(true)
+    // Fresh mount = unobserved set: the panel must show the honest "not loaded" state,
+    // never assert "No media yet" (no admin GET exists to know that).
+    expect(wrapper.find('[data-test="media-unknown"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(false)
   })
 })
 
@@ -748,9 +751,10 @@ describe('MediaPanel', () => {
     await flushPromises()
   }
 
-  it('shows the empty state when there is no media yet', () => {
+  it('shows the not-loaded state on fresh mount (unknown, never a false "no media" claim)', () => {
     const wrapper = mountPanel(product({ uuid: 'p1' }))
-    expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="media-unknown"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="media-row"]').exists()).toBe(false)
   })
 
@@ -918,9 +922,9 @@ describe('MediaPanel', () => {
     expect(wrapper.findAll('[data-test="media-row"]')).toHaveLength(2)
   })
 
-  it('hides the Add media button when can_manage is false with no media yet', () => {
+  it('hides the Add media button when can_manage is false', () => {
     const wrapper = mountPanel(product({ uuid: 'p1' }), false)
     expect(wrapper.find('[data-test="media-add"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="media-unknown"]').exists()).toBe(true)
   })
 })
