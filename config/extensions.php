@@ -24,9 +24,11 @@ return [
         'Glueful\Extensions\ImportExport\ImportExportServiceProvider',
         'Glueful\Extensions\Media\MediaServiceProvider',
         'Glueful\Extensions\Meilisearch\MeilisearchProvider',
-        'Glueful\Extensions\Tenancy\TenancyServiceProvider',
-        // Commerce loads AFTER tenancy enforcement (above) and BEFORE thallo-commerce (below),
-        // per the pinned provider order: tenancy enforcement -> Commerce -> thallo-commerce.
+        // Commerce (framework extension) must load BEFORE thallo-commerce (below), which binds
+        // Commerce's host seams. Tenancy ENFORCEMENT (Glueful\Extensions\Tenancy\TenancyServiceProvider)
+        // is deliberately NOT listed here — it is enforcement-gated and activated only through the
+        // runtime enablement flow; Commerce depends on the always-on tenancy control plane, not on
+        // the enforcement provider being statically enabled.
         'Glueful\Extensions\Commerce\CommerceServiceProvider',
         'Glueful\Extensions\Users\UsersServiceProvider',
         'Thallo\Analytics\AnalyticsServiceProvider',
