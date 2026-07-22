@@ -160,6 +160,42 @@ export interface UpdateProductMediaInput {
   position?: number | null
 }
 
+/** A `commerce_categories` row (design spec Layer 6 §2) — CRUD'd independently of products, then
+ * attached/detached via `PUT /commerce/products/{uuid}/categories`'s set-list replace. Flat, not a
+ * nested tree: `parent_uuid` is the only structural signal the API gives back (`CategoryService::list()`
+ * returns every category for the tenant, unpaginated), so the SPA renders a flat list annotated with
+ * each row's parent (see CategoriesTab.vue's `parentName()`) rather than building an actual tree
+ * client-side. */
+export interface CommerceCategory {
+  uuid: string
+  parent_uuid: string | null
+  slug: string
+  name: string
+  description: string | null
+  position: number
+}
+
+/** `POST /commerce/categories` body (CreateCategoryData). `blob_uuid` (an optional category image)
+ * exists on the DTO but has no UI here — out of scope for this task's category CRUD. */
+export interface CreateCategoryInput {
+  slug: string
+  name: string
+  description?: string | null
+  parent_uuid?: string | null
+  position?: number | null
+}
+
+/** `PATCH /commerce/categories/{uuid}` body (UpdateCategoryData) — the controller reads the raw
+ * body (see its own docblock), so only present keys are applied; an explicit `parent_uuid: null`
+ * moves the category to the root, while an omitted key leaves its current parent unchanged. */
+export interface UpdateCategoryInput {
+  slug?: string | null
+  name?: string | null
+  description?: string | null
+  parent_uuid?: string | null
+  position?: number | null
+}
+
 // The admin envelopes are doc-only in the OpenAPI schema (see collections.ts's identical note), so
 // normalize the raw JSON into the stricter hand-written shapes above at the boundary.
 function normalizeVariant(raw: Record<string, unknown>): CommerceVariant {
@@ -186,6 +222,17 @@ function normalizeMedia(raw: Record<string, unknown>): CommerceProductMedia {
     role: String(raw.role ?? 'gallery'),
     position: typeof raw.position === 'number' ? raw.position : 0,
     alt: typeof raw.alt === 'string' ? raw.alt : null,
+  }
+}
+
+function normalizeCategory(raw: Record<string, unknown>): CommerceCategory {
+  return {
+    uuid: String(raw.uuid ?? ''),
+    parent_uuid: typeof raw.parent_uuid === 'string' ? raw.parent_uuid : null,
+    slug: String(raw.slug ?? ''),
+    name: String(raw.name ?? ''),
+    description: typeof raw.description === 'string' ? raw.description : null,
+    position: typeof raw.position === 'number' ? raw.position : 0,
   }
 }
 
@@ -409,6 +456,63 @@ export async function reorderProductMedia(
   return Array.isArray(rows) ? rows.map((m) => normalizeMedia(m as Record<string, unknown>)) : []
 }
 
+/** `GET /commerce/categories` — a flat, unpaginated list of every category for the tenant
+ * (`CategoryService::list()` returns `CategoryRepository::all()` directly, not a paginated
+ * result), ordered by position then name. */
+export async function fetchCategories(): Promise<CommerceCategory[]> {
+  const { data, error, response } = await client.GET('/commerce/categories')
+  if (error) throw toApiError(error, response)
+  const rows = (data as { data?: unknown[] } | undefined)?.data
+  return Array.isArray(rows) ? rows.map((c) => normalizeCategory(c as Record<string, unknown>)) : []
+}
+
+export async function createCategory(input: CreateCategoryInput): Promise<CommerceCategory> {
+  const { data, error, response } = await client.POST('/commerce/categories', {
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeCategory((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function updateCategory(
+  uuid: string,
+  input: UpdateCategoryInput,
+): Promise<CommerceCategory> {
+  const { data, error, response } = await client.PATCH('/commerce/categories/{uuid}', {
+    params: { path: { uuid } },
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeCategory((raw ?? {}) as Record<string, unknown>)
+}
+
+export async function deleteCategory(uuid: string): Promise<void> {
+  const { error, response } = await client.DELETE('/commerce/categories/{uuid}', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+}
+
+/** `PUT /commerce/products/{uuid}/categories` (SetProductCategoriesData) — a wholesale set-list
+ * replace, exactly like `setProductChildren`: the SUBMITTED list becomes the product's entire
+ * category assignment, and the response is the fresh list of attached category rows. There is no
+ * admin GET for a product's current categories (`/commerce/products/{uuid}/categories` declares no
+ * `get` in schema.d.ts), so this response is the only source of truth the SPA ever has. */
+export async function setProductCategories(
+  productUuid: string,
+  categoryUuids: string[],
+): Promise<CommerceCategory[]> {
+  const { data, error, response } = await client.PUT('/commerce/products/{uuid}/categories', {
+    params: { path: { uuid: productUuid } },
+    body: { category_uuids: categoryUuids } as never,
+  })
+  if (error) throw toApiError(error, response)
+  const rows = (data as { data?: unknown[] } | undefined)?.data
+  return Array.isArray(rows) ? rows.map((c) => normalizeCategory(c as Record<string, unknown>)) : []
+}
+
 // ── Query/mutation wrappers ──────────────────────────────────────────────────
 
 export function useCommerceProducts(filters: MaybeRefOrGetter<ProductListFilters>) {
@@ -518,6 +622,44 @@ export function useCommerceProductMutations() {
       mutation: (vars: { productUuid: string; orderedUuids: string[] }) =>
         reorderProductMedia(vars.productUuid, vars.orderedUuids),
       onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+    }),
+    // Task 10d: product category assignment — invalidates ONLY the owning product, same
+    // reasoning as setChildren/media above. Never invalidates commerceCategories(): the shared
+    // category list shows no per-category product count, so a product's own assignment
+    // changing never makes anything useCommerceCategories() renders stale.
+    setCategories: useMutation({
+      mutation: (vars: { productUuid: string; categoryUuids: string[] }) =>
+        setProductCategories(vars.productUuid, vars.categoryUuids),
+      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+    }),
+  }
+}
+
+export function useCommerceCategories() {
+  return useQuery({ key: qk.commerceCategories(), query: fetchCategories })
+}
+
+/** Category CRUD mutations — a separate hook from `useCommerceProductMutations()` since
+ * categories are their own top-level resource (not scoped to a single product); every one
+ * invalidates the shared category list, the only thing any `useCommerceCategories()` consumer
+ * renders from. */
+export function useCommerceCategoryMutations() {
+  const cache = useQueryCache()
+  const invalidateCategories = () => cache.invalidateQueries({ key: qk.commerceCategories() })
+
+  return {
+    create: useMutation({
+      mutation: (input: CreateCategoryInput) => createCategory(input),
+      onSettled: invalidateCategories,
+    }),
+    update: useMutation({
+      mutation: (vars: { uuid: string; input: UpdateCategoryInput }) =>
+        updateCategory(vars.uuid, vars.input),
+      onSettled: invalidateCategories,
+    }),
+    remove: useMutation({
+      mutation: (uuid: string) => deleteCategory(uuid),
+      onSettled: invalidateCategories,
     }),
   }
 }

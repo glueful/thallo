@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
-import type { CommerceProduct, ProductListPage } from '@/queries/commerceCatalog'
+import type { CommerceCategory, CommerceProduct, ProductListPage } from '@/queries/commerceCatalog'
 
 // ── Shared mock state (referenced inside vi.mock factories) ────────────────────────────────────
 //
@@ -30,8 +30,14 @@ const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi
 vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
 
 // MediaPanel's thumbnails resolve blob uuids through this helper — deterministic path, no need
-// for the real runtime-config-derived URL (mirrors assetFieldLibrary.spec.ts's mock).
+// for the real runtime-config-derived URL (mirrors assetFieldLibrary.spec.ts's mock). This suite
+// stubs MediaPickerModal wherever it can actually open, but @vue/test-utils doesn't auto-unmount
+// between tests in this file, so a handful of wrapper instances outlive their test; mocking
+// `useMediaList`/`useUploadMedia` too (mirrors assetFieldLibrary.spec.ts) means a stray real
+// MediaPickerModal instance never crashes with "useUploadMedia is not defined on the mock".
 vi.mock('@/queries/media', () => ({
+  useMediaList: () => ({ data: ref(undefined), status: ref('success') }),
+  useUploadMedia: () => ({ mutateAsync: vi.fn(), isLoading: ref(false) }),
   blobDisplayUrl: (uuid: string) => `/blobs/${uuid}`,
 }))
 
@@ -71,6 +77,13 @@ const attachMediaMock = vi.hoisted(() => vi.fn())
 const updateMediaMock = vi.hoisted(() => vi.fn())
 const detachMediaMock = vi.hoisted(() => vi.fn())
 const reorderMediaMock = vi.hoisted(() => vi.fn())
+const setCategoriesMock = vi.hoisted(() => vi.fn())
+
+const categoriesData = ref<CommerceCategory[] | undefined>(undefined)
+const categoriesStatus = ref<'pending' | 'error' | 'success'>('success')
+const categoryCreateMock = vi.hoisted(() => vi.fn())
+const categoryUpdateMock = vi.hoisted(() => vi.fn())
+const categoryRemoveMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceCatalog')>()
@@ -92,6 +105,13 @@ vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
       updateMedia: { mutateAsync: updateMediaMock, isLoading: ref(false) },
       detachMedia: { mutateAsync: detachMediaMock, isLoading: ref(false) },
       reorderMedia: { mutateAsync: reorderMediaMock, isLoading: ref(false) },
+      setCategories: { mutateAsync: setCategoriesMock, isLoading: ref(false) },
+    }),
+    useCommerceCategories: () => ({ data: categoriesData, status: categoriesStatus }),
+    useCommerceCategoryMutations: () => ({
+      create: { mutateAsync: categoryCreateMock, isLoading: ref(false) },
+      update: { mutateAsync: categoryUpdateMock, isLoading: ref(false) },
+      remove: { mutateAsync: categoryRemoveMock, isLoading: ref(false) },
     }),
   }
 })
@@ -100,6 +120,7 @@ import ProductsTable from '@/pages/commerce/products/components/ProductsTable.vu
 import ProductForm from '@/pages/commerce/products/components/ProductForm.vue'
 import VariantsPanel from '@/pages/commerce/products/components/VariantsPanel.vue'
 import MediaPanel from '@/pages/commerce/products/components/MediaPanel.vue'
+import CategoriesTab from '@/pages/commerce/products/components/CategoriesTab.vue'
 import ProductsIndex from '@/pages/commerce/products/index.vue'
 import ProductDetail from '@/pages/commerce/products/[uuid]/index.vue'
 import { ApiError } from '@/api/errors'
@@ -143,6 +164,18 @@ function media(overrides: Partial<CommerceProductMedia> = {}): CommerceProductMe
     role: 'gallery',
     position: 0,
     alt: null,
+    ...overrides,
+  }
+}
+
+function category(overrides: Partial<CommerceCategory> = {}): CommerceCategory {
+  return {
+    uuid: 'cat1',
+    parent_uuid: null,
+    slug: 'cat-1',
+    name: 'Category 1',
+    description: null,
+    position: 0,
     ...overrides,
   }
 }
@@ -206,6 +239,12 @@ beforeEach(() => {
   updateMediaMock.mockReset()
   detachMediaMock.mockReset()
   reorderMediaMock.mockReset()
+  setCategoriesMock.mockReset()
+  categoriesData.value = []
+  categoriesStatus.value = 'success'
+  categoryCreateMock.mockReset()
+  categoryUpdateMock.mockReset()
+  categoryRemoveMock.mockReset()
   notify.success.mockReset()
   notify.warning.mockReset()
   notify.error.mockReset()
@@ -442,6 +481,26 @@ describe('commerce products list page', () => {
     // Selection clears once applied.
     expect(wrapper.find('[data-test="bulk-status-bar"]').exists()).toBe(false)
   })
+
+  it('switches to the Categories tab, hiding the Products-only controls, and renders CategoriesTab', async () => {
+    productsPage.value = { products: [product({ uuid: 'p1', name: 'Widget' })], total: 1, current_page: 1, per_page: 24 }
+    categoriesData.value = [category({ uuid: 'cat1', name: 'Cat 1' })]
+    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="category-row"]').exists()).toBe(false)
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    const categoriesTab = tabs.find((t) => t.text() === 'Categories')
+    await categoriesTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="new-product"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="product-row"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="category-row"]').exists()).toBe(true)
+    // Management mode: no `product` prop, so CRUD controls render.
+    expect(wrapper.find('[data-test="category-add"]').exists()).toBe(true)
+  })
 })
 
 // ── Product detail page ──────────────────────────────────────────────────────────────────────
@@ -524,6 +583,24 @@ describe('commerce product detail page', () => {
     // never assert "No media yet" (no admin GET exists to know that).
     expect(wrapper.find('[data-test="media-unknown"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(false)
+  })
+
+  it('switches to the Categories tab and renders CategoriesTab in assignment mode', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget' })
+    categoriesData.value = [category({ uuid: 'cat1', name: 'Cat 1' })]
+    const wrapper = mount(ProductDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    const categoriesTab = tabs.find((t) => t.text() === 'Categories')
+    await categoriesTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="category-assignment-section"]').exists()).toBe(true)
+    // Assignment mode: CRUD controls are always hidden, even though can_manage is true.
+    expect(wrapper.find('[data-test="category-add"]').exists()).toBe(false)
+    // Fresh mount = unobserved assignment: the honest "not loaded" state, never a guessed selection.
+    expect(wrapper.find('[data-test="category-assignment-unknown"]').exists()).toBe(true)
   })
 })
 
@@ -926,5 +1003,218 @@ describe('MediaPanel', () => {
     const wrapper = mountPanel(product({ uuid: 'p1' }), false)
     expect(wrapper.find('[data-test="media-add"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="media-unknown"]').exists()).toBe(true)
+  })
+})
+
+// ── CategoriesTab: management mode (no `product` prop) — full category CRUD ────────────────
+
+describe('CategoriesTab (category management)', () => {
+  function mountTab(canManage = true) {
+    return mount(CategoriesTab, { props: { canManage }, global: { stubs: { Modal: teleportStub } } })
+  }
+
+  it('renders each category with its parent relationship', () => {
+    categoriesData.value = [
+      category({ uuid: 'root1', name: 'Root', slug: 'root', parent_uuid: null }),
+      category({ uuid: 'child1', name: 'Child', slug: 'child', parent_uuid: 'root1' }),
+    ]
+    const wrapper = mountTab()
+
+    expect(wrapper.findAll('[data-test="category-row"]')).toHaveLength(2)
+    expect(wrapper.find('[data-test="category-parent"]').text()).toContain('Root')
+  })
+
+  it('shows the loading state', () => {
+    categoriesStatus.value = 'pending'
+    const wrapper = mountTab()
+    expect(wrapper.find('[data-test="categories-loading"]').exists()).toBe(true)
+  })
+
+  it('shows the error state', () => {
+    categoriesStatus.value = 'error'
+    const wrapper = mountTab()
+    expect(wrapper.find('[data-test="categories-error"]').exists()).toBe(true)
+  })
+
+  it('shows the empty state when there are no categories', () => {
+    categoriesData.value = []
+    const wrapper = mountTab()
+    expect(wrapper.find('[data-test="categories-empty"]').exists()).toBe(true)
+  })
+
+  it('creates a category from the add form', async () => {
+    categoriesData.value = []
+    categoryCreateMock.mockResolvedValue(category({ uuid: 'new-1', name: 'New', slug: 'new' }))
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="category-add"]').trigger('click')
+    await wrapper.find('[data-test="category-name-input"]').setValue('New')
+    await wrapper.find('[data-test="category-slug-input"]').setValue('new')
+    await wrapper.find('#category-form').trigger('submit')
+    await flushPromises()
+
+    expect(categoryCreateMock).toHaveBeenCalledWith({
+      name: 'New',
+      slug: 'new',
+      description: null,
+      parent_uuid: null,
+      position: 0,
+    })
+  })
+
+  it('surfaces a duplicate-slug 422 message instead of vanishing it', async () => {
+    categoriesData.value = []
+    categoryCreateMock.mockRejectedValue(
+      new ApiError('Validation failed', 422, { slug: 'Slug already in use.' }, {}),
+    )
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="category-add"]').trigger('click')
+    await wrapper.find('[data-test="category-name-input"]').setValue('Dup')
+    await wrapper.find('[data-test="category-slug-input"]').setValue('dup')
+    await wrapper.find('#category-form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="category-form-error"]').text()).toContain('Slug already in use.')
+  })
+
+  it('updates a category via the edit form', async () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Old', slug: 'old' })]
+    categoryUpdateMock.mockResolvedValue(category({ uuid: 'c1', name: 'New name', slug: 'old' }))
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="category-edit"]').trigger('click')
+    await wrapper.find('[data-test="category-name-input"]').setValue('New name')
+    await wrapper.find('#category-form').trigger('submit')
+    await flushPromises()
+
+    expect(categoryUpdateMock).toHaveBeenCalledWith({
+      uuid: 'c1',
+      input: { name: 'New name', slug: 'old', description: null, parent_uuid: null, position: 0 },
+    })
+  })
+
+  it('surfaces a validation 422 message on category update', async () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Old', slug: 'old' })]
+    categoryUpdateMock.mockRejectedValue(
+      new ApiError(
+        'Validation failed',
+        422,
+        { parent_uuid: 'parent_uuid would create a cycle in the category tree.' },
+        {},
+      ),
+    )
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="category-edit"]').trigger('click')
+    await wrapper.find('#category-form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="category-form-error"]').text()).toContain(
+      'parent_uuid would create a cycle in the category tree.',
+    )
+  })
+
+  it('requires confirmation before deleting a category', async () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Old' })]
+    categoryRemoveMock.mockResolvedValue(undefined)
+    const wrapper = mountTab()
+
+    expect(wrapper.find('[data-test="category-delete-confirm"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="category-delete"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="category-delete-confirm"]').exists()).toBe(true)
+    expect(categoryRemoveMock).not.toHaveBeenCalled()
+
+    await wrapper.find('[data-test="category-delete-confirm"]').trigger('click')
+    await flushPromises()
+    expect(categoryRemoveMock).toHaveBeenCalledWith('c1')
+  })
+
+  it('hides all mutation controls when can_manage is false, keeping categories visible', () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Old' })]
+    const wrapper = mountTab(false)
+
+    expect(wrapper.find('[data-test="category-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="category-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="category-delete"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="category-row"]').exists()).toBe(true)
+  })
+})
+
+// ── CategoriesTab: assignment mode (`product` prop given) ───────────────────────────────────
+
+describe('CategoriesTab (product assignment)', () => {
+  function mountAssignment(p: CommerceProduct, canManage = true) {
+    return mount(CategoriesTab, { props: { product: p, canManage } })
+  }
+
+  it('shows the honest not-loaded state on fresh mount (never a guessed selection)', () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Cat 1' })]
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    expect(wrapper.find('[data-test="category-assignment-unknown"]').exists()).toBe(true)
+    const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
+    expect(checkbox!.props('modelValue')).toBe(false)
+  })
+
+  it('hides category CRUD controls in assignment mode even when can_manage is true', () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Cat 1' })]
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    expect(wrapper.find('[data-test="category-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="category-edit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="category-delete"]').exists()).toBe(false)
+  })
+
+  it('selects categories and saves the exact uuid list, then reflects the positively-known set', async () => {
+    categoriesData.value = [
+      category({ uuid: 'c1', name: 'Cat 1' }),
+      category({ uuid: 'c2', name: 'Cat 2' }),
+    ]
+    setCategoriesMock.mockResolvedValue([category({ uuid: 'c1', name: 'Cat 1' })])
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[0]!.vm.$emit('update:modelValue', true)
+    await wrapper.find('[data-test="category-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setCategoriesMock).toHaveBeenCalledWith({ productUuid: 'p1', categoryUuids: ['c1'] })
+    // Once the set-list response comes back, the unknown-state banner clears — the set is now
+    // positively established, not a guess.
+    expect(wrapper.find('[data-test="category-assignment-unknown"]').exists()).toBe(false)
+  })
+
+  it('surfaces a validation 422 message on save without discarding the current selection', async () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Cat 1' })]
+    setCategoriesMock.mockRejectedValue(
+      new ApiError(
+        'Validation failed',
+        422,
+        { category_uuids: 'category_uuids must reference existing categories in this tenant.' },
+        {},
+      ),
+    )
+    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[0]!.vm.$emit('update:modelValue', true)
+    await wrapper.find('[data-test="category-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="category-assignment-error"]').text()).toContain(
+      'category_uuids must reference existing categories in this tenant.',
+    )
+  })
+
+  it('hides the save control and disables checkboxes when can_manage is false', () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Cat 1' })]
+    const wrapper = mountAssignment(product({ uuid: 'p1' }), false)
+
+    expect(wrapper.find('[data-test="category-assignment-save"]').exists()).toBe(false)
+    const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
+    expect(checkbox!.props('disabled')).toBe(true)
   })
 })

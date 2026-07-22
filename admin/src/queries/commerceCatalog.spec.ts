@@ -717,4 +717,232 @@ describe('commerce catalog query layer', () => {
       'positions.0.uuid': 'Unknown media item for this product.',
     })
   })
+
+  // ── Task 10d: category CRUD + product assignment ──────────────────────────────────────────
+
+  it('parses the flat, unpaginated category list envelope', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Categories retrieved',
+        data: [
+          { uuid: 'cat1', parent_uuid: null, slug: 'root', name: 'Root', description: null, position: 0 },
+          { uuid: 'cat2', parent_uuid: 'cat1', slug: 'child', name: 'Child', description: 'A child', position: 1 },
+        ],
+      }),
+    )
+
+    const { fetchCategories } = await import('@/queries/commerceCatalog')
+    const categories = await fetchCategories()
+
+    expect(categories).toHaveLength(2)
+    expect(categories[0]).toEqual({
+      uuid: 'cat1',
+      parent_uuid: null,
+      slug: 'root',
+      name: 'Root',
+      description: null,
+      position: 0,
+    })
+    expect(categories[1]!.parent_uuid).toBe('cat1')
+  })
+
+  it('defaults to an empty category list when the envelope has no data array', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ data: null }))
+
+    const { fetchCategories } = await import('@/queries/commerceCatalog')
+    await expect(fetchCategories()).resolves.toEqual([])
+  })
+
+  it('throws ApiError when the category list request fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Forbidden' }, 403),
+    )
+
+    const { fetchCategories } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(fetchCategories()).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('creates a category and returns the normalized record', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: true,
+          message: 'Category created',
+          data: { uuid: 'new-cat', parent_uuid: null, slug: 'new-cat', name: 'New Cat', description: null, position: 0 },
+        },
+        201,
+      ),
+    )
+
+    const { createCategory } = await import('@/queries/commerceCatalog')
+    const category = await createCategory({ slug: 'new-cat', name: 'New Cat' })
+
+    expect(category.uuid).toBe('new-cat')
+    expect(category.name).toBe('New Cat')
+  })
+
+  it('sends the create-category request body exactly as given', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Category created',
+        data: { uuid: 'c1', parent_uuid: 'root1', slug: 'c1', name: 'C1', description: 'Desc', position: 2 },
+      }),
+    )
+
+    const { createCategory } = await import('@/queries/commerceCatalog')
+    await createCategory({ slug: 'c1', name: 'C1', description: 'Desc', parent_uuid: 'root1', position: 2 })
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({
+      slug: 'c1',
+      name: 'C1',
+      description: 'Desc',
+      parent_uuid: 'root1',
+      position: 2,
+    })
+  })
+
+  it('surfaces a duplicate-slug constraint from a 422 on category create', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { slug: 'Slug already in use.' } },
+        },
+        422,
+      ),
+    )
+
+    const { createCategory } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await createCategory({ slug: 'dup', name: 'Dup' })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({ slug: 'Slug already in use.' })
+  })
+
+  it('updates a category by uuid', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Category updated',
+        data: { uuid: 'c1', parent_uuid: null, slug: 'c1', name: 'Renamed', description: null, position: 0 },
+      }),
+    )
+
+    const { updateCategory } = await import('@/queries/commerceCatalog')
+    const category = await updateCategory('c1', { name: 'Renamed' })
+    expect(category.name).toBe('Renamed')
+  })
+
+  it('surfaces a cycle-depth constraint from a 422 on category update', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { parent_uuid: 'parent_uuid would create a cycle in the category tree.' } },
+        },
+        422,
+      ),
+    )
+
+    const { updateCategory } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await updateCategory('c1', { parent_uuid: 'c1' })
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      parent_uuid: 'parent_uuid would create a cycle in the category tree.',
+    })
+  })
+
+  it('deletes a category with no return value', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+
+    const { deleteCategory } = await import('@/queries/commerceCatalog')
+    await expect(deleteCategory('c1')).resolves.toBeUndefined()
+  })
+
+  it('throws ApiError when category delete fails', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Not found' }, 404),
+    )
+
+    const { deleteCategory } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    await expect(deleteCategory('missing')).rejects.toBeInstanceOf(ApiError)
+  })
+
+  it('sets product categories and returns the normalized attached list', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Product categories updated',
+        data: [
+          { uuid: 'cat1', parent_uuid: null, slug: 'root', name: 'Root', description: null, position: 0 },
+        ],
+      }),
+    )
+
+    const { setProductCategories } = await import('@/queries/commerceCatalog')
+    const categories = await setProductCategories('p1', ['cat1'])
+    expect(categories).toHaveLength(1)
+    expect(categories[0]!.uuid).toBe('cat1')
+  })
+
+  it('sends the set-categories request body exactly as { category_uuids }', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Product categories updated', data: [] }),
+    )
+
+    const { setProductCategories } = await import('@/queries/commerceCatalog')
+    await setProductCategories('p1', ['cat1', 'cat2'])
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({ category_uuids: ['cat1', 'cat2'] })
+  })
+
+  it('surfaces the "must reference existing categories" constraint from a set-categories 422', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(
+        {
+          success: false,
+          message: 'Validation failed',
+          error: {
+            code: 422,
+            details: { category_uuids: 'category_uuids must reference existing categories in this tenant.' },
+          },
+        },
+        422,
+      ),
+    )
+
+    const { setProductCategories } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await setProductCategories('p1', ['missing'])
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      category_uuids: 'category_uuids must reference existing categories in this tenant.',
+    })
+  })
 })

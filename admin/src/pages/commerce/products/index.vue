@@ -14,12 +14,21 @@ import { useNotify } from '@/composables/useNotify'
 import TablePagination from '@/components/TablePagination.vue'
 import ProductsTable from './components/ProductsTable.vue'
 import ProductCreateSlideover from './components/ProductCreateSlideover.vue'
+import CategoriesTab from './components/CategoriesTab.vue'
 
 const router = useRouter()
 const { success, warning, error: notifyError } = useNotify()
 
 const { data: meta } = useCommerceMeta()
 const canManage = computed(() => meta.value?.can_manage ?? false)
+
+// Task 10d: taxonomy lives as a tab within the Products AREA (design spec §6), not a separate
+// nav item — CategoriesTab.vue (management mode: no `product` prop) mounts here.
+const tab = ref<'products' | 'categories'>('products')
+const tabItems = [
+  { label: 'Products', value: 'products' },
+  { label: 'Categories', value: 'categories' },
+]
 
 // ── Filters ──────────────────────────────────────────────────────────────────
 // USelect/reka-ui reserve the empty string as "no selection" and reject a SelectItem with an
@@ -119,80 +128,88 @@ async function confirmDelete() {
     <template #header>
       <UDashboardNavbar title="Products">
         <template #right>
-          <UInput v-model="search" icon="i-lucide-search" placeholder="Search products…" class="w-56" />
-          <USelect v-model="statusFilter" :items="statusFilterItems" class="w-36" />
-          <USelect v-model="typeFilter" :items="typeFilterItems" class="w-36" />
-          <UButton
-            v-if="canManage"
-            icon="i-lucide-plus"
-            data-test="new-product"
-            @click="() => { showCreate = true }"
-          >
-            New product
-          </UButton>
+          <template v-if="tab === 'products'">
+            <UInput v-model="search" icon="i-lucide-search" placeholder="Search products…" class="w-56" />
+            <USelect v-model="statusFilter" :items="statusFilterItems" class="w-36" />
+            <USelect v-model="typeFilter" :items="typeFilterItems" class="w-36" />
+            <UButton
+              v-if="canManage"
+              icon="i-lucide-plus"
+              data-test="new-product"
+              @click="() => { showCreate = true }"
+            >
+              New product
+            </UButton>
+          </template>
         </template>
       </UDashboardNavbar>
     </template>
 
     <template #body>
-      <div
-        v-if="canManage && selected.length > 0"
-        class="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-default p-3"
-        data-test="bulk-status-bar"
-      >
-        <span class="text-sm text-muted">{{ selected.length }} selected</span>
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          label="Clear"
-          @click="() => { selected = [] }"
-        />
-        <USelect
-          v-model="bulkTarget"
-          :items="bulkStatusItems"
-          placeholder="Set status…"
-          class="w-40"
-          data-test="bulk-status"
-        />
-        <UButton
-          size="sm"
-          label="Apply"
-          data-test="bulk-status-apply"
-          :disabled="!bulkTarget"
-          :loading="bulkStatus.isLoading.value"
-          @click="applyBulkStatus"
-        />
-      </div>
+      <UTabs v-model="tab" variant="link" :items="tabItems" :content="false" class="mb-4" />
 
-      <div v-if="canManage && rows.length > 0" class="mb-2">
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          data-test="product-select-all"
-          @click="selectAllVisible"
+      <template v-if="tab === 'products'">
+        <div
+          v-if="canManage && selected.length > 0"
+          class="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-default p-3"
+          data-test="bulk-status-bar"
         >
-          {{ rows.every((r) => selected.includes(r.uuid)) ? 'Clear selection' : 'Select all on page' }}
-        </UButton>
-      </div>
+          <span class="text-sm text-muted">{{ selected.length }} selected</span>
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            label="Clear"
+            @click="() => { selected = [] }"
+          />
+          <USelect
+            v-model="bulkTarget"
+            :items="bulkStatusItems"
+            placeholder="Set status…"
+            class="w-40"
+            data-test="bulk-status"
+          />
+          <UButton
+            size="sm"
+            label="Apply"
+            data-test="bulk-status-apply"
+            :disabled="!bulkTarget"
+            :loading="bulkStatus.isLoading.value"
+            @click="applyBulkStatus"
+          />
+        </div>
 
-      <ProductsTable
-        :rows="rows"
-        :status="queryStatus"
-        :can-manage="canManage"
-        :selected="selected"
-        @toggle-select="toggleSelect"
-        @delete-request="(row) => { pendingDelete = row }"
-      />
+        <div v-if="canManage && rows.length > 0" class="mb-2">
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            data-test="product-select-all"
+            @click="selectAllVisible"
+          >
+            {{ rows.every((r) => selected.includes(r.uuid)) ? 'Clear selection' : 'Select all on page' }}
+          </UButton>
+        </div>
 
-      <TablePagination
-        v-if="(data?.total ?? 0) > 0"
-        v-model:page="page"
-        v-model:per-page="perPage"
-        :total="data?.total ?? 0"
-        label="products"
-      />
+        <ProductsTable
+          :rows="rows"
+          :status="queryStatus"
+          :can-manage="canManage"
+          :selected="selected"
+          @toggle-select="toggleSelect"
+          @delete-request="(row) => { pendingDelete = row }"
+        />
+
+        <TablePagination
+          v-if="(data?.total ?? 0) > 0"
+          v-model:page="page"
+          v-model:per-page="perPage"
+          :total="data?.total ?? 0"
+          label="products"
+        />
+      </template>
+
+      <CategoriesTab v-else-if="tab === 'categories'" :can-manage="canManage" />
     </template>
   </UDashboardPanel>
 

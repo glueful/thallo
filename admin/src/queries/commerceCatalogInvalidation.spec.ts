@@ -38,7 +38,18 @@ describe('useCommerceProductMutations invalidation', () => {
     // onSettled; the real return type doesn't carry it, hence the cast.
     const mutations = useCommerceProductMutations() as unknown as Record<
       'create' | 'update' | 'remove' | 'bulkStatus' | 'createVariant' | 'updateVariant' | 'bulkPrice' |
-        'setChildren' | 'stockAdjust' | 'attachMedia' | 'updateMedia' | 'detachMedia' | 'reorderMedia',
+        'setChildren' | 'stockAdjust' | 'attachMedia' | 'updateMedia' | 'detachMedia' | 'reorderMedia' |
+        'setCategories',
+      { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
+    >
+    return { mutations, qk }
+  }
+
+  async function categoryBundle() {
+    const { useCommerceCategoryMutations } = await import('@/queries/commerceCatalog')
+    const { qk } = await import('@/queries/keys')
+    const mutations = useCommerceCategoryMutations() as unknown as Record<
+      'create' | 'update' | 'remove',
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
     return { mutations, qk }
@@ -178,5 +189,42 @@ describe('useCommerceProductMutations invalidation', () => {
     })
 
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+  })
+
+  // Task 10d: product category assignment invalidates ONLY the owning product — the category
+  // LIST (`useCommerceCategories()`) shows no per-category product count, so a product's own
+  // assignment changing never makes anything it renders stale.
+
+  it('setCategories invalidates the owning product only', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.setCategories.onSettled?.(undefined, undefined, {
+      productUuid: 'prod00000001',
+      categoryUuids: ['cat00000001'],
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+  })
+
+  // Task 10d: category CRUD mutations invalidate the shared category list only.
+
+  it('category create invalidates the category list only', async () => {
+    const { mutations, qk } = await categoryBundle()
+    mutations.create.onSettled?.(undefined, undefined, undefined)
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceCategories() }]])
+  })
+
+  it('category update invalidates the category list only', async () => {
+    const { mutations, qk } = await categoryBundle()
+    mutations.update.onSettled?.(undefined, undefined, { uuid: 'cat00000001', input: {} })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceCategories() }]])
+  })
+
+  it('category remove invalidates the category list only', async () => {
+    const { mutations, qk } = await categoryBundle()
+    mutations.remove.onSettled?.(undefined, undefined, 'cat00000001')
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceCategories() }]])
   })
 })
