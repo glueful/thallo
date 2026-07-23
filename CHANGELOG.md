@@ -115,12 +115,17 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   the real inventory read (integrity failures render honestly instead of fabricated
   zeros), and grouped-product composition moves to a hydrated Children card that shows
   attached tombstoned children truthfully.
-- **Draft-first product creation** (admin SPA): "New product" now asks only for name,
-  type, and — for purchasable types — a starting price; slug, SKU, currency, and the
-  `draft` status are derived (shown in a preview line) and the page navigates straight
-  into the product editor, where the tabs complete the setup and a draft callout points
-  at activation. Non-purchasable types (`external`/`grouped`) no longer send a variant
-  the API rejects.
+- **Draft-first product creation as a full-page route** (admin SPA): "New product"
+  navigates to `/commerce/products/new` — the same single-page editor shell in create
+  mode, replacing the old create slideover entirely. Name, type, initial price, and the
+  derived-but-editable slug/SKU form one page-level atomic "Create draft" action (no
+  database row exists until it succeeds); every other section is visible but dormant
+  until creation, so the whole authoring surface is apparent from the first click. Type
+  is chosen here and read-only afterward; validation failures retain every entered value
+  and focus the owning section; success replaces the route to the created product so
+  Back never reopens a stale form; the route participates in the unsaved-changes
+  navigation guard. Non-purchasable types (`external`/`grouped`) collect no price and
+  send no variant.
 - **Full tenant resolution and operations**: verified custom domains plus
   subdomain fallback for public delivery, header/JWT resolution for the admin,
   a resumable fresh-boot activation flow, tenant/domain/membership HTTP and CLI

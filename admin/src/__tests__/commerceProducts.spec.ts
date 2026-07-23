@@ -145,10 +145,11 @@ const routeState = vi.hoisted(() => ({
   query: {} as Record<string, string>,
 }))
 const routerPush = vi.hoisted(() => vi.fn())
+const routerReplace = vi.hoisted(() => vi.fn())
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
   useRoute: () => routeState,
-  useRouter: () => ({ push: routerPush, resolve: vi.fn() }),
+  useRouter: () => ({ push: routerPush, replace: routerReplace, resolve: vi.fn() }),
 }))
 // Nuxt UI's Link (behind UButton's `to` prop and <RouterLink>) resolves useRoute/useRouter from
 // vue-router/auto — mirrors navigationPage.spec.ts's established pattern. importOriginal keeps
@@ -156,7 +157,7 @@ vi.mock('vue-router', async (importOriginal) => ({
 vi.mock('vue-router/auto', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
   useRoute: () => routeState,
-  useRouter: () => ({ push: routerPush, resolve: vi.fn() }),
+  useRouter: () => ({ push: routerPush, replace: routerReplace, resolve: vi.fn() }),
 }))
 
 const productsPage = ref<ProductListPage | undefined>(undefined)
@@ -309,6 +310,7 @@ import DownloadsPanel from '@/pages/commerce/products/components/DownloadsPanel.
 import ChildrenCard from '@/pages/commerce/products/components/ChildrenCard.vue'
 import ProductsIndex from '@/pages/commerce/products/index.vue'
 import ProductDetail from '@/pages/commerce/products/[uuid]/index.vue'
+import ProductCreate from '@/pages/commerce/products/new.vue'
 import EditorSectionCard from '@/pages/commerce/products/components/EditorSectionCard.vue'
 import SectionNav, {
   resolveSectionIndicator,
@@ -905,41 +907,65 @@ describe('commerce products list page', () => {
     expect(wrapper.findAll('[data-test="product-row"]')).toHaveLength(1)
   })
 
-  it('shows the New product button when can_manage is true and opens the create slideover', async () => {
+  it('shows the New product button when can_manage is true and navigates to the create route', async () => {
     const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
 
     expect(wrapper.find('[data-test="new-product"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="product-create-submit"]').exists()).toBe(false)
 
     await wrapper.find('[data-test="new-product"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-test="product-create-submit"]').exists()).toBe(true)
+    // Spec §5.4: the create slideover is gone — the button navigates to the full-page route.
+    expect(routerPush).toHaveBeenCalledWith('/commerce/products/new')
+  })
+})
+
+// ── Full-page create route (spec §5.4) ─────────────────────────────────────────────────────────
+
+describe('product create page', () => {
+  function mountCreate() {
+    return mount(ProductCreate, { global: { stubs: pageStubs } })
+  }
+
+  it('renders the editor chrome: live Details/Pricing cards, dormant sections, and the nav', async () => {
+    const wrapper = mountCreate()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="editor-section-details"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="editor-section-pricing"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="section-nav"]').exists()).toBe(true)
+
+    // Dormant sections are VISIBLE (the surface is honest about what exists) but disabled —
+    // nothing implies they can save before the draft does.
+    for (const id of ['media', 'organization', 'addons', 'content']) {
+      expect(wrapper.find(`[data-test="create-dormant-${id}"]`).text()).toContain(
+        'Available once the draft is created',
+      )
+    }
+    // Type-conditional dormant cards: not present for the default physical type.
+    expect(wrapper.find('[data-test="create-dormant-downloads"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="create-dormant-children"]').exists()).toBe(false)
   })
 
-  it('creates a draft from name/type/price, deriving slug/SKU/currency, and navigates to its detail page', async () => {
+  it('creates the draft atomically and REPLACES to the product route (Back never reopens the form)', async () => {
     createMock.mockResolvedValue(
       product({ uuid: 'new-1', name: 'Wireless Mouse', slug: 'wireless-mouse' }),
     )
-    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+    const wrapper = mountCreate()
     await flushPromises()
-
-    await wrapper.find('[data-test="new-product"]').trigger('click')
-    await flushPromises()
-
-    // Draft-first: the form asks ONLY for name/type/price — slug, SKU, currency
-    // and status are derived, surfaced in the preview line, and refined in the
-    // editor the page navigates into.
-    expect(wrapper.find('[data-test="product-slug-input"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="product-sku-input"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="product-currency-input"]').exists()).toBe(false)
 
     await wrapper.find('[data-test="product-name-input"]').setValue('Wireless Mouse')
     await wrapper.find('[data-test="product-price-input"]').setValue('1999')
     await flushPromises()
 
-    expect(wrapper.find('[data-test="derived-preview"]').text()).toContain('wireless-mouse')
+    // Slug and SKU derive from the name (and stay editable — next spec).
+    expect(
+      (wrapper.find('[data-test="product-slug-input"]').element as HTMLInputElement).value,
+    ).toBe('wireless-mouse')
+    expect(
+      (wrapper.find('[data-test="product-sku-input"]').element as HTMLInputElement).value,
+    ).toBe('wireless-mouse')
 
     await wrapper.find('form').trigger('submit')
     await flushPromises()
@@ -951,26 +977,48 @@ describe('commerce products list page', () => {
       status: 'draft',
       variants: [{ sku: 'wireless-mouse', price: 1999, currency: 'USD' }],
     })
-    expect(routerPush).toHaveBeenCalledWith('/commerce/products/new-1')
+    expect(routerReplace).toHaveBeenCalledWith('/commerce/products/new-1')
+    expect(routerPush).not.toHaveBeenCalled()
   })
 
-  it('hides the price field and sends no variants for non-purchasable types', async () => {
-    createMock.mockResolvedValue(
-      product({ uuid: 'new-2', name: 'Partner Listing', type: 'external' }),
-    )
-    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+  it('slug and SKU are derived-but-editable: an edited slug re-derives the SKU; an edited SKU stands alone', async () => {
+    createMock.mockResolvedValue(product({ uuid: 'new-2', name: 'Widget' }))
+    const wrapper = mountCreate()
     await flushPromises()
 
-    await wrapper.find('[data-test="new-product"]').trigger('click')
+    await wrapper.find('[data-test="product-name-input"]').setValue('Widget')
+    await wrapper.find('[data-test="product-slug-input"]').setValue('widget-pro')
+    await flushPromises()
+    expect(
+      (wrapper.find('[data-test="product-sku-input"]').element as HTMLInputElement).value,
+    ).toBe('widget-pro')
+
+    await wrapper.find('[data-test="product-sku-input"]').setValue('WID-001')
+    await wrapper.find('[data-test="product-price-input"]').setValue('1000')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(createMock).toHaveBeenCalledWith({
+      slug: 'widget-pro',
+      name: 'Widget',
+      type: 'physical',
+      status: 'draft',
+      variants: [{ sku: 'WID-001', price: 1000, currency: 'USD' }],
+    })
+  })
+
+  it('non-purchasable types drop the Pricing card, adjust dormant cards, and send an empty variants list', async () => {
+    createMock.mockResolvedValue(
+      product({ uuid: 'new-3', name: 'Partner Listing', type: 'external' }),
+    )
+    const wrapper = mountCreate()
     await flushPromises()
 
     await wrapper.find('[data-test="product-name-input"]').setValue('Partner Listing')
     selectByTestId(wrapper, 'product-type-select').vm.$emit('update:modelValue', 'external')
     await flushPromises()
 
-    // external/grouped products reject variants server-side — no price asked,
-    // and the payload carries an EMPTY variants list.
-    expect(wrapper.find('[data-test="product-price-input"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="editor-section-pricing"]').exists()).toBe(false)
 
     await wrapper.find('form').trigger('submit')
     await flushPromises()
@@ -984,65 +1032,57 @@ describe('commerce products list page', () => {
     })
   })
 
-  // ── Compare-at price on the default variant (Task C7) ───────────────────────────────────────
-
-  it('includes an optional compare-at price on the default variant when set', async () => {
-    createMock.mockResolvedValue(product({ uuid: 'new-3', name: 'Widget X' }))
-    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+  it('a grouped type reveals the dormant Grouped products card; digital reveals Downloads', async () => {
+    const wrapper = mountCreate()
     await flushPromises()
 
-    await wrapper.find('[data-test="new-product"]').trigger('click')
+    selectByTestId(wrapper, 'product-type-select').vm.$emit('update:modelValue', 'grouped')
+    await flushPromises()
+    expect(wrapper.find('[data-test="create-dormant-children"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="editor-section-pricing"]').exists()).toBe(false)
+
+    selectByTestId(wrapper, 'product-type-select').vm.$emit('update:modelValue', 'digital')
+    await flushPromises()
+    expect(wrapper.find('[data-test="create-dormant-downloads"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="editor-section-pricing"]').exists()).toBe(true)
+  })
+
+  it('a server 422 retains every entered value, shows the error, focuses the owning section, and never navigates or retries', async () => {
+    const scrollSpy = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => {})
+    createMock.mockRejectedValueOnce(
+      new ApiError('Validation failed', 422, { slug: 'Slug already in use.' }, {}),
+    )
+    // attachTo: the section focus resolves its target via document.getElementById (mirrors the
+    // C4 draft-Activate scroll spec's own attachTo rationale).
+    const wrapper = mount(ProductCreate, { global: { stubs: pageStubs }, attachTo: document.body })
     await flushPromises()
 
-    await wrapper.find('[data-test="product-name-input"]').setValue('Widget X')
-    await wrapper.find('[data-test="product-price-input"]').setValue('1000')
-    await wrapper.find('[data-test="product-compare-at-input"]').setValue('1500')
+    await wrapper.find('[data-test="product-name-input"]').setValue('Wireless Mouse')
+    await wrapper.find('[data-test="product-price-input"]').setValue('1999')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(createMock).toHaveBeenCalledWith({
-      slug: 'widget-x',
-      name: 'Widget X',
-      type: 'physical',
-      status: 'draft',
-      variants: [{ sku: 'widget-x', price: 1000, currency: 'USD', compare_at_price: 1500 }],
-    })
+    expect(createMock).toHaveBeenCalledTimes(1) // single-flight, no automatic retry
+    expect(routerReplace).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="product-create-error"]').text()).toContain(
+      'Slug already in use.',
+    )
+    // Every entered value retained.
+    expect(
+      (wrapper.find('[data-test="product-name-input"]').element as HTMLInputElement).value,
+    ).toBe('Wireless Mouse')
+    expect(
+      (wrapper.find('[data-test="product-price-input"]').element as HTMLInputElement).value,
+    ).toBe('1999')
+    expect(scrollSpy).toHaveBeenCalled() // the slug error's section (Details) was focused
+    wrapper.unmount()
+    scrollSpy.mockRestore()
   })
+})
 
-  it('omits compare_at_price from the create payload when left blank', async () => {
-    createMock.mockResolvedValue(product({ uuid: 'new-4', name: 'Widget Y' }))
-    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
-    await flushPromises()
+// ── Products list page: row actions ────────────────────────────────────────────────────────────
 
-    await wrapper.find('[data-test="new-product"]').trigger('click')
-    await flushPromises()
-
-    await wrapper.find('[data-test="product-name-input"]').setValue('Widget Y')
-    await wrapper.find('[data-test="product-price-input"]').setValue('1000')
-    await wrapper.find('form').trigger('submit')
-    await flushPromises()
-
-    expect(createMock).toHaveBeenCalledWith({
-      slug: 'widget-y',
-      name: 'Widget Y',
-      type: 'physical',
-      status: 'draft',
-      variants: [{ sku: 'widget-y', price: 1000, currency: 'USD' }],
-    })
-  })
-
-  it('hides the compare-at field for non-purchasable types', async () => {
-    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
-    await flushPromises()
-
-    await wrapper.find('[data-test="new-product"]').trigger('click')
-    await flushPromises()
-    selectByTestId(wrapper, 'product-type-select').vm.$emit('update:modelValue', 'external')
-    await flushPromises()
-
-    expect(wrapper.find('[data-test="product-compare-at-input"]').exists()).toBe(false)
-  })
-
+describe('commerce products list page — row actions', () => {
   it('requires confirmation before deleting a product', async () => {
     productsPage.value = {
       products: [product({ uuid: 'p1', name: 'Widget' })],

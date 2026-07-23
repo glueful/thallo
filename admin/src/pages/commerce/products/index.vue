@@ -13,7 +13,6 @@ import { useCommerceMeta } from '@/queries/commerceMeta'
 import { useNotify } from '@/composables/useNotify'
 import TablePagination from '@/components/TablePagination.vue'
 import ProductsTable from './components/ProductsTable.vue'
-import ProductCreateSlideover from './components/ProductCreateSlideover.vue'
 import CategoriesTab from './components/CategoriesTab.vue'
 import TagsTab from './components/TagsTab.vue'
 import AttributesTab from './components/AttributesTab.vue'
@@ -76,9 +75,10 @@ const rows = computed<CommerceProduct[]>(() => data.value?.products ?? [])
 const { remove, bulkStatus } = useCommerceProductMutations()
 
 // ── Create ───────────────────────────────────────────────────────────────────
-const showCreate = ref(false)
-function onCreated(uuid: string) {
-  router.push(`/commerce/products/${uuid}`)
+// Spec §5.4: the create slideover is gone — "New product" navigates to the full-page create
+// route, which renders the editor shell in create mode.
+function openCreate() {
+  router.push('/commerce/products/new')
 }
 
 // ── Selection + bulk status ─────────────────────────────────────────────────
@@ -143,7 +143,7 @@ async function confirmDelete() {
               v-if="canManage"
               icon="i-lucide-plus"
               data-test="new-product"
-              @click="() => { showCreate = true }"
+              @click="openCreate"
             >
               New product
             </UButton>
@@ -223,8 +223,6 @@ async function confirmDelete() {
       <AttributesTab v-else-if="tab === 'attributes'" :can-manage="canManage" />
     </template>
   </UDashboardPanel>
-
-  <ProductCreateSlideover v-model:open="showCreate" @created="onCreated" />
 
   <UModal
     :open="pendingDelete !== null"
