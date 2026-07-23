@@ -14,7 +14,13 @@ import type {
   ProductListPage,
   TagListPage,
 } from '@/queries/commerceCatalog'
-import type { ProductMediaItem, SectionEnvelope } from '@/queries/commerceProductSections'
+import type {
+  AssignedCategory,
+  AssignedTag,
+  ProductAttributeAssignment,
+  ProductMediaItem,
+  SectionEnvelope,
+} from '@/queries/commerceProductSections'
 import { createDirtyRegistry } from '@/composables/useSectionState'
 import {
   useProductRevisionCoordinator,
@@ -52,11 +58,43 @@ vi.mock('@/queries/commerceMeta', () => ({
 const mediaSectionData = ref<SectionEnvelope<ProductMediaItem> | undefined>(undefined)
 const mediaSectionStatus = ref<'pending' | 'error' | 'success'>('success')
 const mediaSectionRefetchMock = vi.hoisted(() => vi.fn())
+
+// Task C6: the categories/tags/attributes section reads (Task C1), mocked the same
+// shape-preserving way as `mediaSectionData` above — each subsection's own hydration/coordinator
+// wiring (`CategoriesTab`/`TagsTab`/`AttributesTab`, product-assignment mode) and the shell's own
+// nav-hint subscription (`[uuid]/index.vue`) both read off these same refs.
+const categoriesSectionData = ref<SectionEnvelope<AssignedCategory> | undefined>(undefined)
+const categoriesSectionStatus = ref<'pending' | 'error' | 'success'>('success')
+const categoriesSectionRefetchMock = vi.hoisted(() => vi.fn())
+const tagsSectionData = ref<SectionEnvelope<AssignedTag> | undefined>(undefined)
+const tagsSectionStatus = ref<'pending' | 'error' | 'success'>('success')
+const tagsSectionRefetchMock = vi.hoisted(() => vi.fn())
+const attributesSectionData = ref<SectionEnvelope<ProductAttributeAssignment> | undefined>(
+  undefined,
+)
+const attributesSectionStatus = ref<'pending' | 'error' | 'success'>('success')
+const attributesSectionRefetchMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/queries/commerceProductSections', () => ({
   useProductMedia: () => ({
     data: mediaSectionData,
     status: mediaSectionStatus,
     refetch: mediaSectionRefetchMock,
+  }),
+  useProductCategories: () => ({
+    data: categoriesSectionData,
+    status: categoriesSectionStatus,
+    refetch: categoriesSectionRefetchMock,
+  }),
+  useProductTags: () => ({
+    data: tagsSectionData,
+    status: tagsSectionStatus,
+    refetch: tagsSectionRefetchMock,
+  }),
+  useProductAttributes: () => ({
+    data: attributesSectionData,
+    status: attributesSectionStatus,
+    refetch: attributesSectionRefetchMock,
   }),
 }))
 
@@ -485,6 +523,30 @@ beforeEach(() => {
   mediaSectionRefetchMock.mockImplementation(async () => ({
     status: mediaSectionStatus.value,
     data: mediaSectionData.value,
+    error: null,
+  }))
+  categoriesSectionData.value = { revision: 0, items: [] }
+  categoriesSectionStatus.value = 'success'
+  categoriesSectionRefetchMock.mockReset()
+  categoriesSectionRefetchMock.mockImplementation(async () => ({
+    status: categoriesSectionStatus.value,
+    data: categoriesSectionData.value,
+    error: null,
+  }))
+  tagsSectionData.value = { revision: 0, items: [] }
+  tagsSectionStatus.value = 'success'
+  tagsSectionRefetchMock.mockReset()
+  tagsSectionRefetchMock.mockImplementation(async () => ({
+    status: tagsSectionStatus.value,
+    data: tagsSectionData.value,
+    error: null,
+  }))
+  attributesSectionData.value = { revision: 0, items: [] }
+  attributesSectionStatus.value = 'success'
+  attributesSectionRefetchMock.mockReset()
+  attributesSectionRefetchMock.mockImplementation(async () => ({
+    status: attributesSectionStatus.value,
+    data: attributesSectionData.value,
     error: null,
   }))
   categoriesData.value = []
@@ -1239,9 +1301,13 @@ describe('commerce product detail page', () => {
     const mediaItemNav = draftWrapper.find('[data-test="section-nav-media"]')
     expect(mediaItemNav.attributes('data-indicator')).toBe('hint')
     expect(mediaItemNav.text()).toContain('Images · 1')
+    // Task C6: Organization aggregates the three subsection reads into one draft-only hint too.
+    const organizationItemNav = draftWrapper.find('[data-test="section-nav-organization"]')
+    expect(organizationItemNav.attributes('data-indicator')).toBe('hint')
+    expect(organizationItemNav.text()).toContain('Categories · 0 · Tags · 0 · Attributes · 0')
     // HONESTY over completeness (Task C4 brief): no fabricated counts for sections whose real
-    // data isn't loaded by this shell — the remaining C1 reads are wired card-by-card in C6-C8.
-    for (const id of ['details', 'organization', 'addons', 'content']) {
+    // data isn't loaded by this shell — the remaining C1 reads are wired card-by-card in C7-C8.
+    for (const id of ['details', 'addons', 'content']) {
       expect(
         draftWrapper.find(`[data-test="section-nav-${id}"]`).attributes('data-indicator'),
       ).toBeUndefined()
@@ -1256,12 +1322,16 @@ describe('commerce product detail page', () => {
     })
     const activeWrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
     await flushPromises()
-    // Empty-hints are draft-only (spec §5.1) — an active product gets no Pricing/Images hint at all.
+    // Empty-hints are draft-only (spec §5.1) — an active product gets no Pricing/Images/
+    // Organization hint at all.
     expect(
       activeWrapper.find('[data-test="section-nav-pricing"]').attributes('data-indicator'),
     ).toBeUndefined()
     expect(
       activeWrapper.find('[data-test="section-nav-media"]').attributes('data-indicator'),
+    ).toBeUndefined()
+    expect(
+      activeWrapper.find('[data-test="section-nav-organization"]').attributes('data-indicator'),
     ).toBeUndefined()
     activeWrapper.unmount()
   })
@@ -1281,6 +1351,58 @@ describe('commerce product detail page', () => {
     expect(
       wrapper.find('[data-test="section-nav-media"]').attributes('data-indicator'),
     ).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('shows no Organization nav hint while any of its three section reads is still loading, even for a draft', async () => {
+    singleProduct.value = product({
+      uuid: 'p1',
+      name: 'Widget',
+      status: 'draft',
+      variants: [variant()],
+    })
+    attributesSectionStatus.value = 'pending'
+    attributesSectionData.value = undefined
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    expect(
+      wrapper.find('[data-test="section-nav-organization"]').attributes('data-indicator'),
+    ).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('aggregates Organization’s nav indicator across its three subsections, worst state wins (error > unsaved > hint)', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget' })
+    categoriesData.value = [category({ uuid: 'cat1', name: 'Cat 1' })]
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    // Idle+clean across all three subsections: no indicator (active product, so no hint either).
+    expect(
+      wrapper.find('[data-test="section-nav-organization"]').attributes('data-indicator'),
+    ).toBeUndefined()
+
+    // Dirty a single subsection (Categories) — worst-of-three becomes 'unsaved'.
+    const categoryCheckbox = wrapper
+      .findAllComponents({ name: 'CheckboxRoot' })
+      .find((c) =>
+        wrapper.find('[data-test="category-assignment-section"]').element.contains(c.element),
+      )
+    await categoryCheckbox!.vm.$emit('update:modelValue', true)
+
+    expect(
+      wrapper.find('[data-test="section-nav-organization"]').attributes('data-indicator'),
+    ).toBe('unsaved')
+
+    // Now fail that subsection's save — worst-of-three becomes 'error'.
+    setCategoriesMock.mockRejectedValueOnce(new ApiError('Validation failed', 422, {}, {}))
+    await wrapper.find('[data-test="category-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(
+      wrapper.find('[data-test="section-nav-organization"]').attributes('data-indicator'),
+    ).toBe('error')
     wrapper.unmount()
   })
 
@@ -2346,44 +2468,81 @@ describe('CategoriesTab (category management)', () => {
 
 describe('CategoriesTab (product assignment)', () => {
   function mountAssignment(p: CommerceProduct, canManage = true) {
-    return mount(CategoriesTab, { props: { product: p, canManage } })
+    return mountWithEditorContext(CategoriesTab, { product: p, canManage })
   }
 
-  it('shows the honest not-loaded state on fresh mount (never a guessed selection)', () => {
-    categoriesData.value = [category({ uuid: 'c1', name: 'Cat 1' })]
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+  it('hydrates the selection from the section read — the old "not loaded" warning is gone entirely', () => {
+    categoriesData.value = [
+      category({ uuid: 'c1', name: 'Cat 1' }),
+      category({ uuid: 'c2', name: 'Cat 2' }),
+    ]
+    categoriesSectionData.value = {
+      revision: 3,
+      items: [{ uuid: 'c1', name: 'Cat 1', slug: 'cat-1' }],
+    }
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
 
-    expect(wrapper.find('[data-test="category-assignment-unknown"]').exists()).toBe(true)
-    const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
-    expect(checkbox!.props('modelValue')).toBe(false)
+    expect(wrapper.find('[data-test="category-assignment-unknown"]').exists()).toBe(false)
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    expect(checkboxes[0]!.props('modelValue')).toBe(true)
+    expect(checkboxes[1]!.props('modelValue')).toBe(false)
   })
 
   it('hides category CRUD controls in assignment mode even when can_manage is true', () => {
     categoriesData.value = [category({ uuid: 'c1', name: 'Cat 1' })]
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
 
     expect(wrapper.find('[data-test="category-add"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="category-edit"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="category-delete"]').exists()).toBe(false)
   })
 
-  it('selects categories and saves the exact uuid list, then reflects the positively-known set', async () => {
+  it('selects categories and saves the exact uuid list with expected_revision, awaiting afterMutation() once', async () => {
     categoriesData.value = [
       category({ uuid: 'c1', name: 'Cat 1' }),
       category({ uuid: 'c2', name: 'Cat 2' }),
     ]
-    setCategoriesMock.mockResolvedValue([category({ uuid: 'c1', name: 'Cat 1' })])
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    categoriesSectionData.value = { revision: 2, items: [] }
+    setCategoriesMock.mockResolvedValue([])
+    const { wrapper, getCoordinator } = mountAssignment(product({ uuid: 'p1' }))
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
 
     const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
     await checkboxes[0]!.vm.$emit('update:modelValue', true)
     await wrapper.find('[data-test="category-assignment-save"]').trigger('click')
     await flushPromises()
 
-    expect(setCategoriesMock).toHaveBeenCalledWith({ productUuid: 'p1', categoryUuids: ['c1'] })
-    // Once the set-list response comes back, the unknown-state banner clears — the set is now
-    // positively established, not a guess.
-    expect(wrapper.find('[data-test="category-assignment-unknown"]').exists()).toBe(false)
+    expect(setCategoriesMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      categoryUuids: ['c1'],
+      expectedRevision: 2,
+    })
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('a category assigned before this session survives an unrelated toggle+save round-trip (wipe-class regression)', async () => {
+    categoriesData.value = [
+      category({ uuid: 'catA', name: 'Cat A' }),
+      category({ uuid: 'catB', name: 'Cat B' }),
+    ]
+    categoriesSectionData.value = {
+      revision: 2,
+      items: [{ uuid: 'catA', name: 'Cat A', slug: 'cat-a' }],
+    }
+    setCategoriesMock.mockResolvedValue([])
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
+
+    // catA was never touched by the user — only catB is toggled on.
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[1]!.vm.$emit('update:modelValue', true)
+    await wrapper.find('[data-test="category-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setCategoriesMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      categoryUuids: ['catA', 'catB'],
+      expectedRevision: 2,
+    })
   })
 
   it('surfaces a validation 422 message on save without discarding the current selection', async () => {
@@ -2396,7 +2555,7 @@ describe('CategoriesTab (product assignment)', () => {
         {},
       ),
     )
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
 
     const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
     await checkboxes[0]!.vm.$emit('update:modelValue', true)
@@ -2406,11 +2565,129 @@ describe('CategoriesTab (product assignment)', () => {
     expect(wrapper.find('[data-test="category-assignment-error"]').text()).toContain(
       'category_uuids must reference existing categories in this tenant.',
     )
+    expect(checkboxes[0]!.props('modelValue')).toBe(true)
+  })
+
+  it('on a 409 where the remote set is unchanged since the baseline, rebases silently: keeps the draft, advances the revision, no banner, no automatic retry', async () => {
+    categoriesData.value = [
+      category({ uuid: 'catA', name: 'A' }),
+      category({ uuid: 'catB', name: 'B' }),
+    ]
+    categoriesSectionData.value = { revision: 0, items: [{ uuid: 'catA', name: 'A', slug: 'a' }] }
+    const { wrapper, getState } = mountAssignment(product({ uuid: 'p1' }))
+    const state = getState()
+
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[1]!.vm.$emit('update:modelValue', true) // catB — local-only addition
+
+    setCategoriesMock.mockRejectedValueOnce(new ApiError('Conflict', 409, {}, {}))
+    categoriesSectionData.value = { revision: 9, items: [{ uuid: 'catA', name: 'A', slug: 'a' }] } // unchanged set
+
+    await wrapper.find('[data-test="category-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="category-merge-banner"]').exists()).toBe(false)
+    expect(state.dirty.value).toBe(true)
+    expect(state.phase.value).toBe('idle') // NOT 'error' — spec §5.2 "show no conflict"
+    expect(setCategoriesMock).toHaveBeenCalledTimes(1)
+
+    setCategoriesMock.mockResolvedValueOnce([])
+    await wrapper.find('[data-test="category-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setCategoriesMock).toHaveBeenNthCalledWith(2, {
+      productUuid: 'p1',
+      categoryUuids: ['catA', 'catB'],
+      expectedRevision: 9,
+    })
+  })
+
+  it('on a 409 where the remote content genuinely diverged, merges deterministically: REPLACES the draft, shows a review banner, stays dirty, and the next save uses the advanced revision', async () => {
+    categoriesData.value = [
+      category({ uuid: 'catA', name: 'A' }),
+      category({ uuid: 'catB', name: 'B' }),
+      category({ uuid: 'catC', name: 'C' }),
+    ]
+    categoriesSectionData.value = { revision: 0, items: [{ uuid: 'catA', name: 'A', slug: 'a' }] }
+    const { wrapper, getState } = mountAssignment(product({ uuid: 'p1' }))
+    const state = getState()
+
+    // Local addition: catB.
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[1]!.vm.$emit('update:modelValue', true)
+
+    setCategoriesMock.mockRejectedValueOnce(new ApiError('Conflict', 409, {}, {}))
+    // Remote addition: catC (genuinely diverged from the baseline [catA]).
+    categoriesSectionData.value = {
+      revision: 5,
+      items: [
+        { uuid: 'catA', name: 'A', slug: 'a' },
+        { uuid: 'catC', name: 'C', slug: 'c' },
+      ],
+    }
+
+    await wrapper.find('[data-test="category-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="category-merge-banner"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="category-merge-banner"]').text()).toContain(
+      'merged with remote changes — review and save',
+    )
+    // Draft replaced by the deterministic merge: R (catA, catC) plus the local addition (catB).
+    const checked = wrapper
+      .findAllComponents({ name: 'CheckboxRoot' })
+      .map((c) => c.props('modelValue'))
+    expect(checked).toEqual([true, true, true])
+    expect(state.dirty.value).toBe(true) // stays dirty — no auto-save
+    expect(setCategoriesMock).toHaveBeenCalledTimes(1) // never auto-resubmitted
+
+    setCategoriesMock.mockResolvedValueOnce([])
+    await wrapper.find('[data-test="category-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setCategoriesMock).toHaveBeenNthCalledWith(2, {
+      productUuid: 'p1',
+      categoryUuids: ['catA', 'catC', 'catB'],
+      expectedRevision: 5,
+    })
+  })
+
+  it('disables the save button while a 409 recovery refresh is in flight', async () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Cat 1' })]
+    categoriesSectionData.value = { revision: 0, items: [] }
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
+
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[0]!.vm.$emit('update:modelValue', true)
+
+    setCategoriesMock.mockRejectedValueOnce(new ApiError('Conflict', 409, {}, {}))
+    let resolveRefetch: (value: unknown) => void = () => {}
+    categoriesSectionRefetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefetch = resolve
+        }),
+    )
+
+    const saveClick = wrapper.find('[data-test="category-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(
+      wrapper.find('[data-test="category-assignment-save"]').attributes('disabled'),
+    ).toBeDefined()
+
+    resolveRefetch({ status: 'success', data: categoriesSectionData.value, error: null })
+    await saveClick
+    await flushPromises()
+
+    expect(
+      wrapper.find('[data-test="category-assignment-save"]').attributes('disabled'),
+    ).toBeUndefined()
   })
 
   it('hides the save control and disables checkboxes when can_manage is false', () => {
     categoriesData.value = [category({ uuid: 'c1', name: 'Cat 1' })]
-    const wrapper = mountAssignment(product({ uuid: 'p1' }), false)
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }), false)
 
     expect(wrapper.find('[data-test="category-assignment-save"]').exists()).toBe(false)
     const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
@@ -2603,21 +2880,23 @@ describe('TagsTab (tag management)', () => {
 
 describe('TagsTab (product assignment)', () => {
   function mountAssignment(p: CommerceProduct, canManage = true) {
-    return mount(TagsTab, { props: { product: p, canManage } })
+    return mountWithEditorContext(TagsTab, { product: p, canManage })
   }
 
-  it('shows the honest not-loaded state on fresh mount (never a guessed selection)', () => {
+  it('hydrates the selection from the section read — the old "not loaded" warning is gone entirely', () => {
     tagsPage.value = {
-      tags: [tag({ uuid: 't1', name: 'Tag 1' })],
-      total: 1,
+      tags: [tag({ uuid: 't1', name: 'Tag 1' }), tag({ uuid: 't2', name: 'Tag 2' })],
+      total: 2,
       current_page: 1,
       per_page: 24,
     }
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    tagsSectionData.value = { revision: 4, items: [{ uuid: 't1', name: 'Tag 1', slug: 'tag-1' }] }
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
 
-    expect(wrapper.find('[data-test="tag-assignment-unknown"]').exists()).toBe(true)
-    const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
-    expect(checkbox!.props('modelValue')).toBe(false)
+    expect(wrapper.find('[data-test="tag-assignment-unknown"]').exists()).toBe(false)
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    expect(checkboxes[0]!.props('modelValue')).toBe(true)
+    expect(checkboxes[1]!.props('modelValue')).toBe(false)
   })
 
   it('hides tag CRUD controls in assignment mode even when can_manage is true', () => {
@@ -2627,32 +2906,63 @@ describe('TagsTab (product assignment)', () => {
       current_page: 1,
       per_page: 24,
     }
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
 
     expect(wrapper.find('[data-test="tag-add"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="tag-edit"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="tag-delete"]').exists()).toBe(false)
   })
 
-  it('selects tags and saves the exact uuid list, then reflects the positively-known set', async () => {
+  it('selects tags and saves the exact uuid list with expected_revision, awaiting afterMutation() once', async () => {
     tagsPage.value = {
       tags: [tag({ uuid: 't1', name: 'Tag 1' }), tag({ uuid: 't2', name: 'Tag 2' })],
       total: 2,
       current_page: 1,
       per_page: 24,
     }
-    setTagsMock.mockResolvedValue([tag({ uuid: 't1', name: 'Tag 1' })])
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    tagsSectionData.value = { revision: 6, items: [] }
+    setTagsMock.mockResolvedValue([])
+    const { wrapper, getCoordinator } = mountAssignment(product({ uuid: 'p1' }))
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
 
     const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
     await checkboxes[0]!.vm.$emit('update:modelValue', true)
     await wrapper.find('[data-test="tag-assignment-save"]').trigger('click')
     await flushPromises()
 
-    expect(setTagsMock).toHaveBeenCalledWith({ productUuid: 'p1', tagUuids: ['t1'] })
-    // Once the set-list response comes back, the unknown-state banner clears — the set is now
-    // positively established, not a guess.
-    expect(wrapper.find('[data-test="tag-assignment-unknown"]').exists()).toBe(false)
+    expect(setTagsMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      tagUuids: ['t1'],
+      expectedRevision: 6,
+    })
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('a tag assigned before this session, on a page never visited, survives an unrelated toggle+save round-trip (wipe-class regression)', async () => {
+    // Page 1 shows only t1 — t-offpage is assigned server-side but its page is never visited.
+    tagsPage.value = {
+      tags: [tag({ uuid: 't1', name: 'Tag 1' })],
+      total: 2,
+      current_page: 1,
+      per_page: 1,
+    }
+    tagsSectionData.value = {
+      revision: 3,
+      items: [{ uuid: 't-offpage', name: 'Off page', slug: 'off-page' }],
+    }
+    setTagsMock.mockResolvedValue([])
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
+
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[0]!.vm.$emit('update:modelValue', true) // toggles t1 on
+    await wrapper.find('[data-test="tag-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setTagsMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      tagUuids: ['t-offpage', 't1'],
+      expectedRevision: 3,
+    })
   })
 
   it('surfaces a validation 422 message on save without discarding the current selection', async () => {
@@ -2670,7 +2980,7 @@ describe('TagsTab (product assignment)', () => {
         {},
       ),
     )
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
 
     const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
     await checkboxes[0]!.vm.$emit('update:modelValue', true)
@@ -2682,6 +2992,87 @@ describe('TagsTab (product assignment)', () => {
     )
   })
 
+  it('on a 409 where the remote set is unchanged since the baseline, rebases silently: keeps the draft, advances the revision, no banner', async () => {
+    tagsPage.value = {
+      tags: [tag({ uuid: 't1', name: 'Tag 1' }), tag({ uuid: 't2', name: 'Tag 2' })],
+      total: 2,
+      current_page: 1,
+      per_page: 24,
+    }
+    tagsSectionData.value = { revision: 0, items: [{ uuid: 't1', name: 'Tag 1', slug: 'tag-1' }] }
+    const { wrapper, getState } = mountAssignment(product({ uuid: 'p1' }))
+    const state = getState()
+
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[1]!.vm.$emit('update:modelValue', true) // t2 — local-only addition
+
+    setTagsMock.mockRejectedValueOnce(new ApiError('Conflict', 409, {}, {}))
+    tagsSectionData.value = { revision: 8, items: [{ uuid: 't1', name: 'Tag 1', slug: 'tag-1' }] } // unchanged set
+
+    await wrapper.find('[data-test="tag-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="tag-merge-banner"]').exists()).toBe(false)
+    expect(state.dirty.value).toBe(true)
+    expect(state.phase.value).toBe('idle')
+    expect(setTagsMock).toHaveBeenCalledTimes(1)
+
+    setTagsMock.mockResolvedValueOnce([])
+    await wrapper.find('[data-test="tag-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setTagsMock).toHaveBeenNthCalledWith(2, {
+      productUuid: 'p1',
+      tagUuids: ['t1', 't2'],
+      expectedRevision: 8,
+    })
+  })
+
+  it('on a 409 where the remote content genuinely diverged, merges deterministically: REPLACES the draft, shows a review banner, stays dirty', async () => {
+    tagsPage.value = {
+      tags: [
+        tag({ uuid: 't1', name: 'Tag 1' }),
+        tag({ uuid: 't2', name: 'Tag 2' }),
+        tag({ uuid: 't3', name: 'Tag 3' }),
+      ],
+      total: 3,
+      current_page: 1,
+      per_page: 24,
+    }
+    tagsSectionData.value = { revision: 0, items: [{ uuid: 't1', name: 'Tag 1', slug: 'tag-1' }] }
+    const { wrapper, getState } = mountAssignment(product({ uuid: 'p1' }))
+    const state = getState()
+
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[1]!.vm.$emit('update:modelValue', true) // local addition: t2
+
+    setTagsMock.mockRejectedValueOnce(new ApiError('Conflict', 409, {}, {}))
+    tagsSectionData.value = {
+      revision: 5,
+      items: [
+        { uuid: 't1', name: 'Tag 1', slug: 'tag-1' },
+        { uuid: 't3', name: 'Tag 3', slug: 'tag-3' },
+      ],
+    } // remote addition: t3
+
+    await wrapper.find('[data-test="tag-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="tag-merge-banner"]').exists()).toBe(true)
+    expect(state.dirty.value).toBe(true)
+    expect(setTagsMock).toHaveBeenCalledTimes(1)
+
+    setTagsMock.mockResolvedValueOnce([])
+    await wrapper.find('[data-test="tag-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setTagsMock).toHaveBeenNthCalledWith(2, {
+      productUuid: 'p1',
+      tagUuids: ['t1', 't3', 't2'],
+      expectedRevision: 5,
+    })
+  })
+
   it('hides the save control and disables checkboxes when can_manage is false', () => {
     tagsPage.value = {
       tags: [tag({ uuid: 't1', name: 'Tag 1' })],
@@ -2689,7 +3080,7 @@ describe('TagsTab (product assignment)', () => {
       current_page: 1,
       per_page: 24,
     }
-    const wrapper = mountAssignment(product({ uuid: 'p1' }), false)
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }), false)
 
     expect(wrapper.find('[data-test="tag-assignment-save"]').exists()).toBe(false)
     const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
@@ -3058,10 +3449,71 @@ describe('AttributesTab (attribute management)', () => {
 
 describe('AttributesTab (product assignment)', () => {
   function mountAssignment(p: CommerceProduct, canManage = true) {
-    return mount(AttributesTab, { props: { product: p, canManage } })
+    return mountWithEditorContext(AttributesTab, { product: p, canManage })
   }
 
-  it('shows the honest not-loaded state on fresh mount (never a guessed selection)', () => {
+  function assignedRow(
+    overrides: Partial<ProductAttributeAssignment> = {},
+  ): ProductAttributeAssignment {
+    return {
+      attribute_uuid: null,
+      name: null,
+      values: [],
+      used_for_variants: false,
+      visible: true,
+      position: 0,
+      ...overrides,
+    }
+  }
+
+  /** The "include this attribute" checkbox for one attribute row, found by scoping to that row's
+   * own `attribute-assign-row` first — a flat `findAllComponents({name: 'CheckboxRoot'})` index
+   * shifts depending on how many OTHER rows happen to be included (each included row renders 2-3
+   * extra nested checkboxes), which is exactly the kind of off-by-one this helper avoids. The
+   * include checkbox is always the FIRST `CheckboxRoot` within its row (the nested value/flag
+   * checkboxes only render after it, and only when included). */
+  function includeCheckbox(wrapper: ReturnType<typeof mount>, attrUuid: string) {
+    const row = wrapper
+      .findAll('[data-test="attribute-assign-row"]')
+      .find((r) => r.attributes('data-uuid') === attrUuid)
+    if (!row) throw new Error(`No attribute-assign-row for uuid ${attrUuid}`)
+    return row.findComponent({ name: 'CheckboxRoot' })
+  }
+
+  /** Mounts with a 1-row baseline (`a1` included, revision 0), toggles a second attribute (`a2`)
+   * on (a dirty local draft), then fails the save with a 409 while the mocked section read
+   * reflects `remoteRows`/`remoteRevision` — the shape every 409-recovery spec below starts from. */
+  async function mountAndConflicted(
+    remoteRows: ProductAttributeAssignment[],
+    remoteRevision: number,
+  ) {
+    attributesPage.value = {
+      attributes: [
+        attribute({ uuid: 'a1', slug: 'color', name: 'Color', values: [] }),
+        attribute({ uuid: 'a2', slug: 'size', name: 'Size', values: [] }),
+      ],
+      total: 2,
+      current_page: 1,
+      per_page: 24,
+    }
+    attributesSectionData.value = {
+      revision: 0,
+      items: [assignedRow({ attribute_uuid: 'a1' })],
+    }
+    const { wrapper, getCoordinator, getState } = mountAssignment(product({ uuid: 'p1' }))
+
+    await includeCheckbox(wrapper, 'a2').vm.$emit('update:modelValue', true) // local addition: include a2
+
+    setAttributesMock.mockRejectedValueOnce(new ApiError('Conflict', 409, {}, {}))
+    attributesSectionData.value = { revision: remoteRevision, items: remoteRows }
+
+    await wrapper.find('[data-test="attribute-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    return { wrapper, getCoordinator, getState }
+  }
+
+  it('hydrates the assignment from the section read — the old "not loaded" warning is gone entirely', () => {
     attributesPage.value = {
       attributes: [
         attribute({
@@ -3074,11 +3526,15 @@ describe('AttributesTab (product assignment)', () => {
       current_page: 1,
       per_page: 24,
     }
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    attributesSectionData.value = {
+      revision: 2,
+      items: [assignedRow({ attribute_uuid: 'a1', values: ['red'], used_for_variants: true })],
+    }
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
 
-    expect(wrapper.find('[data-test="attribute-assignment-unknown"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="attribute-assignment-unknown"]').exists()).toBe(false)
     const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
-    expect(checkbox!.props('modelValue')).toBe(false)
+    expect(checkbox!.props('modelValue')).toBe(true)
   })
 
   it('hides attribute CRUD and value CRUD controls in assignment mode even when can_manage is true', async () => {
@@ -3094,7 +3550,7 @@ describe('AttributesTab (product assignment)', () => {
       current_page: 1,
       per_page: 24,
     }
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
 
     expect(wrapper.find('[data-test="attribute-add"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="attribute-edit"]').exists()).toBe(false)
@@ -3106,7 +3562,7 @@ describe('AttributesTab (product assignment)', () => {
     expect(wrapper.find('[data-test="attribute-value-delete"]').exists()).toBe(false)
   })
 
-  it('builds and saves the exact row shape for an included attribute — attribute_uuid + selected value slugs + flags', async () => {
+  it('builds and saves the exact row shape for an included attribute with expected_revision, awaiting afterMutation() once', async () => {
     attributesPage.value = {
       attributes: [
         attribute({
@@ -3122,21 +3578,10 @@ describe('AttributesTab (product assignment)', () => {
       current_page: 1,
       per_page: 24,
     }
-    setAttributesMock.mockResolvedValue([
-      {
-        uuid: 'pa1',
-        product_uuid: 'p1',
-        attribute_uuid: 'a1',
-        attribute_slug: 'color',
-        attribute_name: 'Color',
-        name: null,
-        values: ['red'],
-        used_for_variants: true,
-        visible: true,
-        position: 0,
-      },
-    ])
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    attributesSectionData.value = { revision: 7, items: [] }
+    setAttributesMock.mockResolvedValue([])
+    const { wrapper, getCoordinator } = mountAssignment(product({ uuid: 'p1' }))
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
 
     // [0] include the attribute.
     let checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
@@ -3155,10 +3600,9 @@ describe('AttributesTab (product assignment)', () => {
     expect(setAttributesMock).toHaveBeenCalledWith({
       productUuid: 'p1',
       rows: [{ attribute_uuid: 'a1', values: ['red'], used_for_variants: true, visible: true }],
+      expectedRevision: 7,
     })
-    // Once the set-list response comes back, the unknown-state banner clears — the assignment is
-    // now positively established, not a guess.
-    expect(wrapper.find('[data-test="attribute-assignment-unknown"]').exists()).toBe(false)
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
   })
 
   it('keeps an included attribute in the saved payload after the visible page changes (wholesale replace must not drop off-page selections)', async () => {
@@ -3170,8 +3614,9 @@ describe('AttributesTab (product assignment)', () => {
       current_page: 1,
       per_page: 1,
     }
+    attributesSectionData.value = { revision: 4, items: [] }
     setAttributesMock.mockResolvedValue([])
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
 
     // Include a1 while it is visible.
     const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
@@ -3193,26 +3638,45 @@ describe('AttributesTab (product assignment)', () => {
     expect(setAttributesMock).toHaveBeenCalledWith({
       productUuid: 'p1',
       rows: [{ attribute_uuid: 'a1', values: [], used_for_variants: false, visible: true }],
+      expectedRevision: 4,
+    })
+  })
+
+  it('an attribute assigned before this session, on a page never visited, survives an unrelated toggle+save round-trip (wipe-class regression)', async () => {
+    attributesPage.value = {
+      attributes: [attribute({ uuid: 'a1', slug: 'color', name: 'Color', values: [] })],
+      total: 2,
+      current_page: 1,
+      per_page: 1,
+    }
+    attributesSectionData.value = {
+      revision: 5,
+      items: [assignedRow({ attribute_uuid: 'a-offpage', values: ['x'] })],
+    }
+    setAttributesMock.mockResolvedValue([])
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
+
+    // a-offpage was never touched by the user — only a1 (the currently visible page) is included.
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[0]!.vm.$emit('update:modelValue', true)
+    await wrapper.find('[data-test="attribute-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setAttributesMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      rows: [
+        { attribute_uuid: 'a-offpage', values: ['x'], used_for_variants: false, visible: true },
+        { attribute_uuid: 'a1', values: [], used_for_variants: false, visible: true },
+      ],
+      expectedRevision: 5,
     })
   })
 
   it('adds a custom attribute row and saves it with a name and free-text values, no attribute_uuid', async () => {
     attributesPage.value = { attributes: [], total: 0, current_page: 1, per_page: 24 }
-    setAttributesMock.mockResolvedValue([
-      {
-        uuid: 'pa1',
-        product_uuid: 'p1',
-        attribute_uuid: null,
-        attribute_slug: null,
-        attribute_name: null,
-        name: 'Material',
-        values: ['Cotton', 'Wool'],
-        used_for_variants: false,
-        visible: true,
-        position: 0,
-      },
-    ])
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    attributesSectionData.value = { revision: 1, items: [] }
+    setAttributesMock.mockResolvedValue([])
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
 
     await wrapper.find('[data-test="attribute-assign-custom-add"]').trigger('click')
     await wrapper.find('[data-test="attribute-assign-custom-name"]').setValue('Material')
@@ -3226,12 +3690,13 @@ describe('AttributesTab (product assignment)', () => {
       rows: [
         { name: 'Material', values: ['Cotton', 'Wool'], used_for_variants: false, visible: true },
       ],
+      expectedRevision: 1,
     })
   })
 
   it('removes a custom attribute row before saving', async () => {
     attributesPage.value = { attributes: [], total: 0, current_page: 1, per_page: 24 }
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
 
     await wrapper.find('[data-test="attribute-assign-custom-add"]').trigger('click')
     expect(wrapper.find('[data-test="attribute-assign-custom-row"]').exists()).toBe(true)
@@ -3261,7 +3726,7 @@ describe('AttributesTab (product assignment)', () => {
         {},
       ),
     )
-    const wrapper = mountAssignment(product({ uuid: 'p1' }))
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
 
     const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
     await checkboxes[0]!.vm.$emit('update:modelValue', true)
@@ -3273,6 +3738,122 @@ describe('AttributesTab (product assignment)', () => {
     )
     // The selection survives the failed save.
     expect(wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]!.props('modelValue')).toBe(true)
+  })
+
+  // ── 409 / conflict recovery (Task C3's structured rebase — explicit review, never auto-retry) ──
+
+  it('on a 409, refreshes the section FIRST, then shows an explicit conflict review when the remote content genuinely differs (no automatic retry)', async () => {
+    const remote = [assignedRow({ attribute_uuid: 'a1' }), assignedRow({ attribute_uuid: 'a2' })]
+    const { wrapper } = await mountAndConflicted(remote, 5)
+
+    expect(setAttributesMock).toHaveBeenCalledTimes(1)
+    const conflict = wrapper.find('[data-test="attribute-conflict"]')
+    expect(conflict.exists()).toBe(true)
+    expect(conflict.text()).toContain('changed elsewhere — review and save again')
+    expect(wrapper.find('[data-test="attribute-use-latest"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="attribute-replace-mine"]').exists()).toBe(true)
+  })
+
+  it('"Use latest" adopts the remote assignment, clears dirty, and never resubmits', async () => {
+    const remote = [assignedRow({ attribute_uuid: 'a1' }), assignedRow({ attribute_uuid: 'a2' })]
+    const { wrapper, getState } = await mountAndConflicted(remote, 5)
+    const state = getState()
+
+    await wrapper.find('[data-test="attribute-use-latest"]').trigger('click')
+    await flushPromises()
+
+    expect(includeCheckbox(wrapper, 'a1').props('modelValue')).toBe(true)
+    expect(includeCheckbox(wrapper, 'a2').props('modelValue')).toBe(true) // adopted from remote
+    expect(state.dirty.value).toBe(false)
+    expect(wrapper.find('[data-test="attribute-conflict"]').exists()).toBe(false)
+    expect(setAttributesMock).toHaveBeenCalledTimes(1) // never resubmitted
+  })
+
+  it('"Replace with mine" resubmits the LOCAL assignment with the NEW revision, only after explicit confirmation', async () => {
+    const remote = [assignedRow({ attribute_uuid: 'a1' }), assignedRow({ attribute_uuid: 'a2' })]
+    const { wrapper, getCoordinator } = await mountAndConflicted(remote, 5)
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    expect(setAttributesMock).toHaveBeenCalledTimes(1)
+
+    setAttributesMock.mockResolvedValueOnce([])
+    await wrapper.find('[data-test="attribute-replace-mine"]').trigger('click')
+    await flushPromises()
+
+    expect(setAttributesMock).toHaveBeenCalledTimes(2)
+    expect(setAttributesMock).toHaveBeenNthCalledWith(2, {
+      productUuid: 'p1',
+      rows: [
+        { attribute_uuid: 'a1', values: [], used_for_variants: false, visible: true },
+        { attribute_uuid: 'a2', values: [], used_for_variants: false, visible: true },
+      ],
+      expectedRevision: 5,
+    })
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('a silent rebase (remote assignment unchanged, revision only advanced) keeps the local draft, clears the error, and shows no conflict', async () => {
+    const unchanged = [assignedRow({ attribute_uuid: 'a1' })]
+    const { wrapper, getState } = await mountAndConflicted(unchanged, 7)
+    const state = getState()
+
+    expect(wrapper.find('[data-test="attribute-conflict"]').exists()).toBe(false)
+    expect(includeCheckbox(wrapper, 'a1').props('modelValue')).toBe(true) // local draft kept
+    expect(includeCheckbox(wrapper, 'a2').props('modelValue')).toBe(true) // local draft kept
+    expect(state.dirty.value).toBe(true)
+    expect(state.phase.value).toBe('idle') // NOT 'error' — spec §5.2 "show no conflict"
+    expect(setAttributesMock).toHaveBeenCalledTimes(1) // no automatic retry
+
+    setAttributesMock.mockResolvedValueOnce([])
+    await wrapper.find('[data-test="attribute-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setAttributesMock).toHaveBeenNthCalledWith(2, {
+      productUuid: 'p1',
+      rows: [
+        { attribute_uuid: 'a1', values: [], used_for_variants: false, visible: true },
+        { attribute_uuid: 'a2', values: [], used_for_variants: false, visible: true },
+      ],
+      expectedRevision: 7,
+    })
+  })
+
+  it('disables the save button while a 409 recovery refresh is in flight', async () => {
+    attributesPage.value = {
+      attributes: [attribute({ uuid: 'a1', slug: 'color', name: 'Color', values: [] })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    attributesSectionData.value = { revision: 0, items: [] }
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
+
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[0]!.vm.$emit('update:modelValue', true)
+
+    setAttributesMock.mockRejectedValueOnce(new ApiError('Conflict', 409, {}, {}))
+    let resolveRefetch: (value: unknown) => void = () => {}
+    attributesSectionRefetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefetch = resolve
+        }),
+    )
+
+    const saveClick = wrapper.find('[data-test="attribute-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(
+      wrapper.find('[data-test="attribute-assignment-save"]').attributes('disabled'),
+    ).toBeDefined()
+
+    resolveRefetch({ status: 'success', data: attributesSectionData.value, error: null })
+    await saveClick
+    await flushPromises()
+
+    expect(
+      wrapper.find('[data-test="attribute-assignment-save"]').attributes('disabled'),
+    ).toBeUndefined()
   })
 
   it('hides the save control and disables checkboxes when can_manage is false', () => {
@@ -3288,7 +3869,7 @@ describe('AttributesTab (product assignment)', () => {
       current_page: 1,
       per_page: 24,
     }
-    const wrapper = mountAssignment(product({ uuid: 'p1' }), false)
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }), false)
 
     expect(wrapper.find('[data-test="attribute-assignment-save"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="attribute-assign-custom-add"]').exists()).toBe(false)

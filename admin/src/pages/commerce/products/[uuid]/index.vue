@@ -12,7 +12,12 @@ import { computed, ref, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCommerceProduct, useCommerceProductMutations } from '@/queries/commerceCatalog'
 import { useCommerceMeta } from '@/queries/commerceMeta'
-import { useProductMedia } from '@/queries/commerceProductSections'
+import {
+  useProductMedia,
+  useProductCategories,
+  useProductTags,
+  useProductAttributes,
+} from '@/queries/commerceProductSections'
 import { useNotify } from '@/composables/useNotify'
 import {
   createDirtyRegistry,
@@ -29,9 +34,7 @@ import SectionNav, {
 import ProductForm from '../components/ProductForm.vue'
 import VariantsPanel from '../components/VariantsPanel.vue'
 import MediaPanel from '../components/MediaPanel.vue'
-import CategoriesTab from '../components/CategoriesTab.vue'
-import TagsTab from '../components/TagsTab.vue'
-import AttributesTab from '../components/AttributesTab.vue'
+import OrganizationCard from '../components/OrganizationCard.vue'
 import AddonsPanel from '../components/AddonsPanel.vue'
 import DownloadsPanel from '../components/DownloadsPanel.vue'
 import ProductEntryLinkPanel from '@/components/commerce/ProductEntryLinkPanel.vue'
@@ -69,11 +72,30 @@ useProductRevisionCoordinator()
 const detailsState = shallowRef<SectionState | null>(null)
 const mediaState = shallowRef<SectionState | null>(null)
 
+// Task C6: Organization's three subsections (Categories/Tags/Attributes) each self-register their
+// OWN `useSectionState()` inside `OrganizationCard` (which "hoists nothing" — see its own
+// docblock) and re-emit their `state` tagged with which subsection it came from; this shell just
+// needs live references to the three to compute ONE aggregated nav indicator (spec §5.1: "the nav
+// indicator aggregates the three, worst state wins").
+const categoriesState = shallowRef<SectionState | null>(null)
+const tagsState = shallowRef<SectionState | null>(null)
+const attributesState = shallowRef<SectionState | null>(null)
+
+function onOrganizationState(id: 'categories' | 'tags' | 'attributes', s: SectionState): void {
+  if (id === 'categories') categoriesState.value = s
+  else if (id === 'tags') tagsState.value = s
+  else attributesState.value = s
+}
+
 // Media's own section read (Task C1) — MediaPanel holds its own subscription to the SAME Colada
 // query key for rendering; this is a second, cheap subscriber (no extra request) purely so the nav
 // can show an honest, draft-only "Images · n" empty-hint (spec §5.1) without this shell owning any
-// of MediaPanel's hydration/reorder logic.
+// of MediaPanel's hydration/reorder logic. Same reasoning for the three Organization section reads
+// below — each subsection ALSO holds its own subscription for its own hydration.
 const { data: mediaSection, status: mediaSectionStatus } = useProductMedia(uuid)
+const { data: categoriesSection, status: categoriesSectionStatus } = useProductCategories(uuid)
+const { data: tagsSection, status: tagsSectionStatus } = useProductTags(uuid)
+const { data: attributesSection, status: attributesSectionStatus } = useProductAttributes(uuid)
 
 const isDigital = computed(() => product.value?.type === 'digital')
 const isGrouped = computed(() => product.value?.type === 'grouped')
@@ -96,9 +118,36 @@ const mediaHint = computed<string | undefined>(() => {
   return `Images · ${mediaSection.value.items.length}`
 })
 
-// Nav indicators: HONESTY over completeness (Task C4 brief), now extended by Task C5's real
-// Details/Images wiring. Organization/Add-ons/Downloads/Linked content/Grouped products stay null
-// until C6-C8 wire their own `useSectionState()` the same way.
+// Task C6: Organization's hint combines all three subsections' counts — draft-only, and `null`
+// (undefined) while ANY of the three reads is still pending/errored, same "never a fabricated
+// count" discipline as `mediaHint` above.
+const organizationHint = computed<string | undefined>(() => {
+  if (!isDraft.value) return undefined
+  if (categoriesSectionStatus.value !== 'success' || !categoriesSection.value) return undefined
+  if (tagsSectionStatus.value !== 'success' || !tagsSection.value) return undefined
+  if (attributesSectionStatus.value !== 'success' || !attributesSection.value) return undefined
+  return (
+    `Categories · ${categoriesSection.value.items.length} · ` +
+    `Tags · ${tagsSection.value.items.length} · ` +
+    `Attributes · ${attributesSection.value.items.length}`
+  )
+})
+
+// Task C6: worst-wins across the three subsection states PLUS the hint (spec §5.1: "the nav
+// indicator aggregates the three, worst state wins") — reuses the same `resolveSectionIndicator`
+// precedence (error > unsaved > hint) every other aggregation in this file already applies.
+const organizationIndicator = computed<SectionNavIndicator>(() =>
+  resolveSectionIndicator([
+    stateIndicator(categoriesState.value),
+    stateIndicator(tagsState.value),
+    stateIndicator(attributesState.value),
+    organizationHint.value ? 'hint' : null,
+  ]),
+)
+
+// Nav indicators: HONESTY over completeness (Task C4 brief), now extended by Task C5/C6's real
+// Details/Images/Organization wiring. Add-ons/Downloads/Linked content/Grouped products stay null
+// until C7-C8 wire their own `useSectionState()` the same way.
 const navSections = computed<SectionNavItem[]>(() => {
   const p = product.value
   if (!p) return []
@@ -116,7 +165,12 @@ const navSections = computed<SectionNavItem[]>(() => {
       indicator: draft ? 'hint' : null,
       hint: draft ? `Variants · ${p.variants.length}` : undefined,
     },
-    { id: 'organization', label: 'Organization', indicator: null },
+    {
+      id: 'organization',
+      label: 'Organization',
+      indicator: organizationIndicator.value,
+      hint: organizationHint.value,
+    },
     { id: 'addons', label: 'Add-ons', indicator: null },
   ]
   if (p.type === 'digital') {
@@ -250,18 +304,17 @@ async function confirmDelete() {
             </EditorSectionCard>
 
             <!-- Organization: categories/tags/attributes stacked in ONE card (spec §5.1 item 4) —
-                 each subsection keeps its own save control and atomic endpoint; only the card
-                 chrome and grouping are new here. -->
+                 each subsection keeps its own save control and atomic endpoint; the card's own
+                 header chip is omitted (no single `state` prop given) since each subsection shows
+                 its OWN chip — only the nav indicator aggregates the three (see
+                 `organizationIndicator` above). -->
             <EditorSectionCard section-id="organization" title="Organization">
-              <div class="space-y-8">
-                <CategoriesTab :key="product.uuid" :product="product" :can-manage="canManage" />
-                <div class="border-t border-default pt-8">
-                  <TagsTab :key="product.uuid" :product="product" :can-manage="canManage" />
-                </div>
-                <div class="border-t border-default pt-8">
-                  <AttributesTab :key="product.uuid" :product="product" :can-manage="canManage" />
-                </div>
-              </div>
+              <OrganizationCard
+                :key="product.uuid"
+                :product="product"
+                :can-manage="canManage"
+                @state="onOrganizationState"
+              />
             </EditorSectionCard>
 
             <EditorSectionCard section-id="addons" title="Add-ons">

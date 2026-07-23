@@ -22,7 +22,7 @@
 // `values` is free text) is given. The assignment section below builds that shape from the SAME
 // paginated attribute list rendered above (there is no unpaginated attribute fetch, unlike
 // categories) plus a separate list of custom rows the admin builds up by hand.
-import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
+import { computed, inject, onUnmounted, reactive, ref, useTemplateRef, watch } from 'vue'
 import { refDebounced } from '@vueuse/core'
 import * as z from 'zod'
 import type { Form, FormSubmitEvent } from '@nuxt/ui'
@@ -33,14 +33,22 @@ import {
   type CommerceAttribute,
   type CommerceAttributeValue,
   type CommerceProduct,
-  type CommerceProductAttribute,
   type ProductAttributeAssignmentInput,
 } from '@/queries/commerceCatalog'
+import {
+  useProductAttributes,
+  type ProductAttributeAssignment,
+  type SectionEnvelope,
+} from '@/queries/commerceProductSections'
 import { toApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
+import { useSectionState, type SectionState } from '@/composables/useSectionState'
+import { ProductRevisionCoordinatorKey } from '@/composables/useProductRevisionCoordinator'
+import { rebaseStructured } from '@/utils/sectionRebase'
 import TablePagination from '@/components/TablePagination.vue'
 
 const props = defineProps<{ canManage: boolean; product?: CommerceProduct }>()
+const emit = defineEmits<{ state: [SectionState] }>()
 
 const { success, error: notifyError } = useNotify()
 
@@ -56,7 +64,8 @@ const filters = computed(() => ({
 }))
 
 const { data: attributesData, status } = useCommerceAttributes(filters)
-const { create, update, remove, createValue, updateValue, removeValue } = useCommerceAttributeMutations()
+const { create, update, remove, createValue, updateValue, removeValue } =
+  useCommerceAttributeMutations()
 const { setAttributes } = useCommerceProductMutations()
 
 const rows = computed<CommerceAttribute[]>(() => attributesData.value?.attributes ?? [])
@@ -117,7 +126,10 @@ async function submitForm(event: FormSubmitEvent<Schema>) {
     formOpen.value = false
   } catch (e) {
     const err = toApiError(e)
-    const fieldErrors = Object.entries(err.fieldErrors).map(([name, message]) => ({ name, message }))
+    const fieldErrors = Object.entries(err.fieldErrors).map(([name, message]) => ({
+      name,
+      message,
+    }))
     if (fieldErrors.length > 0) formRef.value?.setErrors(fieldErrors)
     formError.value = Object.values(err.fieldErrors)[0] ?? err.message
     notifyError(err, editingUuid.value ? 'Couldn’t update attribute' : 'Couldn’t create attribute')
@@ -189,7 +201,11 @@ function cancelValueForm() {
 async function submitValueForm(event: FormSubmitEvent<ValueSchema>) {
   const attributeUuid = valueFormAttributeUuid.value
   if (!attributeUuid) return
-  const input = { slug: event.data.slug, value: event.data.value, position: event.data.position ?? 0 }
+  const input = {
+    slug: event.data.slug,
+    value: event.data.value,
+    position: event.data.position ?? 0,
+  }
   try {
     if (editingValueUuid.value) {
       await updateValue.mutateAsync({ uuid: editingValueUuid.value, input })
@@ -220,11 +236,14 @@ async function confirmDeleteValue() {
 }
 
 // ── Product assignment (only rendered when `product` is given) ─────────────────────────────────
-// There is no admin GET for a product's current attribute assignment (only the set-list PUT,
-// which returns the fresh attached rows) — exactly like TagsTab's `knownTags`. `null` = never
-// observed this session; a non-null array is only reached after a successful set call positively
-// established the assignment. Never claim "none assigned" for the unknown state, and never
-// pre-check anything from a guess.
+//
+// Task C6: hydrated from the real `products.attributes.index` read (Task C1) instead of
+// session-only tracking — the "existing assignments can't be shown" warning is GONE.
+// `useSectionState()` throws without an ancestor `DirtyRegistry`, which management mode
+// (`products/index.vue`'s Attributes tab, no `product` prop) never provides — so it (and the
+// coordinator registration below) is gated on `props.product`, stable for a mounted instance:
+// every caller keys this component on the product's own uuid (see `[uuid]/index.vue`), so a
+// single instance never toggles between the two modes.
 
 interface AttributeAssignEntry {
   included: boolean
@@ -241,37 +260,144 @@ interface CustomAttributeRow {
   visible: boolean
 }
 
-const knownRows = ref<CommerceProductAttribute[] | null>(null)
+const sectionState = props.product ? useSectionState('attributes', 'Attributes') : null
+if (sectionState) emit('state', sectionState)
+const { phase, dirty, markDirty, beginSave, saveSucceeded, saveFailed, markClean } =
+  sectionState ?? {
+    phase: ref('idle' as const),
+    dirty: ref(false),
+    markDirty: () => {},
+    beginSave: () => {},
+    saveSucceeded: () => {},
+    saveFailed: () => {},
+    markClean: () => {},
+  }
+const coordinator = inject(ProductRevisionCoordinatorKey, null)
+
 const assignState = reactive<Record<string, AttributeAssignEntry>>({})
 const customRows = reactive<CustomAttributeRow[]>([])
 const assignError = ref<string | null>(null)
 let customRowKeySeq = 0
 
-// Every attribute the shared (paginated) list ever surfaces gets a default assignment entry, so
-// checkboxes always have somewhere to read/write — mirrors the list-driven checkbox pattern in
-// TagsTab/CategoriesTab, with the same "only the current page/search is assignable" limitation.
+// The section's own baseline/draft (Task C3's `SectionRegistration<T>` contract): `baseRevision`/
+// `baselineRows` are what the NEXT reconciliation compares a freshly-refetched remote envelope
+// against — `assignState`/`customRows` above are the actual draft the form renders.
+const baseRevision = ref<number | null>(null)
+const baselineRows = ref<ProductAttributeAssignment[]>([])
+/** Set only while a conflict review is showing (`reconcileRemote` verdict was `'conflict'`, or a
+ * 409 recovery landed on one) — see `useLatestConflict`/`replaceWithMineConflict` below for the
+ * two explicit actions (never an automatic resubmit). */
+const conflictRemote = ref<SectionEnvelope<ProductAttributeAssignment> | null>(null)
+
+/** Rebuilds `assignState`/`customRows` from a server (or merged/reviewed) row set — the honest
+ * "what the product actually carries" reality, not an echo of whatever was last submitted. Every
+ * attribute the shared (paginated) list ever surfaces ALSO gets a default entry so its checkbox
+ * has somewhere to read/write, but — unlike the old session-only version — an attribute assigned
+ * server-side that was never visited this session (off-page) still gets its entry from
+ * `serverRows` here, not from `rows.value`, which is exactly what keeps a save from wiping it. */
+function applyRowsToDraft(serverRows: readonly ProductAttributeAssignment[]): void {
+  for (const uuid of Object.keys(assignState)) delete assignState[uuid]
+  customRows.splice(0, customRows.length)
+
+  for (const row of serverRows) {
+    if (row.attribute_uuid) {
+      assignState[row.attribute_uuid] = {
+        included: true,
+        values: row.values,
+        used_for_variants: row.used_for_variants,
+        visible: row.visible,
+      }
+    } else {
+      customRows.push({
+        key: `custom-${customRowKeySeq++}`,
+        name: row.name ?? '',
+        valuesText: row.values.join(', '),
+        used_for_variants: row.used_for_variants,
+        visible: row.visible,
+      })
+    }
+  }
+  for (const attr of rows.value) {
+    if (!(attr.uuid in assignState)) {
+      assignState[attr.uuid] = {
+        included: false,
+        values: [],
+        used_for_variants: false,
+        visible: true,
+      }
+    }
+  }
+}
+
+function syncFromRemote(envelope: SectionEnvelope<ProductAttributeAssignment>): void {
+  baseRevision.value = envelope.revision
+  baselineRows.value = envelope.items
+  applyRowsToDraft(envelope.items)
+}
+
+// Every attribute the shared (paginated) list surfaces — INCLUDING on a later page/search visited
+// after the initial hydration — gets a default assignment entry so its checkbox always has
+// somewhere to read/write; never overwrites an entry `applyRowsToDraft` already seeded.
 watch(
   rows,
   (newRows) => {
     if (!props.product) return
     for (const attr of newRows) {
       if (!(attr.uuid in assignState)) {
-        assignState[attr.uuid] = { included: false, values: [], used_for_variants: false, visible: true }
+        assignState[attr.uuid] = {
+          included: false,
+          values: [],
+          used_for_variants: false,
+          visible: true,
+        }
       }
     }
   },
   { immediate: true },
 )
 
+// Harmless to call in management mode too — `enabled: () => !!toValue(uuid)` (Task C1) means the
+// query never fires when there's no product.
+const attributesSection = useProductAttributes(() => props.product?.uuid ?? '')
+
+watch(
+  () => attributesSection.data.value,
+  (envelope) => {
+    if (!envelope || dirty.value) return
+    syncFromRemote(envelope)
+  },
+  { immediate: true },
+)
+
+async function refetchAttributesSection(): Promise<SectionEnvelope<ProductAttributeAssignment>> {
+  const result = await attributesSection.refetch(true)
+  if (result.status !== 'success') {
+    throw result.error ?? new Error('Failed to refresh attributes.')
+  }
+  return result.data
+}
+
 function toggleIncluded(uuid: string) {
   const entry = assignState[uuid]
   if (entry) entry.included = !entry.included
+  markDirty()
 }
 
 function toggleValue(uuid: string, slug: string) {
   const entry = assignState[uuid]
   if (!entry) return
-  entry.values = entry.values.includes(slug) ? entry.values.filter((s) => s !== slug) : [...entry.values, slug]
+  entry.values = entry.values.includes(slug)
+    ? entry.values.filter((s) => s !== slug)
+    : [...entry.values, slug]
+  markDirty()
+}
+
+function setCustomRowField(
+  row: CustomAttributeRow,
+  patch: Partial<Pick<CustomAttributeRow, 'name' | 'valuesText' | 'used_for_variants' | 'visible'>>,
+): void {
+  Object.assign(row, patch)
+  markDirty()
 }
 
 function addCustomRow() {
@@ -282,11 +408,13 @@ function addCustomRow() {
     used_for_variants: false,
     visible: true,
   })
+  markDirty()
 }
 
 function removeCustomRow(key: string) {
   const index = customRows.findIndex((r) => r.key === key)
   if (index !== -1) customRows.splice(index, 1)
+  markDirty()
 }
 
 function buildPayloadRows(): ProductAttributeAssignmentInput[] {
@@ -318,50 +446,101 @@ function buildPayloadRows(): ProductAttributeAssignmentInput[] {
   return [...attributeRows, ...custom]
 }
 
-/** Re-hydrates local assignment state from a successful set-list response — the honest
- * "what actually got saved" reality, not just an echo of what was submitted (mirrors
- * TagsTab's `selectedUuids.value = assigned.map(...)`). */
-function applyKnownRows(resultRows: CommerceProductAttribute[]) {
-  for (const uuid of Object.keys(assignState)) {
-    assignState[uuid] = { included: false, values: [], used_for_variants: false, visible: true }
-  }
-  customRows.splice(0, customRows.length)
+/** The current draft, shaped as `ProductAttributeAssignment[]` (the same item shape `B`/`R` are)
+ * so it can be passed as `rebaseStructured`'s `L` parameter — accepted for interface symmetry only
+ * (see that function's own docblock: `L` never affects the verdict), `position` is a filler 0
+ * since the draft doesn't track it. */
+function currentDraftRows(): ProductAttributeAssignment[] {
+  return buildPayloadRows().map((row) => ({
+    attribute_uuid: row.attribute_uuid ?? null,
+    name: row.name ?? null,
+    values: row.values ?? [],
+    used_for_variants: row.used_for_variants ?? false,
+    visible: row.visible ?? true,
+    position: 0,
+  }))
+}
 
-  for (const row of resultRows) {
-    if (row.attribute_uuid) {
-      assignState[row.attribute_uuid] = {
-        included: true,
-        values: row.values,
-        used_for_variants: row.used_for_variants,
-        visible: row.visible,
+if (props.product && coordinator) {
+  const deregister = coordinator.register<ProductAttributeAssignment>('attributes', {
+    baseRevision,
+    dirty,
+    refetch: refetchAttributesSection,
+    // Only ever called while clean — no local draft to preserve.
+    adoptRemote: (remote) => {
+      syncFromRemote(remote)
+      conflictRemote.value = null
+    },
+    // Only ever called while dirty — structured (non-set) rebase (Task C3's `rebaseStructured`):
+    // silent when the remote genuinely didn't change the assignment set, otherwise an explicit
+    // review ("Use latest" / "Replace with mine"), never an automatic retry.
+    reconcileRemote: (remote) => {
+      const verdict = rebaseStructured(baselineRows.value, currentDraftRows(), remote.items)
+      if (verdict === 'silent') {
+        baseRevision.value = remote.revision
+        baselineRows.value = remote.items
+        markDirty()
+        conflictRemote.value = null
+      } else {
+        conflictRemote.value = remote
       }
-    } else {
-      customRows.push({
-        key: `custom-${customRowKeySeq++}`,
-        name: row.name ?? '',
-        valuesText: row.values.join(', '),
-        used_for_variants: row.used_for_variants,
-        visible: row.visible,
-      })
-    }
-  }
+    },
+  })
+  onUnmounted(deregister)
 }
 
 async function saveAssignment() {
   const product = props.product
-  if (!product) return
+  if (!product || baseRevision.value === null) return
   assignError.value = null
+  beginSave()
   try {
-    const result = await setAttributes.mutateAsync({ productUuid: product.uuid, rows: buildPayloadRows() })
-    knownRows.value = result
-    applyKnownRows(result)
-    success('Attributes updated', `${result.length} attribute row${result.length === 1 ? '' : 's'} set.`)
+    await setAttributes.mutateAsync({
+      productUuid: product.uuid,
+      rows: buildPayloadRows(),
+      expectedRevision: baseRevision.value,
+    })
+    saveSucceeded()
+    success('Attributes updated', 'Attribute assignment saved.')
+    await coordinator?.afterMutation()
   } catch (e) {
     const err = toApiError(e)
-    assignError.value = Object.values(err.fieldErrors)[0] ?? err.message
-    notifyError(err, 'Couldn’t set attributes')
+    if (err.status === 409) {
+      // Stale `expected_revision` — never blindly resubmit. Refresh this section FIRST; the
+      // conflict (or silent-rebase) verdict runs from inside that refresh's `reconcileRemote`.
+      saveFailed()
+      await coordinator?.refresh('attributes')
+    } else {
+      saveFailed()
+      assignError.value = Object.values(err.fieldErrors)[0] ?? err.message
+      notifyError(err, 'Couldn’t set attributes')
+    }
   }
 }
+
+function useLatestConflict(): void {
+  const remote = conflictRemote.value
+  if (!remote) return
+  syncFromRemote(remote)
+  conflictRemote.value = null
+  markClean()
+}
+
+async function replaceWithMineConflict(): Promise<void> {
+  const remote = conflictRemote.value
+  if (!remote) return
+  baseRevision.value = remote.revision
+  baselineRows.value = remote.items
+  conflictRemote.value = null
+  await saveAssignment()
+}
+
+const saveDisabled = computed(
+  () =>
+    baseRevision.value === null ||
+    phase.value === 'saving' ||
+    (coordinator?.refreshing.value ?? false),
+)
 </script>
 
 <template>
@@ -389,7 +568,11 @@ async function saveAssignment() {
         </div>
       </div>
 
-      <div v-if="status === 'pending'" class="flex justify-center py-6" data-test="attributes-loading">
+      <div
+        v-if="status === 'pending'"
+        class="flex justify-center py-6"
+        data-test="attributes-loading"
+      >
         <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
       </div>
       <UAlert
@@ -450,7 +633,11 @@ async function saveAssignment() {
                 icon="i-lucide-trash-2"
                 aria-label="Delete attribute"
                 data-test="attribute-delete"
-                @click="() => { pendingDelete = attr }"
+                @click="
+                  () => {
+                    pendingDelete = attr
+                  }
+                "
               />
             </template>
           </div>
@@ -497,7 +684,11 @@ async function saveAssignment() {
                 icon="i-lucide-trash-2"
                 aria-label="Delete value"
                 data-test="attribute-value-delete"
-                @click="() => { pendingDeleteValue = val }"
+                @click="
+                  () => {
+                    pendingDeleteValue = val
+                  }
+                "
               />
             </div>
           </div>
@@ -529,10 +720,18 @@ async function saveAssignment() {
               @submit="submitValueForm"
             >
               <UFormField label="Value" name="value" required>
-                <UInput v-model="valueState.value" class="w-full" data-test="attribute-value-value-input" />
+                <UInput
+                  v-model="valueState.value"
+                  class="w-full"
+                  data-test="attribute-value-value-input"
+                />
               </UFormField>
               <UFormField label="Slug" name="slug" required>
-                <UInput v-model="valueState.slug" class="w-full" data-test="attribute-value-slug-input" />
+                <UInput
+                  v-model="valueState.slug"
+                  class="w-full"
+                  data-test="attribute-value-slug-input"
+                />
               </UFormField>
               <UFormField label="Position" name="position">
                 <UInput
@@ -550,7 +749,13 @@ async function saveAssignment() {
                   :label="editingValueUuid ? 'Save' : 'Add'"
                   data-test="attribute-value-form-submit"
                 />
-                <UButton size="xs" color="neutral" variant="ghost" label="Cancel" @click="cancelValueForm" />
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  label="Cancel"
+                  @click="cancelValueForm"
+                />
               </div>
             </UForm>
           </template>
@@ -593,7 +798,12 @@ async function saveAssignment() {
           <UInput v-model="state.slug" class="w-full" data-test="attribute-slug-input" />
         </UFormField>
         <UFormField label="Position" name="position">
-          <UInput v-model.number="state.position" type="number" class="w-full" data-test="attribute-position-input" />
+          <UInput
+            v-model.number="state.position"
+            type="number"
+            class="w-full"
+            data-test="attribute-position-input"
+          />
         </UFormField>
         <div class="col-span-2 flex gap-2 sm:col-span-3">
           <UButton
@@ -609,19 +819,15 @@ async function saveAssignment() {
     </template>
 
     <!-- Product attribute assignment -------------------------------------------------------- -->
-    <section v-if="product" data-test="attribute-assignment-section" class="space-y-4 border-t border-default pt-6">
+    <section
+      v-if="product"
+      data-test="attribute-assignment-section"
+      class="space-y-4 border-t border-default pt-6"
+    >
       <h3 class="text-sm font-medium text-default">Assigned attributes</h3>
-      <p class="text-xs text-muted">Saving replaces the entire attribute assignment for this product.</p>
-
-      <UAlert
-        v-if="knownRows === null"
-        color="neutral"
-        variant="subtle"
-        icon="i-lucide-list-tree"
-        title="Assignment not loaded"
-        description="Existing attribute assignments aren't shown here yet — saving refreshes them for this session."
-        data-test="attribute-assignment-unknown"
-      />
+      <p class="text-xs text-muted">
+        Saving replaces the entire attribute assignment for this product.
+      </p>
 
       <UAlert
         v-if="assignError"
@@ -631,6 +837,34 @@ async function saveAssignment() {
         data-test="attribute-assignment-error"
         :title="assignError"
       />
+
+      <UAlert
+        v-if="conflictRemote"
+        color="warning"
+        variant="subtle"
+        icon="i-lucide-git-merge"
+        title="Attributes changed elsewhere — review and save again"
+        data-test="attribute-conflict"
+      >
+        <template #description>
+          <div class="mt-2 flex gap-2">
+            <UButton
+              size="xs"
+              label="Use latest"
+              data-test="attribute-use-latest"
+              @click="useLatestConflict"
+            />
+            <UButton
+              size="xs"
+              color="neutral"
+              variant="subtle"
+              label="Replace with mine"
+              data-test="attribute-replace-mine"
+              @click="replaceWithMineConflict"
+            />
+          </div>
+        </template>
+      </UAlert>
 
       <div
         v-for="attr in rows"
@@ -665,14 +899,24 @@ async function saveAssignment() {
               :disabled="!canManage"
               label="Used for variants"
               data-test="attribute-assign-variants"
-              @update:model-value="(v: boolean | 'indeterminate') => { assignState[attr.uuid]!.used_for_variants = v === true }"
+              @update:model-value="
+                (v: boolean | 'indeterminate') => {
+                  assignState[attr.uuid]!.used_for_variants = v === true
+                  markDirty()
+                }
+              "
             />
             <UCheckbox
               :model-value="assignState[attr.uuid]!.visible"
               :disabled="!canManage"
               label="Visible"
               data-test="attribute-assign-visible"
-              @update:model-value="(v: boolean | 'indeterminate') => { assignState[attr.uuid]!.visible = v === true }"
+              @update:model-value="
+                (v: boolean | 'indeterminate') => {
+                  assignState[attr.uuid]!.visible = v === true
+                  markDirty()
+                }
+              "
             />
           </div>
         </div>
@@ -688,30 +932,43 @@ async function saveAssignment() {
         >
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <UInput
-              v-model="row.name"
+              :model-value="row.name"
               placeholder="Name"
               :disabled="!canManage"
               data-test="attribute-assign-custom-name"
+              @update:model-value="
+                (v: string | number) => setCustomRowField(row, { name: String(v) })
+              "
             />
             <UInput
-              v-model="row.valuesText"
+              :model-value="row.valuesText"
               placeholder="Values, comma-separated"
               :disabled="!canManage"
               data-test="attribute-assign-custom-values"
+              @update:model-value="
+                (v: string | number) => setCustomRowField(row, { valuesText: String(v) })
+              "
             />
           </div>
           <div class="flex flex-wrap items-center gap-4">
             <UCheckbox
-              v-model="row.used_for_variants"
+              :model-value="row.used_for_variants"
               :disabled="!canManage"
               label="Used for variants"
               data-test="attribute-assign-custom-variants"
+              @update:model-value="
+                (v: boolean | 'indeterminate') =>
+                  setCustomRowField(row, { used_for_variants: v === true })
+              "
             />
             <UCheckbox
-              v-model="row.visible"
+              :model-value="row.visible"
               :disabled="!canManage"
               label="Visible"
               data-test="attribute-assign-custom-visible"
+              @update:model-value="
+                (v: boolean | 'indeterminate') => setCustomRowField(row, { visible: v === true })
+              "
             />
             <UButton
               v-if="canManage"
@@ -741,7 +998,8 @@ async function saveAssignment() {
       <UButton
         v-if="canManage"
         size="xs"
-        :loading="setAttributes.isLoading.value"
+        :loading="phase === 'saving'"
+        :disabled="saveDisabled"
         label="Save attributes"
         data-test="attribute-assignment-save"
         @click="saveAssignment"
@@ -752,12 +1010,16 @@ async function saveAssignment() {
   <UModal
     :open="pendingDelete !== null"
     title="Delete attribute"
-    @update:open="(v: boolean) => { if (!v) pendingDelete = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) pendingDelete = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
-        Delete <span class="text-default">“{{ pendingDelete?.name }}”</span>? This removes all of its values and
-        detaches it from every product. This can’t be undone.
+        Delete <span class="text-default">“{{ pendingDelete?.name }}”</span>? This removes all of
+        its values and detaches it from every product. This can’t be undone.
       </p>
     </template>
     <template #footer>
@@ -767,7 +1029,11 @@ async function saveAssignment() {
           variant="ghost"
           label="Cancel"
           :disabled="remove.isLoading.value"
-          @click="() => { pendingDelete = null }"
+          @click="
+            () => {
+              pendingDelete = null
+            }
+          "
         />
         <UButton
           color="error"
@@ -784,11 +1050,16 @@ async function saveAssignment() {
   <UModal
     :open="pendingDeleteValue !== null"
     title="Delete value"
-    @update:open="(v: boolean) => { if (!v) pendingDeleteValue = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) pendingDeleteValue = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
-        Delete <span class="text-default">“{{ pendingDeleteValue?.value }}”</span>? This can’t be undone.
+        Delete <span class="text-default">“{{ pendingDeleteValue?.value }}”</span>? This can’t be
+        undone.
       </p>
     </template>
     <template #footer>
@@ -798,7 +1069,11 @@ async function saveAssignment() {
           variant="ghost"
           label="Cancel"
           :disabled="removeValue.isLoading.value"
-          @click="() => { pendingDeleteValue = null }"
+          @click="
+            () => {
+              pendingDeleteValue = null
+            }
+          "
         />
         <UButton
           color="error"

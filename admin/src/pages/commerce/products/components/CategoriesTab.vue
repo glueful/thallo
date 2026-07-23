@@ -7,7 +7,7 @@
 //     plus an assignment section that sets which of those categories this one product belongs to
 //     via the wholesale PUT set-list endpoint. CRUD controls are always hidden in this mode —
 //     editing/deleting shared taxonomy from inside a single product's view would be surprising.
-import { computed, reactive, ref, useTemplateRef } from 'vue'
+import { computed, inject, onUnmounted, reactive, ref, useTemplateRef, watch } from 'vue'
 import * as z from 'zod'
 import type { Form, FormSubmitEvent } from '@nuxt/ui'
 import {
@@ -17,10 +17,19 @@ import {
   type CommerceCategory,
   type CommerceProduct,
 } from '@/queries/commerceCatalog'
+import {
+  useProductCategories,
+  type AssignedCategory,
+  type SectionEnvelope,
+} from '@/queries/commerceProductSections'
 import { toApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
+import { useSectionState, type SectionState } from '@/composables/useSectionState'
+import { ProductRevisionCoordinatorKey } from '@/composables/useProductRevisionCoordinator'
+import { rebaseSet } from '@/utils/sectionRebase'
 
 const props = defineProps<{ canManage: boolean; product?: CommerceProduct }>()
+const emit = defineEmits<{ state: [SectionState] }>()
 
 const { success, error: notifyError } = useNotify()
 const { data: categoriesData, status } = useCommerceCategories()
@@ -67,7 +76,9 @@ const formRef = useTemplateRef<Form<Schema>>('formRef')
 // A category can't be its own parent — exclude it from its own parent picker while editing.
 const parentItems = computed(() => [
   { label: 'No parent (root)', value: ROOT },
-  ...rows.value.filter((c) => c.uuid !== editingUuid.value).map((c) => ({ label: c.name, value: c.uuid })),
+  ...rows.value
+    .filter((c) => c.uuid !== editingUuid.value)
+    .map((c) => ({ label: c.name, value: c.uuid })),
 ])
 
 function openCreate() {
@@ -97,7 +108,8 @@ async function submitForm(event: FormSubmitEvent<Schema>) {
     name: event.data.name,
     slug: event.data.slug,
     description: event.data.description || null,
-    parent_uuid: event.data.parent_uuid && event.data.parent_uuid !== ROOT ? event.data.parent_uuid : null,
+    parent_uuid:
+      event.data.parent_uuid && event.data.parent_uuid !== ROOT ? event.data.parent_uuid : null,
     position: event.data.position ?? 0,
   }
   try {
@@ -111,7 +123,10 @@ async function submitForm(event: FormSubmitEvent<Schema>) {
     formOpen.value = false
   } catch (e) {
     const err = toApiError(e)
-    const fieldErrors = Object.entries(err.fieldErrors).map(([name, message]) => ({ name, message }))
+    const fieldErrors = Object.entries(err.fieldErrors).map(([name, message]) => ({
+      name,
+      message,
+    }))
     if (fieldErrors.length > 0) formRef.value?.setErrors(fieldErrors)
     formError.value = Object.values(err.fieldErrors)[0] ?? err.message
     notifyError(err, editingUuid.value ? 'Couldn’t update category' : 'Couldn’t create category')
@@ -134,40 +149,145 @@ async function confirmDelete() {
 }
 
 // ── Product assignment (only rendered when `product` is given) ─────────────────────────────
+//
+// Task C6: hydrated from the real `products.categories.index` read (Task C1) instead of
+// session-only tracking — the "existing assignments can't be shown" warning is GONE. `useSectionState()`
+// throws without an ancestor `DirtyRegistry`, which management mode (`products/index.vue`'s
+// Categories tab, no `product` prop) never provides — so it (and the coordinator registration
+// below) is gated on `props.product`, stable for a mounted instance: every caller keys this
+// component on the product's own uuid (see `[uuid]/index.vue`), so a single instance never
+// toggles between the two modes.
+const sectionState = props.product ? useSectionState('categories', 'Categories') : null
+if (sectionState) emit('state', sectionState)
+// No `markClean()` here: unlike the attributes subsection, categories has no distinct explicit
+// "Use latest" action — a genuine remote divergence auto-merges (see `reconcileRemote` below).
+const { phase, dirty, markDirty, beginSave, saveSucceeded, saveFailed } = sectionState ?? {
+  phase: ref('idle' as const),
+  dirty: ref(false),
+  markDirty: () => {},
+  beginSave: () => {},
+  saveSucceeded: () => {},
+  saveFailed: () => {},
+}
+const coordinator = inject(ProductRevisionCoordinatorKey, null)
 
-// Session-only assignment tracking, replaced by hydration from the commerce 1.5.0 per-product
-// read in Task C6 (MediaPanel already made that move in C5; VariantsPanel's `knownChildren` is
-// C8's). Until then: `null` = never observed this session; `[]` is only reached after a
-// successful set call positively established an empty assignment. Never claim "none assigned"
-// for the unknown state, and never pre-check boxes from a guess.
-const knownCategories = ref<CommerceCategory[] | null>(null)
+// The section's own baseline/draft (Task C3's `SectionRegistration<T>` contract): `baseRevision`/
+// `baselineUuids` are what the NEXT reconciliation compares a freshly-refetched remote envelope
+// against; `selectedUuids` is the actual draft the checkboxes render — identical to the server's
+// assignment whenever this section is clean, and the user's in-progress selection while `dirty`.
+const baseRevision = ref<number | null>(null)
+const baselineUuids = ref<string[]>([])
 const selectedUuids = ref<string[]>([])
 const assignError = ref<string | null>(null)
+/** Set only right after a 409/refresh applied a `rebaseSet` 'merged' verdict — spec §5.2: "REPLACE
+ * the draft with the merged result" and show a review banner, but never auto-resubmit. */
+const mergeBanner = ref(false)
+
+function syncFromRemote(envelope: SectionEnvelope<AssignedCategory>): void {
+  baseRevision.value = envelope.revision
+  baselineUuids.value = envelope.items.map((c) => c.uuid)
+  selectedUuids.value = envelope.items.map((c) => c.uuid)
+  mergeBanner.value = false
+}
+
+// `enabled: () => !!toValue(uuid)` (Task C1) makes this harmless to call in management mode too
+// (uuid resolves to `''`, the query never fires) — only the ancestor-context-dependent calls
+// above are actually gated on `props.product`.
+const categoriesSection = useProductCategories(() => props.product?.uuid ?? '')
+
+watch(
+  () => categoriesSection.data.value,
+  (envelope) => {
+    if (!envelope || dirty.value) return
+    syncFromRemote(envelope)
+  },
+  { immediate: true },
+)
+
+async function refetchCategoriesSection(): Promise<SectionEnvelope<AssignedCategory>> {
+  const result = await categoriesSection.refetch(true)
+  if (result.status !== 'success') {
+    throw result.error ?? new Error('Failed to refresh categories.')
+  }
+  return result.data
+}
+
+if (props.product && coordinator) {
+  const deregister = coordinator.register<AssignedCategory>('categories', {
+    baseRevision,
+    dirty,
+    refetch: refetchCategoriesSection,
+    // Only ever called while clean — no local draft to preserve.
+    adoptRemote: (remote) => {
+      syncFromRemote(remote)
+    },
+    // Only ever called while dirty — three-way SET rebase (Task C3's `rebaseSet`) against the
+    // UUID arrays only (never whole envelopes).
+    reconcileRemote: (remote) => {
+      const remoteUuids = remote.items.map((c) => c.uuid)
+      const verdict = rebaseSet(baselineUuids.value, selectedUuids.value, remoteUuids)
+      baseRevision.value = remote.revision
+      baselineUuids.value = remoteUuids
+      if (verdict.kind === 'merged') {
+        selectedUuids.value = verdict.result
+        mergeBanner.value = true
+      } else {
+        // The remote set hasn't actually changed since our baseline — only the shared product
+        // revision advanced elsewhere. Keep the local draft, adopt the fresh revision, no banner.
+        mergeBanner.value = false
+      }
+      // Clears any lingering 'error' chip back to 'idle' without touching `dirty` (already true).
+      markDirty()
+    },
+  })
+  onUnmounted(deregister)
+}
 
 function toggleAssignment(uuid: string) {
   selectedUuids.value = selectedUuids.value.includes(uuid)
     ? selectedUuids.value.filter((u) => u !== uuid)
     : [...selectedUuids.value, uuid]
+  markDirty()
 }
 
 async function saveAssignment() {
   const product = props.product
-  if (!product) return
+  if (!product || baseRevision.value === null) return
   assignError.value = null
+  beginSave()
   try {
-    const assigned = await setCategories.mutateAsync({
+    await setCategories.mutateAsync({
       productUuid: product.uuid,
       categoryUuids: selectedUuids.value,
+      expectedRevision: baseRevision.value,
     })
-    knownCategories.value = assigned
-    selectedUuids.value = assigned.map((c) => c.uuid)
-    success('Categories updated', `${assigned.length} categor${assigned.length === 1 ? 'y' : 'ies'} set.`)
+    saveSucceeded()
+    success(
+      'Categories updated',
+      `${selectedUuids.value.length} categor${selectedUuids.value.length === 1 ? 'y' : 'ies'} set.`,
+    )
+    await coordinator?.afterMutation()
   } catch (e) {
     const err = toApiError(e)
-    assignError.value = Object.values(err.fieldErrors)[0] ?? err.message
-    notifyError(err, 'Couldn’t set categories')
+    if (err.status === 409) {
+      // Stale `expected_revision` — never blindly resubmit. Refresh this section FIRST; the
+      // merge (or silent-rebase) verdict runs from inside that refresh's `reconcileRemote`.
+      saveFailed()
+      await coordinator?.refresh('categories')
+    } else {
+      saveFailed()
+      assignError.value = Object.values(err.fieldErrors)[0] ?? err.message
+      notifyError(err, 'Couldn’t set categories')
+    }
   }
 }
+
+const saveDisabled = computed(
+  () =>
+    baseRevision.value === null ||
+    phase.value === 'saving' ||
+    (coordinator?.refreshing.value ?? false),
+)
 </script>
 
 <template>
@@ -186,7 +306,11 @@ async function saveAssignment() {
         />
       </div>
 
-      <div v-if="status === 'pending'" class="flex justify-center py-6" data-test="categories-loading">
+      <div
+        v-if="status === 'pending'"
+        class="flex justify-center py-6"
+        data-test="categories-loading"
+      >
         <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
       </div>
       <UAlert
@@ -242,7 +366,11 @@ async function saveAssignment() {
             icon="i-lucide-trash-2"
             aria-label="Delete category"
             data-test="category-delete"
-            @click="() => { pendingDelete = category }"
+            @click="
+              () => {
+                pendingDelete = category
+              }
+            "
           />
         </div>
       </div>
@@ -275,13 +403,28 @@ async function saveAssignment() {
           <UInput v-model="state.slug" class="w-full" data-test="category-slug-input" />
         </UFormField>
         <UFormField label="Description" name="description" class="col-span-2">
-          <UTextarea v-model="state.description" class="w-full" :rows="2" data-test="category-description-input" />
+          <UTextarea
+            v-model="state.description"
+            class="w-full"
+            :rows="2"
+            data-test="category-description-input"
+          />
         </UFormField>
         <UFormField label="Parent" name="parent_uuid">
-          <USelect v-model="state.parent_uuid" :items="parentItems" class="w-full" data-test="category-parent-input" />
+          <USelect
+            v-model="state.parent_uuid"
+            :items="parentItems"
+            class="w-full"
+            data-test="category-parent-input"
+          />
         </UFormField>
         <UFormField label="Position" name="position">
-          <UInput v-model.number="state.position" type="number" class="w-full" data-test="category-position-input" />
+          <UInput
+            v-model.number="state.position"
+            type="number"
+            class="w-full"
+            data-test="category-position-input"
+          />
         </UFormField>
         <div class="col-span-2 flex gap-2">
           <UButton
@@ -297,19 +440,15 @@ async function saveAssignment() {
     </template>
 
     <!-- Product category assignment ---------------------------------------------------------- -->
-    <section v-if="product" data-test="category-assignment-section" class="space-y-3 border-t border-default pt-6">
+    <section
+      v-if="product"
+      data-test="category-assignment-section"
+      class="space-y-3 border-t border-default pt-6"
+    >
       <h3 class="text-sm font-medium text-default">Assigned categories</h3>
-      <p class="text-xs text-muted">Saving replaces the entire category assignment for this product.</p>
-
-      <UAlert
-        v-if="knownCategories === null"
-        color="neutral"
-        variant="subtle"
-        icon="i-lucide-folder-tree"
-        title="Assignment not loaded"
-        description="Existing category assignments aren't shown here yet — saving refreshes them for this session."
-        data-test="category-assignment-unknown"
-      />
+      <p class="text-xs text-muted">
+        Saving replaces the entire category assignment for this product.
+      </p>
 
       <UAlert
         v-if="assignError"
@@ -318,6 +457,15 @@ async function saveAssignment() {
         icon="i-lucide-triangle-alert"
         data-test="category-assignment-error"
         :title="assignError"
+      />
+
+      <UAlert
+        v-if="mergeBanner"
+        color="warning"
+        variant="subtle"
+        icon="i-lucide-git-merge"
+        title="Categories merged with remote changes — review and save"
+        data-test="category-merge-banner"
       />
 
       <div
@@ -339,7 +487,8 @@ async function saveAssignment() {
       <UButton
         v-if="canManage"
         size="xs"
-        :loading="setCategories.isLoading.value"
+        :loading="phase === 'saving'"
+        :disabled="saveDisabled"
         label="Save categories"
         data-test="category-assignment-save"
         @click="saveAssignment"
@@ -350,7 +499,11 @@ async function saveAssignment() {
   <UModal
     :open="pendingDelete !== null"
     title="Delete category"
-    @update:open="(v: boolean) => { if (!v) pendingDelete = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) pendingDelete = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
@@ -364,7 +517,11 @@ async function saveAssignment() {
           variant="ghost"
           label="Cancel"
           :disabled="remove.isLoading.value"
-          @click="() => { pendingDelete = null }"
+          @click="
+            () => {
+              pendingDelete = null
+            }
+          "
         />
         <UButton
           color="error"
