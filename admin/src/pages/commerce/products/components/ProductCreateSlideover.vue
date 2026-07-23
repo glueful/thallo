@@ -40,6 +40,12 @@ const schema = z.object({
     .number({ message: 'Price is required.' })
     .int('Price must be a whole number of minor units.')
     .nonnegative('Price cannot be negative.'),
+  // Optional: a plain digit string, blank allowed (no compare-at price set). Never coerced
+  // through Number() until submit, and only after this regex confirms a clean non-negative
+  // integer — mirrors VariantsPanel's own compare-at field for this same task.
+  compareAtPriceInput: z
+    .string()
+    .regex(/^\d*$/, 'Compare-at price must be a whole, non-negative number.'),
 })
 type Schema = z.output<typeof schema>
 
@@ -48,6 +54,7 @@ function blankState() {
     name: '',
     type: 'physical' as const,
     price: 0,
+    compareAtPriceInput: '',
   }
 }
 
@@ -60,9 +67,7 @@ watch(
   },
 )
 
-const purchasable = computed(() =>
-  (PURCHASABLE_TYPES as readonly string[]).includes(state.type),
-)
+const purchasable = computed(() => (PURCHASABLE_TYPES as readonly string[]).includes(state.type))
 const derivedSlug = computed(() => slugify(state.name))
 const currency = computed(() => meta.value?.currency ?? 'USD')
 
@@ -81,15 +86,25 @@ const createForm = useTemplateRef<Form<Schema>>('createForm')
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   const slug = slugify(event.data.name)
   const isPurchasable = (PURCHASABLE_TYPES as readonly string[]).includes(event.data.type)
+  const compareAt =
+    event.data.compareAtPriceInput === '' ? null : Number(event.data.compareAtPriceInput)
   try {
     const created = await create.mutateAsync({
       slug,
       name: event.data.name,
       type: event.data.type,
       status: 'draft',
-      // SKU defaults to the (unique) slug; refined on the Variants tab.
+      // SKU defaults to the (unique) slug; refined on the Variants tab. `compare_at_price` is
+      // OMITTED entirely when blank — never sent as an explicit null on this brand-new variant.
       variants: isPurchasable
-        ? [{ sku: slug, price: event.data.price, currency: currency.value }]
+        ? [
+            {
+              sku: slug,
+              price: event.data.price,
+              currency: currency.value,
+              ...(compareAt !== null ? { compare_at_price: compareAt } : {}),
+            },
+          ]
         : [],
     })
     success('Draft created', `Finish setting up “${event.data.name}” in the editor.`)
@@ -126,8 +141,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         @submit="onSubmit"
       >
         <p class="text-sm text-muted">
-          Starts as a draft — add images, stock, categories and everything else in the
-          editor right after creating.
+          Starts as a draft — add images, stock, categories and everything else in the editor right
+          after creating.
         </p>
 
         <div class="grid grid-cols-2 gap-4">
@@ -141,7 +156,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           </UFormField>
 
           <UFormField label="Type" name="type">
-            <USelect v-model="state.type" :items="typeItems" class="w-full" data-test="product-type-select" />
+            <USelect
+              v-model="state.type"
+              :items="typeItems"
+              class="w-full"
+              data-test="product-type-select"
+            />
           </UFormField>
 
           <UFormField
@@ -157,6 +177,20 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               :min="0"
               class="w-full"
               data-test="product-price-input"
+            />
+          </UFormField>
+
+          <UFormField
+            v-if="purchasable"
+            label="Compare-at price"
+            name="compareAtPriceInput"
+            help="Optional, minor units"
+          >
+            <UInput
+              v-model="state.compareAtPriceInput"
+              class="w-full"
+              placeholder="Optional"
+              data-test="product-compare-at-input"
             />
           </UFormField>
         </div>
@@ -180,7 +214,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
 
     <template #footer>
       <div class="flex w-full items-center justify-between">
-        <UButton color="neutral" variant="ghost" label="Close" @click="emit('update:open', false)" />
+        <UButton
+          color="neutral"
+          variant="ghost"
+          label="Close"
+          @click="emit('update:open', false)"
+        />
         <UButton
           type="submit"
           form="product-create-form"

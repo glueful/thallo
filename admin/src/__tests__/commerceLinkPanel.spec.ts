@@ -3,7 +3,11 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
 import { ApiError } from '@/api/errors'
 import type { CommerceProduct } from '@/queries/commerceCatalog'
-import type { CommerceProductLink, EntrySearchResult, ProductLinkProjection } from '@/queries/commerceLinking'
+import type {
+  CommerceProductLink,
+  EntrySearchResult,
+  ProductLinkProjection,
+} from '@/queries/commerceLinking'
 
 // ── Shared mock state (referenced inside vi.mock factories) — real Vue refs, plain consts
 // (mirrors commerceProducts.spec.ts's own precedent/rationale for why NOT vi.hoisted() here). ──
@@ -40,8 +44,16 @@ const refetchProductLinkMock = vi.hoisted(() => vi.fn())
 const refetchEntryLinkMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/queries/commerceLinking', () => ({
-  useProductLink: () => ({ data: productLinkData, status: productLinkStatus, refetch: refetchProductLinkMock }),
-  useEntryLink: () => ({ data: entryLinkData, status: entryLinkStatus, refetch: refetchEntryLinkMock }),
+  useProductLink: () => ({
+    data: productLinkData,
+    status: productLinkStatus,
+    refetch: refetchProductLinkMock,
+  }),
+  useEntryLink: () => ({
+    data: entryLinkData,
+    status: entryLinkStatus,
+    refetch: refetchEntryLinkMock,
+  }),
   useEntrySearch: () => ({ data: entrySearchResults }),
   useProductSearchForLink: () => ({ data: productSearchResults }),
   useCommerceLinkMutations: () => ({
@@ -66,12 +78,20 @@ function product(overrides: Partial<CommerceProduct> = {}): CommerceProduct {
     created_at: null,
     updated_at: null,
     variants: [],
+    options: {},
     ...overrides,
   }
 }
 
 function entry(overrides: Partial<EntrySearchResult> = {}): EntrySearchResult {
-  return { uuid: 'entry1', title: 'About Us', content_type: 'page', status: 'draft', locale: 'en', ...overrides }
+  return {
+    uuid: 'entry1',
+    title: 'About Us',
+    content_type: 'page',
+    status: 'draft',
+    locale: 'en',
+    ...overrides,
+  }
 }
 
 function link(overrides: Partial<CommerceProductLink> = {}): CommerceProductLink {
@@ -140,7 +160,11 @@ describe('ProductEntryLinkPanel — product mode', () => {
   })
 
   it('shows "not linked" and the preview anchor pointing at storefront_url verbatim', () => {
-    productLinkData.value = { product_uuid: 'prod1', storefront_url: 'https://shop.test/shop/products/widget', link: null }
+    productLinkData.value = {
+      product_uuid: 'prod1',
+      storefront_url: 'https://shop.test/shop/products/widget',
+      link: null,
+    }
     const wrapper = mountProduct()
 
     expect(wrapper.find('[data-test="link-none"]').exists()).toBe(true)
@@ -179,7 +203,11 @@ describe('ProductEntryLinkPanel — product mode', () => {
   })
 
   it('links a fresh (unlinked) product directly, with no confirm step', async () => {
-    productLinkData.value = { product_uuid: 'prod1', storefront_url: 'https://shop.test/x', link: null }
+    productLinkData.value = {
+      product_uuid: 'prod1',
+      storefront_url: 'https://shop.test/x',
+      link: null,
+    }
     entrySearchResults.value = [entry({ uuid: 'entryA', title: 'About Us' })]
     linkMock.mockResolvedValue(link({ entry_uuid: 'entryA' }))
     const wrapper = mountProduct()

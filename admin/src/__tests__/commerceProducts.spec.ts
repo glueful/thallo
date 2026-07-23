@@ -20,6 +20,7 @@ import type {
   ProductAttributeAssignment,
   ProductMediaItem,
   SectionEnvelope,
+  VariantStock,
 } from '@/queries/commerceProductSections'
 import { createDirtyRegistry } from '@/composables/useSectionState'
 import {
@@ -75,6 +76,14 @@ const attributesSectionData = ref<SectionEnvelope<ProductAttributeAssignment> | 
 const attributesSectionStatus = ref<'pending' | 'error' | 'success'>('success')
 const attributesSectionRefetchMock = vi.hoisted(() => vi.fn())
 
+// Task C7: the stock section read — mocked the same shape-preserving way as the others above.
+// `PricingStockCard` owns this subscription; `VariantsPanel` never imports `useProductStock`
+// itself (it stays presentational about stock, fed via props), so this mock is only ever
+// exercised through `PricingStockCard` or the full shell (`ProductDetail`).
+const stockSectionData = ref<SectionEnvelope<VariantStock> | undefined>(undefined)
+const stockSectionStatus = ref<'pending' | 'error' | 'success'>('success')
+const stockSectionRefetchMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/queries/commerceProductSections', () => ({
   useProductMedia: () => ({
     data: mediaSectionData,
@@ -95,6 +104,11 @@ vi.mock('@/queries/commerceProductSections', () => ({
     data: attributesSectionData,
     status: attributesSectionStatus,
     refetch: attributesSectionRefetchMock,
+  }),
+  useProductStock: () => ({
+    data: stockSectionData,
+    status: stockSectionStatus,
+    refetch: stockSectionRefetchMock,
   }),
 }))
 
@@ -261,6 +275,7 @@ vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
 import ProductsTable from '@/pages/commerce/products/components/ProductsTable.vue'
 import ProductForm from '@/pages/commerce/products/components/ProductForm.vue'
 import VariantsPanel from '@/pages/commerce/products/components/VariantsPanel.vue'
+import PricingStockCard from '@/pages/commerce/products/components/PricingStockCard.vue'
 import MediaPanel from '@/pages/commerce/products/components/MediaPanel.vue'
 import CategoriesTab from '@/pages/commerce/products/components/CategoriesTab.vue'
 import TagsTab from '@/pages/commerce/products/components/TagsTab.vue'
@@ -290,6 +305,7 @@ function product(overrides: Partial<CommerceProduct> = {}): CommerceProduct {
     created_at: '2026-01-01 00:00:00',
     updated_at: '2026-01-02 00:00:00',
     variants: [],
+    options: {},
     ...overrides,
   }
 }
@@ -303,6 +319,7 @@ function variant(overrides: Partial<CommerceVariant> = {}): CommerceVariant {
     currency: 'USD',
     status: 'active',
     position: 0,
+    option_values: {},
     ...overrides,
   }
 }
@@ -549,6 +566,14 @@ beforeEach(() => {
     data: attributesSectionData.value,
     error: null,
   }))
+  stockSectionData.value = { revision: 0, items: [] }
+  stockSectionStatus.value = 'success'
+  stockSectionRefetchMock.mockReset()
+  stockSectionRefetchMock.mockImplementation(async () => ({
+    status: stockSectionStatus.value,
+    data: stockSectionData.value,
+    error: null,
+  }))
   categoriesData.value = []
   categoriesStatus.value = 'success'
   categoryCreateMock.mockReset()
@@ -684,6 +709,7 @@ describe('ProductForm', () => {
           currency: 'USD',
           status: 'active',
           position: 0,
+          option_values: {},
         },
       ],
     })
@@ -907,6 +933,65 @@ describe('commerce products list page', () => {
     })
   })
 
+  // ── Compare-at price on the default variant (Task C7) ───────────────────────────────────────
+
+  it('includes an optional compare-at price on the default variant when set', async () => {
+    createMock.mockResolvedValue(product({ uuid: 'new-3', name: 'Widget X' }))
+    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-product"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-test="product-name-input"]').setValue('Widget X')
+    await wrapper.find('[data-test="product-price-input"]').setValue('1000')
+    await wrapper.find('[data-test="product-compare-at-input"]').setValue('1500')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(createMock).toHaveBeenCalledWith({
+      slug: 'widget-x',
+      name: 'Widget X',
+      type: 'physical',
+      status: 'draft',
+      variants: [{ sku: 'widget-x', price: 1000, currency: 'USD', compare_at_price: 1500 }],
+    })
+  })
+
+  it('omits compare_at_price from the create payload when left blank', async () => {
+    createMock.mockResolvedValue(product({ uuid: 'new-4', name: 'Widget Y' }))
+    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-product"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-test="product-name-input"]').setValue('Widget Y')
+    await wrapper.find('[data-test="product-price-input"]').setValue('1000')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(createMock).toHaveBeenCalledWith({
+      slug: 'widget-y',
+      name: 'Widget Y',
+      type: 'physical',
+      status: 'draft',
+      variants: [{ sku: 'widget-y', price: 1000, currency: 'USD' }],
+    })
+  })
+
+  it('hides the compare-at field for non-purchasable types', async () => {
+    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-product"]').trigger('click')
+    await flushPromises()
+    selectByTestId(wrapper, 'product-type-select').vm.$emit('update:modelValue', 'external')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="product-compare-at-input"]').exists()).toBe(false)
+  })
+
   it('requires confirmation before deleting a product', async () => {
     productsPage.value = {
       products: [product({ uuid: 'p1', name: 'Widget' })],
@@ -1094,8 +1179,10 @@ describe('commerce product detail page', () => {
       wrapper.find('[data-test="editor-section-details"] [data-test="product-form-save"]').exists(),
     ).toBe(true)
     expect(wrapper.find('[data-test="editor-section-media"]').exists()).toBe(true)
+    // Task C7: a single-variant, no-option-axes product is the SIMPLE disclosure branch — the
+    // Pricing & stock card renders the compact card, not the full variants table.
     expect(
-      wrapper.find('[data-test="editor-section-pricing"] [data-test="variant-row"]').exists(),
+      wrapper.find('[data-test="editor-section-pricing"] [data-test="pricing-compact"]').exists(),
     ).toBe(true)
     expect(wrapper.find('[data-test="editor-section-organization"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="editor-section-addons"]').exists()).toBe(true)
@@ -1426,6 +1513,31 @@ describe('commerce product detail page', () => {
     wrapper.unmount()
   })
 
+  it("wires the pricing card's emitted SectionState into its EditorSectionCard chip and the nav indicator (Task C7)", async () => {
+    singleProduct.value = product({
+      uuid: 'p1',
+      name: 'Widget',
+      status: 'active',
+      variants: [variant({ uuid: 'v1' })],
+    })
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    // Idle+clean, active product: no chip, no nav indicator (no draft hint either).
+    expect(wrapper.find('[data-test="editor-section-pricing-chip"]').exists()).toBe(false)
+    expect(
+      wrapper.find('[data-test="section-nav-pricing"]').attributes('data-indicator'),
+    ).toBeUndefined()
+
+    await wrapper.find('[data-test="pricing-sku-input"]').setValue('SKU-1B')
+
+    expect(wrapper.find('[data-test="editor-section-pricing-chip"]').text()).toBe('Unsaved changes')
+    expect(wrapper.find('[data-test="section-nav-pricing"]').attributes('data-indicator')).toBe(
+      'unsaved',
+    )
+    wrapper.unmount()
+  })
+
   it('wires the page-level unsaved-changes guard (beforeunload listener) exactly once per mount/unmount', async () => {
     const addSpy = vi.spyOn(window, 'addEventListener')
     const removeSpy = vi.spyOn(window, 'removeEventListener')
@@ -1657,6 +1769,49 @@ describe('VariantsPanel', () => {
     })
   })
 
+  // ── compare_at_price: closing the gap (Task C7) ─────────────────────────────────────────────
+
+  it('includes compare_at_price in the create-variant payload when set, omitted when left blank', async () => {
+    createVariantMock.mockResolvedValue(variant({ uuid: 'v2', sku: 'SKU-2' }))
+    const p = product({ uuid: 'p1', variants: [] })
+    const wrapper = mountPanel(p)
+
+    await wrapper.find('[data-test="variant-add"]').trigger('click')
+    await wrapper.find('[data-test="variant-sku-input"]').setValue('SKU-2')
+    await wrapper.find('[data-test="variant-price-input"]').setValue('2500')
+    await wrapper.find('[data-test="variant-currency-input"]').setValue('USD')
+    await wrapper.find('[data-test="variant-compare-at-input"]').setValue('3000')
+    await wrapper.find('#variant-add-form').trigger('submit')
+    await flushPromises()
+
+    expect(createVariantMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      input: {
+        sku: 'SKU-2',
+        price: 2500,
+        currency: 'USD',
+        status: 'active',
+        compare_at_price: 3000,
+      },
+    })
+  })
+
+  it('rejects a non-numeric compare-at price on create without calling the mutation', async () => {
+    const p = product({ uuid: 'p1', variants: [] })
+    const wrapper = mountPanel(p)
+
+    await wrapper.find('[data-test="variant-add"]').trigger('click')
+    await wrapper.find('[data-test="variant-sku-input"]').setValue('SKU-2')
+    await wrapper.find('[data-test="variant-price-input"]').setValue('2500')
+    await wrapper.find('[data-test="variant-currency-input"]').setValue('USD')
+    await wrapper.find('[data-test="variant-compare-at-input"]').setValue('not-a-number')
+    await wrapper.find('#variant-add-form').trigger('submit')
+    await flushPromises()
+
+    expect(createVariantMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="variant-form-error"]').text()).toContain('Compare-at price')
+  })
+
   it('surfaces the "cannot add variant to type" 422 message instead of vanishing it', async () => {
     createVariantMock.mockRejectedValue(
       new ApiError(
@@ -1698,6 +1853,32 @@ describe('VariantsPanel', () => {
       uuid: 'v1',
       productUuid: 'p1',
       input: { sku: 'SKU-1', price: 3000, status: 'active' },
+    })
+  })
+
+  it('includes compare_at_price in the update-variant payload when set, prefilled from the current value', async () => {
+    updateVariantMock.mockResolvedValue(variant({ uuid: 'v1' }))
+    const p = product({
+      uuid: 'p1',
+      variants: [variant({ uuid: 'v1', sku: 'SKU-1', price: 1999, compare_at_price: 2500 })],
+    })
+    const wrapper = mountPanel(p)
+
+    await wrapper.find('[data-test="variant-edit"]').trigger('click')
+    // Prefilled from the variant's own current compare_at_price, matching sku/price's own convention.
+    expect(
+      (wrapper.find('[data-test="variant-edit-compare-at-input"]').element as HTMLInputElement)
+        .value,
+    ).toBe('2500')
+
+    await wrapper.find('[data-test="variant-edit-compare-at-input"]').setValue('4500')
+    await wrapper.find('#variant-edit-form-v1').trigger('submit')
+    await flushPromises()
+
+    expect(updateVariantMock).toHaveBeenCalledWith({
+      uuid: 'v1',
+      productUuid: 'p1',
+      input: { sku: 'SKU-1', price: 1999, status: 'active', compare_at_price: 4500 },
     })
   })
 
@@ -1763,7 +1944,144 @@ describe('VariantsPanel', () => {
       productUuid: 'p1',
       input: { delta: -3, reason: 'damaged' },
     })
-    expect(wrapper.find('[data-test="variant-stock-quantity"]').text()).toContain('12')
+  })
+
+  // ── Stock: presentational props only (Task C7 — VariantsPanel holds no query of its own) ────
+
+  it('renders per-variant stock quantity from the stock-items prop: tracked shows the quantity, untracked shows —', () => {
+    const p = product({
+      variants: [variant({ uuid: 'v1' }), variant({ uuid: 'v2', sku: 'SKU-2' })],
+    })
+    const wrapper = mount(VariantsPanel, {
+      props: {
+        product: p,
+        canManage: true,
+        stockItems: [
+          { variant_uuid: 'v1', tracked: true, quantity: 42 },
+          { variant_uuid: 'v2', tracked: false, quantity: 0 },
+        ],
+      },
+    })
+    const rows = wrapper.findAll('[data-test="variant-row"]')
+    expect(rows[0]!.find('[data-test="variant-stock-quantity"]').text()).toContain('42')
+    expect(rows[1]!.find('[data-test="variant-stock-quantity"]').text()).toContain('—')
+  })
+
+  it('shows — (never a fabricated quantity) for a variant absent from the stock-items prop', () => {
+    const p = product({ variants: [variant({ uuid: 'v1' })] })
+    const wrapper = mount(VariantsPanel, { props: { product: p, canManage: true } })
+    expect(wrapper.find('[data-test="variant-stock-quantity"]').text()).toContain('—')
+  })
+
+  it('shows the honest stock-unavailable alert and never fabricates a quantity when the stock read errors', () => {
+    const p = product({ variants: [variant({ uuid: 'v1' })] })
+    const wrapper = mount(VariantsPanel, {
+      props: {
+        product: p,
+        canManage: true,
+        stockItems: [{ variant_uuid: 'v1', tracked: true, quantity: 99 }],
+        stockUnavailable: true,
+      },
+    })
+    expect(wrapper.find('[data-test="stock-unavailable"]').text()).toContain(
+      'Stock data is unavailable for this product',
+    )
+    expect(wrapper.find('[data-test="variant-stock-quantity"]').text()).toContain('—')
+  })
+
+  // ── Coordinator: every successful variant/stock mutation awaits afterMutation() exactly once ─
+
+  it('awaits afterMutation() exactly once after a successful variant create, never on failure', async () => {
+    createVariantMock.mockResolvedValueOnce(variant({ uuid: 'v2', sku: 'SKU-2' }))
+    const p = product({ uuid: 'p1', variants: [] })
+    const { wrapper, getCoordinator } = mountWithEditorContext(VariantsPanel, {
+      product: p,
+      canManage: true,
+    })
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    await wrapper.find('[data-test="variant-add"]').trigger('click')
+    await wrapper.find('[data-test="variant-sku-input"]').setValue('SKU-2')
+    await wrapper.find('[data-test="variant-price-input"]').setValue('2500')
+    await wrapper.find('[data-test="variant-currency-input"]').setValue('USD')
+    await wrapper.find('#variant-add-form').trigger('submit')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+
+    createVariantMock.mockRejectedValueOnce(new ApiError('Validation failed', 422, {}, {}))
+    await wrapper.find('[data-test="variant-add"]').trigger('click')
+    await wrapper.find('[data-test="variant-sku-input"]').setValue('SKU-3')
+    await wrapper.find('[data-test="variant-price-input"]').setValue('2500')
+    await wrapper.find('[data-test="variant-currency-input"]').setValue('USD')
+    await wrapper.find('#variant-add-form').trigger('submit')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('awaits afterMutation() exactly once after a successful variant update', async () => {
+    updateVariantMock.mockResolvedValue(variant({ uuid: 'v1' }))
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1' })] })
+    const { wrapper, getCoordinator } = mountWithEditorContext(VariantsPanel, {
+      product: p,
+      canManage: true,
+    })
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    await wrapper.find('[data-test="variant-edit"]').trigger('click')
+    await wrapper.find('#variant-edit-form-v1').trigger('submit')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('awaits afterMutation() exactly once after a successful bulk price update', async () => {
+    bulkPriceMock.mockResolvedValue({ applied: ['v1'], failed: [] })
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1' })] })
+    const { wrapper, getCoordinator } = mountWithEditorContext(VariantsPanel, {
+      product: p,
+      canManage: true,
+    })
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    const checkbox = wrapper.findComponent({ name: 'CheckboxRoot' })
+    await checkbox.vm.$emit('update:modelValue', true)
+    await flushPromises()
+    await wrapper.find('[data-test="bulk-price-input"]').setValue('5000')
+    await wrapper.find('[data-test="bulk-price-apply"]').trigger('click')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('awaits afterMutation() exactly once after a successful stock adjust, never on failure', async () => {
+    stockAdjustMock.mockResolvedValueOnce({ variant_uuid: 'v1', quantity: 12 })
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1' })] })
+    const { wrapper, getCoordinator } = mountWithEditorContext(VariantsPanel, {
+      product: p,
+      canManage: true,
+    })
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    await wrapper.find('[data-test="stock-adjust"]').trigger('click')
+    await wrapper.find('[data-test="stock-adjust-delta"]').setValue('-3')
+    await wrapper.find('[data-test="stock-adjust-apply"]').trigger('click')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+
+    stockAdjustMock.mockRejectedValueOnce(new ApiError('Validation failed', 422, {}, {}))
+    await wrapper.find('[data-test="stock-adjust"]').trigger('click')
+    await wrapper.find('[data-test="stock-adjust-delta"]').setValue('-3')
+    await wrapper.find('[data-test="stock-adjust-apply"]').trigger('click')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
   })
 
   it('surfaces a "stock cannot go below zero" 422 message', async () => {
@@ -1843,6 +2161,270 @@ describe('VariantsPanel', () => {
     const wrapper = mountPanel(product({ type: 'grouped' }), false)
     expect(wrapper.find('[data-test="children-section"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="children-save"]').exists()).toBe(false)
+  })
+})
+
+// ── PricingStockCard: progressive disclosure, compare-at, real stock (Task C7) ─────────────────
+
+describe('PricingStockCard', () => {
+  function mountCard(p: CommerceProduct, canManage = true) {
+    return mountWithEditorContext(PricingStockCard, { product: p, canManage })
+  }
+
+  // ── Disclosure branches (spec §5.3) ─────────────────────────────────────────────────────────
+
+  it('renders the compact card for exactly one variant with no option axes', async () => {
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1' })] })
+    const { wrapper } = mountCard(p)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="pricing-compact"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="variant-row"]').exists()).toBe(false)
+  })
+
+  it('renders the full table for two variants', async () => {
+    const p = product({
+      uuid: 'p1',
+      variants: [variant({ uuid: 'v1' }), variant({ uuid: 'v2', sku: 'SKU-2' })],
+    })
+    const { wrapper } = mountCard(p)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="pricing-compact"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-test="variant-row"]')).toHaveLength(2)
+  })
+
+  it('renders the full table for a single variant whose product already defines option axes', async () => {
+    const p = product({
+      uuid: 'p1',
+      options: { Size: ['S', 'M'] },
+      variants: [variant({ uuid: 'v1' })],
+    })
+    const { wrapper } = mountCard(p)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="pricing-compact"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="variant-row"]').exists()).toBe(true)
+  })
+
+  it('renders the full table (with the children editor) for a 0-variant grouped product', async () => {
+    const p = product({ uuid: 'p1', type: 'grouped', variants: [] })
+    const { wrapper } = mountCard(p)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="pricing-compact"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="variants-empty"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="children-section"]').exists()).toBe(true)
+  })
+
+  // ── "Add more variants": UI-only expansion, spec-pinned no-mutation ─────────────────────────
+
+  it('expands to the full variants table without firing any mutation, and can collapse back', async () => {
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1' })] })
+    const { wrapper } = mountCard(p)
+    await flushPromises()
+
+    await wrapper.find('[data-test="pricing-add-more-variants"]').trigger('click')
+
+    expect(wrapper.find('[data-test="pricing-compact"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-test="variant-row"]')).toHaveLength(1)
+    expect(createVariantMock).not.toHaveBeenCalled()
+    expect(updateVariantMock).not.toHaveBeenCalled()
+    expect(stockAdjustMock).not.toHaveBeenCalled()
+
+    expect(wrapper.find('[data-test="pricing-collapse"]').exists()).toBe(true)
+    await wrapper.find('[data-test="pricing-collapse"]').trigger('click')
+    expect(wrapper.find('[data-test="pricing-compact"]').exists()).toBe(true)
+  })
+
+  it('does not offer a collapse control once a second variant actually exists', async () => {
+    const p = product({
+      uuid: 'p1',
+      variants: [variant({ uuid: 'v1' }), variant({ uuid: 'v2', sku: 'SKU-2' })],
+    })
+    const { wrapper } = mountCard(p)
+    await flushPromises()
+    expect(wrapper.find('[data-test="pricing-collapse"]').exists()).toBe(false)
+  })
+
+  // ── Compact-card inline save (SKU/price/compare-at via the existing updateVariant mutation) ──
+
+  it('saves the compact card inline via updateVariant, with compare_at_price included only when set, awaiting afterMutation() once', async () => {
+    updateVariantMock.mockResolvedValue(variant({ uuid: 'v1' }))
+    const p = product({
+      uuid: 'p1',
+      variants: [variant({ uuid: 'v1', sku: 'SKU-1', price: 1999, compare_at_price: null })],
+    })
+    const { wrapper, getCoordinator } = mountCard(p)
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    await wrapper.find('[data-test="pricing-sku-input"]').setValue('SKU-1B')
+    await wrapper.find('[data-test="pricing-price-input"]').setValue('2500')
+    await wrapper.find('[data-test="pricing-compare-at-input"]').setValue('3500')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(updateVariantMock).toHaveBeenCalledWith({
+      uuid: 'v1',
+      productUuid: 'p1',
+      input: { sku: 'SKU-1B', price: 2500, compare_at_price: 3500 },
+    })
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('omits compare_at_price from the compact save payload when left blank', async () => {
+    updateVariantMock.mockResolvedValue(variant({ uuid: 'v1' }))
+    const p = product({
+      uuid: 'p1',
+      variants: [variant({ uuid: 'v1', sku: 'SKU-1', price: 1999, compare_at_price: null })],
+    })
+    const { wrapper } = mountCard(p)
+    await flushPromises()
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(updateVariantMock).toHaveBeenCalledWith({
+      uuid: 'v1',
+      productUuid: 'p1',
+      input: { sku: 'SKU-1', price: 1999 },
+    })
+  })
+
+  it('shows a formatted money preview of the price via formatMoney (BigInt discipline)', async () => {
+    const p = product({
+      uuid: 'p1',
+      variants: [variant({ uuid: 'v1', sku: 'SKU-1', price: 2500 })],
+    })
+    const { wrapper } = mountCard(p)
+    await flushPromises()
+    expect(wrapper.find('[data-test="pricing-price-preview"]').text()).toBe('$25.00')
+  })
+
+  it('emits its own "pricing" SectionState — editing the compact fields marks it dirty', async () => {
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1' })] })
+    const { wrapper, getState } = mountCard(p)
+    await flushPromises()
+
+    expect(getState().dirty.value).toBe(false)
+    await wrapper.find('[data-test="pricing-sku-input"]').setValue('NEW-SKU')
+    expect(getState().dirty.value).toBe(true)
+  })
+
+  // ── Stock: real read (Task C1), registered with the coordinator under 'stock' ───────────────
+
+  it('shows the tracked quantity and an inline adjust control, awaiting afterMutation() once, refreshing the displayed quantity', async () => {
+    stockAdjustMock.mockResolvedValue({ variant_uuid: 'v1', quantity: 7 })
+    stockSectionData.value = {
+      revision: 0,
+      items: [{ variant_uuid: 'v1', tracked: true, quantity: 10 }],
+    }
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1' })] })
+    const { wrapper, getCoordinator } = mountCard(p)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="pricing-quantity"]').text()).toContain('10')
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    // The mocked stock-section refetch (driven by afterMutation()) reflects the post-adjust state.
+    stockSectionData.value = {
+      revision: 1,
+      items: [{ variant_uuid: 'v1', tracked: true, quantity: 7 }],
+    }
+    await wrapper.find('[data-test="pricing-adjust-toggle"]').trigger('click')
+    await wrapper.find('[data-test="pricing-adjust-delta"]').setValue('-3')
+    await wrapper.find('[data-test="pricing-adjust-apply"]').trigger('click')
+    await flushPromises()
+
+    expect(stockAdjustMock).toHaveBeenCalledWith({
+      variantUuid: 'v1',
+      productUuid: 'p1',
+      input: { delta: -3, reason: 'adjustment' },
+    })
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-test="pricing-quantity"]').text()).toContain('7')
+  })
+
+  it('hides the quantity and adjust control entirely for an untracked single variant', async () => {
+    stockSectionData.value = {
+      revision: 0,
+      items: [{ variant_uuid: 'v1', tracked: false, quantity: 0 }],
+    }
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1' })] })
+    const { wrapper } = mountCard(p)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="pricing-quantity"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="pricing-adjust-toggle"]').exists()).toBe(false)
+  })
+
+  it('shows the honest stock-unavailable alert in compact mode and never fabricates a quantity', async () => {
+    stockSectionStatus.value = 'error'
+    stockSectionData.value = undefined
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1' })] })
+    const { wrapper } = mountCard(p)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="stock-unavailable"]').text()).toContain(
+      'Stock data is unavailable for this product',
+    )
+    expect(wrapper.find('[data-test="pricing-quantity"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="pricing-adjust-toggle"]').exists()).toBe(false)
+  })
+
+  it('propagates a stock-read error into the full table too (no zeros, honest alert)', async () => {
+    stockSectionStatus.value = 'error'
+    stockSectionData.value = undefined
+    const p = product({
+      uuid: 'p1',
+      variants: [variant({ uuid: 'v1' }), variant({ uuid: 'v2', sku: 'SKU-2' })],
+    })
+    const { wrapper } = mountCard(p)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="stock-unavailable"]').text()).toContain(
+      'Stock data is unavailable for this product',
+    )
+    const quantities = wrapper.findAll('[data-test="variant-stock-quantity"]')
+    expect(quantities.length).toBeGreaterThan(0)
+    for (const q of quantities) expect(q.text()).toContain('—')
+  })
+
+  it('feeds the stock read into the full table as tracked/untracked quantities', async () => {
+    stockSectionData.value = {
+      revision: 0,
+      items: [
+        { variant_uuid: 'v1', tracked: true, quantity: 42 },
+        { variant_uuid: 'v2', tracked: false, quantity: 0 },
+      ],
+    }
+    const p = product({
+      uuid: 'p1',
+      variants: [variant({ uuid: 'v1' }), variant({ uuid: 'v2', sku: 'SKU-2' })],
+    })
+    const { wrapper } = mountCard(p)
+    await flushPromises()
+
+    const rows = wrapper.findAll('[data-test="variant-row"]')
+    expect(rows[0]!.find('[data-test="variant-stock-quantity"]').text()).toContain('42')
+    expect(rows[1]!.find('[data-test="variant-stock-quantity"]').text()).toContain('—')
+  })
+
+  it('hides canManage-gated controls when can_manage is false, keeping read-only content visible', async () => {
+    stockSectionData.value = {
+      revision: 0,
+      items: [{ variant_uuid: 'v1', tracked: true, quantity: 5 }],
+    }
+    const p = product({ uuid: 'p1', variants: [variant({ uuid: 'v1' })] })
+    const { wrapper } = mountCard(p, false)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="pricing-sku-input"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="pricing-save"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="pricing-quantity"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="pricing-adjust-toggle"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="pricing-add-more-variants"]').exists()).toBe(false)
   })
 })
 

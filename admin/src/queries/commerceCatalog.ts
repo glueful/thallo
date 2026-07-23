@@ -22,6 +22,12 @@ export interface CommerceVariant {
   currency: string
   status: string
   position: number
+  /** `{axis: value}` — this variant's selection along each of the owning product's option axes
+   * (`commerce_variants.option_values`, a JSON object; e.g. `{"Size": "M"}`). Single-page product
+   * editor plan, Task C7: the Pricing & stock card's disclosure decision reads the OWNING
+   * PRODUCT's `options` (the axis definitions), not this field, but this is included for
+   * completeness/round-trip fidelity since the backend embeds it on every variant unconditionally. */
+  option_values: Record<string, string>
 }
 
 /** A `commerce_products` row, with `variants` attached whenever the endpoint includes them
@@ -37,6 +43,12 @@ export interface CommerceProduct {
   created_at: string | null
   updated_at: string | null
   variants: CommerceVariant[]
+  /** `{axis: [allowed values...]}` — the option AXES defined for this product (`commerce_products.
+   * options`, a JSON object; e.g. `{"Size": ["S", "M"]}`). Empty object when the product defines
+   * no axes. Single-page product editor plan, Task C7: `PricingStockCard`'s progressive-disclosure
+   * decision is "exactly one variant AND no option axes" — the second half of that check reads
+   * this field (`Object.keys(product.options).length === 0`), not any per-variant field. */
+  options: Record<string, string[]>
 }
 
 export interface ProductListFilters {
@@ -486,6 +498,29 @@ export interface CommerceGrant {
   refund_access_override_by: string | null
 }
 
+/** Decodes a `{axis: value}` / `{axis: [values]}` JSON object field, dropping any entry whose
+ * value doesn't match the expected shape rather than throwing — unlike `commerceProductSections.
+ * ts`'s strict section-read guards, `commerceCatalog.ts`'s existing normalizers all default a
+ * malformed field to a neutral fallback (see this file's other `normalize*` functions), and these
+ * two option-axis fields follow that same established convention. */
+function normalizeOptionAxes(raw: unknown): Record<string, string[]> {
+  if (typeof raw !== 'object' || raw === null) return {}
+  const out: Record<string, string[]> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (Array.isArray(value)) out[key] = value.filter((v): v is string => typeof v === 'string')
+  }
+  return out
+}
+
+function normalizeOptionValues(raw: unknown): Record<string, string> {
+  if (typeof raw !== 'object' || raw === null) return {}
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === 'string') out[key] = value
+  }
+  return out
+}
+
 // The admin envelopes are doc-only in the OpenAPI schema (see collections.ts's identical note), so
 // normalize the raw JSON into the stricter hand-written shapes above at the boundary.
 function normalizeVariant(raw: Record<string, unknown>): CommerceVariant {
@@ -500,6 +535,7 @@ function normalizeVariant(raw: Record<string, unknown>): CommerceVariant {
     currency: String(raw.currency ?? ''),
     status: String(raw.status ?? 'active'),
     position: typeof raw.position === 'number' ? raw.position : 0,
+    option_values: normalizeOptionValues(raw.option_values),
   }
 }
 
@@ -586,7 +622,9 @@ function normalizeAddon(raw: Record<string, unknown>): CommerceAddon {
     name: String(raw.name ?? ''),
     field_type: String(raw.field_type ?? 'text'),
     required: Boolean(raw.required),
-    choices: choices ? choices.map((c) => normalizeAddonChoice(c as Record<string, unknown>)) : null,
+    choices: choices
+      ? choices.map((c) => normalizeAddonChoice(c as Record<string, unknown>))
+      : null,
     price_delta: typeof raw.price_delta === 'number' ? raw.price_delta : 0,
     position: typeof raw.position === 'number' ? raw.position : 0,
     status: String(raw.status ?? 'active'),
@@ -636,6 +674,7 @@ function normalizeProduct(raw: Record<string, unknown>): CommerceProduct {
     created_at: (raw.created_at as string | null | undefined) ?? null,
     updated_at: (raw.updated_at as string | null | undefined) ?? null,
     variants: variants.map((v) => normalizeVariant(v as Record<string, unknown>)),
+    options: normalizeOptionAxes(raw.options),
   }
 }
 
@@ -1005,7 +1044,9 @@ export async function setProductTags(
 /** `GET /commerce/attributes` — paginated (`AttributeListQuery`'s exact param set is
  * `{q, page, per_page}`, mirrors `fetchTags()`), each row with its `values` embedded
  * (`AttributeService::list()` batch-loads them — never a separate per-attribute fetch). */
-export async function fetchAttributes(filters: AttributeListFilters = {}): Promise<AttributeListPage> {
+export async function fetchAttributes(
+  filters: AttributeListFilters = {},
+): Promise<AttributeListPage> {
   const { data, error, response } = await client.GET('/commerce/attributes', {
     params: {
       query: {
@@ -1146,7 +1187,10 @@ export async function createProductAddon(
   return normalizeAddon((raw ?? {}) as Record<string, unknown>)
 }
 
-export async function updateProductAddon(uuid: string, input: UpdateAddonInput): Promise<CommerceAddon> {
+export async function updateProductAddon(
+  uuid: string,
+  input: UpdateAddonInput,
+): Promise<CommerceAddon> {
   const { data, error, response } = await client.PATCH('/commerce/addons/{uuid}', {
     params: { path: { uuid } },
     body: input as never,
@@ -1188,7 +1232,10 @@ export async function attachVariantDownload(
   return normalizeDownload((raw ?? {}) as Record<string, unknown>)
 }
 
-export async function updateDownload(uuid: string, input: UpdateDownloadInput): Promise<CommerceDownload> {
+export async function updateDownload(
+  uuid: string,
+  input: UpdateDownloadInput,
+): Promise<CommerceDownload> {
   const { data, error, response } = await client.PATCH('/commerce/downloads/{uuid}', {
     params: { path: { uuid } },
     body: input as never,
@@ -1218,9 +1265,12 @@ export async function revokeGrant(uuid: string): Promise<CommerceGrant> {
 
 /** `PUT /commerce/grants/{uuid}/refund-access-override` — see `CommerceGrant`'s docblock. */
 export async function setGrantRefundOverride(uuid: string): Promise<CommerceGrant> {
-  const { data, error, response } = await client.PUT('/commerce/grants/{uuid}/refund-access-override', {
-    params: { path: { uuid } },
-  })
+  const { data, error, response } = await client.PUT(
+    '/commerce/grants/{uuid}/refund-access-override',
+    {
+      params: { path: { uuid } },
+    },
+  )
   if (error) throw toApiError(error, response)
   const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeGrant((raw ?? {}) as Record<string, unknown>)
@@ -1228,9 +1278,12 @@ export async function setGrantRefundOverride(uuid: string): Promise<CommerceGran
 
 /** `DELETE /commerce/grants/{uuid}/refund-access-override` — see `CommerceGrant`'s docblock. */
 export async function clearGrantRefundOverride(uuid: string): Promise<CommerceGrant> {
-  const { data, error, response } = await client.DELETE('/commerce/grants/{uuid}/refund-access-override', {
-    params: { path: { uuid } },
-  })
+  const { data, error, response } = await client.DELETE(
+    '/commerce/grants/{uuid}/refund-access-override',
+    {
+      params: { path: { uuid } },
+    },
+  )
   if (error) throw toApiError(error, response)
   const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeGrant((raw ?? {}) as Record<string, unknown>)
@@ -1320,7 +1373,8 @@ export function useCommerceProductMutations() {
     cache.invalidateQueries({ key: qk.commerceProduct(uuid) })
     invalidateList()
   }
-  const invalidateProductOnly = (uuid: string) => cache.invalidateQueries({ key: qk.commerceProduct(uuid) })
+  const invalidateProductOnly = (uuid: string) =>
+    cache.invalidateQueries({ key: qk.commerceProduct(uuid) })
   const invalidateProductSections = (uuid: string) => {
     for (const section of COMMERCE_PRODUCT_SECTIONS) {
       cache.invalidateQueries({ key: qk.commerceProductSection(uuid, section) })
@@ -1399,8 +1453,11 @@ export function useCommerceProductMutations() {
       onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
     reorderMedia: useMutation({
-      mutation: (vars: { productUuid: string; orderedUuids: string[]; expectedRevision?: number }) =>
-        reorderProductMedia(vars.productUuid, vars.orderedUuids, vars.expectedRevision),
+      mutation: (vars: {
+        productUuid: string
+        orderedUuids: string[]
+        expectedRevision?: number
+      }) => reorderProductMedia(vars.productUuid, vars.orderedUuids, vars.expectedRevision),
       onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
     // Task 10d: product category assignment — invalidates the owning product AND its six section
@@ -1408,8 +1465,11 @@ export function useCommerceProductMutations() {
     // per-category product count, so a product's own assignment changing never makes anything
     // useCommerceCategories() renders stale.
     setCategories: useMutation({
-      mutation: (vars: { productUuid: string; categoryUuids: string[]; expectedRevision?: number }) =>
-        setProductCategories(vars.productUuid, vars.categoryUuids, vars.expectedRevision),
+      mutation: (vars: {
+        productUuid: string
+        categoryUuids: string[]
+        expectedRevision?: number
+      }) => setProductCategories(vars.productUuid, vars.categoryUuids, vars.expectedRevision),
       onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
     // Task 19a: product tag assignment — invalidates the owning product AND its six section reads
@@ -1509,7 +1569,9 @@ export function useCommerceGrantMutations() {
   return {
     revoke: useMutation({ mutation: (uuid: string) => revokeGrant(uuid) }),
     setRefundOverride: useMutation({ mutation: (uuid: string) => setGrantRefundOverride(uuid) }),
-    clearRefundOverride: useMutation({ mutation: (uuid: string) => clearGrantRefundOverride(uuid) }),
+    clearRefundOverride: useMutation({
+      mutation: (uuid: string) => clearGrantRefundOverride(uuid),
+    }),
   }
 }
 

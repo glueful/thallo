@@ -32,7 +32,7 @@ import SectionNav, {
   type SectionNavIndicator,
 } from '../components/SectionNav.vue'
 import ProductForm from '../components/ProductForm.vue'
-import VariantsPanel from '../components/VariantsPanel.vue'
+import PricingStockCard from '../components/PricingStockCard.vue'
 import MediaPanel from '../components/MediaPanel.vue'
 import OrganizationCard from '../components/OrganizationCard.vue'
 import AddonsPanel from '../components/AddonsPanel.vue'
@@ -71,6 +71,10 @@ useProductRevisionCoordinator()
 // read via `.value`. `shallowRef` stores the object as-is, preserving its own nested refs.
 const detailsState = shallowRef<SectionState | null>(null)
 const mediaState = shallowRef<SectionState | null>(null)
+// Task C7: PricingStockCard emits its own 'pricing' SectionState the same emit-once way — its
+// card-level chip AND this shell's nav indicator both read off it, combined (worst-wins, via
+// `resolveSectionIndicator`) with the pre-existing draft-only "Variants · n" hint below.
+const pricingState = shallowRef<SectionState | null>(null)
 
 // Task C6: Organization's three subsections (Categories/Tags/Attributes) each self-register their
 // OWN `useSectionState()` inside `OrganizationCard` (which "hoists nothing" — see its own
@@ -145,9 +149,9 @@ const organizationIndicator = computed<SectionNavIndicator>(() =>
   ]),
 )
 
-// Nav indicators: HONESTY over completeness (Task C4 brief), now extended by Task C5/C6's real
-// Details/Images/Organization wiring. Add-ons/Downloads/Linked content/Grouped products stay null
-// until C7-C8 wire their own `useSectionState()` the same way.
+// Nav indicators: HONESTY over completeness (Task C4 brief), now extended by Task C5/C6/C7's real
+// Details/Images/Organization/Pricing wiring. Add-ons/Downloads/Linked content/Grouped products
+// stay null until C8 wires its own `useSectionState()` the same way.
 const navSections = computed<SectionNavItem[]>(() => {
   const p = product.value
   if (!p) return []
@@ -156,14 +160,19 @@ const navSections = computed<SectionNavItem[]>(() => {
     stateIndicator(mediaState.value),
     mediaHint.value ? 'hint' : null,
   ])
+  const pricingHint = draft ? `Variants · ${p.variants.length}` : undefined
+  const pricingIndicator = resolveSectionIndicator([
+    stateIndicator(pricingState.value),
+    pricingHint ? 'hint' : null,
+  ])
   const items: SectionNavItem[] = [
     { id: 'details', label: 'Details', indicator: stateIndicator(detailsState.value) },
     { id: 'media', label: 'Images', indicator: mediaIndicator, hint: mediaHint.value },
     {
       id: 'pricing',
       label: 'Pricing & stock',
-      indicator: draft ? 'hint' : null,
-      hint: draft ? `Variants · ${p.variants.length}` : undefined,
+      indicator: pricingIndicator,
+      hint: pricingHint,
     },
     {
       id: 'organization',
@@ -299,8 +308,17 @@ async function confirmDelete() {
               />
             </EditorSectionCard>
 
-            <EditorSectionCard section-id="pricing" title="Pricing & stock">
-              <VariantsPanel :key="product.uuid" :product="product" :can-manage="canManage" />
+            <EditorSectionCard
+              section-id="pricing"
+              title="Pricing & stock"
+              :state="pricingState ?? undefined"
+            >
+              <PricingStockCard
+                :key="product.uuid"
+                :product="product"
+                :can-manage="canManage"
+                @state="(s) => (pricingState = s)"
+              />
             </EditorSectionCard>
 
             <!-- Organization: categories/tags/attributes stacked in ONE card (spec §5.1 item 4) —

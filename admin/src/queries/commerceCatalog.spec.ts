@@ -70,8 +70,7 @@ describe('commerce catalog query layer', () => {
     await fetchProducts({ status: 'active', type: 'physical', q: 'wid', page: 2, perPage: 10 })
 
     const requested = fetchMock.mock.calls[0]![0]
-    const requestedUrl =
-      typeof requested === 'string' ? requested : (requested as Request).url
+    const requestedUrl = typeof requested === 'string' ? requested : (requested as Request).url
     const url = new URL(requestedUrl, 'http://localhost')
     expect(url.searchParams.get('status')).toBe('active')
     expect(url.searchParams.get('type')).toBe('physical')
@@ -117,6 +116,7 @@ describe('commerce catalog query layer', () => {
           tax_class: null,
           created_at: '2026-01-01 00:00:00',
           updated_at: '2026-01-02 00:00:00',
+          options: { Size: ['S', 'M'] },
           variants: [
             {
               uuid: 'v1',
@@ -126,6 +126,7 @@ describe('commerce catalog query layer', () => {
               currency: 'USD',
               status: 'active',
               position: 0,
+              option_values: { Size: 'S' },
             },
           ],
         },
@@ -140,6 +141,46 @@ describe('commerce catalog query layer', () => {
     expect(product.variants).toHaveLength(1)
     expect(product.variants[0]!.price).toBe(1999)
     expect(product.variants[0]!.currency).toBe('USD')
+    // Task C7: option axes/values round-trip through normalization untouched.
+    expect(product.options).toEqual({ Size: ['S', 'M'] })
+    expect(product.variants[0]!.option_values).toEqual({ Size: 'S' })
+  })
+
+  it('defaults options/option_values to empty objects when the wire payload omits them', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        success: true,
+        message: 'Product retrieved',
+        data: {
+          uuid: 'p2',
+          slug: 'no-axes',
+          name: 'No axes',
+          description: null,
+          type: 'physical',
+          status: 'active',
+          tax_class: null,
+          created_at: null,
+          updated_at: null,
+          variants: [
+            {
+              uuid: 'v1',
+              sku: 'SKU-1',
+              price: 500,
+              compare_at_price: null,
+              currency: 'USD',
+              status: 'active',
+              position: 0,
+            },
+          ],
+        },
+      }),
+    )
+
+    const { fetchProduct } = await import('@/queries/commerceCatalog')
+    const product = await fetchProduct('p2')
+
+    expect(product.options).toEqual({})
+    expect(product.variants[0]!.option_values).toEqual({})
   })
 
   it('throws ApiError for a 404 product', async () => {
@@ -200,7 +241,11 @@ describe('commerce catalog query layer', () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockImplementation(() =>
       Promise.resolve(
         jsonResponse(
-          { success: false, message: 'Validation failed', errors: { slug: ['Slug already in use.'] } },
+          {
+            success: false,
+            message: 'Validation failed',
+            errors: { slug: ['Slug already in use.'] },
+          },
           422,
         ),
       ),
@@ -210,7 +255,11 @@ describe('commerce catalog query layer', () => {
     const { ApiError } = await import('@/api/errors')
     let caught: unknown
     try {
-      await createProduct({ slug: 'dup', name: 'Dup', variants: [{ sku: 'X', price: 1, currency: 'USD' }] })
+      await createProduct({
+        slug: 'dup',
+        name: 'Dup',
+        variants: [{ sku: 'X', price: 1, currency: 'USD' }],
+      })
     } catch (e) {
       caught = e
     }
@@ -246,7 +295,9 @@ describe('commerce catalog query layer', () => {
   })
 
   it('deletes a product with no return value', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response(null, { status: 204 }),
+    )
 
     const { deleteProduct } = await import('@/queries/commerceCatalog')
     await expect(deleteProduct('p1')).resolves.toBeUndefined()
@@ -280,7 +331,10 @@ describe('commerce catalog query layer', () => {
 
   it('throws ApiError on a bulk-status validation failure', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      jsonResponse({ success: false, message: 'Validation failed', errors: { status: ['bad'] } }, 422),
+      jsonResponse(
+        { success: false, message: 'Validation failed', errors: { status: ['bad'] } },
+        422,
+      ),
     )
 
     const { bulkStatusUpdate } = await import('@/queries/commerceCatalog')
@@ -375,7 +429,11 @@ describe('commerce catalog query layer', () => {
   it('surfaces a duplicate-SKU constraint from a 422 on variant update', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       jsonResponse(
-        { success: false, message: 'Validation failed', error: { code: 422, details: { sku: 'SKU already in use.' } } },
+        {
+          success: false,
+          message: 'Validation failed',
+          error: { code: 422, details: { sku: 'SKU already in use.' } },
+        },
         422,
       ),
     )
@@ -389,7 +447,9 @@ describe('commerce catalog query layer', () => {
       caught = e
     }
     expect(caught).toBeInstanceOf(ApiError)
-    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({ sku: 'SKU already in use.' })
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      sku: 'SKU already in use.',
+    })
   })
 
   it('sends the bulk-price request body exactly as { items }', async () => {
@@ -424,14 +484,20 @@ describe('commerce catalog query layer', () => {
     // failure uses the global handler's top-level `errors` shape, not `error.details`.
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       jsonResponse(
-        { success: false, message: 'The given data was invalid.', errors: { items: ['items must not contain duplicate uuids.'] } },
+        {
+          success: false,
+          message: 'The given data was invalid.',
+          errors: { items: ['items must not contain duplicate uuids.'] },
+        },
         422,
       ),
     )
 
     const { bulkUpdateVariantPrices } = await import('@/queries/commerceCatalog')
     const { ApiError } = await import('@/api/errors')
-    await expect(bulkUpdateVariantPrices([{ uuid: 'v1', price: -5 }])).rejects.toBeInstanceOf(ApiError)
+    await expect(bulkUpdateVariantPrices([{ uuid: 'v1', price: -5 }])).rejects.toBeInstanceOf(
+      ApiError,
+    )
   })
 
   it('sets product children and returns the normalized child products', async () => {
@@ -463,7 +529,9 @@ describe('commerce catalog query layer', () => {
 
   it('sends the children request body exactly as { child_uuids }', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(jsonResponse({ success: true, message: 'Product children updated', data: [] }))
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Product children updated', data: [] }),
+    )
 
     const { setProductChildren } = await import('@/queries/commerceCatalog')
     await setProductChildren('p1', ['child-1', 'child-2'])
@@ -624,7 +692,15 @@ describe('commerce catalog query layer', () => {
       jsonResponse({
         success: true,
         message: 'Media attached',
-        data: { uuid: 'm1', product_uuid: 'p1', variant_uuid: null, blob_uuid: 'blob-1', role: 'cover', position: 0, alt: 'Front view' },
+        data: {
+          uuid: 'm1',
+          product_uuid: 'p1',
+          variant_uuid: null,
+          blob_uuid: 'blob-1',
+          role: 'cover',
+          position: 0,
+          alt: 'Front view',
+        },
       }),
     )
 
@@ -632,7 +708,11 @@ describe('commerce catalog query layer', () => {
     await attachProductMedia('p1', { blob_uuid: 'blob-1', role: 'cover', alt: 'Front view' })
 
     const req = fetchMock.mock.calls[0]![0] as Request
-    expect(await req.clone().json()).toEqual({ blob_uuid: 'blob-1', role: 'cover', alt: 'Front view' })
+    expect(await req.clone().json()).toEqual({
+      blob_uuid: 'blob-1',
+      role: 'cover',
+      alt: 'Front view',
+    })
   })
 
   it('surfaces the "blob already attached" constraint from a 422', async () => {
@@ -641,7 +721,10 @@ describe('commerce catalog query layer', () => {
         {
           success: false,
           message: 'Validation failed',
-          error: { code: 422, details: { blob_uuid: 'This blob is already attached to the product.' } },
+          error: {
+            code: 422,
+            details: { blob_uuid: 'This blob is already attached to the product.' },
+          },
         },
         422,
       ),
@@ -666,7 +749,15 @@ describe('commerce catalog query layer', () => {
       jsonResponse({
         success: true,
         message: 'Media updated',
-        data: { uuid: 'm1', product_uuid: 'p1', variant_uuid: null, blob_uuid: 'blob-1', role: 'cover', position: 0, alt: 'Updated alt' },
+        data: {
+          uuid: 'm1',
+          product_uuid: 'p1',
+          variant_uuid: null,
+          blob_uuid: 'blob-1',
+          role: 'cover',
+          position: 0,
+          alt: 'Updated alt',
+        },
       }),
     )
 
@@ -687,7 +778,9 @@ describe('commerce catalog query layer', () => {
   })
 
   it('detaches media with no return value', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response(null, { status: 204 }),
+    )
 
     const { detachProductMedia } = await import('@/queries/commerceCatalog')
     await expect(detachProductMedia('m1')).resolves.toBeUndefined()
@@ -709,8 +802,24 @@ describe('commerce catalog query layer', () => {
         success: true,
         message: 'Media reordered',
         data: [
-          { uuid: 'm2', product_uuid: 'p1', variant_uuid: null, blob_uuid: 'blob-2', role: 'gallery', position: 0, alt: null },
-          { uuid: 'm1', product_uuid: 'p1', variant_uuid: null, blob_uuid: 'blob-1', role: 'cover', position: 1, alt: null },
+          {
+            uuid: 'm2',
+            product_uuid: 'p1',
+            variant_uuid: null,
+            blob_uuid: 'blob-2',
+            role: 'gallery',
+            position: 0,
+            alt: null,
+          },
+          {
+            uuid: 'm1',
+            product_uuid: 'p1',
+            variant_uuid: null,
+            blob_uuid: 'blob-1',
+            role: 'cover',
+            position: 1,
+            alt: null,
+          },
         ],
       }),
     )
@@ -722,7 +831,9 @@ describe('commerce catalog query layer', () => {
 
   it('sends the reorder request body as positions with every uuid and its index', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(jsonResponse({ success: true, message: 'Media reordered', data: [] }))
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Media reordered', data: [] }),
+    )
 
     const { reorderProductMedia } = await import('@/queries/commerceCatalog')
     await reorderProductMedia('p1', ['m3', 'm1', 'm2'])
@@ -745,7 +856,10 @@ describe('commerce catalog query layer', () => {
     await reorderProductMedia('p1', ['m1'], 9)
 
     const req = fetchMock.mock.calls[0]![0] as Request
-    expect(await req.clone().json()).toEqual({ positions: [{ uuid: 'm1', position: 0 }], expected_revision: 9 })
+    expect(await req.clone().json()).toEqual({
+      positions: [{ uuid: 'm1', position: 0 }],
+      expected_revision: 9,
+    })
   })
 
   it('omits expected_revision from the reorder body when not supplied', async () => {
@@ -765,7 +879,10 @@ describe('commerce catalog query layer', () => {
         {
           success: false,
           message: 'Validation failed',
-          error: { code: 422, details: { 'positions.0.uuid': 'Unknown media item for this product.' } },
+          error: {
+            code: 422,
+            details: { 'positions.0.uuid': 'Unknown media item for this product.' },
+          },
         },
         422,
       ),
@@ -793,8 +910,22 @@ describe('commerce catalog query layer', () => {
         success: true,
         message: 'Categories retrieved',
         data: [
-          { uuid: 'cat1', parent_uuid: null, slug: 'root', name: 'Root', description: null, position: 0 },
-          { uuid: 'cat2', parent_uuid: 'cat1', slug: 'child', name: 'Child', description: 'A child', position: 1 },
+          {
+            uuid: 'cat1',
+            parent_uuid: null,
+            slug: 'root',
+            name: 'Root',
+            description: null,
+            position: 0,
+          },
+          {
+            uuid: 'cat2',
+            parent_uuid: 'cat1',
+            slug: 'child',
+            name: 'Child',
+            description: 'A child',
+            position: 1,
+          },
         ],
       }),
     )
@@ -837,7 +968,14 @@ describe('commerce catalog query layer', () => {
         {
           success: true,
           message: 'Category created',
-          data: { uuid: 'new-cat', parent_uuid: null, slug: 'new-cat', name: 'New Cat', description: null, position: 0 },
+          data: {
+            uuid: 'new-cat',
+            parent_uuid: null,
+            slug: 'new-cat',
+            name: 'New Cat',
+            description: null,
+            position: 0,
+          },
         },
         201,
       ),
@@ -856,12 +994,25 @@ describe('commerce catalog query layer', () => {
       jsonResponse({
         success: true,
         message: 'Category created',
-        data: { uuid: 'c1', parent_uuid: 'root1', slug: 'c1', name: 'C1', description: 'Desc', position: 2 },
+        data: {
+          uuid: 'c1',
+          parent_uuid: 'root1',
+          slug: 'c1',
+          name: 'C1',
+          description: 'Desc',
+          position: 2,
+        },
       }),
     )
 
     const { createCategory } = await import('@/queries/commerceCatalog')
-    await createCategory({ slug: 'c1', name: 'C1', description: 'Desc', parent_uuid: 'root1', position: 2 })
+    await createCategory({
+      slug: 'c1',
+      name: 'C1',
+      description: 'Desc',
+      parent_uuid: 'root1',
+      position: 2,
+    })
 
     const req = fetchMock.mock.calls[0]![0] as Request
     expect(await req.clone().json()).toEqual({
@@ -894,7 +1045,9 @@ describe('commerce catalog query layer', () => {
       caught = e
     }
     expect(caught).toBeInstanceOf(ApiError)
-    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({ slug: 'Slug already in use.' })
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      slug: 'Slug already in use.',
+    })
   })
 
   it('updates a category by uuid', async () => {
@@ -902,7 +1055,14 @@ describe('commerce catalog query layer', () => {
       jsonResponse({
         success: true,
         message: 'Category updated',
-        data: { uuid: 'c1', parent_uuid: null, slug: 'c1', name: 'Renamed', description: null, position: 0 },
+        data: {
+          uuid: 'c1',
+          parent_uuid: null,
+          slug: 'c1',
+          name: 'Renamed',
+          description: null,
+          position: 0,
+        },
       }),
     )
 
@@ -917,7 +1077,10 @@ describe('commerce catalog query layer', () => {
         {
           success: false,
           message: 'Validation failed',
-          error: { code: 422, details: { parent_uuid: 'parent_uuid would create a cycle in the category tree.' } },
+          error: {
+            code: 422,
+            details: { parent_uuid: 'parent_uuid would create a cycle in the category tree.' },
+          },
         },
         422,
       ),
@@ -938,7 +1101,9 @@ describe('commerce catalog query layer', () => {
   })
 
   it('deletes a category with no return value', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response(null, { status: 204 }),
+    )
 
     const { deleteCategory } = await import('@/queries/commerceCatalog')
     await expect(deleteCategory('c1')).resolves.toBeUndefined()
@@ -960,7 +1125,14 @@ describe('commerce catalog query layer', () => {
         success: true,
         message: 'Product categories updated',
         data: [
-          { uuid: 'cat1', parent_uuid: null, slug: 'root', name: 'Root', description: null, position: 0 },
+          {
+            uuid: 'cat1',
+            parent_uuid: null,
+            slug: 'root',
+            name: 'Root',
+            description: null,
+            position: 0,
+          },
         ],
       }),
     )
@@ -1014,7 +1186,9 @@ describe('commerce catalog query layer', () => {
           message: 'Validation failed',
           error: {
             code: 422,
-            details: { category_uuids: 'category_uuids must reference existing categories in this tenant.' },
+            details: {
+              category_uuids: 'category_uuids must reference existing categories in this tenant.',
+            },
           },
         },
         422,
@@ -1069,12 +1243,19 @@ describe('commerce catalog query layer', () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ data: null }))
 
     const { fetchTags } = await import('@/queries/commerceCatalog')
-    await expect(fetchTags()).resolves.toEqual({ tags: [], total: 0, current_page: 1, per_page: 24 })
+    await expect(fetchTags()).resolves.toEqual({
+      tags: [],
+      total: 0,
+      current_page: 1,
+      per_page: 24,
+    })
   })
 
   it('sends the q/page/per_page query params exactly as given', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(jsonResponse({ success: true, message: 'Tags retrieved', data: [] }))
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Tags retrieved', data: [] }),
+    )
 
     const { fetchTags } = await import('@/queries/commerceCatalog')
     await fetchTags({ q: 'sal', page: 3, perPage: 50 })
@@ -1118,7 +1299,11 @@ describe('commerce catalog query layer', () => {
   it('sends the create-tag request body exactly as { slug, name }', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: true, message: 'Tag created', data: { uuid: 't1', slug: 't1', name: 'T1' } }),
+      jsonResponse({
+        success: true,
+        message: 'Tag created',
+        data: { uuid: 't1', slug: 't1', name: 'T1' },
+      }),
     )
 
     const { createTag } = await import('@/queries/commerceCatalog')
@@ -1149,7 +1334,9 @@ describe('commerce catalog query layer', () => {
       caught = e
     }
     expect(caught).toBeInstanceOf(ApiError)
-    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({ slug: 'Slug already in use.' })
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      slug: 'Slug already in use.',
+    })
   })
 
   it('updates a tag by uuid', async () => {
@@ -1169,7 +1356,11 @@ describe('commerce catalog query layer', () => {
   it('sends the update-tag request body as { name } only — slug is immutable and never sent', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: true, message: 'Tag updated', data: { uuid: 't1', slug: 't1', name: 'Renamed' } }),
+      jsonResponse({
+        success: true,
+        message: 'Tag updated',
+        data: { uuid: 't1', slug: 't1', name: 'Renamed' },
+      }),
     )
 
     const { updateTag } = await import('@/queries/commerceCatalog')
@@ -1185,7 +1376,10 @@ describe('commerce catalog query layer', () => {
         {
           success: false,
           message: 'Validation failed',
-          error: { code: 422, details: { slug: 'slug is immutable and cannot be changed after creation.' } },
+          error: {
+            code: 422,
+            details: { slug: 'slug is immutable and cannot be changed after creation.' },
+          },
         },
         422,
       ),
@@ -1206,7 +1400,9 @@ describe('commerce catalog query layer', () => {
   })
 
   it('deletes a tag with no return value', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response(null, { status: 204 }),
+    )
 
     const { deleteTag } = await import('@/queries/commerceCatalog')
     await expect(deleteTag('t1')).resolves.toBeUndefined()
@@ -1348,7 +1544,12 @@ describe('commerce catalog query layer', () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ data: null }))
 
     const { fetchAttributes } = await import('@/queries/commerceCatalog')
-    await expect(fetchAttributes()).resolves.toEqual({ attributes: [], total: 0, current_page: 1, per_page: 24 })
+    await expect(fetchAttributes()).resolves.toEqual({
+      attributes: [],
+      total: 0,
+      current_page: 1,
+      per_page: 24,
+    })
   })
 
   it('defaults an attribute row with no values array to an empty values list', async () => {
@@ -1367,7 +1568,9 @@ describe('commerce catalog query layer', () => {
 
   it('sends the q/page/per_page query params exactly as given for attributes', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(jsonResponse({ success: true, message: 'Attributes retrieved', data: [] }))
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Attributes retrieved', data: [] }),
+    )
 
     const { fetchAttributes } = await import('@/queries/commerceCatalog')
     await fetchAttributes({ q: 'col', page: 3, perPage: 50 })
@@ -1412,7 +1615,11 @@ describe('commerce catalog query layer', () => {
   it('sends the create-attribute request body exactly as { slug, name, position }', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: true, message: 'Attribute created', data: { uuid: 'a1', slug: 'a1', name: 'A1', values: [] } }),
+      jsonResponse({
+        success: true,
+        message: 'Attribute created',
+        data: { uuid: 'a1', slug: 'a1', name: 'A1', values: [] },
+      }),
     )
 
     const { createAttribute } = await import('@/queries/commerceCatalog')
@@ -1443,7 +1650,9 @@ describe('commerce catalog query layer', () => {
       caught = e
     }
     expect(caught).toBeInstanceOf(ApiError)
-    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({ slug: 'Slug already in use.' })
+    expect((caught as InstanceType<typeof ApiError>).fieldErrors).toEqual({
+      slug: 'Slug already in use.',
+    })
   })
 
   it('updates an attribute by uuid, sending slug/name/position — attribute slug stays editable', async () => {
@@ -1456,7 +1665,11 @@ describe('commerce catalog query layer', () => {
     )
 
     const { updateAttribute } = await import('@/queries/commerceCatalog')
-    const attribute = await updateAttribute('attr1', { slug: 'colour', name: 'Colour', position: 1 })
+    const attribute = await updateAttribute('attr1', {
+      slug: 'colour',
+      name: 'Colour',
+      position: 1,
+    })
     expect(attribute.name).toBe('Colour')
     expect(attribute.slug).toBe('colour')
   })
@@ -1464,7 +1677,11 @@ describe('commerce catalog query layer', () => {
   it('sends the update-attribute request body exactly as given, including slug', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: true, message: 'Attribute updated', data: { uuid: 'attr1', slug: 'colour', name: 'Colour', values: [] } }),
+      jsonResponse({
+        success: true,
+        message: 'Attribute updated',
+        data: { uuid: 'attr1', slug: 'colour', name: 'Colour', values: [] },
+      }),
     )
 
     const { updateAttribute } = await import('@/queries/commerceCatalog')
@@ -1475,7 +1692,9 @@ describe('commerce catalog query layer', () => {
   })
 
   it('deletes an attribute with no return value', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response(null, { status: 204 }),
+    )
 
     const { deleteAttribute } = await import('@/queries/commerceCatalog')
     await expect(deleteAttribute('attr1')).resolves.toBeUndefined()
@@ -1595,7 +1814,9 @@ describe('commerce catalog query layer', () => {
   })
 
   it('deletes an attribute value with no return value', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response(null, { status: 204 }),
+    )
 
     const { deleteAttributeValue } = await import('@/queries/commerceCatalog')
     await expect(deleteAttributeValue('val1')).resolves.toBeUndefined()
@@ -1707,7 +1928,9 @@ describe('commerce catalog query layer', () => {
           message: 'Validation failed',
           error: {
             code: 422,
-            details: { attributes: 'attributes must not reference the same attribute more than once.' },
+            details: {
+              attributes: 'attributes must not reference the same attribute more than once.',
+            },
           },
         },
         422,
@@ -1739,7 +1962,9 @@ describe('commerce catalog query layer', () => {
           message: 'Validation failed',
           error: {
             code: 422,
-            details: { attributes: 'attributes must reference existing attributes in this tenant.' },
+            details: {
+              attributes: 'attributes must reference existing attributes in this tenant.',
+            },
           },
         },
         422,
@@ -1829,7 +2054,9 @@ describe('commerce catalog query layer', () => {
   })
 
   it('throws ApiError when the add-on list request fails', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ message: 'Forbidden' }, 403))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Forbidden' }, 403),
+    )
 
     const { fetchProductAddons } = await import('@/queries/commerceCatalog')
     const { ApiError } = await import('@/api/errors')
@@ -1919,7 +2146,10 @@ describe('commerce catalog query layer', () => {
         {
           success: false,
           message: 'Validation failed',
-          error: { code: 422, details: { choices: 'select addons require a non-empty choices list.' } },
+          error: {
+            code: 422,
+            details: { choices: 'select addons require a non-empty choices list.' },
+          },
         },
         422,
       ),
@@ -2057,14 +2287,18 @@ describe('commerce catalog query layer', () => {
   })
 
   it('deletes an add-on with no return value', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response(null, { status: 204 }),
+    )
 
     const { deleteProductAddon } = await import('@/queries/commerceCatalog')
     await expect(deleteProductAddon('a1')).resolves.toBeUndefined()
   })
 
   it('throws ApiError when add-on delete fails', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ message: 'Not found' }, 404))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Not found' }, 404),
+    )
 
     const { deleteProductAddon } = await import('@/queries/commerceCatalog')
     const { ApiError } = await import('@/api/errors')
@@ -2132,7 +2366,9 @@ describe('commerce catalog query layer', () => {
   })
 
   it('throws ApiError when the download list request fails', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ message: 'Forbidden' }, 403))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Forbidden' }, 403),
+    )
 
     const { fetchVariantDownloads } = await import('@/queries/commerceCatalog')
     const { ApiError } = await import('@/api/errors')
@@ -2270,14 +2506,18 @@ describe('commerce catalog query layer', () => {
   })
 
   it('deletes a download with no return value', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(new Response(null, { status: 204 }))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      new Response(null, { status: 204 }),
+    )
 
     const { deleteDownload } = await import('@/queries/commerceCatalog')
     await expect(deleteDownload('d1')).resolves.toBeUndefined()
   })
 
   it('throws ApiError when download delete fails', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ message: 'Not found' }, 404))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ message: 'Not found' }, 404),
+    )
 
     const { deleteDownload } = await import('@/queries/commerceCatalog')
     const { ApiError } = await import('@/api/errors')

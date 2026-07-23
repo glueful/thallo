@@ -1,5 +1,22 @@
 <script setup lang="ts">
-import { computed, reactive, ref, useTemplateRef } from 'vue'
+// Single-page product editor plan, Task C7: `VariantsPanel` stays presentational about stock — it
+// no longer holds any query of its own. `PricingStockCard` (the multi-variant / option-axes
+// disclosure branch, spec §5.3) owns the ONE `useProductStock()` subscription for the whole
+// editor and passes `stockItems`/`stockUnavailable` down as plain props; a direct-mount caller
+// (e.g. this file's own narrower specs) that omits both props simply renders every row's stock
+// column as "—" (never a fabricated quantity).
+//
+// `compare_at_price` is now a real field on both the create and edit forms (optional, minor
+// units, blank = omitted from the payload — mirrors how `shipping_class_uuid` already behaves on
+// this same edit form: a field the form doesn't manage stays omitted/preserved).
+//
+// Coordinator: injected optionally (`inject(..., null)`) so every pre-C7 spec that mounts this
+// component directly, with no ancestor `ProductRevisionCoordinator`, keeps working unchanged — the
+// `await coordinator?.afterMutation()` calls below are then no-ops. Every successful
+// create/update/bulk-price/stock-adjust mutation awaits it exactly once (task brief: "every
+// successful variant/stock mutation awaits afterMutation() exactly once"); `setChildren` is
+// deliberately NOT wired here — that's Task C8's `ChildrenCard` scope.
+import { computed, inject, reactive, ref, useTemplateRef } from 'vue'
 import * as z from 'zod'
 import type { Form, FormSubmitEvent } from '@nuxt/ui'
 import {
@@ -8,15 +25,50 @@ import {
   type CommerceProduct,
   type CommerceVariant,
 } from '@/queries/commerceCatalog'
+import type { VariantStock } from '@/queries/commerceProductSections'
 import { useMoney } from '@/composables/useMoney'
 import { toApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
+import { ProductRevisionCoordinatorKey } from '@/composables/useProductRevisionCoordinator'
 
-const props = defineProps<{ product: CommerceProduct; canManage: boolean }>()
+const props = withDefaults(
+  defineProps<{
+    product: CommerceProduct
+    canManage: boolean
+    stockItems?: VariantStock[]
+    stockUnavailable?: boolean
+  }>(),
+  { stockItems: () => [], stockUnavailable: false },
+)
 
 const { success, error: notifyError } = useNotify()
 const { format } = useMoney()
-const { createVariant, updateVariant, bulkPrice, setChildren, stockAdjust } = useCommerceProductMutations()
+const { createVariant, updateVariant, bulkPrice, setChildren, stockAdjust } =
+  useCommerceProductMutations()
+const coordinator = inject(ProductRevisionCoordinatorKey, null)
+
+/** Blank input = no compare-at price (`null`/omitted); a non-digit string is rejected before the
+ * mutation ever fires. Mirrors `DownloadsPanel.vue`'s established `parseNonNegativeIntOrNull`
+ * convention for optional nullable integer fields on this same product-editor surface. */
+function parseCompareAtOrNull(input: string): number | null | 'invalid' {
+  const trimmed = input.trim()
+  if (trimmed === '') return null
+  if (!/^\d+$/.test(trimmed)) return 'invalid'
+  return Number(trimmed)
+}
+
+function stockFor(variantUuid: string): VariantStock | undefined {
+  return props.stockItems.find((s) => s.variant_uuid === variantUuid)
+}
+
+/** Never fabricates a quantity: an untracked variant, a variant missing from the read (still
+ * loading), or a read-wide integrity failure (`stockUnavailable`) all render "—". */
+function stockQuantityDisplay(variantUuid: string): string {
+  if (props.stockUnavailable) return '—'
+  const row = stockFor(variantUuid)
+  if (!row || !row.tracked) return '—'
+  return String(row.quantity)
+}
 
 const statusItems = PRODUCT_STATUSES.map((s) => ({ label: s, value: s }))
 
@@ -35,14 +87,26 @@ function money(minor: number): string {
 const addOpen = ref(false)
 const addSchema = z.object({
   sku: z.string().min(1, 'SKU is required.'),
-  price: z.number({ message: 'Price is required.' }).int('Whole minor units only.').nonnegative('Cannot be negative.'),
-  currency: z.string().length(3, 'Currency must be a 3-letter code.').transform((v) => v.toUpperCase()),
+  price: z
+    .number({ message: 'Price is required.' })
+    .int('Whole minor units only.')
+    .nonnegative('Cannot be negative.'),
+  currency: z
+    .string()
+    .length(3, 'Currency must be a 3-letter code.')
+    .transform((v) => v.toUpperCase()),
   status: z.enum(PRODUCT_STATUSES),
 })
 type AddSchema = z.output<typeof addSchema>
 
 function blankAddState() {
-  return { sku: '', price: 0, currency: props.product.variants[0]?.currency ?? 'USD', status: 'active' as const }
+  return {
+    sku: '',
+    price: 0,
+    currency: props.product.variants[0]?.currency ?? 'USD',
+    status: 'active' as const,
+    compareAtPriceInput: '',
+  }
 }
 const addState = reactive(blankAddState())
 const addFormError = ref<string | null>(null)
@@ -55,11 +119,23 @@ function openAdd() {
 }
 
 async function submitAdd(event: FormSubmitEvent<AddSchema>) {
+  const compareAt = parseCompareAtOrNull(addState.compareAtPriceInput)
+  if (compareAt === 'invalid') {
+    addFormError.value = 'Compare-at price must be a whole, non-negative number, or blank.'
+    return
+  }
   try {
     await createVariant.mutateAsync({
       productUuid: props.product.uuid,
-      input: { sku: event.data.sku, price: event.data.price, currency: event.data.currency, status: event.data.status },
+      input: {
+        sku: event.data.sku,
+        price: event.data.price,
+        currency: event.data.currency,
+        status: event.data.status,
+        ...(compareAt !== null ? { compare_at_price: compareAt } : {}),
+      },
     })
+    await coordinator?.afterMutation()
     success('Variant added', `SKU “${event.data.sku}” was created.`)
     addOpen.value = false
   } catch (e) {
@@ -79,11 +155,19 @@ async function submitAdd(event: FormSubmitEvent<AddSchema>) {
 const editingUuid = ref<string | null>(null)
 const editSchema = z.object({
   sku: z.string().min(1, 'SKU is required.'),
-  price: z.number({ message: 'Price is required.' }).int('Whole minor units only.').nonnegative('Cannot be negative.'),
+  price: z
+    .number({ message: 'Price is required.' })
+    .int('Whole minor units only.')
+    .nonnegative('Cannot be negative.'),
   status: z.enum(PRODUCT_STATUSES),
 })
 type EditSchema = z.output<typeof editSchema>
-const editState = reactive({ sku: '', price: 0, status: 'active' as (typeof PRODUCT_STATUSES)[number] })
+const editState = reactive({
+  sku: '',
+  price: 0,
+  status: 'active' as (typeof PRODUCT_STATUSES)[number],
+  compareAtPriceInput: '',
+})
 const editFormError = ref<string | null>(null)
 // No useTemplateRef('editFormRef') here: the edit UForm lives inside the variants `v-for`, so a
 // shared template ref name would resolve to an ARRAY of Form instances, not one — setErrors()
@@ -94,6 +178,8 @@ function startEdit(variant: CommerceVariant) {
   editState.sku = variant.sku
   editState.price = variant.price
   editState.status = (variant.status as (typeof PRODUCT_STATUSES)[number]) || 'active'
+  editState.compareAtPriceInput =
+    variant.compare_at_price === null ? '' : String(variant.compare_at_price)
   editFormError.value = null
 }
 
@@ -104,12 +190,23 @@ function cancelEdit() {
 async function submitEdit(event: FormSubmitEvent<EditSchema>) {
   const uuid = editingUuid.value
   if (!uuid) return
+  const compareAt = parseCompareAtOrNull(editState.compareAtPriceInput)
+  if (compareAt === 'invalid') {
+    editFormError.value = 'Compare-at price must be a whole, non-negative number, or blank.'
+    return
+  }
   try {
     await updateVariant.mutateAsync({
       uuid,
       productUuid: props.product.uuid,
-      input: { sku: event.data.sku, price: event.data.price, status: event.data.status },
+      input: {
+        sku: event.data.sku,
+        price: event.data.price,
+        status: event.data.status,
+        ...(compareAt !== null ? { compare_at_price: compareAt } : {}),
+      },
     })
+    await coordinator?.afterMutation()
     success('Variant saved', `SKU “${event.data.sku}” was updated.`)
     editingUuid.value = null
   } catch (e) {
@@ -126,7 +223,9 @@ function isSelected(uuid: string): boolean {
   return selected.value.includes(uuid)
 }
 function toggleSelect(uuid: string) {
-  selected.value = isSelected(uuid) ? selected.value.filter((u) => u !== uuid) : [...selected.value, uuid]
+  selected.value = isSelected(uuid)
+    ? selected.value.filter((u) => u !== uuid)
+    : [...selected.value, uuid]
 }
 
 const bulkPriceValue = ref<number | null>(null)
@@ -141,6 +240,7 @@ async function applyBulkPrice() {
       productUuid: props.product.uuid,
       items: selected.value.map((uuid) => ({ uuid, price })),
     })
+    await coordinator?.afterMutation()
     success('Prices updated', `${selected.value.length} variant(s) updated.`)
     selected.value = []
     bulkPriceValue.value = null
@@ -157,9 +257,6 @@ const adjustingUuid = ref<string | null>(null)
 const stockDelta = ref<number | null>(null)
 const stockReason = ref('adjustment')
 const stockFormError = ref<string | null>(null)
-/** Last known quantity per variant, from that variant's own most recent adjust response — there
- * is no admin GET for current stock, so this is the only source of truth the SPA ever has. */
-const lastKnownQuantity = reactive<Record<string, number>>({})
 
 function toggleStockAdjust(uuid: string) {
   if (adjustingUuid.value === uuid) {
@@ -183,7 +280,7 @@ async function applyStockAdjust() {
       productUuid: props.product.uuid,
       input: { delta, reason: stockReason.value || 'adjustment' },
     })
-    lastKnownQuantity[uuid] = result.quantity
+    await coordinator?.afterMutation()
     success('Stock adjusted', `Quantity is now ${result.quantity}.`)
     adjustingUuid.value = null
   } catch (e) {
@@ -211,7 +308,10 @@ async function saveChildren() {
   childrenError.value = null
   const uuids = parseChildUuids(childrenInput.value)
   try {
-    const children = await setChildren.mutateAsync({ productUuid: props.product.uuid, childUuids: uuids })
+    const children = await setChildren.mutateAsync({
+      productUuid: props.product.uuid,
+      childUuids: uuids,
+    })
     knownChildren.value = children
     childrenInput.value = children.map((c) => c.uuid).join(', ')
     success('Children updated', `${children.length} child product(s) set.`)
@@ -264,13 +364,36 @@ async function saveChildren() {
           <UInput v-model="addState.sku" class="w-full" data-test="variant-sku-input" />
         </UFormField>
         <UFormField label="Price" name="price" required help="Minor units">
-          <UInput v-model.number="addState.price" type="number" :min="0" class="w-full" data-test="variant-price-input" />
+          <UInput
+            v-model.number="addState.price"
+            type="number"
+            :min="0"
+            class="w-full"
+            data-test="variant-price-input"
+          />
         </UFormField>
         <UFormField label="Currency" name="currency" required>
-          <UInput v-model="addState.currency" class="w-full uppercase" data-test="variant-currency-input" />
+          <UInput
+            v-model="addState.currency"
+            class="w-full uppercase"
+            data-test="variant-currency-input"
+          />
         </UFormField>
         <UFormField label="Status" name="status">
-          <USelect v-model="addState.status" :items="statusItems" class="w-full" data-test="variant-status-input" />
+          <USelect
+            v-model="addState.status"
+            :items="statusItems"
+            class="w-full"
+            data-test="variant-status-input"
+          />
+        </UFormField>
+        <UFormField label="Compare-at price" help="Optional, minor units">
+          <UInput
+            v-model="addState.compareAtPriceInput"
+            class="w-full"
+            placeholder="Optional"
+            data-test="variant-compare-at-input"
+          />
         </UFormField>
         <div class="col-span-2 flex gap-2 sm:col-span-4">
           <UButton
@@ -280,9 +403,24 @@ async function saveChildren() {
             label="Create"
             data-test="variant-create-submit"
           />
-          <UButton size="xs" color="neutral" variant="ghost" label="Cancel" @click="addOpen = false" />
+          <UButton
+            size="xs"
+            color="neutral"
+            variant="ghost"
+            label="Cancel"
+            @click="addOpen = false"
+          />
         </div>
       </UForm>
+
+      <UAlert
+        v-if="stockUnavailable"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-triangle-alert"
+        title="Stock data is unavailable for this product"
+        data-test="stock-unavailable"
+      />
 
       <UAlert
         v-if="product.variants.length === 0"
@@ -313,8 +451,8 @@ async function saveChildren() {
             {{ money(variant.compare_at_price) }}
           </span>
           <UBadge color="neutral" variant="subtle" size="sm">{{ variant.status }}</UBadge>
-          <span v-if="lastKnownQuantity[variant.uuid] !== undefined" class="text-xs text-muted" data-test="variant-stock-quantity">
-            Stock: {{ lastKnownQuantity[variant.uuid] }}
+          <span class="text-xs text-muted" data-test="variant-stock-quantity">
+            Stock: {{ stockQuantityDisplay(variant.uuid) }}
           </span>
 
           <div v-if="canManage" class="ml-auto flex gap-1">
@@ -361,13 +499,38 @@ async function saveChildren() {
             <UInput v-model="editState.sku" class="w-full" data-test="variant-edit-sku-input" />
           </UFormField>
           <UFormField label="Price" name="price" required help="Minor units">
-            <UInput v-model.number="editState.price" type="number" :min="0" class="w-full" data-test="variant-edit-price-input" />
+            <UInput
+              v-model.number="editState.price"
+              type="number"
+              :min="0"
+              class="w-full"
+              data-test="variant-edit-price-input"
+            />
           </UFormField>
           <UFormField label="Status" name="status">
-            <USelect v-model="editState.status" :items="statusItems" class="w-full" data-test="variant-edit-status-input" />
+            <USelect
+              v-model="editState.status"
+              :items="statusItems"
+              class="w-full"
+              data-test="variant-edit-status-input"
+            />
+          </UFormField>
+          <UFormField label="Compare-at price" help="Optional, minor units">
+            <UInput
+              v-model="editState.compareAtPriceInput"
+              class="w-full"
+              placeholder="Optional"
+              data-test="variant-edit-compare-at-input"
+            />
           </UFormField>
           <div class="col-span-2 flex items-end gap-2 sm:col-span-4">
-            <UButton type="submit" size="xs" :loading="updateVariant.isLoading.value" label="Save" data-test="variant-save" />
+            <UButton
+              type="submit"
+              size="xs"
+              :loading="updateVariant.isLoading.value"
+              label="Save"
+              data-test="variant-save"
+            />
             <UButton size="xs" color="neutral" variant="ghost" label="Cancel" @click="cancelEdit" />
           </div>
         </UForm>
@@ -383,7 +546,12 @@ async function saveChildren() {
 
         <div v-if="adjustingUuid === variant.uuid" class="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <UFormField label="Delta" help="Positive to add, negative to remove">
-            <UInput v-model.number="stockDelta" type="number" class="w-full" data-test="stock-adjust-delta" />
+            <UInput
+              v-model.number="stockDelta"
+              type="number"
+              class="w-full"
+              data-test="stock-adjust-delta"
+            />
           </UFormField>
           <UFormField label="Reason">
             <UInput v-model="stockReason" class="w-full" data-test="stock-adjust-reason" />
@@ -396,7 +564,13 @@ async function saveChildren() {
               data-test="stock-adjust-apply"
               @click="applyStockAdjust"
             />
-            <UButton size="xs" color="neutral" variant="ghost" label="Cancel" @click="adjustingUuid = null" />
+            <UButton
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              label="Cancel"
+              @click="adjustingUuid = null"
+            />
           </div>
         </div>
       </div>
@@ -422,7 +596,13 @@ async function saveChildren() {
           data-test="bulk-price-apply"
           @click="applyBulkPrice"
         />
-        <UButton size="xs" color="neutral" variant="ghost" label="Clear selection" @click="selected = []" />
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          label="Clear selection"
+          @click="selected = []"
+        />
         <UAlert
           v-if="bulkPriceError"
           color="error"
@@ -436,7 +616,11 @@ async function saveChildren() {
     </section>
 
     <!-- Children (grouped products only) --------------------------------------------------- -->
-    <section v-if="isGrouped" data-test="children-section" class="space-y-3 border-t border-default pt-6">
+    <section
+      v-if="isGrouped"
+      data-test="children-section"
+      class="space-y-3 border-t border-default pt-6"
+    >
       <h3 class="text-sm font-medium text-default">Child products</h3>
       <p class="text-xs text-muted">
         Comma-separated child product UUIDs. Saving replaces the entire child list.
@@ -465,8 +649,14 @@ async function saveChildren() {
         data-test="children-save"
         @click="saveChildren"
       />
-      <ul v-if="knownChildren && knownChildren.length > 0" data-test="children-list" class="space-y-1 text-sm text-muted">
-        <li v-for="child in knownChildren" :key="child.uuid">{{ child.name }} ({{ child.slug }})</li>
+      <ul
+        v-if="knownChildren && knownChildren.length > 0"
+        data-test="children-list"
+        class="space-y-1 text-sm text-muted"
+      >
+        <li v-for="child in knownChildren" :key="child.uuid">
+          {{ child.name }} ({{ child.slug }})
+        </li>
       </ul>
     </section>
   </div>
