@@ -2462,6 +2462,14 @@ describe('CategoriesTab (category management)', () => {
     expect(wrapper.find('[data-test="category-delete"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="category-row"]').exists()).toBe(true)
   })
+
+  it('renders no assignment section or state chip in taxonomy-management mode (no `product` prop)', () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Cat 1' })]
+    const wrapper = mountTab()
+
+    expect(wrapper.find('[data-test="category-assignment-section"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="categories-state-chip"]').exists()).toBe(false)
+  })
 })
 
 // ── CategoriesTab: assignment mode (`product` prop given) ───────────────────────────────────
@@ -2693,6 +2701,40 @@ describe('CategoriesTab (product assignment)', () => {
     const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
     expect(checkbox!.props('disabled')).toBe(true)
   })
+
+  it('renders its own state chip in the assignment header, tracking idle → dirty → saved (spec §5.1 item 4)', async () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Cat 1' })]
+    categoriesSectionData.value = { revision: 1, items: [] }
+    setCategoriesMock.mockResolvedValue([])
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
+
+    expect(wrapper.find('[data-test="categories-state-chip"]').exists()).toBe(false)
+
+    const checkboxes = wrapper.findAllComponents({ name: 'CheckboxRoot' })
+    await checkboxes[0]!.vm.$emit('update:modelValue', true)
+
+    expect(wrapper.find('[data-test="categories-state-chip"]').text()).toBe('Unsaved changes')
+
+    await wrapper.find('[data-test="category-assignment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="categories-state-chip"]').text()).toBe('Saved')
+  })
+
+  it('shows a load-error alert for the per-product section read and keeps save disabled', () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Cat 1' })]
+    categoriesSectionStatus.value = 'error'
+    categoriesSectionData.value = undefined
+    const { wrapper } = mountAssignment(product({ uuid: 'p1' }))
+
+    expect(wrapper.find('[data-test="categories-section-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="categories-section-error"]').text()).toContain(
+      'Couldn’t load current assignments. Try again.',
+    )
+    expect(
+      wrapper.find('[data-test="category-assignment-save"]').attributes('disabled'),
+    ).toBeDefined()
+  })
 })
 
 // ── TagsTab: management mode (no `product` prop) — tag CRUD + pagination/search ────────────
@@ -2873,6 +2915,19 @@ describe('TagsTab (tag management)', () => {
     expect(wrapper.find('[data-test="tag-edit"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="tag-delete"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="tag-row"]').exists()).toBe(true)
+  })
+
+  it('renders no assignment section or state chip in taxonomy-management mode (no `product` prop)', () => {
+    tagsPage.value = {
+      tags: [tag({ uuid: 't1', name: 'Tag 1' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    const wrapper = mountTab()
+
+    expect(wrapper.find('[data-test="tag-assignment-section"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="tags-state-chip"]').exists()).toBe(false)
   })
 })
 

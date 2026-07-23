@@ -32,6 +32,7 @@ import { useSectionState, type SectionState } from '@/composables/useSectionStat
 import { ProductRevisionCoordinatorKey } from '@/composables/useProductRevisionCoordinator'
 import { rebaseSet } from '@/utils/sectionRebase'
 import TablePagination from '@/components/TablePagination.vue'
+import SectionStateChip from './SectionStateChip.vue'
 
 const props = defineProps<{ canManage: boolean; product?: CommerceProduct }>()
 const emit = defineEmits<{ state: [SectionState] }>()
@@ -414,8 +415,20 @@ const saveDisabled = computed(
       data-test="tag-assignment-section"
       class="space-y-3 border-t border-default pt-6"
     >
-      <h3 class="text-sm font-medium text-default">Assigned tags</h3>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h3 class="text-sm font-medium text-default">Assigned tags</h3>
+        <SectionStateChip :phase="phase" :dirty="dirty" data-test="tags-state-chip" />
+      </div>
       <p class="text-xs text-muted">Saving replaces the entire tag assignment for this product.</p>
+
+      <UAlert
+        v-if="tagsSection.status.value === 'error'"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-triangle-alert"
+        title="Couldn’t load current assignments. Try again."
+        data-test="tags-section-error"
+      />
 
       <UAlert
         v-if="assignError"

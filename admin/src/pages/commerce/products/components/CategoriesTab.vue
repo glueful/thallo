@@ -27,6 +27,7 @@ import { useNotify } from '@/composables/useNotify'
 import { useSectionState, type SectionState } from '@/composables/useSectionState'
 import { ProductRevisionCoordinatorKey } from '@/composables/useProductRevisionCoordinator'
 import { rebaseSet } from '@/utils/sectionRebase'
+import SectionStateChip from './SectionStateChip.vue'
 
 const props = defineProps<{ canManage: boolean; product?: CommerceProduct }>()
 const emit = defineEmits<{ state: [SectionState] }>()
@@ -445,10 +446,22 @@ const saveDisabled = computed(
       data-test="category-assignment-section"
       class="space-y-3 border-t border-default pt-6"
     >
-      <h3 class="text-sm font-medium text-default">Assigned categories</h3>
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h3 class="text-sm font-medium text-default">Assigned categories</h3>
+        <SectionStateChip :phase="phase" :dirty="dirty" data-test="categories-state-chip" />
+      </div>
       <p class="text-xs text-muted">
         Saving replaces the entire category assignment for this product.
       </p>
+
+      <UAlert
+        v-if="categoriesSection.status.value === 'error'"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-triangle-alert"
+        title="Couldn’t load current assignments. Try again."
+        data-test="categories-section-error"
+      />
 
       <UAlert
         v-if="assignError"
