@@ -54,6 +54,26 @@ final class ProductLinkApiTest extends AppTestCase
                 "ALTER TABLE {$table} ADD COLUMN IF NOT EXISTS tenant_uuid VARCHAR(191) NOT NULL DEFAULT ''"
             );
         }
+
+        // searchEntries' locale resolution reads enabled locales from i18n_locales; the
+        // fr-row assertion needs fr ENABLED, so this class owns its locale setup instead
+        // of leaning on rows a sibling suite happens to leave behind (mirrors
+        // RootMountGuardTest / RegionRenderingTest — on a fresh database no earlier test
+        // seeds fr and `?locale=fr` silently falls back to the workspace default).
+        $this->connection()->getPDO()->exec("DELETE FROM i18n_locales WHERE code IN ('en', 'fr')");
+        $seedNow = gmdate('Y-m-d H:i:s');
+        foreach ([['en', true], ['fr', false]] as [$code, $isDefault]) {
+            $this->connection()->table('i18n_locales')->insert([
+                'uuid' => \Glueful\Helpers\Utils::generateNanoID(),
+                'code' => $code,
+                'name' => strtoupper($code),
+                'enabled' => true,
+                'is_default' => $isDefault,
+                'fallback_locale' => $isDefault ? null : 'en',
+                'created_at' => $seedNow,
+                'updated_at' => $seedNow,
+            ]);
+        }
     }
 
     protected function tearDown(): void
