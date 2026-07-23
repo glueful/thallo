@@ -1,3 +1,15 @@
+// Single-page product editor plan, Task C1: the six per-product section reads
+// (categories/tags/attributes/media/children/stock), each keyed by product uuid + section.
+export const COMMERCE_PRODUCT_SECTIONS = [
+  'categories',
+  'tags',
+  'attributes',
+  'media',
+  'children',
+  'stock',
+] as const
+export type CommerceProductSection = (typeof COMMERCE_PRODUCT_SECTIONS)[number]
+
 // Central cache namespace. Every Colada query keys off these so invalidation is exhaustive and
 // typo-proof. Keys are MaybeRefOrGetter-friendly (Pinia Colada): pass getters where a param is
 // reactive (e.g. () => ['entries', typeSlug.value]).
@@ -38,6 +50,8 @@ export const qk = {
   commerceProduct: (uuid: string) => ['commerce-product', uuid] as const,
   commerceProductAddons: (productUuid: string) => ['commerce-product-addons', productUuid] as const,
   commerceVariantDownloads: (variantUuid: string) => ['commerce-variant-downloads', variantUuid] as const,
+  commerceProductSection: (uuid: string, section: CommerceProductSection) =>
+    ['commerce-product-section', uuid, section] as const,
   commerceCategories: () => ['commerce-categories'] as const,
   commerceTags: () => ['commerce-tags'] as const,
   commerceAttributes: () => ['commerce-attributes'] as const,

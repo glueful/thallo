@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { client } from '@/api/client'
 import { ApiError, toApiError } from '@/api/errors'
-import { qk } from './keys'
+import { qk, COMMERCE_PRODUCT_SECTIONS } from './keys'
 
 // Closed vocabularies mirrored from the backend (Glueful\Extensions\Commerce\Catalog\ProductStatus /
 // ProductType) — kept here as the single frontend declaration for filters, selects and badges.
@@ -759,15 +759,24 @@ export async function bulkUpdateVariantPrices(items: BulkPriceItem[]): Promise<B
 
 /** `PUT /commerce/products/{uuid}/children` — a wholesale replace (SetProductChildrenData): the
  * SUBMITTED list becomes the product's entire child set, and the response is the fresh list of
- * child products (ordered). There is no admin GET for the current children, so this response —
- * and any prior successful call's response — is the only source of truth the SPA has. */
+ * child products (ordered). There is no admin GET for the current children (Task C1 adds one —
+ * see `useProductChildren()` in `commerceProductSections.ts`), so this response — and any prior
+ * successful call's response — remains the freshest post-write source of truth.
+ *
+ * `expectedRevision` (single-page product editor plan, Task C1): optional CAS guard mirroring
+ * `SetProductChildrenData::$expected_revision` server-side — omitted preserves today's unguarded
+ * replace byte-for-byte (the key is never sent on the wire); present, a stale value 409s via
+ * `StaleCatalogRevisionException` with no state change. */
 export async function setProductChildren(
   productUuid: string,
   childUuids: string[],
+  expectedRevision?: number,
 ): Promise<CommerceProduct[]> {
+  const body: Record<string, unknown> = { child_uuids: childUuids }
+  if (expectedRevision !== undefined) body.expected_revision = expectedRevision
   const { data, error, response } = await client.PUT('/commerce/products/{uuid}/children', {
     params: { path: { uuid: productUuid } },
-    body: { child_uuids: childUuids } as never,
+    body: body as never,
   })
   if (error) throw toApiError(error, response)
   const rows = (data as { data?: unknown[] } | undefined)?.data
@@ -828,15 +837,22 @@ export async function detachProductMedia(mediaUuid: string): Promise<void> {
  * ordered uuid list (position = its array index). Callers must pass EVERY visible media uuid: the
  * service only repositions entries present in the list, so a partial list would silently leave the
  * omitted rows' positions unchanged. Returns the fresh ordered list — the only source of truth for
- * a product's media the SPA ever gets back (mirrors `setProductChildren`'s note). */
+ * a product's media the SPA ever gets back (mirrors `setProductChildren`'s note).
+ *
+ * `expectedRevision` (single-page product editor plan, Task C1): optional CAS guard mirroring
+ * `ReorderMediaData::$expected_revision` server-side — see `setProductChildren`'s docblock for the
+ * full byte-for-byte-when-absent rationale (not repeated here to avoid drift). */
 export async function reorderProductMedia(
   productUuid: string,
   orderedUuids: string[],
+  expectedRevision?: number,
 ): Promise<CommerceProductMedia[]> {
   const positions = orderedUuids.map((uuid, index) => ({ uuid, position: index }))
+  const body: Record<string, unknown> = { positions }
+  if (expectedRevision !== undefined) body.expected_revision = expectedRevision
   const { data, error, response } = await client.PUT('/commerce/products/{uuid}/media/order', {
     params: { path: { uuid: productUuid } },
-    body: { positions } as never,
+    body: body as never,
   })
   if (error) throw toApiError(error, response)
   const rows = (data as { data?: unknown[] } | undefined)?.data
@@ -884,16 +900,24 @@ export async function deleteCategory(uuid: string): Promise<void> {
 
 /** `PUT /commerce/products/{uuid}/categories` (SetProductCategoriesData) — a wholesale set-list
  * replace, exactly like `setProductChildren`: the SUBMITTED list becomes the product's entire
- * category assignment, and the response is the fresh list of attached category rows. There is no
- * admin GET for a product's current categories (`/commerce/products/{uuid}/categories` declares no
- * `get` in schema.d.ts), so this response is the only source of truth the SPA ever has. */
+ * category assignment, and the response is the fresh list of attached category rows. Task C1 adds
+ * a real admin GET for a product's current categories — see `useProductCategories()` in
+ * `commerceProductSections.ts` — but this mutation's own response remains the freshest
+ * post-write source of truth.
+ *
+ * `expectedRevision` (single-page product editor plan, Task C1): optional CAS guard mirroring
+ * `SetProductCategoriesData::$expected_revision` server-side — see `setProductChildren`'s
+ * docblock for the full byte-for-byte-when-absent rationale (not repeated here to avoid drift). */
 export async function setProductCategories(
   productUuid: string,
   categoryUuids: string[],
+  expectedRevision?: number,
 ): Promise<CommerceCategory[]> {
+  const body: Record<string, unknown> = { category_uuids: categoryUuids }
+  if (expectedRevision !== undefined) body.expected_revision = expectedRevision
   const { data, error, response } = await client.PUT('/commerce/products/{uuid}/categories', {
     params: { path: { uuid: productUuid } },
-    body: { category_uuids: categoryUuids } as never,
+    body: body as never,
   })
   if (error) throw toApiError(error, response)
   const rows = (data as { data?: unknown[] } | undefined)?.data
@@ -955,12 +979,23 @@ export async function deleteTag(uuid: string): Promise<void> {
 
 /** `PUT /commerce/products/{uuid}/tags` (SetProductTagsData) — a wholesale set-list replace,
  * exactly like `setProductCategories()`: the SUBMITTED list becomes the product's entire tag
- * assignment, and the response is the fresh list of attached tag rows. There is no admin GET for
- * a product's current tags, so this response is the only source of truth the SPA ever has. */
-export async function setProductTags(productUuid: string, tagUuids: string[]): Promise<CommerceTag[]> {
+ * assignment, and the response is the fresh list of attached tag rows. Task C1 adds a real admin
+ * GET for a product's current tags — see `useProductTags()` in `commerceProductSections.ts` — but
+ * this mutation's own response remains the freshest post-write source of truth.
+ *
+ * `expectedRevision` (single-page product editor plan, Task C1): optional CAS guard mirroring
+ * `SetProductTagsData::$expected_revision` server-side — see `setProductChildren`'s docblock for
+ * the full byte-for-byte-when-absent rationale (not repeated here to avoid drift). */
+export async function setProductTags(
+  productUuid: string,
+  tagUuids: string[],
+  expectedRevision?: number,
+): Promise<CommerceTag[]> {
+  const body: Record<string, unknown> = { tag_uuids: tagUuids }
+  if (expectedRevision !== undefined) body.expected_revision = expectedRevision
   const { data, error, response } = await client.PUT('/commerce/products/{uuid}/tags', {
     params: { path: { uuid: productUuid } },
-    body: { tag_uuids: tagUuids } as never,
+    body: body as never,
   })
   if (error) throw toApiError(error, response)
   const rows = (data as { data?: unknown[] } | undefined)?.data
@@ -1061,15 +1096,23 @@ export async function deleteAttributeValue(uuid: string): Promise<void> {
 /** `PUT /commerce/products/{uuid}/attributes` (`SetProductAttributesData`) — a wholesale set-list
  * replace, exactly like `setProductTags()`/`setProductCategories()`, except each row carries real
  * payload (values/flags/position) rather than being a bare uuid — see
- * `ProductAttributeAssignmentInput`'s docblock. There is no admin GET for a product's current
- * attribute assignment, so the response is the only source of truth the SPA ever has. */
+ * `ProductAttributeAssignmentInput`'s docblock. Task C1 adds a real admin GET for a product's
+ * current attribute assignment — see `useProductAttributes()` in `commerceProductSections.ts` —
+ * but this mutation's own response remains the freshest post-write source of truth.
+ *
+ * `expectedRevision` (single-page product editor plan, Task C1): optional CAS guard mirroring
+ * `SetProductAttributesData::$expected_revision` server-side — see `setProductChildren`'s
+ * docblock for the full byte-for-byte-when-absent rationale (not repeated here to avoid drift). */
 export async function setProductAttributes(
   productUuid: string,
   rows: ProductAttributeAssignmentInput[],
+  expectedRevision?: number,
 ): Promise<CommerceProductAttribute[]> {
+  const body: Record<string, unknown> = { attributes: rows }
+  if (expectedRevision !== undefined) body.expected_revision = expectedRevision
   const { data, error, response } = await client.PUT('/commerce/products/{uuid}/attributes', {
     params: { path: { uuid: productUuid } },
-    body: { attributes: rows } as never,
+    body: body as never,
   })
   if (error) throw toApiError(error, response)
   const result = (data as { data?: unknown[] } | undefined)?.data
@@ -1249,15 +1292,26 @@ export function useCommerceVariantDownloads(variantUuid: MaybeRefOrGetter<string
   })
 }
 
-/** Product mutations. `create`/`bulkStatus` invalidate the list; `update`/`remove` invalidate both
- * the single product and the list (its row may now be stale — status, name, etc.).
+/** Product mutations. `create`/`bulkStatus` invalidate the list; `remove` invalidates both the
+ * single product and the list (its row is gone).
  *
- * The variant/children/stock mutations below (Task 10b) invalidate ONLY `qk.commerceProduct(uuid)`,
- * never the list: none of the fields ProductsTable renders (name, slug, type, status, updated_at —
- * see ProductsTable.vue's `columns`) come from a variant, the children set, or stock, so a list
- * invalidation would just be a wasted refetch. Every one of them requires the caller to pass the
- * owning `productUuid` explicitly (mirroring `update`/`remove`'s `uuid`) rather than reading it off
- * the mutation's response, so the invalidation still runs correctly even when the call fails.
+ * Single-page product editor plan, Task C1 — invalidation contract (load-bearing for the whole
+ * editor, pinned by `commerceProductSectionsInvalidation.spec.ts`): every mutation that can
+ * advance the product's `catalog_revision` — `update` (details), the variant/media/organization/
+ * children/stock mutations (Task 10b–10d/19a–19b), and the add-on/download mutations
+ * (Task 19c–19d) — invalidates BOTH `qk.commerceProduct(uuid)` AND all six
+ * `qk.commerceProductSection(uuid, section)` keys (Task C1's new per-product reads), via
+ * `invalidateProductAndSections()`. `create`/`bulkStatus`/`remove` are UNCHANGED (a not-yet-existing
+ * or now-gone product has no section caches worth refreshing); pack-owned product-LINK mutations
+ * (`useCommerceLinkMutations()` in `commerceLinking.ts`) are also unchanged — they don't advance
+ * `catalog_revision` (spec-pinned negative case).
+ *
+ * Every mutation still requires the caller to pass the owning `productUuid` explicitly (mirroring
+ * `update`/`remove`'s `uuid`) rather than reading it off the mutation's own response, so the
+ * invalidation still runs correctly even when the call fails. The three download mutations are the
+ * one exception: they're PER-VARIANT and callers historically had no reason to know the owning
+ * product, so `productUuid` is OPTIONAL there — omitted preserves the pre-C1 downloads-list-only
+ * invalidation byte-for-byte; supplied, the product + six sections are invalidated too.
  */
 export function useCommerceProductMutations() {
   const cache = useQueryCache()
@@ -1267,6 +1321,15 @@ export function useCommerceProductMutations() {
     invalidateList()
   }
   const invalidateProductOnly = (uuid: string) => cache.invalidateQueries({ key: qk.commerceProduct(uuid) })
+  const invalidateProductSections = (uuid: string) => {
+    for (const section of COMMERCE_PRODUCT_SECTIONS) {
+      cache.invalidateQueries({ key: qk.commerceProductSection(uuid, section) })
+    }
+  }
+  const invalidateProductAndSections = (uuid: string) => {
+    invalidateProductOnly(uuid)
+    invalidateProductSections(uuid)
+  }
   const invalidateAddons = (productUuid: string) =>
     cache.invalidateQueries({ key: qk.commerceProductAddons(productUuid) })
   const invalidateDownloads = (variantUuid: string) =>
@@ -1280,7 +1343,10 @@ export function useCommerceProductMutations() {
     update: useMutation({
       mutation: (vars: { uuid: string; input: UpdateProductInput }) =>
         updateProduct(vars.uuid, vars.input),
-      onSettled: (_d, _e, vars) => invalidateProduct(vars.uuid),
+      onSettled: (_d, _e, vars) => {
+        invalidateProductAndSections(vars.uuid)
+        invalidateList()
+      },
     }),
     remove: useMutation({
       mutation: (uuid: string) => deleteProduct(uuid),
@@ -1294,117 +1360,143 @@ export function useCommerceProductMutations() {
     createVariant: useMutation({
       mutation: (vars: { productUuid: string; input: ProductVariantInput }) =>
         createProductVariant(vars.productUuid, vars.input),
-      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+      onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
     updateVariant: useMutation({
       mutation: (vars: { uuid: string; productUuid: string; input: UpdateVariantInput }) =>
         updateProductVariant(vars.uuid, vars.input),
-      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+      onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
     bulkPrice: useMutation({
       mutation: (vars: { productUuid: string; items: BulkPriceItem[] }) =>
         bulkUpdateVariantPrices(vars.items),
-      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+      onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
     setChildren: useMutation({
-      mutation: (vars: { productUuid: string; childUuids: string[] }) =>
-        setProductChildren(vars.productUuid, vars.childUuids),
-      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+      mutation: (vars: { productUuid: string; childUuids: string[]; expectedRevision?: number }) =>
+        setProductChildren(vars.productUuid, vars.childUuids, vars.expectedRevision),
+      onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
     stockAdjust: useMutation({
       mutation: (vars: { variantUuid: string; productUuid: string; input: StockAdjustInput }) =>
         adjustVariantStock(vars.variantUuid, vars.input),
-      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+      onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
     // Task 10c: media mutations, same invalidation reasoning as variants/children/stock above —
     // every one of these vars carries the owning `productUuid` explicitly.
     attachMedia: useMutation({
       mutation: (vars: { productUuid: string; input: AttachMediaInput }) =>
         attachProductMedia(vars.productUuid, vars.input),
-      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+      onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
     updateMedia: useMutation({
       mutation: (vars: { uuid: string; productUuid: string; input: UpdateProductMediaInput }) =>
         updateProductMedia(vars.uuid, vars.input),
-      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+      onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
     detachMedia: useMutation({
       mutation: (vars: { uuid: string; productUuid: string }) => detachProductMedia(vars.uuid),
-      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+      onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
     reorderMedia: useMutation({
-      mutation: (vars: { productUuid: string; orderedUuids: string[] }) =>
-        reorderProductMedia(vars.productUuid, vars.orderedUuids),
-      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+      mutation: (vars: { productUuid: string; orderedUuids: string[]; expectedRevision?: number }) =>
+        reorderProductMedia(vars.productUuid, vars.orderedUuids, vars.expectedRevision),
+      onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
-    // Task 10d: product category assignment — invalidates ONLY the owning product, same
-    // reasoning as setChildren/media above. Never invalidates commerceCategories(): the shared
-    // category list shows no per-category product count, so a product's own assignment
-    // changing never makes anything useCommerceCategories() renders stale.
+    // Task 10d: product category assignment — invalidates the owning product AND its six section
+    // reads (Task C1). Never invalidates commerceCategories(): the shared category list shows no
+    // per-category product count, so a product's own assignment changing never makes anything
+    // useCommerceCategories() renders stale.
     setCategories: useMutation({
-      mutation: (vars: { productUuid: string; categoryUuids: string[] }) =>
-        setProductCategories(vars.productUuid, vars.categoryUuids),
-      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+      mutation: (vars: { productUuid: string; categoryUuids: string[]; expectedRevision?: number }) =>
+        setProductCategories(vars.productUuid, vars.categoryUuids, vars.expectedRevision),
+      onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
-    // Task 19a: product tag assignment — invalidates ONLY the owning product, same reasoning as
-    // setCategories above. Never invalidates commerceTags(): the shared tag list shows no
-    // per-tag product count, so a product's own assignment changing never makes anything
-    // useCommerceTags() renders stale.
+    // Task 19a: product tag assignment — invalidates the owning product AND its six section reads
+    // (Task C1), same reasoning as setCategories above. Never invalidates commerceTags(): the
+    // shared tag list shows no per-tag product count, so a product's own assignment changing never
+    // makes anything useCommerceTags() renders stale.
     setTags: useMutation({
-      mutation: (vars: { productUuid: string; tagUuids: string[] }) =>
-        setProductTags(vars.productUuid, vars.tagUuids),
-      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+      mutation: (vars: { productUuid: string; tagUuids: string[]; expectedRevision?: number }) =>
+        setProductTags(vars.productUuid, vars.tagUuids, vars.expectedRevision),
+      onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
-    // Task 19b: product attribute assignment — invalidates ONLY the owning product, same
-    // reasoning as setTags/setCategories above. Never invalidates commerceAttributes(): the
-    // shared attribute list shows no per-attribute product count, so a product's own assignment
-    // changing never makes anything useCommerceAttributes() renders stale.
+    // Task 19b: product attribute assignment — invalidates the owning product AND its six section
+    // reads (Task C1), same reasoning as setTags/setCategories above. Never invalidates
+    // commerceAttributes(): the shared attribute list shows no per-attribute product count, so a
+    // product's own assignment changing never makes anything useCommerceAttributes() renders stale.
     setAttributes: useMutation({
-      mutation: (vars: { productUuid: string; rows: ProductAttributeAssignmentInput[] }) =>
-        setProductAttributes(vars.productUuid, vars.rows),
-      onSettled: (_d, _e, vars) => invalidateProductOnly(vars.productUuid),
+      mutation: (vars: {
+        productUuid: string
+        rows: ProductAttributeAssignmentInput[]
+        expectedRevision?: number
+      }) => setProductAttributes(vars.productUuid, vars.rows, vars.expectedRevision),
+      onSettled: (_d, _e, vars) => invalidateProductAndSections(vars.productUuid),
     }),
     // Task 19c: product add-ons — PER-PRODUCT (unlike tags/categories/attributes' tenant-wide
     // CRUD, add-ons have no top-level management surface of their own), so these fold in here
     // alongside variants/media/children/stock rather than getting a standalone
-    // useCommerceAddonMutations() hook. Every one invalidates ONLY
-    // qk.commerceProductAddons(productUuid) — never the product detail: no admin product endpoint
-    // embeds `addons` in its payload (confirmed against AdminProductController/ProductService —
-    // nothing there references the add-ons table), so a product detail invalidation would just be
-    // a wasted refetch, same reasoning as variants/media/stock above.
+    // useCommerceAddonMutations() hook. Every one invalidates qk.commerceProductAddons(productUuid)
+    // (unchanged — no admin product endpoint embeds `addons` in its payload) PLUS the owning
+    // product and its six section reads (Task C1): the product-editor Add-ons card lives on the
+    // same page as the other sections, so a save there must also settle the shared revision
+    // coordinator (Task C3) the same way every other section mutation does.
     createAddon: useMutation({
       mutation: (vars: { productUuid: string; input: CreateAddonInput }) =>
         createProductAddon(vars.productUuid, vars.input),
-      onSettled: (_d, _e, vars) => invalidateAddons(vars.productUuid),
+      onSettled: (_d, _e, vars) => {
+        invalidateAddons(vars.productUuid)
+        invalidateProductAndSections(vars.productUuid)
+      },
     }),
     updateAddon: useMutation({
       mutation: (vars: { uuid: string; productUuid: string; input: UpdateAddonInput }) =>
         updateProductAddon(vars.uuid, vars.input),
-      onSettled: (_d, _e, vars) => invalidateAddons(vars.productUuid),
+      onSettled: (_d, _e, vars) => {
+        invalidateAddons(vars.productUuid)
+        invalidateProductAndSections(vars.productUuid)
+      },
     }),
     removeAddon: useMutation({
       mutation: (vars: { uuid: string; productUuid: string }) => deleteProductAddon(vars.uuid),
-      onSettled: (_d, _e, vars) => invalidateAddons(vars.productUuid),
+      onSettled: (_d, _e, vars) => {
+        invalidateAddons(vars.productUuid)
+        invalidateProductAndSections(vars.productUuid)
+      },
     }),
     // Task 19d: variant downloads — PER-VARIANT (deeper than add-ons' per-product scope, but the
     // same "no standalone top-level management surface" reasoning applies), so these fold in here
-    // too. Every one invalidates ONLY qk.commerceVariantDownloads(variantUuid) — never the product
-    // detail or the addons list: no admin product endpoint embeds `downloads` in its payload
-    // (AdminProductController/ProductService reference no download table), so a wider invalidation
-    // would just be a wasted refetch, same reasoning as createAddon/updateAddon/removeAddon above.
+    // too. Every one invalidates qk.commerceVariantDownloads(variantUuid) (unchanged). `productUuid`
+    // is OPTIONAL (see this hook's own docblock): when the caller supplies it, the owning product
+    // and its six section reads (Task C1) are invalidated too, same reasoning as
+    // createAddon/updateAddon/removeAddon above; omitted, behavior stays byte-for-byte pre-C1.
     attachDownload: useMutation({
-      mutation: (vars: { variantUuid: string; input: AttachDownloadInput }) =>
+      mutation: (vars: { variantUuid: string; productUuid?: string; input: AttachDownloadInput }) =>
         attachVariantDownload(vars.variantUuid, vars.input),
-      onSettled: (_d, _e, vars) => invalidateDownloads(vars.variantUuid),
+      onSettled: (_d, _e, vars) => {
+        invalidateDownloads(vars.variantUuid)
+        if (vars.productUuid) invalidateProductAndSections(vars.productUuid)
+      },
     }),
     updateDownload: useMutation({
-      mutation: (vars: { uuid: string; variantUuid: string; input: UpdateDownloadInput }) =>
-        updateDownload(vars.uuid, vars.input),
-      onSettled: (_d, _e, vars) => invalidateDownloads(vars.variantUuid),
+      mutation: (vars: {
+        uuid: string
+        variantUuid: string
+        productUuid?: string
+        input: UpdateDownloadInput
+      }) => updateDownload(vars.uuid, vars.input),
+      onSettled: (_d, _e, vars) => {
+        invalidateDownloads(vars.variantUuid)
+        if (vars.productUuid) invalidateProductAndSections(vars.productUuid)
+      },
     }),
     removeDownload: useMutation({
-      mutation: (vars: { uuid: string; variantUuid: string }) => deleteDownload(vars.uuid),
-      onSettled: (_d, _e, vars) => invalidateDownloads(vars.variantUuid),
+      mutation: (vars: { uuid: string; variantUuid: string; productUuid?: string }) =>
+        deleteDownload(vars.uuid),
+      onSettled: (_d, _e, vars) => {
+        invalidateDownloads(vars.variantUuid)
+        if (vars.productUuid) invalidateProductAndSections(vars.productUuid)
+      },
     }),
   }
 }

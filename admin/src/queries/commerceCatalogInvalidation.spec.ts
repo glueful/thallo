@@ -3,6 +3,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Pins the T10a invalidation contract: create/bulkStatus invalidate the LIST only;
 // update/remove invalidate BOTH the product detail and the list. The colada layer is
 // mocked so each mutation's onSettled can be driven directly (extensions.spec.ts precedent).
+//
+// Single-page product editor plan, Task C1: every mutation that can advance the product's
+// `catalog_revision` also invalidates all six `qk.commerceProductSection(uuid, section)` keys
+// (Task C1's new per-product reads) — those six extra calls are folded into this file's existing
+// exact-array pins below (each affected test's expectation was widened, not its scope). The full
+// section-key matrix, asserted programmatically against the closed `COMMERCE_PRODUCT_SECTIONS`
+// vocabulary (plus the negative product-link-mutation case), lives in
+// `commerceProductSectionsInvalidation.spec.ts`.
 
 vi.mock('@/runtime/config', () => ({
   runtimeConfig: { apiBase: '/v1/admin' },
@@ -44,6 +52,14 @@ describe('useCommerceProductMutations invalidation', () => {
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
     return { mutations, qk }
+  }
+
+  /** Task C1: the six `qk.commerceProductSection(uuid, section)` invalidateQueries calls, in the
+   * fixed `COMMERCE_PRODUCT_SECTIONS` order — every affected mutation below emits exactly this
+   * sequence right after its `qk.commerceProduct(uuid)` call. */
+  async function sectionCalls(uuid: string) {
+    const { qk, COMMERCE_PRODUCT_SECTIONS } = await import('@/queries/keys')
+    return COMMERCE_PRODUCT_SECTIONS.map((section) => [{ key: qk.commerceProductSection(uuid, section) }])
   }
 
   async function categoryBundle() {
@@ -90,12 +106,13 @@ describe('useCommerceProductMutations invalidation', () => {
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProducts() }]])
   })
 
-  it('update invalidates the product detail AND the list', async () => {
+  it('update invalidates the product detail, its six sections, AND the list', async () => {
     const { mutations, qk } = await bundle()
     mutations.update.onSettled?.(undefined, undefined, { uuid: 'prod00000001', input: {} })
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
       [{ key: qk.commerceProducts() }],
     ])
   })
@@ -116,17 +133,20 @@ describe('useCommerceProductMutations invalidation', () => {
   // `productUuid` explicitly (never inferred from the mutation's own response), so the pinned
   // invalidation still runs correctly even on failure.
 
-  it('createVariant invalidates the owning product only', async () => {
+  it('createVariant invalidates the owning product and its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.createVariant.onSettled?.(undefined, undefined, {
       productUuid: 'prod00000001',
       input: { sku: 'SKU-1', price: 100, currency: 'USD' },
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
-  it('updateVariant invalidates the owning product only', async () => {
+  it('updateVariant invalidates the owning product and its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.updateVariant.onSettled?.(undefined, undefined, {
       uuid: 'var00000001',
@@ -134,30 +154,39 @@ describe('useCommerceProductMutations invalidation', () => {
       input: { price: 200 },
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
-  it('bulkPrice invalidates the owning product only', async () => {
+  it('bulkPrice invalidates the owning product and its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.bulkPrice.onSettled?.(undefined, undefined, {
       productUuid: 'prod00000001',
       items: [{ uuid: 'var00000001', price: 300 }],
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
-  it('setChildren invalidates the owning product only', async () => {
+  it('setChildren invalidates the owning product and its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.setChildren.onSettled?.(undefined, undefined, {
       productUuid: 'prod00000001',
       childUuids: ['prod00000002'],
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
-  it('stockAdjust invalidates the owning product only', async () => {
+  it('stockAdjust invalidates the owning product and its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.stockAdjust.onSettled?.(undefined, undefined, {
       variantUuid: 'var00000001',
@@ -165,23 +194,29 @@ describe('useCommerceProductMutations invalidation', () => {
       input: { delta: -5, reason: 'damaged' },
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
   // Task 10c: media mutations invalidate ONLY the owning product, same reasoning as variants
   // above — no field ProductsTable renders comes from product media.
 
-  it('attachMedia invalidates the owning product only', async () => {
+  it('attachMedia invalidates the owning product and its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.attachMedia.onSettled?.(undefined, undefined, {
       productUuid: 'prod00000001',
       input: { blob_uuid: 'blob00000001' },
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
-  it('updateMedia invalidates the owning product only', async () => {
+  it('updateMedia invalidates the owning product and its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.updateMedia.onSettled?.(undefined, undefined, {
       uuid: 'media0000001',
@@ -189,41 +224,53 @@ describe('useCommerceProductMutations invalidation', () => {
       input: { alt: 'Updated' },
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
-  it('detachMedia invalidates the owning product only', async () => {
+  it('detachMedia invalidates the owning product and its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.detachMedia.onSettled?.(undefined, undefined, {
       uuid: 'media0000001',
       productUuid: 'prod00000001',
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
-  it('reorderMedia invalidates the owning product only', async () => {
+  it('reorderMedia invalidates the owning product and its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.reorderMedia.onSettled?.(undefined, undefined, {
       productUuid: 'prod00000001',
       orderedUuids: ['media0000001', 'media0000002'],
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
   // Task 10d: product category assignment invalidates ONLY the owning product — the category
   // LIST (`useCommerceCategories()`) shows no per-category product count, so a product's own
   // assignment changing never makes anything it renders stale.
 
-  it('setCategories invalidates the owning product only', async () => {
+  it('setCategories invalidates the owning product and its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.setCategories.onSettled?.(undefined, undefined, {
       productUuid: 'prod00000001',
       categoryUuids: ['cat00000001'],
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
   // Task 10d: category CRUD mutations invalidate the shared category list only.
@@ -253,14 +300,17 @@ describe('useCommerceProductMutations invalidation', () => {
   // (`useCommerceTags()`) shows no per-tag product count, so a product's own assignment
   // changing never makes anything it renders stale (mirrors setCategories above).
 
-  it('setTags invalidates the owning product only', async () => {
+  it('setTags invalidates the owning product and its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.setTags.onSettled?.(undefined, undefined, {
       productUuid: 'prod00000001',
       tagUuids: ['tag00000001'],
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
   // Task 19a: tag CRUD mutations invalidate the shared tag list only.
@@ -290,14 +340,17 @@ describe('useCommerceProductMutations invalidation', () => {
   // LIST (`useCommerceAttributes()`) shows no per-attribute product count, so a product's own
   // assignment changing never makes anything it renders stale (mirrors setTags/setCategories).
 
-  it('setAttributes invalidates the owning product only', async () => {
+  it('setAttributes invalidates the owning product and its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.setAttributes.onSettled?.(undefined, undefined, {
       productUuid: 'prod00000001',
       rows: [{ attribute_uuid: 'attr00000001', values: ['red'] }],
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProduct('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
   // Task 19b: attribute CRUD AND value CRUD both invalidate the shared attribute list only — a
@@ -354,17 +407,21 @@ describe('useCommerceProductMutations invalidation', () => {
   // qk.commerceProductAddons(productUuid) — never the product detail: no admin product endpoint
   // embeds `addons` in its payload, same reasoning as variants/media/stock above.
 
-  it('createAddon invalidates the owning product’s add-on list only', async () => {
+  it('createAddon invalidates the owning product’s add-on list, the product, AND its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.createAddon.onSettled?.(undefined, undefined, {
       productUuid: 'prod00000001',
       input: { name: 'Gift wrap', field_type: 'checkbox' },
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProductAddons('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProductAddons('prod00000001') }],
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
-  it('updateAddon invalidates the owning product’s add-on list only', async () => {
+  it('updateAddon invalidates the owning product’s add-on list, the product, AND its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.updateAddon.onSettled?.(undefined, undefined, {
       uuid: 'addon0000001',
@@ -372,17 +429,25 @@ describe('useCommerceProductMutations invalidation', () => {
       input: { name: 'Deluxe gift wrap' },
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProductAddons('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProductAddons('prod00000001') }],
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
-  it('removeAddon invalidates the owning product’s add-on list only', async () => {
+  it('removeAddon invalidates the owning product’s add-on list, the product, AND its six sections', async () => {
     const { mutations, qk } = await bundle()
     mutations.removeAddon.onSettled?.(undefined, undefined, {
       uuid: 'addon0000001',
       productUuid: 'prod00000001',
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProductAddons('prod00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceProductAddons('prod00000001') }],
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 
   // Task 19d: variant downloads are PER-VARIANT (deeper than add-ons' per-product scope), so every

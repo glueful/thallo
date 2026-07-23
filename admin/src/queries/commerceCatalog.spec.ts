@@ -472,6 +472,51 @@ describe('commerce catalog query layer', () => {
     expect(await req.clone().json()).toEqual({ child_uuids: ['child-1', 'child-2'] })
   })
 
+  // Task C1: `expected_revision` is optional on the five replacement mutations — omitted sends
+  // today's body byte-for-byte (no `expected_revision` key at all, not even `undefined`);
+  // supplied, it rides along on the wire (Global Constraints: "absent ⇒ today's serialize-only
+  // behavior byte-for-byte").
+  it('omits expected_revision from the children body when not supplied', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: [] }))
+
+    const { setProductChildren } = await import('@/queries/commerceCatalog')
+    await setProductChildren('p1', ['child-1'])
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    const body = await req.clone().json()
+    expect(body).toEqual({ child_uuids: ['child-1'] })
+    expect('expected_revision' in body).toBe(false)
+  })
+
+  it('sends expected_revision in the children body when supplied', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: [] }))
+
+    const { setProductChildren } = await import('@/queries/commerceCatalog')
+    await setProductChildren('p1', ['child-1'], 5)
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({ child_uuids: ['child-1'], expected_revision: 5 })
+  })
+
+  it('surfaces a stale expected_revision as a 409 with no ApiError field errors', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ success: false, message: 'Product was modified by another request.' }, 409),
+    )
+
+    const { setProductChildren } = await import('@/queries/commerceCatalog')
+    const { ApiError } = await import('@/api/errors')
+    let caught: unknown
+    try {
+      await setProductChildren('p1', ['child-1'], 1)
+    } catch (e) {
+      caught = e
+    }
+    expect(caught).toBeInstanceOf(ApiError)
+    expect((caught as InstanceType<typeof ApiError>).status).toBe(409)
+  })
+
   it('surfaces the "only grouped products can have children" constraint from a 422', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       jsonResponse(
@@ -690,6 +735,28 @@ describe('commerce catalog query layer', () => {
         { uuid: 'm2', position: 2 },
       ],
     })
+  })
+
+  it('sends expected_revision in the reorder body when supplied', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: [] }))
+
+    const { reorderProductMedia } = await import('@/queries/commerceCatalog')
+    await reorderProductMedia('p1', ['m1'], 9)
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({ positions: [{ uuid: 'm1', position: 0 }], expected_revision: 9 })
+  })
+
+  it('omits expected_revision from the reorder body when not supplied', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: [] }))
+
+    const { reorderProductMedia } = await import('@/queries/commerceCatalog')
+    await reorderProductMedia('p1', ['m1'])
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect('expected_revision' in (await req.clone().json())).toBe(false)
   })
 
   it('surfaces the "unknown media item" constraint from a reorder 422', async () => {
@@ -915,6 +982,28 @@ describe('commerce catalog query layer', () => {
 
     const req = fetchMock.mock.calls[0]![0] as Request
     expect(await req.clone().json()).toEqual({ category_uuids: ['cat1', 'cat2'] })
+  })
+
+  it('sends expected_revision in the set-categories body when supplied', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: [] }))
+
+    const { setProductCategories } = await import('@/queries/commerceCatalog')
+    await setProductCategories('p1', ['cat1'], 3)
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({ category_uuids: ['cat1'], expected_revision: 3 })
+  })
+
+  it('omits expected_revision from the set-categories body when not supplied', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: [] }))
+
+    const { setProductCategories } = await import('@/queries/commerceCatalog')
+    await setProductCategories('p1', ['cat1'])
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect('expected_revision' in (await req.clone().json())).toBe(false)
   })
 
   it('surfaces the "must reference existing categories" constraint from a set-categories 422', async () => {
@@ -1159,6 +1248,28 @@ describe('commerce catalog query layer', () => {
 
     const req = fetchMock.mock.calls[0]![0] as Request
     expect(await req.clone().json()).toEqual({ tag_uuids: ['tag1', 'tag2'] })
+  })
+
+  it('sends expected_revision in the set-tags body when supplied', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: [] }))
+
+    const { setProductTags } = await import('@/queries/commerceCatalog')
+    await setProductTags('p1', ['tag1'], 8)
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({ tag_uuids: ['tag1'], expected_revision: 8 })
+  })
+
+  it('omits expected_revision from the set-tags body when not supplied', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: [] }))
+
+    const { setProductTags } = await import('@/queries/commerceCatalog')
+    await setProductTags('p1', ['tag1'])
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect('expected_revision' in (await req.clone().json())).toBe(false)
   })
 
   it('surfaces the "must reference existing tags" constraint from a set-tags 422', async () => {
@@ -1561,6 +1672,31 @@ describe('commerce catalog query layer', () => {
         { name: 'Material', values: ['Cotton', 'Wool'], used_for_variants: false, visible: true },
       ],
     })
+  })
+
+  it('sends expected_revision in the set-attributes body when supplied', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: [] }))
+
+    const { setProductAttributes } = await import('@/queries/commerceCatalog')
+    await setProductAttributes('p1', [{ attribute_uuid: 'attr1', values: ['red'] }], 2)
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect(await req.clone().json()).toEqual({
+      attributes: [{ attribute_uuid: 'attr1', values: ['red'] }],
+      expected_revision: 2,
+    })
+  })
+
+  it('omits expected_revision from the set-attributes body when not supplied', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: [] }))
+
+    const { setProductAttributes } = await import('@/queries/commerceCatalog')
+    await setProductAttributes('p1', [{ attribute_uuid: 'attr1', values: ['red'] }])
+
+    const req = fetchMock.mock.calls[0]![0] as Request
+    expect('expected_revision' in (await req.clone().json())).toBe(false)
   })
 
   it('surfaces the composite-conflict "must not reference the same attribute more than once" 422 on set', async () => {
