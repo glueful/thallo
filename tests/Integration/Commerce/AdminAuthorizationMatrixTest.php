@@ -285,6 +285,114 @@ final class AdminAuthorizationMatrixTest extends AppTestCase
     }
 
     // ------------------------------------------------------------------
+    // products.stock.index (Task B1, single-page product editor plan): one representative
+    // read from Commerce 1.5.0's six new per-product reads, driven through the SAME two
+    // mechanisms as the products.index/products.store rows above -- a structural pin that its
+    // own live route carries the view-mode requirement, then session (RBAC-only, no API-key
+    // layer) and API-key gate checks against that requirement. `commerce.view`/`commerce.manage`
+    // are Thallo permissions; Commerce's own native mount uses `commerce:read`/`commerce:write`
+    // scopes instead (see AdminRouteCatalog's docblock) -- irrelevant here, since every scope
+    // this test grants an API key is a Thallo permission slug, never the native pair.
+    // ------------------------------------------------------------------
+
+    private const STOCK_INDEX_ROUTE = '/v1/admin/commerce/products/{uuid}/stock';
+
+    public function testStockIndexRouteRequirementMatchesTheLiveRouteMiddleware(): void
+    {
+        $route = $this->findRoute('GET', self::STOCK_INDEX_ROUTE);
+        self::assertNotNull($route, 'GET ' . self::STOCK_INDEX_ROUTE . ' must be registered');
+        self::assertContains(
+            'content_permission:' . implode(',', self::VIEW_REQUIREMENTS),
+            (array) $route['middleware'],
+        );
+    }
+
+    // (a) session principal with commerce.view -> allowed (200).
+    public function testStockIndexSessionWithViewPermissionIsAllowed(): void
+    {
+        $user = $this->userGranted(['commerce.view']);
+
+        self::assertTrue(
+            $this->passes($this->stockIndexRequest($user), self::VIEW_REQUIREMENTS),
+            'commerce.view alone must satisfy products.stock.index, a view-mode read',
+        );
+    }
+
+    // (b) principal with no commerce permission at all -> denied (403).
+    public function testStockIndexSessionWithNoCommercePermissionIsDenied(): void
+    {
+        $user = $this->userGranted([]);
+
+        self::assertFalse(
+            $this->passes($this->stockIndexRequest($user), self::VIEW_REQUIREMENTS),
+            'a principal holding no commerce permission must be denied products.stock.index',
+        );
+    }
+
+    // (c) API key scoped commerce.view whose subject's live RBAC role ALSO satisfies
+    // commerce.view -> allowed (200). Mirrors testApiKeyManageScopeAndManageRoleIsAllowed
+    // ForBothRequirements above (view/view instead of manage/manage: same candidate,
+    // both factors).
+    public function testStockIndexApiKeyViewScopeWithMatchingViewRoleIsAllowed(): void
+    {
+        $user = $this->userGranted(['commerce.view']);
+        $request = $this->apiKeyPrincipalRequest($user, ['commerce.view']);
+
+        self::assertTrue($this->passes($request, self::VIEW_REQUIREMENTS));
+    }
+
+    /**
+     * Drives the gate decision above through the REAL kernel against the actual mounted
+     * route, proving the Task B1 mount is genuinely reachable end to end -- not just that the
+     * abstract permission gate agrees. The seeded product deliberately carries ZERO variants:
+     * `items: []` with a `revision` present is a valid 200 for the stock read (Global
+     * Constraints; {@see \Glueful\Extensions\Commerce\Catalog\CatalogService::stockForProduct()}),
+     * which sidesteps {@see \Glueful\Extensions\Commerce\Inventory\StockIntegrityException} --
+     * the real read throws that (500) for any seeded variant lacking a matching `commerce_stock`
+     * row, so a variant-bearing fixture here would need a stock row seeded alongside it.
+     */
+    public function testStockIndexApiKeyViewScopeIsReachableThroughTheRealKernel(): void
+    {
+        $key = $this->seedApiKeyUser(['commerce.view'], ['commerce.view']);
+        $productUuid = $this->seedZeroVariantProduct();
+
+        $response = $this->handle($this->apiKeyRequest(
+            'GET',
+            '/v1/admin/commerce/products/' . $productUuid . '/stock',
+            $key,
+        ));
+
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        $decoded = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($decoded);
+        self::assertTrue($decoded['success'] ?? false, (string) $response->getContent());
+        self::assertEqualsCanonicalizing(['revision', 'items'], array_keys($decoded['data']));
+        self::assertSame([], $decoded['data']['items']);
+    }
+
+    private function stockIndexRequest(string $userUuid): Request
+    {
+        $request = Request::create(self::STOCK_INDEX_ROUTE, 'GET');
+        $request->attributes->set('user', ['uuid' => $userUuid, 'roles' => [], 'claims' => ['scopes' => []]]);
+
+        return $request;
+    }
+
+    /** Zero-variant product: sufficient for the stock read (`items: []`), no stock seeding needed. */
+    private function seedZeroVariantProduct(): string
+    {
+        $uuid = Utils::generateNanoID();
+        $this->connection()->table('commerce_products')->insert([
+            'uuid' => $uuid,
+            'tenant_uuid' => '',
+            'slug' => 'authz-matrix-stock-' . $uuid,
+            'name' => 'Authz Matrix Stock Product',
+        ]);
+
+        return $uuid;
+    }
+
+    // ------------------------------------------------------------------
     // drivers
     // ------------------------------------------------------------------
 

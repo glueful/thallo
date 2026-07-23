@@ -164,6 +164,10 @@
         "mode": "manage"
     },
     {
+        "key": "products.attributes.index",
+        "mode": "view"
+    },
+    {
         "key": "products.attributes.set",
         "mode": "manage"
     },
@@ -172,8 +176,16 @@
         "mode": "manage"
     },
     {
+        "key": "products.categories.index",
+        "mode": "view"
+    },
+    {
         "key": "products.categories.set",
         "mode": "manage"
+    },
+    {
+        "key": "products.children.index",
+        "mode": "view"
     },
     {
         "key": "products.children.set",
@@ -192,6 +204,10 @@
         "mode": "manage"
     },
     {
+        "key": "products.media.index",
+        "mode": "view"
+    },
+    {
         "key": "products.media.reorder",
         "mode": "manage"
     },
@@ -200,8 +216,16 @@
         "mode": "view"
     },
     {
+        "key": "products.stock.index",
+        "mode": "view"
+    },
+    {
         "key": "products.store",
         "mode": "manage"
+    },
+    {
+        "key": "products.tags.index",
+        "mode": "view"
     },
     {
         "key": "products.tags.set",
