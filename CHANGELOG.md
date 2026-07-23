@@ -27,9 +27,8 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   `thallo:tenant:sync --all --kind=content_type` step. Host seams added for it:
   tenant-adoption contributors (`thallo-tenancy`) and typed starter content-type
   contributors (`thallo-contracts`), both byte-inert with zero contributors. Marketplace
-  stays disabled; diagnostics flag it as unsupported in v1. Commerce is temporarily
-  consumed via a local path repository (`dev-dev`) until its host-integration seams
-  publish.
+  stays disabled; diagnostics flag it as unsupported in v1. Commerce is consumed from
+  the published `glueful/commerce` releases (`^1.4.0`).
 - **Storefront rendering** (`packages/thallo-commerce`, slice 2 of the ecommerce
   content-integration track): rendered shop pages, cart, and checkout over the embedded
   `glueful/commerce`, in Thallo's own theme system — commerce authoritative, enrichment
@@ -69,6 +68,34 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   template-path contributor between the active theme and the default fallback), both
   byte-identical with zero contributors. Marketplace/seller presentation, customer
   accounts, and Payvia credentialing are out of scope for v1.
+- **Admin commerce area** (slice 3 of the ecommerce content-integration track): the full
+  shop-management surface inside the admin SPA, backed by Commerce's admin JSON API
+  re-mounted at `/v1/admin/commerce` through Commerce 1.4.0's mountable
+  `AdminRouteCatalog` — an explicit fail-closed 98-key allowlist (a newly added Commerce
+  endpoint stays unmounted until consciously approved; approved-inventory parity tests
+  keep catalog, allowlist, and mounted routes locked three ways), behind the standard
+  admin session/workspace-binding stack so workspace selection drives the Commerce tenant
+  context. Authorization gains `commerce.view` alongside the renamed `commerce.manage`
+  ("Manage commerce"), evaluated by one reusable `PermissionRequirementAuthority` with
+  declarative catalog implications (manage ⟹ view) and candidate-wise API-key
+  scope∩RBAC intersection; the pack's `/meta` endpoint (currency + authoritative
+  ISO-4217 exponent, canonical shop-index URL, effective `can_view`/`can_manage` flags)
+  consumes the same authority through a neutral `thallo-contracts` seam, so route gate
+  and UI flags can never disagree. SPA surfaces: Overview (sales/products/stock reports +
+  acquisition tiles), Products (variants, composition, inventory adjust, media,
+  categories/tags/attributes with values, add-ons, per-variant digital downloads),
+  bidirectional product↔entry linking (one shared panel on the product detail and — via
+  the new capability-gated, settle-before-admit `entryEditorPanels` manifest — the entry
+  editor; explicit CAS relink with conflict recovery; server-built absolute preview URLs,
+  the client never assembles storefront URLs), Orders (state-machine-mirrored lifecycle
+  actions, refunds with exact BigInt minor-unit entry against the refundable ceiling,
+  notes, invoice data), Discounts (percentage in true basis-points parity with the
+  pricing engine, fixed amounts in minor units), Settings (shipping zones/locations/
+  methods incl. per-class tables, shipping classes, tax rates), Reviews moderation
+  (transition-faithful, XSS-safe), and read-only Customers. All amounts flow through one
+  BigInt-safe money formatter (0/2/3-decimal exponents, no float arithmetic); mutation
+  controls hide without `commerce.manage` while every surface stays readable with
+  `commerce.view`.
 - **Full tenant resolution and operations**: verified custom domains plus
   subdomain fallback for public delivery, header/JWT resolution for the admin,
   a resumable fresh-boot activation flow, tenant/domain/membership HTTP and CLI
