@@ -17,6 +17,7 @@ import {
   useProductCategories,
   useProductTags,
   useProductAttributes,
+  useProductChildren,
 } from '@/queries/commerceProductSections'
 import { useNotify } from '@/composables/useNotify'
 import {
@@ -37,6 +38,7 @@ import MediaPanel from '../components/MediaPanel.vue'
 import OrganizationCard from '../components/OrganizationCard.vue'
 import AddonsPanel from '../components/AddonsPanel.vue'
 import DownloadsPanel from '../components/DownloadsPanel.vue'
+import ChildrenCard from '../components/ChildrenCard.vue'
 import ProductEntryLinkPanel from '@/components/commerce/ProductEntryLinkPanel.vue'
 
 const route = useRoute()
@@ -75,6 +77,9 @@ const mediaState = shallowRef<SectionState | null>(null)
 // card-level chip AND this shell's nav indicator both read off it, combined (worst-wins, via
 // `resolveSectionIndicator`) with the pre-existing draft-only "Variants · n" hint below.
 const pricingState = shallowRef<SectionState | null>(null)
+// Task C8: ChildrenCard emits its own 'children' SectionState the same emit-once way (grouped
+// products only).
+const childrenState = shallowRef<SectionState | null>(null)
 
 // Task C6: Organization's three subsections (Categories/Tags/Attributes) each self-register their
 // OWN `useSectionState()` inside `OrganizationCard` (which "hoists nothing" — see its own
@@ -100,6 +105,10 @@ const { data: mediaSection, status: mediaSectionStatus } = useProductMedia(uuid)
 const { data: categoriesSection, status: categoriesSectionStatus } = useProductCategories(uuid)
 const { data: tagsSection, status: tagsSectionStatus } = useProductTags(uuid)
 const { data: attributesSection, status: attributesSectionStatus } = useProductAttributes(uuid)
+// Task C8: ChildrenCard holds its own subscription to the SAME Colada query key for hydration —
+// this is a second, cheap subscriber (no extra request) purely for the nav's draft-only
+// "Children · n" empty-hint, same reasoning as `mediaSection` above.
+const { data: childrenSection, status: childrenSectionStatus } = useProductChildren(uuid)
 
 const isDigital = computed(() => product.value?.type === 'digital')
 const isGrouped = computed(() => product.value?.type === 'grouped')
@@ -149,9 +158,17 @@ const organizationIndicator = computed<SectionNavIndicator>(() =>
   ]),
 )
 
-// Nav indicators: HONESTY over completeness (Task C4 brief), now extended by Task C5/C6/C7's real
-// Details/Images/Organization/Pricing wiring. Add-ons/Downloads/Linked content/Grouped products
-// stay null until C8 wires its own `useSectionState()` the same way.
+// Task C8: same draft-only, count-based, load-resolved-only discipline as `mediaHint` above.
+const childrenHint = computed<string | undefined>(() => {
+  if (!isDraft.value) return undefined
+  if (childrenSectionStatus.value !== 'success' || !childrenSection.value) return undefined
+  return `Children · ${childrenSection.value.items.length}`
+})
+
+// Nav indicators: HONESTY over completeness (Task C4 brief), now extended by Task C5/C6/C7/C8's
+// real Details/Images/Organization/Pricing/Grouped-products wiring. Add-ons/Downloads/Linked
+// content stay null — they're immediate-mutation CRUD panels (every add/edit/delete commits
+// straight away, no draft-and-save flow), so there is no `useSectionState()` phase/dirty to show.
 const navSections = computed<SectionNavItem[]>(() => {
   const p = product.value
   if (!p) return []
@@ -187,7 +204,16 @@ const navSections = computed<SectionNavItem[]>(() => {
   }
   items.push({ id: 'content', label: 'Linked content', indicator: null })
   if (p.type === 'grouped') {
-    items.push({ id: 'children', label: 'Grouped products', indicator: null })
+    const childrenIndicator = resolveSectionIndicator([
+      stateIndicator(childrenState.value),
+      childrenHint.value ? 'hint' : null,
+    ])
+    items.push({
+      id: 'children',
+      label: 'Grouped products',
+      indicator: childrenIndicator,
+      hint: childrenHint.value,
+    })
   }
   return items
 })
@@ -351,15 +377,18 @@ async function confirmDelete() {
               />
             </EditorSectionCard>
 
-            <!-- Grouped products: the actual composition editor still lives inside VariantsPanel's
-                 "Child products" section (untouched, above) — nothing standalone exists yet, so
-                 this card is a placeholder shell until ChildrenCard proper ships in Task C8. -->
-            <EditorSectionCard v-if="isGrouped" section-id="children" title="Grouped products">
-              <p class="text-sm text-muted" data-test="children-card-placeholder">
-                Child products are managed from the
-                <a href="#section-pricing" class="text-primary underline">Pricing & stock</a>
-                section above for now. A dedicated editor lands here soon.
-              </p>
+            <EditorSectionCard
+              v-if="isGrouped"
+              section-id="children"
+              title="Grouped products"
+              :state="childrenState ?? undefined"
+            >
+              <ChildrenCard
+                :key="product.uuid"
+                :product="product"
+                :can-manage="canManage"
+                @state="(s) => (childrenState = s)"
+              />
             </EditorSectionCard>
           </div>
 

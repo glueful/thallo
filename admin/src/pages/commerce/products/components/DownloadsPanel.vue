@@ -18,7 +18,17 @@
 //
 // Money-free domain: a download definition carries no price of its own (delivery is bundled into
 // the owning variant's price) — no `useMoney` import anywhere in this file.
-import { computed, reactive, ref } from 'vue'
+//
+// Single-page product editor plan, Task C8 (C1 review "Important" carry-over): the three download
+// mutations gained an OPTIONAL `productUuid` in Task C1 (invalidates the owning product + its six
+// section reads when supplied, byte-for-byte pre-C1 when omitted) but this panel never passed it —
+// now it always does, so a download attach/update/remove settles the shared revision coordinator
+// (Task C3) the same way every other section mutation on this page does. Coordinator injected
+// OPTIONALLY (`inject(..., null)`) so every pre-C8 spec that mounts this panel directly, with no
+// ancestor `ProductRevisionCoordinator`, keeps working unchanged (mirrors AddonsPanel/VariantsPanel/
+// MediaPanel's own established convention) — the panel renders inside the editor only, but this
+// keeps it working standalone too.
+import { computed, inject, reactive, ref } from 'vue'
 import {
   useCommerceVariantDownloads,
   useCommerceProductMutations,
@@ -30,6 +40,7 @@ import {
 } from '@/queries/commerceCatalog'
 import { toApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
+import { ProductRevisionCoordinatorKey } from '@/composables/useProductRevisionCoordinator'
 import MediaPickerModal from '@/fields/components/MediaPickerModal.vue'
 
 const props = defineProps<{ product: CommerceProduct; canManage: boolean }>()
@@ -56,6 +67,7 @@ function toggleVariant(variantUuid: string) {
 }
 
 const { attachDownload, updateDownload, removeDownload } = useCommerceProductMutations()
+const coordinator = inject(ProductRevisionCoordinatorKey, null)
 
 // ── Create / edit (shared form, mirrors AddonsPanel/VariantsPanel's single shared form) ────────
 
@@ -162,6 +174,7 @@ async function submitForm(variantUuid: string) {
       await updateDownload.mutateAsync({
         uuid: editingUuid.value,
         variantUuid,
+        productUuid: props.product.uuid,
         input: {
           name,
           download_limit: downloadLimit,
@@ -170,10 +183,12 @@ async function submitForm(variantUuid: string) {
           status: state.status,
         },
       })
+      await coordinator?.afterMutation()
       success('Download saved', `“${name}” was updated.`)
     } else {
       await attachDownload.mutateAsync({
         variantUuid,
+        productUuid: props.product.uuid,
         input: {
           blob_uuid: pendingBlobUuid.value as string,
           name,
@@ -182,6 +197,7 @@ async function submitForm(variantUuid: string) {
           position,
         },
       })
+      await coordinator?.afterMutation()
       success('Download attached', `“${name}” is ready.`)
     }
     closeForm()
@@ -200,7 +216,12 @@ async function confirmDelete() {
   const target = pendingDelete.value
   if (!target) return
   try {
-    await removeDownload.mutateAsync({ uuid: target.download.uuid, variantUuid: target.variantUuid })
+    await removeDownload.mutateAsync({
+      uuid: target.download.uuid,
+      variantUuid: target.variantUuid,
+      productUuid: props.product.uuid,
+    })
+    await coordinator?.afterMutation()
     success('Download detached', `“${target.download.name}” was removed.`)
     pendingDelete.value = null
   } catch (e) {

@@ -96,6 +96,25 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   BigInt-safe money formatter (0/2/3-decimal exponents, no float arithmetic); mutation
   controls hide without `commerce.manage` while every surface stays readable with
   `commerce.view`.
+- **Single-page product editor** (admin SPA, on glueful/commerce 1.5.0): the product
+  detail page becomes one scrollable editor of independently-saving section cards
+  (Details, Images, Pricing & stock, Organization, Add-ons, Downloads, Linked content,
+  Grouped products) with a sticky scroll-spied section nav — the whole authoring surface
+  is visible at once. Every assignment section hydrates its existing state from Commerce
+  1.5.0's six per-product reads (`{revision, items}` envelopes), so replacement saves are
+  built from server truth plus the user's edits — the blind-replacement warnings and the
+  off-page wipe risk are gone. Replacement mutations carry `expected_revision` (Commerce's
+  new CAS guard): concurrent edits surface as content-aware recovery — unrelated bumps
+  rebase silently, category/tag sets three-way-merge deterministically, and structured
+  data (attributes, media order, child composition) gets an explicit "Use latest" /
+  "Replace with mine" review; nothing ever auto-retries. Per-section Saving/Saved/
+  error/unsaved chips, a page dirty-registry blocking navigation while anything is
+  unsaved or mid-save, progressive pricing disclosure (simple products get a compact
+  SKU/price/compare-at/stock card; variant-heavy products the full table), compare-at
+  prices now editable (and clearable) everywhere, per-variant stock quantities shown from
+  the real inventory read (integrity failures render honestly instead of fabricated
+  zeros), and grouped-product composition moves to a hydrated Children card that shows
+  attached tombstoned children truthfully.
 - **Draft-first product creation** (admin SPA): "New product" now asks only for name,
   type, and — for purchasable types — a starting price; slug, SKU, currency, and the
   `draft` status are derived (shown in a preview line) and the page navigates straight

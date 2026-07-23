@@ -1323,6 +1323,28 @@ export function useCommerceProduct(
   })
 }
 
+/** `ChildrenCard.vue`'s "add a child" picker (single-page product editor plan, Task C8): reuses
+ * `fetchProducts` — the SAME "existing product search" the main products list
+ * (`pages/commerce/products/index.vue`) and `useProductSearchForLink`'s entry-linking picker
+ * (`commerceLinking.ts`) already call — via its own dedicated cache key so this narrow picker query
+ * never collides with (or unnecessarily populates) `qk.commerceProducts()`'s cache entries. Same
+ * 2-character floor as `useProductSearchForLink`, for the identical reason: an unfiltered picker
+ * would otherwise fetch and show the entire catalog by default.
+ *
+ * Purchasable-type filtering (physical/digital only — `CatalogService::PURCHASABLE_TYPES`),
+ * excluding the product being edited, and excluding uuids already in the draft are all the
+ * CALLER's job (`ChildrenCard.vue`): the admin list's `type` query param only accepts a SINGLE
+ * value, so it can't ask the backend for "physical OR digital" in one call, and
+ * self/already-in-draft exclusion is inherently caller-state this hook has no way to know. */
+export function useProductSearchForChildren(q: MaybeRefOrGetter<string>) {
+  return useQuery({
+    key: () => ['commerce-product-search-for-children', toValue(q)] as const,
+    query: () =>
+      fetchProducts({ q: toValue(q), page: 1, perPage: 10 }).then((page): CommerceProduct[] => page.products),
+    enabled: () => toValue(q).trim().length >= 2,
+  })
+}
+
 /** A product's add-on definitions — a real admin GET (see `CommerceAddon`'s docblock), so
  * `AddonsPanel.vue` hydrates directly from this, no "unknown assignment" placeholder needed
  * (unlike `useCommerceProduct`'s siblings for media/children/tags/categories/attributes). */

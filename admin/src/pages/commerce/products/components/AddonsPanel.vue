@@ -21,7 +21,14 @@
 // never touches an existing cart/order line (`AddonSnapshot` bakes display+price into the line at
 // selection time) — surfaced here as a standing notice, not just a one-off toast, since it's the
 // kind of thing an admin needs to know BEFORE editing or deactivating, not just after.
-import { computed, reactive, ref } from 'vue'
+//
+// Single-page product editor plan, Task C8: add-on mutations are in C1's invalidation matrix
+// (`createAddon`/`updateAddon`/`removeAddon` already invalidate the owning product + its six
+// section reads), so every successful save here also awaits the page-level revision coordinator's
+// `afterMutation()` exactly once — coordinator injected OPTIONALLY (`inject(..., null)`) so every
+// pre-C8 spec that mounts this panel directly, with no ancestor `ProductRevisionCoordinator`,
+// keeps working unchanged (mirrors VariantsPanel/MediaPanel's own established convention).
+import { computed, inject, reactive, ref } from 'vue'
 import {
   useCommerceProductAddons,
   useCommerceProductMutations,
@@ -36,6 +43,7 @@ import { useCommerceMeta } from '@/queries/commerceMeta'
 import { useMoney, parseMajorAmountToMinorUnits } from '@/composables/useMoney'
 import { toApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
+import { ProductRevisionCoordinatorKey } from '@/composables/useProductRevisionCoordinator'
 
 const props = defineProps<{ product: CommerceProduct; canManage: boolean }>()
 
@@ -85,6 +93,7 @@ function parseSignedMajorAmountToMinorUnits(input: string, exponent: number): bi
 const productUuid = computed(() => props.product.uuid)
 const { data: addonsData, status } = useCommerceProductAddons(productUuid)
 const { createAddon, updateAddon, removeAddon } = useCommerceProductMutations()
+const coordinator = inject(ProductRevisionCoordinatorKey, null)
 
 const rows = computed<CommerceAddon[]>(() => addonsData.value ?? [])
 
@@ -263,9 +272,11 @@ async function submitForm() {
         productUuid: props.product.uuid,
         input: payload,
       })
+      await coordinator?.afterMutation()
       success('Add-on saved', `“${name}” was updated.`)
     } else {
       await createAddon.mutateAsync({ productUuid: props.product.uuid, input: payload })
+      await coordinator?.afterMutation()
       success('Add-on created', `“${name}” is ready.`)
     }
     formOpen.value = false
@@ -284,6 +295,7 @@ async function confirmDelete() {
   if (!addon) return
   try {
     await removeAddon.mutateAsync({ uuid: addon.uuid, productUuid: props.product.uuid })
+    await coordinator?.afterMutation()
     success('Add-on deleted', `“${addon.name}” was removed.`)
     pendingDelete.value = null
   } catch (e) {

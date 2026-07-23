@@ -450,12 +450,17 @@ describe('useCommerceProductMutations invalidation', () => {
     ])
   })
 
-  // Task 19d: variant downloads are PER-VARIANT (deeper than add-ons' per-product scope), so every
-  // one of attach/update/remove invalidates ONLY qk.commerceVariantDownloads(variantUuid) — never
-  // the product detail or the add-ons list: no admin product endpoint embeds `downloads` in its
-  // payload, same reasoning as createAddon/updateAddon/removeAddon above.
+  // Task 19d: variant downloads are PER-VARIANT (deeper than add-ons' per-product scope). Every
+  // one of attach/update/remove ALWAYS invalidates qk.commerceVariantDownloads(variantUuid); the
+  // owning product detail and its six section reads are invalidated too whenever the caller
+  // supplies `productUuid` on the mutation's vars — OPTIONAL on this trio only (see
+  // useCommerceProductMutations()'s own docblock). `DownloadsPanel.vue` omitted it pre-Task-C8
+  // (the mutation vars gained the field in Task C1, but nothing passed it yet); Task C8 wired the
+  // panel to always supply it, so production now exercises the "supplied" rows below on every
+  // save — the "omitted" row remains a real, still-reachable byte-for-byte-pre-C1 behavior for any
+  // OTHER caller that doesn't know the owning product, not a merely-historical case.
 
-  it('attachDownload invalidates the owning variant’s download list only', async () => {
+  it('attachDownload invalidates the owning variant’s download list only when productUuid is omitted', async () => {
     const { mutations, qk } = await bundle()
     mutations.attachDownload.onSettled?.(undefined, undefined, {
       variantUuid: 'var00000001',
@@ -465,7 +470,7 @@ describe('useCommerceProductMutations invalidation', () => {
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceVariantDownloads('var00000001') }]])
   })
 
-  it('updateDownload invalidates the owning variant’s download list only', async () => {
+  it('updateDownload invalidates the owning variant’s download list only when productUuid is omitted', async () => {
     const { mutations, qk } = await bundle()
     mutations.updateDownload.onSettled?.(undefined, undefined, {
       uuid: 'down00000001',
@@ -476,7 +481,7 @@ describe('useCommerceProductMutations invalidation', () => {
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceVariantDownloads('var00000001') }]])
   })
 
-  it('removeDownload invalidates the owning variant’s download list only', async () => {
+  it('removeDownload invalidates the owning variant’s download list only when productUuid is omitted', async () => {
     const { mutations, qk } = await bundle()
     mutations.removeDownload.onSettled?.(undefined, undefined, {
       uuid: 'down00000001',
@@ -484,5 +489,51 @@ describe('useCommerceProductMutations invalidation', () => {
     })
 
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceVariantDownloads('var00000001') }]])
+  })
+
+  it('attachDownload invalidates the download list, the product, AND its six sections when productUuid is supplied (DownloadsPanel’s real call shape as of Task C8)', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.attachDownload.onSettled?.(undefined, undefined, {
+      variantUuid: 'var00000001',
+      productUuid: 'prod00000001',
+      input: { blob_uuid: 'blob00000001', name: 'Ebook (PDF)' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceVariantDownloads('var00000001') }],
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
+  })
+
+  it('updateDownload invalidates the download list, the product, AND its six sections when productUuid is supplied (DownloadsPanel’s real call shape as of Task C8)', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.updateDownload.onSettled?.(undefined, undefined, {
+      uuid: 'down00000001',
+      variantUuid: 'var00000001',
+      productUuid: 'prod00000001',
+      input: { name: 'Ebook (2nd edition)' },
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceVariantDownloads('var00000001') }],
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
+  })
+
+  it('removeDownload invalidates the download list, the product, AND its six sections when productUuid is supplied (DownloadsPanel’s real call shape as of Task C8)', async () => {
+    const { mutations, qk } = await bundle()
+    mutations.removeDownload.onSettled?.(undefined, undefined, {
+      uuid: 'down00000001',
+      variantUuid: 'var00000001',
+      productUuid: 'prod00000001',
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceVariantDownloads('var00000001') }],
+      [{ key: qk.commerceProduct('prod00000001') }],
+      ...(await sectionCalls('prod00000001')),
+    ])
   })
 })

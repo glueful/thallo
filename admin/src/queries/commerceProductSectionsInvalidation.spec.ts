@@ -29,7 +29,9 @@ vi.mock('@pinia/colada', () => ({
 }))
 
 type ProductMutationName =
+  | 'create'
   | 'update'
+  | 'bulkStatus'
   | 'createVariant'
   | 'updateVariant'
   | 'bulkPrice'
@@ -154,7 +156,38 @@ describe('commerce product-section invalidation matrix (Task C1)', () => {
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceVariantDownloads('var00000001') }]])
   })
 
-  it('create/bulkStatus/remove never touch any section key — no product uuid exists yet, or it is gone', async () => {
+  it('create never touches any section key — no product uuid exists yet', async () => {
+    const { mutations, qk, COMMERCE_PRODUCT_SECTIONS } = await bundle()
+
+    mutations.create.onSettled?.(undefined, undefined, undefined)
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProducts() }]])
+    for (const section of COMMERCE_PRODUCT_SECTIONS) {
+      expect(cacheInvalidate.mock.calls).not.toContainEqual([
+        { key: qk.commerceProductSection('prod00000001', section) },
+      ])
+    }
+  })
+
+  it('bulkStatus never touches any section key — it targets a set of uuids, not one product', async () => {
+    const { mutations, qk, COMMERCE_PRODUCT_SECTIONS } = await bundle()
+
+    mutations.bulkStatus.onSettled?.(undefined, undefined, {
+      uuids: ['prod00000001', 'prod00000002'],
+      status: 'archived',
+    })
+
+    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceProducts() }]])
+    for (const uuid of ['prod00000001', 'prod00000002']) {
+      for (const section of COMMERCE_PRODUCT_SECTIONS) {
+        expect(cacheInvalidate.mock.calls).not.toContainEqual([
+          { key: qk.commerceProductSection(uuid, section) },
+        ])
+      }
+    }
+  })
+
+  it('remove never touches any section key — the product is gone', async () => {
     const { mutations, qk, COMMERCE_PRODUCT_SECTIONS } = await bundle()
 
     mutations.remove.onSettled?.(undefined, undefined, 'prod00000002')

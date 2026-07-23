@@ -14,9 +14,15 @@
 // component directly, with no ancestor `ProductRevisionCoordinator`, keeps working unchanged — the
 // `await coordinator?.afterMutation()` calls below are then no-ops. Every successful
 // create/update/bulk-price/stock-adjust mutation awaits it exactly once (task brief: "every
-// successful variant/stock mutation awaits afterMutation() exactly once"); `setChildren` is
-// deliberately NOT wired here — that's Task C8's `ChildrenCard` scope.
-import { computed, inject, reactive, ref, useTemplateRef } from 'vue'
+// successful variant/stock mutation awaits afterMutation() exactly once").
+//
+// Task C8: the grouped-product "Child products" composition editor that used to live at the
+// bottom of this panel (a plain comma-separated-uuid textarea, plus session-only `knownChildren`
+// tracking of the setChildren response) has been MOVED to its own `ChildrenCard.vue` — hydrated
+// from the real `products.children.index` read, a proper picker, and full C3 conflict-review
+// wiring. This panel no longer imports `setChildren` or knows about grouped-product children at
+// all.
+import { inject, reactive, ref, useTemplateRef } from 'vue'
 import * as z from 'zod'
 import type { Form, FormSubmitEvent } from '@nuxt/ui'
 import {
@@ -43,8 +49,7 @@ const props = withDefaults(
 
 const { success, error: notifyError } = useNotify()
 const { format } = useMoney()
-const { createVariant, updateVariant, bulkPrice, setChildren, stockAdjust } =
-  useCommerceProductMutations()
+const { createVariant, updateVariant, bulkPrice, stockAdjust } = useCommerceProductMutations()
 const coordinator = inject(ProductRevisionCoordinatorKey, null)
 
 /** Blank input = no compare-at price (`null`/omitted); a non-digit string is rejected before the
@@ -290,38 +295,6 @@ async function applyStockAdjust() {
     const err = toApiError(e)
     stockFormError.value = Object.values(err.fieldErrors)[0] ?? err.message
     notifyError(err, 'Couldn’t adjust stock')
-  }
-}
-
-// ── Children (grouped products only) ────────────────────────────────────────────────────────
-
-const isGrouped = computed(() => props.product.type === 'grouped')
-const childrenInput = ref('')
-const childrenError = ref<string | null>(null)
-const knownChildren = ref<CommerceProduct[] | null>(null)
-
-function parseChildUuids(raw: string): string[] {
-  return raw
-    .split(/[,\n]/)
-    .map((s) => s.trim())
-    .filter((s) => s !== '')
-}
-
-async function saveChildren() {
-  childrenError.value = null
-  const uuids = parseChildUuids(childrenInput.value)
-  try {
-    const children = await setChildren.mutateAsync({
-      productUuid: props.product.uuid,
-      childUuids: uuids,
-    })
-    knownChildren.value = children
-    childrenInput.value = children.map((c) => c.uuid).join(', ')
-    success('Children updated', `${children.length} child product(s) set.`)
-  } catch (e) {
-    const err = toApiError(e)
-    childrenError.value = Object.values(err.fieldErrors)[0] ?? err.message
-    notifyError(err, 'Couldn’t set children')
   }
 }
 </script>
@@ -616,51 +589,6 @@ async function saveChildren() {
           class="w-full"
         />
       </div>
-    </section>
-
-    <!-- Children (grouped products only) --------------------------------------------------- -->
-    <section
-      v-if="isGrouped"
-      data-test="children-section"
-      class="space-y-3 border-t border-default pt-6"
-    >
-      <h3 class="text-sm font-medium text-default">Child products</h3>
-      <p class="text-xs text-muted">
-        Comma-separated child product UUIDs. Saving replaces the entire child list.
-      </p>
-      <UTextarea
-        v-model="childrenInput"
-        :rows="2"
-        :disabled="!canManage"
-        placeholder="e.g. prod_abc123, prod_def456"
-        class="w-full"
-        data-test="children-input"
-      />
-      <UAlert
-        v-if="childrenError"
-        color="error"
-        variant="subtle"
-        icon="i-lucide-triangle-alert"
-        data-test="children-error"
-        :title="childrenError"
-      />
-      <UButton
-        v-if="canManage"
-        size="xs"
-        :loading="setChildren.isLoading.value"
-        label="Save children"
-        data-test="children-save"
-        @click="saveChildren"
-      />
-      <ul
-        v-if="knownChildren && knownChildren.length > 0"
-        data-test="children-list"
-        class="space-y-1 text-sm text-muted"
-      >
-        <li v-for="child in knownChildren" :key="child.uuid">
-          {{ child.name }} ({{ child.slug }})
-        </li>
-      </ul>
     </section>
   </div>
 </template>

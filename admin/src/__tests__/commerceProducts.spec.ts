@@ -18,6 +18,7 @@ import type {
   AssignedCategory,
   AssignedTag,
   ProductAttributeAssignment,
+  ProductChildItem,
   ProductMediaItem,
   SectionEnvelope,
   VariantStock,
@@ -84,6 +85,13 @@ const stockSectionData = ref<SectionEnvelope<VariantStock> | undefined>(undefine
 const stockSectionStatus = ref<'pending' | 'error' | 'success'>('success')
 const stockSectionRefetchMock = vi.hoisted(() => vi.fn())
 
+// Task C8: the children section read — mocked the same shape-preserving way as the others above.
+// `ChildrenCard` owns this subscription; the shell holds a second, cheap subscription of its own
+// purely for the nav's draft-only "Children · n" hint (mirrors `mediaSectionData` above).
+const childrenSectionData = ref<SectionEnvelope<ProductChildItem> | undefined>(undefined)
+const childrenSectionStatus = ref<'pending' | 'error' | 'success'>('success')
+const childrenSectionRefetchMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/queries/commerceProductSections', () => ({
   useProductMedia: () => ({
     data: mediaSectionData,
@@ -109,6 +117,11 @@ vi.mock('@/queries/commerceProductSections', () => ({
     data: stockSectionData,
     status: stockSectionStatus,
     refetch: stockSectionRefetchMock,
+  }),
+  useProductChildren: () => ({
+    data: childrenSectionData,
+    status: childrenSectionStatus,
+    refetch: childrenSectionRefetchMock,
   }),
 }))
 
@@ -204,6 +217,13 @@ const attachDownloadMock = vi.hoisted(() => vi.fn())
 const updateDownloadMock = vi.hoisted(() => vi.fn())
 const removeDownloadMock = vi.hoisted(() => vi.fn())
 
+// Task C8: ChildrenCard's "add a child" picker — `useProductSearchForChildren`, mocked the same
+// shape-preserving way as the rest of this file's query mocks (`childrenPickerResultsMock`'s
+// default implementation always resolves with whatever `childrenPickerResults` currently holds).
+const childrenPickerResults = ref<CommerceProduct[] | undefined>(undefined)
+const childrenPickerStatus = ref<'pending' | 'error' | 'success'>('success')
+const lastChildrenPickerQuery = vi.hoisted(() => ({ current: undefined as unknown }))
+
 vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceCatalog')>()
   return {
@@ -237,6 +257,10 @@ vi.mock('@/queries/commerceCatalog', async (importOriginal) => {
     useCommerceProductAddons: (uuid: unknown) => {
       lastAddonsProductUuid.current = uuid
       return { data: addonsData, status: addonsStatus }
+    },
+    useProductSearchForChildren: (q: unknown) => {
+      lastChildrenPickerQuery.current = q
+      return { data: childrenPickerResults, status: childrenPickerStatus }
     },
     useCommerceVariantDownloads: (uuid: unknown) => {
       lastDownloadsVariantUuid.current = uuid
@@ -282,6 +306,7 @@ import TagsTab from '@/pages/commerce/products/components/TagsTab.vue'
 import AttributesTab from '@/pages/commerce/products/components/AttributesTab.vue'
 import AddonsPanel from '@/pages/commerce/products/components/AddonsPanel.vue'
 import DownloadsPanel from '@/pages/commerce/products/components/DownloadsPanel.vue'
+import ChildrenCard from '@/pages/commerce/products/components/ChildrenCard.vue'
 import ProductsIndex from '@/pages/commerce/products/index.vue'
 import ProductDetail from '@/pages/commerce/products/[uuid]/index.vue'
 import EditorSectionCard from '@/pages/commerce/products/components/EditorSectionCard.vue'
@@ -348,6 +373,21 @@ function mediaItem(overrides: Partial<ProductMediaItem> = {}): ProductMediaItem 
     position: 0,
     alt: null,
     variant_uuid: null,
+    ...overrides,
+  }
+}
+
+/** A `products.children.index` (Task C1) row — the section-read projection `ChildrenCard`
+ * hydrates from. `deleted: false`/live status by default; individual tests override `deleted`
+ * to exercise the honest tombstone rendering. */
+function childItem(overrides: Partial<ProductChildItem> = {}): ProductChildItem {
+  return {
+    uuid: 'child1',
+    name: 'Child One',
+    slug: 'child-one',
+    status: 'active',
+    deleted: false,
+    position: 0,
     ...overrides,
   }
 }
@@ -574,6 +614,17 @@ beforeEach(() => {
     data: stockSectionData.value,
     error: null,
   }))
+  childrenSectionData.value = { revision: 0, items: [] }
+  childrenSectionStatus.value = 'success'
+  childrenSectionRefetchMock.mockReset()
+  childrenSectionRefetchMock.mockImplementation(async () => ({
+    status: childrenSectionStatus.value,
+    data: childrenSectionData.value,
+    error: null,
+  }))
+  childrenPickerResults.value = undefined
+  childrenPickerStatus.value = 'success'
+  lastChildrenPickerQuery.current = undefined
   categoriesData.value = []
   categoriesStatus.value = 'success'
   categoryCreateMock.mockReset()
@@ -1254,19 +1305,30 @@ describe('commerce product detail page', () => {
     wrapper.unmount()
   })
 
-  it('shows a placeholder Grouped products card only for grouped products (the real composition UI still lives in Pricing & stock)', async () => {
+  it('shows the real Grouped products (ChildrenCard) only for grouped products, and nowhere inside Pricing & stock (Task C8)', async () => {
     singleProduct.value = product({ uuid: 'p1', name: 'Widget', type: 'grouped' })
+    childrenSectionData.value = { revision: 3, items: [childItem({ uuid: 'child1', name: 'Child One' })] }
     const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
     await flushPromises()
 
     const childrenCard = wrapper.find('[data-test="editor-section-children"]')
     expect(childrenCard.exists()).toBe(true)
-    expect(childrenCard.find('[data-test="children-card-placeholder"]').exists()).toBe(true)
-    // VariantsPanel's own children editor is untouched and still the real place a grouped
-    // product's children are set — it lives inside the Pricing & stock card, not here.
+    expect(childrenCard.find('[data-test="children-row"]').exists()).toBe(true)
+    expect(childrenCard.text()).toContain('Child One')
+    // The composition editor lives ONLY in its own card now — never inside Pricing & stock.
     expect(
-      wrapper.find('[data-test="editor-section-pricing"] [data-test="children-section"]').exists(),
-    ).toBe(true)
+      wrapper.find('[data-test="editor-section-pricing"] [data-test="children-row"]').exists(),
+    ).toBe(false)
+    expect(
+      wrapper.find('[data-test="editor-section-pricing"] [data-test="children-save"]').exists(),
+    ).toBe(false)
+
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget', type: 'physical' })
+    const physicalWrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+    expect(physicalWrapper.find('[data-test="editor-section-children"]').exists()).toBe(false)
+    physicalWrapper.unmount()
+
     wrapper.unmount()
   })
 
@@ -2122,67 +2184,9 @@ describe('VariantsPanel', () => {
     )
   })
 
-  it('hides the children editor for a non-grouped product', () => {
-    const wrapper = mountPanel(product({ type: 'physical' }))
-    expect(wrapper.find('[data-test="children-section"]').exists()).toBe(false)
-  })
-
-  it('shows the children editor for a grouped product and sets children with an exact payload', async () => {
-    setChildrenMock.mockResolvedValue([
-      {
-        uuid: 'child-1',
-        slug: 'child-one',
-        name: 'Child One',
-        description: null,
-        type: 'physical',
-        status: 'active',
-        tax_class: null,
-        created_at: null,
-        updated_at: null,
-        variants: [],
-      },
-    ])
-    const p = product({ uuid: 'p1', type: 'grouped' })
-    const wrapper = mountPanel(p)
-
-    expect(wrapper.find('[data-test="children-section"]').exists()).toBe(true)
-
-    await wrapper.find('[data-test="children-input"]').setValue('child-1, child-2')
-    await wrapper.find('[data-test="children-save"]').trigger('click')
-    await flushPromises()
-
-    expect(setChildrenMock).toHaveBeenCalledWith({
-      productUuid: 'p1',
-      childUuids: ['child-1', 'child-2'],
-    })
-    expect(wrapper.find('[data-test="children-list"]').text()).toContain('Child One')
-  })
-
-  it('surfaces the "only grouped products can have children" 422 message', async () => {
-    setChildrenMock.mockRejectedValue(
-      new ApiError(
-        'Validation failed',
-        422,
-        { type: 'Only grouped products can have children.' },
-        {},
-      ),
-    )
-    const wrapper = mountPanel(product({ uuid: 'p1', type: 'grouped' }))
-
-    await wrapper.find('[data-test="children-input"]').setValue('child-1')
-    await wrapper.find('[data-test="children-save"]').trigger('click')
-    await flushPromises()
-
-    expect(wrapper.find('[data-test="children-error"]').text()).toContain(
-      'Only grouped products can have children.',
-    )
-  })
-
-  it('hides the children save control when can_manage is false', () => {
-    const wrapper = mountPanel(product({ type: 'grouped' }), false)
-    expect(wrapper.find('[data-test="children-section"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="children-save"]').exists()).toBe(false)
-  })
+  // The grouped-product "Child products" composition editor that used to live here (a plain
+  // comma-separated-uuid textarea) has MOVED to its own `ChildrenCard.vue` (Task C8) — see that
+  // component's own describe block below for the real hydration/conflict/wipe-parallel coverage.
 })
 
 // ── PricingStockCard: progressive disclosure, compare-at, real stock (Task C7) ─────────────────
@@ -2228,14 +2232,13 @@ describe('PricingStockCard', () => {
     expect(wrapper.find('[data-test="variant-row"]').exists()).toBe(true)
   })
 
-  it('renders the full table (with the children editor) for a 0-variant grouped product', async () => {
+  it('renders the full table for a 0-variant grouped product (children live in their own card, not here — Task C8)', async () => {
     const p = product({ uuid: 'p1', type: 'grouped', variants: [] })
     const { wrapper } = mountCard(p)
     await flushPromises()
 
     expect(wrapper.find('[data-test="pricing-compact"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="variants-empty"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="children-section"]').exists()).toBe(true)
   })
 
   // ── "Add more variants": UI-only expansion, spec-pinned no-mutation ─────────────────────────
@@ -2472,6 +2475,373 @@ describe('PricingStockCard', () => {
     expect(wrapper.find('[data-test="pricing-quantity"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="pricing-adjust-toggle"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="pricing-add-more-variants"]').exists()).toBe(false)
+  })
+})
+
+// ── ChildrenCard: hydration incl. honest tombstones, picker exclusion, replacement save, ──────
+// structured conflict review, wipe-parallel (Task C8) ──────────────────────────────────────────
+
+describe('ChildrenCard', () => {
+  function mountCard(p: CommerceProduct, canManage = true) {
+    return mountWithEditorContext(ChildrenCard, { product: p, canManage })
+  }
+
+  async function openPickerWith(wrapper: ReturnType<typeof mount>, results: CommerceProduct[]) {
+    childrenPickerResults.value = results
+    await wrapper.find('[data-test="children-add"]').trigger('click')
+    await wrapper.find('[data-test="children-picker-search"]').setValue('wid')
+    await flushPromises()
+  }
+
+  // ── Hydration: honest tombstone rendering ───────────────────────────────────────────────────
+
+  it('hydrates every child from the real read, including an attached tombstone — never hidden', async () => {
+    childrenSectionData.value = {
+      revision: 5,
+      items: [
+        childItem({ uuid: 'c1', name: 'Child One' }),
+        childItem({ uuid: 'c2', name: 'Ghost Child', status: 'archived', deleted: true }),
+      ],
+    }
+    const { wrapper } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    await flushPromises()
+
+    const rows = wrapper.findAll('[data-test="children-row"]')
+    expect(rows).toHaveLength(2)
+
+    const liveRow = rows.find((r) => r.attributes('data-uuid') === 'c1')!
+    expect(liveRow.attributes('data-deleted')).toBe('false')
+    expect(liveRow.find('[data-test="children-deleted-badge"]').exists()).toBe(false)
+
+    const deletedRow = rows.find((r) => r.attributes('data-uuid') === 'c2')!
+    expect(deletedRow.attributes('data-deleted')).toBe('true')
+    expect(deletedRow.find('[data-test="children-deleted-badge"]').exists()).toBe(true)
+    expect(deletedRow.text()).toContain('Deleted')
+    expect(deletedRow.text()).toContain('Ghost Child')
+  })
+
+  it('shows the empty state once loaded with no children, and the loading/error states honestly', async () => {
+    childrenSectionData.value = { revision: 0, items: [] }
+    const { wrapper } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    await flushPromises()
+    expect(wrapper.find('[data-test="children-empty"]').exists()).toBe(true)
+
+    childrenSectionStatus.value = 'pending'
+    const { wrapper: loadingWrapper } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    expect(loadingWrapper.find('[data-test="children-loading"]').exists()).toBe(true)
+
+    childrenSectionStatus.value = 'error'
+    const { wrapper: errorWrapper } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    await flushPromises()
+    expect(errorWrapper.find('[data-test="children-load-error"]').exists()).toBe(true)
+  })
+
+  it('hides add/remove/reorder/save controls when can_manage is false, keeping rows visible', async () => {
+    childrenSectionData.value = { revision: 0, items: [childItem({ uuid: 'c1' })] }
+    const { wrapper } = mountCard(product({ uuid: 'p1', type: 'grouped' }), false)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="children-add"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="children-move-up"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="children-move-down"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="children-remove"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="children-row"]').exists()).toBe(true)
+  })
+
+  // ── Picker: never offers a tombstone/non-purchasable product, self, or an already-drafted uuid ─
+
+  it('the add picker excludes non-purchasable types, the product being edited itself, and children already in the draft', async () => {
+    childrenSectionData.value = { revision: 0, items: [childItem({ uuid: 'c1', name: 'Child One' })] }
+    const { wrapper } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    await flushPromises()
+
+    await openPickerWith(wrapper, [
+      product({ uuid: 'p1', name: 'Self', type: 'physical' }), // the product being edited
+      product({ uuid: 'grp1', name: 'Grouped Co', type: 'grouped' }), // non-purchasable
+      product({ uuid: 'ext1', name: 'External Co', type: 'external' }), // non-purchasable
+      product({ uuid: 'c1', name: 'Child One', type: 'physical' }), // already in the draft
+      product({ uuid: 'ok1', name: 'OK Digital', type: 'digital' }),
+      product({ uuid: 'ok2', name: 'OK Physical', type: 'physical' }),
+    ])
+
+    const results = wrapper.findAll('[data-test="children-picker-result"]')
+    expect(results.map((r) => r.attributes('data-uuid'))).toEqual(['ok1', 'ok2'])
+  })
+
+  it('adding a picked product appends it to the draft and marks the section dirty, without calling setChildren', async () => {
+    childrenSectionData.value = { revision: 0, items: [childItem({ uuid: 'c1', name: 'Child One' })] }
+    const { wrapper, getState } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    await flushPromises()
+    const state = getState()
+
+    await openPickerWith(wrapper, [product({ uuid: 'ok1', name: 'OK Digital', type: 'digital' })])
+    await wrapper.find('[data-test="children-picker-result"]').trigger('click')
+
+    expect(setChildrenMock).not.toHaveBeenCalled()
+    expect(state.dirty.value).toBe(true)
+    expect(
+      wrapper.findAll('[data-test="children-row"]').map((r) => r.attributes('data-uuid')),
+    ).toEqual(['c1', 'ok1'])
+    // The just-added product disappears from its own candidate list (already in the draft now).
+    expect(wrapper.find('[data-test="children-picker-result"]').exists()).toBe(false)
+  })
+
+  // ── Reorder / remove: local draft only, no network call until Save ─────────────────────────
+
+  it('moving a row edits a local draft and marks the section dirty WITHOUT submitting immediately', async () => {
+    childrenSectionData.value = {
+      revision: 0,
+      items: [childItem({ uuid: 'c1' }), childItem({ uuid: 'c2', name: 'Child Two', position: 1 })],
+    }
+    const { wrapper, getState } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    await flushPromises()
+    const state = getState()
+
+    expect(wrapper.find('[data-test="children-save"]').exists()).toBe(false)
+    await wrapper.find('[data-test="children-move-down"]').trigger('click')
+
+    expect(setChildrenMock).not.toHaveBeenCalled()
+    expect(state.dirty.value).toBe(true)
+    expect(
+      wrapper.findAll('[data-test="children-row"]').map((r) => r.attributes('data-uuid')),
+    ).toEqual(['c2', 'c1'])
+    expect(wrapper.find('[data-test="children-save"]').exists()).toBe(true)
+  })
+
+  it('removing a child (including a tombstoned one) marks the section dirty and drops it from the next save', async () => {
+    childrenSectionData.value = {
+      revision: 9,
+      items: [
+        childItem({ uuid: 'c1', name: 'Child One' }),
+        childItem({ uuid: 'c2', name: 'Ghost Child', deleted: true }),
+      ],
+    }
+    setChildrenMock.mockResolvedValue([])
+    const { wrapper, getState } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    await flushPromises()
+    const state = getState()
+
+    const ghostRow = wrapper.findAll('[data-test="children-row"]').find(
+      (r) => r.attributes('data-uuid') === 'c2',
+    )!
+    await ghostRow.find('[data-test="children-remove"]').trigger('click')
+
+    expect(state.dirty.value).toBe(true)
+    await wrapper.find('[data-test="children-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setChildrenMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      childUuids: ['c1'],
+      expectedRevision: 9,
+    })
+  })
+
+  // ── Save: replacement built from hydrated state (the wipe class dies here) ─────────────────
+
+  it('"Save" submits the full draft — built from HYDRATED server state, not a fresh input — as an ordered uuid list with expected_revision, awaiting afterMutation() once', async () => {
+    childrenSectionData.value = {
+      revision: 4,
+      items: [childItem({ uuid: 'c1' }), childItem({ uuid: 'c2', name: 'Child Two', position: 1 })],
+    }
+    setChildrenMock.mockResolvedValue([])
+    const { wrapper, getCoordinator, getState } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+    const state = getState()
+
+    await wrapper.find('[data-test="children-move-down"]').trigger('click')
+    await wrapper.find('[data-test="children-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setChildrenMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      childUuids: ['c2', 'c1'],
+      expectedRevision: 4,
+    })
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+    expect(state.dirty.value).toBe(false)
+    expect(wrapper.find('[data-test="children-save"]').exists()).toBe(false)
+  })
+
+  it('wipe-parallel: adding ONE new child still submits every originally hydrated child, never just the touched one', async () => {
+    childrenSectionData.value = {
+      revision: 2,
+      items: [childItem({ uuid: 'c1', name: 'Child One' }), childItem({ uuid: 'c2', name: 'Child Two', position: 1 })],
+    }
+    setChildrenMock.mockResolvedValue([])
+    const { wrapper } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    await flushPromises()
+
+    await openPickerWith(wrapper, [product({ uuid: 'new1', name: 'New Child', type: 'physical' })])
+    await wrapper.find('[data-test="children-picker-result"]').trigger('click')
+    await wrapper.find('[data-test="children-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setChildrenMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      childUuids: ['c1', 'c2', 'new1'],
+      expectedRevision: 2,
+    })
+  })
+
+  it('a non-409 save failure keeps the draft dirty, shows an error, and never calls afterMutation()', async () => {
+    childrenSectionData.value = {
+      revision: 0,
+      items: [childItem({ uuid: 'c1' }), childItem({ uuid: 'c2', name: 'Child Two', position: 1 })],
+    }
+    setChildrenMock.mockRejectedValue(new ApiError('Validation failed', 422, {}, {}))
+    const { wrapper, getCoordinator, getState } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+    const state = getState()
+
+    await wrapper.find('[data-test="children-move-down"]').trigger('click')
+    await wrapper.find('[data-test="children-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="children-save-error"]').exists()).toBe(true)
+    expect(state.dirty.value).toBe(true)
+    expect(state.phase.value).toBe('error')
+    expect(afterMutationSpy).not.toHaveBeenCalled()
+  })
+
+  // ── 409 conflict: refresh FIRST, structured review, no automatic retry ─────────────────────
+
+  async function mountReorderedAndConflicted(remoteItems: ProductChildItem[], remoteRevision: number) {
+    childrenSectionData.value = {
+      revision: 0,
+      items: [childItem({ uuid: 'c1' }), childItem({ uuid: 'c2', name: 'Child Two', position: 1 })],
+    }
+    const { wrapper, getCoordinator, getState } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    await flushPromises()
+
+    await wrapper.find('[data-test="children-move-down"]').trigger('click')
+
+    setChildrenMock.mockRejectedValueOnce(new ApiError('Conflict', 409, {}, {}))
+    childrenSectionData.value = { revision: remoteRevision, items: remoteItems }
+
+    await wrapper.find('[data-test="children-save"]').trigger('click')
+    await flushPromises()
+
+    return { wrapper, getCoordinator, getState }
+  }
+
+  it('on a 409, refreshes the section FIRST, then shows a conflict review when the remote content genuinely differs (no automatic retry)', async () => {
+    const remote = [
+      childItem({ uuid: 'c1' }),
+      childItem({ uuid: 'c3', name: 'Child Three', position: 1 }),
+      childItem({ uuid: 'c2', name: 'Child Two', position: 2 }),
+    ]
+    const { wrapper } = await mountReorderedAndConflicted(remote, 5)
+
+    expect(setChildrenMock).toHaveBeenCalledTimes(1)
+    const conflict = wrapper.find('[data-test="children-conflict"]')
+    expect(conflict.exists()).toBe(true)
+    expect(conflict.text()).toContain('changed elsewhere — review and save again')
+    expect(wrapper.find('[data-test="children-use-latest"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="children-replace-mine"]').exists()).toBe(true)
+  })
+
+  it('"Use latest" adopts the remote set, clears dirty, and never resubmits', async () => {
+    const remote = [
+      childItem({ uuid: 'c1' }),
+      childItem({ uuid: 'c3', name: 'Child Three', position: 1 }),
+      childItem({ uuid: 'c2', name: 'Child Two', position: 2 }),
+    ]
+    const { wrapper, getState } = await mountReorderedAndConflicted(remote, 5)
+    const state = getState()
+
+    await wrapper.find('[data-test="children-use-latest"]').trigger('click')
+    await flushPromises()
+
+    expect(
+      wrapper.findAll('[data-test="children-row"]').map((r) => r.attributes('data-uuid')),
+    ).toEqual(['c1', 'c3', 'c2'])
+    expect(state.dirty.value).toBe(false)
+    expect(wrapper.find('[data-test="children-save"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="children-conflict"]').exists()).toBe(false)
+    expect(setChildrenMock).toHaveBeenCalledTimes(1) // never resubmitted
+  })
+
+  it('"Replace with mine" resubmits the LOCAL set with the NEW revision, only after explicit confirmation', async () => {
+    const remote = [
+      childItem({ uuid: 'c1' }),
+      childItem({ uuid: 'c3', name: 'Child Three', position: 1 }),
+      childItem({ uuid: 'c2', name: 'Child Two', position: 2 }),
+    ]
+    const { wrapper, getCoordinator } = await mountReorderedAndConflicted(remote, 5)
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    // Still just the one original failed attempt — the review itself never auto-resubmits.
+    expect(setChildrenMock).toHaveBeenCalledTimes(1)
+
+    setChildrenMock.mockResolvedValueOnce([])
+    await wrapper.find('[data-test="children-replace-mine"]').trigger('click')
+    await flushPromises()
+
+    expect(setChildrenMock).toHaveBeenCalledTimes(2)
+    expect(setChildrenMock).toHaveBeenNthCalledWith(2, {
+      productUuid: 'p1',
+      childUuids: ['c2', 'c1'],
+      expectedRevision: 5,
+    })
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('a silent rebase (remote items unchanged, revision only advanced) keeps the local draft, clears the error, and shows no conflict', async () => {
+    const unchanged = [childItem({ uuid: 'c1' }), childItem({ uuid: 'c2', name: 'Child Two', position: 1 })]
+    const { wrapper, getState } = await mountReorderedAndConflicted(unchanged, 7)
+    const state = getState()
+
+    expect(wrapper.find('[data-test="children-conflict"]').exists()).toBe(false)
+    expect(
+      wrapper.findAll('[data-test="children-row"]').map((r) => r.attributes('data-uuid')),
+    ).toEqual(['c2', 'c1']) // local draft kept
+    expect(state.dirty.value).toBe(true)
+    expect(state.phase.value).toBe('idle') // NOT 'error' — spec §5.2 "show no conflict"
+    expect(setChildrenMock).toHaveBeenCalledTimes(1) // no automatic retry
+
+    // The rebased revision lets the NEXT explicit save succeed.
+    setChildrenMock.mockResolvedValueOnce([])
+    await wrapper.find('[data-test="children-save"]').trigger('click')
+    await flushPromises()
+
+    expect(setChildrenMock).toHaveBeenNthCalledWith(2, {
+      productUuid: 'p1',
+      childUuids: ['c2', 'c1'],
+      expectedRevision: 7,
+    })
+  })
+
+  it('disables the save button while a 409 recovery refresh is in flight', async () => {
+    childrenSectionData.value = {
+      revision: 0,
+      items: [childItem({ uuid: 'c1' }), childItem({ uuid: 'c2', name: 'Child Two', position: 1 })],
+    }
+    const { wrapper } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    await flushPromises()
+    await wrapper.find('[data-test="children-move-down"]').trigger('click')
+
+    setChildrenMock.mockRejectedValueOnce(new ApiError('Conflict', 409, {}, {}))
+    let resolveRefetch: (value: unknown) => void = () => {}
+    childrenSectionRefetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefetch = resolve
+        }),
+    )
+
+    const saveClick = wrapper.find('[data-test="children-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="children-save"]').attributes('disabled')).toBeDefined()
+
+    resolveRefetch({ status: 'success', data: childrenSectionData.value, error: null })
+    await saveClick
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="children-save"]').attributes('disabled')).toBeUndefined()
   })
 })
 
@@ -5007,6 +5377,73 @@ describe('AddonsPanel', () => {
     await flushPromises()
     expect(removeAddonMock).toHaveBeenCalledWith({ uuid: 'a1', productUuid: 'p1' })
   })
+
+  // ── Coordinator: every successful add-on mutation awaits afterMutation() exactly once (Task C8) ─
+  // Add-on mutations are in C1's invalidation matrix (createAddon/updateAddon/removeAddon already
+  // invalidate the owning product + its six section reads), so a save here must also settle the
+  // shared page-level revision coordinator. Coordinator is OPTIONAL (`inject(..., null)`) — every
+  // test ABOVE mounts this panel with plain `mount()` (no ancestor coordinator) and still passes,
+  // proving the `coordinator?.afterMutation()` calls are no-ops without one.
+
+  function mountPanelWithCoordinator(p: CommerceProduct = product({ uuid: 'p1' })) {
+    return mountWithEditorContext(
+      AddonsPanel,
+      { product: p, canManage: true },
+      { global: { stubs: { Modal: teleportStub } } },
+    )
+  }
+
+  it('awaits afterMutation() exactly once after a successful create, never on failure', async () => {
+    addonsData.value = []
+    createAddonMock.mockResolvedValueOnce(addon({ uuid: 'a1', name: 'Gift wrap' }))
+    const { wrapper, getCoordinator } = mountPanelWithCoordinator()
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    await wrapper.find('[data-test="addon-add"]').trigger('click')
+    await wrapper.find('[data-test="addon-name-input"]').setValue('Gift wrap')
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+
+    createAddonMock.mockRejectedValueOnce(new ApiError('Validation failed', 422, {}, {}))
+    await wrapper.find('[data-test="addon-add"]').trigger('click')
+    await wrapper.find('[data-test="addon-name-input"]').setValue('Engraving')
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('awaits afterMutation() exactly once after a successful update', async () => {
+    addonsData.value = [addon({ uuid: 'a1', name: 'Gift wrap' })]
+    updateAddonMock.mockResolvedValue(addon({ uuid: 'a1' }))
+    const { wrapper, getCoordinator } = mountPanelWithCoordinator(product({ uuid: 'p1' }))
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    await wrapper.find('[data-test="addon-edit"]').trigger('click')
+    await wrapper.find('#addon-form').trigger('submit')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('awaits afterMutation() exactly once after a successful delete', async () => {
+    addonsData.value = [addon({ uuid: 'a1', name: 'Gift wrap' })]
+    removeAddonMock.mockResolvedValue(undefined)
+    const { wrapper, getCoordinator } = mountPanelWithCoordinator(product({ uuid: 'p1' }))
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    await wrapper.find('[data-test="addon-delete"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="addon-delete-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
 })
 
 // ── DownloadsPanel: per-variant digital-download CRUD — a real per-variant GET (unlike
@@ -5169,6 +5606,7 @@ describe('DownloadsPanel', () => {
 
     expect(attachDownloadMock).toHaveBeenCalledWith({
       variantUuid: 'v1',
+      productUuid: 'p1',
       input: {
         blob_uuid: 'blob-new',
         name: 'Ebook (PDF)',
@@ -5196,6 +5634,7 @@ describe('DownloadsPanel', () => {
 
     expect(attachDownloadMock).toHaveBeenCalledWith({
       variantUuid: 'v1',
+      productUuid: 'p1',
       input: {
         blob_uuid: 'blob-new',
         name: 'Ebook (PDF)',
@@ -5326,6 +5765,7 @@ describe('DownloadsPanel', () => {
     expect(updateDownloadMock).toHaveBeenCalledWith({
       uuid: 'd1',
       variantUuid: 'v1',
+      productUuid: 'p1',
       input: {
         name: 'Ebook (PDF)',
         download_limit: 3,
@@ -5364,6 +5804,7 @@ describe('DownloadsPanel', () => {
     expect(updateDownloadMock).toHaveBeenCalledWith({
       uuid: 'd1',
       variantUuid: 'v1',
+      productUuid: 'p1',
       input: {
         name: 'Bonus chapter',
         download_limit: null,
@@ -5391,6 +5832,82 @@ describe('DownloadsPanel', () => {
 
     await wrapper.find('[data-test="download-delete-confirm"]').trigger('click')
     await flushPromises()
-    expect(removeDownloadMock).toHaveBeenCalledWith({ uuid: 'd1', variantUuid: 'v1' })
+    expect(removeDownloadMock).toHaveBeenCalledWith({
+      uuid: 'd1',
+      variantUuid: 'v1',
+      productUuid: 'p1',
+    })
+  })
+
+  // ── Coordinator: every successful download mutation awaits afterMutation() exactly once ────
+  // (Task C8 — C1 review "Important" carry-over): `productUuid` was added to attachDownload/
+  // updateDownload/removeDownload's vars in Task C1 but never actually passed by this panel until
+  // now, so a save here settles the shared page-level revision coordinator the same way every
+  // other section mutation on this page does. Coordinator is OPTIONAL (`inject(..., null)`) —
+  // every test ABOVE mounts this panel with plain `mount()` (no ancestor coordinator) and still
+  // passes, proving the `coordinator?.afterMutation()` calls are no-ops without one.
+
+  function mountPanelWithCoordinator(
+    p: CommerceProduct = product({ uuid: 'p1', type: 'digital', variants: [variant({ uuid: 'v1' })] }),
+  ) {
+    return mountWithEditorContext(
+      DownloadsPanel,
+      { product: p, canManage: true },
+      { global: { stubs: { Modal: teleportStub, MediaPickerModal: MediaPickerModalStub } } },
+    )
+  }
+
+  it('awaits afterMutation() exactly once after a successful attach, never on failure', async () => {
+    downloadsData.value = []
+    attachDownloadMock.mockResolvedValueOnce(download({ uuid: 'new-d', name: 'Ebook (PDF)' }))
+    const { wrapper, getCoordinator } = mountPanelWithCoordinator()
+    await expandFirstVariant(wrapper)
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    await wrapper.find('[data-test="download-add"]').trigger('click')
+    await pickAFile(wrapper)
+    await wrapper.find('[data-test="download-name-input"]').setValue('Ebook (PDF)')
+    await wrapper.find('#download-form').trigger('submit')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+
+    attachDownloadMock.mockRejectedValueOnce(new ApiError('Validation failed', 422, {}, {}))
+    await wrapper.find('[data-test="download-add"]').trigger('click')
+    await pickAFile(wrapper)
+    await wrapper.find('[data-test="download-name-input"]').setValue('Ebook 2')
+    await wrapper.find('#download-form').trigger('submit')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('awaits afterMutation() exactly once after a successful update', async () => {
+    downloadsData.value = [download({ uuid: 'd1', name: 'Ebook (PDF)' })]
+    updateDownloadMock.mockResolvedValue(download({ uuid: 'd1' }))
+    const { wrapper, getCoordinator } = mountPanelWithCoordinator()
+    await expandFirstVariant(wrapper)
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    await wrapper.find('[data-test="download-edit"]').trigger('click')
+    await wrapper.find('#download-form').trigger('submit')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('awaits afterMutation() exactly once after a successful detach', async () => {
+    downloadsData.value = [download({ uuid: 'd1', name: 'Ebook (PDF)' })]
+    removeDownloadMock.mockResolvedValue(undefined)
+    const { wrapper, getCoordinator } = mountPanelWithCoordinator()
+    await expandFirstVariant(wrapper)
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    await wrapper.find('[data-test="download-delete"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="download-delete-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
   })
 })
