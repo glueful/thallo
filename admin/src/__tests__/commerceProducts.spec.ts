@@ -1770,6 +1770,41 @@ describe('MediaPanel', () => {
     return { wrapper, getCoordinator, getState }
   }
 
+  // ── Item mutations locked while a reorder draft is dirty (C5 review Important) ──────────────
+
+  it('disables add/edit/detach while a reorder draft is dirty, and re-enables once saved', async () => {
+    mediaSectionData.value = {
+      revision: 0,
+      items: [
+        mediaItem({ uuid: 'm1' }),
+        mediaItem({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }),
+      ],
+    }
+    const { wrapper } = mountPanel(product({ uuid: 'p1' }))
+    await flushPromises()
+
+    // Clean: item-scoped controls live, no lock hint.
+    expect(wrapper.find('[data-test="media-add"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.find('[data-test="media-item-mutations-locked"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="media-move-down"]').trigger('click')
+
+    // Dirty order draft: attach/edit/detach all locked, hint shown; move controls stay live
+    // (they ARE the draft).
+    expect(wrapper.find('[data-test="media-add"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="media-edit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="media-detach"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="media-item-mutations-locked"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="media-move-up"]').exists()).toBe(true)
+
+    reorderMediaMock.mockResolvedValueOnce(undefined)
+    await wrapper.find('[data-test="media-reorder-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="media-add"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.find('[data-test="media-item-mutations-locked"]').exists()).toBe(false)
+  })
+
   // ── Hydration (server truth replaces the old session-only `knownMedia` tracking) ────────────
 
   it('hydrates and renders media rows from the section read, in the order the server returns', () => {

@@ -255,6 +255,13 @@ async function replaceWithMineConflict(): Promise<void> {
 const reorderSaveDisabled = computed(
   () => phase.value === 'saving' || (coordinator?.refreshing.value ?? false),
 )
+
+// While a reorder draft is dirty, item-scoped mutations (attach/edit/detach) are disabled: they
+// don't touch `draftItems`, so firing one mid-draft would leave the stale draft on screen next to
+// a conflict banner — and a detach would make a later "Replace with mine" resubmit a uuid the
+// server no longer knows (a loud 422, but a dead end for the user). Save or discard the order
+// first; the C5 review pinned this gate as the precedent for every later conflict-flow card.
+const itemMutationsLocked = computed(() => dirty.value)
 </script>
 
 <template>
@@ -278,10 +285,15 @@ const reorderSaveDisabled = computed(
           icon="i-lucide-image-plus"
           label="Add media"
           data-test="media-add"
+          :disabled="itemMutationsLocked"
           @click="openPicker"
         />
       </div>
     </div>
+
+    <p v-if="itemMutationsLocked" class="text-xs text-muted" data-test="media-item-mutations-locked">
+      Save or discard your order changes to add, edit, or remove media.
+    </p>
 
     <UAlert
       v-if="attachError"
@@ -408,6 +420,7 @@ const reorderSaveDisabled = computed(
             icon="i-lucide-pencil"
             aria-label="Edit media"
             data-test="media-edit"
+            :disabled="itemMutationsLocked"
             @click="startEdit(row)"
           />
           <UButton
@@ -417,6 +430,7 @@ const reorderSaveDisabled = computed(
             icon="i-lucide-trash-2"
             aria-label="Detach media"
             data-test="media-detach"
+            :disabled="itemMutationsLocked"
             @click="detach(row)"
           />
         </div>

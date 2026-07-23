@@ -135,9 +135,9 @@ async function confirmDelete() {
 
 // ── Product assignment (only rendered when `product` is given) ─────────────────────────────
 
-// There is no admin GET for a product's current category assignments (only the set-list PUT,
-// which returns the fresh attached list) -- exactly like VariantsPanel's `knownChildren` and
-// MediaPanel's `knownMedia`. `null` = never observed this session; `[]` is only reached after a
+// Session-only assignment tracking, replaced by hydration from the commerce 1.5.0 per-product
+// read in Task C6 (MediaPanel already made that move in C5; VariantsPanel's `knownChildren` is
+// C8's). Until then: `null` = never observed this session; `[]` is only reached after a
 // successful set call positively established an empty assignment. Never claim "none assigned"
 // for the unknown state, and never pre-check boxes from a guess.
 const knownCategories = ref<CommerceCategory[] | null>(null)
