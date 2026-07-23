@@ -105,10 +105,16 @@ function canonicalize(value: unknown): unknown {
  * no role in the verdict: if the remote genuinely changed since the baseline the draft started
  * from, that's always a conflict regardless of what the local draft happens to contain, INCLUDING
  * the case where `L` already deep-equals `R` — this function does not special-case that away.
- * `revision` fields are never part of `B`/`L`/`R` here by construction (the section envelope keeps
- * `revision` alongside `items`, never inside an item), so no exclusion logic is needed.
+ * `revision` fields are never part of `B`/`L`/`R` here by construction: the parameters are typed
+ * as ITEM ARRAYS (`SectionEnvelope.items`), never the envelope itself — passing whole envelopes
+ * would make an unrelated revision bump with identical items read as a false conflict, so the
+ * signature refuses them.
  */
-export function rebaseStructured(B: unknown, L: unknown, R: unknown): 'silent' | 'conflict' {
+export function rebaseStructured<T>(
+  B: readonly T[],
+  L: readonly T[],
+  R: readonly T[],
+): 'silent' | 'conflict' {
   void L
   return JSON.stringify(canonicalize(R)) === JSON.stringify(canonicalize(B)) ? 'silent' : 'conflict'
 }

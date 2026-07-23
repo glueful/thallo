@@ -134,16 +134,21 @@ describe('rebaseSet', () => {
 })
 
 describe('rebaseStructured', () => {
-  it('returns silent when R deep-equals B, regardless of key order', () => {
-    const B = { name: 'Widget', values: ['a', 'b'], visible: true }
-    const R = { visible: true, values: ['a', 'b'], name: 'Widget' }
-    expect(rebaseStructured(B, { name: 'Widget (local edit)' }, R)).toBe('silent')
+  // The signature takes ITEM ARRAYS (`SectionEnvelope.items`), never whole envelopes — passing
+  // envelopes would turn a bare revision bump into a false conflict, so the type refuses them.
+
+  it('returns silent when R deep-equals B item-wise, regardless of key order', () => {
+    const B = [{ name: 'Widget', values: ['a', 'b'], visible: true }]
+    const R = [{ visible: true, values: ['a', 'b'], name: 'Widget' }]
+    expect(rebaseStructured(B, [{ name: 'Widget (local edit)', values: [], visible: true }], R)).toBe(
+      'silent',
+    )
   })
 
-  it('returns silent for nested structures with reordered keys at every level', () => {
-    const B = { position: 1, meta: { alt: 'x', variant_uuid: null } }
-    const R = { meta: { variant_uuid: null, alt: 'x' }, position: 1 }
-    expect(rebaseStructured(B, null, R)).toBe('silent')
+  it('returns silent for nested item structures with reordered keys at every level', () => {
+    const B = [{ position: 1, meta: { alt: 'x', variant_uuid: null } }]
+    const R = [{ meta: { variant_uuid: null, alt: 'x' }, position: 1 }]
+    expect(rebaseStructured(B, [], R)).toBe('silent')
   })
 
   it('returns silent for equal arrays of objects', () => {
@@ -159,8 +164,8 @@ describe('rebaseStructured', () => {
   })
 
   it('returns conflict when a field value differs between B and R', () => {
-    const B = { name: 'Widget', position: 0 }
-    const R = { name: 'Widget', position: 1 }
+    const B = [{ name: 'Widget', position: 0 }]
+    const R = [{ name: 'Widget', position: 1 }]
     expect(rebaseStructured(B, B, R)).toBe('conflict')
   })
 
@@ -170,19 +175,31 @@ describe('rebaseStructured', () => {
     expect(rebaseStructured(B, B, R)).toBe('conflict')
   })
 
-  it('returns conflict when R adds or drops a field', () => {
-    expect(rebaseStructured({ a: 1 }, { a: 1 }, { a: 1, b: 2 })).toBe('conflict')
+  it('returns conflict when R adds or drops a field on an item', () => {
+    expect(rebaseStructured([{ a: 1 }], [{ a: 1 }], [{ a: 1, b: 2 }])).toBe('conflict')
+  })
+
+  it('returns conflict when R adds or removes an item', () => {
+    expect(rebaseStructured([{ a: 1 }], [{ a: 1 }], [{ a: 1 }, { a: 2 }])).toBe('conflict')
+    expect(rebaseStructured([{ a: 1 }], [{ a: 1 }], [])).toBe('conflict')
   })
 
   it('never auto-merges: returns conflict even when L already equals R exactly', () => {
-    const B = { name: 'Widget' }
-    const L = { name: 'Widget (edited)' }
-    const R = { name: 'Widget (edited)' } // R happens to already match L — still not silent.
+    const B = [{ name: 'Widget' }]
+    const L = [{ name: 'Widget (edited)' }]
+    const R = [{ name: 'Widget (edited)' }] // R happens to already match L — still not silent.
     expect(rebaseStructured(B, L, R)).toBe('conflict')
   })
+})
 
-  it('treats primitives directly', () => {
-    expect(rebaseStructured(1, 99, 1)).toBe('silent')
-    expect(rebaseStructured(1, 1, 2)).toBe('conflict')
+describe('rebaseSet — within-side duplicates (defensive dedup)', () => {
+  it('dedupes a literal repeated uuid inside R without corrupting the merge', () => {
+    const result = rebaseSet(['a'], ['a', 'x'], ['a', 'b', 'b'])
+    expect(result).toEqual({ kind: 'merged', result: ['a', 'b', 'x'] })
+  })
+
+  it('dedupes a literal repeated uuid inside L without corrupting the merge', () => {
+    const result = rebaseSet(['a'], ['a', 'x', 'x'], ['a', 'b'])
+    expect(result).toEqual({ kind: 'merged', result: ['a', 'b', 'x'] })
   })
 })

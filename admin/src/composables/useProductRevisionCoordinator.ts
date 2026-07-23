@@ -1,5 +1,6 @@
 import { computed, provide, ref, type InjectionKey, type Ref } from 'vue'
 import type { SectionEnvelope } from '@/queries/commerceProductSections'
+import type { CommerceProductSection } from '@/queries/keys'
 
 // Single-page product editor plan, Task C3: the per-product revision coordinator that orchestrates
 // refreshing every registered section card against the server's `{revision, items}` envelopes (see
@@ -36,12 +37,19 @@ export interface SectionRegistration<T> {
 
 /** `useProductRevisionCoordinator()`'s return shape (Task C3 brief's interface block, verbatim). */
 export interface ProductRevisionCoordinator {
-  register<T>(sectionId: string, registration: SectionRegistration<T>): void
+  /** Registers a section under one of the CLOSED section ids (`CommerceProductSection` — a typo'd
+   * id is a compile error, so a 409-recovery `refresh(sectionId)` can never silently no-op on a
+   * misspelling). Returns a deregister closure (mirrors `DirtyRegistry.register`, Task C2):
+   * idempotent, identity-checked (deregistering never removes a NEWER registration that reused
+   * the same id). Sections that stay mounted for the page's life may ignore it; anything
+   * conditionally mounted MUST call it on unmount so `afterMutation()` never refetches into a
+   * detached card's closures. */
+  register<T>(sectionId: CommerceProductSection, registration: SectionRegistration<T>): () => void
   /** Refreshes one section (`sectionId`) or, if omitted, every registered section — always
    * AWAITED, always resolves (a single section's `refetch()` rejecting never rejects this promise;
    * see `performRefresh()` below). Used directly for 409 recovery: `await refresh(sectionId)`
    * before presenting the conflict review UI, so the review is built from a fresh envelope. */
-  refresh(sectionId?: string): Promise<void>
+  refresh(sectionId?: CommerceProductSection): Promise<void>
   /** Refreshes every registered section. C1's mutations already invalidate their own Colada
    * caches, so this does not "run invalidation first" — it simply drives every registration's
    * `refetch()` (which will naturally return fresh data because of that prior invalidation) and
@@ -80,7 +88,7 @@ export const ProductRevisionCoordinatorKey: InjectionKey<ProductRevisionCoordina
  * as long as ANY call — running or still queued — hasn't settled yet.
  */
 export function useProductRevisionCoordinator(): ProductRevisionCoordinator {
-  const sections = new Map<string, SectionRegistration<unknown>>()
+  const sections = new Map<CommerceProductSection, SectionRegistration<unknown>>()
   const refreshingInternal = ref(false)
   const observedRevision = ref<number | null>(null)
 
@@ -132,21 +140,31 @@ export function useProductRevisionCoordinator(): ProductRevisionCoordinator {
    * via `Promise.allSettled` — one section's `refetch()` rejecting must never abort, delay, or
    * otherwise affect any other section's refresh; a rejected section's baseline is simply left
    * exactly as it was. This function itself never rejects. */
-  async function performRefresh(ids: readonly string[]): Promise<void> {
+  async function performRefresh(ids: readonly CommerceProductSection[]): Promise<void> {
     const targets = ids
       .map((id) => sections.get(id))
       .filter((entry): entry is SectionRegistration<unknown> => entry !== undefined)
     await Promise.allSettled(targets.map((entry) => refreshSection(entry)))
   }
 
-  function register<T>(sectionId: string, registration: SectionRegistration<T>): void {
+  function register<T>(
+    sectionId: CommerceProductSection,
+    registration: SectionRegistration<T>,
+  ): () => void {
     // Type-erased in storage: each entry's `T` is only ever used internally, consistently, between
     // that SAME entry's own `refetch`/`adoptRemote`/`reconcileRemote` — the cast is sound because
     // nothing here ever mixes envelopes across two different registrations.
-    sections.set(sectionId, registration as unknown as SectionRegistration<unknown>)
+    const stored = registration as unknown as SectionRegistration<unknown>
+    sections.set(sectionId, stored)
+
+    return () => {
+      // Identity-checked so a stale deregister (late unmount cleanup) never removes a newer
+      // registration that legitimately reused this id; idempotent by the same check.
+      if (sections.get(sectionId) === stored) sections.delete(sectionId)
+    }
   }
 
-  function refresh(sectionId?: string): Promise<void> {
+  function refresh(sectionId?: CommerceProductSection): Promise<void> {
     return runSerially(() => {
       const ids = sectionId !== undefined ? [sectionId] : [...sections.keys()]
       return performRefresh(ids)

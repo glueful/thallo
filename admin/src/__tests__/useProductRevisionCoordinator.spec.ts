@@ -69,9 +69,11 @@ describe('useProductRevisionCoordinator — register/refresh routing', () => {
     expect(tags.refetch).not.toHaveBeenCalled()
   })
 
-  it('refresh() for an id with no live registration is a safe no-op', async () => {
+  it('refresh() for a valid id with no live registration is a safe no-op', async () => {
+    // Typos are compile errors now (the id param is the closed CommerceProductSection union);
+    // the only runtime no-op left is a legitimately-unregistered (e.g. unmounted) section.
     const coordinator = useProductRevisionCoordinator()
-    await expect(coordinator.refresh('nonexistent')).resolves.toBeUndefined()
+    await expect(coordinator.refresh('stock')).resolves.toBeUndefined()
   })
 
   it('afterMutation() refreshes every registered section', async () => {
@@ -345,5 +347,41 @@ describe('useProductRevisionCoordinator — provide/inject', () => {
     const wrapper = mount(Host)
     const child = wrapper.findComponent(Child)
     expect(child.vm.injected).toBe(wrapper.vm.coordinator)
+  })
+})
+
+describe('useProductRevisionCoordinator — deregistration', () => {
+  it('a deregistered section is skipped by afterMutation() and refresh()', async () => {
+    const categories = makeSection({ envelope: { revision: 2, items: [] } })
+    const tags = makeSection({ envelope: { revision: 2, items: [] } })
+    const coordinator = useProductRevisionCoordinator()
+    const deregister = coordinator.register('categories', categories.registration)
+    coordinator.register('tags', tags.registration)
+
+    deregister()
+    await coordinator.afterMutation()
+
+    expect(categories.refetch).not.toHaveBeenCalled()
+    expect(tags.refetch).toHaveBeenCalledTimes(1)
+
+    await coordinator.refresh('categories')
+    expect(categories.refetch).not.toHaveBeenCalled()
+  })
+
+  it('deregister is idempotent and identity-checked: a stale deregister never removes a newer registration', async () => {
+    const first = makeSection({ envelope: { revision: 1, items: [] } })
+    const second = makeSection({ envelope: { revision: 2, items: [] } })
+    const coordinator = useProductRevisionCoordinator()
+    const deregisterFirst = coordinator.register('categories', first.registration)
+    // The id is legitimately reused by a newer registration (e.g. remount)…
+    coordinator.register('categories', second.registration)
+
+    // …so the FIRST registration's late unmount cleanup must not evict it.
+    deregisterFirst()
+    deregisterFirst()
+
+    await coordinator.refresh('categories')
+    expect(second.refetch).toHaveBeenCalledTimes(1)
+    expect(first.refetch).not.toHaveBeenCalled()
   })
 })
