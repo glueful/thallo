@@ -204,12 +204,49 @@ describe('useSectionState — phase/dirty state machine', () => {
       const wrapper = mountSection()
       wrapper.vm.beginSave()
       wrapper.vm.saveSucceeded()
+      // The decay timer scheduled by saveSucceeded() must actually be pending before unmount —
+      // otherwise the "not.toThrow()" below would pass trivially even if unmount stopped clearing
+      // it at all.
+      expect(vi.getTimerCount()).toBe(1)
+
       wrapper.unmount()
+      // The real assertion: unmount must have cleared it. A regression that stops calling
+      // cancelDecay() on unmount would leave this at 1 and fail here, whereas the old
+      // not.toThrow()-only check below would still pass either way.
+      expect(vi.getTimerCount()).toBe(0)
 
       expect(() => vi.advanceTimersByTime(SECTION_SAVED_DECAY_MS + 100)).not.toThrow()
     } finally {
       vi.useRealTimers()
     }
+  })
+
+  it('markDirty() during an in-flight save is not silently discarded: saveSucceeded() leaves dirty=true and phase=idle (not "saved")', () => {
+    const wrapper = mountSection()
+    wrapper.vm.markDirty()
+    wrapper.vm.beginSave()
+
+    // An edit arrives WHILE the save is in flight — this edit was never part of the payload that
+    // save is resolving for.
+    wrapper.vm.markDirty()
+    expect(wrapper.vm.dirty).toBe(true)
+
+    wrapper.vm.saveSucceeded()
+
+    // Must NOT show a "Saved" chip beside an edit that was never actually saved, and must NOT
+    // clear dirty — either would let the nav guard unblock on data that was silently discarded.
+    expect(wrapper.vm.phase).toBe('idle')
+    expect(wrapper.vm.dirty).toBe(true)
+  })
+
+  it('saveSucceeded() with no edit arriving during the save marks phase=saved and dirty=false (the counter-case contrast for the race test above)', () => {
+    const wrapper = mountSection()
+    wrapper.vm.markDirty()
+    wrapper.vm.beginSave()
+    wrapper.vm.saveSucceeded()
+
+    expect(wrapper.vm.phase).toBe('saved')
+    expect(wrapper.vm.dirty).toBe(false)
   })
 })
 
@@ -299,6 +336,31 @@ describe('DirtyRegistry — blocked math + unmount deregistration', () => {
 
     expect(wrapper.vm.registry.isBlocked.value).toBe(true)
     expect(wrapper.vm.registry.blockedSections()).toEqual([{ id: 'a', label: 'Section A' }])
+  })
+
+  it('unmounting a section MID-SAVE keeps the registry blocked until the save settles, then unblocks', async () => {
+    const wrapper = mount(Host)
+    const [probeA] = wrapper.findAllComponents(SectionProbe)
+    probeA!.vm.markDirty()
+    probeA!.vm.beginSave()
+    expect(wrapper.vm.registry.isBlocked.value).toBe(true)
+
+    // Section A scrolls away and unmounts WHILE its save is still in flight.
+    wrapper.vm.showA = false
+    await nextTick()
+    expect(wrapper.findAllComponents(SectionProbe)).toHaveLength(1)
+
+    // Deregistering immediately here would silently unblock navigation on an unpersisted save —
+    // the registry must keep blocking until A's save actually settles.
+    expect(wrapper.vm.registry.isBlocked.value).toBe(true)
+    expect(wrapper.vm.registry.blockedSections()).toEqual([{ id: 'a', label: 'Section A' }])
+
+    // A's (now-unmounted) save settles.
+    probeA!.vm.saveSucceeded()
+    await nextTick()
+
+    expect(wrapper.vm.registry.isBlocked.value).toBe(false)
+    expect(wrapper.vm.registry.blockedSections()).toEqual([])
   })
 
   it('throws when useSectionState is used with no ancestor DirtyRegistry', () => {

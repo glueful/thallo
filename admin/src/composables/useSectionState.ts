@@ -1,10 +1,12 @@
 import {
   computed,
+  effectScope,
   inject,
   onMounted,
   onUnmounted,
   provide,
   ref,
+  watch,
   type ComputedRef,
   type InjectionKey,
   type Ref,
@@ -123,11 +125,19 @@ export interface SectionState {
  * - `markDirty()`: sets `dirty = true`. If `phase` was `'error'` or `'saved'`, it returns to
  *   `'idle'` first — re-editing after a failed save clears the error chip, and re-editing during
  *   the `saved` decay window cancels the decay early. From `'idle'`/`'saving'`, `phase` is left
- *   alone (edits mid-save don't fabricate a new phase).
- * - `beginSave()`: `phase = 'saving'`. Cancels any pending `saved`-decay timer.
- * - `saveSucceeded()`: `phase = 'saved'`, `dirty = false`, then decays to `'idle'` after
- *   `SECTION_SAVED_DECAY_MS` — cancelled if any other transition (including a new `beginSave()`)
- *   fires before it does.
+ *   alone (edits mid-save don't fabricate a new phase). Also bumps the internal edit-generation
+ *   counter — see `saveSucceeded()`.
+ * - `beginSave()`: `phase = 'saving'`. Cancels any pending `saved`-decay timer. Captures the
+ *   current edit-generation counter so `saveSucceeded()` can tell whether a NEW edit arrived while
+ *   this save was in flight.
+ * - `saveSucceeded()`: edit-during-save race guard. If no `markDirty()` fired since the matching
+ *   `beginSave()` captured its generation, the save covered every edit: `phase = 'saved'`,
+ *   `dirty = false`, then decays to `'idle'` after `SECTION_SAVED_DECAY_MS` (cancelled if any
+ *   other transition, including a new `beginSave()`, fires before it does). If a `markDirty()` DID
+ *   fire mid-save, that edit was never included in the save that just resolved: `dirty` stays
+ *   `true` and `phase` goes to `'idle'` — NOT `'saved'`, since showing a "Saved" chip beside an
+ *   edit that was never persisted would lie, and clearing `dirty` would silently discard the edit
+ *   and unblock the nav guard on unsaved data.
  * - `saveFailed()`: `phase = 'error'`. `dirty` is left untouched — an unsaved edit that failed to
  *   save is STILL unsaved (Global Constraints §10's "no automatic conflict retries" pairs with
  *   this: the user must re-attempt the save explicitly, and the registry must keep blocking nav).
@@ -154,19 +164,35 @@ export function useSectionState(sectionId: string, label: string): SectionState 
     decayTimer = null
   }
 
+  // Edit-during-save race guard: `editGeneration` is bumped by every `markDirty()`. `beginSave()`
+  // snapshots it into `savingGeneration`. If `editGeneration` has moved on by the time
+  // `saveSucceeded()` runs, an edit arrived that the in-flight save could not possibly have
+  // covered — see `saveSucceeded()` below and the docblock above.
+  let editGeneration = 0
+  let savingGeneration = 0
+
   function markDirty(): void {
     cancelDecay()
     if (phase.value === 'error' || phase.value === 'saved') phase.value = 'idle'
     dirty.value = true
+    editGeneration++
   }
 
   function beginSave(): void {
     cancelDecay()
     phase.value = 'saving'
+    savingGeneration = editGeneration
   }
 
   function saveSucceeded(): void {
     cancelDecay()
+    if (editGeneration !== savingGeneration) {
+      // A `markDirty()` fired after this save's `beginSave()` captured its generation — that edit
+      // was never included in the save that just resolved. Keep `dirty` true and drop back to
+      // `'idle'` (not `'saved'`) so the caller re-saves it; do NOT touch `dirty` here.
+      phase.value = 'idle'
+      return
+    }
     phase.value = 'saved'
     dirty.value = false
     decayTimer = setTimeout(() => {
@@ -192,7 +218,27 @@ export function useSectionState(sectionId: string, label: string): SectionState 
   const deregister = registry.register({ id: sectionId, label, blocked })
   onUnmounted(() => {
     cancelDecay()
-    deregister()
+    if (phase.value !== 'saving') {
+      deregister()
+      return
+    }
+    // The section is unmounting (e.g. scrolled away) while its save is still in flight.
+    // Deregistering immediately would silently unblock navigation on data that hasn't actually
+    // been persisted yet. Retain the registry entry — `blocked` still reads `phase.value ===
+    // 'saving'` off these same refs, so the registry keeps blocking correctly — and watch `phase`
+    // for the save to settle (success or failure) before deregistering.
+    //
+    // `effectScope(true)` (detached) is required: a plain `watch()` here would be tied to this
+    // component's own effect scope, which Vue tears down as part of this very unmount — the
+    // watcher would never get a chance to observe `phase` leaving `'saving'`.
+    const watcherScope = effectScope(true)
+    watcherScope.run(() => {
+      watch(phase, (newPhase) => {
+        if (newPhase === 'saving') return
+        watcherScope.stop()
+        deregister()
+      })
+    })
   })
 
   return { phase, dirty, markDirty, beginSave, saveSucceeded, saveFailed, markClean }
