@@ -204,9 +204,6 @@ async function onSubmit(event: FormSubmitEvent<Schema>): Promise<void> {
   const v = singleVariant.value
   if (!v) return
   formError.value = null
-  // Blank compare-at is OMITTED from the payload (not sent as an explicit null) — matches
-  // VariantsPanel's own create/edit forms for this task, so a never-touched compare-at price never
-  // round-trips as a spurious explicit-null write.
   const compareAt =
     event.data.compareAtPriceInput === '' ? null : Number(event.data.compareAtPriceInput)
   beginSave()
@@ -217,7 +214,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>): Promise<void> {
       input: {
         sku: event.data.sku,
         price: event.data.price,
-        ...(compareAt !== null ? { compare_at_price: compareAt } : {}),
+        // ALWAYS present on updates: a blank field sends an explicit null, which the backend
+        // binds as SQL NULL (clears an existing compare-at/sale price). Omitting the key would
+        // leave the old value silently untouched behind a "saved" toast — C7 review Critical.
+        // (CREATE paths correctly omit-when-blank: nothing to clear on a new variant.)
+        compare_at_price: compareAt,
       },
     })
     saveSucceeded()

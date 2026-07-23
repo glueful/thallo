@@ -203,7 +203,10 @@ async function submitEdit(event: FormSubmitEvent<EditSchema>) {
         sku: event.data.sku,
         price: event.data.price,
         status: event.data.status,
-        ...(compareAt !== null ? { compare_at_price: compareAt } : {}),
+        // ALWAYS present on updates: a blank field sends an explicit null, which the backend
+        // binds as SQL NULL (clears an existing compare-at/sale price). Omitting the key would
+        // leave the old value silently untouched behind a "saved" toast — C7 review Critical.
+        compare_at_price: compareAt,
       },
     })
     await coordinator?.afterMutation()

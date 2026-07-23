@@ -1852,7 +1852,7 @@ describe('VariantsPanel', () => {
     expect(updateVariantMock).toHaveBeenCalledWith({
       uuid: 'v1',
       productUuid: 'p1',
-      input: { sku: 'SKU-1', price: 3000, status: 'active' },
+      input: { sku: 'SKU-1', price: 3000, status: 'active', compare_at_price: null },
     })
   })
 
@@ -1879,6 +1879,27 @@ describe('VariantsPanel', () => {
       uuid: 'v1',
       productUuid: 'p1',
       input: { sku: 'SKU-1', price: 1999, status: 'active', compare_at_price: 4500 },
+    })
+  })
+
+  it('CLEARS an existing compare-at price on variant edit by blanking the field (explicit null)', async () => {
+    // C7 review Critical regression pin — mirror of the compact-card clear spec.
+    updateVariantMock.mockResolvedValue(variant({ uuid: 'v1' }))
+    const p = product({
+      uuid: 'p1',
+      variants: [variant({ uuid: 'v1', sku: 'SKU-1', price: 1999, compare_at_price: 2500 })],
+    })
+    const wrapper = mountPanel(p)
+
+    await wrapper.find('[data-test="variant-edit"]').trigger('click')
+    await wrapper.find('[data-test="variant-edit-compare-at-input"]').setValue('')
+    await wrapper.find('#variant-edit-form-v1').trigger('submit')
+    await flushPromises()
+
+    expect(updateVariantMock).toHaveBeenCalledWith({
+      uuid: 'v1',
+      productUuid: 'p1',
+      input: { sku: 'SKU-1', price: 1999, status: 'active', compare_at_price: null },
     })
   })
 
@@ -2273,7 +2294,7 @@ describe('PricingStockCard', () => {
     expect(afterMutationSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('omits compare_at_price from the compact save payload when left blank', async () => {
+  it('sends an explicit compare_at_price null from the compact save when blank (updates always carry the key)', async () => {
     updateVariantMock.mockResolvedValue(variant({ uuid: 'v1' }))
     const p = product({
       uuid: 'p1',
@@ -2288,7 +2309,33 @@ describe('PricingStockCard', () => {
     expect(updateVariantMock).toHaveBeenCalledWith({
       uuid: 'v1',
       productUuid: 'p1',
-      input: { sku: 'SKU-1', price: 1999 },
+      input: { sku: 'SKU-1', price: 1999, compare_at_price: null },
+    })
+  })
+
+  it('CLEARS an existing compare-at price by blanking the field (explicit null, not an omitted key)', async () => {
+    // C7 review Critical regression pin: set a sale price, later blank it to end the sale —
+    // an omitted key would leave the old value silently untouched behind a "saved" toast.
+    updateVariantMock.mockResolvedValue(variant({ uuid: 'v1' }))
+    const p = product({
+      uuid: 'p1',
+      variants: [variant({ uuid: 'v1', sku: 'SKU-1', price: 1999, compare_at_price: 2500 })],
+    })
+    const { wrapper } = mountCard(p)
+    await flushPromises()
+
+    expect(
+      (wrapper.find('[data-test="pricing-compare-at-input"]').element as HTMLInputElement).value,
+    ).toBe('2500')
+
+    await wrapper.find('[data-test="pricing-compare-at-input"]').setValue('')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(updateVariantMock).toHaveBeenCalledWith({
+      uuid: 'v1',
+      productUuid: 'p1',
+      input: { sku: 'SKU-1', price: 1999, compare_at_price: null },
     })
   })
 
