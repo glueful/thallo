@@ -79,6 +79,7 @@ function product(overrides: Partial<CommerceProduct> = {}): CommerceProduct {
     updated_at: null,
     variants: [],
     options: {},
+    metadata: {},
     ...overrides,
   }
 }

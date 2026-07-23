@@ -40,16 +40,33 @@ emit('state', sectionState)
 
 const statusItems = PRODUCT_STATUSES.map((s) => ({ label: s, value: s }))
 
-const schema = z.object({
-  name: z.string().min(1, 'Name is required.'),
-  slug: z
-    .string()
-    .min(1, 'Slug is required.')
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Lowercase letters, numbers and hyphens only.'),
-  description: z.string().optional(),
-  status: z.enum(PRODUCT_STATUSES),
-  taxClass: z.string().optional(),
-})
+// External products carry their outbound link in `metadata.external_url` (API-required — spec
+// §5.4 gap fix 2: without this fieldset the link was uneditable anywhere in the SPA). The two
+// metadata fields participate in the schema only when they render (external products).
+const isExternal = computed(() => props.product.type === 'external')
+
+const schema = z
+  .object({
+    name: z.string().min(1, 'Name is required.'),
+    slug: z
+      .string()
+      .min(1, 'Slug is required.')
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Lowercase letters, numbers and hyphens only.'),
+    description: z.string().optional(),
+    status: z.enum(PRODUCT_STATUSES),
+    taxClass: z.string().optional(),
+    externalUrl: z.string().optional(),
+    buttonLabel: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (isExternal.value && !/^https?:\/\/.+\..+/.test((data.externalUrl ?? '').trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['externalUrl'],
+        message: 'A valid http(s) link is required for external products.',
+      })
+    }
+  })
 type Schema = z.output<typeof schema>
 
 function fromProduct(p: CommerceProduct) {
@@ -59,6 +76,8 @@ function fromProduct(p: CommerceProduct) {
     description: p.description ?? '',
     status: p.status as (typeof PRODUCT_STATUSES)[number],
     taxClass: p.tax_class ?? '',
+    externalUrl: typeof p.metadata.external_url === 'string' ? p.metadata.external_url : '',
+    buttonLabel: typeof p.metadata.button_label === 'string' ? p.metadata.button_label : '',
   }
 }
 
@@ -113,6 +132,15 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   formError.value = null
   beginSave()
   try {
+    // Metadata is included ONLY for external products, and always as the MERGED object — the
+    // server wholesale-replaces the column, so a fragment would wipe unrelated metadata keys.
+    let metadata: Record<string, unknown> | undefined
+    if (isExternal.value) {
+      metadata = { ...props.product.metadata, external_url: (event.data.externalUrl ?? '').trim() }
+      const label = (event.data.buttonLabel ?? '').trim()
+      if (label !== '') metadata.button_label = label
+      else delete metadata.button_label
+    }
     await update.mutateAsync({
       uuid: props.product.uuid,
       input: {
@@ -121,6 +149,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         description: event.data.description || null,
         status: event.data.status,
         tax_class: event.data.taxClass || null,
+        ...(metadata !== undefined ? { metadata } : {}),
       },
     })
     saveSucceeded()
@@ -130,7 +159,15 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   } catch (e) {
     saveFailed()
     const err = toApiError(e)
-    const fieldErrs = Object.entries(err.fieldErrors).map(([name, message]) => ({ name, message }))
+    // Server metadata.* keys map onto the local field names that render them.
+    const FIELD_ALIAS: Record<string, string> = {
+      'metadata.external_url': 'externalUrl',
+      'metadata.button_label': 'buttonLabel',
+    }
+    const fieldErrs = Object.entries(err.fieldErrors).map(([name, message]) => ({
+      name: FIELD_ALIAS[name] ?? name,
+      message,
+    }))
     if (fieldErrs.length > 0) formRef.value?.setErrors(fieldErrs)
     formError.value = Object.values(err.fieldErrors)[0] ?? err.message
     notifyError(err, 'Couldn’t save product')
@@ -217,6 +254,33 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           data-test="product-tax-class-input"
         />
       </UFormField>
+
+      <template v-if="isExternal">
+        <UFormField
+          label="External link"
+          name="externalUrl"
+          required
+          class="col-span-2"
+          help="Where “Add to cart” sends the customer."
+        >
+          <UInput
+            v-model="state.externalUrl"
+            type="url"
+            class="w-full"
+            :disabled="!canManage"
+            data-test="product-external-url-input"
+          />
+        </UFormField>
+
+        <UFormField label="Button label" name="buttonLabel" class="col-span-2" help="Optional — e.g. “Buy at Partner Store”.">
+          <UInput
+            v-model="state.buttonLabel"
+            class="w-full"
+            :disabled="!canManage"
+            data-test="product-button-label-input"
+          />
+        </UFormField>
+      </template>
     </div>
 
     <UButton

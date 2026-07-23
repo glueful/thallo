@@ -115,17 +115,24 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   the real inventory read (integrity failures render honestly instead of fabricated
   zeros), and grouped-product composition moves to a hydrated Children card that shows
   attached tombstoned children truthfully.
-- **Draft-first product creation as a full-page route** (admin SPA): "New product"
-  navigates to `/commerce/products/new` — the same single-page editor shell in create
-  mode, replacing the old create slideover entirely. Name, type, initial price, and the
-  derived-but-editable slug/SKU form one page-level atomic "Create draft" action (no
-  database row exists until it succeeds); every other section is visible but dormant
-  until creation, so the whole authoring surface is apparent from the first click. Type
-  is chosen here and read-only afterward; validation failures retain every entered value
-  and focus the owning section; success replaces the route to the created product so
-  Back never reopens a stale form; the route participates in the unsaved-changes
-  navigation guard. Non-purchasable types (`external`/`grouped`) collect no price and
-  send no variant.
+- **The Omnibox Launcher — product creation as one smart screen** (admin SPA):
+  `/commerce/products/new` replaces both the old create slideover and its interim form
+  with a single surface: a smart input that conservatively parses a trailing money token
+  ("Aurora Desk Lamp $89", "89.99", or currency-neutrally "89 GHS"/"GHS 89" with the
+  tenant's own code — BigInt major-unit math, bare unmarked integers stay in the name) plus
+  a four-card type row (Physical/Digital/External/Grouped, keyboard 1–4) that morphs the
+  surface — External swaps the price affordance for its required Link field, Grouped
+  collects name only. Honest chips (name, formatted price, derived slug/SKU, type state)
+  show exactly what the one atomic "Create draft" action will do before any row exists;
+  the launcher stands alone, with the editor's sections appearing on the page the create
+  lands in. Single-flight submission,
+  values retained on validation errors, `router.replace()` into the editor on success,
+  and unsaved-changes guard participation throughout.
+- **External products actually work now**: creation previously omitted the API-required
+  `metadata.external_url` (every external create 422'd), and the editor had no surface
+  to change the link afterward. The launcher collects the link at create, and Details
+  gains an External link + button-label fieldset for external products that merges into
+  existing metadata rather than replacing it.
 - **Full tenant resolution and operations**: verified custom domains plus
   subdomain fallback for public delivery, header/JWT resolution for the admin,
   a resumable fresh-boot activation flow, tenant/domain/membership HTTP and CLI

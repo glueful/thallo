@@ -49,6 +49,11 @@ export interface CommerceProduct {
    * decision is "exactly one variant AND no option axes" — the second half of that check reads
    * this field (`Object.keys(product.options).length === 0`), not any per-variant field. */
   options: Record<string, string[]>
+  /** `commerce_products.metadata`, a freeform JSON object ({} when unset). For EXTERNAL products
+   * it carries the API-required `external_url` (+ optional `button_label`) — spec §5.4's gap
+   * fixes. Updates REPLACE the whole column server-side, so editors must merge existing keys
+   * into any metadata payload, never send a fragment. */
+  metadata: Record<string, unknown>
 }
 
 export interface ProductListFilters {
@@ -86,6 +91,9 @@ export interface CreateProductInput {
   status?: string
   tax_class?: string | null
   variants: ProductVariantInput[]
+  /** Required for `type: 'external'`: `{external_url}` (valid http/https), optional
+   * `button_label` — the API rejects external creates without it (spec §5.4 gap fix 1). */
+  metadata?: Record<string, unknown> | null
 }
 
 /** `PATCH /commerce/products/{uuid}` body (UpdateProductData). */
@@ -96,6 +104,10 @@ export interface UpdateProductInput {
   type?: string | null
   status?: string | null
   tax_class?: string | null
+  /** Wholesale-replaces `commerce_products.metadata` — always send the MERGED object (existing
+   * keys + edits), never a fragment. External products: the server re-validates
+   * `metadata.external_url` whenever this key is present (spec §5.4 gap fix 2). */
+  metadata?: Record<string, unknown> | null
 }
 
 export interface BulkStatusResult {
@@ -675,6 +687,10 @@ function normalizeProduct(raw: Record<string, unknown>): CommerceProduct {
     updated_at: (raw.updated_at as string | null | undefined) ?? null,
     variants: variants.map((v) => normalizeVariant(v as Record<string, unknown>)),
     options: normalizeOptionAxes(raw.options),
+    metadata:
+      raw.metadata !== null && typeof raw.metadata === 'object' && !Array.isArray(raw.metadata)
+        ? { ...(raw.metadata as Record<string, unknown>) }
+        : {},
   }
 }
 

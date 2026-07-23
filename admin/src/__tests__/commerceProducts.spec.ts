@@ -333,6 +333,7 @@ function product(overrides: Partial<CommerceProduct> = {}): CommerceProduct {
     updated_at: '2026-01-02 00:00:00',
     variants: [],
     options: {},
+    metadata: {},
     ...overrides,
   }
 }
@@ -889,6 +890,96 @@ describe('ProductForm', () => {
       (wrapper.find('[data-test="product-name-input"]').element as HTMLInputElement).value,
     ).toBe('My Local Edit')
   })
+
+  // ── External link fieldset (spec §5.4 gap fix 2) ───────────────────────────────────────────
+
+  it('renders the External link fieldset ONLY for external products, prefilled from metadata', () => {
+    const external = product({
+      uuid: 'p1',
+      type: 'external',
+      metadata: { external_url: 'https://partner.example/x', button_label: 'Buy at Partner' },
+    })
+    const { wrapper } = mountForm(external)
+    expect(
+      (wrapper.find('[data-test="product-external-url-input"]').element as HTMLInputElement).value,
+    ).toBe('https://partner.example/x')
+    expect(
+      (wrapper.find('[data-test="product-button-label-input"]').element as HTMLInputElement).value,
+    ).toBe('Buy at Partner')
+
+    const { wrapper: physical } = mountForm(product({ uuid: 'p2', type: 'physical' }))
+    expect(physical.find('[data-test="product-external-url-input"]').exists()).toBe(false)
+    expect(physical.find('[data-test="product-button-label-input"]').exists()).toBe(false)
+  })
+
+  it('saving an external product sends the MERGED metadata — unrelated keys survive, blank label is dropped', async () => {
+    updateMock.mockResolvedValue(undefined)
+    const external = product({
+      uuid: 'p1',
+      type: 'external',
+      metadata: {
+        external_url: 'https://partner.example/x',
+        button_label: 'Old Label',
+        custom_key: 'must-survive',
+      },
+    })
+    const { wrapper } = mountForm(external)
+
+    await wrapper
+      .find('[data-test="product-external-url-input"]')
+      .setValue('https://partner.example/new')
+    await wrapper.find('[data-test="product-button-label-input"]').setValue('')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(updateMock).toHaveBeenCalledWith({
+      uuid: 'p1',
+      input: {
+        name: 'Widget',
+        slug: 'widget',
+        description: null,
+        status: 'active',
+        tax_class: null,
+        metadata: { external_url: 'https://partner.example/new', custom_key: 'must-survive' },
+      },
+    })
+  })
+
+  it('an invalid external link fails client-side validation and never calls the mutation', async () => {
+    const external = product({
+      uuid: 'p1',
+      type: 'external',
+      metadata: { external_url: 'https://partner.example/x' },
+    })
+    const { wrapper } = mountForm(external)
+
+    await wrapper.find('[data-test="product-external-url-input"]').setValue('not-a-url')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(updateMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('A valid http(s) link is required')
+  })
+
+  it('non-external products never include metadata in the update payload', async () => {
+    updateMock.mockResolvedValue(undefined)
+    const { wrapper } = mountForm(product({ uuid: 'p1', metadata: { some_key: 'untouched' } }))
+
+    await wrapper.find('[data-test="product-name-input"]').setValue('Widget Renamed')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(updateMock).toHaveBeenCalledWith({
+      uuid: 'p1',
+      input: {
+        name: 'Widget Renamed',
+        slug: 'widget',
+        description: null,
+        status: 'active',
+        tax_class: null,
+      },
+    })
+  })
 })
 
 // ── Products list page: filters, create, bulk status, delete ───────────────────────────────
@@ -921,145 +1012,232 @@ describe('commerce products list page', () => {
   })
 })
 
-// ── Full-page create route (spec §5.4) ─────────────────────────────────────────────────────────
+// ── The Omnibox Launcher (spec §5.4, approved 2026-07-23) ─────────────────────────────────────
 
-describe('product create page', () => {
+describe('product create page — Omnibox Launcher', () => {
   function mountCreate() {
     return mount(ProductCreate, { global: { stubs: pageStubs } })
   }
 
-  it('renders the editor chrome: live Details/Pricing cards, dormant sections, and the nav', async () => {
+  it('renders the launcher: omnibox, four type cards, import doorway — and NO dormant section cards', async () => {
     const wrapper = mountCreate()
     await flushPromises()
 
-    expect(wrapper.find('[data-test="editor-section-details"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="editor-section-pricing"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="section-nav"]').exists()).toBe(true)
-
-    // Dormant sections are VISIBLE (the surface is honest about what exists) but disabled —
-    // nothing implies they can save before the draft does.
-    for (const id of ['media', 'organization', 'addons', 'content']) {
-      expect(wrapper.find(`[data-test="create-dormant-${id}"]`).text()).toContain(
-        'Available once the draft is created',
-      )
+    expect(wrapper.find('[data-test="omnibox-input"]').exists()).toBe(true)
+    for (const t of ['physical', 'digital', 'external', 'grouped']) {
+      expect(wrapper.find(`[data-test="type-card-${t}"]`).exists()).toBe(true)
     }
-    // Type-conditional dormant cards: not present for the default physical type.
-    expect(wrapper.find('[data-test="create-dormant-downloads"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="create-dormant-children"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="type-card-physical"]').attributes('aria-checked')).toBe('true')
+    expect(wrapper.find('[data-test="import-doorway"]').exists()).toBe(true)
+
+    // The launcher stands alone (user decision 2026-07-23): sections first appear in the
+    // editor the create lands in, never as dormant cards here.
+    expect(wrapper.find('[data-test^="create-dormant-"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test^="editor-section-"]').exists()).toBe(false)
   })
 
-  it('creates the draft atomically and REPLACES to the product route (Back never reopens the form)', async () => {
+  it('teaches the parse rules under the omnibox for purchasable types only, in the TENANT currency', async () => {
+    const wrapper = mountCreate()
+    await flushPromises()
+
+    // Physical (default): the hint explains the money-token syntax INCLUDING the surprising
+    // bare-integer rule — currency-neutral, using the tenant's own code (never "$").
+    const hint = wrapper.find('[data-test="omnibox-hint"]')
+    expect(hint.text()).toContain('end with a price')
+    expect(hint.text()).toContain('120 USD')
+    expect(hint.text()).toContain('mark them with USD')
+    expect(hint.text()).not.toContain('$8')
+
+    // External/grouped collect no price — a price tip there would mislead.
+    await wrapper.find('[data-test="type-card-external"]').trigger('click')
+    expect(wrapper.find('[data-test="omnibox-hint"]').exists()).toBe(false)
+    await wrapper.find('[data-test="type-card-grouped"]').trigger('click')
+    expect(wrapper.find('[data-test="omnibox-hint"]').exists()).toBe(false)
+    await wrapper.find('[data-test="type-card-digital"]').trigger('click')
+    expect(wrapper.find('[data-test="omnibox-hint"]').exists()).toBe(true)
+  })
+
+  it('lifts a whole-number price marked with the tenant currency code — no "$" required', async () => {
     createMock.mockResolvedValue(
-      product({ uuid: 'new-1', name: 'Wireless Mouse', slug: 'wireless-mouse' }),
+      product({ uuid: 'new-5', name: 'Aurora Desk Lamp', slug: 'aurora-desk-lamp' }),
     )
     const wrapper = mountCreate()
     await flushPromises()
 
-    await wrapper.find('[data-test="product-name-input"]').setValue('Wireless Mouse')
-    await wrapper.find('[data-test="product-price-input"]').setValue('1999')
+    await wrapper.find('[data-test="omnibox-input"]').setValue('Aurora Desk Lamp 89 USD')
     await flushPromises()
 
-    // Slug and SKU derive from the name (and stay editable — next spec).
-    expect(
-      (wrapper.find('[data-test="product-slug-input"]').element as HTMLInputElement).value,
-    ).toBe('wireless-mouse')
-    expect(
-      (wrapper.find('[data-test="product-sku-input"]').element as HTMLInputElement).value,
-    ).toBe('wireless-mouse')
+    expect(wrapper.find('[data-test="chip-name"]').text()).toContain('Aurora Desk Lamp')
+    expect(wrapper.find('[data-test="chip-price"]').text()).toContain('89')
 
-    await wrapper.find('form').trigger('submit')
+    await wrapper.find('[data-test="product-create-submit"]').trigger('click')
     await flushPromises()
 
     expect(createMock).toHaveBeenCalledWith({
-      slug: 'wireless-mouse',
-      name: 'Wireless Mouse',
+      slug: 'aurora-desk-lamp',
+      name: 'Aurora Desk Lamp',
       type: 'physical',
       status: 'draft',
-      variants: [{ sku: 'wireless-mouse', price: 1999, currency: 'USD' }],
+      variants: [{ sku: 'aurora-desk-lamp', price: 8900, currency: 'USD' }],
+    })
+  })
+
+  it('parses a trailing money token into honest chips and an exact create payload, then REPLACES the route', async () => {
+    createMock.mockResolvedValue(
+      product({ uuid: 'new-1', name: 'Aurora Desk Lamp', slug: 'aurora-desk-lamp' }),
+    )
+    const wrapper = mountCreate()
+    await flushPromises()
+
+    await wrapper.find('[data-test="omnibox-input"]').setValue('Aurora Desk Lamp $89')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="chip-name"]').text()).toContain('Aurora Desk Lamp')
+    expect(wrapper.find('[data-test="chip-slug"]').text()).toContain('aurora-desk-lamp')
+    expect(wrapper.find('[data-test="chip-sku"]').text()).toContain('aurora-desk-lamp')
+    expect(wrapper.find('[data-test="chip-price"]').text()).toContain('89')
+    expect(wrapper.find('[data-test="chip-no-price"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="product-create-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(createMock).toHaveBeenCalledWith({
+      slug: 'aurora-desk-lamp',
+      name: 'Aurora Desk Lamp',
+      type: 'physical',
+      status: 'draft',
+      variants: [{ sku: 'aurora-desk-lamp', price: 8900, currency: 'USD' }],
     })
     expect(routerReplace).toHaveBeenCalledWith('/commerce/products/new-1')
     expect(routerPush).not.toHaveBeenCalled()
   })
 
-  it('slug and SKU are derived-but-editable: an edited slug re-derives the SKU; an edited SKU stands alone', async () => {
-    createMock.mockResolvedValue(product({ uuid: 'new-2', name: 'Widget' }))
+  it('a bare trailing integer stays in the NAME (model numbers are names), price falls back to a $0 draft', async () => {
+    createMock.mockResolvedValue(product({ uuid: 'new-2', name: 'Lamp 89', slug: 'lamp-89' }))
     const wrapper = mountCreate()
     await flushPromises()
 
-    await wrapper.find('[data-test="product-name-input"]').setValue('Widget')
-    await wrapper.find('[data-test="product-slug-input"]').setValue('widget-pro')
+    await wrapper.find('[data-test="omnibox-input"]').setValue('Lamp 89')
     await flushPromises()
-    expect(
-      (wrapper.find('[data-test="product-sku-input"]').element as HTMLInputElement).value,
-    ).toBe('widget-pro')
 
-    await wrapper.find('[data-test="product-sku-input"]').setValue('WID-001')
-    await wrapper.find('[data-test="product-price-input"]').setValue('1000')
-    await wrapper.find('form').trigger('submit')
+    expect(wrapper.find('[data-test="chip-name"]').text()).toContain('Lamp 89')
+    expect(wrapper.find('[data-test="chip-price"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="chip-no-price"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="product-create-submit"]').trigger('click')
     await flushPromises()
 
     expect(createMock).toHaveBeenCalledWith({
-      slug: 'widget-pro',
-      name: 'Widget',
+      slug: 'lamp-89',
+      name: 'Lamp 89',
       type: 'physical',
       status: 'draft',
-      variants: [{ sku: 'WID-001', price: 1000, currency: 'USD' }],
+      variants: [{ sku: 'lamp-89', price: 0, currency: 'USD' }],
     })
   })
 
-  it('non-purchasable types drop the Pricing card, adjust dormant cards, and send an empty variants list', async () => {
+  it('External: price affordance disappears, the required Link field gates create, payload carries metadata.external_url', async () => {
     createMock.mockResolvedValue(
-      product({ uuid: 'new-3', name: 'Partner Listing', type: 'external' }),
+      product({ uuid: 'new-3', name: 'Partner Desk', slug: 'partner-desk', type: 'external' }),
     )
     const wrapper = mountCreate()
     await flushPromises()
 
-    await wrapper.find('[data-test="product-name-input"]').setValue('Partner Listing')
-    selectByTestId(wrapper, 'product-type-select').vm.$emit('update:modelValue', 'external')
+    await wrapper.find('[data-test="omnibox-input"]').setValue('Partner Desk $99')
+    await wrapper.find('[data-test="type-card-external"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-test="editor-section-pricing"]').exists()).toBe(false)
+    // The parse still lifts "$99" from the text, but external renders no price chips at all.
+    expect(wrapper.find('[data-test="chip-price"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="chip-no-price"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="chip-external"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="chip-link-required"]').exists()).toBe(true)
+    expect(
+      wrapper.find('[data-test="product-create-submit"]').attributes('disabled'),
+    ).toBeDefined()
 
-    await wrapper.find('form').trigger('submit')
+    await wrapper.find('[data-test="external-url-input"]').setValue('https://partner.example/desk')
+    await flushPromises()
+    expect(wrapper.find('[data-test="chip-link-ok"]').exists()).toBe(true)
+    expect(
+      wrapper.find('[data-test="product-create-submit"]').attributes('disabled'),
+    ).toBeUndefined()
+
+    await wrapper.find('[data-test="product-create-submit"]').trigger('click')
     await flushPromises()
 
     expect(createMock).toHaveBeenCalledWith({
-      slug: 'partner-listing',
-      name: 'Partner Listing',
+      slug: 'partner-desk',
+      name: 'Partner Desk',
       type: 'external',
+      status: 'draft',
+      variants: [],
+      metadata: { external_url: 'https://partner.example/desk' },
+    })
+  })
+
+  it('Grouped: bundle chip, no price, empty variants, no metadata', async () => {
+    createMock.mockResolvedValue(
+      product({ uuid: 'new-4', name: 'Starter Kit', slug: 'starter-kit', type: 'grouped' }),
+    )
+    const wrapper = mountCreate()
+    await flushPromises()
+
+    await wrapper.find('[data-test="omnibox-input"]').setValue('Starter Kit')
+    await wrapper.find('[data-test="type-card-grouped"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="chip-grouped"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="product-create-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(createMock).toHaveBeenCalledWith({
+      slug: 'starter-kit',
+      name: 'Starter Kit',
+      type: 'grouped',
       status: 'draft',
       variants: [],
     })
   })
 
-  it('a grouped type reveals the dormant Grouped products card; digital reveals Downloads', async () => {
+  it('digital keeps the price affordance', async () => {
     const wrapper = mountCreate()
     await flushPromises()
 
-    selectByTestId(wrapper, 'product-type-select').vm.$emit('update:modelValue', 'grouped')
+    await wrapper.find('[data-test="type-card-digital"]').trigger('click')
+    await wrapper.find('[data-test="omnibox-input"]').setValue('Ebook $12.50')
     await flushPromises()
-    expect(wrapper.find('[data-test="create-dormant-children"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="editor-section-pricing"]').exists()).toBe(false)
 
-    selectByTestId(wrapper, 'product-type-select').vm.$emit('update:modelValue', 'digital')
-    await flushPromises()
-    expect(wrapper.find('[data-test="create-dormant-downloads"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="editor-section-pricing"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="chip-price"]').text()).toContain('12.50')
   })
 
-  it('a server 422 retains every entered value, shows the error, focuses the owning section, and never navigates or retries', async () => {
-    const scrollSpy = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => {})
+  it('number keys 1-4 select a type when focus is outside the inputs, and are ignored inside them', async () => {
+    const wrapper = mountCreate()
+    await flushPromises()
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: '3', bubbles: true }))
+    await flushPromises()
+    expect(wrapper.find('[data-test="type-card-external"]').attributes('aria-checked')).toBe('true')
+
+    // Typing "2" INSIDE the omnibox must not switch types.
+    const input = wrapper.find('[data-test="omnibox-input"]').element as HTMLInputElement
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: '2', bubbles: true }))
+    await flushPromises()
+    expect(wrapper.find('[data-test="type-card-external"]').attributes('aria-checked')).toBe('true')
+
+    wrapper.unmount()
+  })
+
+  it('a server 422 (slug taken) shows the banner, marks the omnibox, retains the text, and never navigates or retries', async () => {
     createMock.mockRejectedValueOnce(
       new ApiError('Validation failed', 422, { slug: 'Slug already in use.' }, {}),
     )
-    // attachTo: the section focus resolves its target via document.getElementById (mirrors the
-    // C4 draft-Activate scroll spec's own attachTo rationale).
-    const wrapper = mount(ProductCreate, { global: { stubs: pageStubs }, attachTo: document.body })
+    const wrapper = mountCreate()
     await flushPromises()
 
-    await wrapper.find('[data-test="product-name-input"]').setValue('Wireless Mouse')
-    await wrapper.find('[data-test="product-price-input"]').setValue('1999')
-    await wrapper.find('form').trigger('submit')
+    await wrapper.find('[data-test="omnibox-input"]').setValue('Aurora Desk Lamp $89')
+    await wrapper.find('[data-test="product-create-submit"]').trigger('click')
     await flushPromises()
 
     expect(createMock).toHaveBeenCalledTimes(1) // single-flight, no automatic retry
@@ -1067,16 +1245,32 @@ describe('product create page', () => {
     expect(wrapper.find('[data-test="product-create-error"]').text()).toContain(
       'Slug already in use.',
     )
-    // Every entered value retained.
     expect(
-      (wrapper.find('[data-test="product-name-input"]').element as HTMLInputElement).value,
-    ).toBe('Wireless Mouse')
-    expect(
-      (wrapper.find('[data-test="product-price-input"]').element as HTMLInputElement).value,
-    ).toBe('1999')
-    expect(scrollSpy).toHaveBeenCalled() // the slug error's section (Details) was focused
-    wrapper.unmount()
-    scrollSpy.mockRestore()
+      (wrapper.find('[data-test="omnibox-input"]').element as HTMLInputElement).value,
+    ).toBe('Aurora Desk Lamp $89')
+  })
+
+  it('a server 422 on the external link lands on the Link field', async () => {
+    createMock.mockRejectedValueOnce(
+      new ApiError(
+        'Validation failed',
+        422,
+        { 'metadata.external_url': 'metadata.external_url must use the http or https scheme.' },
+        {},
+      ),
+    )
+    const wrapper = mountCreate()
+    await flushPromises()
+
+    await wrapper.find('[data-test="omnibox-input"]').setValue('Partner Desk')
+    await wrapper.find('[data-test="type-card-external"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="external-url-input"]').setValue('https://sneaky.example/x')
+    await wrapper.find('[data-test="product-create-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('must use the http or https scheme')
+    expect(routerReplace).not.toHaveBeenCalled()
   })
 })
 
