@@ -96,6 +96,12 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   BigInt-safe money formatter (0/2/3-decimal exponents, no float arithmetic); mutation
   controls hide without `commerce.manage` while every surface stays readable with
   `commerce.view`.
+- **Draft-first product creation** (admin SPA): "New product" now asks only for name,
+  type, and — for purchasable types — a starting price; slug, SKU, currency, and the
+  `draft` status are derived (shown in a preview line) and the page navigates straight
+  into the product editor, where the tabs complete the setup and a draft callout points
+  at activation. Non-purchasable types (`external`/`grouped`) no longer send a variant
+  the API rejects.
 - **Full tenant resolution and operations**: verified custom domains plus
   subdomain fallback for public delivery, header/JWT resolution for the admin,
   a resumable fresh-boot activation flow, tenant/domain/membership HTTP and CLI

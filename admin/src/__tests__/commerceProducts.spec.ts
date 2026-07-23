@@ -581,32 +581,66 @@ describe('commerce products list page', () => {
     expect(wrapper.find('[data-test="product-create-submit"]').exists()).toBe(true)
   })
 
-  it('creates a product from the slideover and navigates to its detail page', async () => {
-    createMock.mockResolvedValue(product({ uuid: 'new-1', name: 'Widget', slug: 'widget' }))
+  it('creates a draft from name/type/price, deriving slug/SKU/currency, and navigates to its detail page', async () => {
+    createMock.mockResolvedValue(product({ uuid: 'new-1', name: 'Wireless Mouse', slug: 'wireless-mouse' }))
     const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
 
     await wrapper.find('[data-test="new-product"]').trigger('click')
     await flushPromises()
 
-    await wrapper.find('[data-test="product-name-input"]').setValue('Widget')
-    await wrapper.find('[data-test="product-sku-input"]').setValue('SKU-1')
+    // Draft-first: the form asks ONLY for name/type/price — slug, SKU, currency
+    // and status are derived, surfaced in the preview line, and refined in the
+    // editor the page navigates into.
+    expect(wrapper.find('[data-test="product-slug-input"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="product-sku-input"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="product-currency-input"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="product-name-input"]').setValue('Wireless Mouse')
     await wrapper.find('[data-test="product-price-input"]').setValue('1999')
-    await wrapper.find('[data-test="product-currency-input"]').setValue('USD')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="derived-preview"]').text()).toContain('wireless-mouse')
 
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
     expect(createMock).toHaveBeenCalledWith({
-      slug: 'widget',
-      name: 'Widget',
-      description: null,
+      slug: 'wireless-mouse',
+      name: 'Wireless Mouse',
       type: 'physical',
       status: 'draft',
-      tax_class: null,
-      variants: [{ sku: 'SKU-1', price: 1999, currency: 'USD' }],
+      variants: [{ sku: 'wireless-mouse', price: 1999, currency: 'USD' }],
     })
     expect(routerPush).toHaveBeenCalledWith('/commerce/products/new-1')
+  })
+
+  it('hides the price field and sends no variants for non-purchasable types', async () => {
+    createMock.mockResolvedValue(product({ uuid: 'new-2', name: 'Partner Listing', type: 'external' }))
+    const wrapper = mount(ProductsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="new-product"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-test="product-name-input"]').setValue('Partner Listing')
+    selectByTestId(wrapper, 'product-type-select').vm.$emit('update:modelValue', 'external')
+    await flushPromises()
+
+    // external/grouped products reject variants server-side — no price asked,
+    // and the payload carries an EMPTY variants list.
+    expect(wrapper.find('[data-test="product-price-input"]').exists()).toBe(false)
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(createMock).toHaveBeenCalledWith({
+      slug: 'partner-listing',
+      name: 'Partner Listing',
+      type: 'external',
+      status: 'draft',
+      variants: [],
+    })
   })
 
   it('requires confirmation before deleting a product', async () => {
@@ -742,6 +776,18 @@ describe('commerce product detail page', () => {
 
     expect(wrapper.text()).toContain('Widget')
     expect(wrapper.find('[data-test="product-form-save"]').exists()).toBe(true)
+  })
+
+  it('shows the draft callout for draft products and hides it once active', async () => {
+    singleProduct.value = product({ uuid: 'p1', status: 'draft' })
+    const draftWrapper = mount(ProductDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    expect(draftWrapper.find('[data-test="product-draft-callout"]').exists()).toBe(true)
+
+    singleProduct.value = product({ uuid: 'p1', status: 'active' })
+    const activeWrapper = mount(ProductDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    expect(activeWrapper.find('[data-test="product-draft-callout"]').exists()).toBe(false)
   })
 
   it('hides the delete button and save control when can_manage is false', async () => {

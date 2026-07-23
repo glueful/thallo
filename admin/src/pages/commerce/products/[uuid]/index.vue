@@ -104,6 +104,17 @@ async function confirmDelete() {
       />
 
       <template v-else-if="product">
+        <UAlert
+          v-if="product.status === 'draft'"
+          color="info"
+          variant="subtle"
+          icon="i-lucide-pencil-ruler"
+          title="Draft product"
+          description="Not visible in the store yet. Add variants, images, categories and the rest in the tabs, then set the status to Active in Details."
+          class="mb-4"
+          data-test="product-draft-callout"
+        />
+
         <UTabs v-model="tab" variant="link" :items="tabItems" :content="false" class="mb-4" />
 
         <ProductForm

@@ -1,17 +1,22 @@
 <script setup lang="ts">
-import { computed, reactive, ref, useTemplateRef, watch } from 'vue'
+import { computed, reactive, useTemplateRef, watch } from 'vue'
 import * as z from 'zod'
 import type { Form, FormSubmitEvent } from '@nuxt/ui'
-import {
-  useCommerceProductMutations,
-  PRODUCT_STATUSES,
-  PRODUCT_TYPES,
-} from '@/queries/commerceCatalog'
+import { useCommerceProductMutations, PRODUCT_TYPES } from '@/queries/commerceCatalog'
 import { useCommerceMeta } from '@/queries/commerceMeta'
 import { formatMoney } from '@/composables/useMoney'
 import { toApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
 import { slugify } from '@/utils/slugify'
+
+/**
+ * Draft-first create (Woo-style): collect only what the API can't derive —
+ * a name, the structural type, and (for purchasable types) the starting
+ * price, since `POST /commerce/products` requires >=1 variant for
+ * physical/digital. Everything else is derived (slug from name, SKU from
+ * slug, currency from tenant meta, status always `draft`) and refined in
+ * the product editor the index navigates into on `created`.
+ */
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ 'update:open': [value: boolean]; created: [uuid: string] }>()
@@ -21,68 +26,51 @@ const { create } = useCommerceProductMutations()
 const { data: meta } = useCommerceMeta()
 
 const typeItems = PRODUCT_TYPES.map((t) => ({ label: t, value: t }))
-const statusItems = PRODUCT_STATUSES.map((s) => ({ label: s, value: s }))
+
+/** external/grouped products reject variants server-side — no price to ask for. */
+const PURCHASABLE_TYPES = ['physical', 'digital'] as const
 
 const schema = z.object({
-  name: z.string().min(1, 'Name is required.'),
-  slug: z
+  name: z
     .string()
-    .min(1, 'Slug is required.')
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Lowercase letters, numbers and hyphens only.'),
-  description: z.string().optional(),
+    .min(1, 'Name is required.')
+    .refine((v) => slugify(v).length > 0, 'Name must contain letters or numbers.'),
   type: z.enum(PRODUCT_TYPES),
-  status: z.enum(PRODUCT_STATUSES),
-  taxClass: z.string().optional(),
-  sku: z.string().min(1, 'SKU is required.'),
   price: z
     .number({ message: 'Price is required.' })
     .int('Price must be a whole number of minor units.')
     .nonnegative('Price cannot be negative.'),
-  currency: z
-    .string()
-    .length(3, 'Currency must be a 3-letter code.')
-    .transform((v) => v.toUpperCase()),
 })
 type Schema = z.output<typeof schema>
 
 function blankState() {
   return {
     name: '',
-    slug: '',
-    description: '',
     type: 'physical' as const,
-    status: 'draft' as const,
-    taxClass: '',
-    sku: '',
     price: 0,
-    currency: meta.value?.currency ?? 'USD',
   }
 }
 
 const state = reactive(blankState())
-const slugTouched = ref(false)
-
-watch(
-  () => state.name,
-  (name) => {
-    if (!slugTouched.value) state.slug = slugify(name)
-  },
-)
 
 watch(
   () => props.open,
   (open) => {
-    if (!open) return
-    Object.assign(state, blankState())
-    slugTouched.value = false
+    if (open) Object.assign(state, blankState())
   },
 )
+
+const purchasable = computed(() =>
+  (PURCHASABLE_TYPES as readonly string[]).includes(state.type),
+)
+const derivedSlug = computed(() => slugify(state.name))
+const currency = computed(() => meta.value?.currency ?? 'USD')
 
 const pricePreview = computed(() => {
   const exponent = meta.value?.currency_exponent ?? 2
   if (!Number.isInteger(state.price) || state.price < 0) return null
   try {
-    return formatMoney(state.price, { currency: state.currency || 'USD', currency_exponent: exponent })
+    return formatMoney(state.price, { currency: currency.value, currency_exponent: exponent })
   } catch {
     return null
   }
@@ -91,29 +79,28 @@ const pricePreview = computed(() => {
 const createForm = useTemplateRef<Form<Schema>>('createForm')
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
+  const slug = slugify(event.data.name)
+  const isPurchasable = (PURCHASABLE_TYPES as readonly string[]).includes(event.data.type)
   try {
     const created = await create.mutateAsync({
-      slug: event.data.slug,
+      slug,
       name: event.data.name,
-      description: event.data.description || null,
       type: event.data.type,
-      status: event.data.status,
-      tax_class: event.data.taxClass || null,
-      variants: [
-        {
-          sku: event.data.sku,
-          price: event.data.price,
-          currency: event.data.currency,
-        },
-      ],
+      status: 'draft',
+      // SKU defaults to the (unique) slug; refined on the Variants tab.
+      variants: isPurchasable
+        ? [{ sku: slug, price: event.data.price, currency: currency.value }]
+        : [],
     })
-    success('Product created', `“${event.data.name}” is ready.`)
+    success('Draft created', `Finish setting up “${event.data.name}” in the editor.`)
     emit('created', created.uuid)
     emit('update:open', false)
   } catch (e) {
     const err = toApiError(e)
+    // The form has no slug/variant fields — surface those server errors on
+    // the fields the user CAN act on.
     const fieldErrors = Object.entries(err.fieldErrors).map(([name, message]) => ({
-      name,
+      name: name === 'slug' ? 'name' : name === 'variants' ? 'price' : name,
       message,
     }))
     if (fieldErrors.length > 0) createForm.value?.setErrors(fieldErrors)
@@ -138,6 +125,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         class="space-y-6"
         @submit="onSubmit"
       >
+        <p class="text-sm text-muted">
+          Starts as a draft — add images, stock, categories and everything else in the
+          editor right after creating.
+        </p>
+
         <div class="grid grid-cols-2 gap-4">
           <UFormField label="Name" name="name" required class="col-span-2">
             <UInput
@@ -148,79 +140,40 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             />
           </UFormField>
 
+          <UFormField label="Type" name="type">
+            <USelect v-model="state.type" :items="typeItems" class="w-full" data-test="product-type-select" />
+          </UFormField>
+
           <UFormField
-            label="Slug"
-            name="slug"
+            v-if="purchasable"
+            label="Price"
+            name="price"
             required
-            class="col-span-2"
-            help="Lowercase, hyphenated identifier — drives the storefront URL."
+            help="Minor units (e.g. cents) — the smallest unit of the currency."
           >
             <UInput
-              v-model="state.slug"
-              placeholder="e.g. wireless-mouse"
+              v-model.number="state.price"
+              type="number"
+              :min="0"
               class="w-full"
-              data-test="product-slug-input"
-              @update:model-value="slugTouched = true"
+              data-test="product-price-input"
             />
-          </UFormField>
-
-          <UFormField label="Description" name="description" class="col-span-2">
-            <UTextarea v-model="state.description" class="w-full" :rows="3" />
-          </UFormField>
-
-          <UFormField label="Type" name="type">
-            <USelect v-model="state.type" :items="typeItems" class="w-full" />
-          </UFormField>
-
-          <UFormField label="Status" name="status">
-            <USelect v-model="state.status" :items="statusItems" class="w-full" />
-          </UFormField>
-
-          <UFormField label="Tax class" name="taxClass" class="col-span-2">
-            <UInput v-model="state.taxClass" placeholder="Optional" class="w-full" />
           </UFormField>
         </div>
 
-        <div class="space-y-3 border-t border-default pt-4">
-          <p class="text-xs font-medium uppercase tracking-wide text-muted">Default variant</p>
-          <div class="grid grid-cols-2 gap-4">
-            <UFormField label="SKU" name="sku" required class="col-span-2">
-              <UInput
-                v-model="state.sku"
-                placeholder="e.g. WM-001"
-                class="w-full"
-                data-test="product-sku-input"
-              />
-            </UFormField>
-
-            <UFormField
-              label="Price"
-              name="price"
-              required
-              help="Minor units (e.g. cents) — the smallest unit of the currency."
-            >
-              <UInput
-                v-model.number="state.price"
-                type="number"
-                :min="0"
-                class="w-full"
-                data-test="product-price-input"
-              />
-            </UFormField>
-
-            <UFormField label="Currency" name="currency" required>
-              <UInput
-                v-model="state.currency"
-                placeholder="USD"
-                class="w-full uppercase"
-                data-test="product-currency-input"
-              />
-            </UFormField>
-
-            <p v-if="pricePreview" class="col-span-2 text-xs text-muted" data-test="price-preview">
-              Preview: {{ pricePreview }}
-            </p>
-          </div>
+        <div
+          v-if="derivedSlug"
+          class="rounded-md bg-elevated/50 px-3 py-2 text-xs text-muted"
+          data-test="derived-preview"
+        >
+          Slug <span class="font-medium text-default">{{ derivedSlug }}</span>
+          <template v-if="purchasable">
+            · SKU <span class="font-medium text-default">{{ derivedSlug }}</span>
+            <template v-if="pricePreview">
+              · <span data-test="price-preview">{{ pricePreview }}</span>
+            </template>
+          </template>
+          · created as draft
         </div>
       </UForm>
     </template>
