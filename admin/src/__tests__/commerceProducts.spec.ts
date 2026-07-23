@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
-import { ref, toValue } from 'vue'
+import { defineComponent, h, ref, toValue, type Component } from 'vue'
 import type {
   CommerceAddon,
   CommerceAttribute,
@@ -14,6 +14,12 @@ import type {
   ProductListPage,
   TagListPage,
 } from '@/queries/commerceCatalog'
+import type { ProductMediaItem, SectionEnvelope } from '@/queries/commerceProductSections'
+import { createDirtyRegistry } from '@/composables/useSectionState'
+import {
+  useProductRevisionCoordinator,
+  type ProductRevisionCoordinator,
+} from '@/composables/useProductRevisionCoordinator'
 
 // ── Shared mock state (referenced inside vi.mock factories) ────────────────────────────────────
 //
@@ -35,6 +41,23 @@ const metaData = ref({
 })
 vi.mock('@/queries/commerceMeta', () => ({
   useCommerceMeta: () => ({ data: metaData }),
+}))
+
+// Task C1's media section read, mocked the same shape-preserving way as the rest of this file's
+// query mocks: `mediaSectionRefetchMock`'s default implementation always resolves with whatever
+// `mediaSectionData`/`mediaSectionStatus` currently hold — a Colada `refetch()` calling `DataState`.
+// This lets a test simply mutate `mediaSectionData.value` BEFORE triggering an action that causes a
+// refetch (coordinator `afterMutation()`/`refresh()`) to control what the "server" hands back,
+// without needing to hand-simulate Colada's own internals.
+const mediaSectionData = ref<SectionEnvelope<ProductMediaItem> | undefined>(undefined)
+const mediaSectionStatus = ref<'pending' | 'error' | 'success'>('success')
+const mediaSectionRefetchMock = vi.hoisted(() => vi.fn())
+vi.mock('@/queries/commerceProductSections', () => ({
+  useProductMedia: () => ({
+    data: mediaSectionData,
+    status: mediaSectionStatus,
+    refetch: mediaSectionRefetchMock,
+  }),
 }))
 
 const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
@@ -259,6 +282,21 @@ function media(overrides: Partial<CommerceProductMedia> = {}): CommerceProductMe
   }
 }
 
+/** A `products.media.index` (Task C1) row — the section-read projection MediaPanel now hydrates
+ * from, distinct from `media()` above (the mutation-response shape, which also carries
+ * `product_uuid`). */
+function mediaItem(overrides: Partial<ProductMediaItem> = {}): ProductMediaItem {
+  return {
+    uuid: 'm1',
+    blob_uuid: 'blob-1',
+    role: 'gallery',
+    position: 0,
+    alt: null,
+    variant_uuid: null,
+    ...overrides,
+  }
+}
+
 function category(overrides: Partial<CommerceCategory> = {}): CommerceCategory {
   return {
     uuid: 'cat1',
@@ -363,6 +401,54 @@ function selectByTestId(wrapper: ReturnType<typeof mount>, dataTest: string) {
   return root
 }
 
+/**
+ * Mounts a section card (ProductForm/MediaPanel, Task C5) underneath a small host that provides
+ * the REAL `DirtyRegistry` (Task C2) and `ProductRevisionCoordinator` (Task C3) — both cards now
+ * `useSectionState()` (which THROWS without an ancestor registry) and `inject()` the coordinator to
+ * await `afterMutation()`/call `refresh()`. Using the real C2/C3 implementations (already
+ * exhaustively tested in their own spec files) rather than a hand-rolled fake coordinator means
+ * MediaPanel's `register()`/`adoptRemote()`/`reconcileRemote()` wiring is exercised through the
+ * SAME dispatch logic production uses — a test only needs to spy on the returned coordinator's
+ * methods for call-count assertions, never re-implement its routing.
+ */
+function mountWithEditorContext(
+  component: Component,
+  props: Record<string, unknown>,
+  mountOptions: Record<string, unknown> = {},
+): {
+  wrapper: ReturnType<typeof mount>
+  getCoordinator: () => ProductRevisionCoordinator
+  getState: () => SectionState
+} {
+  let coordinator!: ProductRevisionCoordinator
+  let state!: SectionState
+  // Declares Host's props from the INITIAL keys so they're reactive (not plain fallthrough attrs)
+  // — `wrapper.setProps(...)` on the returned wrapper (Host is the mounted root) then correctly
+  // re-renders `component` with fresh prop values, exactly like mounting it directly would.
+  //
+  // `component`'s `state` emit is captured directly via an `onState` handler rather than read back
+  // through `wrapper.emitted('state')` — VTU's `emitted()` only tracks events emitted by the
+  // WRAPPER's own root component (Host), not a descendant's, since `component` here is Host's
+  // child, not the mounted root itself.
+  const Host = defineComponent({
+    name: 'EditorContextHost',
+    props: Object.keys(props),
+    setup(hostProps) {
+      createDirtyRegistry()
+      coordinator = useProductRevisionCoordinator()
+      return () =>
+        h(component, {
+          ...hostProps,
+          onState: (s: SectionState) => {
+            state = s
+          },
+        })
+    },
+  })
+  const wrapper = mount(Host, { ...mountOptions, props })
+  return { wrapper, getCoordinator: () => coordinator, getState: () => state }
+}
+
 beforeEach(() => {
   setActivePinia(createPinia())
   metaData.value = {
@@ -393,6 +479,14 @@ beforeEach(() => {
   detachMediaMock.mockReset()
   reorderMediaMock.mockReset()
   setCategoriesMock.mockReset()
+  mediaSectionData.value = { revision: 0, items: [] }
+  mediaSectionStatus.value = 'success'
+  mediaSectionRefetchMock.mockReset()
+  mediaSectionRefetchMock.mockImplementation(async () => ({
+    status: mediaSectionStatus.value,
+    data: mediaSectionData.value,
+    error: null,
+  }))
   categoriesData.value = []
   categoriesStatus.value = 'success'
   categoryCreateMock.mockReset()
@@ -513,6 +607,10 @@ describe('ProductsTable', () => {
 // ── ProductForm: exact money rendering, read-only gating, save ──────────────────────────────
 
 describe('ProductForm', () => {
+  function mountForm(p: CommerceProduct, canManage = true) {
+    return mountWithEditorContext(ProductForm, { product: p, canManage })
+  }
+
   it('renders the exact formatted base price from the first variant', () => {
     const p = product({
       variants: [
@@ -527,24 +625,24 @@ describe('ProductForm', () => {
         },
       ],
     })
-    const wrapper = mount(ProductForm, { props: { product: p, canManage: true } })
+    const { wrapper } = mountForm(p)
     expect(wrapper.find('[data-test="product-base-price"]').text()).toContain('$1,234.56')
   })
 
   it('shows no base price section when the product has no variants', () => {
-    const wrapper = mount(ProductForm, { props: { product: product(), canManage: true } })
+    const { wrapper } = mountForm(product())
     expect(wrapper.find('[data-test="product-base-price"]').exists()).toBe(false)
   })
 
   it('hides the save button when can_manage is false (read-only)', () => {
-    const wrapper = mount(ProductForm, { props: { product: product(), canManage: false } })
+    const { wrapper } = mountForm(product(), false)
     expect(wrapper.find('[data-test="product-form-save"]').exists()).toBe(false)
   })
 
   it('shows the save button and submits the current fields when can_manage is true', async () => {
     const p = product({ uuid: 'p1', name: 'Widget', slug: 'widget' })
     updateMock.mockResolvedValue(p)
-    const wrapper = mount(ProductForm, { props: { product: p, canManage: true } })
+    const { wrapper } = mountForm(p)
 
     expect(wrapper.find('[data-test="product-form-save"]').exists()).toBe(true)
     await wrapper.find('form').trigger('submit')
@@ -556,11 +654,99 @@ describe('ProductForm', () => {
         name: 'Widget',
         slug: 'widget',
         description: null,
-        type: 'physical',
         status: 'active',
         tax_class: null,
       },
     })
+  })
+
+  it('renders type as read-only text (no type select) and never sends it in the update payload', async () => {
+    const p = product({ uuid: 'p1', type: 'digital' })
+    updateMock.mockResolvedValue(p)
+    const { wrapper } = mountForm(p)
+
+    expect(wrapper.find('[data-test="product-type-value"]').text()).toBe('digital')
+    expect(wrapper.find('[data-test="product-type-note"]').text()).toContain(
+      'Type is set at creation.',
+    )
+    // Only the Status select remains — Type's editable USelect is gone entirely.
+    expect(wrapper.findAllComponents({ name: 'SelectRoot' })).toHaveLength(1)
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ input: expect.not.objectContaining({ type: expect.anything() }) }),
+    )
+  })
+
+  it('surfaces a 422 field error on the remaining editable fields as a banner', async () => {
+    const p = product({ uuid: 'p1', slug: 'widget' })
+    updateMock.mockRejectedValue(
+      new ApiError('Validation failed', 422, { slug: 'Slug already taken.' }, {}),
+    )
+    const { wrapper } = mountForm(p)
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="product-form-error"]').text()).toContain('Slug already taken.')
+  })
+
+  it('wires useSectionState around field edits and the save mutation, awaiting afterMutation() once', async () => {
+    const p = product({ uuid: 'p1', name: 'Widget', slug: 'widget' })
+    updateMock.mockResolvedValue(p)
+    const { wrapper, getCoordinator, getState } = mountForm(p)
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+    const state = getState()
+
+    expect(state.dirty.value).toBe(false)
+    await wrapper.find('[data-test="product-name-input"]').setValue('Widget 2')
+    expect(state.dirty.value).toBe(true)
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(state.dirty.value).toBe(false)
+    expect(state.phase.value).toBe('saved')
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('a failed save keeps the section dirty and does not call afterMutation()', async () => {
+    const p = product({ uuid: 'p1' })
+    updateMock.mockRejectedValue(
+      new ApiError('Validation failed', 422, { slug: 'Already taken.' }, {}),
+    )
+    const { wrapper, getCoordinator, getState } = mountForm(p)
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+    const state = getState()
+
+    await wrapper.find('[data-test="product-name-input"]').setValue('Widget 2')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(state.dirty.value).toBe(true)
+    expect(state.phase.value).toBe('error')
+    expect(afterMutationSpy).not.toHaveBeenCalled()
+  })
+
+  it('a clean section adopts a refreshed product prop, but a dirty one keeps its local draft', async () => {
+    const p = product({ uuid: 'p1', name: 'Widget' })
+    const { wrapper, getState } = mountForm(p)
+    const state = getState()
+
+    // Clean: an external product refresh (e.g. another section's afterMutation()) is adopted.
+    await wrapper.setProps({ product: product({ uuid: 'p1', name: 'Widget Renamed' }) })
+    expect(
+      (wrapper.find('[data-test="product-name-input"]').element as HTMLInputElement).value,
+    ).toBe('Widget Renamed')
+
+    // Dirty: a local edit survives an external product refresh instead of being silently wiped.
+    await wrapper.find('[data-test="product-name-input"]').setValue('My Local Edit')
+    expect(state.dirty.value).toBe(true)
+    await wrapper.setProps({ product: product({ uuid: 'p1', name: 'Server Wins?' }) })
+    expect(
+      (wrapper.find('[data-test="product-name-input"]').element as HTMLInputElement).value,
+    ).toBe('My Local Edit')
   })
 })
 
@@ -1036,22 +1222,26 @@ describe('commerce product detail page', () => {
     wrapper.unmount()
   })
 
-  it('shows a draft-only "Variants · n" hint on the Pricing nav item, computed from already-loaded data; every other item stays indicator-free', async () => {
+  it('shows draft-only "Variants · n" / "Images · n" hints computed from already-loaded data; every other item stays indicator-free', async () => {
     singleProduct.value = product({
       uuid: 'p1',
       name: 'Widget',
       status: 'draft',
       variants: [variant({ uuid: 'v1' }), variant({ uuid: 'v2', sku: 'SKU-2' })],
     })
+    mediaSectionData.value = { revision: 0, items: [mediaItem({ uuid: 'm1' })] }
     const draftWrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
     await flushPromises()
 
     const pricingItem = draftWrapper.find('[data-test="section-nav-pricing"]')
     expect(pricingItem.attributes('data-indicator')).toBe('hint')
     expect(pricingItem.text()).toContain('Variants · 2')
+    const mediaItemNav = draftWrapper.find('[data-test="section-nav-media"]')
+    expect(mediaItemNav.attributes('data-indicator')).toBe('hint')
+    expect(mediaItemNav.text()).toContain('Images · 1')
     // HONESTY over completeness (Task C4 brief): no fabricated counts for sections whose real
-    // data isn't loaded by this shell — the Task C1 reads are wired card-by-card starting at C5.
-    for (const id of ['details', 'media', 'organization', 'addons', 'content']) {
+    // data isn't loaded by this shell — the remaining C1 reads are wired card-by-card in C6-C8.
+    for (const id of ['details', 'organization', 'addons', 'content']) {
       expect(
         draftWrapper.find(`[data-test="section-nav-${id}"]`).attributes('data-indicator'),
       ).toBeUndefined()
@@ -1066,11 +1256,52 @@ describe('commerce product detail page', () => {
     })
     const activeWrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
     await flushPromises()
-    // Empty-hints are draft-only (spec §5.1) — an active product gets no Pricing hint at all.
+    // Empty-hints are draft-only (spec §5.1) — an active product gets no Pricing/Images hint at all.
     expect(
       activeWrapper.find('[data-test="section-nav-pricing"]').attributes('data-indicator'),
     ).toBeUndefined()
+    expect(
+      activeWrapper.find('[data-test="section-nav-media"]').attributes('data-indicator'),
+    ).toBeUndefined()
     activeWrapper.unmount()
+  })
+
+  it('shows no Images nav hint while the section read is still loading, even for a draft', async () => {
+    singleProduct.value = product({
+      uuid: 'p1',
+      name: 'Widget',
+      status: 'draft',
+      variants: [variant()],
+    })
+    mediaSectionStatus.value = 'pending'
+    mediaSectionData.value = undefined
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    expect(
+      wrapper.find('[data-test="section-nav-media"]').attributes('data-indicator'),
+    ).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it("wires each card's emitted SectionState into its EditorSectionCard chip and the nav indicator", async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget' })
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    // Idle+clean: no chip, no nav indicator.
+    expect(wrapper.find('[data-test="editor-section-details-chip"]').exists()).toBe(false)
+    expect(
+      wrapper.find('[data-test="section-nav-details"]').attributes('data-indicator'),
+    ).toBeUndefined()
+
+    await wrapper.find('[data-test="product-name-input"]').setValue('Widget 2')
+
+    expect(wrapper.find('[data-test="editor-section-details-chip"]').text()).toBe('Unsaved changes')
+    expect(wrapper.find('[data-test="section-nav-details"]').attributes('data-indicator')).toBe(
+      'unsaved',
+    )
+    wrapper.unmount()
   })
 
   it('wires the page-level unsaved-changes guard (beforeunload listener) exactly once per mount/unmount', async () => {
@@ -1497,10 +1728,11 @@ describe('VariantsPanel', () => {
 
 describe('MediaPanel', () => {
   function mountPanel(p: CommerceProduct, canManage = true) {
-    return mount(MediaPanel, {
-      props: { product: p, canManage },
-      global: { stubs: { MediaPickerModal: MediaPickerModalStub } },
-    })
+    return mountWithEditorContext(
+      MediaPanel,
+      { product: p, canManage },
+      { global: { stubs: { MediaPickerModal: MediaPickerModalStub } } },
+    )
   }
 
   async function attachOne(wrapper: ReturnType<typeof mount>) {
@@ -1509,28 +1741,122 @@ describe('MediaPanel', () => {
     await flushPromises()
   }
 
-  it('shows the not-loaded state on fresh mount (unknown, never a false "no media" claim)', () => {
-    const wrapper = mountPanel(product({ uuid: 'p1' }))
-    expect(wrapper.find('[data-test="media-unknown"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(false)
+  /** Mounts with a 2-item baseline (`m1`, `m2`, revision 0), moves `m1` down (a dirty local
+   * reorder draft: `[m2, m1]`), then fails the reorder save with a 409 while the mocked section
+   * read reflects `remoteItems`/`remoteRevision` — the shape every 409-recovery spec below starts
+   * from. */
+  async function mountReorderedAndConflicted(
+    remoteItems: ProductMediaItem[],
+    remoteRevision: number,
+  ) {
+    mediaSectionData.value = {
+      revision: 0,
+      items: [
+        mediaItem({ uuid: 'm1' }),
+        mediaItem({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }),
+      ],
+    }
+    const { wrapper, getCoordinator, getState } = mountPanel(product({ uuid: 'p1' }))
+    await flushPromises()
+
+    await wrapper.find('[data-test="media-move-down"]').trigger('click')
+
+    reorderMediaMock.mockRejectedValueOnce(new ApiError('Conflict', 409, {}, {}))
+    mediaSectionData.value = { revision: remoteRevision, items: remoteItems }
+
+    await wrapper.find('[data-test="media-reorder-save"]').trigger('click')
+    await flushPromises()
+
+    return { wrapper, getCoordinator, getState }
+  }
+
+  // ── Hydration (server truth replaces the old session-only `knownMedia` tracking) ────────────
+
+  it('hydrates and renders media rows from the section read, in the order the server returns', () => {
+    mediaSectionData.value = {
+      revision: 3,
+      items: [
+        mediaItem({ uuid: 'm1', blob_uuid: 'blob-1' }),
+        mediaItem({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }),
+      ],
+    }
+    const { wrapper } = mountPanel(product({ uuid: 'p1' }))
+
+    expect(
+      wrapper.findAll('[data-test="media-row"]').map((r) => r.attributes('data-uuid')),
+    ).toEqual(['m1', 'm2'])
+    expect(wrapper.find('[data-test="media-thumb"]').attributes('src')).toBe('/blobs/blob-1')
+  })
+
+  it('shows a genuinely empty state once loaded — the old "media-unknown" alert is gone entirely', () => {
+    mediaSectionData.value = { revision: 0, items: [] }
+    const { wrapper } = mountPanel(product({ uuid: 'p1' }))
+
+    expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="media-unknown"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="media-row"]').exists()).toBe(false)
   })
 
-  it('attaches media via the picker and renders the row', async () => {
-    attachMediaMock.mockResolvedValue(media({ uuid: 'm1', blob_uuid: 'blob-1', role: 'gallery' }))
-    const wrapper = mountPanel(product({ uuid: 'p1' }))
+  it('never renders the deleted "media-unknown" alert, even before the section read resolves', () => {
+    mediaSectionStatus.value = 'pending'
+    mediaSectionData.value = undefined
+    const { wrapper } = mountPanel(product({ uuid: 'p1' }))
 
+    expect(wrapper.find('[data-test="media-unknown"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="media-loading"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(false)
+  })
+
+  it('shows a load-error state when the section read fails', () => {
+    mediaSectionStatus.value = 'error'
+    mediaSectionData.value = undefined
+    const { wrapper } = mountPanel(product({ uuid: 'p1' }))
+
+    expect(wrapper.find('[data-test="media-load-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="media-unknown"]').exists()).toBe(false)
+  })
+
+  it('renders a variant-attribution badge only on items with variant_uuid set', () => {
+    mediaSectionData.value = {
+      revision: 0,
+      items: [
+        mediaItem({ uuid: 'm1', variant_uuid: null }),
+        mediaItem({ uuid: 'm2', blob_uuid: 'blob-2', position: 1, variant_uuid: 'v1' }),
+      ],
+    }
+    const { wrapper } = mountPanel(product({ uuid: 'p1' }))
+
+    const rows = wrapper.findAll('[data-test="media-row"]')
+    expect(rows[0]!.find('[data-test="media-variant-badge"]').exists()).toBe(false)
+    expect(rows[1]!.find('[data-test="media-variant-badge"]').exists()).toBe(true)
+  })
+
+  // ── Attach / update / detach: item-scoped, unguarded, each awaits afterMutation() once ──────
+
+  it('attaches media via the picker, awaiting afterMutation() once, and reflects the refreshed section read', async () => {
+    mediaSectionData.value = { revision: 0, items: [] }
+    attachMediaMock.mockResolvedValue(media({ uuid: 'm1', blob_uuid: 'blob-1', role: 'gallery' }))
+    const { wrapper, getCoordinator } = mountPanel(product({ uuid: 'p1' }))
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    mediaSectionData.value = {
+      revision: 1,
+      items: [mediaItem({ uuid: 'm1', blob_uuid: 'blob-1' })],
+    }
     await attachOne(wrapper)
 
     expect(attachMediaMock).toHaveBeenCalledWith({
       productUuid: 'p1',
       input: { blob_uuid: 'blob-new', role: 'gallery' },
     })
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
     expect(wrapper.findAll('[data-test="media-row"]')).toHaveLength(1)
     expect(wrapper.find('[data-test="media-thumb"]').attributes('src')).toBe('/blobs/blob-1')
   })
 
-  it('surfaces the "blob already attached" 422 message on attach failure', async () => {
+  it('surfaces the "blob already attached" 422 message on attach failure, without calling afterMutation()', async () => {
+    mediaSectionData.value = { revision: 0, items: [] }
     attachMediaMock.mockRejectedValue(
       new ApiError(
         'Validation failed',
@@ -1539,7 +1865,9 @@ describe('MediaPanel', () => {
         {},
       ),
     )
-    const wrapper = mountPanel(product({ uuid: 'p1' }))
+    const { wrapper, getCoordinator } = mountPanel(product({ uuid: 'p1' }))
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
 
     await attachOne(wrapper)
 
@@ -1547,16 +1875,25 @@ describe('MediaPanel', () => {
       'This blob is already attached to the product.',
     )
     expect(wrapper.find('[data-test="media-row"]').exists()).toBe(false)
+    expect(afterMutationSpy).not.toHaveBeenCalled()
   })
 
-  it('updates alt text via the inline edit form', async () => {
-    attachMediaMock.mockResolvedValue(media({ uuid: 'm1', blob_uuid: 'blob-1', role: 'gallery' }))
+  it('updates alt text via the inline edit form, awaiting afterMutation() once', async () => {
+    mediaSectionData.value = {
+      revision: 0,
+      items: [mediaItem({ uuid: 'm1', blob_uuid: 'blob-1' })],
+    }
     updateMediaMock.mockResolvedValue(
       media({ uuid: 'm1', blob_uuid: 'blob-1', role: 'gallery', alt: 'Front view' }),
     )
-    const wrapper = mountPanel(product({ uuid: 'p1' }))
-    await attachOne(wrapper)
+    const { wrapper, getCoordinator } = mountPanel(product({ uuid: 'p1' }))
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
 
+    mediaSectionData.value = {
+      revision: 1,
+      items: [mediaItem({ uuid: 'm1', blob_uuid: 'blob-1', alt: 'Front view' })],
+    }
     await wrapper.find('[data-test="media-edit"]').trigger('click')
     await wrapper.find('[data-test="media-edit-alt-input"]').setValue('Front view')
     await wrapper.find('[data-test="media-edit-save"]').trigger('click')
@@ -1567,120 +1904,53 @@ describe('MediaPanel', () => {
       productUuid: 'p1',
       input: { alt: 'Front view', role: 'gallery' },
     })
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
     expect(wrapper.find('[data-test="media-alt"]').text()).toContain('Front view')
   })
 
-  it('surfaces a validation 422 message on media update', async () => {
-    attachMediaMock.mockResolvedValue(media({ uuid: 'm1' }))
+  it('surfaces a validation 422 message on media update, without calling afterMutation()', async () => {
+    mediaSectionData.value = { revision: 0, items: [mediaItem({ uuid: 'm1' })] }
     updateMediaMock.mockRejectedValue(
       new ApiError('Validation failed', 422, { alt: 'Alt text too long.' }, {}),
     )
-    const wrapper = mountPanel(product({ uuid: 'p1' }))
-    await attachOne(wrapper)
+    const { wrapper, getCoordinator } = mountPanel(product({ uuid: 'p1' }))
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
 
     await wrapper.find('[data-test="media-edit"]').trigger('click')
     await wrapper.find('[data-test="media-edit-save"]').trigger('click')
     await flushPromises()
 
     expect(wrapper.find('[data-test="media-edit-error"]').text()).toContain('Alt text too long.')
+    expect(afterMutationSpy).not.toHaveBeenCalled()
   })
 
-  it('promotes a row to cover and demotes the previously-known local cover', async () => {
-    attachMediaMock
-      .mockResolvedValueOnce(media({ uuid: 'm1', blob_uuid: 'blob-1', role: 'cover', position: 0 }))
-      .mockResolvedValueOnce(
-        media({ uuid: 'm2', blob_uuid: 'blob-2', role: 'gallery', position: 1 }),
-      )
-    updateMediaMock.mockResolvedValue(
-      media({ uuid: 'm2', blob_uuid: 'blob-2', role: 'cover', position: 1 }),
-    )
-    const wrapper = mountPanel(product({ uuid: 'p1' }))
-    await attachOne(wrapper)
-    await attachOne(wrapper)
-
-    await wrapper.findAll('[data-test="media-edit"]')[1]!.trigger('click')
-    selectByTestId(wrapper, 'media-edit-role-input').vm.$emit('update:modelValue', 'cover')
-    await wrapper.find('[data-test="media-edit-save"]').trigger('click')
-    await flushPromises()
-
-    expect(updateMediaMock).toHaveBeenCalledWith({
-      uuid: 'm2',
-      productUuid: 'p1',
-      input: { alt: null, role: 'cover' },
-    })
-    const badges = wrapper.findAll('[data-test="media-role-badge"]')
-    expect(badges.map((b) => b.text())).toEqual(['gallery', 'cover'])
-  })
-
-  it('detaches media and removes the row', async () => {
-    attachMediaMock.mockResolvedValue(media({ uuid: 'm1' }))
+  it('detaches media, awaiting afterMutation() once, and reflects the refreshed (now empty) section read', async () => {
+    mediaSectionData.value = { revision: 0, items: [mediaItem({ uuid: 'm1' })] }
     detachMediaMock.mockResolvedValue(undefined)
-    const wrapper = mountPanel(product({ uuid: 'p1' }))
-    await attachOne(wrapper)
-    expect(wrapper.findAll('[data-test="media-row"]')).toHaveLength(1)
+    const { wrapper, getCoordinator } = mountPanel(product({ uuid: 'p1' }))
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
 
+    mediaSectionData.value = { revision: 1, items: [] }
     await wrapper.find('[data-test="media-detach"]').trigger('click')
     await flushPromises()
 
     expect(detachMediaMock).toHaveBeenCalledWith({ uuid: 'm1', productUuid: 'p1' })
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
     expect(wrapper.find('[data-test="media-row"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="media-empty"]').exists()).toBe(true)
   })
 
-  it('renders media rows ordered by position and reorders with the full uuid list on move', async () => {
-    attachMediaMock
-      .mockResolvedValueOnce(media({ uuid: 'm1', blob_uuid: 'blob-1', position: 0 }))
-      .mockResolvedValueOnce(media({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }))
-    reorderMediaMock.mockResolvedValue([
-      media({ uuid: 'm2', blob_uuid: 'blob-2', position: 0 }),
-      media({ uuid: 'm1', blob_uuid: 'blob-1', position: 1 }),
-    ])
-    const wrapper = mountPanel(product({ uuid: 'p1' }))
-    await attachOne(wrapper)
-    await attachOne(wrapper)
-
-    expect(
-      wrapper.findAll('[data-test="media-row"]').map((r) => r.attributes('data-uuid')),
-    ).toEqual(['m1', 'm2'])
-
-    await wrapper.findAll('[data-test="media-move-down"]')[0]!.trigger('click')
-    await flushPromises()
-
-    expect(reorderMediaMock).toHaveBeenCalledWith({ productUuid: 'p1', orderedUuids: ['m2', 'm1'] })
-    expect(
-      wrapper.findAll('[data-test="media-row"]').map((r) => r.attributes('data-uuid')),
-    ).toEqual(['m2', 'm1'])
-  })
-
-  it('rolls back an optimistic reorder when the mutation fails', async () => {
-    attachMediaMock
-      .mockResolvedValueOnce(media({ uuid: 'm1', blob_uuid: 'blob-1', position: 0 }))
-      .mockResolvedValueOnce(media({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }))
-    reorderMediaMock.mockRejectedValue(new ApiError('Validation failed', 422, {}, {}))
-    const wrapper = mountPanel(product({ uuid: 'p1' }))
-    await attachOne(wrapper)
-    await attachOne(wrapper)
-
-    await wrapper.findAll('[data-test="media-move-down"]')[0]!.trigger('click')
-    await flushPromises()
-
-    expect(reorderMediaMock).toHaveBeenCalledWith({ productUuid: 'p1', orderedUuids: ['m2', 'm1'] })
-    // Reverted to the pre-reorder order once the mutation rejects.
-    expect(
-      wrapper.findAll('[data-test="media-row"]').map((r) => r.attributes('data-uuid')),
-    ).toEqual(['m1', 'm2'])
-  })
-
-  it('hides mutation controls when can_manage is false, keeping media rows visible', async () => {
-    attachMediaMock
-      .mockResolvedValueOnce(media({ uuid: 'm1', position: 0 }))
-      .mockResolvedValueOnce(media({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }))
-    const wrapper = mountPanel(product({ uuid: 'p1' }))
-    await attachOne(wrapper)
-    await attachOne(wrapper)
-    expect(wrapper.find('[data-test="media-move-down"]').exists()).toBe(true)
-
-    await wrapper.setProps({ canManage: false })
+  it('hides mutation controls when can_manage is false, keeping media rows visible', () => {
+    mediaSectionData.value = {
+      revision: 0,
+      items: [
+        mediaItem({ uuid: 'm1' }),
+        mediaItem({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }),
+      ],
+    }
+    const { wrapper } = mountPanel(product({ uuid: 'p1' }), false)
 
     expect(wrapper.find('[data-test="media-add"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="media-edit"]').exists()).toBe(false)
@@ -1690,10 +1960,208 @@ describe('MediaPanel', () => {
     expect(wrapper.findAll('[data-test="media-row"]')).toHaveLength(2)
   })
 
-  it('hides the Add media button when can_manage is false', () => {
-    const wrapper = mountPanel(product({ uuid: 'p1' }), false)
-    expect(wrapper.find('[data-test="media-add"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="media-unknown"]').exists()).toBe(true)
+  // ── Reorder: local draft + explicit "Save order" (the replacement mutation) ─────────────────
+
+  it('moving a row edits a local draft and marks the section dirty WITHOUT submitting immediately', async () => {
+    mediaSectionData.value = {
+      revision: 0,
+      items: [
+        mediaItem({ uuid: 'm1' }),
+        mediaItem({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }),
+      ],
+    }
+    const { wrapper, getState } = mountPanel(product({ uuid: 'p1' }))
+    await flushPromises()
+    const state = getState()
+
+    expect(wrapper.find('[data-test="media-reorder-save"]').exists()).toBe(false)
+    await wrapper.find('[data-test="media-move-down"]').trigger('click')
+
+    expect(reorderMediaMock).not.toHaveBeenCalled()
+    expect(state.dirty.value).toBe(true)
+    expect(
+      wrapper.findAll('[data-test="media-row"]').map((r) => r.attributes('data-uuid')),
+    ).toEqual(['m2', 'm1'])
+    expect(wrapper.find('[data-test="media-reorder-save"]').exists()).toBe(true)
+  })
+
+  it('"Save order" submits the full draft order with expected_revision = baseRevision, awaiting afterMutation() once', async () => {
+    mediaSectionData.value = {
+      revision: 4,
+      items: [
+        mediaItem({ uuid: 'm1' }),
+        mediaItem({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }),
+      ],
+    }
+    reorderMediaMock.mockResolvedValue([])
+    const { wrapper, getCoordinator, getState } = mountPanel(product({ uuid: 'p1' }))
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+    const state = getState()
+
+    await wrapper.find('[data-test="media-move-down"]').trigger('click')
+    await wrapper.find('[data-test="media-reorder-save"]').trigger('click')
+    await flushPromises()
+
+    expect(reorderMediaMock).toHaveBeenCalledWith({
+      productUuid: 'p1',
+      orderedUuids: ['m2', 'm1'],
+      expectedRevision: 4,
+    })
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+    expect(state.dirty.value).toBe(false)
+    expect(wrapper.find('[data-test="media-reorder-save"]').exists()).toBe(false)
+  })
+
+  it('a non-409 reorder failure keeps the draft dirty, shows an error, and never calls afterMutation()', async () => {
+    mediaSectionData.value = {
+      revision: 0,
+      items: [
+        mediaItem({ uuid: 'm1' }),
+        mediaItem({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }),
+      ],
+    }
+    reorderMediaMock.mockRejectedValue(new ApiError('Validation failed', 422, {}, {}))
+    const { wrapper, getCoordinator, getState } = mountPanel(product({ uuid: 'p1' }))
+    await flushPromises()
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+    const state = getState()
+
+    await wrapper.find('[data-test="media-move-down"]').trigger('click')
+    await wrapper.find('[data-test="media-reorder-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="media-reorder-error"]').exists()).toBe(true)
+    expect(state.dirty.value).toBe(true)
+    expect(state.phase.value).toBe('error')
+    expect(afterMutationSpy).not.toHaveBeenCalled()
+    // Draft order is preserved — a failed save never reverts to server order.
+    expect(
+      wrapper.findAll('[data-test="media-row"]').map((r) => r.attributes('data-uuid')),
+    ).toEqual(['m2', 'm1'])
+  })
+
+  it('on a 409, refreshes the section FIRST, then shows a conflict review when the remote content genuinely differs (no automatic retry)', async () => {
+    const remote = [
+      mediaItem({ uuid: 'm1' }),
+      mediaItem({ uuid: 'm3', blob_uuid: 'blob-3', position: 1 }),
+      mediaItem({ uuid: 'm2', blob_uuid: 'blob-2', position: 2 }),
+    ]
+    const { wrapper } = await mountReorderedAndConflicted(remote, 5)
+
+    expect(reorderMediaMock).toHaveBeenCalledTimes(1)
+    const conflict = wrapper.find('[data-test="media-reorder-conflict"]')
+    expect(conflict.exists()).toBe(true)
+    expect(conflict.text()).toContain('changed elsewhere — review and save again')
+    expect(wrapper.find('[data-test="media-reorder-use-latest"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="media-reorder-replace-mine"]').exists()).toBe(true)
+  })
+
+  it('"Use latest" adopts the remote order, clears dirty, and never resubmits', async () => {
+    const remote = [
+      mediaItem({ uuid: 'm1' }),
+      mediaItem({ uuid: 'm3', blob_uuid: 'blob-3', position: 1 }),
+      mediaItem({ uuid: 'm2', blob_uuid: 'blob-2', position: 2 }),
+    ]
+    const { wrapper, getState } = await mountReorderedAndConflicted(remote, 5)
+    const state = getState()
+
+    await wrapper.find('[data-test="media-reorder-use-latest"]').trigger('click')
+    await flushPromises()
+
+    expect(
+      wrapper.findAll('[data-test="media-row"]').map((r) => r.attributes('data-uuid')),
+    ).toEqual(['m1', 'm3', 'm2'])
+    expect(state.dirty.value).toBe(false)
+    expect(wrapper.find('[data-test="media-reorder-save"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="media-reorder-conflict"]').exists()).toBe(false)
+    expect(reorderMediaMock).toHaveBeenCalledTimes(1) // never resubmitted
+  })
+
+  it('"Replace with mine" resubmits the LOCAL order with the NEW revision, only after explicit confirmation', async () => {
+    const remote = [
+      mediaItem({ uuid: 'm1' }),
+      mediaItem({ uuid: 'm3', blob_uuid: 'blob-3', position: 1 }),
+      mediaItem({ uuid: 'm2', blob_uuid: 'blob-2', position: 2 }),
+    ]
+    const { wrapper, getCoordinator } = await mountReorderedAndConflicted(remote, 5)
+    const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
+
+    // Still just the one original failed attempt — the review itself never auto-resubmits.
+    expect(reorderMediaMock).toHaveBeenCalledTimes(1)
+
+    reorderMediaMock.mockResolvedValueOnce([])
+    await wrapper.find('[data-test="media-reorder-replace-mine"]').trigger('click')
+    await flushPromises()
+
+    expect(reorderMediaMock).toHaveBeenCalledTimes(2)
+    expect(reorderMediaMock).toHaveBeenNthCalledWith(2, {
+      productUuid: 'p1',
+      orderedUuids: ['m2', 'm1'],
+      expectedRevision: 5,
+    })
+    expect(afterMutationSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('a silent rebase (remote items unchanged, revision only advanced) keeps the local draft, clears the error, and shows no conflict', async () => {
+    const unchanged = [
+      mediaItem({ uuid: 'm1' }),
+      mediaItem({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }),
+    ]
+    const { wrapper, getState } = await mountReorderedAndConflicted(unchanged, 7)
+    const state = getState()
+
+    expect(wrapper.find('[data-test="media-reorder-conflict"]').exists()).toBe(false)
+    expect(
+      wrapper.findAll('[data-test="media-row"]').map((r) => r.attributes('data-uuid')),
+    ).toEqual(['m2', 'm1']) // local draft kept
+    expect(state.dirty.value).toBe(true)
+    expect(state.phase.value).toBe('idle') // NOT 'error' — spec §5.2 "show no conflict"
+    expect(reorderMediaMock).toHaveBeenCalledTimes(1) // no automatic retry
+
+    // The rebased revision lets the NEXT explicit save succeed.
+    reorderMediaMock.mockResolvedValueOnce([])
+    await wrapper.find('[data-test="media-reorder-save"]').trigger('click')
+    await flushPromises()
+
+    expect(reorderMediaMock).toHaveBeenNthCalledWith(2, {
+      productUuid: 'p1',
+      orderedUuids: ['m2', 'm1'],
+      expectedRevision: 7,
+    })
+  })
+
+  it('disables the reorder save button while a 409 recovery refresh is in flight', async () => {
+    mediaSectionData.value = {
+      revision: 0,
+      items: [
+        mediaItem({ uuid: 'm1' }),
+        mediaItem({ uuid: 'm2', blob_uuid: 'blob-2', position: 1 }),
+      ],
+    }
+    const { wrapper } = mountPanel(product({ uuid: 'p1' }))
+    await flushPromises()
+    await wrapper.find('[data-test="media-move-down"]').trigger('click')
+
+    reorderMediaMock.mockRejectedValueOnce(new ApiError('Conflict', 409, {}, {}))
+    let resolveRefetch: (value: unknown) => void = () => {}
+    mediaSectionRefetchMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveRefetch = resolve
+        }),
+    )
+
+    const saveClick = wrapper.find('[data-test="media-reorder-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="media-reorder-save"]').attributes('disabled')).toBeDefined()
+
+    resolveRefetch({ status: 'success', data: mediaSectionData.value, error: null })
+    await saveClick
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="media-reorder-save"]').attributes('disabled')).toBeUndefined()
   })
 })
 

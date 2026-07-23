@@ -8,15 +8,24 @@
 // exactly ONCE here. No section here fetches its own data yet (the six per-product reads from
 // Task C1 are consumed card-by-card in C5-C8) and no tab component's internals change — every
 // existing panel (ProductForm/VariantsPanel/MediaPanel/...) renders unmodified inside a card.
-import { computed, ref } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCommerceProduct, useCommerceProductMutations } from '@/queries/commerceCatalog'
 import { useCommerceMeta } from '@/queries/commerceMeta'
+import { useProductMedia } from '@/queries/commerceProductSections'
 import { useNotify } from '@/composables/useNotify'
-import { createDirtyRegistry, useUnsavedGuard } from '@/composables/useSectionState'
+import {
+  createDirtyRegistry,
+  useUnsavedGuard,
+  type SectionState,
+} from '@/composables/useSectionState'
 import { useProductRevisionCoordinator } from '@/composables/useProductRevisionCoordinator'
 import EditorSectionCard from '../components/EditorSectionCard.vue'
-import SectionNav, { type SectionNavItem } from '../components/SectionNav.vue'
+import SectionNav, {
+  resolveSectionIndicator,
+  type SectionNavItem,
+  type SectionNavIndicator,
+} from '../components/SectionNav.vue'
 import ProductForm from '../components/ProductForm.vue'
 import VariantsPanel from '../components/VariantsPanel.vue'
 import MediaPanel from '../components/MediaPanel.vue'
@@ -37,28 +46,70 @@ const { data: meta } = useCommerceMeta()
 const canManage = computed(() => meta.value?.can_manage ?? false)
 const { remove } = useCommerceProductMutations()
 
-// Page-level state, wired exactly once here (Task C2 / Task C3 contracts). Sections register
-// themselves against these starting at C5 — nothing on this page calls `useSectionState()` yet.
+// Page-level state, wired exactly once here (Task C2 / Task C3 contracts).
 const dirtyRegistry = createDirtyRegistry()
 useUnsavedGuard(dirtyRegistry)
 useProductRevisionCoordinator()
+
+// Task C5: Details (ProductForm) and Images (MediaPanel) each own their own `useSectionState()`
+// call and emit the resulting `SectionState` object ONCE, on mount — the shell just needs a live
+// reference to hand to `EditorSectionCard`'s `state` prop (its chip reads `.phase.value`/
+// `.dirty.value` reactively off the SAME refs) and to derive this card's nav indicator. An emit
+// was chosen over hoisting `useSectionState()` up to this shell and passing the transition
+// functions down as props: it keeps each card the sole owner of its own save flow (matching how
+// C1's mutations/C3's coordinator registration already live inside the card, not here), and scales
+// to C6-C9's remaining cards without growing this shell's own prop-plumbing per card.
+//
+// `shallowRef`, deliberately NOT `ref`: a plain `ref()` runs `toReactive()` on whatever object is
+// assigned to it, which would silently wrap the emitted `SectionState` in a `reactive()` proxy —
+// and `reactive()` auto-unwraps NESTED refs (`phase`, `dirty`) read off it, turning
+// `detailsState.value.dirty` into a plain boolean frozen at assignment time instead of the live
+// `Ref<boolean>` every consumer (`EditorSectionCard`'s chip, `stateIndicator` below) expects to
+// read via `.value`. `shallowRef` stores the object as-is, preserving its own nested refs.
+const detailsState = shallowRef<SectionState | null>(null)
+const mediaState = shallowRef<SectionState | null>(null)
+
+// Media's own section read (Task C1) — MediaPanel holds its own subscription to the SAME Colada
+// query key for rendering; this is a second, cheap subscriber (no extra request) purely so the nav
+// can show an honest, draft-only "Images · n" empty-hint (spec §5.1) without this shell owning any
+// of MediaPanel's hydration/reorder logic.
+const { data: mediaSection, status: mediaSectionStatus } = useProductMedia(uuid)
 
 const isDigital = computed(() => product.value?.type === 'digital')
 const isGrouped = computed(() => product.value?.type === 'grouped')
 const isDraft = computed(() => product.value?.status === 'draft')
 
-// Nav indicators, for now: HONESTY over completeness (Task C4 brief). Until C5-C8 wire each
-// card's real `useSectionState()`, every indicator is null EXCEPT Pricing's draft-only "Variants ·
-// n" hint, which is computable from data this page already has (`product.variants`). No fabricated
-// counts for sections whose data isn't loaded here (categories/tags/attributes/media/children all
-// come from the Task C1 reads, which this shell deliberately does not fetch).
+/** A card's own save-state indicator (error > unsaved > null) — `null` when idle+clean or when the
+ * card hasn't emitted its state yet (still mounting). */
+function stateIndicator(state: SectionState | null): SectionNavIndicator {
+  if (!state) return null
+  if (state.phase.value === 'error') return 'error'
+  if (state.dirty.value || state.phase.value === 'saving') return 'unsaved'
+  return null
+}
+
+// Draft-only, count-based, and ONLY once the section's own read has actually resolved (spec §5.1:
+// "while loading, indicator null") — never a fabricated count from a still-pending/errored query.
+const mediaHint = computed<string | undefined>(() => {
+  if (!isDraft.value) return undefined
+  if (mediaSectionStatus.value !== 'success' || !mediaSection.value) return undefined
+  return `Images · ${mediaSection.value.items.length}`
+})
+
+// Nav indicators: HONESTY over completeness (Task C4 brief), now extended by Task C5's real
+// Details/Images wiring. Organization/Add-ons/Downloads/Linked content/Grouped products stay null
+// until C6-C8 wire their own `useSectionState()` the same way.
 const navSections = computed<SectionNavItem[]>(() => {
   const p = product.value
   if (!p) return []
   const draft = p.status === 'draft'
+  const mediaIndicator = resolveSectionIndicator([
+    stateIndicator(mediaState.value),
+    mediaHint.value ? 'hint' : null,
+  ])
   const items: SectionNavItem[] = [
-    { id: 'details', label: 'Details', indicator: null },
-    { id: 'media', label: 'Images', indicator: null },
+    { id: 'details', label: 'Details', indicator: stateIndicator(detailsState.value) },
+    { id: 'media', label: 'Images', indicator: mediaIndicator, hint: mediaHint.value },
     {
       id: 'pricing',
       label: 'Pricing & stock',
@@ -172,12 +223,26 @@ async function confirmDelete() {
 
         <div class="flex flex-col gap-6 xl:flex-row xl:items-start">
           <div class="min-w-0 flex-1 space-y-6">
-            <EditorSectionCard section-id="details" title="Details">
-              <ProductForm :key="product.uuid" :product="product" :can-manage="canManage" />
+            <EditorSectionCard
+              section-id="details"
+              title="Details"
+              :state="detailsState ?? undefined"
+            >
+              <ProductForm
+                :key="product.uuid"
+                :product="product"
+                :can-manage="canManage"
+                @state="(s) => (detailsState = s)"
+              />
             </EditorSectionCard>
 
-            <EditorSectionCard section-id="media" title="Images">
-              <MediaPanel :key="product.uuid" :product="product" :can-manage="canManage" />
+            <EditorSectionCard section-id="media" title="Images" :state="mediaState ?? undefined">
+              <MediaPanel
+                :key="product.uuid"
+                :product="product"
+                :can-manage="canManage"
+                @state="(s) => (mediaState = s)"
+              />
             </EditorSectionCard>
 
             <EditorSectionCard section-id="pricing" title="Pricing & stock">
