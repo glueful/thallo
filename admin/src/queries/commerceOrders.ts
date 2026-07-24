@@ -8,7 +8,13 @@ import { qk } from './keys'
 // OrderStateMachine / FulfillmentStatus) — the single frontend declaration for filters and
 // status badges. `refunded` is reachable from both `paid` and `fulfilled`; `partial` is a
 // FULFILLMENT value only, never a `commerce_orders.status` lifecycle value.
-export const ORDER_STATUSES = ['pending_payment', 'paid', 'fulfilled', 'canceled', 'refunded'] as const
+export const ORDER_STATUSES = [
+  'pending_payment',
+  'paid',
+  'fulfilled',
+  'canceled',
+  'refunded',
+] as const
 export type CommerceOrderStatus = (typeof ORDER_STATUSES)[number]
 
 export const FULFILLMENT_STATUSES = ['unfulfilled', 'partial', 'fulfilled'] as const
@@ -164,7 +170,10 @@ function normalizeOrderEvent(raw: Record<string, unknown>): CommerceOrderEvent {
   return {
     uuid: String(raw.uuid ?? ''),
     type: String(raw.type ?? ''),
-    payload: typeof payload === 'object' && payload !== null && !Array.isArray(payload) ? payload as Record<string, unknown> : null,
+    payload:
+      typeof payload === 'object' && payload !== null && !Array.isArray(payload)
+        ? (payload as Record<string, unknown>)
+        : null,
     actor_uuid: typeof raw.actor_uuid === 'string' ? raw.actor_uuid : null,
     visibility: String(raw.visibility ?? 'internal'),
     created_at: typeof raw.created_at === 'string' ? raw.created_at : null,
@@ -571,7 +580,8 @@ export function useCommerceOrderMutations() {
       onSettled: (_d, _e, uuid) => invalidate(uuid),
     }),
     fulfill: useMutation({
-      mutation: (vars: { uuid: string; input: FulfillOrderInput }) => fulfillOrder(vars.uuid, vars.input),
+      mutation: (vars: { uuid: string; input: FulfillOrderInput }) =>
+        fulfillOrder(vars.uuid, vars.input),
       onSettled: (_d, _e, vars) => invalidate(vars.uuid),
     }),
     refund: useMutation({
@@ -580,7 +590,8 @@ export function useCommerceOrderMutations() {
       onSettled: (_d, _e, vars) => invalidateRefund(vars.uuid),
     }),
     addNote: useMutation({
-      mutation: (vars: { uuid: string; input: CreateOrderNoteInput }) => addOrderNote(vars.uuid, vars.input),
+      mutation: (vars: { uuid: string; input: CreateOrderNoteInput }) =>
+        addOrderNote(vars.uuid, vars.input),
       onSettled: (_d, _e, vars) => invalidateNotes(vars.uuid),
     }),
   }
@@ -623,10 +634,9 @@ export interface CreateOrderNoteInput {
 }
 
 function normalizeOrderNote(raw: Record<string, unknown>): CommerceOrderNote {
-  const payload = (typeof raw.payload === 'object' && raw.payload !== null ? raw.payload : {}) as Record<
-    string,
-    unknown
-  >
+  const payload = (
+    typeof raw.payload === 'object' && raw.payload !== null ? raw.payload : {}
+  ) as Record<string, unknown>
   return {
     uuid: String(raw.uuid ?? ''),
     body: typeof payload.body === 'string' ? payload.body : '',
@@ -748,7 +758,9 @@ function normalizeInvoiceRefund(raw: Record<string, unknown>): CommerceInvoiceRe
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
 }
 
 function normalizeInvoiceData(raw: Record<string, unknown>): CommerceInvoiceData {
@@ -815,5 +827,56 @@ export function useOrderInvoiceData(
     key: () => qk.commerceOrderInvoiceData(toValue(uuid)),
     query: () => fetchOrderInvoiceData(toValue(uuid)),
     enabled: () => toValue(enabled) && !!toValue(uuid),
+  })
+}
+
+// ── Per-product order activity (composed-editor spec §5.4b phase 2, commerce 1.6.0) ──────────
+
+export interface ProductOrderActivity {
+  window_days: number
+  summary: {
+    orders: number
+    /** Minor-unit integer, product-attributed (the product's own line totals) — format with
+     * `useMoney`, never `Number()` arithmetic. */
+    revenue_minor: number
+  }
+  recent: CommerceOrder[]
+}
+
+function normalizeProductOrderActivity(raw: Record<string, unknown>): ProductOrderActivity {
+  const summary =
+    raw.summary !== null && typeof raw.summary === 'object' && !Array.isArray(raw.summary)
+      ? (raw.summary as Record<string, unknown>)
+      : {}
+  const recent = Array.isArray(raw.recent) ? raw.recent : []
+  return {
+    window_days: typeof raw.window_days === 'number' ? raw.window_days : 0,
+    summary: {
+      orders: typeof summary.orders === 'number' ? summary.orders : 0,
+      revenue_minor: typeof summary.revenue_minor === 'number' ? summary.revenue_minor : 0,
+    },
+    recent: recent.map((r) => normalizeOrder(r as Record<string, unknown>)),
+  }
+}
+
+export async function fetchProductOrderActivity(
+  productUuid: string,
+): Promise<ProductOrderActivity> {
+  const { data, error, response } = await client.GET('/commerce/products/{uuid}/orders', {
+    params: { path: { uuid: productUuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeProductOrderActivity((raw ?? {}) as Record<string, unknown>)
+}
+
+/** The product page's Command Center panels. Callers must degrade GRACEFULLY on error — the
+ * endpoint ships in commerce 1.6.0, and an admin running against an older commerce simply
+ * doesn't get the panels (never an error banner for a missing optional surface). */
+export function useProductOrderActivity(productUuid: MaybeRefOrGetter<string>) {
+  return useQuery({
+    key: () => [...qk.commerceProduct(toValue(productUuid)), 'order-activity'],
+    query: () => fetchProductOrderActivity(toValue(productUuid)),
+    enabled: () => !!toValue(productUuid),
   })
 }

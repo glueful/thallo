@@ -137,6 +137,12 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   low-stock threshold), warning rows deep-linking to their owning sections, and a failed
   stock read shown honestly as unavailable rather than as zeros. Drafts lead with the
   editor; everything stays fully editable in every state.
+- **Command Center completed — trade + recent orders** (admin SPA, on glueful/commerce
+  1.6.0): active products' opening strip gains the "Last N days" tile (product-attributed
+  revenue and order count, mirroring the products report's discipline) and a Recent orders
+  panel linking into order detail — both powered by commerce 1.6.0's per-product order
+  activity read. Admins running an older commerce degrade gracefully: the panels are simply
+  absent, never an error banner.
 - **The Live Mirror** (admin SPA + storefront pack): a toggle in the product identity bar
   trades the section nav for the REAL storefront product page in an embedded frame — the
   server-built absolute `storefront_url` the product-link projection already carries, so

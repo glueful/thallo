@@ -140,6 +140,25 @@ vi.mock('@/queries/media', () => ({
   blobDisplayUrl: (uuid: string) => `/blobs/${uuid}`,
 }))
 
+// Command Center phase 2 (spec §5.4b): the strip reads per-product order activity from
+// commerce 1.6.0's read. Defaults to 'error' — the panels must be ABSENT until a test
+// explicitly provides activity (mirrors an admin running against an older commerce).
+const productOrderActivityData = ref<
+  | {
+      window_days: number
+      summary: { orders: number; revenue_minor: number }
+      recent: Array<Record<string, unknown>>
+    }
+  | undefined
+>(undefined)
+const productOrderActivityStatus = ref<'pending' | 'error' | 'success'>('error')
+vi.mock('@/queries/commerceOrders', () => ({
+  useProductOrderActivity: () => ({
+    data: productOrderActivityData,
+    status: productOrderActivityStatus,
+  }),
+}))
+
 // The page (spec §5.4b phase 3) reads the product-link projection for the server-built
 // storefront_url; the Linked-content panel itself stays stubbed in these suites (its own
 // behavior is covered by commerceLinkPanel.spec.ts) — this mock only has to satisfy the
@@ -644,6 +663,8 @@ beforeEach(() => {
     error: null,
   }))
   productLinkData.value = undefined
+  productOrderActivityData.value = undefined
+  productOrderActivityStatus.value = 'error'
   childrenPickerResults.value = undefined
   childrenPickerStatus.value = 'success'
   lastChildrenPickerQuery.current = undefined
@@ -1675,6 +1696,52 @@ describe('commerce product detail page', () => {
     const stockRow = wrapper.find('[data-test="health-stock"]')
     expect(stockRow.text()).toContain('Stock data unavailable')
     expect(stockRow.text()).not.toContain('0')
+
+    wrapper.unmount()
+  })
+
+  // ── Command Center phase 2: trade tile + recent orders (spec §5.4b) ────────────────────────
+
+  it('renders the trade tile and recent orders when the activity read succeeds, rows linking to orders', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget', status: 'active' })
+    productOrderActivityStatus.value = 'success'
+    productOrderActivityData.value = {
+      window_days: 30,
+      summary: { orders: 26, revenue_minor: 231400 },
+      recent: [
+        {
+          uuid: 'ord-1',
+          order_number: 'ORD-1042',
+          status: 'paid',
+          grand_total: 8900,
+          currency: 'USD',
+        },
+      ],
+    }
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    const tile = wrapper.find('[data-test="product-trade-tile"]')
+    expect(tile.find('[data-test="trade-revenue"]').text()).toContain('2,314')
+    expect(tile.find('[data-test="trade-orders"]').text()).toContain('26 orders')
+
+    const row = wrapper.find('[data-test="recent-order-row"]')
+    expect(row.text()).toContain('ORD-1042')
+    expect(row.attributes('href')).toBe('/commerce/orders/ord-1')
+
+    wrapper.unmount()
+  })
+
+  it('activity panels are ABSENT (never an error banner) when the read fails — older commerce degrades gracefully', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget', status: 'active' })
+    productOrderActivityStatus.value = 'error'
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    // The Health card still renders; the phase-2 panels simply don't exist.
+    expect(wrapper.find('[data-test="product-health-strip"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="product-trade-tile"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="product-recent-orders"]').exists()).toBe(false)
 
     wrapper.unmount()
   })

@@ -212,6 +212,10 @@
         "mode": "manage"
     },
     {
+        "key": "products.orders.index",
+        "mode": "view"
+    },
+    {
         "key": "products.show",
         "mode": "view"
     },
