@@ -153,7 +153,7 @@ function openAdd() {
 async function submitAdd(event: FormSubmitEvent<AddSchema>) {
   const compareAt = parseCompareAtOrNull(addState.compareAtPriceInput)
   if (compareAt === 'invalid') {
-    addFormError.value = 'Compare-at price must be a valid amount (e.g. 19.99), or blank.'
+    addFormError.value = 'Original price must be a valid amount (e.g. 19.99), or blank.'
     return
   }
   // Zod's refine above already rejected unparseable amounts — belt-and-braces only.
@@ -232,7 +232,7 @@ async function submitEdit(event: FormSubmitEvent<EditSchema>) {
   if (!uuid) return
   const compareAt = parseCompareAtOrNull(editState.compareAtPriceInput)
   if (compareAt === 'invalid') {
-    editFormError.value = 'Compare-at price must be a valid amount (e.g. 19.99), or blank.'
+    editFormError.value = 'Original price must be a valid amount (e.g. 19.99), or blank.'
     return
   }
   // Zod's refine above already rejected unparseable amounts — belt-and-braces only.
@@ -405,7 +405,7 @@ async function applyStockAdjust() {
             data-test="variant-status-input"
           />
         </UFormField>
-        <UFormField label="Compare-at price" help="Optional">
+        <UFormField label="Original price" help="Shown crossed out beside the price, marking a sale">
           <UInput
             v-model="addState.compareAtPriceInput"
             inputmode="decimal"
@@ -534,7 +534,7 @@ async function applyStockAdjust() {
               data-test="variant-edit-status-input"
             />
           </UFormField>
-          <UFormField label="Compare-at price" help="Optional">
+          <UFormField label="Original price" help="Shown crossed out beside the price, marking a sale">
             <UInput
               v-model="editState.compareAtPriceInput"
               inputmode="decimal"

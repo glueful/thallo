@@ -145,7 +145,7 @@ const pricingSummary = computed<string | undefined>(() => {
   if (p.variants.length !== 1) return `${p.variants.length} variants`
   const v = p.variants[0]!
   const parts = [`SKU ${v.sku}`, money(v.price)]
-  if (v.compare_at_price !== null) parts.push(`compare-at ${money(v.compare_at_price)}`)
+  if (v.compare_at_price !== null) parts.push(`was ${money(v.compare_at_price)}`)
   if (stockSectionStatus.value === 'success') {
     const s = stockSection.value?.items.find((i) => i.variant_uuid === v.uuid)
     if (s?.tracked) parts.push(`${s.quantity} in stock`)

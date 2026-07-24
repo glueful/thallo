@@ -158,7 +158,11 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   The compact Pricing & stock card's layout is fixed: three fields on an even
   three-column row, a normal "Save pricing" button beside the formatted preview
   (previously a full-width stretched bar below an orphan grid hole), the redundant
-  "Optional" help dropped, and the stock quantity + Adjust control on one row.
+  "Optional" help dropped, and the stock quantity + Adjust control on one row. The
+  "Compare-at price" field is relabeled **"Original price"** everywhere (with help
+  text "Shown crossed out beside the price, marking a sale") — Shopify jargon that
+  explained nothing to anyone else; the API field stays `compare_at_price`, and the
+  Pricing digest now reads "was $129.00".
 - **Condensed section cards — the editor's resting state** (admin SPA): the product
   editor now matches the approved composed mock. Section cards (Details, Images,
   Pricing & stock, Organization, Grouped products) rest collapsed as one-line digests —

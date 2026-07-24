@@ -184,7 +184,7 @@ const schema = z.object({
     .string()
     .refine(
       (v) => v.trim() === '' || parseMajor(v) !== null,
-      'Compare-at price must be a valid amount, or blank.',
+      'Original price must be a valid amount, or blank.',
     ),
 })
 type Schema = z.output<typeof schema>
@@ -353,7 +353,11 @@ async function applyAdjust(): Promise<void> {
               data-test="pricing-price-input"
             />
           </UFormField>
-          <UFormField label="Compare-at price" name="compareAtPriceInput">
+          <UFormField
+            label="Original price"
+            name="compareAtPriceInput"
+            help="Shown crossed out beside the price, marking a sale"
+          >
             <UInput
               v-model="state.compareAtPriceInput"
               inputmode="decimal"

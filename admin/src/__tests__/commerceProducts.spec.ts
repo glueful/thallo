@@ -2016,7 +2016,7 @@ describe('commerce product detail page', () => {
     const pricingSummary = wrapper.find('[data-test="editor-section-pricing-summary"]')
     expect(pricingSummary.text()).toContain('SKU SKU-1')
     expect(pricingSummary.text()).toContain('$19.99')
-    expect(pricingSummary.text()).toContain('compare-at $29.99')
+    expect(pricingSummary.text()).toContain('was $29.99')
     expect(pricingSummary.text()).toContain('24 in stock')
 
     // The tail (Add-ons / Linked content) rests as ONE quiet row; its cards stay MOUNTED but
@@ -2520,7 +2520,7 @@ describe('VariantsPanel', () => {
     await flushPromises()
 
     expect(createVariantMock).not.toHaveBeenCalled()
-    expect(wrapper.find('[data-test="variant-form-error"]').text()).toContain('Compare-at price')
+    expect(wrapper.find('[data-test="variant-form-error"]').text()).toContain('Original price')
   })
 
   it('surfaces the "cannot add variant to type" 422 message instead of vanishing it', async () => {
