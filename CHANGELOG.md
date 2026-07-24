@@ -934,6 +934,13 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   enumeration query, an anonymous cache-fill vector.
 
 ### Fixed
+- The product editor's Activate button now actually activates: it was a scroll
+  shortcut to the Details card's status control, which on the condensed page — with
+  Details already in view — visibly did nothing, leaving drafts stuck and the
+  storefront Preview pane on its draft placeholder. It now performs the real
+  status → active mutation (loading state, success/error toasts, coordinator revision
+  refresh), after which the Preview pane can render the live product page. Reversible
+  via Details' Status select.
 - Blob uploads no longer 403 for authenticated admins: `POST/GET-info/DELETE /v1/blobs`
   carried `tenant_profile:admin` (an authenticated-membership gate) but NO `auth`
   middleware — with `UPLOADS_ACCESS=public` the framework's blob routes add none of

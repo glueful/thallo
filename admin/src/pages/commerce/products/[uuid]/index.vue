@@ -56,12 +56,28 @@ const { success, error: notifyError } = useNotify()
 const { data: product, status } = useCommerceProduct(uuid)
 const { data: meta } = useCommerceMeta()
 const canManage = computed(() => meta.value?.can_manage ?? false)
-const { remove } = useCommerceProductMutations()
+const { remove, update } = useCommerceProductMutations()
 
 // Page-level state, wired exactly once here (Task C2 / Task C3 contracts).
 const dirtyRegistry = createDirtyRegistry()
 useUnsavedGuard(dirtyRegistry)
-useProductRevisionCoordinator()
+const coordinator = useProductRevisionCoordinator()
+
+/** The identity bar's Activate — a REAL status mutation (user feedback 2026-07-24: the earlier
+ * scroll-shortcut Activate read as "nothing happens"). Activation bumps the catalog revision, so
+ * the coordinator refresh keeps every section's baseRevision current — the same discipline as any
+ * section's own save. Reversible via Details' Status select. */
+async function activateProduct(): Promise<void> {
+  const p = product.value
+  if (!p || p.status !== 'draft' || update.isLoading.value) return
+  try {
+    await update.mutateAsync({ uuid: p.uuid, input: { status: 'active' } })
+    await coordinator.afterMutation()
+    success('Product activated', `“${p.name}” is now live in your store.`)
+  } catch (e) {
+    notifyError(e, 'Couldn’t activate product')
+  }
+}
 
 // Spec §5.4b phase 3: the Live Mirror. The server-built absolute storefront URL rides the
 // product-link projection (ALWAYS present for an accessible product, link or no link) — the
@@ -433,8 +449,10 @@ async function confirmDelete() {
           :product="product"
           :storefront-url="storefrontUrl"
           :mirror-open="mirrorOpen"
+          :activating="update.isLoading.value"
           @toggle-mirror="mirrorOpen = !mirrorOpen"
           @jump="onNavigate"
+          @activate="activateProduct"
         />
         <ProductHealthStrip
           v-if="product.status === 'active'"

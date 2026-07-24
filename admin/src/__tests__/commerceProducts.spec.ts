@@ -1657,11 +1657,7 @@ describe('commerce product detail page', () => {
     wrapper.unmount()
   })
 
-  it('identity bar: draft shows the Activate scroll shortcut (never a mutation); active shows the Health strip instead', async () => {
-    const scrollSpy = vi
-      .spyOn(HTMLElement.prototype, 'scrollIntoView')
-      .mockImplementation(() => undefined)
-
+  it('identity bar: draft Activate performs the REAL status mutation; active shows the Health strip instead', async () => {
     singleProduct.value = product({ uuid: 'p1', name: 'Widget', status: 'draft' })
     const draftWrapper = mount(ProductDetail, {
       global: { stubs: detailStubs },
@@ -1683,10 +1679,13 @@ describe('commerce product detail page', () => {
     const activateButton = bar.find('[data-test="identity-activate"]')
     expect(activateButton.exists()).toBe(true)
 
-    // NOT a status mutation — only a scroll shortcut to the Details card.
+    // A REAL activation, one status mutation from the bar (user feedback 2026-07-24: the
+    // earlier scroll-shortcut Activate read as "nothing happens" — Details is already in view
+    // on the condensed page, so the shortcut had no visible effect).
+    updateMock.mockResolvedValue(product({ uuid: 'p1', name: 'Widget', status: 'active' }))
     await activateButton.trigger('click')
-    expect(updateMock).not.toHaveBeenCalled()
-    expect(scrollSpy).toHaveBeenCalledTimes(1)
+    await flushPromises()
+    expect(updateMock).toHaveBeenCalledWith({ uuid: 'p1', input: { status: 'active' } })
     draftWrapper.unmount()
 
     singleProduct.value = product({ uuid: 'p1', name: 'Widget', status: 'active' })
@@ -1696,7 +1695,6 @@ describe('commerce product detail page', () => {
     expect(activeWrapper.find('[data-test="product-health-strip"]').exists()).toBe(true)
 
     activeWrapper.unmount()
-    scrollSpy.mockRestore()
   })
 
   it('health strip: factual counts from the section reads, warning rows deep-link, stock honesty preserved', async () => {

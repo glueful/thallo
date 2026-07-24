@@ -16,10 +16,14 @@ const props = defineProps<{
   /** Server-built absolute storefront URL (product-link projection) — null while loading. */
   storefrontUrl?: string | null
   mirrorOpen?: boolean
+  /** The shell's activation mutation is in flight. */
+  activating?: boolean
 }>()
 // `jump` (not a local scrollIntoView): with the condensed-cards pass the target card may rest
 // collapsed — the shell expands it first, THEN scrolls (same handler as the section nav).
-const emit = defineEmits<{ 'toggle-mirror': []; jump: [sectionId: string] }>()
+// `activate` is a REAL status mutation the shell runs (user feedback 2026-07-24: the earlier
+// scroll-shortcut Activate read as "nothing happens" — the Details card is already in view).
+const emit = defineEmits<{ 'toggle-mirror': []; jump: [sectionId: string]; activate: [] }>()
 
 const { format } = useMoney()
 
@@ -117,14 +121,15 @@ const statusColor = computed(() => STATUS_COLOR[props.product.status] ?? 'neutra
       data-test="identity-view-in-store"
     />
 
-    <!-- Drafts: the one action that matters. Scroll shortcut ONLY, never a mutation itself
-         (same semantics as the C4 draft banner this bar replaces). -->
+    <!-- Drafts: the one action that matters — a real activation, run by the shell (status →
+         active, then the storefront preview can actually render the product). -->
     <UButton
       v-if="product.status === 'draft'"
       size="sm"
       label="Activate"
+      :loading="activating"
       data-test="identity-activate"
-      @click="emit('jump', 'details')"
+      @click="emit('activate')"
     />
   </div>
 </template>
