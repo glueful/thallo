@@ -510,7 +510,23 @@ const teleportStub = {
   props: ['open'],
   template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>',
 }
-const pageStubs = { RouterLink: RouterLinkStub, Modal: teleportStub, Slideover: teleportStub }
+// ProductForm's Description is the app's RichText (Tiptap/UEditor) editor — Tiptap cannot run
+// under jsdom (mounting floods errors), so it's stubbed down to the one contract ProductForm
+// depends on: an HTML-string model. The real editor's behavior is covered by its own specs.
+const RichTextStub = {
+  props: ['modelValue', 'editable', 'placeholder', 'contentClass'],
+  emits: ['update:modelValue'],
+  template:
+    '<textarea data-test="richtext-stub" :value="modelValue ?? \'\'" :disabled="editable === false"' +
+    " @input=\"$emit('update:modelValue', $event.target.value)\"></textarea>",
+}
+
+const pageStubs = {
+  RouterLink: RouterLinkStub,
+  Modal: teleportStub,
+  Slideover: teleportStub,
+  RichText: RichTextStub,
+}
 
 // MediaPanel reuses the app's asset picker (MediaPickerModal — see AssetField.vue) rather than
 // building a new uploader. Its own upload/library behavior is exercised in assetFieldLibrary.spec.ts;
@@ -580,7 +596,14 @@ function mountWithEditorContext(
         })
     },
   })
-  const wrapper = mount(Host, { ...mountOptions, props })
+  const wrapper = mount(Host, {
+    ...mountOptions,
+    global: {
+      stubs: { RichText: RichTextStub },
+      ...(mountOptions.global as Record<string, unknown> | undefined),
+    },
+    props,
+  })
   return { wrapper, getCoordinator: () => coordinator, getState: () => state }
 }
 
@@ -840,6 +863,31 @@ describe('ProductForm', () => {
         tax_class: null,
       },
     })
+  })
+
+  it('description edits ride the payload as rich HTML; a blank/empty document sends null', async () => {
+    const p = product({ uuid: 'p1', name: 'Widget', slug: 'widget', description: null })
+    updateMock.mockResolvedValue(p)
+    const { wrapper, getState } = mountForm(p)
+
+    // Editing through the RichText model marks the section dirty and the HTML rides the payload.
+    await wrapper.find('[data-test="richtext-stub"]').setValue('<p>Bright <strong>lamp</strong></p>')
+    expect(getState().dirty.value).toBe(true)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({ description: '<p>Bright <strong>lamp</strong></p>' }),
+      }),
+    )
+
+    // Tiptap's empty document ('<p></p>') is BLANK — it must send null, never empty markup.
+    await wrapper.find('[data-test="richtext-stub"]').setValue('<p></p>')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(updateMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ input: expect.objectContaining({ description: null }) }),
+    )
   })
 
   it('locks type (read-only, never sent) once the product carries variants — the strandable-refs guard, surfaced honestly', async () => {

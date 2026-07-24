@@ -455,6 +455,26 @@ final class ShopCatalogTest extends AppTestCase
         self::assertStringContainsString('shop-product__price-compare', $html);
     }
 
+    public function testProductDescriptionRendersSanitizedRichHtml(): void
+    {
+        // Descriptions are rich HTML from the admin's RichText editor — rendered through the
+        // render pack's fail-closed safe_html sanitizer: honest markup kept, scripts dropped.
+        $this->seedProduct(
+            self::TENANT_A,
+            'rich-desc-prod',
+            1000,
+            '<p>Great <strong>lamp</strong></p><script>alert(1)</script>',
+        );
+
+        $response = $this->handle(Request::create('/shop/products/rich-desc-prod', 'GET'));
+        $html = (string) $response->getContent();
+
+        self::assertSame(200, $response->getStatusCode());
+        self::assertStringContainsString('<strong>lamp</strong>', $html);
+        self::assertStringNotContainsString('<script>alert(1)</script>', $html);
+        self::assertStringNotContainsString('alert(1)', $html);
+    }
+
     // ------------------------------------------------------------------
     // helpers
     // ------------------------------------------------------------------

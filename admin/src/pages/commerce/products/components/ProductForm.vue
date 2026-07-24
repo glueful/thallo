@@ -21,6 +21,8 @@ import { useNotify } from '@/composables/useNotify'
 import { toApiError } from '@/api/errors'
 import { useSectionState, type SectionState } from '@/composables/useSectionState'
 import { ProductRevisionCoordinatorKey } from '@/composables/useProductRevisionCoordinator'
+import RichText from '@/components/RichText.vue'
+import { isEmptyHtml } from '@/fields/components/blocks/useBlockListOps'
 
 const props = defineProps<{ product: CommerceProduct; canManage: boolean }>()
 const emit = defineEmits<{ saved: []; state: [SectionState] }>()
@@ -143,6 +145,7 @@ const basePriceText = computed(() => {
 
 async function onSubmit(event: FormSubmitEvent<Schema>) {
   formError.value = null
+  const description = event.data.description ?? ''
   beginSave()
   try {
     // Metadata is included ONLY for external products, and always as the MERGED object — the
@@ -159,7 +162,9 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       input: {
         name: event.data.name,
         slug: event.data.slug,
-        description: event.data.description || null,
+        // "Blank" for rich text includes Tiptap's empty document ('<p></p>') — send null, never
+        // an empty-markup string, matching the plain-textarea era's `|| null` semantics.
+        description: isEmptyHtml(description) ? null : description,
         // Sent ONLY when actually changed — an ever-present key would 422 every unrelated save
         // once the product carries variants/children/orders (server-side strandable-refs guard).
         ...(event.data.type !== props.product.type ? { type: event.data.type } : {}),
@@ -234,14 +239,22 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         />
       </UFormField>
 
+      <!-- The CMS's own RichText editor (Tiptap/UEditor, HTML-string model — dogfooding the
+           content editor, user request 2026-07-24): bold/italic/lists/links etc. The storefront
+           renders this through the render pack's fail-closed `safe_html` sanitizer, so markup
+           here can never smuggle scripts onto the shop page. -->
       <UFormField label="Description" name="description" class="col-span-2">
-        <UTextarea
-          v-model="state.description"
-          class="w-full"
-          :rows="3"
-          :disabled="!canManage"
+        <div
+          class="rounded-md border border-default px-3"
           data-test="product-description-input"
-        />
+        >
+          <RichText
+            v-model="state.description"
+            :editable="canManage"
+            placeholder="Describe the product…"
+            content-class="max-h-96 overflow-y-auto !min-h-32"
+          />
+        </div>
       </UFormField>
 
       <UFormField v-if="typeLocked" label="Type">

@@ -933,6 +933,15 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   it) — previously every distinct `{n}` minted a permanent (no-TTL) cache entry plus a deep-OFFSET
   enumeration query, an anonymous cache-fill vector.
 
+### Added (product editor)
+- **Rich-text product descriptions**: the Details card's Description field is now the
+  CMS's own RichText editor (Tiptap) — bold, italic, lists, links, images — storing an
+  HTML string. A blank/empty document still saves as null. The storefront renders it
+  through the render pack's fail-closed `safe_html` sanitizer (markup kept, scripts and
+  event handlers dropped — including their inner text, for the JSON-LD plain-text
+  description) with prose styling in `shop.css`; legacy plain-text descriptions render
+  unchanged.
+
 ### Fixed
 - The storefront product page now looks like a store, and actually shows the
   product's images: it only ever rendered a `role='cover'` media row — but the admin
