@@ -11,7 +11,13 @@ import { useProductMedia } from '@/queries/commerceProductSections'
 import { blobDisplayUrl } from '@/queries/media'
 import { useMoney } from '@/composables/useMoney'
 
-const props = defineProps<{ product: CommerceProduct }>()
+const props = defineProps<{
+  product: CommerceProduct
+  /** Server-built absolute storefront URL (product-link projection) — null while loading. */
+  storefrontUrl?: string | null
+  mirrorOpen?: boolean
+}>()
+const emit = defineEmits<{ 'toggle-mirror': [] }>()
 
 const { format } = useMoney()
 
@@ -89,6 +95,31 @@ function jumpTo(sectionId: string): void {
     <UBadge :color="statusColor" variant="subtle" data-test="identity-status">
       {{ product.status }}
     </UBadge>
+
+    <!-- Spec §5.4b phase 3: the Live Mirror toggle — available in every state (drafts get the
+         pane's honest placeholder). -->
+    <UButton
+      size="sm"
+      color="neutral"
+      :variant="mirrorOpen ? 'subtle' : 'ghost'"
+      icon="i-lucide-app-window"
+      :label="mirrorOpen ? 'Mirror on' : 'Mirror'"
+      data-test="identity-mirror-toggle"
+      @click="emit('toggle-mirror')"
+    />
+
+    <!-- Active products link out to the live page (server-built URL, never assembled here). -->
+    <UButton
+      v-if="product.status === 'active' && storefrontUrl"
+      size="sm"
+      color="neutral"
+      variant="ghost"
+      icon="i-lucide-external-link"
+      label="View in store"
+      :to="storefrontUrl"
+      target="_blank"
+      data-test="identity-view-in-store"
+    />
 
     <!-- Drafts: the one action that matters. Scroll shortcut ONLY, never a mutation itself
          (same semantics as the C4 draft banner this bar replaces). -->

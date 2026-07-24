@@ -136,9 +136,20 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   factual counts only (images, categories, lowest tracked stock against the store's
   low-stock threshold), warning rows deep-linking to their owning sections, and a failed
   stock read shown honestly as unavailable rather than as zeros. Drafts lead with the
-  editor; everything stays fully editable in every state. (Phased next: recent-orders +
-  trade panels behind a new orders-by-product read, and the Live Mirror behind a
-  storefront preview frame-headers allowance.)
+  editor; everything stays fully editable in every state.
+- **The Live Mirror** (admin SPA + storefront pack): a toggle in the product identity bar
+  trades the section nav for the REAL storefront product page in an embedded frame — the
+  server-built absolute `storefront_url` the product-link projection already carries, so
+  perfect fidelity with zero preview components to maintain. The pane reloads as sections
+  save (and on a manual refresh); active products also gain a "View in store" link. The
+  storefront can't render drafts, so drafts get an honest placeholder, never a fake
+  preview. Enabling this also HARDENS the shop product pages: they previously sent no
+  frame headers at all (frameable by anyone) and now carry
+  `Content-Security-Policy: frame-ancestors 'self' <admin-origin>` (from
+  `RENDER_ADMIN_URL`; unconfigured leaves responses untouched and the Mirror disabled —
+  never a wildcard), applied before the shop cache so cached responses carry the policy
+  too. (Still pending, commerce-gated: the Command Center's recent-orders and trade
+  panels behind an orders-by-product read.)
 - **External products actually work now**: creation previously omitted the API-required
   `metadata.external_url` (every external create 422'd), and the editor had no surface
   to change the link afterward. The launcher collects the link at create, and Details

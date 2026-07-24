@@ -41,7 +41,9 @@ import DownloadsPanel from '../components/DownloadsPanel.vue'
 import ChildrenCard from '../components/ChildrenCard.vue'
 import ProductIdentityBar from '../components/ProductIdentityBar.vue'
 import ProductHealthStrip from '../components/ProductHealthStrip.vue'
+import ProductLiveMirror from '../components/ProductLiveMirror.vue'
 import ProductEntryLinkPanel from '@/components/commerce/ProductEntryLinkPanel.vue'
+import { useProductLink } from '@/queries/commerceLinking'
 
 const route = useRoute()
 const router = useRouter()
@@ -57,6 +59,13 @@ const { remove } = useCommerceProductMutations()
 const dirtyRegistry = createDirtyRegistry()
 useUnsavedGuard(dirtyRegistry)
 useProductRevisionCoordinator()
+
+// Spec §5.4b phase 3: the Live Mirror. The server-built absolute storefront URL rides the
+// product-link projection (ALWAYS present for an accessible product, link or no link) — the
+// same Colada cache entry the Linked-content panel uses, so this adds no request.
+const { data: linkProjection } = useProductLink(uuid)
+const storefrontUrl = computed(() => linkProjection.value?.storefront_url ?? null)
+const mirrorOpen = ref(false)
 
 // Task C5: Details (ProductForm) and Images (MediaPanel) each own their own `useSectionState()`
 // call and emit the resulting `SectionState` object ONCE, on mount — the shell just needs a live
@@ -291,7 +300,13 @@ async function confirmDelete() {
         <!-- Spec §5.4b: the identity bar is the page's spine (replaces the C4 draft banner —
              its Activate shortcut lives in the bar now); the Health strip opens ACTIVE
              products only (drafts lead with the editor). -->
-        <ProductIdentityBar :key="product.uuid" :product="product" />
+        <ProductIdentityBar
+          :key="product.uuid"
+          :product="product"
+          :storefront-url="storefrontUrl"
+          :mirror-open="mirrorOpen"
+          @toggle-mirror="mirrorOpen = !mirrorOpen"
+        />
         <ProductHealthStrip
           v-if="product.status === 'active'"
           :key="`health-${product.uuid}`"
@@ -380,7 +395,12 @@ async function confirmDelete() {
             </EditorSectionCard>
           </div>
 
-          <SectionNav :sections="navSections" />
+          <!-- The Mirror trades places with the rail (spec §5.4b phase 3): scroll-spy nav for
+               table work, the real storefront for visual work — never both fighting for width. -->
+          <SectionNav v-if="!mirrorOpen" :sections="navSections" />
+          <div v-else class="w-full xl:sticky xl:top-4 xl:w-[44%] xl:shrink-0">
+            <ProductLiveMirror :product="product" :storefront-url="storefrontUrl" />
+          </div>
         </div>
       </template>
     </template>

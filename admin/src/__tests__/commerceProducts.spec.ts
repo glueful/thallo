@@ -140,6 +140,24 @@ vi.mock('@/queries/media', () => ({
   blobDisplayUrl: (uuid: string) => `/blobs/${uuid}`,
 }))
 
+// The page (spec §5.4b phase 3) reads the product-link projection for the server-built
+// storefront_url; the Linked-content panel itself stays stubbed in these suites (its own
+// behavior is covered by commerceLinkPanel.spec.ts) — this mock only has to satisfy the
+// module's import surface.
+const productLinkData = ref<{ product_uuid: string; storefront_url: string; link: null } | undefined>(
+  undefined,
+)
+vi.mock('@/queries/commerceLinking', () => ({
+  useProductLink: () => ({ data: productLinkData, status: ref('success'), refetch: vi.fn() }),
+  useEntryLink: () => ({ data: ref(undefined), status: ref('success'), refetch: vi.fn() }),
+  useEntrySearch: () => ({ data: ref(undefined) }),
+  useProductSearchForLink: () => ({ data: ref(undefined) }),
+  useCommerceLinkMutations: () => ({
+    link: { mutateAsync: vi.fn(), isLoading: ref(false) },
+    unlink: { mutateAsync: vi.fn(), isLoading: ref(false) },
+  }),
+}))
+
 const routeState = vi.hoisted(() => ({
   params: {} as Record<string, string>,
   query: {} as Record<string, string>,
@@ -625,6 +643,7 @@ beforeEach(() => {
     data: childrenSectionData.value,
     error: null,
   }))
+  productLinkData.value = undefined
   childrenPickerResults.value = undefined
   childrenPickerStatus.value = 'success'
   lastChildrenPickerQuery.current = undefined
@@ -1656,6 +1675,79 @@ describe('commerce product detail page', () => {
     const stockRow = wrapper.find('[data-test="health-stock"]')
     expect(stockRow.text()).toContain('Stock data unavailable')
     expect(stockRow.text()).not.toContain('0')
+
+    wrapper.unmount()
+  })
+
+  // ── The Live Mirror (spec §5.4b phase 3) ────────────────────────────────────────────────────
+
+  it('mirror toggle: trades the rail for the REAL storefront iframe on an active product, and back', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget', status: 'active' })
+    productLinkData.value = {
+      product_uuid: 'p1',
+      storefront_url: 'https://store.example.test/shop/products/widget',
+      link: null,
+    }
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="section-nav"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="live-mirror"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="identity-mirror-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="section-nav"]').exists()).toBe(false)
+    const frame = wrapper.find('[data-test="mirror-frame"]')
+    expect(frame.exists()).toBe(true)
+    // The server-built absolute URL, verbatim — the client never assembles shop URLs.
+    expect(frame.attributes('src')).toBe('https://store.example.test/shop/products/widget')
+    expect(wrapper.find('[data-test="mirror-mode"]').text()).toContain('as customers see it')
+
+    await wrapper.find('[data-test="identity-mirror-toggle"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="section-nav"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="live-mirror"]').exists()).toBe(false)
+
+    wrapper.unmount()
+  })
+
+  it('mirror on a draft: an honest placeholder, never a fake preview — and no View-in-store in the bar', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget', status: 'draft' })
+    productLinkData.value = {
+      product_uuid: 'p1',
+      storefront_url: 'https://store.example.test/shop/products/widget',
+      link: null,
+    }
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    // Drafts never link out — the storefront refuses them.
+    expect(wrapper.find('[data-test="identity-view-in-store"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="identity-mirror-toggle"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="mirror-frame"]').exists()).toBe(false)
+    const placeholder = wrapper.find('[data-test="mirror-draft-placeholder"]')
+    expect(placeholder.text()).toContain('can’t preview drafts yet')
+
+    wrapper.unmount()
+  })
+
+  it('View in store appears for active products with the server-built URL', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget', status: 'active' })
+    productLinkData.value = {
+      product_uuid: 'p1',
+      storefront_url: 'https://store.example.test/shop/products/widget',
+      link: null,
+    }
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    const viewInStore = wrapper.find('[data-test="identity-view-in-store"]')
+    expect(viewInStore.exists()).toBe(true)
+    expect(viewInStore.attributes('href')).toBe('https://store.example.test/shop/products/widget')
 
     wrapper.unmount()
   })
