@@ -406,6 +406,56 @@ final class ShopCatalogTest extends AppTestCase
     }
 
     // ------------------------------------------------------------------
+    // product page: gallery fallback + customer-facing money display
+    // ------------------------------------------------------------------
+
+    public function testProductPageRendersGalleryImagesAndDisplayPricing(): void
+    {
+        $productUuid = $this->seedProduct(self::TENANT_A, 'gallery-money-prod', 8900);
+        $variant = $this->connection()->table('commerce_variants')
+            ->where('product_uuid', '=', $productUuid)
+            ->first();
+        self::assertNotNull($variant);
+        $this->connection()->table('commerce_variants')
+            ->where('uuid', '=', $variant['uuid'])
+            ->update(['compare_at_price' => 12900]);
+
+        // Admin-default media: role 'gallery' ONLY — no cover row. The storefront previously
+        // rendered cover-role rows exclusively, so every admin-managed product (the picker
+        // attaches with role 'gallery') shipped an imageless store page.
+        $blobUuid = \Glueful\Helpers\Utils::generateNanoID();
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $blobUuid,
+            'name' => 'gallery-money.png',
+            'mime_type' => 'image/png',
+            'size' => 123,
+            'url' => 'uploads/gallery-money.png',
+            'visibility' => 'public',
+            'status' => 'active',
+            'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+        $this->container()->get(\Glueful\Extensions\Commerce\Catalog\ProductMediaService::class)
+            ->attach($this->appContext(), $productUuid, [
+                'blob_uuid' => $blobUuid,
+                'role' => 'gallery',
+            ]);
+
+        $response = $this->handle(Request::create('/shop/products/gallery-money-prod', 'GET'));
+        $html = (string) $response->getContent();
+
+        self::assertSame(200, $response->getStatusCode());
+        // The first gallery image leads even without a cover-role row, via the resolved
+        // (API-prefixed, visibility-checked) media URL — never a hand-built '/blobs/…' path.
+        self::assertStringContainsString('/blobs/' . $blobUuid, $html);
+        self::assertStringContainsString('shop-product__cover', $html);
+        // Customer-facing money display: the symbol form, not "89.00 USD"; compare-at struck.
+        self::assertStringContainsString('$89.00', $html);
+        self::assertStringContainsString('$129.00', $html);
+        self::assertStringContainsString('shop-product__price-compare', $html);
+    }
+
+    // ------------------------------------------------------------------
     // helpers
     // ------------------------------------------------------------------
 

@@ -934,6 +934,19 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   enumeration query, an anonymous cache-fill vector.
 
 ### Fixed
+- The storefront product page now looks like a store, and actually shows the
+  product's images: it only ever rendered a `role='cover'` media row — but the admin
+  attaches every image as `role='gallery'`, so admin-managed products shipped an
+  imageless store page — and its image URLs were hand-built `/blobs/…` paths that
+  missed the API prefix and ignored blob visibility. Product/grid/featured-block
+  images now resolve through the same anonymous-media URL authority rendered pages
+  use (cover-role first, first gallery image as the honest fallback, unservable
+  blobs skipped), the product page renders a real gallery with a thumbnail strip,
+  prices display in customer form ("$89.00", intl-formatted with a "decimal CODE"
+  fallback) with a struck compare-at for single-variant sales, JSON-LD keeps the
+  plain decimal, and the pack ships a theme-neutral `shop.css` baseline (breadcrumb,
+  gallery, price row, styled add-to-cart) through the fingerprinted immutable asset
+  pipeline. This is the page the editor's Preview pane embeds.
 - The product editor's Activate button now actually activates: it was a scroll
   shortcut to the Details card's status control, which on the condensed page — with
   Details already in view — visibly did nothing, leaving drafts stuck and the
