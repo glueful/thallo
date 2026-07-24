@@ -203,8 +203,10 @@ async function createDraft(): Promise<void> {
         <div class="mx-auto w-full max-w-xl space-y-4">
           <h2 class="text-center text-lg font-semibold">What are you selling?</h2>
 
+          <!-- focus-within ring: the border is ALWAYS primary, so without this a keyboard user
+               gets no visible cue that focus has entered the input (a11y, C-question 2026-07-24). -->
           <div
-            class="flex items-center gap-3 rounded-xl border-2 bg-default px-4 py-3 shadow-sm"
+            class="flex items-center gap-3 rounded-xl border-2 bg-default px-4 py-3 shadow-sm transition focus-within:ring-2 focus-within:ring-primary/40"
             :class="omniInvalid ? 'border-error' : 'border-primary'"
           >
             <span class="font-bold text-primary">›</span>

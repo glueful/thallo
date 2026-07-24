@@ -128,6 +128,17 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   lands in. Single-flight submission,
   values retained on validation errors, `router.replace()` into the editor on success,
   and unsaved-changes guard participation throughout.
+- **The composed product editor — identity bar + Command Center** (admin SPA, phase 1 of
+  the approved edit-page design): every product page now opens with an identity bar
+  (thumbnail from the media read, name, slug · type · price line, status pill, and — for
+  drafts — the Activate shortcut, replacing the old draft banner). Active products
+  additionally open with a Health card computed from the shipped per-product reads:
+  factual counts only (images, categories, lowest tracked stock against the store's
+  low-stock threshold), warning rows deep-linking to their owning sections, and a failed
+  stock read shown honestly as unavailable rather than as zeros. Drafts lead with the
+  editor; everything stays fully editable in every state. (Phased next: recent-orders +
+  trade panels behind a new orders-by-product read, and the Live Mirror behind a
+  storefront preview frame-headers allowance.)
 - **External products actually work now**: creation previously omitted the API-required
   `metadata.external_url` (every external create 422'd), and the editor had no surface
   to change the link afterward. The launcher collects the link at create, and Details

@@ -1457,7 +1457,10 @@ describe('commerce product detail page', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Widget')
-    expect(wrapper.find('[data-test="draft-banner"]').exists()).toBe(false)
+    // Spec §5.4b: the identity bar replaced the draft banner; active products never show
+    // the draft Activate action.
+    expect(wrapper.find('[data-test="product-identity-bar"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="identity-activate"]').exists()).toBe(false)
 
     expect(wrapper.find('[data-test="editor-section-details"]').exists()).toBe(true)
     expect(
@@ -1566,7 +1569,7 @@ describe('commerce product detail page', () => {
     wrapper.unmount()
   })
 
-  it('shows the draft banner with an Activate shortcut that scrolls to the Details card, and hides it once active', async () => {
+  it('identity bar: draft shows the Activate scroll shortcut (never a mutation); active shows the Health strip instead', async () => {
     const scrollSpy = vi
       .spyOn(HTMLElement.prototype, 'scrollIntoView')
       .mockImplementation(() => undefined)
@@ -1578,8 +1581,18 @@ describe('commerce product detail page', () => {
     })
     await flushPromises()
 
-    expect(draftWrapper.find('[data-test="draft-banner"]').exists()).toBe(true)
-    const activateButton = draftWrapper.find('[data-test="draft-activate-shortcut"]')
+    // Spec §5.4b: the bar is the spine — name, slug · type meta line, status pill; the C4
+    // draft banner is gone.
+    const bar = draftWrapper.find('[data-test="product-identity-bar"]')
+    expect(bar.exists()).toBe(true)
+    expect(bar.find('[data-test="identity-name"]').text()).toBe('Widget')
+    expect(bar.find('[data-test="identity-meta"]').text()).toContain('widget · physical')
+    expect(bar.find('[data-test="identity-status"]').text()).toBe('draft')
+    expect(draftWrapper.find('[data-test="draft-banner"]').exists()).toBe(false)
+    // Drafts lead with the editor — no Health strip.
+    expect(draftWrapper.find('[data-test="product-health-strip"]').exists()).toBe(false)
+
+    const activateButton = bar.find('[data-test="identity-activate"]')
     expect(activateButton.exists()).toBe(true)
 
     // NOT a status mutation — only a scroll shortcut to the Details card.
@@ -1591,10 +1604,60 @@ describe('commerce product detail page', () => {
     singleProduct.value = product({ uuid: 'p1', name: 'Widget', status: 'active' })
     const activeWrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
     await flushPromises()
-    expect(activeWrapper.find('[data-test="draft-banner"]').exists()).toBe(false)
+    expect(activeWrapper.find('[data-test="identity-activate"]').exists()).toBe(false)
+    expect(activeWrapper.find('[data-test="product-health-strip"]').exists()).toBe(true)
 
     activeWrapper.unmount()
     scrollSpy.mockRestore()
+  })
+
+  it('health strip: factual counts from the section reads, warning rows deep-link, stock honesty preserved', async () => {
+    const scrollSpy = vi
+      .spyOn(HTMLElement.prototype, 'scrollIntoView')
+      .mockImplementation(() => undefined)
+
+    // Active product; media present, NO categories, tracked stock at the low threshold.
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget', status: 'active', variants: [variant()] })
+    mediaSectionData.value = { revision: 1, items: [mediaItem({ uuid: 'm1' })] }
+    categoriesSectionData.value = { revision: 1, items: [] }
+    stockSectionData.value = {
+      revision: 1,
+      items: [{ variant_uuid: 'v1', tracked: true, quantity: 2 }],
+    }
+    const wrapper = mount(ProductDetail, {
+      global: { stubs: detailStubs },
+      attachTo: document.body,
+    })
+    await flushPromises()
+
+    const strip = wrapper.find('[data-test="product-health-strip"]')
+    expect(strip.find('[data-test="health-images"]').text()).toContain('1 image')
+    expect(strip.find('[data-test="health-categories"]').text()).toContain('No categories')
+    // low_stock_threshold is 3 in the meta mock; quantity 2 <= 3 → low.
+    expect(strip.find('[data-test="health-stock"]').text()).toContain('Low stock — 2 left')
+
+    // Warning rows deep-link (scroll) to their owning sections.
+    await strip.find('[data-test="health-jump-organization"]').trigger('click')
+    await strip.find('[data-test="health-jump-pricing"]').trigger('click')
+    expect(scrollSpy).toHaveBeenCalledTimes(2)
+
+    wrapper.unmount()
+    scrollSpy.mockRestore()
+  })
+
+  it('health strip: a failed stock read renders "unavailable" — never fabricated zeros', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget', status: 'active' })
+    mediaSectionData.value = { revision: 1, items: [] }
+    categoriesSectionData.value = { revision: 1, items: [] }
+    stockSectionStatus.value = 'error'
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    const stockRow = wrapper.find('[data-test="health-stock"]')
+    expect(stockRow.text()).toContain('Stock data unavailable')
+    expect(stockRow.text()).not.toContain('0')
+
+    wrapper.unmount()
   })
 
   it('hides the delete button and save control when can_manage is false', async () => {

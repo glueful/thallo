@@ -39,6 +39,8 @@ import OrganizationCard from '../components/OrganizationCard.vue'
 import AddonsPanel from '../components/AddonsPanel.vue'
 import DownloadsPanel from '../components/DownloadsPanel.vue'
 import ChildrenCard from '../components/ChildrenCard.vue'
+import ProductIdentityBar from '../components/ProductIdentityBar.vue'
+import ProductHealthStrip from '../components/ProductHealthStrip.vue'
 import ProductEntryLinkPanel from '@/components/commerce/ProductEntryLinkPanel.vue'
 
 const route = useRoute()
@@ -218,12 +220,6 @@ const navSections = computed<SectionNavItem[]>(() => {
   return items
 })
 
-// Draft banner's Activate shortcut (spec §5.4): jumps to the Details card so the author can flip
-// status themselves — this is a scroll shortcut ONLY, never a status mutation on its own.
-function scrollToDetails(): void {
-  document.getElementById('section-details')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
-
 const pendingDelete = ref(false)
 async function confirmDelete() {
   const p = product.value
@@ -292,23 +288,15 @@ async function confirmDelete() {
       />
 
       <template v-else-if="product">
-        <div
-          v-if="isDraft"
-          data-test="draft-banner"
-          class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-md border border-default bg-elevated/50 px-4 py-3"
-        >
-          <div class="flex items-center gap-2 text-sm text-default">
-            <UIcon name="i-lucide-pencil-ruler" class="size-4 shrink-0 text-muted" />
-            <span>This product is a draft — not visible in the store yet.</span>
-          </div>
-          <UButton
-            size="xs"
-            variant="subtle"
-            label="Activate"
-            data-test="draft-activate-shortcut"
-            @click="scrollToDetails"
-          />
-        </div>
+        <!-- Spec §5.4b: the identity bar is the page's spine (replaces the C4 draft banner —
+             its Activate shortcut lives in the bar now); the Health strip opens ACTIVE
+             products only (drafts lead with the editor). -->
+        <ProductIdentityBar :key="product.uuid" :product="product" />
+        <ProductHealthStrip
+          v-if="product.status === 'active'"
+          :key="`health-${product.uuid}`"
+          :product="product"
+        />
 
         <div class="flex flex-col gap-6 xl:flex-row xl:items-start">
           <div class="min-w-0 flex-1 space-y-6">
