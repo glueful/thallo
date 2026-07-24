@@ -934,6 +934,14 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   enumeration query, an anonymous cache-fill vector.
 
 ### Fixed
+- Blob uploads no longer 403 for authenticated admins: `POST/GET-info/DELETE /v1/blobs`
+  carried `tenant_profile:admin` (an authenticated-membership gate) but NO `auth`
+  middleware — with `UPLOADS_ACCESS=public` the framework's blob routes add none of
+  their own, so `auth.user.uuid` was never populated and the tenancy pipeline denied
+  every upload ("Access to this tenant is denied") regardless of the bearer sent.
+  `TenantBlobRouteMiddlewareProvider` now contributes `auth` ahead of the admin
+  profile for upload/info/delete/sign; public blob viewing is unchanged. This had
+  blocked adding images to products from the admin media picker.
 - Admin SPA: capability-gated nav/panels now converge WITHOUT manual reloads when a pack is
   toggled. Enable/disable on the extension detail page polls the capabilities endpoint until
   the answer actually changes (the backend serves the pre-toggle list for a few seconds — the
