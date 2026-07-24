@@ -33,7 +33,9 @@ describe('commerce admin module gating (thallo.commerce capability)', () => {
         icon: 'i-lucide-shopping-cart',
         defaultOpen: false,
         children: [
-          { label: 'Overview', to: '/commerce' },
+          // `exact`: Overview's path prefixes every sibling — without it, default link
+          // matching shows TWO active items on /commerce/products etc.
+          { label: 'Overview', to: '/commerce', exact: true },
           { label: 'Products', to: '/commerce/products' },
           { label: 'Orders', to: '/commerce/orders' },
           { label: 'Discounts', to: '/commerce/discounts' },
@@ -45,8 +47,8 @@ describe('commerce admin module gating (thallo.commerce capability)', () => {
     ])
   })
 
-  it('places Overview strictly first among the Commerce children', () => {
+  it('places Overview strictly first among the Commerce children, exact-matched (its path prefixes every sibling)', () => {
     const [main] = visibleNav((id) => id === 'thallo.commerce', [commerceModule])
-    expect(main[0]!.children![0]).toEqual({ label: 'Overview', to: '/commerce' })
+    expect(main[0]!.children![0]).toEqual({ label: 'Overview', to: '/commerce', exact: true })
   })
 })

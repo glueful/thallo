@@ -23,7 +23,10 @@ const main: NavigationMenuItem[] = [
     icon: 'i-lucide-shopping-cart',
     defaultOpen: false,
     children: [
-      { label: 'Overview', to: '/commerce' },
+      // `exact`: Overview's path is the PREFIX of every sibling below, so default (prefix)
+      // link matching would light it up on /commerce/products, /commerce/orders, etc. —
+      // two "active" items at once. Only the section landing page itself activates it.
+      { label: 'Overview', to: '/commerce', exact: true },
       { label: 'Products', to: '/commerce/products' },
       { label: 'Orders', to: '/commerce/orders' },
       { label: 'Discounts', to: '/commerce/discounts' },
