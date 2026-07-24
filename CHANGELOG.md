@@ -946,7 +946,11 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   fallback) with a struck compare-at for single-variant sales, JSON-LD keeps the
   plain decimal, and the pack ships a theme-neutral `shop.css` baseline (breadcrumb,
   gallery, price row, styled add-to-cart) through the fingerprinted immutable asset
-  pipeline. This is the page the editor's Preview pane embeds.
+  pipeline. The shop index and category archives get the same pass: a real product
+  card grid (constrained square images, name, price with struck compare-at) instead
+  of a raw bulleted list with an unconstrained full-size image, and the duplicate
+  currency-code suffix is gone there too. This is the surface the editor's Preview
+  pane embeds.
 - The product editor's Activate button now actually activates: it was a scroll
   shortcut to the Details card's status control, which on the condensed page — with
   Details already in view — visibly did nothing, leaving drafts stuck and the
