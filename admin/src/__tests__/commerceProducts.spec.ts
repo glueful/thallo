@@ -842,22 +842,70 @@ describe('ProductForm', () => {
     })
   })
 
-  it('renders type as read-only text (no type select) and never sends it in the update payload', async () => {
-    const p = product({ uuid: 'p1', type: 'digital' })
+  it('locks type (read-only, never sent) once the product carries variants — the strandable-refs guard, surfaced honestly', async () => {
+    const p = product({ uuid: 'p1', type: 'digital', variants: [variant()] })
     updateMock.mockResolvedValue(p)
     const { wrapper } = mountForm(p)
 
     expect(wrapper.find('[data-test="product-type-value"]').text()).toBe('digital')
-    expect(wrapper.find('[data-test="product-type-note"]').text()).toContain(
-      'Type is set at creation.',
-    )
-    // Only the Status select remains — Type's editable USelect is gone entirely.
+    expect(wrapper.find('[data-test="product-type-note"]').text()).toContain('variants')
+    expect(wrapper.find('[data-test="product-type-input"]').exists()).toBe(false)
+    // Only the Status select renders in the locked state.
     expect(wrapper.findAllComponents({ name: 'SelectRoot' })).toHaveLength(1)
 
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(updateMock).toHaveBeenCalledWith(
       expect.objectContaining({ input: expect.not.objectContaining({ type: expect.anything() }) }),
+    )
+  })
+
+  it('offers an editable type on a variant-free product, sending type ONLY when actually changed', async () => {
+    const p = product({
+      uuid: 'p1',
+      type: 'external',
+      variants: [],
+      metadata: { external_url: 'https://partner.example/x' },
+    })
+    updateMock.mockResolvedValue(p)
+    const { wrapper } = mountForm(p)
+
+    expect(wrapper.find('[data-test="product-type-input"]').exists()).toBe(true)
+
+    // Unchanged type stays OUT of the payload — an ever-present key would 422 unrelated saves
+    // the moment the product gains a strandable reference.
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ input: expect.not.objectContaining({ type: expect.anything() }) }),
+    )
+  })
+
+  it('sends a changed type, revealing the external-link fieldset when switching TO external (draft type drives it)', async () => {
+    const p = product({ uuid: 'p1', type: 'physical', variants: [] })
+    updateMock.mockResolvedValue(p)
+    const { wrapper } = mountForm(p)
+
+    expect(wrapper.find('[data-test="product-external-url-input"]').exists()).toBe(false)
+    await selectByTestId(wrapper, 'product-type-input').vm.$emit('update:modelValue', 'external')
+    await flushPromises()
+
+    // The DRAFT type reveals the required link field so the URL rides the SAME save that
+    // switches the type (the server validates external metadata against the incoming type).
+    expect(wrapper.find('[data-test="product-external-url-input"]').exists()).toBe(true)
+    await wrapper
+      .find('[data-test="product-external-url-input"]')
+      .setValue('https://partner.example/buy')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          type: 'external',
+          metadata: expect.objectContaining({ external_url: 'https://partner.example/buy' }),
+        }),
+      }),
     )
   })
 

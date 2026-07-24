@@ -143,6 +143,18 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   panel linking into order detail — both powered by commerce 1.6.0's per-product order
   activity read. Admins running an older commerce degrade gracefully: the panels are simply
   absent, never an error banner.
+- **Product type is now editable while it safely can be**: the editor previously
+  rendered type as permanently read-only ("Type is set at creation"), but Commerce's
+  actual rule only rejects a type change while the product carries variants, grouped
+  children, or cart/order references. The Details card now mirrors that honestly — a
+  variant-carrying product shows type locked with the real reason; a variant-free
+  product (e.g. an external listing) gets a working type select, `type` rides the
+  payload only when actually changed, and switching to `external` reveals the required
+  link field in the same save. The rarer server-side locks surface as field-mapped
+  validation errors.
+- **Editor chrome polish**: the storefront pane's toggle is labeled "Preview" (was
+  "Mirror"), and the product page's dashboard navbar no longer repeats the product
+  name above the identity bar — it shows the quiet back-context "Products" instead.
 - **Condensed section cards — the editor's resting state** (admin SPA): the product
   editor now matches the approved composed mock. Section cards (Details, Images,
   Pricing & stock, Organization, Grouped products) rest collapsed as one-line digests —

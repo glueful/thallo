@@ -382,7 +382,10 @@ async function confirmDelete() {
             aria-label="Back to products"
           />
         </template>
-        <template #title>{{ product?.name ?? 'Product' }}</template>
+        <!-- The identity bar below owns the product's name (the mock's single spine) — repeating
+             it here read as two stacked title bars. The navbar stays the quiet frame: back
+             context + destructive action. -->
+        <template #title>Products</template>
         <template #right>
           <UButton
             v-if="canManage"

@@ -99,7 +99,7 @@ const statusColor = computed(() => STATUS_COLOR[props.product.status] ?? 'neutra
       color="neutral"
       :variant="mirrorOpen ? 'subtle' : 'ghost'"
       icon="i-lucide-app-window"
-      :label="mirrorOpen ? 'Mirror on' : 'Mirror'"
+      :label="mirrorOpen ? 'Preview on' : 'Preview'"
       data-test="identity-mirror-toggle"
       @click="emit('toggle-mirror')"
     />

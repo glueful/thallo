@@ -1,15 +1,19 @@
 <script setup lang="ts">
-// Single-page product editor plan, Task C5: the Details card. `type` is READ-ONLY here — Commerce
-// rejects a type change with a 422 once a product carries variants/children/carts/orders, and a
-// purchasable product has a variant from birth (design spec §5.1 item 1), so an editable type
-// select is a control that normally fails validation. It renders as plain text; the update payload
-// never includes it at all (not merely disabled).
+// Single-page product editor plan, Task C5: the Details card. `type` is CONDITIONALLY editable —
+// Commerce rejects a change only while the product carries "strandable references" (variants,
+// grouped-children membership in either direction, or cart/order lines; CatalogService::
+// applyProductPatch). Variants are client-visible, so a variant-carrying product renders the
+// honest locked state up front and the payload never includes `type`; a variant-free product gets
+// a real select, with the rarer child-membership lock arriving as the server's own field-mapped
+// 422. `type` is sent ONLY when actually changed — an always-present key would 422 every
+// unrelated Details save on locked products.
 import { computed, inject, nextTick, reactive, ref, useTemplateRef, watch } from 'vue'
 import * as z from 'zod'
 import type { Form, FormSubmitEvent } from '@nuxt/ui'
 import {
   useCommerceProductMutations,
   PRODUCT_STATUSES,
+  PRODUCT_TYPES,
   type CommerceProduct,
 } from '@/queries/commerceCatalog'
 import { useMoney } from '@/composables/useMoney'
@@ -39,11 +43,18 @@ const { dirty, markDirty, beginSave, saveSucceeded, saveFailed } = sectionState
 emit('state', sectionState)
 
 const statusItems = PRODUCT_STATUSES.map((s) => ({ label: s, value: s }))
+const typeItems = PRODUCT_TYPES.map((t) => ({ label: t, value: t }))
+
+/** Variants are the client-visible strandable reference — lock the type field honestly up front
+ * rather than offering a select that always 422s. (Child-membership locks stay server-detected.) */
+const typeLocked = computed(() => props.product.variants.length > 0)
 
 // External products carry their outbound link in `metadata.external_url` (API-required — spec
-// §5.4 gap fix 2: without this fieldset the link was uneditable anywhere in the SPA). The two
-// metadata fields participate in the schema only when they render (external products).
-const isExternal = computed(() => props.product.type === 'external')
+// §5.4 gap fix 2: without this fieldset the link was uneditable anywhere in the SPA). Driven by
+// the DRAFT type (not the saved product) so switching to external reveals the required link field
+// in the SAME save that changes the type — the server validates external metadata against the
+// incoming effective type.
+const isExternal = computed(() => state.type === 'external')
 
 const schema = z
   .object({
@@ -53,6 +64,7 @@ const schema = z
       .min(1, 'Slug is required.')
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Lowercase letters, numbers and hyphens only.'),
     description: z.string().optional(),
+    type: z.enum(PRODUCT_TYPES),
     status: z.enum(PRODUCT_STATUSES),
     taxClass: z.string().optional(),
     externalUrl: z.string().optional(),
@@ -74,6 +86,7 @@ function fromProduct(p: CommerceProduct) {
     name: p.name,
     slug: p.slug,
     description: p.description ?? '',
+    type: p.type as (typeof PRODUCT_TYPES)[number],
     status: p.status as (typeof PRODUCT_STATUSES)[number],
     taxClass: p.tax_class ?? '',
     externalUrl: typeof p.metadata.external_url === 'string' ? p.metadata.external_url : '',
@@ -147,6 +160,9 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         name: event.data.name,
         slug: event.data.slug,
         description: event.data.description || null,
+        // Sent ONLY when actually changed — an ever-present key would 422 every unrelated save
+        // once the product carries variants/children/orders (server-side strandable-refs guard).
+        ...(event.data.type !== props.product.type ? { type: event.data.type } : {}),
         status: event.data.status,
         tax_class: event.data.taxClass || null,
         ...(metadata !== undefined ? { metadata } : {}),
@@ -228,11 +244,25 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         />
       </UFormField>
 
-      <UFormField label="Type">
+      <UFormField v-if="typeLocked" label="Type">
         <p class="text-sm text-default" data-test="product-type-value">{{ product.type }}</p>
         <p class="mt-1 text-xs text-muted" data-test="product-type-note">
-          Type is set at creation.
+          Locked — products with variants can’t change type.
         </p>
+      </UFormField>
+      <UFormField
+        v-else
+        label="Type"
+        name="type"
+        help="Switching type changes which sections apply below."
+      >
+        <USelect
+          v-model="state.type"
+          :items="typeItems"
+          class="w-full"
+          :disabled="!canManage"
+          data-test="product-type-input"
+        />
       </UFormField>
 
       <UFormField label="Status" name="status">
