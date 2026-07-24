@@ -6,8 +6,8 @@
 // (e.g. this file's own narrower specs) that omits both props simply renders every row's stock
 // column as "—" (never a fabricated quantity).
 //
-// `compare_at_price` is now a real field on both the create and edit forms (optional, minor
-// units, blank = omitted from the payload — mirrors how `shipping_class_uuid` already behaves on
+// `compare_at_price` is now a real field on both the create and edit forms (optional, typed as a
+// major-unit amount, blank = omitted from the payload — mirrors how `shipping_class_uuid` already behaves on
 // this same edit form: a field the form doesn't manage stays omitted/preserved).
 //
 // Coordinator: injected optionally (`inject(..., null)`) so every pre-C7 spec that mounts this
@@ -22,7 +22,7 @@
 // from the real `products.children.index` read, a proper picker, and full C3 conflict-review
 // wiring. This panel no longer imports `setChildren` or knows about grouped-product children at
 // all.
-import { inject, reactive, ref, useTemplateRef } from 'vue'
+import { computed, inject, reactive, ref, useTemplateRef } from 'vue'
 import * as z from 'zod'
 import type { Form, FormSubmitEvent } from '@nuxt/ui'
 import {
@@ -32,7 +32,12 @@ import {
   type CommerceVariant,
 } from '@/queries/commerceCatalog'
 import type { VariantStock } from '@/queries/commerceProductSections'
-import { useMoney } from '@/composables/useMoney'
+import {
+  useMoney,
+  minorToMajorInputString,
+  parseMajorAmountToMinorUnits,
+} from '@/composables/useMoney'
+import { useCommerceMeta } from '@/queries/commerceMeta'
 import { toApiError } from '@/api/errors'
 import { useNotify } from '@/composables/useNotify'
 import { ProductRevisionCoordinatorKey } from '@/composables/useProductRevisionCoordinator'
@@ -52,14 +57,36 @@ const { format } = useMoney()
 const { createVariant, updateVariant, bulkPrice, stockAdjust } = useCommerceProductMutations()
 const coordinator = inject(ProductRevisionCoordinatorKey, null)
 
-/** Blank input = no compare-at price (`null`/omitted); a non-digit string is rejected before the
- * mutation ever fires. Mirrors `DownloadsPanel.vue`'s established `parseNonNegativeIntOrNull`
- * convention for optional nullable integer fields on this same product-editor surface. */
+// ── Major-unit money inputs (condensed-cards pass) ─────────────────────────────────────────────
+// Prices are typed the way the storefront shows them ("19.99"), never raw minor units. Hydration
+// and parsing both gate on the tenant currency's exponent from /commerce/meta — a fallback
+// exponent would silently RESCALE amounts, so until meta resolves parsing reports invalid (the
+// gate is unreachable in practice; meta settles alongside the page's own queries).
+
+const { data: moneyMeta } = useCommerceMeta()
+const exponent = computed<number | null>(() => moneyMeta.value?.currency_exponent ?? null)
+const currencyHelp = computed(() => moneyMeta.value?.currency ?? undefined)
+const amountPlaceholder = computed(() => {
+  const exp = exponent.value
+  return exp === null || exp === 0 ? '0' : `0.${'0'.repeat(exp)}`
+})
+
+/** Major-unit input string → minor-unit integer, or null when unparseable (or meta unresolved). */
+function parseMajor(input: string): number | null {
+  const exp = exponent.value
+  if (exp === null) return null
+  const minor = parseMajorAmountToMinorUnits(input, exp)
+  if (minor === null || minor > BigInt(Number.MAX_SAFE_INTEGER)) return null
+  return Number(minor)
+}
+
+/** Blank input = no compare-at price (`null`/omitted); an unparseable amount is rejected before
+ * the mutation ever fires. */
 function parseCompareAtOrNull(input: string): number | null | 'invalid' {
   const trimmed = input.trim()
   if (trimmed === '') return null
-  if (!/^\d+$/.test(trimmed)) return 'invalid'
-  return Number(trimmed)
+  const minor = parseMajor(trimmed)
+  return minor === null ? 'invalid' : minor
 }
 
 function stockFor(variantUuid: string): VariantStock | undefined {
@@ -93,9 +120,9 @@ const addOpen = ref(false)
 const addSchema = z.object({
   sku: z.string().min(1, 'SKU is required.'),
   price: z
-    .number({ message: 'Price is required.' })
-    .int('Whole minor units only.')
-    .nonnegative('Cannot be negative.'),
+    .string()
+    .min(1, 'Price is required.')
+    .refine((v) => parseMajor(v) !== null, 'Enter a valid amount, e.g. 19.99.'),
   currency: z
     .string()
     .length(3, 'Currency must be a 3-letter code.')
@@ -107,7 +134,7 @@ type AddSchema = z.output<typeof addSchema>
 function blankAddState() {
   return {
     sku: '',
-    price: 0,
+    price: '',
     currency: props.product.variants[0]?.currency ?? 'USD',
     status: 'active' as const,
     compareAtPriceInput: '',
@@ -126,15 +153,18 @@ function openAdd() {
 async function submitAdd(event: FormSubmitEvent<AddSchema>) {
   const compareAt = parseCompareAtOrNull(addState.compareAtPriceInput)
   if (compareAt === 'invalid') {
-    addFormError.value = 'Compare-at price must be a whole, non-negative number, or blank.'
+    addFormError.value = 'Compare-at price must be a valid amount (e.g. 19.99), or blank.'
     return
   }
+  // Zod's refine above already rejected unparseable amounts — belt-and-braces only.
+  const priceMinor = parseMajor(event.data.price)
+  if (priceMinor === null) return
   try {
     await createVariant.mutateAsync({
       productUuid: props.product.uuid,
       input: {
         sku: event.data.sku,
-        price: event.data.price,
+        price: priceMinor,
         currency: event.data.currency,
         status: event.data.status,
         ...(compareAt !== null ? { compare_at_price: compareAt } : {}),
@@ -161,15 +191,15 @@ const editingUuid = ref<string | null>(null)
 const editSchema = z.object({
   sku: z.string().min(1, 'SKU is required.'),
   price: z
-    .number({ message: 'Price is required.' })
-    .int('Whole minor units only.')
-    .nonnegative('Cannot be negative.'),
+    .string()
+    .min(1, 'Price is required.')
+    .refine((v) => parseMajor(v) !== null, 'Enter a valid amount, e.g. 19.99.'),
   status: z.enum(PRODUCT_STATUSES),
 })
 type EditSchema = z.output<typeof editSchema>
 const editState = reactive({
   sku: '',
-  price: 0,
+  price: '',
   status: 'active' as (typeof PRODUCT_STATUSES)[number],
   compareAtPriceInput: '',
 })
@@ -179,12 +209,17 @@ const editFormError = ref<string | null>(null)
 // would need index-tracking for no real benefit. The inline `editFormError` banner below already
 // renders every field message (including ones like `sku` that map to a real input here).
 function startEdit(variant: CommerceVariant) {
+  const exp = exponent.value
   editingUuid.value = variant.uuid
   editState.sku = variant.sku
-  editState.price = variant.price
+  // `exp === null` (meta unresolved — unreachable in practice) hydrates blank rather than risk a
+  // wrong-scale string; the required-price refine then blocks a submit until re-typed.
+  editState.price = exp === null ? '' : minorToMajorInputString(variant.price, exp)
   editState.status = (variant.status as (typeof PRODUCT_STATUSES)[number]) || 'active'
   editState.compareAtPriceInput =
-    variant.compare_at_price === null ? '' : String(variant.compare_at_price)
+    variant.compare_at_price === null || exp === null
+      ? ''
+      : minorToMajorInputString(variant.compare_at_price, exp)
   editFormError.value = null
 }
 
@@ -197,16 +232,19 @@ async function submitEdit(event: FormSubmitEvent<EditSchema>) {
   if (!uuid) return
   const compareAt = parseCompareAtOrNull(editState.compareAtPriceInput)
   if (compareAt === 'invalid') {
-    editFormError.value = 'Compare-at price must be a whole, non-negative number, or blank.'
+    editFormError.value = 'Compare-at price must be a valid amount (e.g. 19.99), or blank.'
     return
   }
+  // Zod's refine above already rejected unparseable amounts — belt-and-braces only.
+  const priceMinor = parseMajor(event.data.price)
+  if (priceMinor === null) return
   try {
     await updateVariant.mutateAsync({
       uuid,
       productUuid: props.product.uuid,
       input: {
         sku: event.data.sku,
-        price: event.data.price,
+        price: priceMinor,
         status: event.data.status,
         // ALWAYS present on updates: a blank field sends an explicit null, which the backend
         // binds as SQL NULL (clears an existing compare-at/sale price). Omitting the key would
@@ -236,12 +274,16 @@ function toggleSelect(uuid: string) {
     : [...selected.value, uuid]
 }
 
-const bulkPriceValue = ref<number | null>(null)
+const bulkPriceInput = ref('')
 const bulkPriceError = ref<string | null>(null)
 
 async function applyBulkPrice() {
-  const price = bulkPriceValue.value
-  if (price === null || !Number.isInteger(price) || price < 0 || selected.value.length === 0) return
+  if (selected.value.length === 0) return
+  const price = parseMajor(bulkPriceInput.value)
+  if (price === null) {
+    bulkPriceError.value = 'Enter a valid amount, e.g. 19.99.'
+    return
+  }
   bulkPriceError.value = null
   try {
     await bulkPrice.mutateAsync({
@@ -251,7 +293,7 @@ async function applyBulkPrice() {
     await coordinator?.afterMutation()
     success('Prices updated', `${selected.value.length} variant(s) updated.`)
     selected.value = []
-    bulkPriceValue.value = null
+    bulkPriceInput.value = ''
   } catch (e) {
     const err = toApiError(e)
     bulkPriceError.value = Object.values(err.fieldErrors)[0] ?? err.message
@@ -339,11 +381,11 @@ async function applyStockAdjust() {
         <UFormField label="SKU" name="sku" required>
           <UInput v-model="addState.sku" class="w-full" data-test="variant-sku-input" />
         </UFormField>
-        <UFormField label="Price" name="price" required help="Minor units">
+        <UFormField label="Price" name="price" required :help="currencyHelp">
           <UInput
-            v-model.number="addState.price"
-            type="number"
-            :min="0"
+            v-model="addState.price"
+            inputmode="decimal"
+            :placeholder="amountPlaceholder"
             class="w-full"
             data-test="variant-price-input"
           />
@@ -363,9 +405,10 @@ async function applyStockAdjust() {
             data-test="variant-status-input"
           />
         </UFormField>
-        <UFormField label="Compare-at price" help="Optional, minor units">
+        <UFormField label="Compare-at price" help="Optional">
           <UInput
             v-model="addState.compareAtPriceInput"
+            inputmode="decimal"
             class="w-full"
             placeholder="Optional"
             data-test="variant-compare-at-input"
@@ -474,11 +517,11 @@ async function applyStockAdjust() {
           <UFormField label="SKU" name="sku" required>
             <UInput v-model="editState.sku" class="w-full" data-test="variant-edit-sku-input" />
           </UFormField>
-          <UFormField label="Price" name="price" required help="Minor units">
+          <UFormField label="Price" name="price" required :help="currencyHelp">
             <UInput
-              v-model.number="editState.price"
-              type="number"
-              :min="0"
+              v-model="editState.price"
+              inputmode="decimal"
+              :placeholder="amountPlaceholder"
               class="w-full"
               data-test="variant-edit-price-input"
             />
@@ -491,9 +534,10 @@ async function applyStockAdjust() {
               data-test="variant-edit-status-input"
             />
           </UFormField>
-          <UFormField label="Compare-at price" help="Optional, minor units">
+          <UFormField label="Compare-at price" help="Optional">
             <UInput
               v-model="editState.compareAtPriceInput"
+              inputmode="decimal"
               class="w-full"
               placeholder="Optional"
               data-test="variant-edit-compare-at-input"
@@ -559,10 +603,9 @@ async function applyStockAdjust() {
       >
         <span class="text-sm text-muted">{{ selected.length }} selected</span>
         <UInput
-          v-model.number="bulkPriceValue"
-          type="number"
-          :min="0"
-          placeholder="New price (minor units)"
+          v-model="bulkPriceInput"
+          inputmode="decimal"
+          placeholder="New price"
           data-test="bulk-price-input"
         />
         <UButton

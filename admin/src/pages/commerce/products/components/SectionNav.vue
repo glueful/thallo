@@ -17,8 +17,9 @@ export interface SectionNavItem {
   id: string
   label: string
   indicator: SectionNavIndicator
-  /** Empty-hint text, e.g. "Images · 0" — draft-only, count-based, never shown for `null`/`error`/
-   * `unsaved` indicators in practice, but rendered whenever present regardless of `indicator`. */
+  /** Compact empty-hint text, e.g. "· 0" (the mock's form — the item label already names the
+   * section) — draft-only, count-based. Hidden while an attention pill (`error`/`unsaved`) shows:
+   * the pill outranks the hint on the same right-hand slot. */
   hint?: string
 }
 
@@ -44,6 +45,12 @@ export function resolveSectionIndicator(indicators: SectionNavIndicator[]): Sect
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 
 const props = defineProps<{ sections: SectionNavItem[] }>()
+
+// Condensed-cards pass: cards rest collapsed, so a raw `#section-…` anchor jump would land on a
+// summary row BEFORE the shell expands it (wrong scroll offset once the card opens). Clicks are
+// intercepted and emitted instead — the shell expands the target card first, then scrolls on
+// nextTick. The href stays on the anchor purely as semantics/fallback.
+const emit = defineEmits<{ navigate: [id: string] }>()
 
 const activeId = ref<string | null>(props.sections[0]?.id ?? null)
 
@@ -88,23 +95,20 @@ onUnmounted(disconnectObserver)
 // Re-observe whenever the section LIST shape changes (e.g. Downloads/Children mounting once the
 // product loads) — a plain re-render of the same ids doesn't need a new observer.
 watch(() => props.sections.map((section) => section.id).join(','), observeSections)
-
-function dotClass(indicator: SectionNavIndicator): string {
-  if (indicator === 'error') return 'bg-error'
-  if (indicator === 'unsaved') return 'bg-warning'
-  if (indicator === 'hint') return 'bg-muted'
-  return ''
-}
 </script>
 
 <template>
+  <!-- The mock's rail nav (xl+): a continuous hairline down the left, the active item marked by a
+       primary accent segment + bolder text — never a filled background. Attention (error/unsaved)
+       is a tinted pill with a filled dot on the right; quiet "· n" hints share that slot. On
+       smaller screens the nav stays the horizontal chip list (no rail to draw). -->
   <nav
     data-test="section-nav"
     aria-label="Section navigation"
     class="xl:sticky xl:top-6 xl:w-56 xl:shrink-0 xl:self-start"
   >
     <ul
-      class="flex gap-1 overflow-x-auto whitespace-nowrap pb-2 xl:flex-col xl:overflow-visible xl:whitespace-normal xl:gap-0.5 xl:pb-0"
+      class="flex gap-1 overflow-x-auto whitespace-nowrap pb-2 xl:flex-col xl:gap-0.5 xl:overflow-visible xl:border-l xl:border-default xl:pb-0"
     >
       <li v-for="section in sections" :key="section.id" class="shrink-0 xl:shrink">
         <a
@@ -112,21 +116,29 @@ function dotClass(indicator: SectionNavIndicator): string {
           :data-test="`section-nav-${section.id}`"
           :data-indicator="section.indicator ?? undefined"
           :aria-current="activeId === section.id ? 'true' : undefined"
-          class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors"
+          class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm transition-colors xl:-ml-px xl:rounded-none xl:border-l-2 xl:pl-3.5"
           :class="
             activeId === section.id
-              ? 'bg-elevated font-medium text-default'
-              : 'text-muted hover:bg-elevated/60 hover:text-default'
+              ? 'bg-elevated font-medium text-default xl:border-primary xl:bg-transparent xl:font-semibold'
+              : 'text-muted hover:bg-elevated/60 hover:text-default xl:border-transparent xl:hover:bg-transparent'
           "
+          @click.prevent="emit('navigate', section.id)"
         >
-          <span
-            v-if="section.indicator"
-            class="size-1.5 shrink-0 rounded-full"
-            :class="dotClass(section.indicator)"
-            aria-hidden="true"
-          />
           <span>{{ section.label }}</span>
-          <span v-if="section.hint" class="ml-auto text-xs text-muted">{{ section.hint }}</span>
+          <span
+            v-if="section.indicator === 'error' || section.indicator === 'unsaved'"
+            class="ml-auto flex items-center rounded-full px-1.5 py-1"
+            :class="section.indicator === 'error' ? 'bg-error/10' : 'bg-warning/10'"
+            aria-hidden="true"
+          >
+            <span
+              class="size-1.5 rounded-full"
+              :class="section.indicator === 'error' ? 'bg-error' : 'bg-warning'"
+            />
+          </span>
+          <span v-else-if="section.hint" class="ml-auto text-xs whitespace-nowrap text-muted">
+            {{ section.hint }}
+          </span>
         </a>
       </li>
     </ul>

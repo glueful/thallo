@@ -37,7 +37,12 @@ import {
   type SectionEnvelope,
   type VariantStock,
 } from '@/queries/commerceProductSections'
-import { useMoney } from '@/composables/useMoney'
+import {
+  useMoney,
+  minorToMajorInputString,
+  parseMajorAmountToMinorUnits,
+} from '@/composables/useMoney'
+import { useCommerceMeta } from '@/queries/commerceMeta'
 import { useNotify } from '@/composables/useNotify'
 import { toApiError } from '@/api/errors'
 import { useSectionState, type SectionState } from '@/composables/useSectionState'
@@ -65,6 +70,31 @@ function money(minor: number): string {
   } catch {
     return String(minor)
   }
+}
+
+// ── Major-unit money inputs (condensed-cards pass) ─────────────────────────────────────────────
+// Admins type prices the way the storefront shows them ("19.99"), never raw minor units. Both
+// hydration (minor → input string) and parsing (input string → minor) gate on the tenant
+// currency's exponent from /commerce/meta — a fallback exponent would silently RESCALE amounts
+// (700 GHS vs 70000 GHS), so until meta resolves the price fields stay unhydrated and parsing
+// reports invalid. Meta settles alongside the page's own queries; the gate is unreachable in
+// practice and exists purely so a wrong-scale write is impossible.
+
+const { data: moneyMeta } = useCommerceMeta()
+const exponent = computed<number | null>(() => moneyMeta.value?.currency_exponent ?? null)
+const currencyCode = computed(() => moneyMeta.value?.currency ?? '')
+const amountPlaceholder = computed(() => {
+  const exp = exponent.value
+  return exp === null || exp === 0 ? '0' : `0.${'0'.repeat(exp)}`
+})
+
+/** Major-unit input string → minor-unit integer, or null when unparseable (or meta unresolved). */
+function parseMajor(input: string): number | null {
+  const exp = exponent.value
+  if (exp === null) return null
+  const minor = parseMajorAmountToMinorUnits(input, exp)
+  if (minor === null || minor > BigInt(Number.MAX_SAFE_INTEGER)) return null
+  return Number(minor)
 }
 
 // ── Disclosure branch (spec §5.3) ───────────────────────────────────────────────────────────────
@@ -144,27 +174,31 @@ const singleVariantTracked = computed(() => singleVariantStock.value?.tracked ==
 
 const schema = z.object({
   sku: z.string().min(1, 'SKU is required.'),
+  // Major-unit decimal strings, parsed via BigInt (`parseMajorAmountToMinorUnits`) — never coerced
+  // through Number(), so no float rounding can smuggle in an off-by-one-minor-unit amount.
   price: z
-    .number({ message: 'Price is required.' })
-    .int('Whole minor units only.')
-    .nonnegative('Cannot be negative.'),
-  // A plain digit string, blank allowed (no compare-at price set) — never coerced through
-  // Number() until submit, and only after this regex confirms it's a clean non-negative integer.
+    .string()
+    .min(1, 'Price is required.')
+    .refine((v) => parseMajor(v) !== null, 'Enter a valid amount, e.g. 19.99.'),
   compareAtPriceInput: z
     .string()
-    .regex(/^\d*$/, 'Compare-at price must be a whole, non-negative number.'),
+    .refine(
+      (v) => v.trim() === '' || parseMajor(v) !== null,
+      'Compare-at price must be a valid amount, or blank.',
+    ),
 })
 type Schema = z.output<typeof schema>
 
-function fromVariant(v: CommerceVariant) {
+function fromVariant(v: CommerceVariant, exp: number) {
   return {
     sku: v.sku,
-    price: v.price,
-    compareAtPriceInput: v.compare_at_price === null ? '' : String(v.compare_at_price),
+    price: minorToMajorInputString(v.price, exp),
+    compareAtPriceInput:
+      v.compare_at_price === null ? '' : minorToMajorInputString(v.compare_at_price, exp),
   }
 }
 
-const state = reactive({ sku: '', price: 0, compareAtPriceInput: '' })
+const state = reactive({ sku: '', price: '', compareAtPriceInput: '' })
 const formError = ref<string | null>(null)
 const formRef = useTemplateRef<Form<Schema>>('formRef')
 
@@ -172,13 +206,15 @@ const formRef = useTemplateRef<Form<Schema>>('formRef')
 // pattern as ProductForm.vue's own file-level note.
 let syncingFromProduct = false
 
+// `exponent` is a watch source too: hydration needs it, and meta may settle after the product —
+// the second firing then hydrates (still guarded by `dirty`, so it never clobbers user edits).
 watch(
-  () => props.product,
-  (p) => {
+  [() => props.product, exponent],
+  ([p, exp]) => {
     const v = p.variants[0]
-    if (!v || dirty.value) return
+    if (!v || exp === null || dirty.value) return
     syncingFromProduct = true
-    Object.assign(state, fromVariant(v))
+    Object.assign(state, fromVariant(v, exp))
     void nextTick(() => {
       syncingFromProduct = false
     })
@@ -196,16 +232,21 @@ watch(
 )
 
 const pricePreview = computed(() => {
-  if (!Number.isInteger(state.price) || state.price < 0) return null
-  return money(state.price)
+  const minor = parseMajor(state.price)
+  return minor === null ? null : money(minor)
 })
 
 async function onSubmit(event: FormSubmitEvent<Schema>): Promise<void> {
   const v = singleVariant.value
   if (!v) return
   formError.value = null
+  // Zod's refines above already rejected unparseable amounts — these guards are belt-and-braces
+  // so an impossible null can never reach the payload as a wrong value.
+  const priceMinor = parseMajor(event.data.price)
+  if (priceMinor === null) return
   const compareAt =
-    event.data.compareAtPriceInput === '' ? null : Number(event.data.compareAtPriceInput)
+    event.data.compareAtPriceInput.trim() === '' ? null : parseMajor(event.data.compareAtPriceInput)
+  if (event.data.compareAtPriceInput.trim() !== '' && compareAt === null) return
   beginSave()
   try {
     await updateVariant.mutateAsync({
@@ -213,7 +254,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>): Promise<void> {
       productUuid: props.product.uuid,
       input: {
         sku: event.data.sku,
-        price: event.data.price,
+        price: priceMinor,
         // ALWAYS present on updates: a blank field sends an explicit null, which the backend
         // binds as SQL NULL (clears an existing compare-at/sale price). Omitting the key would
         // leave the old value silently untouched behind a "saved" toast — C7 review Critical.
@@ -306,23 +347,20 @@ async function applyAdjust(): Promise<void> {
             data-test="pricing-sku-input"
           />
         </UFormField>
-        <UFormField label="Price" name="price" required help="Minor units">
+        <UFormField label="Price" name="price" required :help="currencyCode || undefined">
           <UInput
-            v-model.number="state.price"
-            type="number"
-            :min="0"
+            v-model="state.price"
+            inputmode="decimal"
+            :placeholder="amountPlaceholder"
             class="w-full"
             :disabled="!canManage"
             data-test="pricing-price-input"
           />
         </UFormField>
-        <UFormField
-          label="Compare-at price"
-          name="compareAtPriceInput"
-          help="Optional, minor units"
-        >
+        <UFormField label="Compare-at price" name="compareAtPriceInput" help="Optional">
           <UInput
             v-model="state.compareAtPriceInput"
+            inputmode="decimal"
             class="w-full"
             :disabled="!canManage"
             placeholder="Optional"

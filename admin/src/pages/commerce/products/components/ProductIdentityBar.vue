@@ -17,7 +17,9 @@ const props = defineProps<{
   storefrontUrl?: string | null
   mirrorOpen?: boolean
 }>()
-const emit = defineEmits<{ 'toggle-mirror': [] }>()
+// `jump` (not a local scrollIntoView): with the condensed-cards pass the target card may rest
+// collapsed — the shell expands it first, THEN scrolls (same handler as the section nav).
+const emit = defineEmits<{ 'toggle-mirror': []; jump: [sectionId: string] }>()
 
 const { format } = useMoney()
 
@@ -46,12 +48,6 @@ const STATUS_COLOR: Record<string, 'info' | 'primary' | 'neutral'> = {
   archived: 'neutral',
 }
 const statusColor = computed(() => STATUS_COLOR[props.product.status] ?? 'neutral')
-
-function jumpTo(sectionId: string): void {
-  document
-    .getElementById(`section-${sectionId}`)
-    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
 </script>
 
 <template>
@@ -64,7 +60,7 @@ function jumpTo(sectionId: string): void {
       class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-md border border-dashed border-accented bg-elevated/50 text-muted"
       aria-label="Jump to images"
       data-test="identity-thumb"
-      @click="jumpTo('media')"
+      @click="emit('jump', 'media')"
     >
       <img
         v-if="thumbUrl"
@@ -82,7 +78,7 @@ function jumpTo(sectionId: string): void {
         class="max-w-full truncate text-left text-base font-bold hover:underline"
         aria-label="Jump to details"
         data-test="identity-name"
-        @click="jumpTo('details')"
+        @click="emit('jump', 'details')"
       >
         {{ product.name }}
       </button>
@@ -128,7 +124,7 @@ function jumpTo(sectionId: string): void {
       size="sm"
       label="Activate"
       data-test="identity-activate"
-      @click="jumpTo('details')"
+      @click="emit('jump', 'details')"
     />
   </div>
 </template>

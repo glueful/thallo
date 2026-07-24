@@ -8,7 +8,7 @@
 // exactly ONCE here. No section here fetches its own data yet (the six per-product reads from
 // Task C1 are consumed card-by-card in C5-C8) and no tab component's internals change — every
 // existing panel (ProductForm/VariantsPanel/MediaPanel/...) renders unmodified inside a card.
-import { computed, ref, shallowRef } from 'vue'
+import { computed, nextTick, reactive, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useCommerceProduct, useCommerceProductMutations } from '@/queries/commerceCatalog'
 import { useCommerceMeta } from '@/queries/commerceMeta'
@@ -18,7 +18,10 @@ import {
   useProductTags,
   useProductAttributes,
   useProductChildren,
+  useProductStock,
 } from '@/queries/commerceProductSections'
+import { useMoney } from '@/composables/useMoney'
+import { blobDisplayUrl } from '@/queries/media'
 import { useNotify } from '@/composables/useNotify'
 import {
   createDirtyRegistry,
@@ -66,6 +69,124 @@ useProductRevisionCoordinator()
 const { data: linkProjection } = useProductLink(uuid)
 const storefrontUrl = computed(() => linkProjection.value?.storefront_url ?? null)
 const mirrorOpen = ref(false)
+
+// ── Condensed cards (the approved composed mock's resting state) ───────────────────────────────
+// Every stateful section card rests COLLAPSED as a one-line digest and expands on header click or
+// nav click; a card holding unsaved edits / an in-flight save / a failed save refuses to collapse
+// (EditorSectionCard's own attention rule). The rarely-touched tail — Add-ons, Downloads, Linked
+// content — condenses further into ONE quiet row until asked for. Collapse hides with CSS only
+// (`ui.body: 'hidden'`), so every panel stays mounted: queries, section states, and coordinator
+// registrations survive collapse, and expanding is instant.
+const expandedSections = reactive<Record<string, boolean>>({})
+const tailExpanded = ref(false)
+const TAIL_SECTION_IDS = ['addons', 'downloads', 'content']
+
+function toggleSection(id: string): void {
+  expandedSections[id] = !(expandedSections[id] ?? false)
+}
+
+/** Nav click: expand first (tail ids open the tail group), THEN scroll — a raw anchor jump would
+ * measure the collapsed layout and land wrong once the card opens. */
+function onNavigate(id: string): void {
+  if (TAIL_SECTION_IDS.includes(id)) tailExpanded.value = true
+  else expandedSections[id] = true
+  void nextTick(() => {
+    document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+}
+
+// Switching to a different product resets the page to its resting overview.
+watch(uuid, () => {
+  for (const key of Object.keys(expandedSections)) delete expandedSections[key]
+  tailExpanded.value = false
+})
+
+// ── Collapsed-card digests ─────────────────────────────────────────────────────────────────────
+// Same honesty discipline as the nav hints below: counts/quantities appear only once their read
+// has actually resolved — never a fabricated value from a pending/errored query. Falls back to a
+// muted field roster ("what lives here") until then.
+
+const { format } = useMoney()
+/** `useMoney().format()` throws until `/commerce/meta` resolves — same guard every card uses. */
+function money(minor: number): string {
+  try {
+    return format(minor)
+  } catch {
+    return String(minor)
+  }
+}
+
+// The Pricing digest's stock quantity: a second, cheap subscriber to the SAME Colada key
+// PricingStockCard owns (no extra request) — mirrors the `mediaSection` pattern below.
+const { data: stockSection, status: stockSectionStatus } = useProductStock(uuid)
+
+const detailsSummary = 'name · slug · description · status · tax class'
+
+const pricingSummary = computed<string | undefined>(() => {
+  const p = product.value
+  if (!p) return undefined
+  if (p.type === 'grouped') return 'Priced per child product'
+  if (p.variants.length !== 1) return `${p.variants.length} variants`
+  const v = p.variants[0]!
+  const parts = [`SKU ${v.sku}`, money(v.price)]
+  if (v.compare_at_price !== null) parts.push(`compare-at ${money(v.compare_at_price)}`)
+  if (stockSectionStatus.value === 'success') {
+    const s = stockSection.value?.items.find((i) => i.variant_uuid === v.uuid)
+    if (s?.tracked) parts.push(`${s.quantity} in stock`)
+  }
+  return parts.join(' · ')
+})
+
+const organizationSummary = computed<string>(() => {
+  if (
+    categoriesSectionStatus.value === 'success' &&
+    categoriesSection.value &&
+    tagsSectionStatus.value === 'success' &&
+    tagsSection.value &&
+    attributesSectionStatus.value === 'success' &&
+    attributesSection.value
+  ) {
+    return (
+      `Categories · ${categoriesSection.value.items.length} · ` +
+      `Tags · ${tagsSection.value.items.length} · ` +
+      `Attributes · ${attributesSection.value.items.length}`
+    )
+  }
+  return 'categories · tags · attributes'
+})
+
+const childrenSummary = computed<string>(() => {
+  if (childrenSectionStatus.value === 'success' && childrenSection.value) {
+    return `Children · ${childrenSection.value.items.length}`
+  }
+  return 'child products'
+})
+
+/** Up to four thumbnails for the collapsed Images digest (the mock leads with the pictures). */
+const mediaThumbs = computed(() => {
+  if (mediaSectionStatus.value !== 'success') return []
+  return (mediaSection.value?.items ?? [])
+    .slice(0, 4)
+    .map((item) => ({ uuid: item.uuid, url: blobDisplayUrl(item.blob_uuid) }))
+})
+const mediaExtraCount = computed(() => {
+  const total = mediaSection.value?.items.length ?? 0
+  return Math.max(0, total - mediaThumbs.value.length)
+})
+const mediaSummaryText = computed(() =>
+  mediaSectionStatus.value === 'success' ? 'No images yet' : 'images',
+)
+
+/** Organization has no card-level `state` (its three subsections own their chips) — the shell
+ * extends the attention rule instead: any subsection unsaved/erroring pins the card open. */
+const organizationAttention = computed(() => {
+  const aggregated = resolveSectionIndicator([
+    stateIndicator(categoriesState.value),
+    stateIndicator(tagsState.value),
+    stateIndicator(attributesState.value),
+  ])
+  return aggregated === 'error' || aggregated === 'unsaved'
+})
 
 // Task C5: Details (ProductForm) and Images (MediaPanel) each own their own `useSectionState()`
 // call and emit the resulting `SectionState` object ONCE, on mount — the shell just needs a live
@@ -136,25 +257,27 @@ function stateIndicator(state: SectionState | null): SectionNavIndicator {
 
 // Draft-only, count-based, and ONLY once the section's own read has actually resolved (spec §5.1:
 // "while loading, indicator null") — never a fabricated count from a still-pending/errored query.
+// Compact "· n" form (the mock's): the nav item label already names the section, and the card
+// digests carry the verbose breakdown.
 const mediaHint = computed<string | undefined>(() => {
   if (!isDraft.value) return undefined
   if (mediaSectionStatus.value !== 'success' || !mediaSection.value) return undefined
-  return `Images · ${mediaSection.value.items.length}`
+  return `· ${mediaSection.value.items.length}`
 })
 
-// Task C6: Organization's hint combines all three subsections' counts — draft-only, and `null`
-// (undefined) while ANY of the three reads is still pending/errored, same "never a fabricated
-// count" discipline as `mediaHint` above.
+// Task C6: Organization's hint combines all three subsections' counts (total assignments) —
+// draft-only, and `null` (undefined) while ANY of the three reads is still pending/errored, same
+// "never a fabricated count" discipline as `mediaHint` above.
 const organizationHint = computed<string | undefined>(() => {
   if (!isDraft.value) return undefined
   if (categoriesSectionStatus.value !== 'success' || !categoriesSection.value) return undefined
   if (tagsSectionStatus.value !== 'success' || !tagsSection.value) return undefined
   if (attributesSectionStatus.value !== 'success' || !attributesSection.value) return undefined
-  return (
-    `Categories · ${categoriesSection.value.items.length} · ` +
-    `Tags · ${tagsSection.value.items.length} · ` +
-    `Attributes · ${attributesSection.value.items.length}`
-  )
+  return `· ${
+    categoriesSection.value.items.length +
+    tagsSection.value.items.length +
+    attributesSection.value.items.length
+  }`
 })
 
 // Task C6: worst-wins across the three subsection states PLUS the hint (spec §5.1: "the nav
@@ -173,7 +296,7 @@ const organizationIndicator = computed<SectionNavIndicator>(() =>
 const childrenHint = computed<string | undefined>(() => {
   if (!isDraft.value) return undefined
   if (childrenSectionStatus.value !== 'success' || !childrenSection.value) return undefined
-  return `Children · ${childrenSection.value.items.length}`
+  return `· ${childrenSection.value.items.length}`
 })
 
 // Nav indicators: HONESTY over completeness (Task C4 brief), now extended by Task C5/C6/C7/C8's
@@ -188,7 +311,7 @@ const navSections = computed<SectionNavItem[]>(() => {
     stateIndicator(mediaState.value),
     mediaHint.value ? 'hint' : null,
   ])
-  const pricingHint = draft ? `Variants · ${p.variants.length}` : undefined
+  const pricingHint = draft ? `· ${p.variants.length}` : undefined
   const pricingIndicator = resolveSectionIndicator([
     stateIndicator(pricingState.value),
     pricingHint ? 'hint' : null,
@@ -208,12 +331,9 @@ const navSections = computed<SectionNavItem[]>(() => {
       indicator: organizationIndicator.value,
       hint: organizationHint.value,
     },
-    { id: 'addons', label: 'Add-ons', indicator: null },
   ]
-  if (p.type === 'digital') {
-    items.push({ id: 'downloads', label: 'Downloads', indicator: null })
-  }
-  items.push({ id: 'content', label: 'Linked content', indicator: null })
+  // Grouped products' composition is core editing work — it sits with the stateful cards, ahead
+  // of the quiet tail (Add-ons / Downloads / Linked content), matching the card order below.
   if (p.type === 'grouped') {
     const childrenIndicator = resolveSectionIndicator([
       stateIndicator(childrenState.value),
@@ -226,6 +346,11 @@ const navSections = computed<SectionNavItem[]>(() => {
       hint: childrenHint.value,
     })
   }
+  items.push({ id: 'addons', label: 'Add-ons', indicator: null })
+  if (p.type === 'digital') {
+    items.push({ id: 'downloads', label: 'Downloads', indicator: null })
+  }
+  items.push({ id: 'content', label: 'Linked content', indicator: null })
   return items
 })
 
@@ -306,11 +431,13 @@ async function confirmDelete() {
           :storefront-url="storefrontUrl"
           :mirror-open="mirrorOpen"
           @toggle-mirror="mirrorOpen = !mirrorOpen"
+          @jump="onNavigate"
         />
         <ProductHealthStrip
           v-if="product.status === 'active'"
           :key="`health-${product.uuid}`"
           :product="product"
+          @jump="onNavigate"
         />
 
         <div class="flex flex-col gap-6 xl:flex-row xl:items-start">
@@ -319,6 +446,10 @@ async function confirmDelete() {
               section-id="details"
               title="Details"
               :state="detailsState ?? undefined"
+              collapsible
+              :collapsed="!expandedSections.details"
+              :summary="detailsSummary"
+              @toggle="toggleSection('details')"
             >
               <ProductForm
                 :key="product.uuid"
@@ -328,7 +459,27 @@ async function confirmDelete() {
               />
             </EditorSectionCard>
 
-            <EditorSectionCard section-id="media" title="Images" :state="mediaState ?? undefined">
+            <EditorSectionCard
+              section-id="media"
+              title="Images"
+              :state="mediaState ?? undefined"
+              collapsible
+              :collapsed="!expandedSections.media"
+              @toggle="toggleSection('media')"
+            >
+              <template #summary>
+                <span v-if="mediaThumbs.length > 0" class="flex items-center gap-1.5">
+                  <img
+                    v-for="thumb in mediaThumbs"
+                    :key="thumb.uuid"
+                    :src="thumb.url"
+                    alt=""
+                    class="size-8 rounded object-cover"
+                  />
+                  <span v-if="mediaExtraCount > 0" class="text-xs">+{{ mediaExtraCount }}</span>
+                </span>
+                <template v-else>{{ mediaSummaryText }}</template>
+              </template>
               <MediaPanel
                 :key="product.uuid"
                 :product="product"
@@ -341,6 +492,10 @@ async function confirmDelete() {
               section-id="pricing"
               title="Pricing & stock"
               :state="pricingState ?? undefined"
+              collapsible
+              :collapsed="!expandedSections.pricing"
+              :summary="pricingSummary"
+              @toggle="toggleSection('pricing')"
             >
               <PricingStockCard
                 :key="product.uuid"
@@ -354,8 +509,17 @@ async function confirmDelete() {
                  each subsection keeps its own save control and atomic endpoint; the card's own
                  header chip is omitted (no single `state` prop given) since each subsection shows
                  its OWN chip — only the nav indicator aggregates the three (see
-                 `organizationIndicator` above). -->
-            <EditorSectionCard section-id="organization" title="Organization">
+                 `organizationIndicator` above). `force-expanded` extends the attention rule here
+                 since the card itself has no state to refuse collapse with. -->
+            <EditorSectionCard
+              section-id="organization"
+              title="Organization"
+              collapsible
+              :collapsed="!expandedSections.organization"
+              :summary="organizationSummary"
+              :force-expanded="organizationAttention"
+              @toggle="toggleSection('organization')"
+            >
               <OrganizationCard
                 :key="product.uuid"
                 :product="product"
@@ -364,27 +528,15 @@ async function confirmDelete() {
               />
             </EditorSectionCard>
 
-            <EditorSectionCard section-id="addons" title="Add-ons">
-              <AddonsPanel :key="product.uuid" :product="product" :can-manage="canManage" />
-            </EditorSectionCard>
-
-            <EditorSectionCard v-if="isDigital" section-id="downloads" title="Downloads">
-              <DownloadsPanel :key="product.uuid" :product="product" :can-manage="canManage" />
-            </EditorSectionCard>
-
-            <EditorSectionCard section-id="content" title="Linked content">
-              <ProductEntryLinkPanel
-                :key="product.uuid"
-                mode="product"
-                :product-uuid="product.uuid"
-              />
-            </EditorSectionCard>
-
             <EditorSectionCard
               v-if="isGrouped"
               section-id="children"
               title="Grouped products"
               :state="childrenState ?? undefined"
+              collapsible
+              :collapsed="!expandedSections.children"
+              :summary="childrenSummary"
+              @toggle="toggleSection('children')"
             >
               <ChildrenCard
                 :key="product.uuid"
@@ -393,11 +545,41 @@ async function confirmDelete() {
                 @state="(s) => (childrenState = s)"
               />
             </EditorSectionCard>
+
+            <!-- The quiet tail (the mock's "Add-ons · Linked content …" row): rarely-touched,
+                 immediate-mutation CRUD panels condensed into one row until asked for. The cards
+                 stay MOUNTED behind v-show so their panels keep working state across the toggle. -->
+            <button
+              v-if="!tailExpanded"
+              type="button"
+              data-test="editor-tail-row"
+              class="w-full rounded-lg bg-default px-4 py-3 text-left text-sm text-muted ring ring-default transition-colors hover:bg-elevated/60"
+              @click="tailExpanded = true"
+            >
+              Add-ons ·{{ isDigital ? ' Downloads ·' : '' }} Linked content&ensp;…
+            </button>
+            <div v-show="tailExpanded" class="space-y-6">
+              <EditorSectionCard section-id="addons" title="Add-ons">
+                <AddonsPanel :key="product.uuid" :product="product" :can-manage="canManage" />
+              </EditorSectionCard>
+
+              <EditorSectionCard v-if="isDigital" section-id="downloads" title="Downloads">
+                <DownloadsPanel :key="product.uuid" :product="product" :can-manage="canManage" />
+              </EditorSectionCard>
+
+              <EditorSectionCard section-id="content" title="Linked content">
+                <ProductEntryLinkPanel
+                  :key="product.uuid"
+                  mode="product"
+                  :product-uuid="product.uuid"
+                />
+              </EditorSectionCard>
+            </div>
           </div>
 
           <!-- The Mirror trades places with the rail (spec §5.4b phase 3): scroll-spy nav for
                table work, the real storefront for visual work — never both fighting for width. -->
-          <SectionNav v-if="!mirrorOpen" :sections="navSections" />
+          <SectionNav v-if="!mirrorOpen" :sections="navSections" @navigate="onNavigate" />
           <div v-else class="w-full xl:sticky xl:top-4 xl:w-[44%] xl:shrink-0">
             <ProductLiveMirror :product="product" :storefront-url="storefrontUrl" />
           </div>

@@ -143,6 +143,26 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   panel linking into order detail — both powered by commerce 1.6.0's per-product order
   activity read. Admins running an older commerce degrade gracefully: the panels are simply
   absent, never an error banner.
+- **Condensed section cards — the editor's resting state** (admin SPA): the product
+  editor now matches the approved composed mock. Section cards (Details, Images,
+  Pricing & stock, Organization, Grouped products) rest collapsed as one-line digests —
+  field rosters, real thumbnails, `SKU · $19.99 · compare-at $29.99 · 24 in stock` —
+  with their state chips, and expand from the header, the section nav, or any identity
+  bar / Health strip jump (every jump now expands first, then scrolls). A card holding
+  unsaved edits, a saving state, or a failed save refuses to collapse. Collapse is
+  CSS-only (panels stay mounted), so no dirty draft can be lost to a remount and
+  expanding is instant. The rarely-touched tail (Add-ons / Downloads / Linked content)
+  condenses into one quiet row until asked for. Digests stay honest: counts, prices,
+  and stock appear only once their reads resolve — never fabricated values. The section
+  nav becomes the mock's rail: a hairline down the left with a primary accent segment +
+  bolder text for the active item (no filled background), attention as a tinted dot
+  pill on the right, and empty hints compacted to "· n".
+- **Prices are typed in major units everywhere**: every price input in the product
+  editor (compact pricing card, variant add/edit, bulk price, compare-at) now takes the
+  amount the storefront shows — `19.99`, not `1999` minor units — hydrated and parsed
+  through BigInt round-trip helpers in `useMoney.ts` (no float arithmetic ever touches
+  an amount) and gated on the tenant currency's exponent from `/commerce/meta`, so a
+  wrong-scale write is impossible. Field help shows the tenant currency code.
 - **The Live Mirror** (admin SPA + storefront pack): a toggle in the product identity bar
   trades the section nav for the REAL storefront product page in an embedded frame — the
   server-built absolute `storefront_url` the product-link projection already carries, so

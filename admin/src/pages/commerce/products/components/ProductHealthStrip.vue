@@ -22,6 +22,10 @@ import { useMoney } from '@/composables/useMoney'
 
 const props = defineProps<{ product: CommerceProduct }>()
 
+// `jump` (not a local scrollIntoView): with the condensed-cards pass the target card may rest
+// collapsed — the shell expands it first, THEN scrolls (same handler as the section nav).
+const emit = defineEmits<{ jump: [sectionId: string] }>()
+
 const { data: meta } = useCommerceMeta()
 const { format } = useMoney()
 const { data: media, status: mediaStatus } = useProductMedia(() => props.product.uuid)
@@ -62,12 +66,6 @@ const lowStock = computed(() => {
   const threshold = meta.value?.low_stock_threshold ?? 0
   return lowestTracked.value !== null && threshold > 0 && lowestTracked.value <= threshold
 })
-
-function jumpTo(sectionId: string): void {
-  document
-    .getElementById(`section-${sectionId}`)
-    ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-}
 </script>
 
 <template>
@@ -97,7 +95,7 @@ function jumpTo(sectionId: string): void {
               variant="link"
               label="→ Images"
               data-test="health-jump-media"
-              @click="jumpTo('media')"
+              @click="emit('jump', 'media')"
             />
           </template>
         </div>
@@ -120,7 +118,7 @@ function jumpTo(sectionId: string): void {
               variant="link"
               label="→ Organization"
               data-test="health-jump-organization"
-              @click="jumpTo('organization')"
+              @click="emit('jump', 'organization')"
             />
           </template>
         </div>
@@ -139,7 +137,7 @@ function jumpTo(sectionId: string): void {
               variant="link"
               label="→ Pricing & stock"
               data-test="health-jump-pricing"
-              @click="jumpTo('pricing')"
+              @click="emit('jump', 'pricing')"
             />
           </template>
           <template v-else-if="lowestTracked !== null">

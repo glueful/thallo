@@ -1854,14 +1854,16 @@ describe('commerce product detail page', () => {
     await flushPromises()
 
     const items = wrapper.findAll('[data-test^="section-nav-"]')
+    // Condensed-cards pass: Grouped products (a stateful card) sits ahead of the quiet tail
+    // (Add-ons / Linked content), matching the card order on the page.
     expect(items.map((item) => item.attributes('data-test'))).toEqual([
       'section-nav-details',
       'section-nav-media',
       'section-nav-pricing',
       'section-nav-organization',
+      'section-nav-children',
       'section-nav-addons',
       'section-nav-content',
-      'section-nav-children',
     ])
     wrapper.unmount()
   })
@@ -1889,6 +1891,103 @@ describe('commerce product detail page', () => {
     wrapper.unmount()
   })
 
+  // ── Condensed cards: the composed mock's resting state ──────────────────────────────────────
+
+  it('rests every stateful card collapsed with a digest, and condenses the tail into one quiet row', async () => {
+    singleProduct.value = product({
+      uuid: 'p1',
+      name: 'Widget',
+      status: 'active',
+      variants: [variant({ uuid: 'v1', sku: 'SKU-1', price: 1999, compare_at_price: 2999 })],
+    })
+    stockSectionData.value = {
+      revision: 1,
+      items: [{ variant_uuid: 'v1', tracked: true, quantity: 24 }],
+    }
+    // attachTo: isVisible() below relies on jsdom's checkVisibility(), which reports false for
+    // any node not connected to the document.
+    const wrapper = mount(ProductDetail, {
+      global: { stubs: detailStubs },
+      attachTo: document.body,
+    })
+    await flushPromises()
+
+    for (const id of ['details', 'media', 'pricing', 'organization']) {
+      expect(wrapper.find(`[data-test="editor-section-${id}"]`).attributes('data-collapsed')).toBe(
+        'true',
+      )
+    }
+    // The Pricing digest leads with the variant's real numbers — formatted MAJOR units (never raw
+    // minor units) plus the tracked stock quantity from the stock read.
+    const pricingSummary = wrapper.find('[data-test="editor-section-pricing-summary"]')
+    expect(pricingSummary.text()).toContain('SKU SKU-1')
+    expect(pricingSummary.text()).toContain('$19.99')
+    expect(pricingSummary.text()).toContain('compare-at $29.99')
+    expect(pricingSummary.text()).toContain('24 in stock')
+
+    // The tail (Add-ons / Linked content) rests as ONE quiet row; its cards stay MOUNTED but
+    // hidden (v-show) so panel state survives the toggle.
+    expect(wrapper.find('[data-test="editor-tail-row"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="editor-section-addons"]').isVisible()).toBe(false)
+    await wrapper.find('[data-test="editor-tail-row"]').trigger('click')
+    expect(wrapper.find('[data-test="editor-tail-row"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="editor-section-addons"]').isVisible()).toBe(true)
+    expect(wrapper.find('[data-test="editor-section-content"]').isVisible()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('expands a card from its header toggle and from the nav, and collapses back when clean', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget', variants: [variant()] })
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    const details = () => wrapper.find('[data-test="editor-section-details"]')
+    expect(details().attributes('data-collapsed')).toBe('true')
+
+    await wrapper.find('[data-test="editor-section-details-toggle"]').trigger('click')
+    expect(details().attributes('data-collapsed')).toBe('false')
+    await wrapper.find('[data-test="editor-section-details-toggle"]').trigger('click')
+    expect(details().attributes('data-collapsed')).toBe('true')
+
+    // A nav click expands the target card — never merely scrolls to a summary row.
+    await wrapper.find('[data-test="section-nav-media"]').trigger('click')
+    expect(wrapper.find('[data-test="editor-section-media"]').attributes('data-collapsed')).toBe(
+      'false',
+    )
+    wrapper.unmount()
+  })
+
+  it('a card holding unsaved edits refuses to collapse (attention beats collapse)', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget', variants: [variant()] })
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="editor-section-details-toggle"]').trigger('click')
+    await wrapper
+      .find('[data-test="editor-section-details"] [data-test="product-name-input"]')
+      .setValue('Renamed')
+    await wrapper.find('[data-test="editor-section-details-toggle"]').trigger('click')
+    expect(wrapper.find('[data-test="editor-section-details"]').attributes('data-collapsed')).toBe(
+      'false',
+    )
+    wrapper.unmount()
+  })
+
+  it('collapsed Images digest shows real thumbnails once the media read resolves', async () => {
+    singleProduct.value = product({ uuid: 'p1', name: 'Widget', variants: [variant()] })
+    mediaSectionData.value = {
+      revision: 1,
+      items: [mediaItem({ uuid: 'm1', blob_uuid: 'blob-1' })],
+    }
+    const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
+    await flushPromises()
+
+    const summary = wrapper.find('[data-test="editor-section-media-summary"]')
+    expect(summary.exists()).toBe(true)
+    expect(summary.find('img').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
   it('shows draft-only "Variants · n" / "Images · n" hints computed from already-loaded data; every other item stays indicator-free', async () => {
     singleProduct.value = product({
       uuid: 'p1',
@@ -1902,14 +2001,14 @@ describe('commerce product detail page', () => {
 
     const pricingItem = draftWrapper.find('[data-test="section-nav-pricing"]')
     expect(pricingItem.attributes('data-indicator')).toBe('hint')
-    expect(pricingItem.text()).toContain('Variants · 2')
+    expect(pricingItem.text()).toContain('· 2')
     const mediaItemNav = draftWrapper.find('[data-test="section-nav-media"]')
     expect(mediaItemNav.attributes('data-indicator')).toBe('hint')
-    expect(mediaItemNav.text()).toContain('Images · 1')
+    expect(mediaItemNav.text()).toContain('· 1')
     // Task C6: Organization aggregates the three subsection reads into one draft-only hint too.
     const organizationItemNav = draftWrapper.find('[data-test="section-nav-organization"]')
     expect(organizationItemNav.attributes('data-indicator')).toBe('hint')
-    expect(organizationItemNav.text()).toContain('Categories · 0 · Tags · 0 · Attributes · 0')
+    expect(organizationItemNav.text()).toContain('· 0')
     // HONESTY over completeness (Task C4 brief): no fabricated counts for sections whose real
     // data isn't loaded by this shell — the remaining C1 reads are wired card-by-card in C7-C8.
     for (const id of ['details', 'addons', 'content']) {
@@ -2275,7 +2374,7 @@ describe('VariantsPanel', () => {
 
     await wrapper.find('[data-test="variant-add"]').trigger('click')
     await wrapper.find('[data-test="variant-sku-input"]').setValue('SKU-2')
-    await wrapper.find('[data-test="variant-price-input"]').setValue('2500')
+    await wrapper.find('[data-test="variant-price-input"]').setValue('25')
     await wrapper.find('[data-test="variant-currency-input"]').setValue('USD')
 
     await wrapper.find('#variant-add-form').trigger('submit')
@@ -2296,9 +2395,9 @@ describe('VariantsPanel', () => {
 
     await wrapper.find('[data-test="variant-add"]').trigger('click')
     await wrapper.find('[data-test="variant-sku-input"]').setValue('SKU-2')
-    await wrapper.find('[data-test="variant-price-input"]').setValue('2500')
+    await wrapper.find('[data-test="variant-price-input"]').setValue('25')
     await wrapper.find('[data-test="variant-currency-input"]').setValue('USD')
-    await wrapper.find('[data-test="variant-compare-at-input"]').setValue('3000')
+    await wrapper.find('[data-test="variant-compare-at-input"]').setValue('30')
     await wrapper.find('#variant-add-form').trigger('submit')
     await flushPromises()
 
@@ -2320,7 +2419,7 @@ describe('VariantsPanel', () => {
 
     await wrapper.find('[data-test="variant-add"]').trigger('click')
     await wrapper.find('[data-test="variant-sku-input"]').setValue('SKU-2')
-    await wrapper.find('[data-test="variant-price-input"]').setValue('2500')
+    await wrapper.find('[data-test="variant-price-input"]').setValue('25')
     await wrapper.find('[data-test="variant-currency-input"]').setValue('USD')
     await wrapper.find('[data-test="variant-compare-at-input"]').setValue('not-a-number')
     await wrapper.find('#variant-add-form').trigger('submit')
@@ -2344,7 +2443,7 @@ describe('VariantsPanel', () => {
 
     await wrapper.find('[data-test="variant-add"]').trigger('click')
     await wrapper.find('[data-test="variant-sku-input"]').setValue('SKU-2')
-    await wrapper.find('[data-test="variant-price-input"]').setValue('2500')
+    await wrapper.find('[data-test="variant-price-input"]').setValue('25')
     await wrapper.find('[data-test="variant-currency-input"]').setValue('USD')
     await wrapper.find('#variant-add-form').trigger('submit')
     await flushPromises()
@@ -2363,7 +2462,7 @@ describe('VariantsPanel', () => {
     const wrapper = mountPanel(p)
 
     await wrapper.find('[data-test="variant-edit"]').trigger('click')
-    await wrapper.find('[data-test="variant-edit-price-input"]').setValue('3000')
+    await wrapper.find('[data-test="variant-edit-price-input"]').setValue('30')
     await wrapper.find(`#variant-edit-form-v1`).trigger('submit')
     await flushPromises()
 
@@ -2387,9 +2486,9 @@ describe('VariantsPanel', () => {
     expect(
       (wrapper.find('[data-test="variant-edit-compare-at-input"]').element as HTMLInputElement)
         .value,
-    ).toBe('2500')
+    ).toBe('25.00')
 
-    await wrapper.find('[data-test="variant-edit-compare-at-input"]').setValue('4500')
+    await wrapper.find('[data-test="variant-edit-compare-at-input"]').setValue('45')
     await wrapper.find('#variant-edit-form-v1').trigger('submit')
     await flushPromises()
 
@@ -2452,7 +2551,7 @@ describe('VariantsPanel', () => {
 
     expect(wrapper.find('[data-test="bulk-price-bar"]').exists()).toBe(true)
 
-    await wrapper.find('[data-test="bulk-price-input"]').setValue('5000')
+    await wrapper.find('[data-test="bulk-price-input"]').setValue('50')
     await wrapper.find('[data-test="bulk-price-apply"]').trigger('click')
     await flushPromises()
 
@@ -2542,7 +2641,7 @@ describe('VariantsPanel', () => {
 
     await wrapper.find('[data-test="variant-add"]').trigger('click')
     await wrapper.find('[data-test="variant-sku-input"]').setValue('SKU-2')
-    await wrapper.find('[data-test="variant-price-input"]').setValue('2500')
+    await wrapper.find('[data-test="variant-price-input"]').setValue('25')
     await wrapper.find('[data-test="variant-currency-input"]').setValue('USD')
     await wrapper.find('#variant-add-form').trigger('submit')
     await flushPromises()
@@ -2552,7 +2651,7 @@ describe('VariantsPanel', () => {
     createVariantMock.mockRejectedValueOnce(new ApiError('Validation failed', 422, {}, {}))
     await wrapper.find('[data-test="variant-add"]').trigger('click')
     await wrapper.find('[data-test="variant-sku-input"]').setValue('SKU-3')
-    await wrapper.find('[data-test="variant-price-input"]').setValue('2500')
+    await wrapper.find('[data-test="variant-price-input"]').setValue('25')
     await wrapper.find('[data-test="variant-currency-input"]').setValue('USD')
     await wrapper.find('#variant-add-form').trigger('submit')
     await flushPromises()
@@ -2590,7 +2689,7 @@ describe('VariantsPanel', () => {
     const checkbox = wrapper.findComponent({ name: 'CheckboxRoot' })
     await checkbox.vm.$emit('update:modelValue', true)
     await flushPromises()
-    await wrapper.find('[data-test="bulk-price-input"]').setValue('5000')
+    await wrapper.find('[data-test="bulk-price-input"]').setValue('50')
     await wrapper.find('[data-test="bulk-price-apply"]').trigger('click')
     await flushPromises()
 
@@ -2740,8 +2839,8 @@ describe('PricingStockCard', () => {
     const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
 
     await wrapper.find('[data-test="pricing-sku-input"]').setValue('SKU-1B')
-    await wrapper.find('[data-test="pricing-price-input"]').setValue('2500')
-    await wrapper.find('[data-test="pricing-compare-at-input"]').setValue('3500')
+    await wrapper.find('[data-test="pricing-price-input"]').setValue('25')
+    await wrapper.find('[data-test="pricing-compare-at-input"]').setValue('35')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
@@ -2785,7 +2884,7 @@ describe('PricingStockCard', () => {
 
     expect(
       (wrapper.find('[data-test="pricing-compare-at-input"]').element as HTMLInputElement).value,
-    ).toBe('2500')
+    ).toBe('25.00')
 
     await wrapper.find('[data-test="pricing-compare-at-input"]').setValue('')
     await wrapper.find('form').trigger('submit')

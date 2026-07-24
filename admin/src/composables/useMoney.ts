@@ -112,6 +112,19 @@ export function parseMajorAmountToMinorUnits(input: string, exponent: number): b
 }
 
 /**
+ * Render a minor-unit amount as the plain MAJOR-unit decimal string a text input hydrates with —
+ * the exact inverse of `parseMajorAmountToMinorUnits` (round-trip safe: parse(format(x)) === x).
+ * No currency symbol, no grouping separators, full zero-padded fraction (`1999` at exponent 2 →
+ * `"19.99"`, `700_00` → `"700.00"`, exponent 0 passes digits through). Same BigInt discipline as
+ * `formatMoney`: the amount never touches float arithmetic.
+ */
+export function minorToMajorInputString(minor: number | string | bigint, exponent: number): string {
+  const { negative, major, fraction } = splitMinorUnits(parseMinorUnits(minor), exponent)
+  const digits = exponent === 0 ? major : `${major}.${fraction}`
+  return negative ? `-${digits}` : digits
+}
+
+/**
  * Format an exact minor-unit amount as a localized currency string, never passing the full
  * decimal amount through JavaScript `Number`. The amount is parsed straight to `BigInt` and
  * split into major/fraction with `10n ** BigInt(exponent)`; `Intl.NumberFormat(...)
