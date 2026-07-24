@@ -950,7 +950,11 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   card grid (constrained square images, name, price with struck compare-at) instead
   of a raw bulleted list with an unconstrained full-size image, and the duplicate
   currency-code suffix is gone there too. This is the surface the editor's Preview
-  pane embeds.
+  pane embeds. Gallery images render whole (object-fit contain — product photography
+  is never cropped), and the detail page's thumbnails are now real controls: clicking
+  one swaps the main image (a shop.js enhancement over server-rendered buttons; every
+  image stays visible without JS), with shop.js now loading on every product page —
+  previously it only shipped inside the purchasable branch.
 - The product editor's Activate button now actually activates: it was a scroll
   shortcut to the Details card's status control, which on the condensed page — with
   Details already in view — visibly did nothing, leaving drafts stuck and the
