@@ -155,6 +155,10 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 - **Editor chrome polish**: the storefront pane's toggle is labeled "Preview" (was
   "Mirror"), and the product page's dashboard navbar no longer repeats the product
   name above the identity bar — it shows the quiet back-context "Products" instead.
+  The compact Pricing & stock card's layout is fixed: three fields on an even
+  three-column row, a normal "Save pricing" button beside the formatted preview
+  (previously a full-width stretched bar below an orphan grid hole), the redundant
+  "Optional" help dropped, and the stock quantity + Adjust control on one row.
 - **Condensed section cards — the editor's resting state** (admin SPA): the product
   editor now matches the approved composed mock. Section cards (Details, Images,
   Pricing & stock, Organization, Grouped products) rest collapsed as one-line digests —

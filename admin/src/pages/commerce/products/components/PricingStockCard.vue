@@ -332,76 +332,75 @@ async function applyAdjust(): Promise<void> {
         :title="formError"
       />
 
-      <UForm
-        ref="formRef"
-        :schema="schema"
-        :state="state"
-        class="grid grid-cols-2 gap-3 sm:grid-cols-4"
-        @submit="onSubmit"
-      >
-        <UFormField label="SKU" name="sku" required>
-          <UInput
-            v-model="state.sku"
-            class="w-full"
-            :disabled="!canManage"
-            data-test="pricing-sku-input"
-          />
-        </UFormField>
-        <UFormField label="Price" name="price" required :help="currencyCode || undefined">
-          <UInput
-            v-model="state.price"
-            inputmode="decimal"
-            :placeholder="amountPlaceholder"
-            class="w-full"
-            :disabled="!canManage"
-            data-test="pricing-price-input"
-          />
-        </UFormField>
-        <UFormField label="Compare-at price" name="compareAtPriceInput" help="Optional">
-          <UInput
-            v-model="state.compareAtPriceInput"
-            inputmode="decimal"
-            class="w-full"
-            :disabled="!canManage"
-            placeholder="Optional"
-            data-test="pricing-compare-at-input"
-          />
-        </UFormField>
-        <div class="col-span-2 flex flex-col justify-end gap-1 sm:col-span-4">
-          <p v-if="pricePreview" class="text-xs text-muted" data-test="pricing-price-preview">
-            {{ pricePreview }}
-          </p>
+      <UForm ref="formRef" :schema="schema" :state="state" class="space-y-3" @submit="onSubmit">
+        <!-- Three fields, three columns — no orphan grid hole; the action row sits below. -->
+        <div class="grid gap-3 sm:grid-cols-3">
+          <UFormField label="SKU" name="sku" required>
+            <UInput
+              v-model="state.sku"
+              class="w-full"
+              :disabled="!canManage"
+              data-test="pricing-sku-input"
+            />
+          </UFormField>
+          <UFormField label="Price" name="price" required :help="currencyCode || undefined">
+            <UInput
+              v-model="state.price"
+              inputmode="decimal"
+              :placeholder="amountPlaceholder"
+              class="w-full"
+              :disabled="!canManage"
+              data-test="pricing-price-input"
+            />
+          </UFormField>
+          <UFormField label="Compare-at price" name="compareAtPriceInput">
+            <UInput
+              v-model="state.compareAtPriceInput"
+              inputmode="decimal"
+              class="w-full"
+              :disabled="!canManage"
+              placeholder="Optional"
+              data-test="pricing-compare-at-input"
+            />
+          </UFormField>
+        </div>
+        <div class="flex items-center gap-3">
           <UButton
             v-if="canManage"
             type="submit"
-            size="xs"
+            size="sm"
             :loading="updateVariant.isLoading.value"
-            label="Save"
+            label="Save pricing"
             data-test="pricing-save"
           />
+          <p v-if="pricePreview" class="text-xs text-muted" data-test="pricing-price-preview">
+            {{ pricePreview }}
+          </p>
         </div>
       </UForm>
 
       <div
         v-if="!stockUnavailable && singleVariantTracked"
-        class="space-y-2 rounded-md border border-default p-3"
+        class="space-y-3 rounded-md border border-default p-3"
       >
-        <p class="text-sm text-default">
-          <span class="text-muted">Stock</span>
-          <span class="ml-2 font-medium text-default" data-test="pricing-quantity">
-            {{ singleVariantStock?.quantity }}
-          </span>
-        </p>
-        <UButton
-          v-if="canManage"
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          icon="i-lucide-package"
-          label="Adjust stock"
-          data-test="pricing-adjust-toggle"
-          @click="toggleAdjust"
-        />
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-sm text-default">
+            <span class="text-muted">Stock</span>
+            <span class="ml-2 font-medium text-default" data-test="pricing-quantity">
+              {{ singleVariantStock?.quantity }}
+            </span>
+          </p>
+          <UButton
+            v-if="canManage"
+            size="xs"
+            color="neutral"
+            variant="subtle"
+            icon="i-lucide-package"
+            label="Adjust stock"
+            data-test="pricing-adjust-toggle"
+            @click="toggleAdjust"
+          />
+        </div>
 
         <UAlert
           v-if="adjustOpen && adjustError"
