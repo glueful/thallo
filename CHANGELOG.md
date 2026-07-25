@@ -964,6 +964,13 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   working). Once an order exists, changes are rejected server-side with a field-level error
   and the input renders disabled with the reason. Changes apply on the next request — no
   deploy, no restart.
+- **Honest "purging" state on the Workspaces page**: a purging workspace whose purge run
+  needs operator attention — dispatch never landed, the job failed, a worker died mid-run,
+  or the run has sat queued untouched past a two-minute grace window (no queue worker
+  consuming, the dev-install classic) — now says so under its tag: "Purge is waiting for a
+  queue worker", with the exact commands to run. One server-side predicate
+  (`PurgeRunRepository::isStalled`) decides; the tenant list enriches purging rows with
+  `purge_stalled`, and healthy runs (fresh queue, live lease, retry backoff) stay untagged.
 - **Marketplace tab in Commerce Settings**: per-workspace marketplace activation (with a
   default-seller select for adopting existing products) and the workspace fallback commission
   policy (percentage-as-bps or fixed minor units), fronting commerce's own marketplace services

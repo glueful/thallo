@@ -191,6 +191,15 @@ async function purge(input: { uuid: string; confirm: string }): Promise<void> {
                 >
                   Restore available until {{ tenant.purge_after }}
                 </p>
+                <p
+                  v-if="tenant.status === 'purging' && tenant.purge_stalled"
+                  class="mt-0.5 text-xs text-warning"
+                  data-test="workspace-purge-stalled"
+                >
+                  Purge is waiting for a queue worker — run
+                  <code>php glueful queue:work</code> (or
+                  <code>thallo:tenancy:purge:recover</code> if it failed).
+                </p>
               </div>
 
               <UBadge
