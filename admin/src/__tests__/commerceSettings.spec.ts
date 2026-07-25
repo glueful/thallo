@@ -63,6 +63,18 @@ const paymentsData = ref<import('@/queries/commerceSettings').PaymentsSettings |
 const paymentsStatus = ref<'pending' | 'error' | 'success'>('success')
 const savePaymentsMock = vi.hoisted(() => vi.fn())
 
+// Order-email switches (store-settings spec §4.2 follow-up): mocks for EmailsPanel. Template
+// CONTENT comes from @/queries/email (mocked below); the switches from /commerce/emails.
+const emailSettingsData = ref<import('@/queries/commerceSettings').CommerceEmailSettings | undefined>(undefined)
+const emailSettingsStatus = ref<'pending' | 'error' | 'success'>('success')
+const saveEmailSettingsMock = vi.hoisted(() => vi.fn())
+const fetchEmailTemplatesMock = vi.hoisted(() => vi.fn())
+
+vi.mock('@/queries/email', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/queries/email')>()
+  return { ...actual, fetchEmailTemplates: fetchEmailTemplatesMock }
+})
+
 // Task 15c: tax-rate mutation mocks, same shape as the zone/class mocks above.
 const createRateMock = vi.hoisted(() => vi.fn())
 const updateRateMock = vi.hoisted(() => vi.fn())
@@ -92,6 +104,8 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
     useSaveStoreSettings: () => ({ mutateAsync: saveStoreSettingsMock, isLoading: ref(false) }),
     usePaymentsSettings: () => ({ data: paymentsData, status: paymentsStatus }),
     useSavePaymentsSettings: () => ({ mutateAsync: savePaymentsMock, isLoading: ref(false) }),
+    useCommerceEmailSettings: () => ({ data: emailSettingsData, status: emailSettingsStatus }),
+    useSaveCommerceEmailSettings: () => ({ mutateAsync: saveEmailSettingsMock, isLoading: ref(false) }),
     useCommerceTaxRates: () => ({ data: ratesPage, status: ratesStatus }),
     useCommerceTaxRateMutations: () => ({
       createRate: { mutateAsync: createRateMock, isLoading: ref(false) },
@@ -106,6 +120,7 @@ import ZonesPanel from '@/pages/commerce/settings/components/ZonesPanel.vue'
 import ClassesPanel from '@/pages/commerce/settings/components/ClassesPanel.vue'
 import TaxRatesPanel from '@/pages/commerce/settings/components/TaxRatesPanel.vue'
 import PaymentsPanel from '@/pages/commerce/settings/components/PaymentsPanel.vue'
+import EmailsPanel from '@/pages/commerce/settings/components/EmailsPanel.vue'
 import SettingsIndex from '@/pages/commerce/settings/index.vue'
 
 function location(overrides: Partial<CommerceShippingLocation> = {}): CommerceShippingLocation {
@@ -1515,7 +1530,7 @@ describe('StorePanel', () => {
 
     const pointer = wrapper.find('[data-test="store-email-pointer"]')
     expect(pointer.exists()).toBe(true)
-    expect(pointer.text()).toContain('Settings › Email')
+    expect(pointer.text()).toContain('Emails tab')
   })
 
   it('disables inputs and hides Save without manage rights', async () => {
@@ -1655,5 +1670,103 @@ describe('PaymentsPanel', () => {
     expect(
       wrapper.find('[data-test="payments-secret-paystack-secret_key"]').attributes('disabled'),
     ).toBeDefined()
+  })
+})
+
+// ── EmailsPanel: order-email switches + relocated template editors (spec §4.2 follow-up) ──────
+
+function emailSwitches(
+  overrides: Partial<import('@/queries/commerceSettings').CommerceEmailSettings> = {},
+): import('@/queries/commerceSettings').CommerceEmailSettings {
+  return {
+    templates: overrides.templates ?? [
+      { template: 'order_confirmation', key: 'commerce.order_confirmation', enabled: { value: true, default: true, overridden: false } },
+      { template: 'order_paid', key: 'commerce.order_paid', enabled: { value: true, default: true, overridden: false } },
+      { template: 'order_fulfilled', key: 'commerce.order_fulfilled', enabled: { value: true, default: true, overridden: false } },
+      { template: 'order_canceled', key: 'commerce.order_canceled', enabled: { value: false, default: true, overridden: true } },
+    ],
+    commerce_mailer_active: overrides.commerce_mailer_active ?? false,
+  }
+}
+
+function registryTemplate(key: string, owner = 'thallo-commerce') {
+  return {
+    key,
+    label: key.replace('commerce.', '').replace(/_/g, ' '),
+    description: `Sent for ${key}`,
+    owner,
+    placeholders: [],
+    subject: 'Subject',
+    body: '<p>Body</p>',
+    overridden: false,
+  }
+}
+
+describe('EmailsPanel', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    emailSettingsData.value = emailSwitches()
+    emailSettingsStatus.value = 'success'
+    saveEmailSettingsMock.mockReset()
+    saveEmailSettingsMock.mockResolvedValue(emailSwitches())
+    fetchEmailTemplatesMock.mockReset()
+    fetchEmailTemplatesMock.mockResolvedValue({
+      templates: [
+        registryTemplate('commerce.order_confirmation'),
+        registryTemplate('commerce.order_paid'),
+        registryTemplate('commerce.order_fulfilled'),
+        registryTemplate('commerce.order_canceled'),
+        registryTemplate('password.reset', 'glueful/email-notification'),
+      ],
+      partials: [],
+    })
+  })
+
+  function mountEmails(canManage = true) {
+    return mount(EmailsPanel, {
+      props: { canManage },
+      global: { stubs: { ...pageStubs, TemplateRow: true } },
+    })
+  }
+
+  it('renders one card per commerce template — foreign-owner templates never leak in', async () => {
+    const wrapper = mountEmails()
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-test="emails-template-card"]')).toHaveLength(4)
+    expect(wrapper.text()).not.toContain('password.reset')
+    // The editor sits behind a collapsed trigger (same shape as Settings › Email), with the
+    // custom/default badge visible without expanding.
+    expect(wrapper.find('[data-test="emails-edit-toggle-order_paid"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="emails-edit-badge-order_paid"]').text()).toBe('default')
+  })
+
+  it('a toggle change saves that single switch immediately', async () => {
+    const wrapper = mountEmails()
+    await flushPromises()
+
+    const toggle = wrapper.findComponent<{ $emit: (e: string, v: boolean) => void }>(
+      '[data-test="emails-toggle-order_paid"]',
+    )
+    toggle.vm.$emit('update:modelValue', false)
+    await flushPromises()
+
+    expect(saveEmailSettingsMock).toHaveBeenCalledWith({ templates: { order_paid: false } })
+  })
+
+  it('banners when the commerce extension’s own mailer is active', async () => {
+    emailSettingsData.value = emailSwitches({ commerce_mailer_active: true })
+    const wrapper = mountEmails()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="emails-mailer-active"]').exists()).toBe(true)
+  })
+
+  it('disables the switches without manage rights', async () => {
+    const wrapper = mountEmails(false)
+    await flushPromises()
+
+    const toggle = wrapper.findComponent('[data-test="emails-toggle-order_paid"]')
+    expect(toggle.attributes('disabled')).toBeDefined()
   })
 })

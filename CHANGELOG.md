@@ -964,6 +964,16 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   working). Once an order exists, changes are rejected server-side with a field-level error
   and the input renders disabled with the reason. Changes apply on the next request — no
   deploy, no restart.
+- **Emails is now its own Commerce Settings tab — switches + relocated templates**: the four
+  buyer order emails (confirmation, payment, fulfillment, cancellation) gained per-template
+  on/off switches (`GET/PUT /v1/admin/commerce/emails`; settings rows over pack-config defaults,
+  all ON; the sender checks per send, so a switch applies to the next order event), and their
+  subject/body editors MOVED from Settings › Email into the new tab — the same registry and
+  email-notification API, reused filtered to commerce-owned templates, so overrides, test
+  sends, and resets keep working unchanged. Settings › Email keeps transport (SMTP/sender)
+  and every non-commerce template. When `commerce.email.enabled` activates commerce's own
+  dormant mailer, the tab banners that Thallo's sender stands down and the switches govern
+  nothing — one mailer, never double emails.
 - **Payments is now its own Settings tab, with full gateway configuration**: default gateway,
   per-gateway enable toggles, and the API keys themselves (secret key + webhook secret) are
   editable in the admin — no more `.env` round-trips to configure payments. Keys are stored

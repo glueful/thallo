@@ -51,6 +51,9 @@ final class AdminOpenApiGateTest extends AppTestCase
         // Payments settings (store-settings spec §3.6).
         ['GET', '/v1/admin/commerce/payments'],
         ['PUT', '/v1/admin/commerce/payments'],
+        // Order-email switches (store-settings spec §4.2 follow-up).
+        ['GET', '/v1/admin/commerce/emails'],
+        ['PUT', '/v1/admin/commerce/emails'],
     ];
 
     // ------------------------------------------------------------------

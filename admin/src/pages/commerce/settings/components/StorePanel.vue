@@ -366,10 +366,8 @@ function resetField(field: keyof typeof form): void {
     >
       <UIcon name="i-lucide-mail" class="size-4" />
       <span>
-        Order emails (confirmation, payment, fulfillment, cancellation) are managed in
-        <RouterLink to="/settings/email" class="font-medium text-default hover:underline">
-          Settings › Email </RouterLink
-        >.
+        Order emails (confirmation, payment, fulfillment, cancellation) are managed in the
+        <span class="font-medium text-default">Emails</span> tab of these settings.
       </span>
     </div>
   </div>

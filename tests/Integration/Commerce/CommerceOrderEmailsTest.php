@@ -74,6 +74,30 @@ final class CommerceOrderEmailsTest extends AppTestCase
         }
     }
 
+    public function testDisabledTemplateSwitchSkipsThatSendOnly(): void
+    {
+        $store = $this->container()->get(\App\Settings\SettingsStore::class);
+        $store->putMany(['thallo-commerce.email.order_paid.enabled' => '0']);
+
+        try {
+            $sent = [];
+            $listener = $this->listener($this->capturingService($sent));
+
+            $order = $this->order();
+            $listener->onOrderPlaced(new OrderPlaced($order));
+            $listener->onOrderPaid(new OrderPaid($order));
+            $listener->onOrderCanceled(new OrderCanceled($order));
+
+            // order_paid is switched off — the other templates are untouched.
+            self::assertSame(
+                ['commerce.order_confirmation', 'commerce.order_canceled'],
+                array_map(static fn (array $call): string => $call['data']['template_name'], $sent),
+            );
+        } finally {
+            $store->forget('thallo-commerce.email.order_paid.enabled');
+        }
+    }
+
     public function testMailFailureNeverEscapesTheListener(): void
     {
         $service = $this->createMock(NotificationService::class);

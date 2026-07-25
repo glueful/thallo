@@ -152,6 +152,31 @@ describe('email settings page', () => {
     wrapper.unmount()
   })
 
+  it('filters commerce-owned templates out — they moved to Commerce › Settings › Emails', async () => {
+    fetchTemplatesMock.mockResolvedValue({
+      templates: [
+        ...templates(),
+        {
+          key: 'commerce.order_paid',
+          label: 'Order paid',
+          description: 'Sent when an order is paid.',
+          owner: 'thallo-commerce',
+          placeholders: [],
+          subject: 'Payment received',
+          body: '<p>paid</p>',
+          overridden: false,
+        },
+      ],
+      partials: partials(),
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="template-toggle-verification"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="template-toggle-commerce.order_paid"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Order paid')
+  })
+
   it('renders template rows with chips and overridden badges', async () => {
     const wrapper = mountPage()
     await flushPromises()

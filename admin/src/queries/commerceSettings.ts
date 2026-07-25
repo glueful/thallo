@@ -1000,3 +1000,77 @@ export function useSavePaymentsSettings() {
     },
   })
 }
+
+// ── Order-email switches (store-settings spec §4.2 follow-up) ───────────────────────────────────
+// `GET/PUT /commerce/emails` — whether each of the four buyer order emails sends at all.
+// Template CONTENT (subject/body/test/reset) stays with the email-notification extension's
+// /email/templates API; the Emails tab reuses it filtered to this pack's owner.
+
+export interface EmailTemplateSwitch {
+  /** Short name — the PUT vocabulary: order_confirmation | order_paid | order_fulfilled | order_canceled. */
+  template: string
+  /** The registry key (`commerce.{template}`) — joins to /email/templates rows. */
+  key: string
+  enabled: PaymentsSettingEntry
+}
+
+export interface CommerceEmailSettings {
+  templates: EmailTemplateSwitch[]
+  /** True when commerce's own dormant mailer (`commerce.email.enabled`) is switched on — then
+   * thallo's sender stands down entirely and these switches govern nothing. */
+  commerce_mailer_active: boolean
+}
+
+/** PUT body: bool = set the switch, null = clear back to the default, absent = untouched. */
+export interface CommerceEmailSettingsSave {
+  templates: Record<string, boolean | null>
+}
+
+function normalizeEmailSettings(raw: unknown): CommerceEmailSettings {
+  const data = (raw ?? {}) as { templates?: unknown; commerce_mailer_active?: unknown }
+  const templates = Array.isArray(data.templates) ? data.templates : []
+  return {
+    templates: templates.map((t) => {
+      const row = (t ?? {}) as Record<string, unknown>
+      const enabled = (row.enabled ?? {}) as { value?: unknown; default?: unknown; overridden?: unknown }
+      return {
+        template: String(row.template ?? ''),
+        key: String(row.key ?? ''),
+        enabled: {
+          value: enabled.value === true,
+          default: enabled.default === true,
+          overridden: enabled.overridden === true,
+        },
+      }
+    }),
+    commerce_mailer_active: data.commerce_mailer_active === true,
+  }
+}
+
+export async function fetchCommerceEmailSettings(): Promise<CommerceEmailSettings> {
+  const { data, error, response } = await client.GET('/commerce/emails')
+  if (error) throw toApiError(error, response)
+  return normalizeEmailSettings((data as { data?: unknown } | undefined)?.data)
+}
+
+export async function saveCommerceEmailSettings(
+  body: CommerceEmailSettingsSave,
+): Promise<CommerceEmailSettings> {
+  const { data, error, response } = await client.PUT('/commerce/emails', { body: body as never })
+  if (error) throw toApiError(error, response)
+  return normalizeEmailSettings((data as { data?: unknown } | undefined)?.data)
+}
+
+export function useCommerceEmailSettings() {
+  return useQuery({ key: qk.commerceEmailSettings(), query: fetchCommerceEmailSettings })
+}
+
+export function useSaveCommerceEmailSettings() {
+  const cache = useQueryCache()
+  return useMutation({
+    mutation: (body: CommerceEmailSettingsSave) => saveCommerceEmailSettings(body),
+    onSettled: async () => {
+      await cache.invalidateQueries({ key: qk.commerceEmailSettings() })
+    },
+  })
+}
