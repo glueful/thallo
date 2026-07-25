@@ -22,6 +22,7 @@ import { toApiError } from '@/api/errors'
 import { useSectionState, type SectionState } from '@/composables/useSectionState'
 import { ProductRevisionCoordinatorKey } from '@/composables/useProductRevisionCoordinator'
 import RichText from '@/components/RichText.vue'
+import ProductTypeCards from './ProductTypeCards.vue'
 import { isEmptyHtml } from '@/fields/components/blocks/useBlockListOps'
 
 const props = defineProps<{ product: CommerceProduct; canManage: boolean }>()
@@ -45,7 +46,6 @@ const { dirty, markDirty, beginSave, saveSucceeded, saveFailed } = sectionState
 emit('state', sectionState)
 
 const statusItems = PRODUCT_STATUSES.map((s) => ({ label: s, value: s }))
-const typeItems = PRODUCT_TYPES.map((t) => ({ label: t, value: t }))
 
 /** Variants are the client-visible strandable reference — lock the type field honestly up front
  * rather than offering a select that always 422s. (Child-membership locks stay server-detected.) */
@@ -257,25 +257,16 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
         </div>
       </UFormField>
 
-      <UFormField v-if="typeLocked" label="Type">
-        <p class="text-sm text-default" data-test="product-type-value">{{ product.type }}</p>
-        <p class="mt-1 text-xs text-muted" data-test="product-type-note">
+      <!-- The launcher's own type cards (shared ProductTypeCards) — a locked type renders every
+           card inert with the current one still marked, instead of hiding the choice. -->
+      <UFormField label="Type" name="type" class="col-span-2" data-test="product-type-input">
+        <ProductTypeCards v-model="state.type" :disabled="typeLocked || !canManage" />
+        <p v-if="typeLocked" class="mt-1.5 text-xs text-muted" data-test="product-type-note">
           Locked — products with variants can’t change type.
         </p>
-      </UFormField>
-      <UFormField
-        v-else
-        label="Type"
-        name="type"
-        help="Switching type changes which sections apply below."
-      >
-        <USelect
-          v-model="state.type"
-          :items="typeItems"
-          class="w-full"
-          :disabled="!canManage"
-          data-test="product-type-input"
-        />
+        <p v-else class="mt-1.5 text-xs text-muted">
+          Switching type changes which sections apply below.
+        </p>
       </UFormField>
 
       <UFormField label="Status" name="status">

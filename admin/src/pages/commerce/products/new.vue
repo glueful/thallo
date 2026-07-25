@@ -22,6 +22,7 @@ import { useNotify } from '@/composables/useNotify'
 import { slugify } from '@/utils/slugify'
 import { parseOmnibox } from '@/utils/omniboxParse'
 import { createDirtyRegistry, useUnsavedGuard } from '@/composables/useSectionState'
+import ProductTypeCards, { TYPE_CARDS } from './components/ProductTypeCards.vue'
 import UnsavedChangesModal from '@/components/UnsavedChangesModal.vue'
 
 const router = useRouter()
@@ -32,14 +33,6 @@ const { data: meta } = useCommerceMeta()
 /** external/grouped products reject variants server-side — no SKU/price to collect. */
 const PURCHASABLE_TYPES = ['physical', 'digital'] as const
 
-/** The type row: OUR vocabulary (variants live INSIDE physical/digital — never Woo's
- * "variable product"), each card teaching its type at the one irreversible moment. */
-const TYPE_CARDS = [
-  { type: 'physical', icon: 'i-lucide-package', label: 'Physical', teach: 'shipped, stocked' },
-  { type: 'digital', icon: 'i-lucide-download', label: 'Digital', teach: 'downloads' },
-  { type: 'external', icon: 'i-lucide-external-link', label: 'External', teach: 'sold elsewhere' },
-  { type: 'grouped', icon: 'i-lucide-boxes', label: 'Grouped', teach: 'a bundle' },
-] as const
 
 const state = reactive({
   text: '',
@@ -234,35 +227,9 @@ async function createDraft(): Promise<void> {
             numbers stay in the name; mark them with {{ currency }}.
           </p>
 
-          <div
-            class="grid grid-cols-2 gap-2 sm:grid-cols-4"
-            role="radiogroup"
-            aria-label="Product type"
-          >
-            <button
-              v-for="card in TYPE_CARDS"
-              :key="card.type"
-              type="button"
-              role="radio"
-              :aria-checked="state.type === card.type"
-              :data-test="`type-card-${card.type}`"
-              class="rounded-lg border p-2.5 text-center transition"
-              :class="
-                state.type === card.type
-                  ? 'border-primary shadow-md'
-                  : 'border-default hover:border-accented'
-              "
-              @click="state.type = card.type"
-            >
-              <UIcon
-                :name="card.icon"
-                class="mx-auto size-5"
-                :class="state.type === card.type ? 'text-primary' : 'text-muted'"
-              />
-              <div class="mt-1 text-xs font-bold">{{ card.label }}</div>
-              <div class="text-[0.65rem] text-muted">{{ card.teach }}</div>
-            </button>
-          </div>
+          <!-- The shared type-card row (ProductTypeCards) — same component the Details card
+               renders in edit mode, so the vocabulary/visual never drifts between surfaces. -->
+          <ProductTypeCards v-model="state.type" />
 
           <UFormField
             v-if="state.type === 'external'"

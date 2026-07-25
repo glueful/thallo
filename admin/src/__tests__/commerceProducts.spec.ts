@@ -914,12 +914,17 @@ describe('ProductForm', () => {
     updateMock.mockResolvedValue(p)
     const { wrapper } = mountForm(p)
 
-    expect(wrapper.find('[data-test="product-type-value"]').text()).toBe('digital')
+    // The type cards render with the current type marked but every card inert.
+    const digitalCard = wrapper.find('[data-test="type-card-digital"]')
+    expect(digitalCard.attributes('aria-checked')).toBe('true')
+    expect(digitalCard.attributes('disabled')).toBeDefined()
+    expect(
+      wrapper.find('[data-test="type-card-physical"]').attributes('disabled'),
+    ).toBeDefined()
     expect(wrapper.find('[data-test="product-type-note"]').text()).toContain('variants')
-    expect(wrapper.find('[data-test="product-type-input"]').exists()).toBe(false)
-    // Only the Status select renders in the locked state.
-    expect(wrapper.findAllComponents({ name: 'SelectRoot' })).toHaveLength(1)
 
+    // Clicking a disabled card changes nothing — the payload still never carries type.
+    await wrapper.find('[data-test="type-card-physical"]').trigger('click')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
     expect(updateMock).toHaveBeenCalledWith(
@@ -937,7 +942,10 @@ describe('ProductForm', () => {
     updateMock.mockResolvedValue(p)
     const { wrapper } = mountForm(p)
 
-    expect(wrapper.find('[data-test="product-type-input"]').exists()).toBe(true)
+    // Cards are live on a variant-free product.
+    expect(
+      wrapper.find('[data-test="type-card-physical"]').attributes('disabled'),
+    ).toBeUndefined()
 
     // Unchanged type stays OUT of the payload — an ever-present key would 422 unrelated saves
     // the moment the product gains a strandable reference.
@@ -954,7 +962,7 @@ describe('ProductForm', () => {
     const { wrapper } = mountForm(p)
 
     expect(wrapper.find('[data-test="product-external-url-input"]').exists()).toBe(false)
-    await selectByTestId(wrapper, 'product-type-input').vm.$emit('update:modelValue', 'external')
+    await wrapper.find('[data-test="type-card-external"]').trigger('click')
     await flushPromises()
 
     // The DRAFT type reveals the required link field so the URL rides the SAME save that

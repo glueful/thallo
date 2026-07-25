@@ -951,6 +951,11 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   unchanged.
 
 ### Fixed
+- The Details card's Type field now uses the launcher's own type cards (one shared
+  ProductTypeCards component — Physical/Digital/External/Grouped with icons and
+  taglines) instead of a bare select. When the type is locked (the product carries
+  variants), every card renders inert with the current type still marked and the
+  lock reason below — the choice stays visible instead of collapsing to plain text.
 - Product list polish (the Nuxt UI table layout): the "Select all on page" text
   button is replaced by a real header checkbox (checked / indeterminate / empty
   tracking the page's selection), and the search + status/type filters move out of
