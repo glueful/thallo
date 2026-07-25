@@ -1372,6 +1372,7 @@ function storeSettings(
       ...overrides.settings,
     },
     currency_locked: overrides.currency_locked ?? false,
+    has_priced_products: overrides.has_priced_products ?? false,
   }
 }
 
@@ -1424,7 +1425,19 @@ describe('StorePanel', () => {
 
     const input = wrapper.find('[data-test="store-currency-input"]')
     expect(input.attributes('disabled')).toBeDefined()
-    expect(wrapper.text()).toContain('Locked — products with priced variants exist')
+    expect(wrapper.text()).toContain('Locked — orders exist')
+  })
+
+  it('warns (without locking) when priced products exist but no orders do', async () => {
+    storeSettingsData.value = storeSettings({ has_priced_products: true })
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    // Editable — the lock is about recorded money, not catalog contents.
+    expect(
+      wrapper.find('[data-test="store-currency-input"]').attributes('disabled'),
+    ).toBeUndefined()
+    expect(wrapper.text()).toContain('Existing prices keep their numbers')
   })
 
   it('saves percent as basis points and blanks as null (clear-to-default)', async () => {

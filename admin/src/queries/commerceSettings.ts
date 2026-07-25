@@ -815,7 +815,10 @@ export interface StoreSettingEntry {
 
 export interface StoreSettings {
   settings: Record<string, StoreSettingEntry>
+  /** True once ORDERS exist — recorded money history; the currency lock's predicate. */
   currency_locked: boolean
+  /** Priced products exist (no lock, but a currency change reinterprets their numbers). */
+  has_priced_products: boolean
 }
 
 export const STORE_SETTING_KEYS = [
@@ -842,12 +845,20 @@ function normalizeStoreEntry(raw: unknown): StoreSettingEntry {
 }
 
 function normalizeStoreSettings(raw: unknown): StoreSettings {
-  const data = (raw ?? {}) as { settings?: Record<string, unknown>; currency_locked?: boolean }
+  const data = (raw ?? {}) as {
+    settings?: Record<string, unknown>
+    currency_locked?: boolean
+    has_priced_products?: boolean
+  }
   const settings: Record<string, StoreSettingEntry> = {}
   for (const key of STORE_SETTING_KEYS) {
     settings[key] = normalizeStoreEntry(data.settings?.[key])
   }
-  return { settings, currency_locked: data.currency_locked === true }
+  return {
+    settings,
+    currency_locked: data.currency_locked === true,
+    has_priced_products: data.has_priced_products === true,
+  }
 }
 
 export async function fetchStoreSettings(): Promise<StoreSettings> {

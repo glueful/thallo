@@ -46,6 +46,9 @@ final class CommerceSettingsEndpointTest extends AppTestCase
             $this->connection()->table('settings')->where(['key' => $key])->delete();
         }
         $this->connection()->getPDO()->exec(
+            "DELETE FROM commerce_orders WHERE tenant_uuid = '" . self::TENANT . "'"
+        );
+        $this->connection()->getPDO()->exec(
             "DELETE FROM commerce_variants WHERE tenant_uuid = '" . self::TENANT . "'"
         );
         $this->connection()->getPDO()->exec(
@@ -59,6 +62,7 @@ final class CommerceSettingsEndpointTest extends AppTestCase
         $data = $this->data($this->controller()->show(Request::create('/x')));
 
         self::assertFalse($data['currency_locked']);
+        self::assertFalse($data['has_priced_products']);
         foreach (SettingsStoreCommerceOverride::EDITABLE_KEYS as $key) {
             self::assertArrayHasKey($key, $data['settings']);
             self::assertFalse($data['settings'][$key]['overridden']);
@@ -131,9 +135,12 @@ final class CommerceSettingsEndpointTest extends AppTestCase
         self::assertSame(0, $data['settings']['commerce.reports.low_stock_threshold']['value']);
     }
 
-    public function testCurrencyLocksOnActualChangeOnceAVariantExists(): void
+    public function testCurrencyLocksOnActualChangeOnceAnOrderExists(): void
     {
-        $this->seedVariant();
+        // Spec §3.4 REVISED (user feedback 2026-07-25): the lock's predicate is recorded MONEY
+        // history — orders — never mere catalog contents. A setup store full of draft products
+        // stays freely changeable (see the reassignment test below).
+        $this->seedOrder();
 
         $data = $this->data($this->controller()->show(Request::create('/x')));
         self::assertTrue($data['currency_locked']);
@@ -147,13 +154,33 @@ final class CommerceSettingsEndpointTest extends AppTestCase
             self::fail('Expected the currency lock ValidationException.');
         } catch (ValidationException $e) {
             self::assertStringContainsString(
-                'locked once priced products exist',
+                'locked once orders exist',
                 (string) ($e->firstError('commerce.currency') ?? ''),
             );
         }
     }
 
-    public function testCurrencyChangesFreelyWhileNoVariantExists(): void
+    public function testSetupTimeCurrencyChangeRewritesVariantCodesKeepingAmounts(): void
+    {
+        // Draft products exist but no orders: changing currency is allowed AND consistent —
+        // every variant's currency CODE follows the store (checkout hard-rejects mismatches),
+        // while the integer amounts stay exactly as the merchant typed them.
+        $this->seedVariant();
+
+        $data = $this->data($this->controller()->show(Request::create('/x')));
+        self::assertFalse($data['currency_locked']);
+        self::assertTrue($data['has_priced_products']);
+
+        $saved = $this->data($this->put(['commerce.currency' => 'GHS']));
+        self::assertSame('GHS', $saved['settings']['commerce.currency']['value']);
+
+        $variant = $this->connection()->table('commerce_variants')
+            ->where(['uuid' => 'settvar00001'])->first();
+        self::assertSame('GHS', $variant['currency']);
+        self::assertSame(1999, (int) $variant['price']);
+    }
+
+    public function testCurrencyChangesFreelyOnAnEmptyStore(): void
     {
         $data = $this->data($this->put(['commerce.currency' => 'EUR']));
         self::assertSame('EUR', $data['settings']['commerce.currency']['value']);
@@ -207,6 +234,21 @@ final class CommerceSettingsEndpointTest extends AppTestCase
             'currency' => 'USD',
             'position' => 0,
             'status' => 'active',
+        ]);
+    }
+
+    private function seedOrder(): void
+    {
+        $this->connection()->table('commerce_orders')->insert([
+            'uuid' => 'settord00001',
+            'tenant_uuid' => self::TENANT,
+            'order_number' => 'ORD-settord00001',
+            'status' => 'paid',
+            'email' => 'buyer@example.com',
+            'guest_token_hash' => str_repeat('a', 64),
+            'currency' => 'USD',
+            'subtotal' => 1999,
+            'grand_total' => 1999,
         ]);
     }
 

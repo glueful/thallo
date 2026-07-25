@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // The Store settings tab (store-settings spec §3.5): six runtime-editable settings backed by
-// thallo's own `settings` table through Commerce's settings seam — currency (LOCKED once priced
-// products exist), tax rate (entered as a percent, stored as basis points), order number format
+// thallo's own `settings` table through Commerce's settings seam — currency (LOCKED once ORDERS
+// exist; with only draft products it stays editable and reinterprets their numbers, warned
+// inline), tax rate (entered as a percent, stored as basis points), order number format
 // (live preview), order expiry, cart TTL, and the low-stock threshold the product Health card
 // reads. Each field shows its server default as help when not overridden and offers a per-field
 // reset (which sends null — the override row is DELETED server-side, never blanked).
@@ -59,6 +60,10 @@ watch(form, () => {
 })
 
 const currencyLocked = computed(() => settings.value?.currency_locked === true)
+/** Priced products, no orders yet: changing currency KEEPS the price numbers — warn honestly. */
+const currencyReinterprets = computed(
+  () => !currencyLocked.value && settings.value?.has_priced_products === true,
+)
 
 /** Help line per field: the server default, shown when the field is NOT overridden. */
 function defaultHelp(key: string): string | undefined {
@@ -140,8 +145,10 @@ function resetField(field: keyof typeof form): void {
         :error="fieldErrors['commerce.currency']"
         :help="
           currencyLocked
-            ? 'Locked — products with priced variants exist; every stored price is an integer in this currency.'
-            : defaultHelp('commerce.currency')
+            ? 'Locked — orders exist; recorded amounts are integers in the order’s currency.'
+            : currencyReinterprets
+              ? 'Existing prices keep their numbers ($700.00 becomes GH₵700.00) — review prices after changing.'
+              : defaultHelp('commerce.currency')
         "
       >
         <UInput

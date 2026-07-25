@@ -957,10 +957,13 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   cart lifetime, and the low-stock threshold. Values live as ordinary `settings`-table rows —
   per-workspace under tenancy — flowing into commerce through its new runtime-settings seam;
   a cleared field DELETES its row so the `.env`/config default shows through, and every field
-  shows that default as help when not overridden. **Currency locks the moment any priced
-  variant exists** (every stored price is an integer in the store currency), enforced
-  server-side with a field-level validation error and surfaced as a disabled input with the
-  reason. Changes apply on the next request — no deploy, no restart.
+  shows that default as help when not overridden. **Currency locks once ORDERS exist** —
+  recorded money history, not catalog contents: a setup store full of draft products changes
+  currency freely, with existing prices keeping their numbers ($700.00 becomes GH₵700.00 —
+  warned inline, and every variant's currency code follows the store so checkout keeps
+  working). Once an order exists, changes are rejected server-side with a field-level error
+  and the input renders disabled with the reason. Changes apply on the next request — no
+  deploy, no restart.
 - **Order emails** — commerce now sends transactional email: order confirmation, payment
   received, order fulfilled, and order canceled, each rendered through the email extension's
   template registry so all four appear — editable, with placeholder chips and test-send — in
