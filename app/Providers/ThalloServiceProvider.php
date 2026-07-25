@@ -12,6 +12,7 @@ use App\Content\Delivery\FilterCompiler;
 use App\Content\Delivery\ReferenceFilterResolver;
 use App\Content\Delivery\ReferenceResolver;
 use App\Content\Delivery\SortCompiler;
+use App\Content\Delivery\ThalloCanonicalPublicOriginResolver;
 use App\Content\Forms\DefaultFormSealer;
 use App\Content\Forms\FormFieldDerivation;
 use App\Content\Forms\FormMailSender;
@@ -29,6 +30,8 @@ use App\Content\Authorization\CapabilityCatalog;
 use App\Content\Authorization\BuiltinRoleAvailabilityRepository;
 use App\Content\Authorization\EffectiveRoleEvaluator;
 use App\Content\Authorization\EffectiveRoleMatrix;
+use App\Content\Authorization\PermissionImplicationSource;
+use App\Content\Authorization\PermissionRequirementAuthority;
 use App\Content\Authorization\PolicyManifest;
 use App\Content\Authorization\RolePolicyDiagnostics;
 use App\Content\Authorization\RoleMatrix;
@@ -200,12 +203,14 @@ use App\Content\Seo\RouteResolver;
 use App\Content\Services\MigrationService;
 use App\Content\Authoring\EngineContentWriter;
 use App\Content\Authoring\EngineDraftSummaryReader;
+use App\Content\Authoring\EngineEntryExistenceReader;
 use App\Content\Delivery\EngineEntryTargetResolver;
 use App\Content\Context\EngineContext;
 use App\Content\Delivery\EngineContentDeliveryReader;
 use App\Content\Delivery\EngineEntryListReader;
 use App\Content\Delivery\EngineFacetCountsReader;
 use App\Content\Delivery\EngineIndexableContentReader;
+use App\Content\Delivery\EnginePublishedEntryBlocksReader;
 use App\Content\Schema\FieldTypes\DefaultFieldTypeRegistry;
 use App\Content\Schema\FieldTypes\EditorialFieldTypes;
 use App\Content\Services\PublishService;
@@ -214,11 +219,14 @@ use App\Content\Validation\FieldValidator;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Cache\CacheStore;
 use Thallo\Contracts\Authoring\ContentWriter;
+use Thallo\Contracts\Authorization\PermissionRequirementAuthority as PermissionRequirementAuthorityContract;
 use Thallo\Contracts\Content\BlockEditableFieldResolver;
+use Thallo\Contracts\Content\EntryExistenceReader;
 use Thallo\Contracts\Content\RegionReader;
 use Thallo\Contracts\Content\RichHtmlSanitizer;
 use Thallo\Contracts\Authoring\DraftSummaryReader;
 use Thallo\Contracts\Authoring\PublishGate;
+use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
 use Thallo\Contracts\Delivery\EntryTargetResolver;
 use Thallo\Contracts\Delivery\MediaUrlResolver;
 use Thallo\Contracts\Settings\AdminUrlProvider;
@@ -233,6 +241,7 @@ use Thallo\Contracts\Delivery\EntryListReader;
 use Thallo\Contracts\Delivery\FacetCountsReader;
 use Thallo\Contracts\Delivery\PreviewSessionVerifier;
 use Thallo\Contracts\Delivery\PreviewThemeValidator;
+use Thallo\Contracts\Delivery\PublishedEntryBlocksReader;
 use Thallo\Contracts\Delivery\ReferenceTargetResolver;
 use Thallo\Contracts\Search\IndexableContentReader;
 use Thallo\Contracts\Schema\FieldTypeRegistry;
@@ -576,6 +585,11 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared'   => true,
                 'autowire' => true,
             ],
+            EntryExistenceReader::class => [
+                'class'    => EngineEntryExistenceReader::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
             \App\Content\Delivery\DeliveryItemShaper::class => [
                 'class'    => \App\Content\Delivery\DeliveryItemShaper::class,
                 'shared'   => true,
@@ -603,6 +617,15 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             EntryListReader::class => [
                 'class'    => EngineEntryListReader::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            // Commerce-Slice-2 Fix B: route-independent, tenant-scoped, published-only entry
+            // read — the seam Thallo\Render\EntryBlocksRenderer composes to render a
+            // route-less linked entry's blocks region (PublicRouteResolver::resolveEntry()
+            // requires a live entry_routes row and cannot serve one).
+            PublishedEntryBlocksReader::class => [
+                'class'    => EnginePublishedEntryBlocksReader::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
@@ -657,6 +680,12 @@ final class ThalloServiceProvider extends ServiceProvider
         ];
 
         return [
+            \Thallo\Contracts\Starter\StarterContributorRegistry::class => $autowired(
+                \App\Content\Starter\DefaultStarterContributorRegistry::class
+            ),
+            \Thallo\Contracts\Starter\StarterBlockTypeRegistry::class => $autowired(
+                \App\Content\Starter\DefaultStarterBlockTypeRegistry::class
+            ),
             \App\Content\Starter\Kinds\ContentTypeKind::class => $autowired(
                 \App\Content\Starter\Kinds\ContentTypeKind::class
             ),
@@ -1100,6 +1129,23 @@ final class ThalloServiceProvider extends ServiceProvider
         );
     }
 
+    public static function makeCanonicalPublicOriginResolver(
+        ContainerInterface $container
+    ): CanonicalPublicOriginResolver {
+        return new ThalloCanonicalPublicOriginResolver(
+            $container->get(SystemFlags::class),
+            $container->has(CurrentTenantResolver::class)
+                ? $container->get(CurrentTenantResolver::class)
+                : null,
+            $container->has(TenantAdministration::class)
+                ? $container->get(TenantAdministration::class)
+                : null,
+            $container->has(TenantDomainAdministration::class)
+                ? $container->get(TenantDomainAdministration::class)
+                : null,
+        );
+    }
+
     public static function makeBlobRouteMiddlewareProvider(
         ContainerInterface $container
     ): BlobRouteMiddlewareProvider {
@@ -1238,6 +1284,19 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'alias' => ['content_permission'],
             ],
+            PermissionRequirementAuthority::class => [
+                'factory' => [self::class, 'makePermissionRequirementAuthority'],
+                'shared' => true,
+                // Task 8 (admin-commerce-area plan, slice 3): aliased to the neutral
+                // Thallo\Contracts\Authorization\PermissionRequirementAuthority contract so a
+                // first-party pack (e.g. thallo-commerce's `/meta` endpoint) can depend on the
+                // SAME shared instance without referencing this `App\` namespace directly — packs
+                // may not depend on the engine app. The alias belongs on THIS (the concrete)
+                // definition, not a separate binding for the contract — mirrors
+                // packSlugLifecycleAuthorityDefinition()'s identical reasoning in
+                // CommerceIntegrationServiceProvider.
+                'alias' => [PermissionRequirementAuthorityContract::class],
+            ],
             AdminTenantBindingMiddleware::class => [
                 'factory' => [self::class, 'makeAdminTenantBinding'],
                 'shared' => true,
@@ -1252,6 +1311,14 @@ final class ThalloServiceProvider extends ServiceProvider
                 'class' => CapabilityCatalog::class,
                 'shared' => true,
                 'autowire' => true,
+            ],
+            // The catalog IS the production PermissionImplicationSource (its `implies`
+            // vocabulary drives satisfiersFor()) — bind through a factory that resolves
+            // the SAME shared CapabilityCatalog instance rather than a second one.
+            PermissionImplicationSource::class => [
+                'factory' => static fn (ContainerInterface $container): PermissionImplicationSource =>
+                    $container->get(CapabilityCatalog::class),
+                'shared' => true,
             ],
             PolicyManifest::class => [
                 'class' => PolicyManifest::class,
@@ -1375,6 +1442,20 @@ final class ThalloServiceProvider extends ServiceProvider
     {
         return new RequirePermission(
             $container->get(ApplicationContext::class),
+            $container->get(PermissionRequirementAuthority::class),
+        );
+    }
+
+    public static function makePermissionRequirementAuthority(
+        ContainerInterface $container,
+    ): PermissionRequirementAuthority {
+        return new PermissionRequirementAuthority(
+            $container->get(ApplicationContext::class),
+            // Identity implications until a declarative source is bound (the capability
+            // catalog becomes the production PermissionImplicationSource).
+            $container->has(PermissionImplicationSource::class)
+                ? $container->get(PermissionImplicationSource::class)
+                : null,
             $container->get(TenantMembershipRoleReader::class),
             $container->get(EffectiveRoleMatrix::class),
             $container->get(OperatorBypass::class),
@@ -1505,6 +1586,10 @@ final class ThalloServiceProvider extends ServiceProvider
                 'factory' => [self::class, 'makeBlobPublicUrlProvider'],
                 'shared' => true,
             ],
+            CanonicalPublicOriginResolver::class => [
+                'factory' => [self::class, 'makeCanonicalPublicOriginResolver'],
+                'shared' => true,
+            ],
             BlobRouteMiddlewareProvider::class => [
                 'factory' => [self::class, 'makeBlobRouteMiddlewareProvider'],
                 'shared' => true,
@@ -1531,6 +1616,13 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             SettingsStore::class => [
                 'class' => SettingsStore::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            // Store-settings spec §3.3: thallo-commerce's pack-owned storage contract, satisfied
+            // by SettingsStore rows (pack-defines/app-provides — the EngineMediaUrlResolver shape).
+            \Thallo\Commerce\Settings\CommerceSettingsStore::class => [
+                'class' => \App\Settings\CommerceSettingsBridge::class,
                 'shared' => true,
                 'autowire' => true,
             ],

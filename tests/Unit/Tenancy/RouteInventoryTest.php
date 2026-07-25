@@ -19,29 +19,39 @@ final class RouteInventoryTest extends AppTestCase
                 continue;
             }
             $middleware = $route->getMiddleware();
-            $permission = $this->permission($middleware);
-            if ($permission === null) {
+            $requirement = $this->permission($middleware);
+            if ($requirement === null) {
                 continue;
             }
 
+            // `content_permission:a,b` is an any-of requirement (RequirePermission comma-splits
+            // it into per-candidate alternatives, see App\Content\Http\RequirePermission) — each
+            // candidate is classified individually in tenancy.role_matrix (which only ever holds
+            // real, single CapabilityCatalog slugs, never a composite comma-joined string).
+            $candidates = array_values(array_filter(array_map('trim', explode(',', $requirement))));
+
             if (in_array('tenant_bootstrap', $middleware, true)) {
-                self::assertTrue(
-                    $matrix->isTenantCapability($permission),
-                    $route->getPath() . ": new tenant-data permission slug '{$permission}'"
-                        . ' - add it to tenancy.role_matrix deliberately',
-                );
+                foreach ($candidates as $permission) {
+                    self::assertTrue(
+                        $matrix->isTenantCapability($permission),
+                        $route->getPath() . ": new tenant-data permission slug '{$permission}'"
+                            . ' - add it to tenancy.role_matrix deliberately',
+                    );
+                }
             }
 
-            if (
-                str_starts_with($permission, 'users.')
-                || str_starts_with($permission, 'tenancy.')
-                || $permission === 'system.access'
-            ) {
-                self::assertContains(
-                    'tenant_system',
-                    $middleware,
-                    $route->getPath() . ": global permission '{$permission}' must use tenant_system",
-                );
+            foreach ($candidates as $permission) {
+                if (
+                    str_starts_with($permission, 'users.')
+                    || str_starts_with($permission, 'tenancy.')
+                    || $permission === 'system.access'
+                ) {
+                    self::assertContains(
+                        'tenant_system',
+                        $middleware,
+                        $route->getPath() . ": global permission '{$permission}' must use tenant_system",
+                    );
+                }
             }
         }
     }

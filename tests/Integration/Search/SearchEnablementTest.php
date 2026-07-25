@@ -31,9 +31,13 @@ final class SearchEnablementTest extends AppTestCase
             return;
         }
 
-        // The real allow-list plus thallo-search (opt-in, so not in the default list).
+        // The real allow-list plus thallo-search (opt-in, so not in the default list). Read
+        // through config/testing/extensions.php (the committed tenancy-off test shield), NOT the
+        // raw config/extensions.php: the latter is also what `extensions:enable` mutates in
+        // place, so a dogfooding workstation with tenancy switched on (or another pack newly
+        // wired in) would otherwise leak unrelated provider state into this search-only boot.
         /** @var array{enabled: list<string>} $base */
-        $base = require dirname(__DIR__, 3) . '/config/extensions.php';
+        $base = require dirname(__DIR__, 3) . '/config/testing/extensions.php';
         $enabled = $base['enabled'];
         $enabled[] = 'Thallo\\Search\\SearchServiceProvider';
 

@@ -141,6 +141,30 @@ $manager->addMigrationPath(
     MigrationPriority::DEPENDENT,
     'thallo-tenancy'
 );
+// glueful/commerce (a hard app dependency, like glueful/tenancy above) — must run BEFORE
+// thallo-commerce below (its ServiceProvider::boot() itself pins that order: "tenancy
+// enforcement -> Commerce -> thallo-commerce" in config/extensions.php). No DB-level FK
+// dependency between the two (thallo_commerce_product_links deliberately carries no FK into
+// Commerce's tables), but registering Commerce's own tables first keeps this script's ordering
+// consistent with the real boot order.
+$manager->addMigrationPath(
+    $root . '/vendor/glueful/commerce/migrations',
+    MigrationPriority::DEPENDENT,
+    'glueful/commerce'
+);
+$manager->addMigrationPath(
+    $root . '/packages/thallo-commerce/migrations',
+    MigrationPriority::DEPENDENT,
+    'thallo-commerce'
+);
+// glueful/payvia extension (payments/billing/invoices/provider-events/intents/transfers) —
+// installed 2026-07-25; its PayviaPaymentCollector binds the contracts PaymentCollector port,
+// so checkout touches payment_intents on every gateway-mode initiation.
+$manager->addMigrationPath(
+    $root . '/vendor/glueful/payvia/migrations',
+    MigrationPriority::DEPENDENT,
+    'glueful/payvia'
+);
 // glueful/tenancy extension (creates `tenants`/`tenant_memberships`) — LOCAL dev-link only:
 // present when the extension is symlinked into vendor/ for the two-tenant oracle harness. The
 // same tier the extension itself uses (after IDENTITY, before app DEFAULT). Absent in a plain

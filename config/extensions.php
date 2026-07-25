@@ -24,9 +24,19 @@ return [
         'Glueful\Extensions\ImportExport\ImportExportServiceProvider',
         'Glueful\Extensions\Media\MediaServiceProvider',
         'Glueful\Extensions\Meilisearch\MeilisearchProvider',
+        // Commerce (framework extension) must load BEFORE thallo-commerce (below), which binds
+        // Commerce's host seams. Tenancy ENFORCEMENT (Glueful\Extensions\Tenancy\TenancyServiceProvider)
+        // is deliberately NOT listed here — it is enforcement-gated and activated only through the
+        // runtime enablement flow; Commerce depends on the always-on tenancy control plane, not on
+        // the enforcement provider being statically enabled.
+        'Glueful\Extensions\Commerce\CommerceServiceProvider',
+        // Payvia (payments gateway bridge, 2026-07-25): binds the contracts PaymentCollector port
+        // and provides the gateways the Commerce Payments settings tab configures.
+        'Glueful\Extensions\Payvia\PayviaServiceProvider',
         'Glueful\Extensions\Users\UsersServiceProvider',
         'Thallo\Analytics\AnalyticsServiceProvider',
         'Thallo\Collections\CollectionsServiceProvider',
+        'Thallo\Commerce\CommerceIntegrationServiceProvider',
         'Thallo\Importers\ImportersServiceProvider',
         'Thallo\Navigation\NavigationServiceProvider',
         'Thallo\Render\RenderServiceProvider',

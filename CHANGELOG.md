@@ -7,6 +7,200 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Commerce adoption + content linkage foundation** (`packages/thallo-commerce`, slice 1
+  of the ecommerce content-integration track): `glueful/commerce` runs embedded with
+  per-workspace data behind the standard `thallo.commerce` capability — a three-mode
+  tenant resolution (`''` sentinel / widened default tenant / enforcement request tenant,
+  live-evaluated, bound through Commerce's host seam without touching the shared
+  resolver), a canonical product→entry enrichment link (`thallo_commerce_product_links`,
+  one entry per product and one product per entry, admin API with expectation-guarded
+  relink, sorted 64-bit advisory-lock serialization, after-commit audit events, proven
+  under real two-connection PostgreSQL races), lifecycle cleanup (entry-delete and
+  product-tombstone listeners, a batch-limited `thallo:commerce:links:reconcile` sweep,
+  `thallo:commerce:diagnose`), workspace integration (a tenant-adoption contributor that
+  rekeys links and Commerce rows during enforcement activation under the write barrier;
+  a fail-closed workspace purge that delegates Commerce-table deletion to Commerce's own
+  purge service and refuses to report success while Commerce data could remain), and an
+  idempotent starter **Product page** content type (localized headline/summary + blocks
+  region; SEO stays with thallo-seo) provisioned for fresh/future tenants automatically
+  and adopted into existing workspaces via the explicit
+  `thallo:tenant:sync --all --kind=content_type` step. Host seams added for it:
+  tenant-adoption contributors (`thallo-tenancy`) and typed starter content-type
+  contributors (`thallo-contracts`), both byte-inert with zero contributors. Marketplace
+  stays disabled; diagnostics flag it as unsupported in v1. Commerce is consumed from
+  the published `glueful/commerce` releases (`^1.4.0`).
+- **Storefront rendering** (`packages/thallo-commerce`, slice 2 of the ecommerce
+  content-integration track): rendered shop pages, cart, and checkout over the embedded
+  `glueful/commerce`, in Thallo's own theme system — commerce authoritative, enrichment
+  optional, no checkout logic rebuilt in the pack. A pack-owned catalog namespace
+  (`/{shop-prefix}` default `/shop`, one normalized path segment validated at boot;
+  `/{prefix}/products/{slug}`, `/{prefix}/categories/{slug}`) plus stable root-level
+  workflow paths (`/cart`, `/checkout`, `/checkout/return|cancel|confirmation/{ref}`) that
+  register ahead of Render's catch-all; one `ShopUrlGenerator` is the sole source of every
+  catalog/cart/checkout URL. Slug renames gain a transactional reservation ledger
+  (`thallo_commerce_product_slugs`, PostgreSQL advisory locks, old-slug 301s, loop-safe
+  against a live product reclaiming its own history) via a new Commerce-local
+  `SlugLifecycleAuthority` seam invoked inside Commerce's own create/rename transactions.
+  Four starter blocks (`product-grid`, `featured-product`, `add-to-cart`, `mini-cart`) and
+  six page templates (index, product detail, category archive, cart, checkout, order
+  confirmation) ship batteries-included via the same starter-contributor pattern slice 1
+  established for content types, now generalized to block types
+  (`StarterBlockTypeContributor`/`StarterBlockTypeRegistry`); a dependency-free `shop.js`
+  intercepts the plain PRG forms for instant cart/count/quote updates without ever losing
+  the no-JS fallback, proven by an executable Node DOM test. Cart mutations use a new
+  idempotent Commerce `putLine(...)` primitive (add/update/remove converge instead of
+  double-adding on replay); checkout placement gains a durable
+  `thallo_commerce_checkout_attempts` ledger and an optional Commerce
+  `CheckoutAttemptAuthority` seam so a retried placement replays the same order/credential
+  rather than creating a second one or losing the payment-collector call, and a new
+  `CheckoutPresentation` mapper closes Commerce's provider-neutral payment payload into a
+  typed `manual | redirect | reference | unavailable` view model the storefront can render
+  safely. Guest order credentials live only in a capped, encrypted, `HttpOnly` cookie;
+  every `/_shop` mutation is guarded by an Origin/Fetch-Metadata CSRF check against a new
+  shared `CanonicalPublicOriginResolver` contract — the same trusted-origin authority the
+  existing tenant-owned-blob media URLs now resolve through too, so media and storefront
+  CSRF can never disagree. A tenant/locale/theme/appearance-fingerprint/path/page-keyed
+  shop cache purges on every storefront-visible catalog mutation (price, stock — including
+  checkout/refund/cancel — media, category/tag/attribute, add-on) via a new broad
+  `StorefrontCatalogChanged` Commerce event, plus the existing global theme/appearance
+  events; `/cart`, `/checkout`, and every `/_shop` response stay `private, no-store`.
+  Render gains two additive seams for this (a reserved-path contributor registry and a
+  template-path contributor between the active theme and the default fallback), both
+  byte-identical with zero contributors. Marketplace/seller presentation, customer
+  accounts, and Payvia credentialing are out of scope for v1.
+- **Admin commerce area** (slice 3 of the ecommerce content-integration track): the full
+  shop-management surface inside the admin SPA, backed by Commerce's admin JSON API
+  re-mounted at `/v1/admin/commerce` through Commerce 1.4.0's mountable
+  `AdminRouteCatalog` — an explicit fail-closed 98-key allowlist (a newly added Commerce
+  endpoint stays unmounted until consciously approved; approved-inventory parity tests
+  keep catalog, allowlist, and mounted routes locked three ways), behind the standard
+  admin session/workspace-binding stack so workspace selection drives the Commerce tenant
+  context. Authorization gains `commerce.view` alongside the renamed `commerce.manage`
+  ("Manage commerce"), evaluated by one reusable `PermissionRequirementAuthority` with
+  declarative catalog implications (manage ⟹ view) and candidate-wise API-key
+  scope∩RBAC intersection; the pack's `/meta` endpoint (currency + authoritative
+  ISO-4217 exponent, canonical shop-index URL, effective `can_view`/`can_manage` flags)
+  consumes the same authority through a neutral `thallo-contracts` seam, so route gate
+  and UI flags can never disagree. SPA surfaces: Overview (sales/products/stock reports +
+  acquisition tiles), Products (variants, composition, inventory adjust, media,
+  categories/tags/attributes with values, add-ons, per-variant digital downloads),
+  bidirectional product↔entry linking (one shared panel on the product detail and — via
+  the new capability-gated, settle-before-admit `entryEditorPanels` manifest — the entry
+  editor; explicit CAS relink with conflict recovery; server-built absolute preview URLs,
+  the client never assembles storefront URLs), Orders (state-machine-mirrored lifecycle
+  actions, refunds with exact BigInt minor-unit entry against the refundable ceiling,
+  notes, invoice data), Discounts (percentage in true basis-points parity with the
+  pricing engine, fixed amounts in minor units), Settings (shipping zones/locations/
+  methods incl. per-class tables, shipping classes, tax rates), Reviews moderation
+  (transition-faithful, XSS-safe), and read-only Customers. All amounts flow through one
+  BigInt-safe money formatter (0/2/3-decimal exponents, no float arithmetic); mutation
+  controls hide without `commerce.manage` while every surface stays readable with
+  `commerce.view`.
+- **Single-page product editor** (admin SPA, on glueful/commerce 1.5.0): the product
+  detail page becomes one scrollable editor of independently-saving section cards
+  (Details, Images, Pricing & stock, Organization, Add-ons, Downloads, Linked content,
+  Grouped products) with a sticky scroll-spied section nav — the whole authoring surface
+  is visible at once. Every assignment section hydrates its existing state from Commerce
+  1.5.0's six per-product reads (`{revision, items}` envelopes), so replacement saves are
+  built from server truth plus the user's edits — the blind-replacement warnings and the
+  off-page wipe risk are gone. Replacement mutations carry `expected_revision` (Commerce's
+  new CAS guard): concurrent edits surface as content-aware recovery — unrelated bumps
+  rebase silently, category/tag sets three-way-merge deterministically, and structured
+  data (attributes, media order, child composition) gets an explicit "Use latest" /
+  "Replace with mine" review; nothing ever auto-retries. Per-section Saving/Saved/
+  error/unsaved chips, a page dirty-registry blocking navigation while anything is
+  unsaved or mid-save, progressive pricing disclosure (simple products get a compact
+  SKU/price/compare-at/stock card; variant-heavy products the full table), compare-at
+  prices now editable (and clearable) everywhere, per-variant stock quantities shown from
+  the real inventory read (integrity failures render honestly instead of fabricated
+  zeros), and grouped-product composition moves to a hydrated Children card that shows
+  attached tombstoned children truthfully.
+- **The Omnibox Launcher — product creation as one smart screen** (admin SPA):
+  `/commerce/products/new` replaces both the old create slideover and its interim form
+  with a single surface: a smart input that conservatively parses a trailing money token
+  ("Aurora Desk Lamp $89", "89.99", or currency-neutrally "89 GHS"/"GHS 89" with the
+  tenant's own code — BigInt major-unit math, bare unmarked integers stay in the name) plus
+  a four-card type row (Physical/Digital/External/Grouped, keyboard 1–4) that morphs the
+  surface — External swaps the price affordance for its required Link field, Grouped
+  collects name only. Honest chips (name, formatted price, derived slug/SKU, type state)
+  show exactly what the one atomic "Create draft" action will do before any row exists;
+  the launcher stands alone, with the editor's sections appearing on the page the create
+  lands in. Single-flight submission,
+  values retained on validation errors, `router.replace()` into the editor on success,
+  and unsaved-changes guard participation throughout.
+- **The composed product editor — identity bar + Command Center** (admin SPA, phase 1 of
+  the approved edit-page design): every product page now opens with an identity bar
+  (thumbnail from the media read, name, slug · type · price line, status pill, and — for
+  drafts — the Activate shortcut, replacing the old draft banner). Active products
+  additionally open with a Health card computed from the shipped per-product reads:
+  factual counts only (images, categories, lowest tracked stock against the store's
+  low-stock threshold), warning rows deep-linking to their owning sections, and a failed
+  stock read shown honestly as unavailable rather than as zeros. Drafts lead with the
+  editor; everything stays fully editable in every state.
+- **Command Center completed — trade + recent orders** (admin SPA, on glueful/commerce
+  1.6.0): active products' opening strip gains the "Last N days" tile (product-attributed
+  revenue and order count, mirroring the products report's discipline) and a Recent orders
+  panel linking into order detail — both powered by commerce 1.6.0's per-product order
+  activity read. Admins running an older commerce degrade gracefully: the panels are simply
+  absent, never an error banner.
+- **Product type is now editable while it safely can be**: the editor previously
+  rendered type as permanently read-only ("Type is set at creation"), but Commerce's
+  actual rule only rejects a type change while the product carries variants, grouped
+  children, or cart/order references. The Details card now mirrors that honestly — a
+  variant-carrying product shows type locked with the real reason; a variant-free
+  product (e.g. an external listing) gets a working type select, `type` rides the
+  payload only when actually changed, and switching to `external` reveals the required
+  link field in the same save. The rarer server-side locks surface as field-mapped
+  validation errors.
+- **Editor chrome polish**: the storefront pane's toggle is labeled "Preview" (was
+  "Mirror"), and the product page's dashboard navbar no longer repeats the product
+  name above the identity bar — it shows the quiet back-context "Products" instead.
+  The compact Pricing & stock card's layout is fixed: three fields on an even
+  three-column row, a normal "Save pricing" button beside the formatted preview
+  (previously a full-width stretched bar below an orphan grid hole), the redundant
+  "Optional" help dropped, and the stock quantity + Adjust control on one row. The
+  "Compare-at price" field is relabeled **"Original price"** everywhere (with help
+  text "Shown crossed out beside the price, marking a sale") — Shopify jargon that
+  explained nothing to anyone else; the API field stays `compare_at_price`, and the
+  Pricing digest now reads "was $129.00".
+- **Condensed section cards — the editor's resting state** (admin SPA): the product
+  editor now matches the approved composed mock. Section cards (Details, Images,
+  Pricing & stock, Organization, Grouped products) rest collapsed as one-line digests —
+  field rosters, real thumbnails, `SKU · $19.99 · compare-at $29.99 · 24 in stock` —
+  with their state chips, and expand from the header, the section nav, or any identity
+  bar / Health strip jump (every jump now expands first, then scrolls). A card holding
+  unsaved edits, a saving state, or a failed save refuses to collapse. Collapse is
+  CSS-only (panels stay mounted), so no dirty draft can be lost to a remount and
+  expanding is instant. The rarely-touched tail (Add-ons / Downloads / Linked content)
+  condenses into one quiet row until asked for. Digests stay honest: counts, prices,
+  and stock appear only once their reads resolve — never fabricated values. The section
+  nav becomes the mock's rail: a hairline down the left with a primary accent segment +
+  bolder text for the active item (no filled background), attention as a tinted dot
+  pill on the right, and empty hints compacted to "· n".
+- **Prices are typed in major units everywhere**: every price input in the product
+  editor (compact pricing card, variant add/edit, bulk price, compare-at) now takes the
+  amount the storefront shows — `19.99`, not `1999` minor units — hydrated and parsed
+  through BigInt round-trip helpers in `useMoney.ts` (no float arithmetic ever touches
+  an amount) and gated on the tenant currency's exponent from `/commerce/meta`, so a
+  wrong-scale write is impossible. Field help shows the tenant currency code.
+- **The Live Mirror** (admin SPA + storefront pack): a toggle in the product identity bar
+  trades the section nav for the REAL storefront product page in an embedded frame — the
+  server-built absolute `storefront_url` the product-link projection already carries, so
+  perfect fidelity with zero preview components to maintain. The pane reloads as sections
+  save (and on a manual refresh); active products also gain a "View in store" link. The
+  storefront can't render drafts, so drafts get an honest placeholder, never a fake
+  preview. Enabling this also HARDENS the shop product pages: they previously sent no
+  frame headers at all (frameable by anyone) and now carry
+  `Content-Security-Policy: frame-ancestors 'self' <admin-origin>` (from
+  `RENDER_ADMIN_URL`; unconfigured leaves responses untouched and the Mirror disabled —
+  never a wildcard), applied before the shop cache so cached responses carry the policy
+  too. (Still pending, commerce-gated: the Command Center's recent-orders and trade
+  panels behind an orders-by-product read.)
+- **External products actually work now**: creation previously omitted the API-required
+  `metadata.external_url` (every external create 422'd), and the editor had no surface
+  to change the link afterward. The launcher collects the link at create, and Details
+  gains an External link + button-label fieldset for external products that merges into
+  existing metadata rather than replacing it.
 - **Full tenant resolution and operations**: verified custom domains plus
   subdomain fallback for public delivery, header/JWT resolution for the admin,
   a resumable fresh-boot activation flow, tenant/domain/membership HTTP and CLI
@@ -747,7 +941,135 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   it) — previously every distinct `{n}` minted a permanent (no-TTL) cache entry plus a deep-OFFSET
   enumeration query, an anonymous cache-fill vector.
 
+### Added (product editor)
+- **Rich-text product descriptions**: the Details card's Description field is now the
+  CMS's own RichText editor (Tiptap) — bold, italic, lists, links, images — storing an
+  HTML string. A blank/empty document still saves as null. The storefront renders it
+  through the render pack's fail-closed `safe_html` sanitizer (markup kept, scripts and
+  event handlers dropped — including their inner text, for the JSON-LD plain-text
+  description) with prose styling in `shop.css`; legacy plain-text descriptions render
+  unchanged.
+
+### Added
+- **Store settings, editable from the admin** (needs glueful/commerce 1.6.0): Commerce ›
+  Settings gains a **Store** tab (now the default) editing currency, tax rate (entered as a
+  percent, stored as basis points), order number format (live preview), order payment window,
+  cart lifetime, and the low-stock threshold. Values live as ordinary `settings`-table rows —
+  per-workspace under tenancy — flowing into commerce through its new runtime-settings seam;
+  a cleared field DELETES its row so the `.env`/config default shows through, and every field
+  shows that default as help when not overridden. **Currency locks once ORDERS exist** —
+  recorded money history, not catalog contents: a setup store full of draft products changes
+  currency freely, with existing prices keeping their numbers ($700.00 becomes GH₵700.00 —
+  warned inline, and every variant's currency code follows the store so checkout keeps
+  working). Once an order exists, changes are rejected server-side with a field-level error
+  and the input renders disabled with the reason. Changes apply on the next request — no
+  deploy, no restart.
+- **Emails is now its own Commerce Settings tab — switches + relocated templates**: the four
+  buyer order emails (confirmation, payment, fulfillment, cancellation) gained per-template
+  on/off switches (`GET/PUT /v1/admin/commerce/emails`; settings rows over pack-config defaults,
+  all ON; the sender checks per send, so a switch applies to the next order event), and their
+  subject/body editors MOVED from Settings › Email into the new tab — the same registry and
+  email-notification API, reused filtered to commerce-owned templates, so overrides, test
+  sends, and resets keep working unchanged. Settings › Email keeps transport (SMTP/sender)
+  and every non-commerce template. When `commerce.email.enabled` activates commerce's own
+  dormant mailer, the tab banners that Thallo's sender stands down and the switches govern
+  nothing — one mailer, never double emails.
+- **Payments is now its own Settings tab, with full gateway configuration**: default gateway,
+  per-gateway enable toggles, and the API keys themselves (secret key + webhook secret) are
+  editable in the admin — no more `.env` round-trips to configure payments. Keys are stored
+  ENCRYPTED (framework AES-256-GCM, AAD-bound to the setting key) and are write-only on the
+  wire: the server only ever reports `{set, source}` booleans back, an empty input means "keep
+  the stored value", and the explicit Clear action deletes the row so any `.env` value shows
+  through again. Values flow to payvia through its new settings seam (payvia ≥ 2.2.0), which
+  decrypts on read — `GatewayManager`, both drivers, and webhook verification all see the
+  stored keys immediately, no restart. With no gateway extension installed the tab honestly
+  reports manual collection. Payment credentials are installation-level (webhook signature
+  verification precedes tenant resolution), recorded as enforcement-time work in the spec.
+- **Store identity on the Store tab**: store name, business address, and tax ID (the invoice
+  header — commerce's `commerce.seller.*` keys, now runtime-editable through the same settings
+  seam). The read-only payments status card that briefly lived here moved into the dedicated
+  Payments tab above, upgraded to full configuration.
+- Store tab polish: currency is a curated dropdown (an env-configured code outside the list
+  still renders), and Commerce › Settings moved to the END of the Commerce nav. Safety: if an
+  operator enables commerce's own dormant order mailer (`COMMERCE_EMAIL_ENABLED=true`),
+  thallo's order-email sender stands down automatically — one sender at a time, never double
+  emails (the templates stay editable either way).
+- **Order emails** — commerce now sends transactional email: order confirmation, payment
+  received, order fulfilled, and order canceled, each rendered through the email extension's
+  template registry so all four appear — editable, with placeholder chips and test-send — in
+  the EXISTING Settings › Email page (the Store tab links there). Sends are at-most-once per
+  template×order via idempotency keys, a mail failure never fails checkout/fulfillment (logged;
+  the notification retry queue is the recovery channel), and orders without a usable buyer
+  address skip silently. Honesty notes: no order links in the emails yet (the storefront
+  confirmation page authenticates by cookie, so a link wouldn't open — tokenized status links
+  are the follow-up), and card checkouts send both "confirmation" and "payment received"
+  (per-template switches are the other noted follow-up).
+- **Price and stock on the products list** (needs glueful/commerce 1.6.0): the catalog table
+  gains Price and Stock columns — one amount for a single-variant product, a `$19.99 – $29.99`
+  range plus a variant count when they differ, and the on-hand quantity for tracked inventory.
+  Both degrade honestly: untracked inventory, an unknown total (a variant missing its stock
+  row), and an older commerce that doesn't send the summary all render "—", never a fabricated
+  0 that would read as "out of stock". A tracked zero IS shown, in warning color.
+
 ### Fixed
+- The draft product's primary action is labeled **"Publish"** (was "Activate") —
+  matching the CMS's own content vocabulary and what Woo migrants expect; the toast
+  says "Product published" and the Preview pane's draft placeholder now reads
+  "Publish the product to see it exactly as customers will."
+- The Details card's Type field now uses the launcher's own type cards (one shared
+  ProductTypeCards component — Physical/Digital/External/Grouped with icons and
+  taglines) instead of a bare select. When the type is locked (the product carries
+  variants), every card renders inert with the current type still marked and the
+  lock reason below — the choice stays visible instead of collapsing to plain text.
+- Product list polish (the Nuxt UI table layout): the "Select all on page" text
+  button is replaced by a real header checkbox (checked / indeterminate / empty
+  tracking the page's selection), and the search + status/type filters move out of
+  the dashboard navbar into a toolbar row with the table — search left, filters
+  right. Every commerce list's default page size is now 25 (the page-size dropdown
+  offers 10/25/50/100; the old default of 24 wasn't in the list, so the select
+  rendered a value it didn't contain).
+- Leaving the product editor (or launcher) with unsaved changes now asks through a
+  real in-app modal — "Discard unsaved changes?" naming the dirty sections, with
+  Keep editing / Discard changes — instead of the browser's native "thallodev.dev
+  says…" confirm. The route guard parks the navigation on a promise until the modal
+  answers; dismissing (Esc/backdrop) safely stays. Tab close / hard refresh keeps
+  the browser's own dialog — browsers allow no custom UI there.
+- The storefront product page now looks like a store, and actually shows the
+  product's images: it only ever rendered a `role='cover'` media row — but the admin
+  attaches every image as `role='gallery'`, so admin-managed products shipped an
+  imageless store page — and its image URLs were hand-built `/blobs/…` paths that
+  missed the API prefix and ignored blob visibility. Product/grid/featured-block
+  images now resolve through the same anonymous-media URL authority rendered pages
+  use (cover-role first, first gallery image as the honest fallback, unservable
+  blobs skipped), the product page renders a real gallery with a thumbnail strip,
+  prices display in customer form ("$89.00", intl-formatted with a "decimal CODE"
+  fallback) with a struck compare-at for single-variant sales, JSON-LD keeps the
+  plain decimal, and the pack ships a theme-neutral `shop.css` baseline (breadcrumb,
+  gallery, price row, styled add-to-cart) through the fingerprinted immutable asset
+  pipeline. The shop index and category archives get the same pass: a real product
+  card grid (constrained square images, name, price with struck compare-at) instead
+  of a raw bulleted list with an unconstrained full-size image, and the duplicate
+  currency-code suffix is gone there too. This is the surface the editor's Preview
+  pane embeds. Gallery images render whole (object-fit contain — product photography
+  is never cropped), and the detail page's thumbnails are now real controls: clicking
+  one swaps the main image (a shop.js enhancement over server-rendered buttons; every
+  image stays visible without JS), with shop.js now loading on every product page —
+  previously it only shipped inside the purchasable branch.
+- The product editor's Activate button now actually activates: it was a scroll
+  shortcut to the Details card's status control, which on the condensed page — with
+  Details already in view — visibly did nothing, leaving drafts stuck and the
+  storefront Preview pane on its draft placeholder. It now performs the real
+  status → active mutation (loading state, success/error toasts, coordinator revision
+  refresh), after which the Preview pane can render the live product page. Reversible
+  via Details' Status select.
+- Blob uploads no longer 403 for authenticated admins: `POST/GET-info/DELETE /v1/blobs`
+  carried `tenant_profile:admin` (an authenticated-membership gate) but NO `auth`
+  middleware — with `UPLOADS_ACCESS=public` the framework's blob routes add none of
+  their own, so `auth.user.uuid` was never populated and the tenancy pipeline denied
+  every upload ("Access to this tenant is denied") regardless of the bearer sent.
+  `TenantBlobRouteMiddlewareProvider` now contributes `auth` ahead of the admin
+  profile for upload/info/delete/sign; public blob viewing is unchanged. This had
+  blocked adding images to products from the admin media picker.
 - Admin SPA: capability-gated nav/panels now converge WITHOUT manual reloads when a pack is
   toggled. Enable/disable on the extension detail page polls the capabilities endpoint until
   the answer actually changes (the backend serves the pre-toggle list for a few seconds — the

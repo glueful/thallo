@@ -1,3 +1,15 @@
+// Single-page product editor plan, Task C1: the six per-product section reads
+// (categories/tags/attributes/media/children/stock), each keyed by product uuid + section.
+export const COMMERCE_PRODUCT_SECTIONS = [
+  'categories',
+  'tags',
+  'attributes',
+  'media',
+  'children',
+  'stock',
+] as const
+export type CommerceProductSection = (typeof COMMERCE_PRODUCT_SECTIONS)[number]
+
 // Central cache namespace. Every Colada query keys off these so invalidation is exhaustive and
 // typo-proof. Keys are MaybeRefOrGetter-friendly (Pinia Colada): pass getters where a param is
 // reactive (e.g. () => ['entries', typeSlug.value]).
@@ -33,4 +45,47 @@ export const qk = {
     ['form-submissions', 'list', formKey, status] as const,
   formSubmission: (uuid: string) => ['form-submissions', 'detail', uuid] as const,
   formSubmissionsUnread: () => ['form-submissions', 'unread'] as const,
+  commerceMeta: () => ['commerce-meta'] as const,
+  commerceStoreSettings: () => ['commerce-store-settings'] as const,
+  commercePaymentsSettings: () => ['commerce-payments-settings'] as const,
+  commerceEmailSettings: () => ['commerce-email-settings'] as const,
+  commerceProducts: () => ['commerce-products'] as const,
+  commerceProduct: (uuid: string) => ['commerce-product', uuid] as const,
+  commerceProductAddons: (productUuid: string) => ['commerce-product-addons', productUuid] as const,
+  commerceVariantDownloads: (variantUuid: string) => ['commerce-variant-downloads', variantUuid] as const,
+  commerceProductSection: (uuid: string, section: CommerceProductSection) =>
+    ['commerce-product-section', uuid, section] as const,
+  commerceCategories: () => ['commerce-categories'] as const,
+  commerceTags: () => ['commerce-tags'] as const,
+  commerceAttributes: () => ['commerce-attributes'] as const,
+  commerceLink: (productUuid: string) => ['commerce-link', productUuid] as const,
+  commerceLinkByEntry: (entryUuid: string) => ['commerce-link-by-entry', entryUuid] as const,
+  commerceEntrySearch: (q: string) => ['commerce-entry-search', q] as const,
+  commerceOrders: () => ['commerce-orders'] as const,
+  commerceOrder: (uuid: string) => ['commerce-order', uuid] as const,
+  commerceOrderRefunds: (orderUuid: string) => ['commerce-order-refunds', orderUuid] as const,
+  commerceRefunds: () => ['commerce-refunds'] as const,
+  commerceOrderNotes: (orderUuid: string) => ['commerce-order-notes', orderUuid] as const,
+  commerceOrderInvoiceData: (orderUuid: string) => ['commerce-order-invoice-data', orderUuid] as const,
+  commerceDiscounts: () => ['commerce-discounts'] as const,
+  commerceDiscount: (uuid: string) => ['commerce-discount', uuid] as const,
+  commerceShippingZones: () => ['commerce-shipping-zones'] as const,
+  commerceShippingZone: (uuid: string) => ['commerce-shipping-zone', uuid] as const,
+  commerceShippingZoneMethods: (zoneUuid: string) => ['commerce-shipping-zone-methods', zoneUuid] as const,
+  commerceShippingClasses: () => ['commerce-shipping-classes'] as const,
+  commerceShippingClass: (uuid: string) => ['commerce-shipping-class', uuid] as const,
+  commerceTaxRates: () => ['commerce-tax-rates'] as const,
+  commerceTaxRate: (uuid: string) => ['commerce-tax-rate', uuid] as const,
+  commerceReviews: () => ['commerce-reviews'] as const,
+  commerceReview: (uuid: string) => ['commerce-review', uuid] as const,
+  commerceCustomers: () => ['commerce-customers'] as const,
+  commerceCustomer: (key: string) => ['commerce-customer', key] as const,
+  commerceReportSales: (from: string, to: string, group: string) =>
+    ['commerce-report-sales', from, to, group] as const,
+  commerceReportProducts: (from: string, to: string, sort: string, page: number, perPage: number) =>
+    ['commerce-report-products', from, to, sort, page, perPage] as const,
+  commerceReportCustomers: (from: string, to: string, group: string) =>
+    ['commerce-report-customers', from, to, group] as const,
+  commerceReportStock: (status: string, threshold: number | '', page: number, perPage: number) =>
+    ['commerce-report-stock', status, threshold, page, perPage] as const,
 }

@@ -11,8 +11,18 @@ final class TenantBlobRouteMiddlewareProvider implements BlobRouteMiddlewareProv
 {
     public function middlewareFor(BlobRouteAction $action): array
     {
-        return $action === BlobRouteAction::VIEW
-            ? ['tenant_profile:public,soft']
-            : ['tenant_profile:admin'];
+        // VIEW stays anonymous-capable (public blobs serve the storefront); the framework already
+        // runs `auth:optional` ahead of this contribution there.
+        if ($action === BlobRouteAction::VIEW) {
+            return ['tenant_profile:public,soft'];
+        }
+
+        // Every other action: `auth` MUST come first. Thallo runs UPLOADS_ACCESS=public (public
+        // retrieval), so the framework's blob routes contribute NO auth middleware of their own to
+        // upload/info/delete/sign — but the `admin` resolution profile requires an authenticated
+        // member (it reads the `auth.user.uuid` attribute the auth middleware populates). Without
+        // auth here, the tenancy pipeline denied EVERY upload (403 "Access to this tenant is
+        // denied") no matter what bearer the admin SPA sent.
+        return ['auth', 'tenant_profile:admin'];
     }
 }

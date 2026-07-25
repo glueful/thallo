@@ -109,7 +109,9 @@ const templatesVisible = ref(true)
 async function loadTemplates() {
   try {
     const result = await fetchEmailTemplates()
-    templates.value = result.templates
+    // Commerce's order emails MOVED to Commerce › Settings › Emails (store-settings spec
+    // §4.2 follow-up) — same registry, same API, managed beside their switches instead of here.
+    templates.value = result.templates.filter((t) => t.owner !== 'thallo-commerce')
     partials.value = result.partials
     templatesVisible.value = true
   } catch (e) {

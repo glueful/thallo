@@ -6,18 +6,22 @@ namespace App\Content\Starter\Kinds;
 
 use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Blocks\StarterBlockTypes;
+use App\Content\Schema\SchemaParseException;
 use App\Content\Starter\AbstractStarterKind;
 use App\Content\Starter\Fingerprint;
 use App\Content\Starter\SeedContext;
 use App\Content\Starter\StarterApplyResult;
 use App\Content\Starter\StarterDefinition;
 use Glueful\Database\Connection;
+use Thallo\Contracts\Starter\StarterBlockTypeDefinition;
+use Thallo\Contracts\Starter\StarterBlockTypeRegistry;
 
 final class BlockTypeKind extends AbstractStarterKind
 {
     public function __construct(
         private readonly BlockTypeRepository $blocks,
         private readonly Connection $db,
+        private readonly ?StarterBlockTypeRegistry $contributors = null,
     ) {
     }
 
@@ -28,7 +32,7 @@ final class BlockTypeKind extends AbstractStarterKind
 
     public function definitions(): array
     {
-        return array_map(static function (array $definition): StarterDefinition {
+        $fixed = array_map(static function (array $definition): StarterDefinition {
             $definition['active'] = (bool) ($definition['active'] ?? true);
             return new StarterDefinition(
                 'block_type:' . $definition['slug'],
@@ -36,6 +40,11 @@ final class BlockTypeKind extends AbstractStarterKind
                 $definition,
             );
         }, StarterBlockTypes::definitions());
+
+        $definitions = [...$fixed, ...$this->contributedDefinitions()];
+        $this->assertNoDuplicates($definitions);
+
+        return $definitions;
     }
 
     public function fingerprint(StarterDefinition $definition): string
@@ -96,6 +105,89 @@ final class BlockTypeKind extends AbstractStarterKind
     public function syncable(): bool
     {
         return true;
+    }
+
+    /**
+     * Converted contributed definitions, in registration/contributor order. Each contributor's
+     * VOs are validated and converted to the internal {@see StarterDefinition} shape BEFORE this
+     * method returns — nothing here or downstream (TenantSeeder/StarterSync) writes to storage
+     * until the full fixed+contributed set has been assembled and passed the duplicate check in
+     * {@see definitions()}.
+     *
+     * @return list<StarterDefinition>
+     */
+    private function contributedDefinitions(): array
+    {
+        $definitions = [];
+        foreach ($this->contributors?->all() ?? [] as $contributor) {
+            foreach ($contributor->blockTypeDefinitions() as $definition) {
+                $definitions[] = $this->convert($definition);
+            }
+        }
+        return $definitions;
+    }
+
+    private function convert(StarterBlockTypeDefinition $definition): StarterDefinition
+    {
+        $sourceId = trim($definition->sourceId);
+        if ($sourceId === '') {
+            throw new \InvalidArgumentException('starter block-type contribution has an empty sourceId');
+        }
+        $slug = trim($definition->slug);
+        if ($slug === '') {
+            throw new \InvalidArgumentException("starter block-type contribution '{$sourceId}' has an empty slug");
+        }
+        $label = trim($definition->label);
+        if ($label === '') {
+            throw new \InvalidArgumentException("starter block-type contribution '{$sourceId}' has an empty label");
+        }
+
+        // Same rule the fixed library satisfies (BlockTypeRepository::create()/updateSchema()):
+        // no blocks/localized/filterable prohibitions plus full field-schema parsing.
+        try {
+            $this->blocks->assertBlockSchema($definition->schema);
+        } catch (SchemaParseException $e) {
+            throw new SchemaParseException(
+                "starter block-type contribution '{$sourceId}' has an invalid schema: " . $e->getMessage(),
+                previous: $e,
+            );
+        }
+
+        return new StarterDefinition(
+            sourceId: $definition->sourceId,
+            definitionKey: $slug,
+            payload: [
+                'slug' => $slug,
+                'label' => $label,
+                'icon' => $definition->icon,
+                'category' => $definition->category,
+                'description' => $definition->description,
+                'schema' => $definition->schema,
+                'active' => true,
+            ],
+        );
+    }
+
+    /** @param list<StarterDefinition> $definitions */
+    private function assertNoDuplicates(array $definitions): void
+    {
+        $seenSourceIds = [];
+        $seenSlugs = [];
+        foreach ($definitions as $definition) {
+            if (isset($seenSourceIds[$definition->sourceId])) {
+                throw new \InvalidArgumentException(
+                    "duplicate starter block-type sourceId '{$definition->sourceId}'"
+                );
+            }
+            $seenSourceIds[$definition->sourceId] = true;
+
+            if (isset($seenSlugs[$definition->definitionKey])) {
+                throw new \InvalidArgumentException(
+                    "duplicate starter block-type slug '{$definition->definitionKey}'"
+                );
+            }
+            $seenSlugs[$definition->definitionKey] = true;
+        }
     }
 
     /** @param array<string,mixed> $row @return array<string,mixed> */

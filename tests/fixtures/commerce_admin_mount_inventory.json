@@ -1,0 +1,422 @@
+[
+    {
+        "key": "addons.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "addons.update",
+        "mode": "manage"
+    },
+    {
+        "key": "attribute_values.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "attribute_values.update",
+        "mode": "manage"
+    },
+    {
+        "key": "attributes.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "attributes.index",
+        "mode": "view"
+    },
+    {
+        "key": "attributes.show",
+        "mode": "view"
+    },
+    {
+        "key": "attributes.store",
+        "mode": "manage"
+    },
+    {
+        "key": "attributes.update",
+        "mode": "manage"
+    },
+    {
+        "key": "attributes.values.store",
+        "mode": "manage"
+    },
+    {
+        "key": "categories.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "categories.index",
+        "mode": "view"
+    },
+    {
+        "key": "categories.show",
+        "mode": "view"
+    },
+    {
+        "key": "categories.store",
+        "mode": "manage"
+    },
+    {
+        "key": "categories.update",
+        "mode": "manage"
+    },
+    {
+        "key": "customers.index",
+        "mode": "view"
+    },
+    {
+        "key": "customers.show",
+        "mode": "view"
+    },
+    {
+        "key": "discounts.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "discounts.index",
+        "mode": "view"
+    },
+    {
+        "key": "discounts.show",
+        "mode": "view"
+    },
+    {
+        "key": "discounts.store",
+        "mode": "manage"
+    },
+    {
+        "key": "discounts.update",
+        "mode": "manage"
+    },
+    {
+        "key": "downloads.detach",
+        "mode": "manage"
+    },
+    {
+        "key": "downloads.update",
+        "mode": "manage"
+    },
+    {
+        "key": "grants.refund_override.clear",
+        "mode": "manage"
+    },
+    {
+        "key": "grants.refund_override.set",
+        "mode": "manage"
+    },
+    {
+        "key": "grants.revoke",
+        "mode": "manage"
+    },
+    {
+        "key": "media.detach",
+        "mode": "manage"
+    },
+    {
+        "key": "media.update",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.cancel",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.fulfill",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.index",
+        "mode": "view"
+    },
+    {
+        "key": "orders.invoice_data",
+        "mode": "view"
+    },
+    {
+        "key": "orders.mark_paid",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.notes.index",
+        "mode": "view"
+    },
+    {
+        "key": "orders.notes.store",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.refunds.index",
+        "mode": "view"
+    },
+    {
+        "key": "orders.refunds.store",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.show",
+        "mode": "view"
+    },
+    {
+        "key": "products.addons.index",
+        "mode": "view"
+    },
+    {
+        "key": "products.addons.store",
+        "mode": "manage"
+    },
+    {
+        "key": "products.attributes.index",
+        "mode": "view"
+    },
+    {
+        "key": "products.attributes.set",
+        "mode": "manage"
+    },
+    {
+        "key": "products.bulk_status",
+        "mode": "manage"
+    },
+    {
+        "key": "products.categories.index",
+        "mode": "view"
+    },
+    {
+        "key": "products.categories.set",
+        "mode": "manage"
+    },
+    {
+        "key": "products.children.index",
+        "mode": "view"
+    },
+    {
+        "key": "products.children.set",
+        "mode": "manage"
+    },
+    {
+        "key": "products.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "products.index",
+        "mode": "view"
+    },
+    {
+        "key": "products.media.attach",
+        "mode": "manage"
+    },
+    {
+        "key": "products.media.index",
+        "mode": "view"
+    },
+    {
+        "key": "products.media.reorder",
+        "mode": "manage"
+    },
+    {
+        "key": "products.orders.index",
+        "mode": "view"
+    },
+    {
+        "key": "products.show",
+        "mode": "view"
+    },
+    {
+        "key": "products.stock.index",
+        "mode": "view"
+    },
+    {
+        "key": "products.store",
+        "mode": "manage"
+    },
+    {
+        "key": "products.tags.index",
+        "mode": "view"
+    },
+    {
+        "key": "products.tags.set",
+        "mode": "manage"
+    },
+    {
+        "key": "products.update",
+        "mode": "manage"
+    },
+    {
+        "key": "products.variants.store",
+        "mode": "manage"
+    },
+    {
+        "key": "refunds.list",
+        "mode": "view"
+    },
+    {
+        "key": "refunds.show",
+        "mode": "view"
+    },
+    {
+        "key": "reports.customers",
+        "mode": "view"
+    },
+    {
+        "key": "reports.products",
+        "mode": "view"
+    },
+    {
+        "key": "reports.sales",
+        "mode": "view"
+    },
+    {
+        "key": "reports.stock",
+        "mode": "view"
+    },
+    {
+        "key": "reviews.approve",
+        "mode": "manage"
+    },
+    {
+        "key": "reviews.bulk",
+        "mode": "manage"
+    },
+    {
+        "key": "reviews.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "reviews.index",
+        "mode": "view"
+    },
+    {
+        "key": "reviews.show",
+        "mode": "view"
+    },
+    {
+        "key": "reviews.spam",
+        "mode": "manage"
+    },
+    {
+        "key": "reviews.store",
+        "mode": "manage"
+    },
+    {
+        "key": "shipping.classes.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "shipping.classes.index",
+        "mode": "view"
+    },
+    {
+        "key": "shipping.classes.show",
+        "mode": "view"
+    },
+    {
+        "key": "shipping.classes.store",
+        "mode": "manage"
+    },
+    {
+        "key": "shipping.classes.update",
+        "mode": "manage"
+    },
+    {
+        "key": "shipping.methods.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "shipping.methods.show",
+        "mode": "view"
+    },
+    {
+        "key": "shipping.methods.update",
+        "mode": "manage"
+    },
+    {
+        "key": "shipping.zones.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "shipping.zones.index",
+        "mode": "view"
+    },
+    {
+        "key": "shipping.zones.locations.set",
+        "mode": "manage"
+    },
+    {
+        "key": "shipping.zones.methods.index",
+        "mode": "view"
+    },
+    {
+        "key": "shipping.zones.methods.store",
+        "mode": "manage"
+    },
+    {
+        "key": "shipping.zones.show",
+        "mode": "view"
+    },
+    {
+        "key": "shipping.zones.store",
+        "mode": "manage"
+    },
+    {
+        "key": "shipping.zones.update",
+        "mode": "manage"
+    },
+    {
+        "key": "stock.adjust",
+        "mode": "manage"
+    },
+    {
+        "key": "tags.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "tags.index",
+        "mode": "view"
+    },
+    {
+        "key": "tags.show",
+        "mode": "view"
+    },
+    {
+        "key": "tags.store",
+        "mode": "manage"
+    },
+    {
+        "key": "tags.update",
+        "mode": "manage"
+    },
+    {
+        "key": "tax.rates.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "tax.rates.index",
+        "mode": "view"
+    },
+    {
+        "key": "tax.rates.show",
+        "mode": "view"
+    },
+    {
+        "key": "tax.rates.store",
+        "mode": "manage"
+    },
+    {
+        "key": "tax.rates.update",
+        "mode": "manage"
+    },
+    {
+        "key": "variants.bulk_price",
+        "mode": "manage"
+    },
+    {
+        "key": "variants.downloads.attach",
+        "mode": "manage"
+    },
+    {
+        "key": "variants.downloads.index",
+        "mode": "view"
+    },
+    {
+        "key": "variants.update",
+        "mode": "manage"
+    }
+]

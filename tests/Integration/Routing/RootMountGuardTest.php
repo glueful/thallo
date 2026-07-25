@@ -25,6 +25,31 @@ use Symfony\Component\HttpFoundation\Request;
  */
 final class RootMountGuardTest extends AppTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // The guard's "active locale code" collision (asserted in testCollisionMatrix) reads
+        // enabled locales from i18n_locales. Seed en (default) + fr so this class owns its
+        // locale setup instead of leaning on rows a sibling suite happens to leave behind
+        // (mirrors RegionRenderingTest) — on a fresh CI database, no earlier test in this
+        // class's shard seeds locales, and the collision matrix silently loses the locale row.
+        $this->connection()->getPDO()->exec("DELETE FROM i18n_locales WHERE code IN ('en', 'fr')");
+        $seedNow = gmdate('Y-m-d H:i:s');
+        foreach ([['en', true], ['fr', false]] as [$code, $isDefault]) {
+            $this->connection()->table('i18n_locales')->insert([
+                'uuid' => \Glueful\Helpers\Utils::generateNanoID(),
+                'code' => $code,
+                'name' => strtoupper($code),
+                'enabled' => true,
+                'is_default' => $isDefault,
+                'fallback_locale' => $isDefault ? null : 'en',
+                'created_at' => $seedNow,
+                'updated_at' => $seedNow,
+            ]);
+        }
+    }
+
     private function guard(): RootMountGuard
     {
         return $this->container()->get(RootMountGuard::class);
