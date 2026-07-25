@@ -45,6 +45,9 @@ final class AdminOpenApiGateTest extends AppTestCase
         ['GET', '/v1/admin/commerce/entries/{entryUuid}/link'],
         ['GET', '/v1/admin/commerce/entries'],
         ['GET', '/v1/admin/commerce/meta'],
+        // Store settings (store-settings spec §3.4).
+        ['GET', '/v1/admin/commerce/settings'],
+        ['PUT', '/v1/admin/commerce/settings'],
     ];
 
     // ------------------------------------------------------------------

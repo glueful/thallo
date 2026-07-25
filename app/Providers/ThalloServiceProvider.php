@@ -1619,6 +1619,13 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            // Store-settings spec §3.3: thallo-commerce's pack-owned storage contract, satisfied
+            // by SettingsStore rows (pack-defines/app-provides — the EngineMediaUrlResolver shape).
+            \Thallo\Commerce\Settings\CommerceSettingsStore::class => [
+                'class' => \App\Settings\CommerceSettingsBridge::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             GeneralSettings::class => [
                 'class' => GeneralSettings::class,
                 'shared' => true,

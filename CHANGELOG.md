@@ -951,6 +951,26 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   unchanged.
 
 ### Added
+- **Store settings, editable from the admin** (needs glueful/commerce 1.6.0): Commerce ›
+  Settings gains a **Store** tab (now the default) editing currency, tax rate (entered as a
+  percent, stored as basis points), order number format (live preview), order payment window,
+  cart lifetime, and the low-stock threshold. Values live as ordinary `settings`-table rows —
+  per-workspace under tenancy — flowing into commerce through its new runtime-settings seam;
+  a cleared field DELETES its row so the `.env`/config default shows through, and every field
+  shows that default as help when not overridden. **Currency locks the moment any priced
+  variant exists** (every stored price is an integer in the store currency), enforced
+  server-side with a field-level validation error and surfaced as a disabled input with the
+  reason. Changes apply on the next request — no deploy, no restart.
+- **Order emails** — commerce now sends transactional email: order confirmation, payment
+  received, order fulfilled, and order canceled, each rendered through the email extension's
+  template registry so all four appear — editable, with placeholder chips and test-send — in
+  the EXISTING Settings › Email page (the Store tab links there). Sends are at-most-once per
+  template×order via idempotency keys, a mail failure never fails checkout/fulfillment (logged;
+  the notification retry queue is the recovery channel), and orders without a usable buyer
+  address skip silently. Honesty notes: no order links in the emails yet (the storefront
+  confirmation page authenticates by cookie, so a link wouldn't open — tokenized status links
+  are the follow-up), and card checkouts send both "confirmation" and "payment received"
+  (per-template switches are the other noted follow-up).
 - **Price and stock on the products list** (needs glueful/commerce 1.6.0): the catalog table
   gains Price and Stock columns — one amount for a single-variant product, a `$19.99 – $29.99`
   range plus a variant count when they differ, and the on-hand quantity for tracked inventory.

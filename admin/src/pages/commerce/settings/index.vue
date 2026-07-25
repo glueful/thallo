@@ -5,6 +5,7 @@
 // discipline).
 import { computed, ref } from 'vue'
 import { useCommerceMeta } from '@/queries/commerceMeta'
+import StorePanel from './components/StorePanel.vue'
 import ZonesPanel from './components/ZonesPanel.vue'
 import ClassesPanel from './components/ClassesPanel.vue'
 import TaxRatesPanel from './components/TaxRatesPanel.vue'
@@ -12,8 +13,11 @@ import TaxRatesPanel from './components/TaxRatesPanel.vue'
 const { data: meta } = useCommerceMeta()
 const canManage = computed(() => meta.value?.can_manage ?? false)
 
-const tab = ref('zones')
+// Store leads (store-settings spec §3.5): the runtime store configuration is the tab merchants
+// reach for first; the shipping/tax CRUD tabs follow.
+const tab = ref('store')
 const tabItems = [
+  { label: 'Store', value: 'store' },
   { label: 'Shipping zones', value: 'zones' },
   { label: 'Shipping classes', value: 'classes' },
   { label: 'Tax rates', value: 'rates' },
@@ -29,7 +33,10 @@ const tabItems = [
     <template #body>
       <UTabs v-model="tab" variant="link" :items="tabItems" :content="false" class="mb-4" data-test="settings-tabs" />
 
-      <template v-if="tab === 'zones'">
+      <template v-if="tab === 'store'">
+        <StorePanel :can-manage="canManage" />
+      </template>
+      <template v-else-if="tab === 'zones'">
         <ZonesPanel :can-manage="canManage" />
       </template>
       <template v-else-if="tab === 'classes'">

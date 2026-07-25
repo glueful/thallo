@@ -800,3 +800,80 @@ export function useCommerceTaxRateMutations() {
     }),
   }
 }
+
+// ── Store settings (store-settings spec §3.4) ───────────────────────────────────────────────────
+// `GET/PUT /commerce/settings` — the runtime-editable store settings, backed by thallo's
+// `settings` table through Commerce's settings seam. Keys EQUAL config keys; a `null` field in
+// the PUT body clears the override (the row is DELETED server-side, so the config/env default
+// shows through).
+
+export interface StoreSettingEntry {
+  value: string | number
+  default: string | number
+  overridden: boolean
+}
+
+export interface StoreSettings {
+  settings: Record<string, StoreSettingEntry>
+  currency_locked: boolean
+}
+
+export const STORE_SETTING_KEYS = [
+  'commerce.currency',
+  'commerce.tax.flat_rate_bps',
+  'commerce.orders.number_format',
+  'commerce.orders.expiry_minutes',
+  'commerce.cart.ttl_days',
+  'commerce.reports.low_stock_threshold',
+] as const
+
+export type StoreSettingKey = (typeof STORE_SETTING_KEYS)[number]
+
+/** PUT body: value = set (validated server-side), null = clear back to default, absent = untouched. */
+export type StoreSettingsSave = Partial<Record<StoreSettingKey, string | number | null>>
+
+function normalizeStoreEntry(raw: unknown): StoreSettingEntry {
+  const entry = (raw ?? {}) as Partial<StoreSettingEntry>
+  return {
+    value: entry.value ?? '',
+    default: entry.default ?? '',
+    overridden: entry.overridden === true,
+  }
+}
+
+function normalizeStoreSettings(raw: unknown): StoreSettings {
+  const data = (raw ?? {}) as { settings?: Record<string, unknown>; currency_locked?: boolean }
+  const settings: Record<string, StoreSettingEntry> = {}
+  for (const key of STORE_SETTING_KEYS) {
+    settings[key] = normalizeStoreEntry(data.settings?.[key])
+  }
+  return { settings, currency_locked: data.currency_locked === true }
+}
+
+export async function fetchStoreSettings(): Promise<StoreSettings> {
+  const { data, error, response } = await client.GET('/commerce/settings')
+  if (error) throw toApiError(error, response)
+  return normalizeStoreSettings((data as { data?: unknown } | undefined)?.data)
+}
+
+export async function saveStoreSettings(body: StoreSettingsSave): Promise<StoreSettings> {
+  const { data, error, response } = await client.PUT('/commerce/settings', { body: body as never })
+  if (error) throw toApiError(error, response)
+  return normalizeStoreSettings((data as { data?: unknown } | undefined)?.data)
+}
+
+export function useStoreSettings() {
+  return useQuery({ key: qk.commerceStoreSettings(), query: fetchStoreSettings })
+}
+
+export function useSaveStoreSettings() {
+  const cache = useQueryCache()
+  return useMutation({
+    mutation: (body: StoreSettingsSave) => saveStoreSettings(body),
+    onSettled: async () => {
+      // Currency / low-stock-threshold feed /commerce/meta too — refresh both.
+      await cache.invalidateQueries({ key: qk.commerceStoreSettings() })
+      await cache.invalidateQueries({ key: qk.commerceMeta() })
+    },
+  })
+}

@@ -53,6 +53,11 @@ const createClassMock = vi.hoisted(() => vi.fn())
 const updateClassMock = vi.hoisted(() => vi.fn())
 const deleteClassMock = vi.hoisted(() => vi.fn())
 
+// Store settings (store-settings spec §3.5): query/mutation mocks for StorePanel.
+const storeSettingsData = ref<import('@/queries/commerceSettings').StoreSettings | undefined>(undefined)
+const storeSettingsStatus = ref<'pending' | 'error' | 'success'>('success')
+const saveStoreSettingsMock = vi.hoisted(() => vi.fn())
+
 // Task 15c: tax-rate mutation mocks, same shape as the zone/class mocks above.
 const createRateMock = vi.hoisted(() => vi.fn())
 const updateRateMock = vi.hoisted(() => vi.fn())
@@ -78,6 +83,8 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
       updateClass: { mutateAsync: updateClassMock, isLoading: ref(false) },
       deleteClass: { mutateAsync: deleteClassMock, isLoading: ref(false) },
     }),
+    useStoreSettings: () => ({ data: storeSettingsData, status: storeSettingsStatus }),
+    useSaveStoreSettings: () => ({ mutateAsync: saveStoreSettingsMock, isLoading: ref(false) }),
     useCommerceTaxRates: () => ({ data: ratesPage, status: ratesStatus }),
     useCommerceTaxRateMutations: () => ({
       createRate: { mutateAsync: createRateMock, isLoading: ref(false) },
@@ -87,6 +94,7 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
   }
 })
 
+import StorePanel from '@/pages/commerce/settings/components/StorePanel.vue'
 import ZonesPanel from '@/pages/commerce/settings/components/ZonesPanel.vue'
 import ClassesPanel from '@/pages/commerce/settings/components/ClassesPanel.vue'
 import TaxRatesPanel from '@/pages/commerce/settings/components/TaxRatesPanel.vue'
@@ -1285,21 +1293,30 @@ describe('TaxRatesPanel: read-only state', () => {
 // ── Settings tab shell ───────────────────────────────────────────────────────────────────────
 
 describe('Settings page tab shell', () => {
-  it('renders all three completed tabs: Shipping zones, Shipping classes, and Tax rates', async () => {
+  it('renders all four tabs with Store leading as the default', async () => {
     const wrapper = mount(SettingsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
 
+    expect(wrapper.text()).toContain('Store')
     expect(wrapper.text()).toContain('Shipping zones')
     expect(wrapper.text()).toContain('Shipping classes')
     expect(wrapper.text()).toContain('Tax rates')
-    expect(wrapper.findComponent(ZonesPanel).exists()).toBe(true)
+    // Store is the DEFAULT tab (store-settings spec §3.5); Zones renders only after a switch.
+    expect(wrapper.findComponent(StorePanel).exists()).toBe(true)
+    expect(wrapper.findComponent(ZonesPanel).exists()).toBe(false)
   })
 
-  it('passes can_manage through to ZonesPanel', async () => {
+  it('passes can_manage through to the panels (Store default, Zones after a switch)', async () => {
     metaData.value = { ...metaData.value, can_manage: false }
     const wrapper = mount(SettingsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
 
+    expect(wrapper.findComponent(StorePanel).props('canManage')).toBe(false)
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    const zonesTab = tabs.find((t) => t.text() === 'Shipping zones')
+    await zonesTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
     expect(wrapper.findComponent(ZonesPanel).props('canManage')).toBe(false)
   })
 
@@ -1336,6 +1353,139 @@ describe('Settings page tab shell', () => {
     expect(wrapper.findComponent(ClassesPanel).exists()).toBe(false)
     expect(wrapper.findComponent(TaxRatesPanel).exists()).toBe(true)
     expect(wrapper.findComponent(TaxRatesPanel).props('canManage')).toBe(false)
+  })
+})
+
+// ── StorePanel: runtime store settings (store-settings spec §3.5) ─────────────────────────────
+
+function storeSettings(
+  overrides: Partial<import('@/queries/commerceSettings').StoreSettings> = {},
+): import('@/queries/commerceSettings').StoreSettings {
+  return {
+    settings: {
+      'commerce.currency': { value: 'USD', default: 'USD', overridden: false },
+      'commerce.tax.flat_rate_bps': { value: 0, default: 0, overridden: false },
+      'commerce.orders.number_format': { value: 'ORD-{seq}', default: 'ORD-{seq}', overridden: false },
+      'commerce.orders.expiry_minutes': { value: 60, default: 60, overridden: false },
+      'commerce.cart.ttl_days': { value: 30, default: 30, overridden: false },
+      'commerce.reports.low_stock_threshold': { value: 2, default: 2, overridden: false },
+      ...overrides.settings,
+    },
+    currency_locked: overrides.currency_locked ?? false,
+  }
+}
+
+describe('StorePanel', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    storeSettingsData.value = storeSettings()
+    storeSettingsStatus.value = 'success'
+    saveStoreSettingsMock.mockReset()
+    saveStoreSettingsMock.mockResolvedValue(storeSettings())
+  })
+
+  function mountPanel(canManage = true) {
+    return mount(StorePanel, { props: { canManage }, global: { stubs: pageStubs } })
+  }
+
+  it('hydrates every field from the effective values (bps shown as a percent)', async () => {
+    storeSettingsData.value = storeSettings({
+      settings: {
+        'commerce.currency': { value: 'GHS', default: 'USD', overridden: true },
+        'commerce.tax.flat_rate_bps': { value: 750, default: 0, overridden: true },
+      } as never,
+    })
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    expect((wrapper.find('[data-test="store-currency-input"]').element as HTMLInputElement).value).toBe('GHS')
+    // 750 bps reads as 7.5 (%).
+    expect((wrapper.find('[data-test="store-tax-input"]').element as HTMLInputElement).value).toBe('7.5')
+    expect(
+      (wrapper.find('[data-test="store-number-format-input"]').element as HTMLInputElement).value,
+    ).toBe('ORD-{seq}')
+  })
+
+  it('shows the default-help on unoverridden fields and a live number-format preview', async () => {
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Default: USD — from server config')
+    expect(wrapper.find('[data-test="store-number-format-preview"]').text()).toContain('ORD-1042')
+
+    await wrapper.find('[data-test="store-number-format-input"]').setValue('THL-{seq}')
+    expect(wrapper.find('[data-test="store-number-format-preview"]').text()).toContain('THL-1042')
+  })
+
+  it('locks the currency input with the lock reason once priced products exist', async () => {
+    storeSettingsData.value = storeSettings({ currency_locked: true })
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    const input = wrapper.find('[data-test="store-currency-input"]')
+    expect(input.attributes('disabled')).toBeDefined()
+    expect(wrapper.text()).toContain('Locked — products with priced variants exist')
+  })
+
+  it('saves percent as basis points and blanks as null (clear-to-default)', async () => {
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="store-tax-input"]').setValue('7.5')
+    await wrapper.find('[data-test="store-cart-ttl-input"]').setValue('')
+    await wrapper.find('[data-test="store-settings-save"]').trigger('click')
+    await flushPromises()
+
+    expect(saveStoreSettingsMock).toHaveBeenCalledTimes(1)
+    const body = saveStoreSettingsMock.mock.calls[0]![0]
+    expect(body['commerce.tax.flat_rate_bps']).toBe(750)
+    expect(body['commerce.cart.ttl_days']).toBeNull()
+    // Currency rides uppercased.
+    expect(body['commerce.currency']).toBe('USD')
+  })
+
+  it('maps a server field 422 onto the field', async () => {
+    // Raw framework error envelope, not a constructed ApiError — module-identity precedent
+    // documented at this file's zone 422 test.
+    saveStoreSettingsMock.mockRejectedValue({
+      success: false,
+      message: 'Validation failed',
+      error: {
+        code: 422,
+        timestamp: '2026-01-01T00:00:00Z',
+        request_id: 'req_1',
+        details: {
+          'commerce.currency':
+            'Currency is locked once priced products exist — every variant price is an integer in the store currency.',
+        },
+      },
+    })
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="store-settings-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('locked once priced products exist')
+  })
+
+  it('renders the Settings › Email pointer for order emails', async () => {
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    const pointer = wrapper.find('[data-test="store-email-pointer"]')
+    expect(pointer.exists()).toBe(true)
+    expect(pointer.text()).toContain('Settings › Email')
+  })
+
+  it('disables inputs and hides Save without manage rights', async () => {
+    const wrapper = mountPanel(false)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="store-settings-save"]').exists()).toBe(false)
+    expect(
+      wrapper.find('[data-test="store-tax-input"]').attributes('disabled'),
+    ).toBeDefined()
   })
 })
 
