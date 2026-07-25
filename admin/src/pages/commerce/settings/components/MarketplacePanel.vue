@@ -16,7 +16,7 @@ defineProps<{ canManage: boolean }>()
 
 const { success, error: notifyError } = useNotify()
 const { data: marketplace, status } = useMarketplaceSettings()
-const { activate, deactivate, saveCommission } = useMarketplaceMutations()
+const { activate, deactivate, saveCommission, setMaster } = useMarketplaceMutations()
 
 const active = computed(() => marketplace.value?.settings?.status === 'active')
 
@@ -53,6 +53,18 @@ watch(commission, () => {
 })
 
 const commissionError = ref('')
+
+async function doSetMaster(enabled: boolean): Promise<void> {
+  try {
+    await setMaster.mutateAsync(enabled)
+    success(
+      enabled ? 'Marketplace enabled' : 'Marketplace switched off',
+      enabled ? 'Activate it per workspace below.' : 'The workspace keeps its sellers and policy.',
+    )
+  } catch (e) {
+    notifyError(toApiError(e), 'Couldn’t change marketplace mode')
+  }
+}
 
 async function doActivate(): Promise<void> {
   try {
@@ -119,12 +131,21 @@ async function doSaveCommission(): Promise<void> {
 
   <div
     v-else-if="!marketplace?.master_enabled"
-    class="max-w-2xl rounded-md border border-default px-4 py-3 text-sm text-muted"
+    class="max-w-2xl space-y-3 rounded-md border border-default px-4 py-3 text-sm text-muted"
     data-test="marketplace-master-off"
   >
-    <span class="font-medium text-default">Marketplace is not enabled on this install.</span>
-    Multi-seller mode is boot-time wiring: set <code>COMMERCE_MARKETPLACE_ENABLED=true</code> in
-    <code>.env</code> and restart, then activate it per workspace here.
+    <p>
+      <span class="font-medium text-default">Marketplace mode is switched off.</span>
+      Turn it on to run this site as a multi-seller marketplace — sellers list products,
+      orders attribute to them, and commissions settle through payouts.
+    </p>
+    <UButton
+      v-if="canManage"
+      label="Enable marketplace"
+      :loading="setMaster.isLoading.value"
+      data-test="marketplace-master-enable"
+      @click="doSetMaster(true)"
+    />
   </div>
 
   <div v-else class="max-w-2xl space-y-6" data-test="marketplace-panel">
@@ -220,9 +241,25 @@ async function doSaveCommission(): Promise<void> {
       </div>
     </div>
 
+    <!-- Switching OFF entirely is offered only while the workspace is inactive — deactivate
+         first, then switch off, so the two levels can't be collapsed by one destructive click. -->
+    <div v-if="!active && canManage" class="flex justify-start">
+      <UButton
+        color="neutral"
+        variant="ghost"
+        size="sm"
+        label="Switch off marketplace mode"
+        :loading="setMaster.isLoading.value"
+        data-test="marketplace-master-disable"
+        @click="doSetMaster(false)"
+      />
+    </div>
+
     <p class="text-xs text-muted">
       Sellers, payouts, and financial reports get their own Marketplace area — this tab covers
-      activation and the workspace policy.
+      activation and the workspace policy. Commerce’s direct marketplace REST API (external
+      integrations) additionally needs <code>COMMERCE_MARKETPLACE_ENABLED</code> in the
+      environment.
     </p>
   </div>
 </template>

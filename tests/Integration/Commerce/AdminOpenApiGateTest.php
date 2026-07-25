@@ -59,6 +59,7 @@ final class AdminOpenApiGateTest extends AppTestCase
         ['POST', '/v1/admin/commerce/marketplace/activate'],
         ['POST', '/v1/admin/commerce/marketplace/deactivate'],
         ['PUT', '/v1/admin/commerce/marketplace/commission'],
+        ['PUT', '/v1/admin/commerce/marketplace/master'],
     ];
 
     // ------------------------------------------------------------------

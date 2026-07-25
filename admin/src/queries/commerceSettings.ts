@@ -1107,18 +1107,26 @@ export interface MarketplaceSellerOption {
 
 export interface MarketplaceSettings {
   master_enabled: boolean
+  /** True when the runtime switch (settings row) is set — false means the env default rules. */
+  master_overridden: boolean
   settings: MarketplaceSettingsRow | null
   sellers: MarketplaceSellerOption[]
 }
 
 function normalizeMarketplace(raw: unknown): MarketplaceSettings {
-  const data = (raw ?? {}) as { master_enabled?: unknown; settings?: unknown; sellers?: unknown }
+  const data = (raw ?? {}) as {
+    master_enabled?: unknown
+    master_overridden?: unknown
+    settings?: unknown
+    sellers?: unknown
+  }
   const row = data.settings as Record<string, unknown> | null | undefined
   const commission = ((row?.commission ?? {}) as Record<string, unknown>) || {}
   const reserve = ((row?.reserve ?? {}) as Record<string, unknown>) || {}
   const sellers = Array.isArray(data.sellers) ? data.sellers : []
   return {
     master_enabled: data.master_enabled === true,
+    master_overridden: data.master_overridden === true,
     settings:
       row && typeof row === 'object'
         ? {
@@ -1185,6 +1193,14 @@ export async function saveMarketplaceCommission(input: {
   return normalizeMarketplace((data as { data?: unknown } | undefined)?.data)
 }
 
+export async function setMarketplaceMaster(enabled: boolean | null): Promise<MarketplaceSettings> {
+  const { data, error, response } = await client.PUT('/commerce/marketplace/master', {
+    body: { enabled } as never,
+  })
+  if (error) throw toApiError(error, response)
+  return normalizeMarketplace((data as { data?: unknown } | undefined)?.data)
+}
+
 export function useMarketplaceSettings() {
   return useQuery({ key: qk.commerceMarketplaceSettings(), query: fetchMarketplaceSettings })
 }
@@ -1200,6 +1216,10 @@ export function useMarketplaceMutations() {
       onSettled: invalidate,
     }),
     deactivate: useMutation({ mutation: () => deactivateMarketplace(), onSettled: invalidate }),
+    setMaster: useMutation({
+      mutation: (enabled: boolean | null) => setMarketplaceMaster(enabled),
+      onSettled: invalidate,
+    }),
     saveCommission: useMutation({
       mutation: (input: { kind: string; bps: number | null; fixed: number | null }) =>
         saveMarketplaceCommission(input),

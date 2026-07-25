@@ -76,6 +76,7 @@ const marketplaceStatus = ref<'pending' | 'error' | 'success'>('success')
 const activateMarketplaceMock = vi.hoisted(() => vi.fn())
 const deactivateMarketplaceMock = vi.hoisted(() => vi.fn())
 const saveCommissionMock = vi.hoisted(() => vi.fn())
+const setMasterMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/queries/email', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/email')>()
@@ -118,6 +119,7 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
       activate: { mutateAsync: activateMarketplaceMock, isLoading: ref(false) },
       deactivate: { mutateAsync: deactivateMarketplaceMock, isLoading: ref(false) },
       saveCommission: { mutateAsync: saveCommissionMock, isLoading: ref(false) },
+      setMaster: { mutateAsync: setMasterMock, isLoading: ref(false) },
     }),
     useCommerceTaxRates: () => ({ data: ratesPage, status: ratesStatus }),
     useCommerceTaxRateMutations: () => ({
@@ -1803,6 +1805,7 @@ function marketplaceSettings(
 ): import('@/queries/commerceSettings').MarketplaceSettings {
   return {
     master_enabled: overrides.master_enabled ?? true,
+    master_overridden: overrides.master_overridden ?? false,
     settings:
       'settings' in overrides
         ? (overrides.settings ?? null)
@@ -1829,21 +1832,51 @@ describe('MarketplacePanel', () => {
     deactivateMarketplaceMock.mockResolvedValue(marketplaceSettings({ settings: null }))
     saveCommissionMock.mockReset()
     saveCommissionMock.mockResolvedValue(marketplaceSettings())
+    setMasterMock.mockReset()
+    setMasterMock.mockResolvedValue(marketplaceSettings())
   })
 
   function mountMarketplace(canManage = true) {
     return mount(MarketplacePanel, { props: { canManage }, global: { stubs: pageStubs } })
   }
 
-  it('shows the honest boot-time card when the master flag is off', async () => {
+  it('the master-off card offers a runtime Enable button — no env instructions', async () => {
     marketplaceData.value = marketplaceSettings({ master_enabled: false, settings: null })
     const wrapper = mountMarketplace()
     await flushPromises()
 
-    expect(wrapper.find('[data-test="marketplace-master-off"]').text()).toContain(
-      'COMMERCE_MARKETPLACE_ENABLED',
-    )
+    const card = wrapper.find('[data-test="marketplace-master-off"]')
+    expect(card.text()).toContain('Marketplace mode is switched off')
+    expect(card.text()).not.toContain('.env')
     expect(wrapper.find('[data-test="marketplace-panel"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="marketplace-master-enable"]').trigger('click')
+    await flushPromises()
+    expect(setMasterMock).toHaveBeenCalledWith(true)
+  })
+
+  it('the master-off card is read-only without manage rights', async () => {
+    marketplaceData.value = marketplaceSettings({ master_enabled: false, settings: null })
+    const wrapper = mountMarketplace(false)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="marketplace-master-enable"]').exists()).toBe(false)
+  })
+
+  it('switch-off is offered only while the workspace is inactive', async () => {
+    marketplaceData.value = marketplaceSettings({ settings: null })
+    const wrapper = mountMarketplace()
+    await flushPromises()
+
+    await wrapper.find('[data-test="marketplace-master-disable"]').trigger('click')
+    await flushPromises()
+    expect(setMasterMock).toHaveBeenCalledWith(false)
+
+    // While ACTIVE, the switch-off affordance yields to deactivate-first.
+    marketplaceData.value = marketplaceSettings()
+    const activeWrapper = mountMarketplace()
+    await flushPromises()
+    expect(activeWrapper.find('[data-test="marketplace-master-disable"]').exists()).toBe(false)
   })
 
   it('offers activation with a default-seller select while inactive', async () => {

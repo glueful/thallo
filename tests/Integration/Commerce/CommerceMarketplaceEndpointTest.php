@@ -38,6 +38,9 @@ final class CommerceMarketplaceEndpointTest extends AppTestCase
         $this->connection()->getPDO()->exec(
             "DELETE FROM commerce_marketplace_settings WHERE tenant_uuid = '{$tenant}'"
         );
+        $this->connection()->table('settings')
+            ->where(['key' => 'commerce.marketplace.enabled'])->delete();
+        $this->container()->get(\App\Settings\SettingsStore::class)->clearCache();
     }
 
     public function testMasterOffIsReportedHonestlyAndGatesEveryWrite(): void
@@ -103,6 +106,41 @@ final class CommerceMarketplaceEndpointTest extends AppTestCase
         self::assertArrayNotHasKey('activated_by', $data['settings']);
         self::assertArrayNotHasKey('uuid', $data['settings']);
         self::assertSame(['bps', 'days'], array_keys($data['settings']['reserve']));
+    }
+
+    public function testMasterToggleRoundTripsAndGatesFollowIt(): void
+    {
+        $controller = $this->controller();
+
+        // Switch ON at runtime: stored row, honest flags, writes now pass the gate.
+        $data = $this->data($controller->setMaster($this->jsonRequest('PUT', '/x', ['enabled' => true])));
+        self::assertTrue($data['master_enabled']);
+        self::assertTrue($data['master_overridden']);
+        $row = $this->connection()->table('settings')
+            ->where(['key' => 'commerce.marketplace.enabled'])->first();
+        self::assertIsArray($row);
+        self::assertSame('1', $row['value']);
+
+        $data = $this->data($controller->activate($this->actorRequest('POST', [])));
+        self::assertSame('active', $data['settings']['status']);
+
+        // The seam chain (guarded for commerce 1.6.x): checkout's fast path sees the toggle.
+        if (method_exists(\Glueful\Extensions\Commerce\Support\CommerceSettings::class, 'marketplaceEnabled')) {
+            self::assertTrue(
+                \Glueful\Extensions\Commerce\Support\CommerceSettings::marketplaceEnabled($this->appContext()),
+            );
+        }
+
+        // Clear back to the env default (off): row deleted, writes gate again.
+        $data = $this->data($controller->setMaster($this->jsonRequest('PUT', '/x', ['enabled' => null])));
+        self::assertFalse($data['master_enabled']);
+        self::assertFalse($data['master_overridden']);
+        self::assertNull(
+            $this->connection()->table('settings')
+                ->where(['key' => 'commerce.marketplace.enabled'])->first()
+        );
+        $this->expectException(ConflictException::class);
+        $controller->deactivate(Request::create('/x', 'POST'));
     }
 
     private function tenant(): string

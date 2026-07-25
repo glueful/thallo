@@ -968,10 +968,15 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   default-seller select for adopting existing products) and the workspace fallback commission
   policy (percentage-as-bps or fixed minor units), fronting commerce's own marketplace services
   through new pack endpoints (`GET /v1/admin/commerce/marketplace` + activate/deactivate/
-  commission) graded like every other settings surface. The boot-time master flag
-  (`COMMERCE_MARKETPLACE_ENABLED`) is reported honestly: while off — the default — the tab is a
-  single explanatory card and every write refuses with 409. Sellers, payouts, and financials
-  remain a future Marketplace admin area.
+  commission/master) graded like every other settings surface. The master switch is a RUNTIME
+  toggle: `commerce.marketplace.enabled` joined the settings seam (commerce ≥ 1.7.0 —
+  `MarketplaceMode::installEnabled()`, the single choke point checkout and the webhook
+  publisher re-check per call, reads through it), so the off-state card offers an "Enable
+  marketplace" button instead of `.env` instructions; the env var remains the config default
+  and ops kill-switch, and commerce's direct marketplace REST API (external integrations)
+  still requires it at boot. Switching off entirely is offered only while the workspace is
+  inactive (deactivate first). Sellers, payouts, and financials remain a future Marketplace
+  admin area.
 - **Download link lifetime on the Store tab + webhook URLs on the Payments tab**: the signed
   download-URL TTL (`commerce.downloads.url_ttl`, 60s–7d, default 300) is runtime-editable
   through the settings seam (needs commerce ≥ 1.7.0 for the stored value to reach the signer;
