@@ -1399,7 +1399,8 @@ describe('StorePanel', () => {
     const wrapper = mountPanel()
     await flushPromises()
 
-    expect((wrapper.find('[data-test="store-currency-input"]').element as HTMLInputElement).value).toBe('GHS')
+    // The currency control is a USelect now — the trigger renders the selected item's label.
+    expect(wrapper.find('[data-test="store-currency-input"]').text()).toContain('GHS')
     // 750 bps reads as 7.5 (%).
     expect((wrapper.find('[data-test="store-tax-input"]').element as HTMLInputElement).value).toBe('7.5')
     expect(

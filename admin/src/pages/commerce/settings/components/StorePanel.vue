@@ -59,6 +59,49 @@ watch(form, () => {
   if (!syncing) dirty.value = true
 })
 
+/** Curated ISO-4217 list for the dropdown — codes the storefront money formatter handles,
+ * majors + the African/zero-decimal currencies this product actually meets. The VALUE is always
+ * the bare code; an env-configured currency outside this list still renders (appended below). */
+const CURRENCIES: ReadonlyArray<{ value: string; label: string }> = [
+  { value: 'USD', label: 'USD — US Dollar' },
+  { value: 'EUR', label: 'EUR — Euro' },
+  { value: 'GBP', label: 'GBP — British Pound' },
+  { value: 'GHS', label: 'GHS — Ghanaian Cedi' },
+  { value: 'NGN', label: 'NGN — Nigerian Naira' },
+  { value: 'KES', label: 'KES — Kenyan Shilling' },
+  { value: 'ZAR', label: 'ZAR — South African Rand' },
+  { value: 'XOF', label: 'XOF — West African CFA Franc' },
+  { value: 'XAF', label: 'XAF — Central African CFA Franc' },
+  { value: 'EGP', label: 'EGP — Egyptian Pound' },
+  { value: 'MAD', label: 'MAD — Moroccan Dirham' },
+  { value: 'TZS', label: 'TZS — Tanzanian Shilling' },
+  { value: 'UGX', label: 'UGX — Ugandan Shilling' },
+  { value: 'RWF', label: 'RWF — Rwandan Franc' },
+  { value: 'CAD', label: 'CAD — Canadian Dollar' },
+  { value: 'AUD', label: 'AUD — Australian Dollar' },
+  { value: 'JPY', label: 'JPY — Japanese Yen' },
+  { value: 'CNY', label: 'CNY — Chinese Yuan' },
+  { value: 'INR', label: 'INR — Indian Rupee' },
+  { value: 'BRL', label: 'BRL — Brazilian Real' },
+  { value: 'MXN', label: 'MXN — Mexican Peso' },
+  { value: 'CHF', label: 'CHF — Swiss Franc' },
+  { value: 'SEK', label: 'SEK — Swedish Krona' },
+  { value: 'NOK', label: 'NOK — Norwegian Krone' },
+  { value: 'DKK', label: 'DKK — Danish Krone' },
+  { value: 'AED', label: 'AED — UAE Dirham' },
+  { value: 'SAR', label: 'SAR — Saudi Riyal' },
+]
+
+/** The dropdown's items — the current effective value always appears, even when it came from an
+ * env config outside the curated list (never render a select whose value isn't among options). */
+const currencyItems = computed<{ value: string; label: string }[]>(() => {
+  const current = form.currency.trim().toUpperCase()
+  if (current !== '' && !CURRENCIES.some((c) => c.value === current)) {
+    return [{ value: current, label: current }, ...CURRENCIES]
+  }
+  return [...CURRENCIES]
+})
+
 const currencyLocked = computed(() => settings.value?.currency_locked === true)
 /** Priced products, no orders yet: changing currency KEEPS the price numbers — warn honestly. */
 const currencyReinterprets = computed(
@@ -151,11 +194,11 @@ function resetField(field: keyof typeof form): void {
               : defaultHelp('commerce.currency')
         "
       >
-        <UInput
+        <USelect
           v-model="form.currency"
-          class="w-full uppercase"
-          maxlength="3"
-          placeholder="USD"
+          :items="currencyItems"
+          class="w-full"
+          placeholder="Choose a currency"
           :disabled="!canManage || currencyLocked"
           data-test="store-currency-input"
         />

@@ -24,7 +24,7 @@ describe('commerce admin module gating (thallo.commerce capability)', () => {
     expect(utilities).toEqual([])
   })
 
-  it('contributes Commerce → Overview, Products, Orders, Discounts, Settings, Reviews, Customers when thallo.commerce IS visible, with Overview FIRST', () => {
+  it('contributes Commerce → Overview, Products, Orders, Discounts, Reviews, Customers, Settings when thallo.commerce IS visible, with Overview FIRST and Settings LAST', () => {
     const [main, utilities] = visibleNav((id) => id === 'thallo.commerce', [commerceModule])
     expect(utilities).toEqual([])
     expect(main).toEqual([
@@ -39,9 +39,10 @@ describe('commerce admin module gating (thallo.commerce capability)', () => {
           { label: 'Products', to: '/commerce/products' },
           { label: 'Orders', to: '/commerce/orders' },
           { label: 'Discounts', to: '/commerce/discounts' },
-          { label: 'Settings', to: '/commerce/settings' },
           { label: 'Reviews', to: '/commerce/reviews' },
           { label: 'Customers', to: '/commerce/customers' },
+          // Settings LAST (user decision 2026-07-25): configuration trails the working surfaces.
+          { label: 'Settings', to: '/commerce/settings' },
         ],
       },
     ])

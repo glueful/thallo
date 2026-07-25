@@ -964,6 +964,11 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   working). Once an order exists, changes are rejected server-side with a field-level error
   and the input renders disabled with the reason. Changes apply on the next request — no
   deploy, no restart.
+- Store tab polish: currency is a curated dropdown (an env-configured code outside the list
+  still renders), and Commerce › Settings moved to the END of the Commerce nav. Safety: if an
+  operator enables commerce's own dormant order mailer (`COMMERCE_EMAIL_ENABLED=true`),
+  thallo's order-email sender stands down automatically — one sender at a time, never double
+  emails (the templates stay editable either way).
 - **Order emails** — commerce now sends transactional email: order confirmation, payment
   received, order fulfilled, and order canceled, each rendered through the email extension's
   template registry so all four appear — editable, with placeholder chips and test-send — in

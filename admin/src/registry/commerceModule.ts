@@ -30,9 +30,10 @@ const main: NavigationMenuItem[] = [
       { label: 'Products', to: '/commerce/products' },
       { label: 'Orders', to: '/commerce/orders' },
       { label: 'Discounts', to: '/commerce/discounts' },
-      { label: 'Settings', to: '/commerce/settings' },
       { label: 'Reviews', to: '/commerce/reviews' },
       { label: 'Customers', to: '/commerce/customers' },
+      // Settings LAST (user decision 2026-07-25): configuration trails the working surfaces.
+      { label: 'Settings', to: '/commerce/settings' },
     ],
   },
 ]
