@@ -964,6 +964,12 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   working). Once an order exists, changes are rejected server-side with a field-level error
   and the input renders disabled with the reason. Changes apply on the next request — no
   deploy, no restart.
+- **Workspace disable no longer blocked by customized starters** (policy revision, sp2c §6):
+  `customized` is a fully known, user-owned state whose provenance row survives disable, so the
+  gate now blocks only genuinely incoherent provenance — missing starters, starter-shaped
+  content without provenance, dangling/wrong-key rows, and orphaned sources. Previously any
+  site that had edited its header could never disable workspaces, and the prescribed remedy
+  (`thallo:tenant:sync`) deliberately preserves customized state — a dead end.
 - **Honest "purging" state on the Workspaces page**: a purging workspace whose purge run
   needs operator attention — dispatch never landed, the job failed, a worker died mid-run,
   or the run has sat queued untouched past a two-minute grace window (no queue worker

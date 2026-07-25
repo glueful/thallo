@@ -18,6 +18,14 @@ final class DefaultStarterCoverageCheck implements StarterCoverageCheck
     {
         $violations = [];
         foreach ($this->provenance->divergentStates() as $row) {
+            // Policy revision (2026-07-25, user decision — sp2c §6 note): `customized` no
+            // longer blocks. A customized starter is a fully KNOWN state — provenance row
+            // present, user-owned edits — and the row survives disable, so re-enablement
+            // bookkeeping stays intact. Only genuinely incoherent states still block:
+            // orphaned sources here, plus missing/provenance-less/dangling below.
+            if (($row['state'] ?? null) === 'customized') {
+                continue;
+            }
             $violations[] = sprintf(
                 '%s:%s is %s',
                 $row['definition_kind'],
