@@ -802,9 +802,28 @@ describe('ProductsTable', () => {
       props: { rows, status: 'success', canManage: true, selected: [] },
       global: { stubs: { RouterLink: RouterLinkStub } },
     })
-    const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]
+    // Index 0 is the HEADER select-all checkbox now — the first ROW checkbox is index 1.
+    const checkbox = wrapper.findAllComponents({ name: 'CheckboxRoot' })[1]
     await checkbox!.vm.$emit('update:modelValue', true)
     expect(wrapper.emitted('toggle-select')?.[0]).toEqual(['p1'])
+  })
+
+  it('the header checkbox reflects page selection and emits toggle-select-all', async () => {
+    const wrapper = mount(ProductsTable, {
+      props: { rows, status: 'success', canManage: true, selected: [] },
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+    const header = () => wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]!
+
+    expect(header().props('modelValue')).toBe(false)
+    await header().vm.$emit('update:modelValue', true)
+    expect(wrapper.emitted('toggle-select-all')).toHaveLength(1)
+
+    // Partial page selection reads as indeterminate; full selection as checked.
+    await wrapper.setProps({ selected: [rows[0]!.uuid] })
+    expect(header().props('modelValue')).toBe('indeterminate')
+    await wrapper.setProps({ selected: rows.map((r) => r.uuid) })
+    expect(header().props('modelValue')).toBe(true)
   })
 })
 

@@ -14,7 +14,7 @@ import CustomersTable from './components/CustomersTable.vue'
 const search = ref('')
 const debouncedSearch = refDebounced(search, 300)
 const page = ref(1)
-const perPage = ref(24)
+const perPage = ref(25)
 
 const SORT_OPTIONS: Array<{ label: string; value: string }> = [
   { label: 'Most recent order', value: 'last_order_at:desc' },

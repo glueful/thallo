@@ -41,7 +41,7 @@ const { success, error: notifyError } = useNotify()
 // ── Classes list ──────────────────────────────────────────────────────────────
 
 const page = ref(1)
-const perPage = ref(24)
+const perPage = ref(25)
 const filters = computed(() => ({ page: page.value, perPage: perPage.value }))
 const { data, status } = useCommerceShippingClasses(filters)
 const classes = computed<CommerceShippingClass[]>(() => data.value?.classes ?? [])

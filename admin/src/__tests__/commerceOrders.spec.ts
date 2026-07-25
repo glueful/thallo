@@ -292,7 +292,7 @@ describe('commerce orders list page', () => {
     const resolved = toValue(lastOrdersFilters.current) as { status?: string; page?: number; perPage?: number }
     expect(resolved.status).toBeUndefined()
     expect(resolved.page).toBe(1)
-    expect(resolved.perPage).toBe(24)
+    expect(resolved.perPage).toBe(25)
   })
 
   it('applies the selected status as an exact filter', async () => {

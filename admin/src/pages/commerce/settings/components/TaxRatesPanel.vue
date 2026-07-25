@@ -62,7 +62,7 @@ function locationSummary(rate: CommerceTaxRate): string | null {
 // ── Rates list ────────────────────────────────────────────────────────────────
 
 const page = ref(1)
-const perPage = ref(24)
+const perPage = ref(25)
 const filters = computed(() => ({ page: page.value, perPage: perPage.value }))
 const { data, status } = useCommerceTaxRates(filters)
 const rates = computed<CommerceTaxRate[]>(() => data.value?.rates ?? [])

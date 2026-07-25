@@ -59,7 +59,7 @@ function minorToDecimalString(minor: number, exponent: number): string {
 // ── Zones list ────────────────────────────────────────────────────────────────
 
 const page = ref(1)
-const perPage = ref(24)
+const perPage = ref(25)
 const filters = computed(() => ({ page: page.value, perPage: perPage.value }))
 const { data, status } = useCommerceShippingZones(filters)
 const zones = computed<CommerceShippingZone[]>(() => data.value?.zones ?? [])

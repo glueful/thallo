@@ -43,7 +43,7 @@ const { success, error: notifyError } = useNotify()
 const search = ref('')
 const debouncedSearch = refDebounced(search, 300)
 const page = ref(1)
-const perPage = ref(24)
+const perPage = ref(25)
 const filters = computed(() => ({
   q: debouncedSearch.value || undefined,
   page: page.value,

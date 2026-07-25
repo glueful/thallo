@@ -24,7 +24,7 @@ const canManage = computed(() => meta.value?.can_manage ?? false)
 const ALL = 'all'
 const statusFilter = ref(ALL)
 const page = ref(1)
-const perPage = ref(24)
+const perPage = ref(25)
 
 const statusFilterItems = [
   { label: 'All statuses', value: ALL },

@@ -951,6 +951,13 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   unchanged.
 
 ### Fixed
+- Product list polish (the Nuxt UI table layout): the "Select all on page" text
+  button is replaced by a real header checkbox (checked / indeterminate / empty
+  tracking the page's selection), and the search + status/type filters move out of
+  the dashboard navbar into a toolbar row with the table — search left, filters
+  right. Every commerce list's default page size is now 25 (the page-size dropdown
+  offers 10/25/50/100; the old default of 24 wasn't in the list, so the select
+  rendered a value it didn't contain).
 - Leaving the product editor (or launcher) with unsaved changes now asks through a
   real in-app modal — "Discard unsaved changes?" naming the dirty sections, with
   Keep editing / Discard changes — instead of the browser's native "thallodev.dev

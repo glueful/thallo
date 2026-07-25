@@ -260,7 +260,7 @@ describe('commerce customers list page', () => {
     expect(resolved.sort).toBe('last_order_at')
     expect(resolved.direction).toBe('desc')
     expect(resolved.page).toBe(1)
-    expect(resolved.perPage).toBe(24)
+    expect(resolved.perPage).toBe(25)
   })
 
   it('applies the selected sort option as the exact sort/direction pair', async () => {

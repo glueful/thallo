@@ -46,7 +46,7 @@ const debouncedSearch = refDebounced(search, 300)
 const statusFilter = ref(ALL)
 const typeFilter = ref(ALL)
 const page = ref(1)
-const perPage = ref(24)
+const perPage = ref(25)
 
 const statusFilterItems = [
   { label: 'All statuses', value: ALL },
@@ -135,19 +135,14 @@ async function confirmDelete() {
     <template #header>
       <UDashboardNavbar title="Products">
         <template #right>
-          <template v-if="tab === 'products'">
-            <UInput v-model="search" icon="i-lucide-search" placeholder="Search products…" class="w-56" />
-            <USelect v-model="statusFilter" :items="statusFilterItems" class="w-36" />
-            <USelect v-model="typeFilter" :items="typeFilterItems" class="w-36" />
-            <UButton
-              v-if="canManage"
-              icon="i-lucide-plus"
-              data-test="new-product"
-              @click="openCreate"
-            >
-              New product
-            </UButton>
-          </template>
+          <UButton
+            v-if="canManage && tab === 'products'"
+            icon="i-lucide-plus"
+            data-test="new-product"
+            @click="openCreate"
+          >
+            New product
+          </UButton>
         </template>
       </UDashboardNavbar>
     </template>
@@ -156,6 +151,22 @@ async function confirmDelete() {
       <UTabs v-model="tab" variant="link" :items="tabItems" :content="false" class="mb-4" />
 
       <template v-if="tab === 'products'">
+        <!-- The table toolbar (the Nuxt UI table layout): search on the left, filters on the
+             right — moved out of the dashboard navbar so the controls sit with the data. -->
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <UInput
+            v-model="search"
+            icon="i-lucide-search"
+            placeholder="Search products…"
+            class="w-64 max-w-full"
+            data-test="products-search"
+          />
+          <div class="flex items-center gap-2">
+            <USelect v-model="statusFilter" :items="statusFilterItems" class="w-36" />
+            <USelect v-model="typeFilter" :items="typeFilterItems" class="w-36" />
+          </div>
+        </div>
+
         <div
           v-if="canManage && selected.length > 0"
           class="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-default p-3"
@@ -186,24 +197,13 @@ async function confirmDelete() {
           />
         </div>
 
-        <div v-if="canManage && rows.length > 0" class="mb-2">
-          <UButton
-            size="xs"
-            color="neutral"
-            variant="ghost"
-            data-test="product-select-all"
-            @click="selectAllVisible"
-          >
-            {{ rows.every((r) => selected.includes(r.uuid)) ? 'Clear selection' : 'Select all on page' }}
-          </UButton>
-        </div>
-
         <ProductsTable
           :rows="rows"
           :status="queryStatus"
           :can-manage="canManage"
           :selected="selected"
           @toggle-select="toggleSelect"
+          @toggle-select-all="selectAllVisible"
           @delete-request="(row) => { pendingDelete = row }"
         />
 

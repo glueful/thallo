@@ -12,12 +12,23 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'toggle-select': [uuid: string]
+  'toggle-select-all': []
   'delete-request': [row: CommerceProduct]
 }>()
 
 function isSelected(uuid: string): boolean {
   return props.selected.includes(uuid)
 }
+
+// Header checkbox state (the Nuxt UI table pattern): checked when every page row is selected,
+// indeterminate when only some are — toggling asks the parent to select/clear the whole page.
+const allSelected = computed(
+  () => props.rows.length > 0 && props.rows.every((r) => props.selected.includes(r.uuid)),
+)
+const headerSelectState = computed<boolean | 'indeterminate'>(() => {
+  if (allSelected.value) return true
+  return props.rows.some((r) => props.selected.includes(r.uuid)) ? 'indeterminate' : false
+})
 
 const columns = computed<TableColumn<CommerceProduct>[]>(() => [
   ...(props.canManage ? [{ id: 'select', header: '' }] : []),
@@ -64,6 +75,15 @@ function fmtDate(v: string | null): string {
   />
 
   <UTable v-else :data="rows" :columns="columns" :ui="{ td: 'align-middle' }">
+    <template v-if="canManage" #select-header>
+      <UCheckbox
+        :model-value="headerSelectState"
+        aria-label="Select all on page"
+        data-test="product-select-all"
+        @update:model-value="emit('toggle-select-all')"
+      />
+    </template>
+
     <template v-if="canManage" #select-cell="{ row }">
       <UCheckbox
         :model-value="isSelected(row.original.uuid)"
