@@ -21,7 +21,7 @@ use Thallo\Commerce\Shop\ShopFrameEmbedding;
  */
 final class ShopFrameEmbeddingTest extends AppTestCase
 {
-    private function run_(string $adminUrl, ?Response $response = null): Response
+    private function runMiddleware(string $adminUrl, ?Response $response = null): Response
     {
         $middleware = new ShopFrameEmbedding($adminUrl);
         $result = $middleware->handle(
@@ -38,7 +38,7 @@ final class ShopFrameEmbeddingTest extends AppTestCase
         $upstream = new Response('<html></html>', 200);
         $upstream->headers->set('X-Frame-Options', 'DENY');
 
-        $result = $this->run_('https://admin.example.test', $upstream);
+        $result = $this->runMiddleware('https://admin.example.test', $upstream);
 
         self::assertSame(
             "frame-ancestors 'self' https://admin.example.test",
@@ -49,7 +49,7 @@ final class ShopFrameEmbeddingTest extends AppTestCase
 
     public function testAdminUrlPathAndCasingAreReducedToTheOriginOnly(): void
     {
-        $result = $this->run_('HTTPS://Admin.Example.Test:8443/some/path?q=1');
+        $result = $this->runMiddleware('HTTPS://Admin.Example.Test:8443/some/path?q=1');
 
         self::assertSame(
             "frame-ancestors 'self' https://admin.example.test:8443",
@@ -63,7 +63,7 @@ final class ShopFrameEmbeddingTest extends AppTestCase
             $upstream = new Response('<html></html>', 200);
             $upstream->headers->set('X-Frame-Options', 'DENY');
 
-            $result = $this->run_($bad, $upstream);
+            $result = $this->runMiddleware($bad, $upstream);
 
             self::assertFalse(
                 $result->headers->has('Content-Security-Policy'),
@@ -79,7 +79,7 @@ final class ShopFrameEmbeddingTest extends AppTestCase
         $upstream = new Response('<html></html>', 200);
         $upstream->headers->set('Content-Security-Policy', "default-src 'self'");
 
-        $result = $this->run_('https://admin.example.test', $upstream);
+        $result = $this->runMiddleware('https://admin.example.test', $upstream);
 
         self::assertSame("default-src 'self'", $result->headers->get('Content-Security-Policy'));
         // The X-Frame-Options removal still applies — the CSP owner decides framing there.
