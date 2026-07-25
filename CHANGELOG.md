@@ -951,6 +951,10 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   unchanged.
 
 ### Fixed
+- The draft product's primary action is labeled **"Publish"** (was "Activate") —
+  matching the CMS's own content vocabulary and what Woo migrants expect; the toast
+  says "Product published" and the Preview pane's draft placeholder now reads
+  "Publish the product to see it exactly as customers will."
 - The Details card's Type field now uses the launcher's own type cards (one shared
   ProductTypeCards component — Physical/Digital/External/Grouped with icons and
   taglines) instead of a bare select. When the type is locked (the product carries

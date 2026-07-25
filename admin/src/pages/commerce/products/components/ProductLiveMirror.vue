@@ -76,7 +76,7 @@ const showFrame = computed(() => props.product.status === 'active' && props.stor
       <UIcon name="i-lucide-eye-off" class="size-6" />
       <template v-if="product.status !== 'active'">
         <p class="font-medium text-default">The storefront can’t preview drafts yet.</p>
-        <p class="text-xs">Activate the product to see it exactly as customers will.</p>
+        <p class="text-xs">Publish the product to see it exactly as customers will.</p>
       </template>
       <p v-else class="text-xs">The storefront address isn’t available for this product.</p>
     </div>

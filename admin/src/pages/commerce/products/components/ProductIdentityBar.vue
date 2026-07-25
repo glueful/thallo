@@ -126,7 +126,7 @@ const statusColor = computed(() => STATUS_COLOR[props.product.status] ?? 'neutra
     <UButton
       v-if="product.status === 'draft'"
       size="sm"
-      label="Activate"
+      label="Publish"
       :loading="activating"
       data-test="identity-activate"
       @click="emit('activate')"

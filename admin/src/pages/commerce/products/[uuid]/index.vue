@@ -75,9 +75,9 @@ async function activateProduct(): Promise<void> {
   try {
     await update.mutateAsync({ uuid: p.uuid, input: { status: 'active' } })
     await coordinator.afterMutation()
-    success('Product activated', `“${p.name}” is now live in your store.`)
+    success('Product published', `“${p.name}” is now live in your store.`)
   } catch (e) {
-    notifyError(e, 'Couldn’t activate product')
+    notifyError(e, 'Couldn’t publish product')
   }
 }
 
