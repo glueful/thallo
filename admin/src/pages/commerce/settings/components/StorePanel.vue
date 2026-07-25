@@ -130,7 +130,6 @@ const numberFormatPreview = computed(() =>
   form.numberFormat.includes('{seq}') ? form.numberFormat.replace('{seq}', '1042') : null,
 )
 
-const payments = computed(() => settings.value?.payments ?? null)
 
 const fieldErrors = reactive<Record<string, string>>({})
 
@@ -358,51 +357,6 @@ function resetField(field: keyof typeof form): void {
         data-test="store-tax-reset"
         @click="resetField('taxPercent')"
       />
-    </div>
-
-    <!-- Read-only payment posture (spec §3.6): configuration lives in .env (PAYVIA_*) — the
-         server sends BOOLEANS only, never key material. -->
-    <div class="space-y-2" data-test="store-payments-status">
-      <p class="text-[0.68rem] font-bold tracking-wider text-muted uppercase">Payments</p>
-      <div
-        v-if="payments?.mode === 'manual'"
-        class="rounded-md border border-default px-3 py-2 text-sm text-muted"
-        data-test="payments-manual"
-      >
-        <span class="font-medium text-default">Manual collection</span> — no payment gateway
-        extension is installed; operators mark orders paid from the order page. Install and
-        configure a gateway (e.g. glueful/payvia) via <code>.env</code> to accept online payments.
-      </div>
-      <div v-else class="space-y-1.5">
-        <div
-          v-for="gateway in payments?.gateways ?? []"
-          :key="gateway.id"
-          class="flex flex-wrap items-center gap-2 rounded-md border border-default px-3 py-2 text-sm"
-          data-test="payments-gateway-row"
-        >
-          <span class="font-medium capitalize">{{ gateway.id }}</span>
-          <UBadge v-if="gateway.default" size="sm" variant="subtle">default</UBadge>
-          <span class="ml-auto flex items-center gap-2">
-            <UBadge :color="gateway.enabled ? 'success' : 'neutral'" variant="subtle" size="sm">
-              {{ gateway.enabled ? 'enabled' : 'disabled' }}
-            </UBadge>
-            <UBadge :color="gateway.configured ? 'success' : 'warning'" variant="subtle" size="sm">
-              {{ gateway.configured ? 'keys present' : 'keys missing' }}
-            </UBadge>
-            <UBadge
-              :color="gateway.webhook_configured ? 'success' : 'warning'"
-              variant="subtle"
-              size="sm"
-            >
-              {{ gateway.webhook_configured ? 'webhook set' : 'webhook missing' }}
-            </UBadge>
-          </span>
-        </div>
-        <p class="text-xs text-muted">
-          Gateway credentials are configured in <code>.env</code> (PAYVIA_*) and never stored in
-          the database.
-        </p>
-      </div>
     </div>
 
     <!-- Discoverability for the order emails (spec §3.5): editing lives on the EXISTING page. -->

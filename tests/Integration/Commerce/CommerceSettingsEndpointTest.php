@@ -204,15 +204,13 @@ final class CommerceSettingsEndpointTest extends AppTestCase
         $this->put(['commerce.seller.tax_id' => str_repeat('x', 65)]);
     }
 
-    public function testPaymentsStatusReportsManualModeWithoutAGatewayExtension(): void
+    public function testPaymentsMovedToItsOwnEndpoint(): void
     {
-        // This install has no payvia — the honest posture is manual collection, and the block
-        // must NEVER carry key material (booleans only, structurally impossible here).
+        // Spec §3.6 (Payments tab): the payments block left this payload for
+        // GET /v1/admin/commerce/payments — CommercePaymentsEndpointTest owns it now.
         $data = $this->data($this->controller()->show(Request::create('/x')));
 
-        self::assertSame('manual', $data['payments']['mode']);
-        self::assertNull($data['payments']['default_gateway']);
-        self::assertSame([], $data['payments']['gateways']);
+        self::assertArrayNotHasKey('payments', $data);
     }
 
     public function testCurrencyChangesFreelyOnAnEmptyStore(): void

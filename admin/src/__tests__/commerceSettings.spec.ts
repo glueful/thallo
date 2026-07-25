@@ -58,6 +58,11 @@ const storeSettingsData = ref<import('@/queries/commerceSettings').StoreSettings
 const storeSettingsStatus = ref<'pending' | 'error' | 'success'>('success')
 const saveStoreSettingsMock = vi.hoisted(() => vi.fn())
 
+// Payments settings (store-settings spec §3.6): query/mutation mocks for PaymentsPanel.
+const paymentsData = ref<import('@/queries/commerceSettings').PaymentsSettings | undefined>(undefined)
+const paymentsStatus = ref<'pending' | 'error' | 'success'>('success')
+const savePaymentsMock = vi.hoisted(() => vi.fn())
+
 // Task 15c: tax-rate mutation mocks, same shape as the zone/class mocks above.
 const createRateMock = vi.hoisted(() => vi.fn())
 const updateRateMock = vi.hoisted(() => vi.fn())
@@ -85,6 +90,8 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
     }),
     useStoreSettings: () => ({ data: storeSettingsData, status: storeSettingsStatus }),
     useSaveStoreSettings: () => ({ mutateAsync: saveStoreSettingsMock, isLoading: ref(false) }),
+    usePaymentsSettings: () => ({ data: paymentsData, status: paymentsStatus }),
+    useSavePaymentsSettings: () => ({ mutateAsync: savePaymentsMock, isLoading: ref(false) }),
     useCommerceTaxRates: () => ({ data: ratesPage, status: ratesStatus }),
     useCommerceTaxRateMutations: () => ({
       createRate: { mutateAsync: createRateMock, isLoading: ref(false) },
@@ -98,6 +105,7 @@ import StorePanel from '@/pages/commerce/settings/components/StorePanel.vue'
 import ZonesPanel from '@/pages/commerce/settings/components/ZonesPanel.vue'
 import ClassesPanel from '@/pages/commerce/settings/components/ClassesPanel.vue'
 import TaxRatesPanel from '@/pages/commerce/settings/components/TaxRatesPanel.vue'
+import PaymentsPanel from '@/pages/commerce/settings/components/PaymentsPanel.vue'
 import SettingsIndex from '@/pages/commerce/settings/index.vue'
 
 function location(overrides: Partial<CommerceShippingLocation> = {}): CommerceShippingLocation {
@@ -1374,7 +1382,6 @@ function storeSettings(
       'commerce.seller.tax_id': { value: '', default: '', overridden: false },
       ...overrides.settings,
     },
-    payments: overrides.payments ?? { mode: 'manual', default_gateway: null, gateways: [] },
     currency_locked: overrides.currency_locked ?? false,
     has_priced_products: overrides.has_priced_products ?? false,
   }
@@ -1502,37 +1509,6 @@ describe('StorePanel', () => {
     expect(body['commerce.seller.address']).toBeNull()
   })
 
-  it('shows the manual-collection payments note when no gateway extension is installed', async () => {
-    const wrapper = mountPanel()
-    await flushPromises()
-
-    expect(wrapper.find('[data-test="payments-manual"]').text()).toContain('Manual collection')
-    expect(wrapper.findAll('[data-test="payments-gateway-row"]')).toHaveLength(0)
-  })
-
-  it('renders gateway rows with boolean-only status badges', async () => {
-    storeSettingsData.value = storeSettings({
-      payments: {
-        mode: 'gateway',
-        default_gateway: 'paystack',
-        gateways: [
-          { id: 'paystack', enabled: true, configured: true, webhook_configured: true, default: true },
-          { id: 'stripe', enabled: false, configured: false, webhook_configured: false, default: false },
-        ],
-      },
-    })
-    const wrapper = mountPanel()
-    await flushPromises()
-
-    const rows = wrapper.findAll('[data-test="payments-gateway-row"]')
-    expect(rows).toHaveLength(2)
-    expect(rows[0]!.text()).toContain('paystack')
-    expect(rows[0]!.text()).toContain('default')
-    expect(rows[0]!.text()).toContain('keys present')
-    expect(rows[1]!.text()).toContain('keys missing')
-    expect(rows[1]!.text()).toContain('disabled')
-  })
-
   it('renders the Settings › Email pointer for order emails', async () => {
     const wrapper = mountPanel()
     await flushPromises()
@@ -1558,5 +1534,126 @@ describe('commerce settings route gating', () => {
     const src = readFileSync(join(process.cwd(), 'src/pages/commerce/settings/index.vue'), 'utf8')
     expect(src).toMatch(/requiresAuth:\s*true/)
     expect(src).toMatch(/requiresCapability:\s*thallo\.commerce/)
+  })
+})
+
+// ── PaymentsPanel: gateway configuration (store-settings spec §3.6) ───────────────────────────
+
+function paymentsSettings(
+  overrides: Partial<import('@/queries/commerceSettings').PaymentsSettings> = {},
+): import('@/queries/commerceSettings').PaymentsSettings {
+  return {
+    mode: overrides.mode ?? 'gateway',
+    default_gateway: overrides.default_gateway ?? { value: 'paystack', default: 'paystack', overridden: false },
+    gateways: overrides.gateways ?? [
+      {
+        id: 'paystack',
+        enabled: { value: true, default: true, overridden: false },
+        secret_key: { set: false, source: null },
+        webhook_secret: { set: false, source: null },
+        default: true,
+      },
+      {
+        id: 'stripe',
+        enabled: { value: false, default: false, overridden: false },
+        secret_key: { set: false, source: null },
+        webhook_secret: { set: false, source: null },
+        default: false,
+      },
+    ],
+  }
+}
+
+describe('PaymentsPanel', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    paymentsData.value = paymentsSettings()
+    paymentsStatus.value = 'success'
+    savePaymentsMock.mockReset()
+    savePaymentsMock.mockResolvedValue(paymentsSettings())
+  })
+
+  function mountPayments(canManage = true) {
+    return mount(PaymentsPanel, { props: { canManage }, global: { stubs: pageStubs } })
+  }
+
+  it('shows the manual-collection note when no gateway extension is installed', async () => {
+    paymentsData.value = paymentsSettings({ mode: 'manual', gateways: [] })
+    const wrapper = mountPayments()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="payments-manual"]').text()).toContain('Manual collection')
+    expect(wrapper.findAll('[data-test="payments-gateway-card"]')).toHaveLength(0)
+  })
+
+  it('renders a card per gateway with write-only secret inputs (never a stored value)', async () => {
+    paymentsData.value = paymentsSettings({
+      gateways: [
+        {
+          id: 'paystack',
+          enabled: { value: true, default: true, overridden: false },
+          secret_key: { set: true, source: 'settings' },
+          webhook_secret: { set: true, source: 'env' },
+          default: true,
+        },
+      ],
+    })
+    const wrapper = mountPayments()
+    await flushPromises()
+
+    const input = wrapper.find('[data-test="payments-secret-paystack-secret_key"]')
+    // Write-only: the input NEVER carries a stored value — only the set-state placeholder.
+    expect((input.element as HTMLInputElement).value).toBe('')
+    expect(input.attributes('placeholder')).toContain('stored')
+    expect(wrapper.text()).toContain('A key is stored (encrypted). Leave blank to keep it.')
+    expect(wrapper.text()).toContain('Using the key from .env.')
+  })
+
+  it('sends only changed fields: typed secrets ride the payload, untouched ones are absent', async () => {
+    const wrapper = mountPayments()
+    await flushPromises()
+
+    await wrapper.find('[data-test="payments-secret-paystack-secret_key"]').setValue('sk_live_new123')
+    await wrapper.find('[data-test="payments-save"]').trigger('click')
+    await flushPromises()
+
+    const body = savePaymentsMock.mock.calls[0]![0]
+    expect(body.gateways.paystack.secret_key).toBe('sk_live_new123')
+    expect(body.gateways.paystack).not.toHaveProperty('webhook_secret')
+    expect(body.gateways.paystack).not.toHaveProperty('enabled')
+    expect(body).not.toHaveProperty('default_gateway')
+  })
+
+  it('Clear sends an explicit null for a settings-stored secret', async () => {
+    paymentsData.value = paymentsSettings({
+      gateways: [
+        {
+          id: 'paystack',
+          enabled: { value: true, default: true, overridden: false },
+          secret_key: { set: true, source: 'settings' },
+          webhook_secret: { set: false, source: null },
+          default: true,
+        },
+      ],
+    })
+    const wrapper = mountPayments()
+    await flushPromises()
+
+    await wrapper.find('[data-test="payments-clear-paystack-secret_key"]').trigger('click')
+    await wrapper.find('[data-test="payments-save"]').trigger('click')
+    await flushPromises()
+
+    const body = savePaymentsMock.mock.calls[0]![0]
+    expect(body.gateways.paystack.secret_key).toBeNull()
+  })
+
+  it('hides Save and disables inputs without manage rights', async () => {
+    const wrapper = mountPayments(false)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="payments-save"]').exists()).toBe(false)
+    expect(
+      wrapper.find('[data-test="payments-secret-paystack-secret_key"]').attributes('disabled'),
+    ).toBeDefined()
   })
 })

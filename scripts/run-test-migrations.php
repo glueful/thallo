@@ -157,6 +157,14 @@ $manager->addMigrationPath(
     MigrationPriority::DEPENDENT,
     'thallo-commerce'
 );
+// glueful/payvia extension (payments/billing/invoices/provider-events/intents/transfers) —
+// installed 2026-07-25; its PayviaPaymentCollector binds the contracts PaymentCollector port,
+// so checkout touches payment_intents on every gateway-mode initiation.
+$manager->addMigrationPath(
+    $root . '/vendor/glueful/payvia/migrations',
+    MigrationPriority::DEPENDENT,
+    'glueful/payvia'
+);
 // glueful/tenancy extension (creates `tenants`/`tenant_memberships`) — LOCAL dev-link only:
 // present when the extension is symlinked into vendor/ for the two-tenant oracle harness. The
 // same tier the extension itself uses (after IDENTITY, before app DEFAULT). Absent in a plain

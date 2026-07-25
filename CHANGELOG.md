@@ -964,13 +964,21 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   working). Once an order exists, changes are rejected server-side with a field-level error
   and the input renders disabled with the reason. Changes apply on the next request — no
   deploy, no restart.
-- **Store identity + payments status on the Store tab**: store name, business address, and
-  tax ID (the invoice header — commerce's `commerce.seller.*` keys, now runtime-editable
-  through the same settings seam), plus a read-only Payments section reporting the honest
-  posture — "Manual collection" when no gateway extension is installed, or per-gateway rows
-  (enabled / keys present / webhook set, plus the default marker) when payvia is configured.
-  Booleans only: gateway credentials stay in `.env` and are never stored in the database or
-  sent to the browser.
+- **Payments is now its own Settings tab, with full gateway configuration**: default gateway,
+  per-gateway enable toggles, and the API keys themselves (secret key + webhook secret) are
+  editable in the admin — no more `.env` round-trips to configure payments. Keys are stored
+  ENCRYPTED (framework AES-256-GCM, AAD-bound to the setting key) and are write-only on the
+  wire: the server only ever reports `{set, source}` booleans back, an empty input means "keep
+  the stored value", and the explicit Clear action deletes the row so any `.env` value shows
+  through again. Values flow to payvia through its new settings seam (payvia ≥ 2.2.0), which
+  decrypts on read — `GatewayManager`, both drivers, and webhook verification all see the
+  stored keys immediately, no restart. With no gateway extension installed the tab honestly
+  reports manual collection. Payment credentials are installation-level (webhook signature
+  verification precedes tenant resolution), recorded as enforcement-time work in the spec.
+- **Store identity on the Store tab**: store name, business address, and tax ID (the invoice
+  header — commerce's `commerce.seller.*` keys, now runtime-editable through the same settings
+  seam). The read-only payments status card that briefly lived here moved into the dedicated
+  Payments tab above, upgraded to full configuration.
 - Store tab polish: currency is a curated dropdown (an env-configured code outside the list
   still renders), and Commerce › Settings moved to the END of the Commerce nav. Safety: if an
   operator enables commerce's own dormant order mailer (`COMMERCE_EMAIL_ENABLED=true`),

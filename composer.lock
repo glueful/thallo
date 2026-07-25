@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ed117f73ac1013511fdbdcc8a864f928",
+    "content-hash": "70b3c4c9a4b3e62cd29d3ddf5235d164",
     "packages": [
         {
             "name": "composer/semver",
@@ -1221,6 +1221,85 @@
                 "source": "https://github.com/glueful/meilisearch/tree/v1.6.0"
             },
             "time": "2026-06-15T01:45:19+00:00"
+        },
+        {
+            "name": "glueful/payvia",
+            "version": "v2.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/glueful/payvia.git",
+                "reference": "459350c66f6a070d7703f4be9e1a0f2b39e3e516"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/glueful/payvia/zipball/459350c66f6a070d7703f4be9e1a0f2b39e3e516",
+                "reference": "459350c66f6a070d7703f4be9e1a0f2b39e3e516",
+                "shasum": ""
+            },
+            "require": {
+                "glueful/extension-contracts": "^1.5.0",
+                "php": "^8.3",
+                "vlucas/phpdotenv": "^5.6"
+            },
+            "require-dev": {
+                "glueful/framework": "^1.71.0",
+                "phpstan/phpstan": "^1.0",
+                "phpunit/phpunit": "^10.5",
+                "squizlabs/php_codesniffer": "^3.6"
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "icon": "assets/icon.png",
+                    "name": "Payvia",
+                    "version": "2.1.0",
+                    "provider": "Glueful\\Extensions\\Payvia\\PayviaServiceProvider",
+                    "requires": {
+                        "glueful": ">=1.71.0",
+                        "extensions": []
+                    },
+                    "publisher": "glueful-team",
+                    "categories": [
+                        "payments",
+                        "billing"
+                    ],
+                    "description": "Unified payment gateway bridge for Glueful (Stripe, Paystack, and more).",
+                    "displayName": "Payvia Payments"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Glueful\\Extensions\\Payvia\\": "src/"
+                },
+                "classmap": [
+                    "migrations/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Payvia: Unified payment gateway bridge for the Glueful PHP Framework (Stripe, Paystack, Flutterwave, and more).",
+            "homepage": "https://github.com/glueful/payvia",
+            "keywords": [
+                "billing",
+                "flutterwave",
+                "payments",
+                "paystack",
+                "stripe",
+                "subscriptions"
+            ],
+            "support": {
+                "issues": "https://github.com/glueful/payvia/issues",
+                "source": "https://github.com/glueful/payvia/tree/v2.1.0"
+            },
+            "time": "2026-07-20T05:28:38+00:00"
         },
         {
             "name": "glueful/tenancy",

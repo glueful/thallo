@@ -813,22 +813,8 @@ export interface StoreSettingEntry {
   overridden: boolean
 }
 
-/** Read-only payment posture — booleans only, the server never sends key material. */
-export interface PaymentsStatus {
-  mode: 'gateway' | 'manual'
-  default_gateway: string | null
-  gateways: Array<{
-    id: string
-    enabled: boolean
-    configured: boolean
-    webhook_configured: boolean
-    default: boolean
-  }>
-}
-
 export interface StoreSettings {
   settings: Record<string, StoreSettingEntry>
-  payments: PaymentsStatus
   /** True once ORDERS exist — recorded money history; the currency lock's predicate. */
   currency_locked: boolean
   /** Priced products exist (no lock, but a currency change reinterprets their numbers). */
@@ -861,26 +847,9 @@ function normalizeStoreEntry(raw: unknown): StoreSettingEntry {
   }
 }
 
-function normalizePayments(raw: unknown): PaymentsStatus {
-  const data = (raw ?? {}) as Partial<PaymentsStatus>
-  const gateways = Array.isArray(data.gateways) ? data.gateways : []
-  return {
-    mode: data.mode === 'gateway' ? 'gateway' : 'manual',
-    default_gateway: typeof data.default_gateway === 'string' ? data.default_gateway : null,
-    gateways: gateways.map((g) => ({
-      id: String((g as { id?: unknown }).id ?? ''),
-      enabled: (g as { enabled?: unknown }).enabled === true,
-      configured: (g as { configured?: unknown }).configured === true,
-      webhook_configured: (g as { webhook_configured?: unknown }).webhook_configured === true,
-      default: (g as { default?: unknown }).default === true,
-    })),
-  }
-}
-
 function normalizeStoreSettings(raw: unknown): StoreSettings {
   const data = (raw ?? {}) as {
     settings?: Record<string, unknown>
-    payments?: unknown
     currency_locked?: boolean
     has_priced_products?: boolean
   }
@@ -890,7 +859,6 @@ function normalizeStoreSettings(raw: unknown): StoreSettings {
   }
   return {
     settings,
-    payments: normalizePayments(data.payments),
     currency_locked: data.currency_locked === true,
     has_priced_products: data.has_priced_products === true,
   }
@@ -920,6 +888,115 @@ export function useSaveStoreSettings() {
       // Currency / low-stock-threshold feed /commerce/meta too — refresh both.
       await cache.invalidateQueries({ key: qk.commerceStoreSettings() })
       await cache.invalidateQueries({ key: qk.commerceMeta() })
+    },
+  })
+}
+
+// ── Payments settings (store-settings spec §3.6) ────────────────────────────────────────────────
+// `GET/PUT /commerce/payments` — gateway configuration through payvia's settings seam. Secrets
+// are WRITE-ONLY: the server stores them encrypted and only ever reports `{set, source}`
+// booleans back; the PUT body carries a new value, `null` to clear (row deleted — env fallback
+// shows through), or omits the field to leave the stored value untouched.
+
+/** A secret field's reportable state — the server never sends key material. */
+export interface SecretFieldState {
+  set: boolean
+  source: 'settings' | 'env' | null
+}
+
+export interface PaymentsSettingEntry {
+  value: boolean
+  default: boolean
+  overridden: boolean
+}
+
+export interface PaymentsGatewayRow {
+  id: string
+  enabled: PaymentsSettingEntry
+  secret_key: SecretFieldState
+  webhook_secret: SecretFieldState
+  default: boolean
+}
+
+export interface PaymentsSettings {
+  /** `manual` = no gateway extension configures gateways (operator mark-paid is the flow). */
+  mode: 'gateway' | 'manual'
+  default_gateway: { value: string | null; default: string; overridden: boolean }
+  gateways: PaymentsGatewayRow[]
+}
+
+/** PUT body — every field optional; secrets: value = replace, null = clear, absent = keep. */
+export interface PaymentsSettingsSave {
+  default_gateway?: string | null
+  gateways?: Record<
+    string,
+    { enabled?: boolean; secret_key?: string | null; webhook_secret?: string | null }
+  >
+}
+
+function normalizeSecretState(raw: unknown): SecretFieldState {
+  const data = (raw ?? {}) as { set?: unknown; source?: unknown }
+  return {
+    set: data.set === true,
+    source: data.source === 'settings' || data.source === 'env' ? data.source : null,
+  }
+}
+
+function normalizePaymentsSettings(raw: unknown): PaymentsSettings {
+  const data = (raw ?? {}) as {
+    mode?: unknown
+    default_gateway?: unknown
+    gateways?: unknown
+  }
+  const dg = (data.default_gateway ?? {}) as { value?: unknown; default?: unknown; overridden?: unknown }
+  const gateways = Array.isArray(data.gateways) ? data.gateways : []
+  return {
+    mode: data.mode === 'gateway' ? 'gateway' : 'manual',
+    default_gateway: {
+      value: typeof dg.value === 'string' ? dg.value : null,
+      default: typeof dg.default === 'string' ? dg.default : '',
+      overridden: dg.overridden === true,
+    },
+    gateways: gateways.map((g) => {
+      const row = (g ?? {}) as Record<string, unknown>
+      const enabled = (row.enabled ?? {}) as { value?: unknown; default?: unknown; overridden?: unknown }
+      return {
+        id: String(row.id ?? ''),
+        enabled: {
+          value: enabled.value === true,
+          default: enabled.default === true,
+          overridden: enabled.overridden === true,
+        },
+        secret_key: normalizeSecretState(row.secret_key),
+        webhook_secret: normalizeSecretState(row.webhook_secret),
+        default: row.default === true,
+      }
+    }),
+  }
+}
+
+export async function fetchPaymentsSettings(): Promise<PaymentsSettings> {
+  const { data, error, response } = await client.GET('/commerce/payments')
+  if (error) throw toApiError(error, response)
+  return normalizePaymentsSettings((data as { data?: unknown } | undefined)?.data)
+}
+
+export async function savePaymentsSettings(body: PaymentsSettingsSave): Promise<PaymentsSettings> {
+  const { data, error, response } = await client.PUT('/commerce/payments', { body: body as never })
+  if (error) throw toApiError(error, response)
+  return normalizePaymentsSettings((data as { data?: unknown } | undefined)?.data)
+}
+
+export function usePaymentsSettings() {
+  return useQuery({ key: qk.commercePaymentsSettings(), query: fetchPaymentsSettings })
+}
+
+export function useSavePaymentsSettings() {
+  const cache = useQueryCache()
+  return useMutation({
+    mutation: (body: PaymentsSettingsSave) => savePaymentsSettings(body),
+    onSettled: async () => {
+      await cache.invalidateQueries({ key: qk.commercePaymentsSettings() })
     },
   })
 }
