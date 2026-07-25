@@ -30,6 +30,9 @@ return [
         // runtime enablement flow; Commerce depends on the always-on tenancy control plane, not on
         // the enforcement provider being statically enabled.
         'Glueful\Extensions\Commerce\CommerceServiceProvider',
+        // Payvia (payments gateway bridge, 2026-07-25): binds the contracts PaymentCollector port
+        // and provides the gateways the Commerce Payments settings tab configures.
+        'Glueful\Extensions\Payvia\PayviaServiceProvider',
         'Glueful\Extensions\Users\UsersServiceProvider',
         'Thallo\Analytics\AnalyticsServiceProvider',
         'Thallo\Collections\CollectionsServiceProvider',
