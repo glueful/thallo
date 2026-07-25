@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import type { CommerceProduct } from '@/queries/commerceCatalog'
+import { useMoney } from '@/composables/useMoney'
 
 const props = defineProps<{
   rows: CommerceProduct[]
@@ -35,10 +36,33 @@ const columns = computed<TableColumn<CommerceProduct>[]>(() => [
   { accessorKey: 'name', header: 'Name' },
   { accessorKey: 'slug', header: 'Slug' },
   { accessorKey: 'type', header: 'Type' },
+  { id: 'price', header: 'Price' },
+  { id: 'stock', header: 'Stock' },
   { accessorKey: 'status', header: 'Status' },
   { accessorKey: 'updated_at', header: 'Updated' },
   ...(props.canManage ? [{ id: 'actions', header: '' }] : []),
 ])
+
+// Price/stock come from the LIST summary (commerce 1.6.0). Every cell degrades to "—" when the
+// summary is absent (an older commerce) or the value is genuinely unknown — a fabricated 0 would
+// read as "out of stock", and a fabricated price would be a lie about what the merchant charges.
+const { format } = useMoney()
+function money(minor: number): string {
+  try {
+    return format(minor)
+  } catch {
+    return String(minor)
+  }
+}
+
+/** One amount for a single-variant product, a range when variants differ. */
+function priceDisplay(product: CommerceProduct): string {
+  const summary = product.summary
+  if (!summary || summary.price_from === null || summary.price_to === null) return '—'
+  return summary.price_from === summary.price_to
+    ? money(summary.price_from)
+    : `${money(summary.price_from)} – ${money(summary.price_to)}`
+}
 
 function statusColor(s: string): 'success' | 'neutral' {
   return s === 'active' ? 'success' : 'neutral'
@@ -106,6 +130,32 @@ function fmtDate(v: string | null): string {
 
     <template #type-cell="{ row }">
       <UBadge color="neutral" variant="subtle" size="sm">{{ row.original.type }}</UBadge>
+    </template>
+
+    <template #price-cell="{ row }">
+      <span class="text-sm whitespace-nowrap text-default" data-test="product-price">
+        {{ priceDisplay(row.original) }}
+      </span>
+      <span
+        v-if="(row.original.summary?.variant_count ?? 0) > 1"
+        class="ml-1 text-xs text-muted whitespace-nowrap"
+      >
+        · {{ row.original.summary?.variant_count }} variants
+      </span>
+    </template>
+
+    <template #stock-cell="{ row }">
+      <!-- Tracked → the number (0 is a REAL zero: genuinely out of stock). Untracked or
+           unknown → an honest dash, never a fabricated quantity. -->
+      <span
+        v-if="row.original.summary?.stock_tracked && row.original.summary?.stock_quantity !== null"
+        class="text-sm"
+        :class="(row.original.summary?.stock_quantity ?? 0) > 0 ? 'text-default' : 'text-warning'"
+        data-test="product-stock"
+      >
+        {{ row.original.summary?.stock_quantity }}
+      </span>
+      <span v-else class="text-sm text-muted" data-test="product-stock">—</span>
     </template>
 
     <template #status-cell="{ row }">

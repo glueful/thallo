@@ -808,6 +808,99 @@ describe('ProductsTable', () => {
     expect(wrapper.emitted('toggle-select')?.[0]).toEqual(['p1'])
   })
 
+  // ── Price/stock columns (commerce 1.6.0's list summary) ─────────────────────────────────────
+
+  it('renders the formatted price (a range for multi-variant) and the tracked stock quantity', () => {
+    const wrapper = mount(ProductsTable, {
+      props: {
+        rows: [
+          product({
+            uuid: 'p1',
+            summary: {
+              variant_count: 1,
+              price_from: 70000,
+              price_to: 70000,
+              currency: 'USD',
+              stock_quantity: 5,
+              stock_tracked: true,
+            },
+          }),
+          product({
+            uuid: 'p2',
+            slug: 'gadget',
+            summary: {
+              variant_count: 3,
+              price_from: 1999,
+              price_to: 2999,
+              currency: 'USD',
+              stock_quantity: 0,
+              stock_tracked: true,
+            },
+          }),
+        ],
+        status: 'success',
+        canManage: true,
+        selected: [],
+      },
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+
+    const prices = wrapper.findAll('[data-test="product-price"]')
+    expect(prices[0]!.text()).toBe('$700.00')
+    expect(prices[1]!.text()).toBe('$19.99 – $29.99')
+    // The multi-variant row also says HOW many variants that range spans.
+    expect(wrapper.text()).toContain('3 variants')
+
+    const stock = wrapper.findAll('[data-test="product-stock"]')
+    expect(stock[0]!.text()).toBe('5')
+    // A tracked ZERO is a real quantity — shown, not dashed.
+    expect(stock[1]!.text()).toBe('0')
+  })
+
+  it('shows "—" for untracked, unknown, and summary-less rows — never a fabricated 0', () => {
+    const wrapper = mount(ProductsTable, {
+      props: {
+        rows: [
+          // Untracked inventory.
+          product({
+            uuid: 'p1',
+            summary: {
+              variant_count: 1,
+              price_from: 500,
+              price_to: 500,
+              currency: 'USD',
+              stock_quantity: null,
+              stock_tracked: false,
+            },
+          }),
+          // Tracked but UNKNOWN (a variant lost its stock row) — the honest dash.
+          product({
+            uuid: 'p2',
+            slug: 'gadget',
+            summary: {
+              variant_count: 2,
+              price_from: 500,
+              price_to: 900,
+              currency: 'USD',
+              stock_quantity: null,
+              stock_tracked: true,
+            },
+          }),
+          // No summary at all (an older commerce): price dashes too, never a crash.
+          product({ uuid: 'p3', slug: 'gizmo' }),
+        ],
+        status: 'success',
+        canManage: true,
+        selected: [],
+      },
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+
+    const stock = wrapper.findAll('[data-test="product-stock"]')
+    expect(stock.map((s) => s.text())).toEqual(['—', '—', '—'])
+    expect(wrapper.findAll('[data-test="product-price"]')[2]!.text()).toBe('—')
+  })
+
   it('the header checkbox reflects page selection and emits toggle-select-all', async () => {
     const wrapper = mount(ProductsTable, {
       props: { rows, status: 'success', canManage: true, selected: [] },

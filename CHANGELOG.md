@@ -950,6 +950,14 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   description) with prose styling in `shop.css`; legacy plain-text descriptions render
   unchanged.
 
+### Added
+- **Price and stock on the products list** (needs glueful/commerce 1.6.0): the catalog table
+  gains Price and Stock columns — one amount for a single-variant product, a `$19.99 – $29.99`
+  range plus a variant count when they differ, and the on-hand quantity for tracked inventory.
+  Both degrade honestly: untracked inventory, an unknown total (a variant missing its stock
+  row), and an older commerce that doesn't send the summary all render "—", never a fabricated
+  0 that would read as "out of stock". A tracked zero IS shown, in warning color.
+
 ### Fixed
 - The draft product's primary action is labeled **"Publish"** (was "Activate") —
   matching the CMS's own content vocabulary and what Woo migrants expect; the toast

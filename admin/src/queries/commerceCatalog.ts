@@ -54,6 +54,23 @@ export interface CommerceProduct {
    * fixes. Updates REPLACE the whole column server-side, so editors must merge existing keys
    * into any metadata payload, never send a fragment. */
   metadata: Record<string, unknown>
+  /** The LIST summary (commerce 1.6.0) — additive keys the paginated list attaches so a catalog
+   * table can show price/stock without per-row requests. Absent on the show/create/update
+   * responses (which carry real `variants` instead) and on an older commerce, so every consumer
+   * must degrade to "—" rather than assume a number. */
+  summary?: ProductListSummary
+}
+
+/** `stock_quantity` is null both when nothing is tracked AND when the total is UNKNOWN (a variant
+ * lost its `commerce_stock` row) — never a fabricated zero that would read as "out of stock". */
+export interface ProductListSummary {
+  variant_count: number
+  /** Minor units; equal to `price_to` for a single-variant product. Null with no variants. */
+  price_from: number | null
+  price_to: number | null
+  currency: string | null
+  stock_quantity: number | null
+  stock_tracked: boolean
 }
 
 export interface ProductListFilters {
@@ -691,6 +708,27 @@ function normalizeProduct(raw: Record<string, unknown>): CommerceProduct {
       raw.metadata !== null && typeof raw.metadata === 'object' && !Array.isArray(raw.metadata)
         ? { ...(raw.metadata as Record<string, unknown>) }
         : {},
+    ...normalizeListSummary(raw),
+  }
+}
+
+/** The list-only price/stock summary (commerce 1.6.0). Returns undefined — so the key stays
+ * ABSENT, never a fabricated zeroed summary — whenever the payload doesn't carry it (product
+ * show/create/update responses, or an older commerce that predates the enrichment). */
+function normalizeListSummary(
+  raw: Record<string, unknown>,
+): { summary: ProductListSummary } | undefined {
+  if (typeof raw.variant_count !== 'number') return undefined
+  const num = (value: unknown): number | null => (typeof value === 'number' ? value : null)
+  return {
+    summary: {
+      variant_count: raw.variant_count,
+      price_from: num(raw.price_from),
+      price_to: num(raw.price_to),
+      currency: typeof raw.currency === 'string' ? raw.currency : null,
+      stock_quantity: num(raw.stock_quantity),
+      stock_tracked: raw.stock_tracked === true,
+    },
   }
 }
 
