@@ -964,6 +964,12 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   working). Once an order exists, changes are rejected server-side with a field-level error
   and the input renders disabled with the reason. Changes apply on the next request — no
   deploy, no restart.
+- **Download link lifetime on the Store tab + webhook URLs on the Payments tab**: the signed
+  download-URL TTL (`commerce.downloads.url_ttl`, 60s–7d, default 300) is runtime-editable
+  through the settings seam (needs commerce ≥ 1.7.0 for the stored value to reach the signer;
+  the field itself works on 1.6.x), and each Payments gateway card now shows the copy-able
+  `/webhooks/{gateway}` URL for the gateway dashboard — origin from the canonical public-origin
+  resolver, never the request Host header.
 - **Emails is now its own Commerce Settings tab — switches + relocated templates**: the four
   buyer order emails (confirmation, payment, fulfillment, cancellation) gained per-template
   on/off switches (`GET/PUT /v1/admin/commerce/emails`; settings rows over pack-config defaults,

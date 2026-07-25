@@ -1392,6 +1392,7 @@ function storeSettings(
       'commerce.orders.expiry_minutes': { value: 60, default: 60, overridden: false },
       'commerce.cart.ttl_days': { value: 30, default: 30, overridden: false },
       'commerce.reports.low_stock_threshold': { value: 2, default: 2, overridden: false },
+      'commerce.downloads.url_ttl': { value: 300, default: 300, overridden: false },
       'commerce.seller.name': { value: '', default: '', overridden: false },
       'commerce.seller.address': { value: '', default: '', overridden: false },
       'commerce.seller.tax_id': { value: '', default: '', overridden: false },
@@ -1515,6 +1516,7 @@ describe('StorePanel', () => {
 
     await wrapper.find('[data-test="store-seller-name-input"]').setValue('Aurora Lighting Co.')
     await wrapper.find('[data-test="store-seller-tax-id-input"]').setValue('GH-TIN-0042')
+    await wrapper.find('[data-test="store-downloads-ttl-input"]').setValue('3600')
     await wrapper.find('[data-test="store-settings-save"]').trigger('click')
     await flushPromises()
 
@@ -1522,6 +1524,7 @@ describe('StorePanel', () => {
     expect(body['commerce.seller.name']).toBe('Aurora Lighting Co.')
     expect(body['commerce.seller.tax_id']).toBe('GH-TIN-0042')
     expect(body['commerce.seller.address']).toBeNull()
+    expect(body['commerce.downloads.url_ttl']).toBe('3600')
   })
 
   it('renders the Settings › Email pointer for order emails', async () => {
@@ -1567,6 +1570,7 @@ function paymentsSettings(
         secret_key: { set: false, source: null },
         webhook_secret: { set: false, source: null },
         default: true,
+        webhook_url: 'https://shop.example/webhooks/paystack',
       },
       {
         id: 'stripe',
@@ -1574,6 +1578,7 @@ function paymentsSettings(
         secret_key: { set: false, source: null },
         webhook_secret: { set: false, source: null },
         default: false,
+        webhook_url: 'https://shop.example/webhooks/stripe',
       },
     ],
   }
@@ -1610,6 +1615,7 @@ describe('PaymentsPanel', () => {
           secret_key: { set: true, source: 'settings' },
           webhook_secret: { set: true, source: 'env' },
           default: true,
+          webhook_url: 'https://shop.example/webhooks/paystack',
         },
       ],
     })
@@ -1622,6 +1628,10 @@ describe('PaymentsPanel', () => {
     expect(input.attributes('placeholder')).toContain('stored')
     expect(wrapper.text()).toContain('A key is stored (encrypted). Leave blank to keep it.')
     expect(wrapper.text()).toContain('Using the key from .env.')
+    // The copy-able dashboard URL renders per card.
+    const urlRow = wrapper.find('[data-test="payments-webhook-url-paystack"]')
+    expect(urlRow.text()).toContain('https://shop.example/webhooks/paystack')
+    expect(wrapper.find('[data-test="payments-webhook-copy-paystack"]').exists()).toBe(true)
   })
 
   it('sends only changed fields: typed secrets ride the payload, untouched ones are absent', async () => {
@@ -1648,6 +1658,7 @@ describe('PaymentsPanel', () => {
           secret_key: { set: true, source: 'settings' },
           webhook_secret: { set: false, source: null },
           default: true,
+          webhook_url: 'https://shop.example/webhooks/paystack',
         },
       ],
     })

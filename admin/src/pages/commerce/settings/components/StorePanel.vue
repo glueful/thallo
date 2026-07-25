@@ -30,6 +30,7 @@ const form = reactive({
   expiryMinutes: '',
   cartTtlDays: '',
   lowStockThreshold: '',
+  downloadsUrlTtl: '',
   sellerName: '',
   sellerAddress: '',
   sellerTaxId: '',
@@ -48,6 +49,7 @@ function hydrate(): void {
   form.expiryMinutes = String(s.settings['commerce.orders.expiry_minutes']?.value ?? '')
   form.cartTtlDays = String(s.settings['commerce.cart.ttl_days']?.value ?? '')
   form.lowStockThreshold = String(s.settings['commerce.reports.low_stock_threshold']?.value ?? '')
+  form.downloadsUrlTtl = String(s.settings['commerce.downloads.url_ttl']?.value ?? '')
   form.sellerName = String(s.settings['commerce.seller.name']?.value ?? '')
   form.sellerAddress = String(s.settings['commerce.seller.address']?.value ?? '')
   form.sellerTaxId = String(s.settings['commerce.seller.tax_id']?.value ?? '')
@@ -152,6 +154,8 @@ async function submit(): Promise<void> {
     'commerce.cart.ttl_days': form.cartTtlDays.trim() === '' ? null : form.cartTtlDays.trim(),
     'commerce.reports.low_stock_threshold':
       form.lowStockThreshold.trim() === '' ? null : form.lowStockThreshold.trim(),
+    'commerce.downloads.url_ttl':
+      form.downloadsUrlTtl.trim() === '' ? null : form.downloadsUrlTtl.trim(),
     'commerce.seller.name': form.sellerName.trim() === '' ? null : form.sellerName.trim(),
     'commerce.seller.address': form.sellerAddress.trim() === '' ? null : form.sellerAddress.trim(),
     'commerce.seller.tax_id': form.sellerTaxId.trim() === '' ? null : form.sellerTaxId.trim(),
@@ -286,6 +290,20 @@ function resetField(field: keyof typeof form): void {
           class="w-full"
           :disabled="!canManage"
           data-test="store-low-stock-input"
+        />
+      </UFormField>
+
+      <UFormField
+        label="Download link lifetime (seconds)"
+        :error="fieldErrors['commerce.downloads.url_ttl']"
+        :help="defaultHelp('commerce.downloads.url_ttl') ?? 'Signed download URLs expire after this many seconds (60–604800).'"
+      >
+        <UInput
+          v-model="form.downloadsUrlTtl"
+          inputmode="numeric"
+          class="w-full"
+          :disabled="!canManage"
+          data-test="store-downloads-ttl-input"
         />
       </UFormField>
     </div>

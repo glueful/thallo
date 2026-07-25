@@ -828,6 +828,7 @@ export const STORE_SETTING_KEYS = [
   'commerce.orders.expiry_minutes',
   'commerce.cart.ttl_days',
   'commerce.reports.low_stock_threshold',
+  'commerce.downloads.url_ttl',
   'commerce.seller.name',
   'commerce.seller.address',
   'commerce.seller.tax_id',
@@ -916,6 +917,8 @@ export interface PaymentsGatewayRow {
   secret_key: SecretFieldState
   webhook_secret: SecretFieldState
   default: boolean
+  /** Absolute URL for the gateway dashboard's webhook field; null when no origin is resolvable. */
+  webhook_url: string | null
 }
 
 export interface PaymentsSettings {
@@ -970,6 +973,7 @@ function normalizePaymentsSettings(raw: unknown): PaymentsSettings {
         secret_key: normalizeSecretState(row.secret_key),
         webhook_secret: normalizeSecretState(row.webhook_secret),
         default: row.default === true,
+        webhook_url: typeof row.webhook_url === 'string' ? row.webhook_url : null,
       }
     }),
   }

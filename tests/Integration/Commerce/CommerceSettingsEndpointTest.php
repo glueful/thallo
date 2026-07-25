@@ -198,6 +198,33 @@ final class CommerceSettingsEndpointTest extends AppTestCase
         self::assertFalse($cleared['settings']['commerce.seller.name']['overridden']);
     }
 
+    public function testDownloadsUrlTtlRoundTripsAndReachesTheCommerceSigner(): void
+    {
+        $data = $this->data($this->put(['commerce.downloads.url_ttl' => 3600]));
+
+        self::assertSame(3600, $data['settings']['commerce.downloads.url_ttl']['value']);
+        self::assertTrue($data['settings']['commerce.downloads.url_ttl']['overridden']);
+
+        // The seam chain, guarded so this file stays green on commerce 1.6.x (the reader
+        // ships in 1.7.0): stored row → SettingsStoreCommerceOverride → CommerceSettings.
+        if (method_exists(\Glueful\Extensions\Commerce\Support\CommerceSettings::class, 'downloadsUrlTtl')) {
+            self::assertSame(
+                3600,
+                \Glueful\Extensions\Commerce\Support\CommerceSettings::downloadsUrlTtl($this->appContext()),
+            );
+        }
+
+        // Clear → config default (300) shows through.
+        $data = $this->data($this->put(['commerce.downloads.url_ttl' => null]));
+        self::assertSame(300, $data['settings']['commerce.downloads.url_ttl']['value']);
+    }
+
+    public function testDownloadsUrlTtlBoundsAreEnforced(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->put(['commerce.downloads.url_ttl' => 59]);
+    }
+
     public function testSellerIdentityLengthBoundsAreEnforced(): void
     {
         $this->expectException(ValidationException::class);
