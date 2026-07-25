@@ -964,6 +964,13 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   working). Once an order exists, changes are rejected server-side with a field-level error
   and the input renders disabled with the reason. Changes apply on the next request — no
   deploy, no restart.
+- **Disable wizard: `disabled_widened` no longer dead-ends on "Continue"**: the panel mapped
+  the disable direction's resting state to the RE-ENABLE entry (`begin`) behind a generic
+  "Continue" label — while the run still awaited fresh-boot verification, begin refuses, so
+  clicking Continue produced "Disabled-widened mode is awaiting fresh-boot verification" with
+  no way forward. The awaiting-verification sub-state now offers "Verify and finish disable"
+  (the settle path — `disable()` again), and the settled state offers an explicit
+  "Re-enable workspaces" instead of a bare Continue.
 - **Workspace disable no longer blocked by customized starters** (policy revision, sp2c §6):
   `customized` is a fully known, user-owned state whose provenance row survives disable, so the
   gate now blocks only genuinely incoherent provenance — missing starters, starter-shaped

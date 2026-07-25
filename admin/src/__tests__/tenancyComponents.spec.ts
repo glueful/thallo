@@ -45,6 +45,53 @@ describe('tenancy components', () => {
     expect(wrapper.emitted('confirm')?.[0]).toEqual([{ slug: 'default', name: 'Default' }])
   })
 
+  it('disabled_widened awaiting verification settles via disable, never begin', async () => {
+    const wrapper = mount(EnablementPanel, {
+      props: {
+        status: {
+          step: 'disabled_widened',
+          enabled: false,
+          schema_state: 'widened',
+          progress: 100,
+          reloading: true,
+          mode: 'bootstrap_default',
+          pending_slug: null,
+          pending_name: null,
+          failure: null,
+          cli_fallback: null,
+        },
+      },
+      global: { stubs: { UButton, UBadge, UProgress, FirstTenantConfirmForm } },
+    })
+    expect(wrapper.text()).toContain('Verify and finish disable')
+    await wrapper.find('[data-testid="enablement-action-disable"]').trigger('click')
+    expect(wrapper.emitted('action')?.[0]).toEqual(['disable'])
+  })
+
+  it('settled disabled_widened offers an explicit re-enable, not a bare Continue', async () => {
+    const wrapper = mount(EnablementPanel, {
+      props: {
+        status: {
+          step: 'disabled_widened',
+          enabled: false,
+          schema_state: 'widened',
+          progress: 100,
+          reloading: false,
+          mode: 'bootstrap_default',
+          pending_slug: null,
+          pending_name: null,
+          failure: null,
+          cli_fallback: null,
+        },
+      },
+      global: { stubs: { UButton, UBadge, UProgress, FirstTenantConfirmForm } },
+    })
+    expect(wrapper.text()).toContain('Re-enable workspaces')
+    expect(wrapper.text()).not.toContain('Continue')
+    await wrapper.find('[data-testid="enablement-action-begin"]').trigger('click')
+    expect(wrapper.emitted('action')?.[0]).toEqual(['begin'])
+  })
+
   it('falls back to the confirm form when retry data is missing', () => {
     const wrapper = mount(EnablementPanel, {
       props: {

@@ -10,6 +10,11 @@ const emit = defineEmits<{
 
 const action = computed(() => {
   const step = props.status.step
+  // disabled_widened is the disable direction's RESTING state, with one transient sub-state:
+  // while `reloading` (the retrofit guard persists) the run awaits fresh-boot verification —
+  // the settle path is disable() again, never begin() (begin is the RE-ENABLE entry and
+  // refuses with "awaiting fresh-boot verification" until settled, a dead-end Continue).
+  if (step === 'disabled_widened') return props.status.reloading ? 'disable' : 'begin'
   if (
     [
       'off',
@@ -19,7 +24,6 @@ const action = computed(() => {
       'migrating_extension',
       'awaiting_provider_boot',
       'enabling_enforcement',
-      'disabled_widened',
     ].includes(step)
   )
     return 'begin'
@@ -29,6 +33,9 @@ const action = computed(() => {
   return null
 })
 const label = computed(() => {
+  if (props.status.step === 'disabled_widened') {
+    return props.status.reloading ? 'Verify and finish disable' : 'Re-enable workspaces'
+  }
   if (action.value === 'retry') return 'Retry'
   if (action.value === 'finalize') return 'Reload and continue'
   if (action.value === 'disable') return 'Disable workspaces'
