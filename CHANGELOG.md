@@ -964,6 +964,13 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   working). Once an order exists, changes are rejected server-side with a field-level error
   and the input renders disabled with the reason. Changes apply on the next request — no
   deploy, no restart.
+- **Store identity + payments status on the Store tab**: store name, business address, and
+  tax ID (the invoice header — commerce's `commerce.seller.*` keys, now runtime-editable
+  through the same settings seam), plus a read-only Payments section reporting the honest
+  posture — "Manual collection" when no gateway extension is installed, or per-gateway rows
+  (enabled / keys present / webhook set, plus the default marker) when payvia is configured.
+  Booleans only: gateway credentials stay in `.env` and are never stored in the database or
+  sent to the browser.
 - Store tab polish: currency is a curated dropdown (an env-configured code outside the list
   still renders), and Commerce › Settings moved to the END of the Commerce nav. Safety: if an
   operator enables commerce's own dormant order mailer (`COMMERCE_EMAIL_ENABLED=true`),

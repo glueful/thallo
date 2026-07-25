@@ -30,6 +30,9 @@ const form = reactive({
   expiryMinutes: '',
   cartTtlDays: '',
   lowStockThreshold: '',
+  sellerName: '',
+  sellerAddress: '',
+  sellerTaxId: '',
 })
 const dirty = ref(false)
 let syncing = false
@@ -45,6 +48,9 @@ function hydrate(): void {
   form.expiryMinutes = String(s.settings['commerce.orders.expiry_minutes']?.value ?? '')
   form.cartTtlDays = String(s.settings['commerce.cart.ttl_days']?.value ?? '')
   form.lowStockThreshold = String(s.settings['commerce.reports.low_stock_threshold']?.value ?? '')
+  form.sellerName = String(s.settings['commerce.seller.name']?.value ?? '')
+  form.sellerAddress = String(s.settings['commerce.seller.address']?.value ?? '')
+  form.sellerTaxId = String(s.settings['commerce.seller.tax_id']?.value ?? '')
   dirty.value = false
   queueMicrotask(() => {
     syncing = false
@@ -124,6 +130,8 @@ const numberFormatPreview = computed(() =>
   form.numberFormat.includes('{seq}') ? form.numberFormat.replace('{seq}', '1042') : null,
 )
 
+const payments = computed(() => settings.value?.payments ?? null)
+
 const fieldErrors = reactive<Record<string, string>>({})
 
 async function submit(): Promise<void> {
@@ -145,6 +153,9 @@ async function submit(): Promise<void> {
     'commerce.cart.ttl_days': form.cartTtlDays.trim() === '' ? null : form.cartTtlDays.trim(),
     'commerce.reports.low_stock_threshold':
       form.lowStockThreshold.trim() === '' ? null : form.lowStockThreshold.trim(),
+    'commerce.seller.name': form.sellerName.trim() === '' ? null : form.sellerName.trim(),
+    'commerce.seller.address': form.sellerAddress.trim() === '' ? null : form.sellerAddress.trim(),
+    'commerce.seller.tax_id': form.sellerTaxId.trim() === '' ? null : form.sellerTaxId.trim(),
   }
 
   try {
@@ -280,6 +291,56 @@ function resetField(field: keyof typeof form): void {
       </UFormField>
     </div>
 
+    <!-- Store identity (spec §3.6): the invoice header — name, address, tax id. -->
+    <div class="space-y-4">
+      <p class="text-[0.68rem] font-bold tracking-wider text-muted uppercase">Store identity</p>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <UFormField
+          label="Store name"
+          :error="fieldErrors['commerce.seller.name']"
+          :help="defaultHelp('commerce.seller.name') ?? 'Shown on invoices and order emails.'"
+        >
+          <UInput
+            v-model="form.sellerName"
+            class="w-full"
+            maxlength="200"
+            :disabled="!canManage"
+            data-test="store-seller-name-input"
+          />
+        </UFormField>
+
+        <UFormField
+          label="Tax ID"
+          :error="fieldErrors['commerce.seller.tax_id']"
+          help="Optional — VAT/TIN shown on invoices."
+        >
+          <UInput
+            v-model="form.sellerTaxId"
+            class="w-full"
+            maxlength="64"
+            :disabled="!canManage"
+            data-test="store-seller-tax-id-input"
+          />
+        </UFormField>
+
+        <UFormField
+          label="Business address"
+          class="sm:col-span-2"
+          :error="fieldErrors['commerce.seller.address']"
+          help="Optional — shown on invoices."
+        >
+          <UTextarea
+            v-model="form.sellerAddress"
+            :rows="2"
+            class="w-full"
+            maxlength="500"
+            :disabled="!canManage"
+            data-test="store-seller-address-input"
+          />
+        </UFormField>
+      </div>
+    </div>
+
     <div class="flex flex-wrap items-center gap-3">
       <UButton
         v-if="canManage"
@@ -297,6 +358,51 @@ function resetField(field: keyof typeof form): void {
         data-test="store-tax-reset"
         @click="resetField('taxPercent')"
       />
+    </div>
+
+    <!-- Read-only payment posture (spec §3.6): configuration lives in .env (PAYVIA_*) — the
+         server sends BOOLEANS only, never key material. -->
+    <div class="space-y-2" data-test="store-payments-status">
+      <p class="text-[0.68rem] font-bold tracking-wider text-muted uppercase">Payments</p>
+      <div
+        v-if="payments?.mode === 'manual'"
+        class="rounded-md border border-default px-3 py-2 text-sm text-muted"
+        data-test="payments-manual"
+      >
+        <span class="font-medium text-default">Manual collection</span> — no payment gateway
+        extension is installed; operators mark orders paid from the order page. Install and
+        configure a gateway (e.g. glueful/payvia) via <code>.env</code> to accept online payments.
+      </div>
+      <div v-else class="space-y-1.5">
+        <div
+          v-for="gateway in payments?.gateways ?? []"
+          :key="gateway.id"
+          class="flex flex-wrap items-center gap-2 rounded-md border border-default px-3 py-2 text-sm"
+          data-test="payments-gateway-row"
+        >
+          <span class="font-medium capitalize">{{ gateway.id }}</span>
+          <UBadge v-if="gateway.default" size="sm" variant="subtle">default</UBadge>
+          <span class="ml-auto flex items-center gap-2">
+            <UBadge :color="gateway.enabled ? 'success' : 'neutral'" variant="subtle" size="sm">
+              {{ gateway.enabled ? 'enabled' : 'disabled' }}
+            </UBadge>
+            <UBadge :color="gateway.configured ? 'success' : 'warning'" variant="subtle" size="sm">
+              {{ gateway.configured ? 'keys present' : 'keys missing' }}
+            </UBadge>
+            <UBadge
+              :color="gateway.webhook_configured ? 'success' : 'warning'"
+              variant="subtle"
+              size="sm"
+            >
+              {{ gateway.webhook_configured ? 'webhook set' : 'webhook missing' }}
+            </UBadge>
+          </span>
+        </div>
+        <p class="text-xs text-muted">
+          Gateway credentials are configured in <code>.env</code> (PAYVIA_*) and never stored in
+          the database.
+        </p>
+      </div>
     </div>
 
     <!-- Discoverability for the order emails (spec §3.5): editing lives on the EXISTING page. -->

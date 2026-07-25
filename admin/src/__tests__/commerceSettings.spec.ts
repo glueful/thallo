@@ -1369,8 +1369,12 @@ function storeSettings(
       'commerce.orders.expiry_minutes': { value: 60, default: 60, overridden: false },
       'commerce.cart.ttl_days': { value: 30, default: 30, overridden: false },
       'commerce.reports.low_stock_threshold': { value: 2, default: 2, overridden: false },
+      'commerce.seller.name': { value: '', default: '', overridden: false },
+      'commerce.seller.address': { value: '', default: '', overridden: false },
+      'commerce.seller.tax_id': { value: '', default: '', overridden: false },
       ...overrides.settings,
     },
+    payments: overrides.payments ?? { mode: 'manual', default_gateway: null, gateways: [] },
     currency_locked: overrides.currency_locked ?? false,
     has_priced_products: overrides.has_priced_products ?? false,
   }
@@ -1481,6 +1485,52 @@ describe('StorePanel', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('locked once priced products exist')
+  })
+
+  it('saves the store identity fields, blank as null', async () => {
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    await wrapper.find('[data-test="store-seller-name-input"]').setValue('Aurora Lighting Co.')
+    await wrapper.find('[data-test="store-seller-tax-id-input"]').setValue('GH-TIN-0042')
+    await wrapper.find('[data-test="store-settings-save"]').trigger('click')
+    await flushPromises()
+
+    const body = saveStoreSettingsMock.mock.calls[0]![0]
+    expect(body['commerce.seller.name']).toBe('Aurora Lighting Co.')
+    expect(body['commerce.seller.tax_id']).toBe('GH-TIN-0042')
+    expect(body['commerce.seller.address']).toBeNull()
+  })
+
+  it('shows the manual-collection payments note when no gateway extension is installed', async () => {
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="payments-manual"]').text()).toContain('Manual collection')
+    expect(wrapper.findAll('[data-test="payments-gateway-row"]')).toHaveLength(0)
+  })
+
+  it('renders gateway rows with boolean-only status badges', async () => {
+    storeSettingsData.value = storeSettings({
+      payments: {
+        mode: 'gateway',
+        default_gateway: 'paystack',
+        gateways: [
+          { id: 'paystack', enabled: true, configured: true, webhook_configured: true, default: true },
+          { id: 'stripe', enabled: false, configured: false, webhook_configured: false, default: false },
+        ],
+      },
+    })
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    const rows = wrapper.findAll('[data-test="payments-gateway-row"]')
+    expect(rows).toHaveLength(2)
+    expect(rows[0]!.text()).toContain('paystack')
+    expect(rows[0]!.text()).toContain('default')
+    expect(rows[0]!.text()).toContain('keys present')
+    expect(rows[1]!.text()).toContain('keys missing')
+    expect(rows[1]!.text()).toContain('disabled')
   })
 
   it('renders the Settings › Email pointer for order emails', async () => {

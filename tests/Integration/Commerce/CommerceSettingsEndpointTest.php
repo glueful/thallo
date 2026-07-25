@@ -180,6 +180,41 @@ final class CommerceSettingsEndpointTest extends AppTestCase
         self::assertSame(1999, (int) $variant['price']);
     }
 
+    public function testSellerIdentityFieldsRoundTripAndClear(): void
+    {
+        $data = $this->data($this->put([
+            'commerce.seller.name' => 'Aurora Lighting Co.',
+            'commerce.seller.address' => "12 Osu Lane\nAccra",
+            'commerce.seller.tax_id' => 'GH-TIN-0042',
+        ]));
+
+        self::assertSame('Aurora Lighting Co.', $data['settings']['commerce.seller.name']['value']);
+        self::assertTrue($data['settings']['commerce.seller.name']['overridden']);
+        self::assertSame('GH-TIN-0042', $data['settings']['commerce.seller.tax_id']['value']);
+
+        // Clearing returns to the (null-tolerant) config default — '' on the wire.
+        $cleared = $this->data($this->put(['commerce.seller.name' => null]));
+        self::assertSame('', $cleared['settings']['commerce.seller.name']['value']);
+        self::assertFalse($cleared['settings']['commerce.seller.name']['overridden']);
+    }
+
+    public function testSellerIdentityLengthBoundsAreEnforced(): void
+    {
+        $this->expectException(ValidationException::class);
+        $this->put(['commerce.seller.tax_id' => str_repeat('x', 65)]);
+    }
+
+    public function testPaymentsStatusReportsManualModeWithoutAGatewayExtension(): void
+    {
+        // This install has no payvia — the honest posture is manual collection, and the block
+        // must NEVER carry key material (booleans only, structurally impossible here).
+        $data = $this->data($this->controller()->show(Request::create('/x')));
+
+        self::assertSame('manual', $data['payments']['mode']);
+        self::assertNull($data['payments']['default_gateway']);
+        self::assertSame([], $data['payments']['gateways']);
+    }
+
     public function testCurrencyChangesFreelyOnAnEmptyStore(): void
     {
         $data = $this->data($this->put(['commerce.currency' => 'EUR']));

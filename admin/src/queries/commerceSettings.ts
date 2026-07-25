@@ -813,8 +813,22 @@ export interface StoreSettingEntry {
   overridden: boolean
 }
 
+/** Read-only payment posture — booleans only, the server never sends key material. */
+export interface PaymentsStatus {
+  mode: 'gateway' | 'manual'
+  default_gateway: string | null
+  gateways: Array<{
+    id: string
+    enabled: boolean
+    configured: boolean
+    webhook_configured: boolean
+    default: boolean
+  }>
+}
+
 export interface StoreSettings {
   settings: Record<string, StoreSettingEntry>
+  payments: PaymentsStatus
   /** True once ORDERS exist — recorded money history; the currency lock's predicate. */
   currency_locked: boolean
   /** Priced products exist (no lock, but a currency change reinterprets their numbers). */
@@ -828,6 +842,9 @@ export const STORE_SETTING_KEYS = [
   'commerce.orders.expiry_minutes',
   'commerce.cart.ttl_days',
   'commerce.reports.low_stock_threshold',
+  'commerce.seller.name',
+  'commerce.seller.address',
+  'commerce.seller.tax_id',
 ] as const
 
 export type StoreSettingKey = (typeof STORE_SETTING_KEYS)[number]
@@ -844,9 +861,26 @@ function normalizeStoreEntry(raw: unknown): StoreSettingEntry {
   }
 }
 
+function normalizePayments(raw: unknown): PaymentsStatus {
+  const data = (raw ?? {}) as Partial<PaymentsStatus>
+  const gateways = Array.isArray(data.gateways) ? data.gateways : []
+  return {
+    mode: data.mode === 'gateway' ? 'gateway' : 'manual',
+    default_gateway: typeof data.default_gateway === 'string' ? data.default_gateway : null,
+    gateways: gateways.map((g) => ({
+      id: String((g as { id?: unknown }).id ?? ''),
+      enabled: (g as { enabled?: unknown }).enabled === true,
+      configured: (g as { configured?: unknown }).configured === true,
+      webhook_configured: (g as { webhook_configured?: unknown }).webhook_configured === true,
+      default: (g as { default?: unknown }).default === true,
+    })),
+  }
+}
+
 function normalizeStoreSettings(raw: unknown): StoreSettings {
   const data = (raw ?? {}) as {
     settings?: Record<string, unknown>
+    payments?: unknown
     currency_locked?: boolean
     has_priced_products?: boolean
   }
@@ -856,6 +890,7 @@ function normalizeStoreSettings(raw: unknown): StoreSettings {
   }
   return {
     settings,
+    payments: normalizePayments(data.payments),
     currency_locked: data.currency_locked === true,
     has_priced_products: data.has_priced_products === true,
   }
