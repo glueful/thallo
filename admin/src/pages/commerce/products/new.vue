@@ -22,6 +22,7 @@ import { useNotify } from '@/composables/useNotify'
 import { slugify } from '@/utils/slugify'
 import { parseOmnibox } from '@/utils/omniboxParse'
 import { createDirtyRegistry, useUnsavedGuard } from '@/composables/useSectionState'
+import UnsavedChangesModal from '@/components/UnsavedChangesModal.vue'
 
 const router = useRouter()
 const { success, error: notifyError } = useNotify()
@@ -99,7 +100,7 @@ const canCreate = computed(
 // ── Dirty-navigation guard (spec §5.4) — one synthetic registration, direct on the page's own
 // registry (a component cannot inject its own provide; mirrors the prior revision). ───────────
 const registry = createDirtyRegistry()
-useUnsavedGuard(registry)
+const { leaveConfirm, resolveLeave } = useUnsavedGuard(registry)
 const created = ref(false)
 const creating = ref(false)
 const touched = computed(
@@ -382,4 +383,6 @@ async function createDraft(): Promise<void> {
       </div>
     </template>
   </UDashboardPanel>
+
+  <UnsavedChangesModal :state="leaveConfirm" @resolve="resolveLeave" />
 </template>

@@ -951,6 +951,12 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   unchanged.
 
 ### Fixed
+- Leaving the product editor (or launcher) with unsaved changes now asks through a
+  real in-app modal — "Discard unsaved changes?" naming the dirty sections, with
+  Keep editing / Discard changes — instead of the browser's native "thallodev.dev
+  says…" confirm. The route guard parks the navigation on a promise until the modal
+  answers; dismissing (Esc/backdrop) safely stays. Tab close / hard refresh keeps
+  the browser's own dialog — browsers allow no custom UI there.
 - The storefront product page now looks like a store, and actually shows the
   product's images: it only ever rendered a `role='cover'` media row — but the admin
   attaches every image as `role='gallery'`, so admin-managed products shipped an

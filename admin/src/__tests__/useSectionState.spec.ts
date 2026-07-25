@@ -392,10 +392,18 @@ function controllableRegistry() {
   }
 }
 
-function makeGuardedRouteComponent(registry: DirtyRegistry) {
+/** Mounts the guard and CAPTURES its modal-state contract — the ask is no longer a native
+ * confirm() but a `leaveConfirm` ref the host page renders as UnsavedChangesModal, settled via
+ * `resolveLeave`. */
+function makeGuardedRouteComponent(
+  registry: DirtyRegistry,
+  capture: Partial<ReturnType<typeof useUnsavedGuard>> = {},
+) {
   return defineComponent({
     setup() {
-      useUnsavedGuard(registry)
+      const guard = useUnsavedGuard(registry)
+      capture.leaveConfirm = guard.leaveConfirm
+      capture.resolveLeave = guard.resolveLeave
       return () => h('div', 'guarded section page')
     },
   })
@@ -422,40 +430,50 @@ async function mountRouterAt(routeAComponent: ReturnType<typeof makeGuardedRoute
 }
 
 describe('useUnsavedGuard — onBeforeRouteLeave', () => {
-  it('allows navigation without prompting when nothing is blocked', async () => {
+  it('allows navigation without asking when nothing is blocked', async () => {
     const { registry } = controllableRegistry()
-    const { router } = await mountRouterAt(makeGuardedRouteComponent(registry))
-    const confirmSpy = vi.spyOn(window, 'confirm')
+    const capture: Partial<ReturnType<typeof useUnsavedGuard>> = {}
+    const { router } = await mountRouterAt(makeGuardedRouteComponent(registry, capture))
 
     await router.push('/b')
 
-    expect(confirmSpy).not.toHaveBeenCalled()
+    expect(capture.leaveConfirm!.value.open).toBe(false)
     expect(router.currentRoute.value.path).toBe('/b')
   })
 
-  it('prompts listing the blocked section labels, and navigates away when confirmed', async () => {
+  it('opens the ask listing the blocked section labels, and navigates away on discard', async () => {
     const { registry, setBlocked } = controllableRegistry()
     setBlocked(true, [{ id: 'pricing', label: 'Pricing' }])
-    const { router } = await mountRouterAt(makeGuardedRouteComponent(registry))
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const capture: Partial<ReturnType<typeof useUnsavedGuard>> = {}
+    const { router } = await mountRouterAt(makeGuardedRouteComponent(registry, capture))
 
-    await router.push('/b')
+    // Navigation parks on the guard's promise — the ask is open, the route unchanged.
+    const navigation = router.push('/b')
+    await flushPromises()
+    expect(capture.leaveConfirm!.value.open).toBe(true)
+    expect(capture.leaveConfirm!.value.sections).toEqual(['Pricing'])
+    expect(router.currentRoute.value.path).toBe('/a')
 
-    expect(confirmSpy).toHaveBeenCalledTimes(1)
-    expect(confirmSpy.mock.calls[0]?.[0]).toContain('Pricing')
+    capture.resolveLeave!(true)
+    await navigation
+    expect(capture.leaveConfirm!.value.open).toBe(false)
     expect(router.currentRoute.value.path).toBe('/b')
   })
 
-  it('blocks navigation and stays on the page when the user cancels the confirm', async () => {
+  it('blocks navigation and stays on the page when the user keeps editing', async () => {
     const { registry, setBlocked } = controllableRegistry()
     setBlocked(true, [{ id: 'pricing', label: 'Pricing' }])
-    const { router } = await mountRouterAt(makeGuardedRouteComponent(registry))
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const capture: Partial<ReturnType<typeof useUnsavedGuard>> = {}
+    const { router } = await mountRouterAt(makeGuardedRouteComponent(registry, capture))
 
-    const failure = await router.push('/b')
+    const navigation = router.push('/b')
+    await flushPromises()
+    capture.resolveLeave!(false)
 
+    const failure = await navigation
     expect(isNavigationFailure(failure)).toBe(true)
     expect(router.currentRoute.value.path).toBe('/a')
+    expect(capture.leaveConfirm!.value.open).toBe(false)
   })
 
   it('lists every blocked section label when multiple sections are dirty/saving', async () => {
@@ -464,14 +482,35 @@ describe('useUnsavedGuard — onBeforeRouteLeave', () => {
       { id: 'pricing', label: 'Pricing' },
       { id: 'inventory', label: 'Inventory' },
     ])
-    const { router } = await mountRouterAt(makeGuardedRouteComponent(registry))
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const capture: Partial<ReturnType<typeof useUnsavedGuard>> = {}
+    const { router } = await mountRouterAt(makeGuardedRouteComponent(registry, capture))
 
-    await router.push('/b')
+    const navigation = router.push('/b')
+    await flushPromises()
+    expect(capture.leaveConfirm!.value.sections).toEqual(['Pricing', 'Inventory'])
+    capture.resolveLeave!(true)
+    await navigation
+    expect(router.currentRoute.value.path).toBe('/b')
+  })
 
-    const message = confirmSpy.mock.calls[0]?.[0] ?? ''
-    expect(message).toContain('Pricing')
-    expect(message).toContain('Inventory')
+  it('a second navigation attempt supersedes an open ask (the first resolves "stay")', async () => {
+    const { registry, setBlocked } = controllableRegistry()
+    setBlocked(true, [{ id: 'pricing', label: 'Pricing' }])
+    const capture: Partial<ReturnType<typeof useUnsavedGuard>> = {}
+    const { router } = await mountRouterAt(makeGuardedRouteComponent(registry, capture))
+
+    const first = router.push('/b')
+    await flushPromises()
+    expect(capture.leaveConfirm!.value.open).toBe(true)
+
+    // A newer attempt while the ask is open: the ask stays open for the NEW navigation.
+    const second = router.push('/b')
+    await flushPromises()
+    expect(capture.leaveConfirm!.value.open).toBe(true)
+
+    capture.resolveLeave!(true)
+    await Promise.allSettled([first, second])
+    expect(router.currentRoute.value.path).toBe('/b')
   })
 })
 

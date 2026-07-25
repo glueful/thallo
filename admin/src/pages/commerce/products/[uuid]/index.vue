@@ -46,6 +46,7 @@ import ProductIdentityBar from '../components/ProductIdentityBar.vue'
 import ProductHealthStrip from '../components/ProductHealthStrip.vue'
 import ProductLiveMirror from '../components/ProductLiveMirror.vue'
 import ProductEntryLinkPanel from '@/components/commerce/ProductEntryLinkPanel.vue'
+import UnsavedChangesModal from '@/components/UnsavedChangesModal.vue'
 import { useProductLink } from '@/queries/commerceLinking'
 
 const route = useRoute()
@@ -58,9 +59,10 @@ const { data: meta } = useCommerceMeta()
 const canManage = computed(() => meta.value?.can_manage ?? false)
 const { remove, update } = useCommerceProductMutations()
 
-// Page-level state, wired exactly once here (Task C2 / Task C3 contracts).
+// Page-level state, wired exactly once here (Task C2 / Task C3 contracts). The guard's leave
+// ask renders as a real modal (UnsavedChangesModal) instead of the native confirm.
 const dirtyRegistry = createDirtyRegistry()
-useUnsavedGuard(dirtyRegistry)
+const { leaveConfirm, resolveLeave } = useUnsavedGuard(dirtyRegistry)
 const coordinator = useProductRevisionCoordinator()
 
 /** The identity bar's Activate — a REAL status mutation (user feedback 2026-07-24: the earlier
@@ -647,6 +649,8 @@ async function confirmDelete() {
       </div>
     </template>
   </UModal>
+
+  <UnsavedChangesModal :state="leaveConfirm" @resolve="resolveLeave" />
 </template>
 
 <route lang="yaml">

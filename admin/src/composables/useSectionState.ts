@@ -244,26 +244,54 @@ export function useSectionState(sectionId: string, label: string): SectionState 
   return { phase, dirty, markDirty, beginSave, saveSucceeded, saveFailed, markClean }
 }
 
+/** The in-app leave-confirmation ask, rendered by the host page as a real modal
+ * (`UnsavedChangesModal.vue`) instead of the browser's native `confirm()`. */
+export interface LeaveConfirm {
+  open: boolean
+  /** Labels of the blocked sections, for the modal body. */
+  sections: string[]
+}
+
 /**
  * Wires the page-level navigation guard: blocks in-app route navigation (`onBeforeRouteLeave`)
  * and a hard browser close/refresh (`beforeunload`) while `registry.isBlocked` is true, i.e. while
  * ANY registered section is dirty or mid-save (Global Constraints §10).
  *
- * No modal composable exists in this codebase for confirming destructive/discarding actions (the
- * few existing confirmations — `DropConfirmModal.vue`, `TenantPurgeModal.vue` — are bespoke
- * per-page components, not a reusable programmatic composable), so this uses the platform's own
- * synchronous confirm, the simplest mechanism available and the only one `onBeforeRouteLeave` can
- * consume synchronously without introducing new app-wide modal infrastructure.
+ * In-app navigation asks through a REAL modal (user feedback 2026-07-25 — the native confirm read
+ * as a browser artifact, not part of the app): the async route guard parks the navigation on a
+ * promise, exposes the ask as `leaveConfirm` for the host page to render
+ * (`UnsavedChangesModal.vue`), and `resolveLeave(true|false)` settles it — true releases the
+ * parked navigation, false cancels it. A NEWER navigation attempt while the ask is open
+ * supersedes it: the old promise resolves "stay" (vue-router has already cancelled that earlier
+ * navigation) and the modal re-opens for the new one.
+ *
+ * `beforeunload` (tab close / hard refresh) keeps the browser's own dialog — browsers allow no
+ * custom UI there, by design.
  */
-export function useUnsavedGuard(registry: DirtyRegistry): void {
-  function confirmMessage(): string {
-    const labels = registry.blockedSections().map((section) => section.label)
-    return `You have unsaved changes in: ${labels.join(', ')}. Leave this page and discard them?`
+export function useUnsavedGuard(registry: DirtyRegistry): {
+  leaveConfirm: Ref<LeaveConfirm>
+  resolveLeave: (leave: boolean) => void
+} {
+  const leaveConfirm = ref<LeaveConfirm>({ open: false, sections: [] })
+  let pendingResolve: ((leave: boolean) => void) | null = null
+
+  function resolveLeave(leave: boolean): void {
+    const resolve = pendingResolve
+    pendingResolve = null
+    leaveConfirm.value = { open: false, sections: [] }
+    resolve?.(leave)
   }
 
   onBeforeRouteLeave(() => {
     if (!registry.isBlocked.value) return true
-    return window.confirm(confirmMessage())
+    pendingResolve?.(false)
+    return new Promise<boolean>((resolve) => {
+      pendingResolve = resolve
+      leaveConfirm.value = {
+        open: true,
+        sections: registry.blockedSections().map((section) => section.label),
+      }
+    })
   })
 
   function handleBeforeUnload(event: BeforeUnloadEvent): void {
@@ -280,4 +308,6 @@ export function useUnsavedGuard(registry: DirtyRegistry): void {
   onUnmounted(() => {
     window.removeEventListener('beforeunload', handleBeforeUnload)
   })
+
+  return { leaveConfirm, resolveLeave }
 }
