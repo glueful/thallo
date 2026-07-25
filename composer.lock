@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "22900c230740041d88d459aec3da51ef",
+    "content-hash": "b547ec7f2422a5e3b58dffd91e38d7f7",
     "packages": [
         {
             "name": "composer/semver",
@@ -563,16 +563,16 @@
         },
         {
             "name": "glueful/commerce",
-            "version": "v1.6.0",
+            "version": "v1.7.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/commerce.git",
-                "reference": "9fa1d9718ad6929f39058bcba862628c0eee7d32"
+                "reference": "ec72304ef770fd4fb2f25736809da1d513042d4b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/commerce/zipball/9fa1d9718ad6929f39058bcba862628c0eee7d32",
-                "reference": "9fa1d9718ad6929f39058bcba862628c0eee7d32",
+                "url": "https://api.github.com/repos/glueful/commerce/zipball/ec72304ef770fd4fb2f25736809da1d513042d4b",
+                "reference": "ec72304ef770fd4fb2f25736809da1d513042d4b",
                 "shasum": ""
             },
             "require": {
@@ -590,7 +590,7 @@
                 "glueful": {
                     "icon": "assets/icon.png",
                     "name": "Commerce",
-                    "version": "1.6.0",
+                    "version": "1.7.0",
                     "provider": "Glueful\\Extensions\\Commerce\\CommerceServiceProvider",
                     "requires": {
                         "glueful": ">=1.71.0",
@@ -639,9 +639,9 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/commerce/issues",
-                "source": "https://github.com/glueful/commerce/tree/v1.6.0"
+                "source": "https://github.com/glueful/commerce/tree/v1.7.0"
             },
-            "time": "2026-07-25T20:05:48+00:00"
+            "time": "2026-07-25T22:37:53+00:00"
         },
         {
             "name": "glueful/email-notification",
@@ -813,16 +813,16 @@
         },
         {
             "name": "glueful/framework",
-            "version": "v1.71.2",
+            "version": "v1.71.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "b0f1427fd98817406b9b46728bea31654da697a1"
+                "reference": "0c19addaf863381d4c5507faf52a0cc62018efda"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/b0f1427fd98817406b9b46728bea31654da697a1",
-                "reference": "b0f1427fd98817406b9b46728bea31654da697a1",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/0c19addaf863381d4c5507faf52a0cc62018efda",
+                "reference": "0c19addaf863381d4c5507faf52a0cc62018efda",
                 "shasum": ""
             },
             "require": {
@@ -917,7 +917,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-22T03:37:05+00:00"
+            "time": "2026-07-25T22:32:26+00:00"
         },
         {
             "name": "glueful/i18n",
