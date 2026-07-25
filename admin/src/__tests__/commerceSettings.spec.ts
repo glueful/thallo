@@ -70,6 +70,13 @@ const emailSettingsStatus = ref<'pending' | 'error' | 'success'>('success')
 const saveEmailSettingsMock = vi.hoisted(() => vi.fn())
 const fetchEmailTemplatesMock = vi.hoisted(() => vi.fn())
 
+// Marketplace settings (store-settings spec §3.6): query/mutation mocks for MarketplacePanel.
+const marketplaceData = ref<import('@/queries/commerceSettings').MarketplaceSettings | undefined>(undefined)
+const marketplaceStatus = ref<'pending' | 'error' | 'success'>('success')
+const activateMarketplaceMock = vi.hoisted(() => vi.fn())
+const deactivateMarketplaceMock = vi.hoisted(() => vi.fn())
+const saveCommissionMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/queries/email', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/email')>()
   return { ...actual, fetchEmailTemplates: fetchEmailTemplatesMock }
@@ -106,6 +113,12 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
     useSavePaymentsSettings: () => ({ mutateAsync: savePaymentsMock, isLoading: ref(false) }),
     useCommerceEmailSettings: () => ({ data: emailSettingsData, status: emailSettingsStatus }),
     useSaveCommerceEmailSettings: () => ({ mutateAsync: saveEmailSettingsMock, isLoading: ref(false) }),
+    useMarketplaceSettings: () => ({ data: marketplaceData, status: marketplaceStatus }),
+    useMarketplaceMutations: () => ({
+      activate: { mutateAsync: activateMarketplaceMock, isLoading: ref(false) },
+      deactivate: { mutateAsync: deactivateMarketplaceMock, isLoading: ref(false) },
+      saveCommission: { mutateAsync: saveCommissionMock, isLoading: ref(false) },
+    }),
     useCommerceTaxRates: () => ({ data: ratesPage, status: ratesStatus }),
     useCommerceTaxRateMutations: () => ({
       createRate: { mutateAsync: createRateMock, isLoading: ref(false) },
@@ -121,6 +134,7 @@ import ClassesPanel from '@/pages/commerce/settings/components/ClassesPanel.vue'
 import TaxRatesPanel from '@/pages/commerce/settings/components/TaxRatesPanel.vue'
 import PaymentsPanel from '@/pages/commerce/settings/components/PaymentsPanel.vue'
 import EmailsPanel from '@/pages/commerce/settings/components/EmailsPanel.vue'
+import MarketplacePanel from '@/pages/commerce/settings/components/MarketplacePanel.vue'
 import SettingsIndex from '@/pages/commerce/settings/index.vue'
 
 function location(overrides: Partial<CommerceShippingLocation> = {}): CommerceShippingLocation {
@@ -1779,5 +1793,113 @@ describe('EmailsPanel', () => {
 
     const toggle = wrapper.findComponent('[data-test="emails-toggle-order_paid"]')
     expect(toggle.attributes('disabled')).toBeDefined()
+  })
+})
+
+// ── MarketplacePanel: activation + workspace commission policy (spec §3.6) ────────────────────
+
+function marketplaceSettings(
+  overrides: Partial<import('@/queries/commerceSettings').MarketplaceSettings> = {},
+): import('@/queries/commerceSettings').MarketplaceSettings {
+  return {
+    master_enabled: overrides.master_enabled ?? true,
+    settings:
+      'settings' in overrides
+        ? (overrides.settings ?? null)
+        : {
+            status: 'active',
+            default_seller_uuid: null,
+            commission: { kind: 'percentage', bps: 500, fixed: null },
+            reserve: { bps: 0, days: 0 },
+            activated_at: '2026-07-25 12:00:00',
+            revision: 1,
+          },
+    sellers: overrides.sellers ?? [],
+  }
+}
+
+describe('MarketplacePanel', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    marketplaceData.value = marketplaceSettings()
+    marketplaceStatus.value = 'success'
+    activateMarketplaceMock.mockReset()
+    activateMarketplaceMock.mockResolvedValue(marketplaceSettings())
+    deactivateMarketplaceMock.mockReset()
+    deactivateMarketplaceMock.mockResolvedValue(marketplaceSettings({ settings: null }))
+    saveCommissionMock.mockReset()
+    saveCommissionMock.mockResolvedValue(marketplaceSettings())
+  })
+
+  function mountMarketplace(canManage = true) {
+    return mount(MarketplacePanel, { props: { canManage }, global: { stubs: pageStubs } })
+  }
+
+  it('shows the honest boot-time card when the master flag is off', async () => {
+    marketplaceData.value = marketplaceSettings({ master_enabled: false, settings: null })
+    const wrapper = mountMarketplace()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="marketplace-master-off"]').text()).toContain(
+      'COMMERCE_MARKETPLACE_ENABLED',
+    )
+    expect(wrapper.find('[data-test="marketplace-panel"]').exists()).toBe(false)
+  })
+
+  it('offers activation with a default-seller select while inactive', async () => {
+    marketplaceData.value = marketplaceSettings({
+      settings: null,
+      sellers: [{ uuid: 'sel1', name: 'Aurora', status: 'active' }],
+    })
+    const wrapper = mountMarketplace()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="marketplace-status-badge"]').text()).toBe('inactive')
+    expect(wrapper.find('[data-test="marketplace-activate"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="marketplace-activate"]').trigger('click')
+    await flushPromises()
+    expect(activateMarketplaceMock).toHaveBeenCalledWith(null)
+  })
+
+  it('saves a percentage commission as bps', async () => {
+    const wrapper = mountMarketplace()
+    await flushPromises()
+
+    await wrapper.find('[data-test="marketplace-commission-percent"]').setValue('7.5')
+    await wrapper.find('[data-test="marketplace-commission-save"]').trigger('click')
+    await flushPromises()
+
+    expect(saveCommissionMock).toHaveBeenCalledWith({ kind: 'percentage', bps: 750, fixed: null })
+  })
+
+  it('rejects an out-of-range percentage locally without calling the API', async () => {
+    const wrapper = mountMarketplace()
+    await flushPromises()
+
+    await wrapper.find('[data-test="marketplace-commission-percent"]').setValue('150')
+    await wrapper.find('[data-test="marketplace-commission-save"]').trigger('click')
+    await flushPromises()
+
+    expect(saveCommissionMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('between 0 and 100')
+  })
+
+  it('deactivate rides its own button while active', async () => {
+    const wrapper = mountMarketplace()
+    await flushPromises()
+
+    await wrapper.find('[data-test="marketplace-deactivate"]').trigger('click')
+    await flushPromises()
+    expect(deactivateMarketplaceMock).toHaveBeenCalled()
+  })
+
+  it('hides every mutating control without manage rights', async () => {
+    marketplaceData.value = marketplaceSettings({ settings: null })
+    const wrapper = mountMarketplace(false)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="marketplace-activate"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="marketplace-commission-save"]').exists()).toBe(false)
   })
 })

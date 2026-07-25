@@ -287,6 +287,286 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/email/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /email/templates */
+        get: operations["getEmailTemplates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/email/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** GET /email/settings */
+        get: operations["getEmailSettings"];
+        /** PUT /email/settings */
+        put: operations["putEmailSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/email/settings/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /email/settings/test */
+        post: operations["postEmailSettingsTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/i18n/locales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Locales
+         * @description Lists all stored locales ordered by code, including disabled ones. Requires the `i18n.view` permission.
+         */
+        get: operations["i18nLocalesIndex"];
+        put?: never;
+        /**
+         * Create Locale
+         * @description Creates a stored locale. The first stored locale is forced to enabled/default. Setting `is_default` clears the previous default. Missing/malformed fields, a duplicate `code`, or a `fallback_locale` that would create a fallback cycle are rejected with 422. Body: `code` (required), `name` (required), `native_name`, `enabled`, `is_default`, `fallback_locale`, `direction` (ltr|rtl), `region`. Requires the `i18n.manage` permission.
+         */
+        post: operations["i18nLocalesStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/i18n/translations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Translations
+         * @description Lists persisted translations ordered by key, optionally filtered by locale and domain. Requires the `i18n.view` permission.
+         */
+        get: operations["i18nTranslationsIndex"];
+        put?: never;
+        /**
+         * Create or Update Translation
+         * @description Upserts a translation on its `(domain, locale, key)` identity: an existing row is updated (and reactivated) in place, otherwise a new row is inserted. Body: `key` (required), `value` (required; max 65,535 bytes, may contain {param} placeholders), `domain` (default: messages), `locale` (default: en). Requires the `i18n.manage` permission.
+         */
+        post: operations["i18nTranslationsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/i18n/missing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Missing Translations
+         * @description Lists recorded missing translation keys with hit counts, most recently seen first. Rows only accumulate while `i18n.missing_tracking` is enabled. Requires the `i18n.view` permission.
+         */
+        get: operations["i18nMissingIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/i18n/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Translation Catalog
+         * @description Imports an inline JSON catalog and upserts each row into the translation store. The `catalog` value is either a list of rows or an object with a `translations` list; each row carries `domain`, `locale`, `key`, and `value` (max 65,535 bytes). Server-side file imports are CLI-only. Body: `catalog` (required; catalog object or array of translation rows). Requires the `i18n.import` permission.
+         */
+        post: operations["i18nImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/i18n/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Translation Catalog
+         * @description Exports persisted translations as a JSON catalog, optionally filtered by locale and domain. Requires the `i18n.export` permission.
+         */
+        get: operations["i18nExport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import-export/adapters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Import/Export Adapters
+         * @description Lists the importer and exporter adapters registered through the `import_export.importer` and `import_export.exporter` service tags, with their keys and labels. Requires the `import_export.view` permission.
+         */
+        get: operations["importExportAdaptersIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import-export/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue Import Job
+         * @description Creates an import job for a registered importer adapter, plans deterministic batches, and queues one batch job per batch. Defaults to `dry_run` mode; pass `mode=commit` to write. Body: `adapter` (required; importer adapter key, see GET /import-export/adapters), `path` (required; relative source file path under the configured source disk root), `disk` (source storage disk, default: uploads), `mime_type` (optional source MIME type hint), `metadata` (optional source metadata passed to the adapter's supports()/plan(); size_bytes is ignored), `mode` (import mode: dry_run|commit, default: dry_run), `batch_size` (requested records per batch, default: 500; the adapter's plan decides), `options` (adapter-specific options, available to the adapter during plan()). Requires the `import_export.run_import` permission.
+         */
+        post: operations["importExportImportsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import-export/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue Export Job
+         * @description Creates an export job for a registered exporter adapter, plans deterministic batches, and queues one batch job per batch. Exports always run in commit mode. Body: `adapter` (required; exporter adapter key, see GET /import-export/adapters), `format` (requested output format, default: ndjson; interpreted by the adapter's plan), `batch_size` (requested records per batch, default: 500; the adapter's plan decides), `filters` (adapter-specific record filters, available to the adapter during plan()), `options` (adapter-specific options, available to the adapter during plan()). Requires the `import_export.run_export` permission.
+         */
+        post: operations["importExportExportsStore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import-export/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Import/Export Jobs
+         * @description Lists the caller's import/export jobs, newest first, optionally filtered by type and status. Users with `import_export.manage_all` can see all jobs. Requires the `import_export.view` permission.
+         */
+        get: operations["importExportJobsIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Universal search
+         * @description Performs a search query across an explicitly allowlisted index. The route requires the `meilisearch.search` permission, applies the configured server-side scope filter, and only accepts configured safe search parameters.
+         */
+        get: operations["getApiSearch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/search/admin/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get index status
+         * @description Retrieves status information for all Meilisearch indexes including primary keys, creation dates, and update timestamps. Requires admin privileges.
+         */
+        get: operations["getApiSearchAdminStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/commerce/products": {
         parameters: {
             query?: never;
@@ -767,286 +1047,6 @@ export interface paths {
         };
         /** Stock report: point-in-time out-of-stock and low-stock variants */
         get: operations["getCommerceAdminReportsStock"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/email/templates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** GET /email/templates */
-        get: operations["getEmailTemplates"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/email/settings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** GET /email/settings */
-        get: operations["getEmailSettings"];
-        /** PUT /email/settings */
-        put: operations["putEmailSettings"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/email/settings/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** POST /email/settings/test */
-        post: operations["postEmailSettingsTest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/i18n/locales": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Locales
-         * @description Lists all stored locales ordered by code, including disabled ones. Requires the `i18n.view` permission.
-         */
-        get: operations["i18nLocalesIndex"];
-        put?: never;
-        /**
-         * Create Locale
-         * @description Creates a stored locale. The first stored locale is forced to enabled/default. Setting `is_default` clears the previous default. Missing/malformed fields, a duplicate `code`, or a `fallback_locale` that would create a fallback cycle are rejected with 422. Body: `code` (required), `name` (required), `native_name`, `enabled`, `is_default`, `fallback_locale`, `direction` (ltr|rtl), `region`. Requires the `i18n.manage` permission.
-         */
-        post: operations["i18nLocalesStore"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/i18n/translations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Translations
-         * @description Lists persisted translations ordered by key, optionally filtered by locale and domain. Requires the `i18n.view` permission.
-         */
-        get: operations["i18nTranslationsIndex"];
-        put?: never;
-        /**
-         * Create or Update Translation
-         * @description Upserts a translation on its `(domain, locale, key)` identity: an existing row is updated (and reactivated) in place, otherwise a new row is inserted. Body: `key` (required), `value` (required; max 65,535 bytes, may contain {param} placeholders), `domain` (default: messages), `locale` (default: en). Requires the `i18n.manage` permission.
-         */
-        post: operations["i18nTranslationsStore"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/i18n/missing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Missing Translations
-         * @description Lists recorded missing translation keys with hit counts, most recently seen first. Rows only accumulate while `i18n.missing_tracking` is enabled. Requires the `i18n.view` permission.
-         */
-        get: operations["i18nMissingIndex"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/i18n/import": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Import Translation Catalog
-         * @description Imports an inline JSON catalog and upserts each row into the translation store. The `catalog` value is either a list of rows or an object with a `translations` list; each row carries `domain`, `locale`, `key`, and `value` (max 65,535 bytes). Server-side file imports are CLI-only. Body: `catalog` (required; catalog object or array of translation rows). Requires the `i18n.import` permission.
-         */
-        post: operations["i18nImport"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/i18n/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Export Translation Catalog
-         * @description Exports persisted translations as a JSON catalog, optionally filtered by locale and domain. Requires the `i18n.export` permission.
-         */
-        get: operations["i18nExport"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/import-export/adapters": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Import/Export Adapters
-         * @description Lists the importer and exporter adapters registered through the `import_export.importer` and `import_export.exporter` service tags, with their keys and labels. Requires the `import_export.view` permission.
-         */
-        get: operations["importExportAdaptersIndex"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/import-export/imports": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Queue Import Job
-         * @description Creates an import job for a registered importer adapter, plans deterministic batches, and queues one batch job per batch. Defaults to `dry_run` mode; pass `mode=commit` to write. Body: `adapter` (required; importer adapter key, see GET /import-export/adapters), `path` (required; relative source file path under the configured source disk root), `disk` (source storage disk, default: uploads), `mime_type` (optional source MIME type hint), `metadata` (optional source metadata passed to the adapter's supports()/plan(); size_bytes is ignored), `mode` (import mode: dry_run|commit, default: dry_run), `batch_size` (requested records per batch, default: 500; the adapter's plan decides), `options` (adapter-specific options, available to the adapter during plan()). Requires the `import_export.run_import` permission.
-         */
-        post: operations["importExportImportsStore"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/import-export/exports": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Queue Export Job
-         * @description Creates an export job for a registered exporter adapter, plans deterministic batches, and queues one batch job per batch. Exports always run in commit mode. Body: `adapter` (required; exporter adapter key, see GET /import-export/adapters), `format` (requested output format, default: ndjson; interpreted by the adapter's plan), `batch_size` (requested records per batch, default: 500; the adapter's plan decides), `filters` (adapter-specific record filters, available to the adapter during plan()), `options` (adapter-specific options, available to the adapter during plan()). Requires the `import_export.run_export` permission.
-         */
-        post: operations["importExportExportsStore"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/import-export/jobs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Import/Export Jobs
-         * @description Lists the caller's import/export jobs, newest first, optionally filtered by type and status. Users with `import_export.manage_all` can see all jobs. Requires the `import_export.view` permission.
-         */
-        get: operations["importExportJobsIndex"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/search": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Universal search
-         * @description Performs a search query across an explicitly allowlisted index. The route requires the `meilisearch.search` permission, applies the configured server-side scope filter, and only accepts configured safe search parameters.
-         */
-        get: operations["getApiSearch"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/search/admin/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get index status
-         * @description Retrieves status information for all Meilisearch indexes including primary keys, creation dates, and update timestamps. Requires admin privileges.
-         */
-        get: operations["getApiSearchAdminStatus"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2288,6 +2288,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/import-export/jobs/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Show Import/Export Job
+         * @description Retrieves one caller-owned job with its progress counters, links, and all of its batches. Users with `import_export.manage_all` can retrieve any job. Requires the `import_export.view` permission.
+         */
+        get: operations["importExportJobsShow"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import-export/jobs/{uuid}/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Import/Export Job Errors
+         * @description Retrieves the stored row errors for one caller-owned job. Errors are capped per severity; once the cap is reached, further errors only increment the job's `error_overflow_count`. Users with `import_export.manage_all` can retrieve errors for any job. Requires the `import_export.view` permission.
+         */
+        get: operations["importExportJobsErrors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import-export/jobs/{uuid}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Show Import/Export Job Report
+         * @description Returns the latest stored report for a caller-owned job, or builds one on demand from the current job state (type, adapter, status, totals, failed and overflow counts). Users with `import_export.manage_all` can retrieve reports for any job. Requires the `import_export.view` permission.
+         */
+        get: operations["importExportJobsReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/search/{index}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search specific index
+         * @description Performs a search query on a specific allowlisted index. The route requires the `meilisearch.search` permission, applies the configured server-side scope filter, and only accepts configured safe search parameters.
+         */
+        get: operations["getApiSearchByIndex"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/commerce/products/{slug}": {
         parameters: {
             query?: never;
@@ -2845,86 +2925,6 @@ export interface paths {
         patch: operations["patchCommerceAdminTaxRatesByUuid"];
         trace?: never;
     };
-    "/import-export/jobs/{uuid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Show Import/Export Job
-         * @description Retrieves one caller-owned job with its progress counters, links, and all of its batches. Users with `import_export.manage_all` can retrieve any job. Requires the `import_export.view` permission.
-         */
-        get: operations["importExportJobsShow"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/import-export/jobs/{uuid}/errors": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Import/Export Job Errors
-         * @description Retrieves the stored row errors for one caller-owned job. Errors are capped per severity; once the cap is reached, further errors only increment the job's `error_overflow_count`. Users with `import_export.manage_all` can retrieve errors for any job. Requires the `import_export.view` permission.
-         */
-        get: operations["importExportJobsErrors"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/import-export/jobs/{uuid}/report": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Show Import/Export Job Report
-         * @description Returns the latest stored report for a caller-owned job, or builds one on demand from the current job state (type, adapter, status, totals, failed and overflow counts). Users with `import_export.manage_all` can retrieve reports for any job. Requires the `import_export.view` permission.
-         */
-        get: operations["importExportJobsReport"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/search/{index}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Search specific index
-         * @description Performs a search query on a specific allowlisted index. The route requires the `meilisearch.search` permission, applies the configured server-side scope filter, and only accepts configured safe search parameters.
-         */
-        get: operations["getApiSearchByIndex"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/users/{uuid}": {
         parameters: {
             query?: never;
@@ -3296,6 +3296,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/email/templates/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** PUT /email/templates/{key} */
+        put: operations["putEmailTemplatesByKey"];
+        post?: never;
+        /** DELETE /email/templates/{key} */
+        delete: operations["deleteEmailTemplatesByKey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/commerce/admin/grants/{uuid}/refund-access-override": {
         parameters: {
             query?: never;
@@ -3343,24 +3361,6 @@ export interface paths {
         put: operations["putCommerceAdminShippingZonesByUuidLocations"];
         post?: never;
         delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/email/templates/{key}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** PUT /email/templates/{key} */
-        put: operations["putEmailTemplatesByKey"];
-        post?: never;
-        /** DELETE /email/templates/{key} */
-        delete: operations["deleteEmailTemplatesByKey"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3654,6 +3654,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/email/templates/{key}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** POST /email/templates/{key}/test */
+        post: operations["postEmailTemplatesByKeyTest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import-export/jobs/{uuid}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Import/Export Job
+         * @description Cancels a caller-owned pending, planning, queued, or running job and dispatches ImportExportJobCancelled. Batches that have not been claimed yet observe the cancellation and exit; an in-flight batch finishes its current run. Users with `import_export.manage_all` can cancel any job. Requires the `import_export.cancel` permission.
+         */
+        post: operations["importExportJobsCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import-export/jobs/{uuid}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Import/Export Job
+         * @description Re-queues the failed batches of a caller-owned job whose adapter implements RetryableAdapterInterface and reports retryable() === true. Each failed batch is reset to pending and re-delivered in full, so retryable adapters must apply records idempotently (upsert by a stable source key). Users with `import_export.manage_all` can retry any job. Requires the `import_export.retry` permission.
+         */
+        post: operations["importExportJobsRetry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import-export/jobs/{uuid}/failed-records/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Failed Records
+         * @description Writes the stored failed-record errors for a caller-owned job to a managed private ndjson or csv file. Users with `import_export.manage_all` can export failures for any job. Body: `format` (output format: ndjson|csv, default: ndjson). Requires the `import_export.export_failed_records` permission.
+         */
+        post: operations["importExportJobsFailedRecordsExport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/commerce/orders/{number}/payment": {
         parameters: {
             query?: never;
@@ -3841,83 +3918,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/email/templates/{key}/test": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** POST /email/templates/{key}/test */
-        post: operations["postEmailTemplatesByKeyTest"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/import-export/jobs/{uuid}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel Import/Export Job
-         * @description Cancels a caller-owned pending, planning, queued, or running job and dispatches ImportExportJobCancelled. Batches that have not been claimed yet observe the cancellation and exit; an in-flight batch finishes its current run. Users with `import_export.manage_all` can cancel any job. Requires the `import_export.cancel` permission.
-         */
-        post: operations["importExportJobsCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/import-export/jobs/{uuid}/retry": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Retry Import/Export Job
-         * @description Re-queues the failed batches of a caller-owned job whose adapter implements RetryableAdapterInterface and reports retryable() === true. Each failed batch is reset to pending and re-delivered in full, so retryable adapters must apply records idempotently (upsert by a stable source key). Users with `import_export.manage_all` can retry any job. Requires the `import_export.retry` permission.
-         */
-        post: operations["importExportJobsRetry"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/import-export/jobs/{uuid}/failed-records/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Export Failed Records
-         * @description Writes the stored failed-record errors for a caller-owned job to a managed private ndjson or csv file. Users with `import_export.manage_all` can export failures for any job. Body: `format` (output format: ndjson|csv, default: ndjson). Requires the `import_export.export_failed_records` permission.
-         */
-        post: operations["importExportJobsFailedRecordsExport"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/payvia/webhooks/{gateway}": {
         parameters: {
             query?: never;
@@ -3975,23 +3975,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/commerce/admin/variants/{uuid}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Update a product variant */
-        patch: operations["patchCommerceAdminVariantsByUuid"];
-        trace?: never;
-    };
     "/i18n/locales/{code}": {
         parameters: {
             query?: never;
@@ -4030,6 +4013,23 @@ export interface paths {
          * @description Updates the value of one persisted translation by UUID. Body: `value` (required; new translated message, max 65,535 bytes). Requires the `i18n.manage` permission.
          */
         patch: operations["i18nTranslationsUpdate"];
+        trace?: never;
+    };
+    "/commerce/admin/variants/{uuid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update a product variant */
+        patch: operations["patchCommerceAdminVariantsByUuid"];
         trace?: never;
     };
 }
@@ -5577,6 +5577,1184 @@ export interface operations {
                 content?: never;
             };
             /** @description Missing audit.view permission */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getEmailTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getEmailSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    putEmailSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    postEmailSettingsTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    i18nLocalesIndex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Locales retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    i18nLocalesStore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Locale created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed (missing/malformed fields, duplicate code, or fallback cycle) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    i18nTranslationsIndex: {
+        parameters: {
+            query?: {
+                /** @description Filter by locale code */
+                locale?: string;
+                /** @description Filter by translation domain */
+                domain?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Translations retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    i18nTranslationsStore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Translation saved */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed (missing/oversized key/value or malformed locale) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    i18nMissingIndex: {
+        parameters: {
+            query?: {
+                /** @description Filter by locale code */
+                locale?: string;
+                /** @description Filter by translation domain */
+                domain?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Missing translations retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    i18nImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Catalog imported (returns imported row count) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed (missing or malformed catalog payload) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    i18nExport: {
+        parameters: {
+            query?: {
+                /** @description Filter by locale code */
+                locale?: string;
+                /** @description Filter by translation domain */
+                domain?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Catalog exported */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    importExportAdaptersIndex: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Adapters retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied (import_export.view) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    importExportImportsStore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Import job queued */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown adapter or source not supported by the adapter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied (import_export.run_import) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed (missing adapter or path) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    importExportExportsStore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Export job queued */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unknown adapter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied (import_export.run_export) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed (missing adapter) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    importExportJobsIndex: {
+        parameters: {
+            query?: {
+                /** @description Filter by job type */
+                type?: "import" | "export";
+                /** @description Filter by status */
+                status?: "pending" | "planning" | "queued" | "running" | "completed" | "failed" | "cancelled";
+                /** @description Maximum jobs to return, 1-200 (default: 50) */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Jobs retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied (import_export.view) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getApiSearch: {
+        parameters: {
+            query: {
+                /** @description Index name to search (without prefix) */
+                index: string;
+                /** @description Search query string (empty string returns all documents) */
+                q?: string;
+                /** @description Filter expression using Meilisearch syntax; combined with the server-side scope filter */
+                filter?: string;
+                /** @description Attributes to get facet distribution for */
+                facets?: string;
+                /** @description Attributes to sort by (format: attribute:direction) */
+                sort?: string;
+                /** @description Maximum number of results to return (default: 20) */
+                limit?: number;
+                /** @description Number of results to skip for pagination */
+                offset?: number;
+                /** @description Configured retrievable attributes to include in results */
+                attributesToRetrieve?: string;
+                /** @description Attributes to highlight matches in */
+                attributesToHighlight?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Search results retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Missing index parameter */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Search permission or scope required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Index not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too Many Requests. */
+            429: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    /** @description Request quota for the current window. */
+                    "X-RateLimit-Limit"?: number;
+                    /** @description Requests remaining in the current window. */
+                    "X-RateLimit-Remaining"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getApiSearchAdminStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Index status retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Admin privileges required */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -8945,1184 +10123,6 @@ export interface operations {
             };
             /** @description Validation failed */
             422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getEmailTemplates: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getEmailSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    putEmailSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    postEmailSettingsTest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    i18nLocalesIndex: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Locales retrieved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    i18nLocalesStore: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Locale created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation failed (missing/malformed fields, duplicate code, or fallback cycle) */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    i18nTranslationsIndex: {
-        parameters: {
-            query?: {
-                /** @description Filter by locale code */
-                locale?: string;
-                /** @description Filter by translation domain */
-                domain?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Translations retrieved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    i18nTranslationsStore: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Translation saved */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation failed (missing/oversized key/value or malformed locale) */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    i18nMissingIndex: {
-        parameters: {
-            query?: {
-                /** @description Filter by locale code */
-                locale?: string;
-                /** @description Filter by translation domain */
-                domain?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Missing translations retrieved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    i18nImport: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Catalog imported (returns imported row count) */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation failed (missing or malformed catalog payload) */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    i18nExport: {
-        parameters: {
-            query?: {
-                /** @description Filter by locale code */
-                locale?: string;
-                /** @description Filter by translation domain */
-                domain?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Catalog exported */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    importExportAdaptersIndex: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Adapters retrieved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied (import_export.view) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    importExportImportsStore: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Import job queued */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unknown adapter or source not supported by the adapter */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied (import_export.run_import) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation failed (missing adapter or path) */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    importExportExportsStore: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Export job queued */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unknown adapter */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied (import_export.run_export) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation failed (missing adapter) */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    importExportJobsIndex: {
-        parameters: {
-            query?: {
-                /** @description Filter by job type */
-                type?: "import" | "export";
-                /** @description Filter by status */
-                status?: "pending" | "planning" | "queued" | "running" | "completed" | "failed" | "cancelled";
-                /** @description Maximum jobs to return, 1-200 (default: 50) */
-                limit?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Jobs retrieved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied (import_export.view) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getApiSearch: {
-        parameters: {
-            query: {
-                /** @description Index name to search (without prefix) */
-                index: string;
-                /** @description Search query string (empty string returns all documents) */
-                q?: string;
-                /** @description Filter expression using Meilisearch syntax; combined with the server-side scope filter */
-                filter?: string;
-                /** @description Attributes to get facet distribution for */
-                facets?: string;
-                /** @description Attributes to sort by (format: attribute:direction) */
-                sort?: string;
-                /** @description Maximum number of results to return (default: 20) */
-                limit?: number;
-                /** @description Number of results to skip for pagination */
-                offset?: number;
-                /** @description Configured retrievable attributes to include in results */
-                attributesToRetrieve?: string;
-                /** @description Attributes to highlight matches in */
-                attributesToHighlight?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Search results retrieved successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Missing index parameter */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Search permission or scope required */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Index not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Too Many Requests. */
-            429: {
-                headers: {
-                    /** @description Seconds to wait before retrying. */
-                    "Retry-After"?: number;
-                    /** @description Request quota for the current window. */
-                    "X-RateLimit-Limit"?: number;
-                    /** @description Requests remaining in the current window. */
-                    "X-RateLimit-Remaining"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getApiSearchAdminStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Index status retrieved successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Admin privileges required */
-            403: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14983,6 +14983,308 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    importExportJobsShow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied (import_export.view) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    importExportJobsErrors: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Errors retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied (import_export.view) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    importExportJobsReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Report retrieved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied (import_export.view) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getApiSearchByIndex: {
+        parameters: {
+            query?: {
+                /** @description Search query string (empty string returns all documents) */
+                q?: string;
+                /** @description Filter expression using Meilisearch syntax; combined with the server-side scope filter */
+                filter?: string;
+                /** @description Attributes to get facet distribution for */
+                facets?: string;
+                /** @description Attributes to sort by (format: attribute:direction) */
+                sort?: string;
+                /** @description Maximum number of results to return (default: 20) */
+                limit?: number;
+                /** @description Number of results to skip for pagination */
+                offset?: number;
+                /** @description Configured retrievable attributes to include in results */
+                attributesToRetrieve?: string;
+                /** @description Attributes to highlight matches in */
+                attributesToHighlight?: string;
+            };
+            header?: never;
+            path: {
+                index: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Search results retrieved successfully */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Authentication required */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Search permission or scope required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Index not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Too Many Requests. */
+            429: {
+                headers: {
+                    /** @description Seconds to wait before retrying. */
+                    "Retry-After"?: number;
+                    /** @description Request quota for the current window. */
+                    "X-RateLimit-Limit"?: number;
+                    /** @description Requests remaining in the current window. */
+                    "X-RateLimit-Remaining"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
             };
             /** @description Unexpected server error. */
             500: {
@@ -20167,308 +20469,6 @@ export interface operations {
             };
         };
     };
-    importExportJobsShow: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Job retrieved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied (import_export.view) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Job not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    importExportJobsErrors: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Errors retrieved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied (import_export.view) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Job not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    importExportJobsReport: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Report retrieved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied (import_export.view) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Job not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    getApiSearchByIndex: {
-        parameters: {
-            query?: {
-                /** @description Search query string (empty string returns all documents) */
-                q?: string;
-                /** @description Filter expression using Meilisearch syntax; combined with the server-side scope filter */
-                filter?: string;
-                /** @description Attributes to get facet distribution for */
-                facets?: string;
-                /** @description Attributes to sort by (format: attribute:direction) */
-                sort?: string;
-                /** @description Maximum number of results to return (default: 20) */
-                limit?: number;
-                /** @description Number of results to skip for pagination */
-                offset?: number;
-                /** @description Configured retrievable attributes to include in results */
-                attributesToRetrieve?: string;
-                /** @description Attributes to highlight matches in */
-                attributesToHighlight?: string;
-            };
-            header?: never;
-            path: {
-                index: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Search results retrieved successfully */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Authentication required */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Search permission or scope required */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Index not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Too Many Requests. */
-            429: {
-                headers: {
-                    /** @description Seconds to wait before retrying. */
-                    "Retry-After"?: number;
-                    /** @description Request quota for the current window. */
-                    "X-RateLimit-Limit"?: number;
-                    /** @description Requests remaining in the current window. */
-                    "X-RateLimit-Remaining"?: number;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
     usersShow: {
         parameters: {
             query?: never;
@@ -22328,6 +22328,148 @@ export interface operations {
             };
         };
     };
+    putEmailTemplatesByKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    deleteEmailTemplatesByKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     putCommerceAdminGrantsByUuidRefundaccessoverride: {
         parameters: {
             query?: never;
@@ -22673,148 +22815,6 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    putEmailTemplatesByKey: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    deleteEmailTemplatesByKey: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
             };
             /** @description Unexpected server error. */
             500: {
@@ -24659,6 +24659,302 @@ export interface operations {
             };
         };
     };
+    postEmailTemplatesByKeyTest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    importExportJobsCancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job cancelled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied (import_export.cancel) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid status transition (job already completed, failed, or cancelled) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    importExportJobsRetry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Retry queued */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied (import_export.retry) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Adapter is not retryable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    importExportJobsFailedRecordsExport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Failed records exported */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Permission denied (import_export.export_failed_records) */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Job not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     postCommerceOrdersByNumberPayment: {
         parameters: {
             query?: never;
@@ -25586,302 +25882,6 @@ export interface operations {
             };
         };
     };
-    postEmailTemplatesByKeyTest: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                key: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    importExportJobsCancel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Job cancelled */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied (import_export.cancel) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Job not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid status transition (job already completed, failed, or cancelled) */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    importExportJobsRetry: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Retry queued */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied (import_export.retry) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Job not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Adapter is not retryable */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
-    importExportJobsFailedRecordsExport: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Failed records exported */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Permission denied (import_export.export_failed_records) */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Job not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
     postPayviaWebhooksByGateway: {
         parameters: {
             query?: never;
@@ -26124,103 +26124,6 @@ export interface operations {
             };
         };
     };
-    patchCommerceAdminVariantsByUuid: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                uuid: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    sku?: string | null;
-                    option_values?: unknown[] | null;
-                    price?: number | null;
-                    compare_at_price?: number | null;
-                    currency?: string | null;
-                    status?: string | null;
-                    shipping_class_uuid?: string | null;
-                };
-            };
-        };
-        responses: {
-            /** @description Variant updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unauthenticated. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Forbidden. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-            /** @description Variant not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Validation failed */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Unexpected server error. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        success?: boolean;
-                        message?: string;
-                        error?: {
-                            code?: number;
-                            timestamp?: string;
-                            request_id?: string;
-                        };
-                    };
-                };
-            };
-        };
-    };
     i18nLocalesUpdate: {
         parameters: {
             query?: never;
@@ -26346,6 +26249,103 @@ export interface operations {
                 content?: never;
             };
             /** @description Validation failed (missing or oversized value) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    patchCommerceAdminVariantsByUuid: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    sku?: string | null;
+                    option_values?: unknown[] | null;
+                    price?: number | null;
+                    compare_at_price?: number | null;
+                    currency?: string | null;
+                    status?: string | null;
+                    shipping_class_uuid?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description Variant updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Variant not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed */
             422: {
                 headers: {
                     [name: string]: unknown;

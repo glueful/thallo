@@ -1078,3 +1078,132 @@ export function useSaveCommerceEmailSettings() {
     },
   })
 }
+
+// ── Marketplace settings (store-settings spec §3.6, Marketplace group) ─────────────────────────
+// `GET /commerce/marketplace` + activate/deactivate/commission — a thin front over commerce's
+// own marketplace services. The MASTER flag (COMMERCE_MARKETPLACE_ENABLED) is boot-time env by
+// architecture; writes 409 while it is off and the panel banners that state honestly.
+
+export interface MarketplaceCommission {
+  kind: string | null
+  bps: number | null
+  fixed: number | null
+}
+
+export interface MarketplaceSettingsRow {
+  status: string
+  default_seller_uuid: string | null
+  commission: MarketplaceCommission
+  reserve: { bps: number; days: number }
+  activated_at: string | null
+  revision: number
+}
+
+export interface MarketplaceSellerOption {
+  uuid: string
+  name: string
+  status: string
+}
+
+export interface MarketplaceSettings {
+  master_enabled: boolean
+  settings: MarketplaceSettingsRow | null
+  sellers: MarketplaceSellerOption[]
+}
+
+function normalizeMarketplace(raw: unknown): MarketplaceSettings {
+  const data = (raw ?? {}) as { master_enabled?: unknown; settings?: unknown; sellers?: unknown }
+  const row = data.settings as Record<string, unknown> | null | undefined
+  const commission = ((row?.commission ?? {}) as Record<string, unknown>) || {}
+  const reserve = ((row?.reserve ?? {}) as Record<string, unknown>) || {}
+  const sellers = Array.isArray(data.sellers) ? data.sellers : []
+  return {
+    master_enabled: data.master_enabled === true,
+    settings:
+      row && typeof row === 'object'
+        ? {
+            status: String(row.status ?? ''),
+            default_seller_uuid:
+              typeof row.default_seller_uuid === 'string' ? row.default_seller_uuid : null,
+            commission: {
+              kind: typeof commission.kind === 'string' ? commission.kind : null,
+              bps: typeof commission.bps === 'number' ? commission.bps : null,
+              fixed: typeof commission.fixed === 'number' ? commission.fixed : null,
+            },
+            reserve: {
+              bps: typeof reserve.bps === 'number' ? reserve.bps : 0,
+              days: typeof reserve.days === 'number' ? reserve.days : 0,
+            },
+            activated_at: typeof row.activated_at === 'string' ? row.activated_at : null,
+            revision: typeof row.revision === 'number' ? row.revision : 0,
+          }
+        : null,
+    sellers: sellers.map((s) => {
+      const seller = (s ?? {}) as Record<string, unknown>
+      return {
+        uuid: String(seller.uuid ?? ''),
+        name: String(seller.name ?? ''),
+        status: String(seller.status ?? ''),
+      }
+    }),
+  }
+}
+
+export async function fetchMarketplaceSettings(): Promise<MarketplaceSettings> {
+  const { data, error, response } = await client.GET('/commerce/marketplace')
+  if (error) throw toApiError(error, response)
+  return normalizeMarketplace((data as { data?: unknown } | undefined)?.data)
+}
+
+export async function activateMarketplace(defaultSellerUuid: string | null): Promise<MarketplaceSettings> {
+  const { data, error, response } = await client.POST('/commerce/marketplace/activate', {
+    body: { default_seller_uuid: defaultSellerUuid } as never,
+  })
+  if (error) throw toApiError(error, response)
+  return normalizeMarketplace((data as { data?: unknown } | undefined)?.data)
+}
+
+export async function deactivateMarketplace(): Promise<MarketplaceSettings> {
+  const { data, error, response } = await client.POST('/commerce/marketplace/deactivate', {})
+  if (error) throw toApiError(error, response)
+  return normalizeMarketplace((data as { data?: unknown } | undefined)?.data)
+}
+
+export async function saveMarketplaceCommission(input: {
+  kind: string
+  bps: number | null
+  fixed: number | null
+}): Promise<MarketplaceSettings> {
+  const { data, error, response } = await client.PUT('/commerce/marketplace/commission', {
+    body: {
+      commission_kind: input.kind,
+      commission_bps: input.bps,
+      commission_fixed: input.fixed,
+    } as never,
+  })
+  if (error) throw toApiError(error, response)
+  return normalizeMarketplace((data as { data?: unknown } | undefined)?.data)
+}
+
+export function useMarketplaceSettings() {
+  return useQuery({ key: qk.commerceMarketplaceSettings(), query: fetchMarketplaceSettings })
+}
+
+export function useMarketplaceMutations() {
+  const cache = useQueryCache()
+  const invalidate = async () => {
+    await cache.invalidateQueries({ key: qk.commerceMarketplaceSettings() })
+  }
+  return {
+    activate: useMutation({
+      mutation: (defaultSellerUuid: string | null) => activateMarketplace(defaultSellerUuid),
+      onSettled: invalidate,
+    }),
+    deactivate: useMutation({ mutation: () => deactivateMarketplace(), onSettled: invalidate }),
+    saveCommission: useMutation({
+      mutation: (input: { kind: string; bps: number | null; fixed: number | null }) =>
+        saveMarketplaceCommission(input),
+      onSettled: invalidate,
+    }),
+  }
+}

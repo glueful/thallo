@@ -11,6 +11,7 @@ import ClassesPanel from './components/ClassesPanel.vue'
 import TaxRatesPanel from './components/TaxRatesPanel.vue'
 import PaymentsPanel from './components/PaymentsPanel.vue'
 import EmailsPanel from './components/EmailsPanel.vue'
+import MarketplacePanel from './components/MarketplacePanel.vue'
 
 const { data: meta } = useCommerceMeta()
 const canManage = computed(() => meta.value?.can_manage ?? false)
@@ -22,6 +23,7 @@ const tabItems = [
   { label: 'Store', value: 'store' },
   { label: 'Payments', value: 'payments' },
   { label: 'Emails', value: 'emails' },
+  { label: 'Marketplace', value: 'marketplace' },
   { label: 'Shipping zones', value: 'zones' },
   { label: 'Shipping classes', value: 'classes' },
   { label: 'Tax rates', value: 'rates' },
@@ -45,6 +47,9 @@ const tabItems = [
       </template>
       <template v-else-if="tab === 'emails'">
         <EmailsPanel :can-manage="canManage" />
+      </template>
+      <template v-else-if="tab === 'marketplace'">
+        <MarketplacePanel :can-manage="canManage" />
       </template>
       <template v-else-if="tab === 'zones'">
         <ZonesPanel :can-manage="canManage" />

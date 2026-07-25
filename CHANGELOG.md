@@ -964,6 +964,14 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   working). Once an order exists, changes are rejected server-side with a field-level error
   and the input renders disabled with the reason. Changes apply on the next request — no
   deploy, no restart.
+- **Marketplace tab in Commerce Settings**: per-workspace marketplace activation (with a
+  default-seller select for adopting existing products) and the workspace fallback commission
+  policy (percentage-as-bps or fixed minor units), fronting commerce's own marketplace services
+  through new pack endpoints (`GET /v1/admin/commerce/marketplace` + activate/deactivate/
+  commission) graded like every other settings surface. The boot-time master flag
+  (`COMMERCE_MARKETPLACE_ENABLED`) is reported honestly: while off — the default — the tab is a
+  single explanatory card and every write refuses with 409. Sellers, payouts, and financials
+  remain a future Marketplace admin area.
 - **Download link lifetime on the Store tab + webhook URLs on the Payments tab**: the signed
   download-URL TTL (`commerce.downloads.url_ttl`, 60s–7d, default 300) is runtime-editable
   through the settings seam (needs commerce ≥ 1.7.0 for the stored value to reach the signer;
