@@ -94,7 +94,9 @@ final class RuntimeCoreTest extends AppTestCase
           addEventListener: function () {},
           querySelector: function (sel) { return docRoot.querySelector(sel); },
           querySelectorAll: function (sel) { return docRoot.querySelectorAll(sel); },
-          documentElement: el('html')
+          // Modules appended below /* modules:start */ execute at eval: color-mode's
+          // hard gate reads documentElement.dataset (empty => feature off => inert).
+          documentElement: (function () { var h = el('html'); h.dataset = {}; return h; })()
         };
         global.window = global;
 
