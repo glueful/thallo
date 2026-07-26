@@ -161,6 +161,8 @@ use App\Content\Pipeline\Listeners\ProjectPublishedReferencesListener;
 use App\Content\Pipeline\Listeners\PurgeCdnListener;
 use App\Content\Pipeline\Listeners\MediaUsageProjector;
 use App\Content\Pipeline\Listeners\ReindexSearchListener;
+use App\Content\Pipeline\Listeners\SeoMetaChangedListener;
+use Thallo\Contracts\Seo\SeoMetaChanged;
 use App\Content\Blocks\BlockMigrationGate;
 use App\Content\Blocks\BlockRestoreProjector;
 use App\Content\Blocks\EngineBlockEditableFieldResolver;
@@ -932,6 +934,11 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             PurgeCdnListener::class => [
                 'class' => PurgeCdnListener::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            SeoMetaChangedListener::class => [
+                'class' => SeoMetaChangedListener::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -2005,6 +2012,11 @@ final class ThalloServiceProvider extends ServiceProvider
             // ("where is this asset used") but carry no cache tags — webhook only.
             AssetAttached::class => [DispatchWebhookListener::class, MediaUsageProjector::class],
             AssetDetached::class => [DispatchWebhookListener::class, MediaUsageProjector::class],
+            // SEO override upserts (a clear included) → local + edge purge of the entry's
+            // rendered pages (seo-head spec §5). Entry tag only — never type-level tags.
+            SeoMetaChanged::class => [
+                SeoMetaChangedListener::class,
+            ],
         ];
 
         // Collection row CRUD → audit log + analytics facts. Gated on the pack being INSTALLED

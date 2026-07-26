@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Thallo\Seo\Http\Controllers;
 
+use Glueful\Events\EventService;
 use Glueful\Http\Response;
+use Thallo\Contracts\Seo\SeoMetaChanged;
 use Thallo\Seo\Meta\SeoMetaRepository;
 use Thallo\Seo\Meta\SeoMetaUpsertDTO;
 use Glueful\Routing\Attributes\ApiOperation;
@@ -16,8 +18,11 @@ use Symfony\Component\HttpFoundation\Request;
  */
 final class AdminSeoMetaController
 {
-    public function __construct(private readonly SeoMetaRepository $repo)
-    {
+    // Nullable EventService keeps the pack constructible in isolation (no event bus).
+    public function __construct(
+        private readonly SeoMetaRepository $repo,
+        private readonly ?EventService $events = null,
+    ) {
     }
 
     /**
@@ -52,6 +57,9 @@ final class AdminSeoMetaController
         // Throws ValidationException (422) on bad input — the framework handler renders it.
         $dto = SeoMetaUpsertDTO::fromRequest($locale, $body);
         $this->repo->upsert($entryUuid, $dto->locale, $dto->fields);
+        // Every successful upsert (a clear included) invalidates the entry's rendered
+        // pages — local and edge — via the app's SeoMetaChangedListener (seo-head spec §5).
+        $this->events?->dispatch(new SeoMetaChanged($entryUuid, $dto->locale));
         return Response::success($this->repo->find($entryUuid, $dto->locale));
     }
 }
