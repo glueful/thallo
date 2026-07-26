@@ -192,6 +192,7 @@ use App\Content\Retention\VersionPruner;
 use App\Content\Schema\Migration\SchemaProjector;
 use App\Content\Scheduling\ScheduleRunner;
 use App\Content\Seo\CanonicalProjector;
+use App\Content\Seo\EngineSeoHeadProvider;
 use App\Content\Routing\RootMountGuard;
 use App\Content\Seo\CanonicalPathBuilder;
 use App\Settings\EngineAdminUrlProvider;
@@ -230,7 +231,10 @@ use Thallo\Contracts\Authoring\DraftSummaryReader;
 use Thallo\Contracts\Authoring\PublishGate;
 use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
 use Thallo\Contracts\Delivery\EntryTargetResolver;
+use Thallo\Contracts\Delivery\HomepageEntryProvider;
 use Thallo\Contracts\Delivery\MediaUrlResolver;
+use Thallo\Contracts\Delivery\SeoHeadResolver;
+use Thallo\Seo\Meta\SeoMetaResolver;
 use Thallo\Contracts\Settings\AdminUrlProvider;
 use Thallo\Contracts\Settings\SiteFaviconProvider;
 use Thallo\Contracts\Settings\SiteLogoProvider;
@@ -816,6 +820,10 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             CanonicalProjector::class => [
                 'factory' => [self::class, 'makeCanonicalProjector'],
+                'shared' => true,
+            ],
+            SeoHeadResolver::class => [
+                'factory' => [self::class, 'makeSeoHeadProvider'],
                 'shared' => true,
             ],
         ];
@@ -1844,6 +1852,19 @@ final class ThalloServiceProvider extends ServiceProvider
             $container->get(ContentTypeRepository::class),
             $container->get(CanonicalPathBuilder::class),
             (string) config($container->get(ApplicationContext::class), 'i18n.default_locale', 'en')
+        );
+    }
+
+    public static function makeSeoHeadProvider(ContainerInterface $container): EngineSeoHeadProvider
+    {
+        return new EngineSeoHeadProvider(
+            $container->get(ApplicationContext::class),
+            $container->get(SeoMetaResolver::class),
+            $container->get(CanonicalProjector::class),
+            $container->get(CanonicalPublicOriginResolver::class),
+            $container->get(HomepageEntryProvider::class),
+            $container->get(RouteRepository::class),
+            $container->get(ContentTypeRepository::class),
         );
     }
 
