@@ -964,6 +964,14 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   working). Once an order exists, changes are rejected server-side with a field-level error
   and the input renders disabled with the reason. Changes apply on the next request — no
   deploy, no restart.
+- **Marketplace tab: activation seller select no longer corrupts the page**: the "No default
+  seller" option used an empty-string value, which reka-ui's SelectItem rejects at setup —
+  corrupting the component tree and surfacing as unhandled Vue patch/unmount errors (11 of
+  them failing CI's vitest job despite 1677 passing tests). The option now uses a sentinel
+  mapped to null on submit. Alongside: the vitest setup gains `enableAutoUnmount(afterEach)`
+  so stale wrappers can't re-render against torn-down DOM (the charts spec opts out — @unovis
+  containers can't survive destroy in jsdom), which is what converted these deferred unhandled
+  rejections into attributable in-test failures.
 - **Disable wizard: `disabled_widened` no longer dead-ends on "Continue"**: the panel mapped
   the disable direction's resting state to the RE-ENABLE entry (`begin`) behind a generic
   "Continue" label — while the run still awaited fresh-boot verification, begin refuses, so

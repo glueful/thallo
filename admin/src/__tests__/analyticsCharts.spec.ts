@@ -2,6 +2,16 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import AnalyticsLineChart from '@/pages/analytics/components/AnalyticsLineChart.vue'
 import AnalyticsBarChart from '@/pages/analytics/components/AnalyticsBarChart.vue'
+import { disableAutoUnmount } from '@vue/test-utils'
+
+// @unovis containers crash on destroy in jsdom: their bundled @juggle ResizeObserver's
+// controller never initializes without a real layout engine, so disconnect() (called from
+// XYContainer.destroy on unmount) throws. This file therefore opts out of the global
+// enableAutoUnmount hook — its chart wrappers deliberately stay mounted for the worker's
+// lifetime, exactly the contained behavior this suite always had. Same jsdom-limitation
+// family as the getBBox/getComputedTextLength shims in setup.ts.
+disableAutoUnmount()
+
 
 // Stub unovis primitives — jsdom can't lay out real SVG charts, and they're not what we're testing.
 const stubs = {

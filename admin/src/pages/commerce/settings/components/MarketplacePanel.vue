@@ -20,10 +20,13 @@ const { activate, deactivate, saveCommission, setMaster } = useMarketplaceMutati
 
 const active = computed(() => marketplace.value?.settings?.status === 'active')
 
-// Activation: optional default seller for attributing existing products.
-const defaultSeller = ref<string>('')
+// Activation: optional default seller for attributing existing products. reka-ui forbids
+// empty-string SelectItem values ('' is reserved for clear/placeholder — a '' item throws in
+// setup and corrupts the vnode tree), so "no seller" is a sentinel mapped to null on submit.
+const NO_SELLER = '__none__'
+const defaultSeller = ref<string>(NO_SELLER)
 const sellerItems = computed(() => [
-  { value: '', label: 'No default seller' },
+  { value: NO_SELLER, label: 'No default seller' },
   ...(marketplace.value?.sellers ?? []).map((s) => ({
     value: s.uuid,
     label: `${s.name} (${s.status})`,
@@ -68,7 +71,7 @@ async function doSetMaster(enabled: boolean): Promise<void> {
 
 async function doActivate(): Promise<void> {
   try {
-    await activate.mutateAsync(defaultSeller.value === '' ? null : defaultSeller.value)
+    await activate.mutateAsync(defaultSeller.value === NO_SELLER ? null : defaultSeller.value)
     success('Marketplace activated', 'This workspace now runs in marketplace mode.')
   } catch (e) {
     notifyError(toApiError(e), 'Couldn’t activate the marketplace')

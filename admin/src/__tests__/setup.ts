@@ -1,5 +1,14 @@
 // Vitest global setup.
-import { beforeEach, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
+import { enableAutoUnmount } from '@vue/test-utils'
+
+// Unmount every @vue/test-utils wrapper after each test. Without this, wrappers stay mounted
+// for the rest of the file while specs share module-level data refs — the next test's
+// beforeEach reset re-renders the STALE wrappers against DOM jsdom has already torn down,
+// surfacing as unhandled rejections ("Cannot set properties of null (setting '__vnode')")
+// that fail the run (exit 1) even though every assertion passed — the same
+// after-the-test-resolves failure class as the @unovis rAF/getBBox shim below.
+enableAutoUnmount(afterEach)
 
 // `openapi-fetch`'s createClient() captures `globalThis.fetch`/`globalThis.Request` once, at
 // construction. Tests dynamically `await import('@/api/client')` per case and re-stub fetch in
