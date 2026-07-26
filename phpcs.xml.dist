@@ -19,8 +19,12 @@
     <!--
       Static browser assets (vanilla JS/CSS served verbatim, e.g. the preview
       canvas bridge) are not PHP — PSR-12 indentation/brace sniffs don't apply.
+      packages/*/runtime/ is the package-owned theme runtime (theme-runtime
+      spec §2.1): plain served JS with its own gates (a node syntax check plus
+      the Node-harness runtime tests).
     -->
     <exclude-pattern>packages/*/assets/*</exclude-pattern>
+    <exclude-pattern>packages/*/runtime/*</exclude-pattern>
 
     <!--
       Thallo migrations are intentionally GLOBAL (unnamespaced): the framework's

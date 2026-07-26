@@ -334,6 +334,33 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringContainsString('id="tabs-tabsblock002-1"', $out);
     }
 
+    public function testTabsFloorCarriesNoAriaAndEnhancedModeCssStandsReady(): void
+    {
+        // Honest floor (theme-runtime spec §4): radios+labels are NOT tabs
+        // semantics, so the server markup carries NO role= at all — the runtime's
+        // tabs module adds real tab semantics when it enhances.
+        $out = $this->render([['id' => 'tabsblock001', 'type' => 'tabs', 'data' => [
+            'items' => [['id' => 'tabsblock01t', 'type' => 'tab', 'data' => ['label' => 'L', 'content' => []]]],
+        ]]]);
+        self::assertStringNotContainsString('role=', $out);
+
+        // Enhanced mode owns panel visibility via [hidden] (marker-scoped rules
+        // AFTER the floor rules) — pinned as strings so the handoff can't be
+        // silently dropped from the theme CSS.
+        $css = (string) file_get_contents(
+            $this->appContext()->getBasePath()
+                . '/packages/thallo-render/themes/default/assets/blocks.css',
+        );
+        self::assertStringContainsString(
+            '.thallo-block-tabs[data-thallo-enhanced~="tabs"] .thallo-block-tabs__panel { display: block; }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.thallo-block-tabs[data-thallo-enhanced~="tabs"] .thallo-block-tabs__panel[hidden] { display: none; }',
+            $css,
+        );
+    }
+
     public function testCarouselBaseIsPureScrollSnapAndLayoutLoadsBlocksJsOnce(): void
     {
         $out = $this->render([['id' => 'cr1', 'type' => 'carousel', 'data' => [
@@ -346,12 +373,13 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringNotContainsString('__dots', $out);
         self::assertStringNotContainsString('<script', $out);
 
-        // The default layout loads the enhancement ONCE, deferred.
+        // The default layout loads the enhancement runtime ONCE, deferred
+        // (theme-runtime spec §2.3: the package-owned runtime, not a theme asset).
         $layout = (string) file_get_contents(
             $this->appContext()->getBasePath()
                 . '/packages/thallo-render/themes/default/templates/layout.twig',
         );
-        self::assertSame(1, substr_count($layout, "asset('blocks.js')"));
+        self::assertSame(1, substr_count($layout, 'runtime_script()'));
         self::assertStringContainsString('<script defer', $layout);
     }
 
@@ -461,9 +489,80 @@ final class BlockLibraryRenderTest extends AppTestCase
             self::assertStringContainsString($token, $out);
         }
         self::assertStringContainsString('__item--parent', $out);   // services has children
-        self::assertStringNotContainsString('<details', $out);      // hover mode
+        // Unified tree (theme-runtime spec §3.2): hover mode renders the SAME
+        // details/summary parent as click mode — only the reveal modifier differs.
+        self::assertStringContainsString(
+            '<details class="thallo-block-navigation__details" name="nav-nav2a"',
+            $out,
+        );
         self::assertStringContainsString('href="/services/web/seo"', $out); // grandchild FLATTENED in
         self::assertStringContainsString('<svg', $out);             // chevron-down indicator default
+    }
+
+    public function testNavigationUnifiedMarkupUsesSummaryTogglesOnly(): void
+    {
+        $this->seedNavMenu();
+        // Hover mode (the default): previously an <a>/<span> toggle — now the
+        // one details/summary form (theme-runtime spec §3.2, no aria-haspopup).
+        $out = $this->render([[
+            'id' => 'nav5a', 'type' => 'navigation', 'data' => ['menu' => 'main'],
+        ]]);
+        self::assertStringNotContainsString('aria-haspopup', $out);
+        self::assertDoesNotMatchRegularExpression('#<a[^>]*data-nav-toggle#', $out);
+        self::assertDoesNotMatchRegularExpression('#<span[^>]*data-nav-toggle#', $out);
+        // Every toggle is a <summary> — and there is at least one.
+        $summaryToggles = preg_match_all('#<summary[^>]*data-nav-toggle#', $out);
+        self::assertGreaterThan(0, $summaryToggles);
+        self::assertSame(substr_count($out, 'data-nav-toggle'), $summaryToggles);
+        // The panel prepends the parent's own link as the FIRST sublink in BOTH
+        // modes now (the summary swallows the URL in every mode).
+        self::assertMatchesRegularExpression(
+            '#data-nav-panel>\s*<li[^>]*>\s*<a class="thallo-block-navigation__sublink" href="/services"#',
+            $out,
+        );
+    }
+
+    public function testNavigationRootNavCarriesAriaLabel(): void
+    {
+        $this->seedNavMenu();
+        $default = $this->render([[
+            'id' => 'nav5b', 'type' => 'navigation', 'data' => ['menu' => 'main'],
+        ]]);
+        self::assertStringContainsString(
+            '<nav class="thallo-block-navigation__nav" aria-label="Navigation">',
+            $default,
+        );
+
+        $custom = $this->render([[
+            'id' => 'nav5c', 'type' => 'navigation',
+            'data' => ['menu' => 'main', 'aria_label' => 'Primary'],
+        ]]);
+        self::assertStringContainsString('aria-label="Primary"', $custom);
+    }
+
+    public function testNavigationListIsWrappedInMobileDisclosure(): void
+    {
+        $this->seedNavMenu();
+        $out = $this->render([[
+            'id' => 'nav5d', 'type' => 'navigation', 'data' => ['menu' => 'main'],
+        ]]);
+        self::assertStringContainsString(
+            '<details class="thallo-block-navigation__mobile" data-thallo-enhance="navigation">',
+            $out,
+        );
+        self::assertStringContainsString(
+            '<summary class="thallo-block-navigation__hamburger">'
+            . '<span class="thallo-block-navigation__hamburger-icon" aria-hidden="true"></span>'
+            . '<span class="thallo-block-navigation__hamburger-label">Menu</span></summary>',
+            $out,
+        );
+        // The disclosure WRAPS the list: hamburger summary, then the list,
+        // inside the same details element.
+        self::assertMatchesRegularExpression(
+            '#__mobile" data-thallo-enhance="navigation">\s*<summary[^>]*>.*?Menu</span></summary>\s*'
+            . '<ul class="thallo-block-navigation__list">#s',
+            $out,
+        );
     }
 
     public function testNavigationClickModeUsesDetailsAndRepeatsParentUrl(): void
@@ -487,12 +586,15 @@ final class BlockLibraryRenderTest extends AppTestCase
             'current_path' => '/about',
         ]);
         self::assertStringContainsString('__item--active', $active);
+        // The active link is also announced to AT (theme-runtime spec §7).
+        self::assertStringContainsString('aria-current="page"', $active);
 
         $inactive = $this->env()->createTemplate('{{ blocks(list) }}')->render([
             'list' => [['id' => 'nav2d', 'type' => 'navigation', 'data' => ['menu' => 'main']]],
             'current_path' => '/elsewhere',
         ]);
         self::assertStringNotContainsString('__item--active', $inactive);
+        self::assertStringNotContainsString('aria-current', $inactive);
     }
 
     public function testSocialLinkIconEnforcesBrandPrefixedStorage(): void

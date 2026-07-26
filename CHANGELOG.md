@@ -7,6 +7,24 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Package-owned theme runtime + theme accessibility refresh** (`packages/thallo-render`,
+  theme-runtime track): the default theme's behavioral JS moves out of the theme into one
+  package-owned `runtime.js` — a `ThalloRuntime` module registry (color-mode, forms,
+  carousel, navigation, tabs) with idempotent enhancement and a canvas no-op policy —
+  served fingerprinted at `/_thallo/runtime/` with the ShopAsset delivery pattern (the
+  stable logical alias 302s to the current immutable `runtime-<fp>.js`; stale fingerprints
+  404). Themes keep presentation (CSS) only; the default theme's `blocks.js` is now a
+  temporary behavior-free compatibility loader for already-cached HTML, and `ThemeCloner`
+  deliberately never seeds it into clones of the pack default. Ships with an accessibility
+  refresh: shell skip link, focusable main target, labeled navs and `aria-current`; a
+  unified `<details>` navigation with a no-JS mobile disclosure stack at the named 48rem
+  breakpoint; honest-floor ARIA tabs (the radio floor claims no ARIA — the runtime layers
+  real tablist semantics) with a 12-item authoring cap enforced in the editor and at save;
+  carousel pause/visibility/status controls; and form error focus + `aria-busy`. The
+  navigation starter block gains an `aria_label` field — existing workspaces pick up the
+  block-type fingerprint update via `php glueful thallo:tenant:sync --all --kind=block_type`.
+  Coexistence with `shop.js` is proven executable: both served byte-sources load into one
+  Node DOM and each script enhances only its own forms.
 - **Content search switch in Settings › General** (runtime, no restart or `.env` edit): a
   new feature toggle controls the `thallo.search` capability. The stored `search_enabled`
   value is a SYSTEM settings key (unscoped channel — readable at boot before tenant

@@ -161,8 +161,8 @@ final class BlocksRenderingTest extends AppTestCase
         self::assertContains('site_favicon', TemplatePolicy::FUNCTIONS);
         self::assertContains('custom_css', TemplatePolicy::FUNCTIONS);
         self::assertContains('form_render', TemplatePolicy::FUNCTIONS);
-        // 11 = form_render joined the function allowlist (form-block spec §4)
-        self::assertSame(11, TemplatePolicy::CACHE_VERSION);
+        // 12 = runtime_script joined the function allowlist (theme-runtime spec §2.3)
+        self::assertSame(12, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);

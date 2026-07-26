@@ -7,7 +7,7 @@ namespace App\Tests\Integration\Render;
 use App\Tests\Support\AppTestCase;
 
 /**
- * Executable coverage for the hard-gated color-mode runtime in blocks.js
+ * Executable coverage for the hard-gated color-mode runtime in runtime.js
  * (color-mode spec §3.2). We extract just the marked IIFE and evaluate it under
  * a hand-stubbed DOM in node — no jsdom/vitest harness exists in this package.
  * Skips (does not fail) when node is unavailable, but still asserts the markers
@@ -15,11 +15,10 @@ use App\Tests\Support\AppTestCase;
  */
 final class ColorModeRuntimeTest extends AppTestCase
 {
-    private function blocksJs(): string
+    private function runtimeJs(): string
     {
         return (string) file_get_contents(
-            $this->appContext()->getBasePath()
-            . '/packages/thallo-render/themes/default/assets/blocks.js'
+            $this->appContext()->getBasePath() . '/packages/thallo-render/runtime/runtime.js'
         );
     }
 
@@ -35,8 +34,8 @@ final class ColorModeRuntimeTest extends AppTestCase
 
     public function testRuntimeIsHardGatedAndDrivesTheme(): void
     {
-        if (!preg_match('#/\* color-mode:start \*/(.*)/\* color-mode:end \*/#s', $this->blocksJs(), $m)) {
-            self::fail('color-mode runtime markers not found in blocks.js');
+        if (!preg_match('#/\* color-mode:start \*/(.*)/\* color-mode:end \*/#s', $this->runtimeJs(), $m)) {
+            self::fail('color-mode runtime markers not found in runtime.js');
         }
         $runtime = trim($m[1]);
         self::assertStringContainsString('thallo.colorMode', $runtime); // one real assertion even w/o node

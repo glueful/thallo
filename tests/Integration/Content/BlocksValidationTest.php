@@ -33,6 +33,17 @@ final class BlocksValidationTest extends AppTestCase
                 ['name' => 'title', 'type' => 'string'],
                 ['name' => 'content', 'type' => 'blocks', 'block_types' => ['hero']],
             ]]);
+        // Tabs pair (theme-runtime spec §4): mirrors the starter schema — the
+        // authoring cap is validator-enforced, NOT declared in the schema.
+        $this->blocks->create(['slug' => 'tabs', 'label' => 'Tabs', 'category' => 'Content',
+            'schema' => [
+                ['name' => 'items', 'type' => 'blocks', 'block_types' => ['tab']],
+            ]]);
+        $this->blocks->create(['slug' => 'tab', 'label' => 'Tab', 'category' => 'Items',
+            'schema' => [
+                ['name' => 'label', 'type' => 'string', 'required' => true],
+                ['name' => 'content', 'type' => 'blocks'],
+            ]]);
         $this->validator = new FieldValidator($this->connection(), $this->appContext(), $this->blocks);
         // The field allowlists ONLY hero — proving the picker-only rule below.
         $this->schema = ContentTypeSchema::fromArray([
@@ -222,6 +233,55 @@ final class BlocksValidationTest extends AppTestCase
             self::fail('expected ValidationException at publish');
         } catch (ValidationException $e) {
             self::assertArrayHasKey('body.0.heading', $e->errors());
+        }
+    }
+
+    /**
+     * @return array{id: string, type: string, data: array{items: list<array<string,mixed>>}}
+     *   a tabs block whose data.items holds $count minimal tab children
+     */
+    private function tabsBlock(int $count): array
+    {
+        $items = [];
+        for ($n = 1; $n <= $count; $n++) {
+            $items[] = ['id' => sprintf('tabitem%05d', $n), 'type' => 'tab', 'data' => ['label' => "T{$n}"]];
+        }
+        return ['id' => 'tabsblk00001', 'type' => 'tabs', 'data' => ['items' => $items]];
+    }
+
+    public function testTabsBlockAcceptsTwelveItems(): void
+    {
+        // Exactly at the authoring cap (theme-runtime spec §4): passes clean.
+        $clean = $this->clean(['body' => [$this->tabsBlock(12)]]);
+        self::assertCount(12, $clean['body'][0]['data']['items']);
+    }
+
+    public function testTabsBlockRejectsAThirteenthItemOnSave(): void
+    {
+        // Over the cap rejects unconditionally — pre-launch decision, zero tabs
+        // blocks exist in any install, so there is no grandfather path.
+        try {
+            $this->clean(['body' => [$this->tabsBlock(13)]]);
+            self::fail('expected ValidationException');
+        } catch (ValidationException $e) {
+            self::assertSame('tabs supports at most 12 items', $e->errors()['body.0.items'] ?? null);
+        }
+    }
+
+    public function testNestedTabsBlockOverCapRejectsWithTheFullDotPath(): void
+    {
+        // Tabs inside a section's blocks field: the cap error carries the
+        // COMPOSED dot path, same as every other nested block error.
+        try {
+            $this->clean(['body' => [
+                ['type' => 'section', 'data' => ['content' => [$this->tabsBlock(13)]]],
+            ]]);
+            self::fail('expected ValidationException');
+        } catch (ValidationException $e) {
+            self::assertSame(
+                'tabs supports at most 12 items',
+                $e->errors()['body.0.content.0.items'] ?? null,
+            );
         }
     }
 

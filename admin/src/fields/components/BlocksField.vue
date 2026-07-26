@@ -42,6 +42,7 @@ const expanded = reactive<Record<string, boolean>>({})
  * that region.
  */
 function pickerTypesForList(parentId: string | null, region: string | null): BlockType[] {
+  if (listIsFull(parentId, region)) return [] // tabs cap: nothing new enters a full list
   let allowed = allowlist.value
   if (parentId !== null && region !== null) {
     const parent = ops.findById(model.value ?? [], parentId)
@@ -52,6 +53,20 @@ function pickerTypesForList(parentId: string | null, region: string | null): Blo
   return (allTypes.value ?? []).filter(
     (t) => t.active && (allowed.length === 0 || allowed.includes(t.slug)),
   )
+}
+
+/**
+ * Tabs authoring cap (theme-runtime spec §4): a full tabs items list accepts
+ * nothing NEW — the guard gates net additions only (picker, insertAfter,
+ * duplicate, cross-list moves); same-list rearrangement is never blocked. The
+ * server enforces the same cap at save.
+ */
+const TABS_MAX_ITEMS = 12
+function listIsFull(parentId: string | null, region: string | null): boolean {
+  if (parentId === null || region !== 'items') return false
+  const parent = ops.findById(model.value ?? [], parentId)
+  if (!parent || parent.type !== 'tabs') return false
+  return ((parent.data.items as BlockInstance[] | undefined) ?? []).length >= TABS_MAX_ITEMS
 }
 
 function apply(fn: (tree: BlockInstance[]) => BlockInstance[]): void {
@@ -93,7 +108,7 @@ function parentOf(tree: BlockInstance[], id: string, parent: string | null = nul
 // canDropAt (subtree-aware, BEFORE mutation), and commits through the ops
 // layer. Sortable only ever touched local mirrors; dragVersion re-derives them.
 const dragVersion = ref(0)
-const dropRejected = ref(false)
+const dropRejected = ref<string | null>(null)
 let rejectTimer: ReturnType<typeof setTimeout> | null = null
 
 function onDragEnd(event: {
@@ -107,10 +122,20 @@ function onDragEnd(event: {
   const region = event.to.dataset.listRegion || null
   const index = event.newIndex ?? 0
   const tree = model.value ?? []
-  if (dragId === '' || !ops.canDropAt(tree, dragId, { parentId, region })) {
-    dropRejected.value = true
+  // Tabs cap gates NET ADDITIONS only: a cross-list move adds an item to the
+  // destination, so it checks fullness; a same-list reorder never does. Source
+  // identity comes from the TREE (authoritative), not the event's from element.
+  const source = dragId === '' ? null : ops.locateById(tree, dragId)
+  const crossListFull =
+    source !== null &&
+    (source.parentId !== parentId || source.region !== region) &&
+    listIsFull(parentId, region)
+  if (dragId === '' || !ops.canDropAt(tree, dragId, { parentId, region }) || crossListFull) {
+    dropRejected.value = crossListFull
+      ? `Tabs supports at most ${TABS_MAX_ITEMS} items.`
+      : `That drop would exceed the maximum nesting depth (${MAX_BLOCK_DEPTH}).`
     if (rejectTimer) clearTimeout(rejectTimer)
-    rejectTimer = setTimeout(() => (dropRejected.value = false), 3000)
+    rejectTimer = setTimeout(() => (dropRejected.value = null), 3000)
   } else {
     apply((t) => ops.moveAcross(t, dragId, { parentId, region, index }))
   }
@@ -164,6 +189,8 @@ function moveBlock(id: string, delta: number): { beforeId: string } | { afterId:
  * Free-drag drop (free-drag spec §2): place `id` next to a SAME-LIST
  * reference. The bridge's geometry is a request — this method is the
  * authority: cross-list or unknown references are denied with NO mutation.
+ * (Tabs cap needs no check here: same-list moves never change the net count,
+ * and cross-list moves are already denied outright.)
  */
 function moveBlockTo(
   id: string,
@@ -190,8 +217,11 @@ function moveBlockTo(
 /** Duplicate in place. Returns the copy's id + the whole-subtree old->new id map. */
 function duplicateBlock(id: string): { newId: string; idMap: Record<string, string> } | null {
   const tree = model.value ?? []
-  const source = ops.findById(tree, id)
-  if (!source) return null
+  const origin = ops.locateById(tree, id)
+  if (!origin) return null
+  // Tabs cap: the copy lands in the block's OWN list — a net addition.
+  if (listIsFull(origin.parentId, origin.region)) return null
+  const source = origin.list[origin.index]!
   const nextTree = ops.duplicateById(tree, id)
   apply(() => nextTree)
   const loc = ops.locateById(nextTree, id)!
@@ -210,6 +240,8 @@ function deleteBlock(id: string): boolean {
 function insertAfter(id: string, typeSlug: string): string | null {
   const loc = ops.locateById(model.value ?? [], id)
   if (!loc) return null
+  // Tabs cap: inserting a sibling is a net addition to the containing list.
+  if (listIsFull(loc.parentId, loc.region)) return null
   const block: BlockInstance = { id: newBlockId(), type: typeSlug, data: {} }
   apply((t) =>
     ops.insertAt(t, { parentId: loc.parentId, region: loc.region, index: loc.index + 1 }, block),
@@ -304,7 +336,7 @@ function addTailProse(): void {
         class="rounded border border-warning/40 bg-warning/10 px-2 py-1.5 text-xs"
         data-test="drop-rejected"
       >
-        That drop would exceed the maximum nesting depth ({{ MAX_BLOCK_DEPTH }}).
+        {{ dropRejected }}
       </p>
       <!-- depth honors the prop (default 1): the registry contract kept `depth`
            for nested mounts; the new tree recurses internally, but a caller-set

@@ -73,6 +73,48 @@ const defaultTypes = (): BlockType[] => [
 
 const field = { name: 'body', type: 'blocks' as const, required: false }
 
+// Tabs pair (theme-runtime spec §4): mirrors the starter schema — the authoring
+// cap is editor+validator enforced, NOT declared in the schema.
+const tabsTypes = (): BlockType[] => [
+  ...defaultTypes(),
+  {
+    uuid: 'bt6',
+    slug: 'tabs',
+    label: 'Tabs',
+    icon: null,
+    category: 'Content',
+    description: null,
+    active: true,
+    schema: [
+      {
+        name: 'items',
+        type: 'blocks',
+        required: false,
+        localized: false,
+        filterable: false,
+        block_types: ['tab'],
+      },
+    ],
+  },
+  {
+    uuid: 'bt7',
+    slug: 'tab',
+    label: 'Tab',
+    icon: null,
+    category: 'Items',
+    description: null,
+    active: true,
+    schema: [{ name: 'label', type: 'string', required: true, localized: false, filterable: false }],
+  },
+]
+
+const tabItems = (count: number): { id: string; type: string; data: Record<string, unknown> }[] =>
+  Array.from({ length: count }, (_, i) => ({
+    id: `tabitem${String(i + 1).padStart(5, '0')}`,
+    type: 'tab',
+    data: { label: `T${i + 1}` },
+  }))
+
 describe('BlocksField', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -556,5 +598,111 @@ describe('BlocksField', () => {
     expect(flatWrapper.find('details').exists()).toBe(false)
     wrapper.unmount()
     flatWrapper.unmount()
+  })
+
+  // ── Tabs authoring cap (theme-runtime spec §4) ─────────────────────────────
+  // The editor gates NET ADDITIONS into a full tabs items list; rearrangement
+  // is never blocked. The server enforces the same cap at save.
+
+  it('a FULL tabs items list offers no picker types; 11 items keep the allowlist', async () => {
+    blockTypes.value = tabsTypes()
+    const full = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: [{ id: 'tabsblk00001', type: 'tabs', data: { items: tabItems(12) } }],
+      },
+    })
+    await flushPromises()
+    const fullApi = full.vm as unknown as { pickerTypesFor: (id: string) => { slug: string }[] }
+    expect(fullApi.pickerTypesFor('tabitem00001')).toEqual([])
+    full.unmount()
+
+    const spare = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: [{ id: 'tabsblk00001', type: 'tabs', data: { items: tabItems(11) } }],
+      },
+    })
+    await flushPromises()
+    const spareApi = spare.vm as unknown as { pickerTypesFor: (id: string) => { slug: string }[] }
+    expect(spareApi.pickerTypesFor('tabitem00001').map((t) => t.slug)).toEqual(['tab'])
+    spare.unmount()
+  })
+
+  it('insertAfter and duplicateBlock no-op when the destination tabs list is full', async () => {
+    blockTypes.value = tabsTypes()
+    let model: { id: string; type: string; data: Record<string, unknown> }[] = [
+      { id: 'tabsblk00001', type: 'tabs', data: { items: tabItems(12) } },
+    ]
+    const wrapper = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: model,
+        'onUpdate:modelValue': (v: typeof model) => (model = v),
+      },
+    })
+    await flushPromises()
+    const api = wrapper.vm as unknown as {
+      insertAfter: (id: string, slug: string) => string | null
+      duplicateBlock: (id: string) => { newId: string } | null
+    }
+    const before = JSON.stringify(model)
+    expect(api.insertAfter('tabitem00003', 'tab')).toBeNull()
+    expect(api.duplicateBlock('tabitem00003')).toBeNull()
+    expect(JSON.stringify(model)).toBe(before) // tree untouched
+    wrapper.unmount()
+  })
+
+  it('cross-list drag into a full tabs list no-ops; same-list reorder still commits', async () => {
+    blockTypes.value = tabsTypes()
+    const fakeEl = (dataset: Record<string, string>): HTMLElement =>
+      ({ dataset }) as unknown as HTMLElement
+    let model: { id: string; type: string; data: Record<string, unknown> }[] = [
+      { id: 'tabsblk00001', type: 'tabs', data: { items: tabItems(12) } },
+      { id: 'loose0000001', type: 'tab', data: { label: 'X' } },
+    ]
+    const wrapper = mount(BlocksField, {
+      props: {
+        field,
+        modelValue: model,
+        'onUpdate:modelValue': (v: typeof model) => (model = v),
+      },
+    })
+    await flushPromises()
+    const vm = wrapper.vm as unknown as {
+      onDragEnd: (e: {
+        item: HTMLElement
+        to: HTMLElement
+        from: HTMLElement
+        newIndex?: number
+      }) => void
+    }
+
+    // Cross-list (root -> full tabs items): a NET ADDITION — rejected, no mutation.
+    const before = JSON.stringify(model)
+    vm.onDragEnd({
+      item: fakeEl({ blockId: 'loose0000001' }),
+      to: fakeEl({ listParent: 'tabsblk00001', listRegion: 'items' }),
+      from: fakeEl({ listParent: '', listRegion: '' }),
+      newIndex: 0,
+    })
+    await flushPromises()
+    expect(JSON.stringify(model)).toBe(before)
+    const notice = wrapper.find('[data-test="drop-rejected"]')
+    expect(notice.exists()).toBe(true)
+    expect(notice.text()).toContain('12 items') // the cap message, not the depth one
+
+    // Same-list reorder of the FULL list: net count unchanged — always allowed.
+    vm.onDragEnd({
+      item: fakeEl({ blockId: 'tabitem00001' }),
+      to: fakeEl({ listParent: 'tabsblk00001', listRegion: 'items' }),
+      from: fakeEl({ listParent: 'tabsblk00001', listRegion: 'items' }),
+      newIndex: 11,
+    })
+    await flushPromises()
+    const items = model[0]!.data.items as { id: string }[]
+    expect(items).toHaveLength(12)
+    expect(items[11]!.id).toBe('tabitem00001')
+    wrapper.unmount()
   })
 })
