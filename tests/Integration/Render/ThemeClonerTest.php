@@ -60,6 +60,30 @@ final class ThemeClonerTest extends AppTestCase
         self::assertTrue((new RenderThemeValidator($this->themesDir))->isValidTheme('corporate'));
     }
 
+    public function testPackDefaultCloneExcludesTheCompatibilityLoader(): void
+    {
+        $this->cloner()->clone('corporate');
+
+        // The rest of assets/ is copied; the temporary compatibility loader is not
+        // theme content (theme-runtime spec §2.4) and must never seed a new theme.
+        self::assertFileExists($this->themesDir . '/corporate/assets/site.css');
+        self::assertFileDoesNotExist($this->themesDir . '/corporate/assets/blocks.js');
+    }
+
+    public function testCustomThemeCloneStillCopiesItsBlocksJs(): void
+    {
+        $this->cloner()->clone('corporate');
+        file_put_contents($this->themesDir . '/corporate/assets/blocks.js', '/* custom theme behavior */');
+
+        // Cloning a CUSTOM theme is still a byte-exact copy — the exclusion is
+        // pack-default-only (theme-runtime spec §2.4).
+        $this->cloner()->clone('corporate-dark', 'corporate');
+        self::assertStringContainsString(
+            '/* custom theme behavior */',
+            (string) file_get_contents($this->themesDir . '/corporate-dark/assets/blocks.js'),
+        );
+    }
+
     public function testCloneFromAClonedThemeWorks(): void
     {
         $this->cloner()->clone('corporate');

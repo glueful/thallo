@@ -346,12 +346,13 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringNotContainsString('__dots', $out);
         self::assertStringNotContainsString('<script', $out);
 
-        // The default layout loads the enhancement ONCE, deferred.
+        // The default layout loads the enhancement runtime ONCE, deferred
+        // (theme-runtime spec §2.3: the package-owned runtime, not a theme asset).
         $layout = (string) file_get_contents(
             $this->appContext()->getBasePath()
                 . '/packages/thallo-render/themes/default/templates/layout.twig',
         );
-        self::assertSame(1, substr_count($layout, "asset('blocks.js')"));
+        self::assertSame(1, substr_count($layout, 'runtime_script()'));
         self::assertStringContainsString('<script defer', $layout);
     }
 
