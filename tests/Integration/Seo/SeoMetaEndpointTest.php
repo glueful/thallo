@@ -4,11 +4,22 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Seo;
 
+use App\Content\Repositories\ContentTypeRepository;
+use App\Content\Repositories\EntryRepository;
+use App\Content\Repositories\ReferenceProjectionRepository;
+use App\Content\Repositories\RouteRepository;
+use App\Content\Repositories\VersionRepository;
+use App\Content\Services\PublishService;
+use App\Content\Validation\FieldValidator;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
 use App\Tests\Support\AppTestCase;
 use Thallo\Contracts\Capability\CapabilityRegistry;
+use Thallo\Contracts\Delivery\ContentDeliveryReader;
+use Thallo\Contracts\Schema\ContentTypeReader;
 use Thallo\Seo\Http\Controllers\AdminSeoMetaController;
 use Thallo\Seo\Http\Controllers\SeoMetaController;
+use Thallo\Seo\Meta\SeoMetaRepository;
+use Thallo\Seo\Meta\SeoMetaResolver;
 use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -182,6 +193,76 @@ final class SeoMetaEndpointTest extends AppTestCase
         self::assertSame('Custom', $data['og']['title'], "empty-string og_title must fall back, not emit ''");
     }
 
+    public function testUnmappedTypeDerivesTitleFromTheTitleFieldNotBareSiteName(): void
+    {
+        // 'post' has NO seo.fallbacks entry (the test env maps no types at all) — the
+        // conventional `title` field must feed the templated title, not the bare site name.
+        $this->seedPublishedEntryInType('post', true, 'en', 'hello-post', 'Hello Post');
+
+        $resp = $this->container()->get(SeoMetaController::class)
+            ->show(new Request(['locale' => 'en']), 'post', 'hello-post');
+        self::assertSame(200, $resp->getStatusCode());
+        $data = json_decode((string) $resp->getContent(), true)['data'];
+
+        self::assertSame($this->expectedTemplatedTitle('Hello Post'), $data['title']);
+        self::assertNotSame(
+            $this->seoDefaults()['site_name'],
+            $data['title'],
+            'unmapped type must not fall straight to the bare site name',
+        );
+    }
+
+    public function testUnmappedTypeWithoutTitleFieldStillFallsToSiteName(): void
+    {
+        // Unmapped type whose schema carries no `title` field at all → site name (unchanged).
+        $this->seedPublishedEntryWithSchema(
+            'note',
+            [['name' => 'body', 'type' => 'string', 'required' => true]],
+            ['body' => 'A note without any title field'],
+            'en',
+            'just-a-note',
+        );
+
+        $resp = $this->container()->get(SeoMetaController::class)
+            ->show(new Request(['locale' => 'en']), 'note', 'just-a-note');
+        self::assertSame(200, $resp->getStatusCode());
+        $data = json_decode((string) $resp->getContent(), true)['data'];
+
+        self::assertSame($this->seoDefaults()['site_name'], $data['title']);
+    }
+
+    public function testMappedTitleFieldStillWinsOverTheTitleConvention(): void
+    {
+        $this->seedPublishedEntryWithSchema(
+            'press',
+            [
+                ['name' => 'headline', 'type' => 'string', 'required' => true],
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+            ],
+            ['headline' => 'Big Scoop', 'title' => 'Conventional Title'],
+            'en',
+            'big-scoop',
+        );
+
+        // The shared resolver is wired from config (no fallbacks in the test env); build one
+        // with a mapped title_field over the SAME container reader/repo to prove the mapping
+        // still outranks the `title` convention through the endpoint.
+        $repo = $this->container()->get(SeoMetaRepository::class);
+        $resolver = new SeoMetaResolver(
+            $this->container()->get(ContentDeliveryReader::class),
+            static fn (string $entryUuid, string $locale): ?array => $repo->find($entryUuid, $locale),
+            fallbacks: ['press' => ['title_field' => 'headline']],
+            defaults: $this->seoDefaults(),
+        );
+        $controller = new SeoMetaController($resolver, $this->container()->get(ContentTypeReader::class));
+
+        $resp = $controller->show(new Request(['locale' => 'en']), 'press', 'big-scoop');
+        self::assertSame(200, $resp->getStatusCode());
+        $data = json_decode((string) $resp->getContent(), true)['data'];
+
+        self::assertSame($this->expectedTemplatedTitle('Big Scoop'), $data['title']);
+    }
+
     public function testPublicMetaRouteIsRegistered(): void
     {
         self::assertNotNull(
@@ -201,5 +282,66 @@ final class SeoMetaEndpointTest extends AppTestCase
                 "admin meta {$method} must require seo.manage",
             );
         }
+    }
+
+    /**
+     * The env's SEO defaults, normalized exactly like SeoServiceProvider::makeSeoMetaResolver().
+     *
+     * @return array{site_name:string,default_og_image:string,title_template:string}
+     */
+    private function seoDefaults(): array
+    {
+        $defaults = (array) config($this->appContext(), 'seo.defaults', []);
+        return [
+            'site_name' => (string) ($defaults['site_name'] ?? 'Thallo'),
+            'default_og_image' => (string) ($defaults['default_og_image'] ?? ''),
+            'title_template' => (string) ($defaults['title_template'] ?? '{title} — {site_name}'),
+        ];
+    }
+
+    private function expectedTemplatedTitle(string $title): string
+    {
+        $defaults = $this->seoDefaults();
+        return strtr($defaults['title_template'], [
+            '{title}' => $title,
+            '{site_name}' => $defaults['site_name'],
+        ]);
+    }
+
+    /**
+     * Seed a published public-delivery type with a CUSTOM schema + field values (the shared
+     * concern's helpers hardcode a `title` field; the title-convention cases need types with
+     * and without one). Returns the entry uuid.
+     *
+     * @param list<array<string,mixed>> $schema
+     * @param array<string,mixed>       $fields
+     */
+    private function seedPublishedEntryWithSchema(
+        string $typeSlug,
+        array $schema,
+        array $fields,
+        string $locale,
+        string $routeSlug,
+    ): string {
+        $types = new ContentTypeRepository($this->connection());
+        $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
+        $type = $types->create([
+            'slug' => $typeSlug,
+            'name' => ucfirst($typeSlug),
+            'public_delivery' => true,
+            'schema' => $schema,
+        ]);
+        $entry = $entries->createEntry($type, $locale, 1, 'user00000001');
+        $entries->saveDraft($entry, $locale, $fields, 1, 0, 'user00000001');
+        (new RouteRepository($this->connection()))->assign($entry, $type, $locale, $routeSlug);
+        (new PublishService(
+            $this->appContext(),
+            $entries,
+            new VersionRepository($this->connection()),
+            $types,
+            new FieldValidator(),
+            new ReferenceProjectionRepository($this->connection()),
+        ))->publish($entry, $locale, 'user00000001');
+        return $entry;
     }
 }

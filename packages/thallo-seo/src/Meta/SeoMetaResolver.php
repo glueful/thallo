@@ -8,8 +8,9 @@ use Thallo\Contracts\Delivery\ContentDeliveryReader;
 
 /**
  * Resolves the SEO meta for a published entry: per-entry override → per-type fallback
- * field → site default. Carries no absolute URLs (canonical/hreflang live on the core
- * delivery `seo` object).
+ * field → the conventional `title` field → site default (theme-runtime SEO head spec §2:
+ * this default also fixes the unmapped-type regression on this endpoint). Carries no
+ * absolute URLs (canonical/hreflang live on the core delivery `seo` object).
  */
 final class SeoMetaResolver
 {
@@ -46,7 +47,7 @@ final class SeoMetaResolver
         // Title: an explicit override is verbatim (the editor chose it); a title derived from
         // a content field gets the site title_template; absent both, the site name.
         $overrideTitle = $this->overrideString($override, 'title');
-        $fieldTitle = $this->fieldString($fields, $map['title_field'] ?? null);
+        $fieldTitle = $this->fieldString($fields, $map['title_field'] ?? 'title');
         if ($overrideTitle !== null) {
             $title = $overrideTitle;
         } elseif ($fieldTitle !== null) {
