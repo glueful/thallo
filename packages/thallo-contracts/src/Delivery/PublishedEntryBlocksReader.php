@@ -11,7 +11,7 @@ namespace Thallo\Contracts\Delivery;
  * linked entry's blocks region WITHOUT going through
  * {@see PublicRouteResolver::resolveEntry()} — that method requires a live `entry_routes`
  * row and therefore returns `not_found` for a route-less entry (the exact gap this contract
- * closes: a route-less starter "Product page" entry linked to a commerce product for
+ * closes: a route-less starter "Product story" entry linked to a commerce product for
  * enrichment purposes, never independently routed).
  *
  * Fails closed (returns null), never throws, for:

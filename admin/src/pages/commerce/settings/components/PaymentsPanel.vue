@@ -103,6 +103,16 @@ function canClear(id: string, field: SecretField): boolean {
   return gateway?.[field]?.source === 'settings' && !form.gateways[id]?.[`clear_${field}`]
 }
 
+/** Paste-into-dashboard affordance; clipboard failures degrade to a toastless no-op. */
+async function copyWebhookUrl(url: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(url)
+    success('Copied', 'Webhook URL copied to the clipboard.')
+  } catch {
+    // Clipboard unavailable (permissions/insecure context) — the URL is still selectable.
+  }
+}
+
 const fieldErrors = reactive<Record<string, string>>({})
 
 async function submit(): Promise<void> {
@@ -233,6 +243,24 @@ async function submit(): Promise<void> {
           />
         </div>
       </UFormField>
+
+      <div
+        v-if="gateway.webhook_url"
+        class="flex items-center gap-2 rounded-md bg-elevated/50 px-3 py-2"
+        :data-test="`payments-webhook-url-${gateway.id}`"
+      >
+        <span class="shrink-0 text-xs font-medium text-muted">Webhook URL</span>
+        <code class="min-w-0 flex-1 truncate text-xs">{{ gateway.webhook_url }}</code>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          size="xs"
+          icon="i-lucide-copy"
+          :aria-label="`Copy ${gateway.id} webhook URL`"
+          :data-test="`payments-webhook-copy-${gateway.id}`"
+          @click="copyWebhookUrl(gateway.webhook_url)"
+        />
+      </div>
 
       <UFormField
         label="Webhook secret"

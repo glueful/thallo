@@ -16,7 +16,7 @@ use Thallo\Commerce\CommerceIntegrationServiceProvider;
 use Thallo\Commerce\Console\CommerceDiagnoseCommand;
 use Thallo\Commerce\Links\ProductLinkRepository;
 use Thallo\Commerce\Links\ProductLinkService;
-use Thallo\Commerce\Starter\ProductPageContributor;
+use Thallo\Commerce\Starter\ProductStoryContributor;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Contracts\Starter\StarterContributorRegistry;
 use Thallo\Tenancy\Purge\PurgeHandler;
@@ -69,22 +69,24 @@ final class InertnessTest extends AppTestCase
                 'sanity check: the capability really is disabled in this second boot',
             );
 
-            // -- no pack routes: 404 --
+            // -- no pack routes -- GETs fall through to render's `GET /{path}` catch-all
+            // (404 for unknown paths); non-GETs match that catch-all's PATH template with
+            // the wrong method (405). Both prove the pack registered nothing.
             $hit = static fn (string $method, string $path): int => (new Application($disabledApp))->handle(
                 Request::create($path, $method, [], [], [], [
                     'CONTENT_TYPE' => 'application/json',
                     'HTTP_ACCEPT' => 'application/json',
                 ]),
             )->getStatusCode();
-            self::assertSame(404, $hit('PUT', '/v1/admin/commerce/products/p-1/link'));
-            self::assertSame(404, $hit('DELETE', '/v1/admin/commerce/products/p-1/link'));
+            self::assertSame(405, $hit('PUT', '/v1/admin/commerce/products/p-1/link'));
+            self::assertSame(405, $hit('DELETE', '/v1/admin/commerce/products/p-1/link'));
             self::assertSame(404, $hit('GET', '/v1/admin/commerce/products/p-1/link'));
             self::assertSame(404, $hit('GET', '/v1/admin/commerce/entries/e-1/link'));
 
             // -- no starter contribution --
             $starterRegistry = $container->get(StarterContributorRegistry::class);
             foreach ($starterRegistry->all() as $contributor) {
-                self::assertNotInstanceOf(ProductPageContributor::class, $contributor);
+                self::assertNotInstanceOf(ProductStoryContributor::class, $contributor);
             }
 
             // -- BUT migrations are still applied (installed unconditionally, boot() outside

@@ -31,6 +31,7 @@ const form = reactive<GeneralSettings>({
   cache_ttl: 60,
   scheduler_enabled: true,
   webhooks_enabled: true,
+  search_enabled: false,
   homepage_entry: '',
   site_logo: '',
   site_logo_dark: '',
@@ -544,6 +545,14 @@ async function onSave() {
                     v-model="form.webhooks_enabled"
                     label="Content webhooks"
                     description="Dispatch content events to webhook subscriptions (master switch)."
+                  />
+                  <USwitch
+                    v-model="form.search_enabled"
+                    data-test="search-enabled"
+                    label="Content search"
+                    description="Public search API (/v1/search) and content reindexing. Needs the
+                      Meilisearch extension with a reachable server; after enabling, run the
+                      thallo:search:reindex command to index existing content."
                   />
                 </div>
               </UCard>

@@ -50,4 +50,18 @@ final class ExtensionAdminControllerTest extends AppTestCase
         self::assertSame(404, $resp->getStatusCode());
         self::assertStringContainsString('glueful/definitely-not-installed', (string) $resp->getContent());
     }
+
+    public function testToggleRefusesTheProtectedTenancyProvider(): void
+    {
+        // glueful/tenancy's enforcement provider is listed in extensions.protected: its
+        // activation belongs to the workspaces enablement flow, so BOTH generic toggle
+        // directions must 409 before touching config/extensions.php or the cache.
+        $controller = new ExtensionAdminController($this->appContext());
+
+        foreach (['enable', 'disable'] as $action) {
+            $resp = $controller->{$action}($this->jsonPost(['name' => 'glueful/tenancy']));
+            self::assertSame(409, $resp->getStatusCode(), "{$action} must refuse the protected provider");
+            self::assertStringContainsString('tenancy enablement flow', (string) $resp->getContent());
+        }
+    }
 }

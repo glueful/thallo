@@ -70,6 +70,12 @@ final class CommercePaymentsEndpointTest extends AppTestCase
         // No env keys in this install — everything honestly unset.
         self::assertSame(['set' => false, 'source' => null], $byId['paystack']['secret_key']);
         self::assertSame(['set' => false, 'source' => null], $byId['stripe']['webhook_secret']);
+
+        // The copy-able dashboard URL: canonical origin + payvia's root-mounted webhook route.
+        self::assertMatchesRegularExpression(
+            '#^https?://[^/]+/webhooks/paystack$#',
+            (string) $byId['paystack']['webhook_url'],
+        );
     }
 
     public function testSecretWriteStoresCiphertextAndNeverEchoesThePlaintext(): void

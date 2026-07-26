@@ -27,6 +27,7 @@ import { useNotify } from '@/composables/useNotify'
 import { useSectionState, type SectionState } from '@/composables/useSectionState'
 import { ProductRevisionCoordinatorKey } from '@/composables/useProductRevisionCoordinator'
 import { rebaseSet } from '@/utils/sectionRebase'
+import { slugify } from '@/utils/slugify'
 import SectionStateChip from './SectionStateChip.vue'
 
 const props = defineProps<{ canManage: boolean; product?: CommerceProduct }>()
@@ -74,6 +75,17 @@ const state = reactive(blankState())
 const formError = ref<string | null>(null)
 const formRef = useTemplateRef<Form<Schema>>('formRef')
 
+// Auto-derive the slug from the name while CREATING, until the user edits the slug directly
+// (the content-type create screen's exact behavior). Never during edit — renaming an existing
+// category must not silently rewrite its published slug.
+const slugTouched = ref(false)
+watch(
+  () => state.name,
+  (name) => {
+    if (!slugTouched.value && editingUuid.value === null) state.slug = slugify(name)
+  },
+)
+
 // A category can't be its own parent — exclude it from its own parent picker while editing.
 const parentItems = computed(() => [
   { label: 'No parent (root)', value: ROOT },
@@ -85,12 +97,14 @@ const parentItems = computed(() => [
 function openCreate() {
   editingUuid.value = null
   Object.assign(state, blankState())
+  slugTouched.value = false
   formError.value = null
   formOpen.value = true
 }
 
 function openEdit(category: CommerceCategory) {
   editingUuid.value = category.uuid
+  slugTouched.value = true
   state.name = category.name
   state.slug = category.slug
   state.description = category.description ?? ''
@@ -401,7 +415,12 @@ const saveDisabled = computed(
           <UInput v-model="state.name" class="w-full" data-test="category-name-input" />
         </UFormField>
         <UFormField label="Slug" name="slug" required>
-          <UInput v-model="state.slug" class="w-full" data-test="category-slug-input" />
+          <UInput
+            v-model="state.slug"
+            class="w-full"
+            data-test="category-slug-input"
+            @update:model-value="slugTouched = true"
+          />
         </UFormField>
         <UFormField label="Description" name="description" class="col-span-2">
           <UTextarea

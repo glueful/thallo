@@ -33,6 +33,9 @@ final class UpdateGeneralSettingsData implements RequestData
         public readonly ?bool $scheduler_enabled = null,
         #[Rule('boolean')]
         public readonly ?bool $webhooks_enabled = null,
+        /** @var bool|null The `thallo.search` capability switch (public search API + reindexing). */
+        #[Rule('boolean')]
+        public readonly ?bool $search_enabled = null,
         /** Entry uuid rendered at `/`; EXPLICIT '' clears to the env fallback. */
         #[Rule('string')]
         public readonly ?string $homepage_entry = null,

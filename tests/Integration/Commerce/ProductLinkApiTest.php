@@ -374,8 +374,11 @@ final class ProductLinkApiTest extends AppTestCase
             ]),
         )->getStatusCode();
 
-        self::assertSame(404, $hit('PUT', '/v1/admin/commerce/products/p-1/link'));
-        self::assertSame(404, $hit('DELETE', '/v1/admin/commerce/products/p-1/link'));
+        // GETs fall through to render's `GET /{path}` catch-all (404 for unknown paths);
+        // non-GETs match that catch-all's PATH template with the wrong method (405).
+        // Both prove the pack registered nothing.
+        self::assertSame(405, $hit('PUT', '/v1/admin/commerce/products/p-1/link'));
+        self::assertSame(405, $hit('DELETE', '/v1/admin/commerce/products/p-1/link'));
         self::assertSame(404, $hit('GET', '/v1/admin/commerce/products/p-1/link'));
         self::assertSame(404, $hit('GET', '/v1/admin/commerce/entries/e-1/link'));
         self::assertSame(404, $hit('GET', '/v1/admin/commerce/entries?q=ab'));

@@ -168,8 +168,14 @@ disabled install is cleanly re-enableable and supportable. It is **hard, not pol
 future destructive rollback**. Two checks (pinned P1 — scoped to STARTER keys only, so
 legitimate tenant-authored custom definitions never block):
 
-1. No `starter_provenance` row in state `customized` or `orphaned_source`
+1. No `starter_provenance` row in state `orphaned_source`
    (`StarterProvenanceRepository::divergentStates()` — new aggregate over kinds).
+   > **Policy revision (2026-07-25, user decision):** `customized` no longer blocks. A
+   > customized starter is a fully KNOWN state (provenance present, user-owned edits) and the
+   > row survives disable, so re-enablement bookkeeping stays intact; blocking it made disable
+   > impossible for any real site (everyone customizes their header) with no non-destructive
+   > remedy — `thallo:tenant:sync` deliberately preserves customized state. The future
+   > destructive rollback keeps the strict reading.
 2. **Source-aware coverage for every current syncable starter definition** — never a flat
    `liveKeys - provenanceKeys` subtraction. For each source definition:
    - look up provenance by stable `source_id` first;

@@ -41,7 +41,10 @@ final class WorkflowRemovabilityTest extends AppTestCase
 
     public function testWorkflowRoutesAbsentWhenDisabled(): void
     {
-        self::assertSame(404, $this->hit('POST', '/v1/admin/workflow/entries/e-1/en/submit'));
+        // The POST matches render's `GET /{path}` catch-all PATH template with the wrong
+        // method (405); GETs fall through to it and 404. Both prove the pack registered
+        // nothing.
+        self::assertSame(405, $this->hit('POST', '/v1/admin/workflow/entries/e-1/en/submit'));
         self::assertSame(404, $this->hit('GET', '/v1/admin/workflow/queue'));
         self::assertSame(404, $this->hit('GET', '/v1/admin/workflow/entries/e-1/en'));
     }

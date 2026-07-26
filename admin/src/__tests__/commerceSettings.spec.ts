@@ -70,6 +70,14 @@ const emailSettingsStatus = ref<'pending' | 'error' | 'success'>('success')
 const saveEmailSettingsMock = vi.hoisted(() => vi.fn())
 const fetchEmailTemplatesMock = vi.hoisted(() => vi.fn())
 
+// Marketplace settings (store-settings spec §3.6): query/mutation mocks for MarketplacePanel.
+const marketplaceData = ref<import('@/queries/commerceSettings').MarketplaceSettings | undefined>(undefined)
+const marketplaceStatus = ref<'pending' | 'error' | 'success'>('success')
+const activateMarketplaceMock = vi.hoisted(() => vi.fn())
+const deactivateMarketplaceMock = vi.hoisted(() => vi.fn())
+const saveCommissionMock = vi.hoisted(() => vi.fn())
+const setMasterMock = vi.hoisted(() => vi.fn())
+
 vi.mock('@/queries/email', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/email')>()
   return { ...actual, fetchEmailTemplates: fetchEmailTemplatesMock }
@@ -106,6 +114,13 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
     useSavePaymentsSettings: () => ({ mutateAsync: savePaymentsMock, isLoading: ref(false) }),
     useCommerceEmailSettings: () => ({ data: emailSettingsData, status: emailSettingsStatus }),
     useSaveCommerceEmailSettings: () => ({ mutateAsync: saveEmailSettingsMock, isLoading: ref(false) }),
+    useMarketplaceSettings: () => ({ data: marketplaceData, status: marketplaceStatus }),
+    useMarketplaceMutations: () => ({
+      activate: { mutateAsync: activateMarketplaceMock, isLoading: ref(false) },
+      deactivate: { mutateAsync: deactivateMarketplaceMock, isLoading: ref(false) },
+      saveCommission: { mutateAsync: saveCommissionMock, isLoading: ref(false) },
+      setMaster: { mutateAsync: setMasterMock, isLoading: ref(false) },
+    }),
     useCommerceTaxRates: () => ({ data: ratesPage, status: ratesStatus }),
     useCommerceTaxRateMutations: () => ({
       createRate: { mutateAsync: createRateMock, isLoading: ref(false) },
@@ -121,6 +136,7 @@ import ClassesPanel from '@/pages/commerce/settings/components/ClassesPanel.vue'
 import TaxRatesPanel from '@/pages/commerce/settings/components/TaxRatesPanel.vue'
 import PaymentsPanel from '@/pages/commerce/settings/components/PaymentsPanel.vue'
 import EmailsPanel from '@/pages/commerce/settings/components/EmailsPanel.vue'
+import MarketplacePanel from '@/pages/commerce/settings/components/MarketplacePanel.vue'
 import SettingsIndex from '@/pages/commerce/settings/index.vue'
 
 function location(overrides: Partial<CommerceShippingLocation> = {}): CommerceShippingLocation {
@@ -1392,6 +1408,7 @@ function storeSettings(
       'commerce.orders.expiry_minutes': { value: 60, default: 60, overridden: false },
       'commerce.cart.ttl_days': { value: 30, default: 30, overridden: false },
       'commerce.reports.low_stock_threshold': { value: 2, default: 2, overridden: false },
+      'commerce.downloads.url_ttl': { value: 300, default: 300, overridden: false },
       'commerce.seller.name': { value: '', default: '', overridden: false },
       'commerce.seller.address': { value: '', default: '', overridden: false },
       'commerce.seller.tax_id': { value: '', default: '', overridden: false },
@@ -1515,6 +1532,7 @@ describe('StorePanel', () => {
 
     await wrapper.find('[data-test="store-seller-name-input"]').setValue('Aurora Lighting Co.')
     await wrapper.find('[data-test="store-seller-tax-id-input"]').setValue('GH-TIN-0042')
+    await wrapper.find('[data-test="store-downloads-ttl-input"]').setValue('3600')
     await wrapper.find('[data-test="store-settings-save"]').trigger('click')
     await flushPromises()
 
@@ -1522,6 +1540,7 @@ describe('StorePanel', () => {
     expect(body['commerce.seller.name']).toBe('Aurora Lighting Co.')
     expect(body['commerce.seller.tax_id']).toBe('GH-TIN-0042')
     expect(body['commerce.seller.address']).toBeNull()
+    expect(body['commerce.downloads.url_ttl']).toBe('3600')
   })
 
   it('renders the Settings › Email pointer for order emails', async () => {
@@ -1567,6 +1586,7 @@ function paymentsSettings(
         secret_key: { set: false, source: null },
         webhook_secret: { set: false, source: null },
         default: true,
+        webhook_url: 'https://shop.example/webhooks/paystack',
       },
       {
         id: 'stripe',
@@ -1574,6 +1594,7 @@ function paymentsSettings(
         secret_key: { set: false, source: null },
         webhook_secret: { set: false, source: null },
         default: false,
+        webhook_url: 'https://shop.example/webhooks/stripe',
       },
     ],
   }
@@ -1610,6 +1631,7 @@ describe('PaymentsPanel', () => {
           secret_key: { set: true, source: 'settings' },
           webhook_secret: { set: true, source: 'env' },
           default: true,
+          webhook_url: 'https://shop.example/webhooks/paystack',
         },
       ],
     })
@@ -1622,6 +1644,10 @@ describe('PaymentsPanel', () => {
     expect(input.attributes('placeholder')).toContain('stored')
     expect(wrapper.text()).toContain('A key is stored (encrypted). Leave blank to keep it.')
     expect(wrapper.text()).toContain('Using the key from .env.')
+    // The copy-able dashboard URL renders per card.
+    const urlRow = wrapper.find('[data-test="payments-webhook-url-paystack"]')
+    expect(urlRow.text()).toContain('https://shop.example/webhooks/paystack')
+    expect(wrapper.find('[data-test="payments-webhook-copy-paystack"]').exists()).toBe(true)
   })
 
   it('sends only changed fields: typed secrets ride the payload, untouched ones are absent', async () => {
@@ -1648,6 +1674,7 @@ describe('PaymentsPanel', () => {
           secret_key: { set: true, source: 'settings' },
           webhook_secret: { set: false, source: null },
           default: true,
+          webhook_url: 'https://shop.example/webhooks/paystack',
         },
       ],
     })
@@ -1768,5 +1795,144 @@ describe('EmailsPanel', () => {
 
     const toggle = wrapper.findComponent('[data-test="emails-toggle-order_paid"]')
     expect(toggle.attributes('disabled')).toBeDefined()
+  })
+})
+
+// ── MarketplacePanel: activation + workspace commission policy (spec §3.6) ────────────────────
+
+function marketplaceSettings(
+  overrides: Partial<import('@/queries/commerceSettings').MarketplaceSettings> = {},
+): import('@/queries/commerceSettings').MarketplaceSettings {
+  return {
+    master_enabled: overrides.master_enabled ?? true,
+    master_overridden: overrides.master_overridden ?? false,
+    settings:
+      'settings' in overrides
+        ? (overrides.settings ?? null)
+        : {
+            status: 'active',
+            default_seller_uuid: null,
+            commission: { kind: 'percentage', bps: 500, fixed: null },
+            reserve: { bps: 0, days: 0 },
+            activated_at: '2026-07-25 12:00:00',
+            revision: 1,
+          },
+    sellers: overrides.sellers ?? [],
+  }
+}
+
+describe('MarketplacePanel', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    marketplaceData.value = marketplaceSettings()
+    marketplaceStatus.value = 'success'
+    activateMarketplaceMock.mockReset()
+    activateMarketplaceMock.mockResolvedValue(marketplaceSettings())
+    deactivateMarketplaceMock.mockReset()
+    deactivateMarketplaceMock.mockResolvedValue(marketplaceSettings({ settings: null }))
+    saveCommissionMock.mockReset()
+    saveCommissionMock.mockResolvedValue(marketplaceSettings())
+    setMasterMock.mockReset()
+    setMasterMock.mockResolvedValue(marketplaceSettings())
+  })
+
+  function mountMarketplace(canManage = true) {
+    return mount(MarketplacePanel, { props: { canManage }, global: { stubs: pageStubs } })
+  }
+
+  it('the master-off card offers a runtime Enable button — no env instructions', async () => {
+    marketplaceData.value = marketplaceSettings({ master_enabled: false, settings: null })
+    const wrapper = mountMarketplace()
+    await flushPromises()
+
+    const card = wrapper.find('[data-test="marketplace-master-off"]')
+    expect(card.text()).toContain('Marketplace mode is switched off')
+    expect(card.text()).not.toContain('.env')
+    expect(wrapper.find('[data-test="marketplace-panel"]').exists()).toBe(false)
+
+    await wrapper.find('[data-test="marketplace-master-enable"]').trigger('click')
+    await flushPromises()
+    expect(setMasterMock).toHaveBeenCalledWith(true)
+  })
+
+  it('the master-off card is read-only without manage rights', async () => {
+    marketplaceData.value = marketplaceSettings({ master_enabled: false, settings: null })
+    const wrapper = mountMarketplace(false)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="marketplace-master-enable"]').exists()).toBe(false)
+  })
+
+  it('switch-off is offered only while the workspace is inactive', async () => {
+    marketplaceData.value = marketplaceSettings({ settings: null })
+    const wrapper = mountMarketplace()
+    await flushPromises()
+
+    await wrapper.find('[data-test="marketplace-master-disable"]').trigger('click')
+    await flushPromises()
+    expect(setMasterMock).toHaveBeenCalledWith(false)
+
+    // While ACTIVE, the switch-off affordance yields to deactivate-first.
+    marketplaceData.value = marketplaceSettings()
+    const activeWrapper = mountMarketplace()
+    await flushPromises()
+    expect(activeWrapper.find('[data-test="marketplace-master-disable"]').exists()).toBe(false)
+  })
+
+  it('offers activation with a default-seller select while inactive', async () => {
+    marketplaceData.value = marketplaceSettings({
+      settings: null,
+      sellers: [{ uuid: 'sel1', name: 'Aurora', status: 'active' }],
+    })
+    const wrapper = mountMarketplace()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="marketplace-status-badge"]').text()).toBe('inactive')
+    expect(wrapper.find('[data-test="marketplace-activate"]').exists()).toBe(true)
+
+    await wrapper.find('[data-test="marketplace-activate"]').trigger('click')
+    await flushPromises()
+    expect(activateMarketplaceMock).toHaveBeenCalledWith(null)
+  })
+
+  it('saves a percentage commission as bps', async () => {
+    const wrapper = mountMarketplace()
+    await flushPromises()
+
+    await wrapper.find('[data-test="marketplace-commission-percent"]').setValue('7.5')
+    await wrapper.find('[data-test="marketplace-commission-save"]').trigger('click')
+    await flushPromises()
+
+    expect(saveCommissionMock).toHaveBeenCalledWith({ kind: 'percentage', bps: 750, fixed: null })
+  })
+
+  it('rejects an out-of-range percentage locally without calling the API', async () => {
+    const wrapper = mountMarketplace()
+    await flushPromises()
+
+    await wrapper.find('[data-test="marketplace-commission-percent"]').setValue('150')
+    await wrapper.find('[data-test="marketplace-commission-save"]').trigger('click')
+    await flushPromises()
+
+    expect(saveCommissionMock).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('between 0 and 100')
+  })
+
+  it('deactivate rides its own button while active', async () => {
+    const wrapper = mountMarketplace()
+    await flushPromises()
+
+    await wrapper.find('[data-test="marketplace-deactivate"]').trigger('click')
+    await flushPromises()
+    expect(deactivateMarketplaceMock).toHaveBeenCalled()
+  })
+
+  it('hides every mutating control without manage rights', async () => {
+    marketplaceData.value = marketplaceSettings({ settings: null })
+    const wrapper = mountMarketplace(false)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="marketplace-activate"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="marketplace-commission-save"]').exists()).toBe(false)
   })
 })

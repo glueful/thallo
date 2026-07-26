@@ -11,6 +11,10 @@ export interface TenantSummary {
   deleted_at?: string | null
   deleted_from_status?: string | null
   purge_after?: string | null
+  /** Purging tenants only: true when the purge run needs operator attention (no worker,
+   * dispatch/job failure, dead lease) — the UI says "waiting for a worker" instead of an
+   * indefinitely spinning tag. */
+  purge_stalled?: boolean
 }
 
 export const qkMyTenants = () => ['tenancy', 'my-tenants'] as const

@@ -18,6 +18,11 @@ final class SystemKeys
         'installed',
         'scheduler_enabled',
         'webhooks_enabled',
+        // The thallo.search capability switch: read by makeCapabilityRegistry() at BOOT
+        // (before tenant resolution) and it gates instance-global route registration —
+        // a tenant-scoped row would both throw under enforcement and fragment per
+        // workspace what is physically one switch.
+        'search_enabled',
         'admin_url',
     ];
 

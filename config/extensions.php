@@ -4,8 +4,14 @@
  * Extensions
  *
  * Composer discovers installed `glueful-extension` packages (see their
- * extra.glueful.provider). This file is the single activation allow-list:
- * an installed extension does nothing until its provider FQCN appears below.
+ * extra.glueful.provider). This file is the single activation allow-list for
+ * INSTALLABLE EXTENSIONS ONLY: an installed extension does nothing until its
+ * provider FQCN appears below. Thallo's internal modules are NOT extensions —
+ * they are library-typed packages registered in config/serviceproviders.php
+ * (modules-not-extensions spec, 2026-07-25) and never belong in this list.
+ * The tenancy enforcement provider line is RUNTIME STATE written and removed
+ * by the tenancy enablement flow — never add or strip it by hand; generic
+ * enable/disable refuses it via the extensions.protected map.
  *
  * - Entries are plain string FQCNs (no ::class) so `php glueful extensions:enable|disable`
  *   can edit this list safely. Do not use conditionals/function calls here.
@@ -24,25 +30,24 @@ return [
         'Glueful\Extensions\ImportExport\ImportExportServiceProvider',
         'Glueful\Extensions\Media\MediaServiceProvider',
         'Glueful\Extensions\Meilisearch\MeilisearchProvider',
-        // Commerce (framework extension) must load BEFORE thallo-commerce (below), which binds
-        // Commerce's host seams. Tenancy ENFORCEMENT (Glueful\Extensions\Tenancy\TenancyServiceProvider)
-        // is deliberately NOT listed here — it is enforcement-gated and activated only through the
-        // runtime enablement flow; Commerce depends on the always-on tenancy control plane, not on
-        // the enforcement provider being statically enabled.
         'Glueful\Extensions\Commerce\CommerceServiceProvider',
-        // Payvia (payments gateway bridge, 2026-07-25): binds the contracts PaymentCollector port
-        // and provides the gateways the Commerce Payments settings tab configures.
         'Glueful\Extensions\Payvia\PayviaServiceProvider',
         'Glueful\Extensions\Users\UsersServiceProvider',
-        'Thallo\Analytics\AnalyticsServiceProvider',
-        'Thallo\Collections\CollectionsServiceProvider',
-        'Thallo\Commerce\CommerceIntegrationServiceProvider',
-        'Thallo\Importers\ImportersServiceProvider',
-        'Thallo\Navigation\NavigationServiceProvider',
-        'Thallo\Render\RenderServiceProvider',
-        'Thallo\Seo\SeoServiceProvider',
-        'Thallo\Tenancy\TenancyServiceProvider',
-        'Thallo\Workflow\WorkflowServiceProvider',
+    ],
+
+    /**
+     * Providers whose activation is OWNED by a lifecycle flow: every generic enable/disable
+     * surface (framework CLI + controllers, and Thallo's own extensions admin) consults
+     * ProtectedProviders::refusalFor() and refuses these before touching state. The tenancy
+     * enforcement provider's line in `enabled` above is written/removed exclusively by the
+     * workspaces enablement flow (packages/thallo-tenancy).
+     */
+    'protected' => [
+        'Glueful\\Extensions\\Tenancy\\TenancyServiceProvider' => [
+            'reason' => 'Workspace enforcement is managed by the tenancy enablement flow — '
+                . 'use Settings › Workspaces, not the generic extension toggle.',
+            'managed_by' => 'glueful/tenancy enablement',
+        ],
     ],
 
     /**

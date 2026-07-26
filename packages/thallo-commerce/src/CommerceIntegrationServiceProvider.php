@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Commerce;
 
+use Glueful\Extensions\DeclaresLoadOrder;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Cache\CacheStore;
 use Glueful\Database\Connection;
@@ -35,6 +36,7 @@ use Thallo\Commerce\Http\CommerceMetaController;
 use Thallo\Commerce\Http\CommerceSettingsController;
 use Thallo\Commerce\Http\PaymentsSettingsController;
 use Thallo\Commerce\Http\EmailSettingsController;
+use Thallo\Commerce\Http\MarketplaceSettingsController;
 use Thallo\Commerce\Http\ProductLinkController;
 use Thallo\Commerce\Links\EntryLinkSearch;
 use Thallo\Commerce\Links\LinkReconciler;
@@ -66,7 +68,7 @@ use Thallo\Commerce\Shop\ShopPageCache;
 use Thallo\Commerce\Shop\ShopStorefrontLinkResolver;
 use Thallo\Commerce\Shop\ShopUrlGenerator;
 use Thallo\Commerce\Shop\StorefrontPreviewUrlBuilder;
-use Thallo\Commerce\Starter\ProductPageContributor;
+use Thallo\Commerce\Starter\ProductStoryContributor;
 use Thallo\Commerce\Starter\ShopBlockTypesContributor;
 use Thallo\Commerce\Tenancy\ThalloCommerceTenantResolution;
 use Thallo\Contracts\Capability\Capability;
@@ -86,8 +88,29 @@ use Thallo\Tenancy\System\SystemFlags;
 
 use function config;
 
-final class CommerceIntegrationServiceProvider extends ServiceProvider
+final class CommerceIntegrationServiceProvider extends ServiceProvider implements DeclaresLoadOrder
 {
+    /**
+     * Source-verified edge (modules-not-extensions spec §5.2): this pack mounts commerce's
+     * admin route catalog and binds its host seams — commerce's own routes and boot state
+     * must exist first, preserving the pre-conversion route registration order.
+     */
+    public static function loadAfter(): array
+    {
+        return [\Glueful\Extensions\Commerce\CommerceServiceProvider::class];
+    }
+
+    /**
+     * Post-extension tier (modules-not-extensions spec §5.2): app-integrated modules load
+     * AFTER the extension universe, reproducing the pre-conversion order in which they lived
+     * at the tail of config/extensions.php. Inter-module order comes from the
+     * serviceproviders.php list (the orderer's stable tie-break).
+     */
+    public static function loadPriority(): int
+    {
+        return 100;
+    }
+
     /** The table this pack owns for product-to-entry enrichment links (spec §5.1). */
     private const PRODUCT_LINK_TABLE = 'thallo_commerce_product_links';
 
@@ -175,6 +198,12 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider
             // Spec §4.2 follow-up: GET/PUT /emails — the per-template order-email switches.
             EmailSettingsController::class => [
                 'class'    => EmailSettingsController::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            // Spec §3.6 Marketplace group: thin front over commerce's marketplace services.
+            MarketplaceSettingsController::class => [
+                'class'    => MarketplaceSettingsController::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
@@ -677,7 +706,7 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider
             $this->loadRoutesFrom(__DIR__ . '/../routes/admin-routes.php');
             $this->loadRoutesFrom(__DIR__ . '/../routes/shop-routes.php');
 
-            // Task 11: the starter "Product page" content-type contribution (design spec §9) is
+            // Task 11: the starter "Product story" content-type contribution (design spec §9) is
             // user-facing batteries-included content, unlike the maintenance infrastructure
             // above -- it registers ONLY while the capability is on. Contributor discovery alone
             // never mutates existing tenants (it only makes the type PARTICIPATE in fresh
@@ -939,13 +968,13 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider
     }
 
     /**
-     * Task 11: register {@see ProductPageContributor} with the shared
+     * Task 11: register {@see ProductStoryContributor} with the shared
      * {@see StarterContributorRegistry} — the design spec §9 seam that lets an installed pack
      * participate in the fixed pages/category/post starter set without the app-owned
      * `ContentTypeKind` referencing this pack's namespace. Called ONLY from inside the
      * `thallo.commerce` capability-enabled branch of {@see boot()} (unlike
      * {@see registerProductLinkTable()}/{@see registerAdoptionContributor()}, which are
-     * maintenance infrastructure and stay unconditional) -- the Product page type is
+     * maintenance infrastructure and stay unconditional) -- the Product story type is
      * user-facing batteries-included content, design spec §9.
      *
      * Registering merely makes the definition ELIGIBLE for the next fresh-tenant provisioning
@@ -975,12 +1004,12 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider
         }
 
         foreach ($registry->all() as $existing) {
-            if ($existing instanceof ProductPageContributor) {
+            if ($existing instanceof ProductStoryContributor) {
                 return true; // already registered — idempotent no-op.
             }
         }
 
-        $registry->register(new ProductPageContributor());
+        $registry->register(new ProductStoryContributor());
 
         return true;
     }

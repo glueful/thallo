@@ -54,6 +54,12 @@ final class AdminOpenApiGateTest extends AppTestCase
         // Order-email switches (store-settings spec §4.2 follow-up).
         ['GET', '/v1/admin/commerce/emails'],
         ['PUT', '/v1/admin/commerce/emails'],
+        // Marketplace settings (store-settings spec §3.6).
+        ['GET', '/v1/admin/commerce/marketplace'],
+        ['POST', '/v1/admin/commerce/marketplace/activate'],
+        ['POST', '/v1/admin/commerce/marketplace/deactivate'],
+        ['PUT', '/v1/admin/commerce/marketplace/commission'],
+        ['PUT', '/v1/admin/commerce/marketplace/master'],
     ];
 
     // ------------------------------------------------------------------

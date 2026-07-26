@@ -11,28 +11,28 @@ use App\Content\Starter\StarterDefinition;
 use App\Tests\Support\AppTestCase;
 use Glueful\Extensions\Commerce\Catalog\CatalogService;
 use Thallo\Commerce\Links\ProductLinkService;
-use Thallo\Commerce\Starter\ProductPageContributor;
+use Thallo\Commerce\Starter\ProductStoryContributor;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Contracts\Starter\StarterContributorRegistry;
 use Thallo\Tenancy\System\SystemFlags;
 
 /**
- * Task 11: the starter "Product page" content-type contribution (design spec §9) — the parts
+ * Task 11: the starter "Product story" content-type contribution (design spec §9) — the parts
  * that need no real multi-tenant retrofit harness. Mirrors ProductLinkServiceTest/
  * ProductLinkApiTest's mode (b) convention (widened schema + a persisted default tenant via
  * {@see SystemFlags}) for the end-to-end linkage case, and ProductLinkApiTest's
  * `bootAppWithConfigOverride` convention for the disabled-capability and no-boot-writes cases.
  *
- * The genuinely tenancy-shaped coverage — fresh-tenant provisioning creates `product_page`, and
+ * The genuinely tenancy-shaped coverage — fresh-tenant provisioning creates `product-story`, and
  * `thallo:tenant:sync --all --kind=content_type` adopts it into a pre-existing tenant
  * idempotently — needs `TenantSeeder`/`TenantSyncCommand` against a REAL widened schema and
- * therefore lives in {@see \App\Tests\Integration\Commerce\ProductPageStarterTenancyTest}
+ * therefore lives in {@see \App\Tests\Integration\Commerce\ProductStoryStarterTenancyTest}
  * (opt-in Postgres retrofit machinery, THALLO_TENANCY_DEV_LINK=1), mirroring exactly how Task 5
  * split {@see \App\Tests\Integration\Content\Starter\StarterContributorTest} (this file's
  * counterpart) from
  * {@see \App\Tests\Integration\Content\Starter\StarterContributorTenancyTest}.
  */
-final class ProductPageStarterTest extends AppTestCase
+final class ProductStoryStarterTest extends AppTestCase
 {
     private const TENANT = 'ppstesttenan';
 
@@ -66,7 +66,7 @@ final class ProductPageStarterTest extends AppTestCase
     // capability gate
     // ------------------------------------------------------------------
 
-    public function testCapabilityDisabledMeansProductPageIsNotContributed(): void
+    public function testCapabilityDisabledMeansProductStoryIsNotContributed(): void
     {
         // See ProductLinkApiTest::testRoutesAbsentWhenCapabilityDisabled's identical warning:
         // a second full boot with 'tenancy.schema_state' still 'widened' would make
@@ -82,9 +82,9 @@ final class ProductPageStarterTest extends AppTestCase
         $registry = $disabledApp->getContainer()->get(StarterContributorRegistry::class);
         foreach ($registry->all() as $contributor) {
             self::assertNotInstanceOf(
-                ProductPageContributor::class,
+                ProductStoryContributor::class,
                 $contributor,
-                'disabling thallo.commerce must keep ProductPageContributor out of the registry',
+                'disabling thallo.commerce must keep ProductStoryContributor out of the registry',
             );
         }
 
@@ -94,7 +94,7 @@ final class ProductPageStarterTest extends AppTestCase
             static fn (StarterDefinition $d): string => $d->definitionKey,
             $kind->definitions(),
         );
-        self::assertNotContains(ProductPageContributor::SLUG, $slugs);
+        self::assertNotContains(ProductStoryContributor::SLUG, $slugs);
 
         self::resetSharedRepositoryConnection();
     }
@@ -126,7 +126,7 @@ final class ProductPageStarterTest extends AppTestCase
         self::assertNotEmpty(
             array_filter(
                 $freshBoot->getContainer()->get(StarterContributorRegistry::class)->all(),
-                static fn (object $c): bool => $c instanceof ProductPageContributor,
+                static fn (object $c): bool => $c instanceof ProductStoryContributor,
             ),
             'sanity: the contribution really was registered by this boot',
         );
@@ -144,12 +144,12 @@ final class ProductPageStarterTest extends AppTestCase
     }
 
     // ------------------------------------------------------------------
-    // end-to-end: a product_page entry links to a commerce product
+    // end-to-end: a product-story entry links to a commerce product
     // ------------------------------------------------------------------
 
-    public function testProductPageEntryLinksToACommerceProductEndToEndAndResolvesBothWays(): void
+    public function testProductStoryEntryLinksToACommerceProductEndToEndAndResolvesBothWays(): void
     {
-        $typeUuid = $this->createProductPageType();
+        $typeUuid = $this->createProductStoryType();
         $product = $this->seedProduct('product-page-e2e');
         $entry = $this->seedEntry($typeUuid);
 
@@ -181,25 +181,25 @@ final class ProductPageStarterTest extends AppTestCase
     }
 
     /**
-     * Persists a REAL `product_page` content-type row using the exact same
+     * Persists a REAL `product-story` content-type row using the exact same
      * definition/conversion pipeline TenantSeeder/StarterSync use — a throwaway registry +
      * ContentTypeKind instance, so nothing here registers into the shared process boot's
      * container (mirrors StarterContributorTest's identical discipline).
      */
-    private function createProductPageType(): string
+    private function createProductStoryType(): string
     {
         $repository = $this->container()->get(ContentTypeRepository::class);
         $registry = new DefaultStarterContributorRegistry();
-        $registry->register(new ProductPageContributor());
+        $registry->register(new ProductStoryContributor());
         $kind = new ContentTypeKind($repository, $this->connection(), $registry);
 
         foreach ($kind->definitions() as $definition) {
-            if ($definition->definitionKey === ProductPageContributor::SLUG) {
+            if ($definition->definitionKey === ProductStoryContributor::SLUG) {
                 return $repository->create($definition->payload);
             }
         }
 
-        throw new \RuntimeException('product_page definition not found');
+        throw new \RuntimeException('product-story definition not found');
     }
 
     private function seedProduct(string $slug): string

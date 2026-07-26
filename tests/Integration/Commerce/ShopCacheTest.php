@@ -592,7 +592,7 @@ final class ShopCacheTest extends AppTestCase
 
     /**
      * A real published entry with ONE `heading` block, carrying NO route (Fix B: mirrors the
-     * route-less starter "Product page" shape ShopCatalogTest's identical helper exercises).
+     * route-less starter "Product story" shape ShopCatalogTest's identical helper exercises).
      * Uses the CONTAINER-bound {@see EntryRepository}/{@see PublishService} (not hand-built
      * ones) — those carry a real event emitter, so publishing here dispatches a REAL
      * `EntryPublished` (the event this whole fix's purge mechanism depends on).

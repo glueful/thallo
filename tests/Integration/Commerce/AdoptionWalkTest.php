@@ -26,7 +26,7 @@ use Thallo\Commerce\Adoption\CommerceAdoptionContributor;
 use Thallo\Commerce\Console\ReconcileLinksCommand;
 use Thallo\Commerce\Links\ProductLinkRepository;
 use Thallo\Commerce\Links\ProductLinkService;
-use Thallo\Commerce\Starter\ProductPageContributor;
+use Thallo\Commerce\Starter\ProductStoryContributor;
 use Thallo\Contracts\Content\EntryExistenceReader;
 use Thallo\Tenancy\Adoption\AdoptionContributorRegistry;
 use Thallo\Tenancy\Cache\CacheTransition;
@@ -41,7 +41,7 @@ use Thallo\Tenancy\System\SystemFlags;
 /**
  * Commerce-Slice-1 Task 12: the full sentinel -> widened -> enforced adoption walk (design spec
  * §10 "Adoption") — a single-store install with commerce products + a canonical link + a
- * `product_page` entry, all still on the `''` sentinel, driven through the REAL
+ * `product-story` entry, all still on the `''` sentinel, driven through the REAL
  * `TenancyEnablement::confirm()` -> two-boot `finalize()` machine (mirrors
  * `EnableFullMachineAcceptanceTest`/`EnableToOnAcceptanceTest`'s established two-boot dance and
  * `CommerceAdoptionEnablementTest`'s manually-constructed-service convention), then proves reads
@@ -54,7 +54,7 @@ use Thallo\Tenancy\System\SystemFlags;
  * `RetrofitHarnessTestCase`/phpunit.xml's `tenancy-retrofit` comment: retrofit-harness classes
  * must run in their own invocation, exactly like every other Commerce acceptance test in this
  * directory (CommerceAdoptionEnablementTest/CommercePurgePipelineTest/
- * ProductPageStarterTenancyTest).
+ * ProductStoryStarterTenancyTest).
  */
 final class AdoptionWalkTest extends RetrofitHarnessTestCase
 {
@@ -76,11 +76,11 @@ final class AdoptionWalkTest extends RetrofitHarnessTestCase
         $connection1 = $this->connection();
 
         // ---------------------------------------------------------------------------------
-        // 1. Single-store install: commerce product + a product_page entry + a link, all
+        // 1. Single-store install: commerce product + a product-story entry + a link, all
         //    implicitly on the '' sentinel (pre-retrofit -- no tenant_uuid column exists yet
         //    on entries/content_types, and Commerce resolves mode (a) '' with no flags set).
         // ---------------------------------------------------------------------------------
-        $typeUuid = $this->createProductPageType($boot1);
+        $typeUuid = $this->createProductStoryType($boot1);
         $product = (string) $container1->get(CatalogService::class)->createProduct($boot1, [
             ...self::PRODUCT_TYPE,
             'slug' => 'walk-product',
@@ -141,7 +141,7 @@ final class AdoptionWalkTest extends RetrofitHarnessTestCase
                 ->where('tenant_uuid', $defaultTenant)->count(),
         );
 
-        // The product_page content type + its entry: core Thallo tables, adopted by the
+        // The product-story content type + its entry: core Thallo tables, adopted by the
         // ordinary schema retrofit itself (design spec's "starter adopted into the default
         // tenant"), not by the Commerce-specific contributor.
         $typeRow = $connection1->table('content_types')->where('uuid', $typeUuid)->first();
@@ -318,25 +318,25 @@ final class AdoptionWalkTest extends RetrofitHarnessTestCase
     }
 
     /**
-     * Persists a REAL `product_page` content-type row using the same throwaway-registry
-     * technique as `ProductPageStarterTest::createProductPageType()` — nothing here registers
+     * Persists a REAL `product-story` content-type row using the same throwaway-registry
+     * technique as `ProductStoryStarterTest::createProductStoryType()` — nothing here registers
      * into the shared boot's own container.
      */
-    private function createProductPageType(ApplicationContext $context): string
+    private function createProductStoryType(ApplicationContext $context): string
     {
         $container = $context->getContainer();
         /** @var ContainerInterface $container */
         $repository = $container->get(ContentTypeRepository::class);
         $registry = new DefaultStarterContributorRegistry();
-        $registry->register(new ProductPageContributor());
+        $registry->register(new ProductStoryContributor());
         $kind = new ContentTypeKind($repository, $container->get(Connection::class), $registry);
 
         foreach ($kind->definitions() as $definition) {
-            if ($definition->definitionKey === ProductPageContributor::SLUG) {
+            if ($definition->definitionKey === ProductStoryContributor::SLUG) {
                 return $repository->create($definition->payload);
             }
         }
 
-        throw new \RuntimeException('product_page definition not found');
+        throw new \RuntimeException('product-story definition not found');
     }
 }

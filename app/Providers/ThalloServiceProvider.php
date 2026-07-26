@@ -1762,6 +1762,18 @@ final class ThalloServiceProvider extends ServiceProvider
         /** @var array<string,bool> $overrides */
         $overrides = (array) config($context, 'thallo.capabilities', []);
 
+        // Settings › General search switch: the stored `search_enabled` row wins over the
+        // deploy-time map, so the admin toggle applies on the next request with no restart
+        // (searchEnabled() itself falls back to the map when no row exists, so this
+        // assignment is a no-op on a rowless install). Fail-soft to the map alone — this
+        // factory runs during EVERY boot, including CLI boots before the settings table
+        // exists (fresh install, migrate:run).
+        try {
+            $overrides['thallo.search'] = $container->get(GeneralSettings::class)->searchEnabled();
+        } catch (\Throwable) {
+            // Pre-migration boot or DB down: the config map default stands.
+        }
+
         return new DefaultCapabilityRegistry($overrides);
     }
 

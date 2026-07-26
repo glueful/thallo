@@ -7,6 +7,16 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Content search switch in Settings › General** (runtime, no restart or `.env` edit): a
+  new feature toggle controls the `thallo.search` capability. The stored `search_enabled`
+  value is a SYSTEM settings key (unscoped channel — readable at boot before tenant
+  resolution, never tenant-fragmented) overlaid onto the deploy-time `thallo.capabilities`
+  map when the capability registry is built, so a save applies on the next request;
+  rowless installs keep the config default. Because `/v1/search` registration is
+  boot-gated and the compiled route cache is keyed by route-file signatures, saving a
+  changed value also clears the route cache. Fail-soft to the config map on pre-migration
+  boots. The switch sits beside the scheduler/webhooks toggles, with a reminder to run
+  `thallo:search:reindex` after enabling.
 - **Commerce adoption + content linkage foundation** (`packages/thallo-commerce`, slice 1
   of the ecommerce content-integration track): `glueful/commerce` runs embedded with
   per-workspace data behind the standard `thallo.commerce` capability — a three-mode
@@ -903,12 +913,52 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   the entry editor + a capability-gated Review queue page.
 
 ### Changed
+- Commerce taxonomy forms (Categories, Tags, Attributes and attribute values) auto-derive
+  the slug from the name while creating — same behavior as the content-type create screen:
+  the slug stays editable, a direct slug edit stops the auto-derive, and editing an existing
+  record never rewrites its slug.
+- **Starter content type renamed: "Product page" → "Product story"** (slug `product_page` →
+  `product-story`, sourceId `thallo-commerce:product-page` → `thallo-commerce:product-story`):
+  the old name read as the storefront page a product displays on, when the type is actually
+  the editorial enrichment content linked to a commerce product. Existing installs rename the
+  provisioned row in place — update the provenance row's `source_id` to the new spelling,
+  then `thallo:tenant:sync --all --kind=content_type` renames the type (same uuid; entries
+  and product links untouched). Done pre-launch so no published install ever carries the old
+  identifiers. The add-to-cart starter block's description now says "Product story" as well.
+- **Modules, not extensions** (2026-07-25 design, executed on framework 1.72.0): the ten
+  `packages/thallo-*` provider packages are now library-typed composer modules registered in
+  `config/serviceproviders.php` — they no longer appear in the extensions catalog,
+  `config/extensions.php`, or the in-admin extensions browser, which now shows only real
+  installable extensions. Load order is declarative (`DeclaresLoadOrder`): modules share the
+  post-extension priority tier in list order, with thallo-commerce explicitly ordered after
+  glueful/commerce's provider. The resolved boot order is identical to the previous
+  activation list (verified against a captured baseline) except thallo-search, which now
+  always loads with its behaviour gated by the new `thallo.search` capability
+  (`config/thallo.php`, off by default — the `/v1/search` route and the real reindexer stay
+  inert, preserving the previous opt-in posture). The tenancy enforcement provider is listed
+  in the new `extensions.protected` map, so every generic enable/disable surface (framework
+  CLI and controller, Thallo's extensions admin) refuses it with a pointer to
+  Settings › Workspaces.
 - **lemma-contracts (BREAKING):** `MenuUpdated` moved from
   `Glueful\Lemma\Navigation\Events\MenuUpdated` to
   `Glueful\Lemma\Contracts\Navigation\MenuUpdated` (cross-pack seams live in
   contracts; lemma-render subscribes without depending on lemma-navigation). No
   deprecated alias — subscribers must re-import the contracts FQCN (none existed
   in-repo before this change).
+
+### Fixed
+- Test harness: dedicated in-process boots now reset the provider route-file latch
+  (`ServiceProvider::resetLoadedRoutes()`) alongside the existing `RouteManifest` reset,
+  so a second boot no longer silently loses every pack route another boot loaded first.
+  Five capability-off route tests were updated to production-parity expectations exposed
+  by the fix: with render's `GET /{path}` catch-all present, non-GET probes of absent
+  pack routes return 405 (path claimed for GET), not 404.
+- Extension activation writes (the tenancy enablement flow and the admin extensions toggle)
+  now recompile the provider cache from the just-written `config/extensions.php` — the
+  context config cache is cleared before the recompile, which previously resolved through
+  the enabled list cached at boot and persisted the pre-write activation state. The tenancy
+  flow also switched from an explicit extensions-only provider list to the full resolved
+  list, so the recompiled cache always carries the always-on Thallo modules.
 
 ### Security
 - Admin routes (`lemma_permission` gate) now require API-key principals to carry a key scope
@@ -964,6 +1014,53 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   working). Once an order exists, changes are rejected server-side with a field-level error
   and the input renders disabled with the reason. Changes apply on the next request — no
   deploy, no restart.
+- **Marketplace tab: activation seller select no longer corrupts the page**: the "No default
+  seller" option used an empty-string value, which reka-ui's SelectItem rejects at setup —
+  corrupting the component tree and surfacing as unhandled Vue patch/unmount errors (11 of
+  them failing CI's vitest job despite 1677 passing tests). The option now uses a sentinel
+  mapped to null on submit. Alongside: the vitest setup gains `enableAutoUnmount(afterEach)`
+  so stale wrappers can't re-render against torn-down DOM (the charts spec opts out — @unovis
+  containers can't survive destroy in jsdom), which is what converted these deferred unhandled
+  rejections into attributable in-test failures.
+- **Disable wizard: `disabled_widened` no longer dead-ends on "Continue"**: the panel mapped
+  the disable direction's resting state to the RE-ENABLE entry (`begin`) behind a generic
+  "Continue" label — while the run still awaited fresh-boot verification, begin refuses, so
+  clicking Continue produced "Disabled-widened mode is awaiting fresh-boot verification" with
+  no way forward. The awaiting-verification sub-state now offers "Verify and finish disable"
+  (the settle path — `disable()` again), and the settled state offers an explicit
+  "Re-enable workspaces" instead of a bare Continue.
+- **Workspace disable no longer blocked by customized starters** (policy revision, sp2c §6):
+  `customized` is a fully known, user-owned state whose provenance row survives disable, so the
+  gate now blocks only genuinely incoherent provenance — missing starters, starter-shaped
+  content without provenance, dangling/wrong-key rows, and orphaned sources. Previously any
+  site that had edited its header could never disable workspaces, and the prescribed remedy
+  (`thallo:tenant:sync`) deliberately preserves customized state — a dead end.
+- **Honest "purging" state on the Workspaces page**: a purging workspace whose purge run
+  needs operator attention — dispatch never landed, the job failed, a worker died mid-run,
+  or the run has sat queued untouched past a two-minute grace window (no queue worker
+  consuming, the dev-install classic) — now says so under its tag: "Purge is waiting for a
+  queue worker", with the exact commands to run. One server-side predicate
+  (`PurgeRunRepository::isStalled`) decides; the tenant list enriches purging rows with
+  `purge_stalled`, and healthy runs (fresh queue, live lease, retry backoff) stay untagged.
+- **Marketplace tab in Commerce Settings**: per-workspace marketplace activation (with a
+  default-seller select for adopting existing products) and the workspace fallback commission
+  policy (percentage-as-bps or fixed minor units), fronting commerce's own marketplace services
+  through new pack endpoints (`GET /v1/admin/commerce/marketplace` + activate/deactivate/
+  commission/master) graded like every other settings surface. The master switch is a RUNTIME
+  toggle: `commerce.marketplace.enabled` joined the settings seam (commerce ≥ 1.7.0 —
+  `MarketplaceMode::installEnabled()`, the single choke point checkout and the webhook
+  publisher re-check per call, reads through it), so the off-state card offers an "Enable
+  marketplace" button instead of `.env` instructions; the env var remains the config default
+  and ops kill-switch, and commerce's direct marketplace REST API (external integrations)
+  still requires it at boot. Switching off entirely is offered only while the workspace is
+  inactive (deactivate first). Sellers, payouts, and financials remain a future Marketplace
+  admin area.
+- **Download link lifetime on the Store tab + webhook URLs on the Payments tab**: the signed
+  download-URL TTL (`commerce.downloads.url_ttl`, 60s–7d, default 300) is runtime-editable
+  through the settings seam (needs commerce ≥ 1.7.0 for the stored value to reach the signer;
+  the field itself works on 1.6.x), and each Payments gateway card now shows the copy-able
+  `/webhooks/{gateway}` URL for the gateway dashboard — origin from the canonical public-origin
+  resolver, never the request Host header.
 - **Emails is now its own Commerce Settings tab — switches + relocated templates**: the four
   buyer order emails (confirmation, payment, fulfillment, cancellation) gained per-template
   on/off switches (`GET/PUT /v1/admin/commerce/emails`; settings rows over pack-config defaults,

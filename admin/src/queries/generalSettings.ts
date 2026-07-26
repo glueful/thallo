@@ -16,6 +16,8 @@ export interface GeneralSettings {
   cache_ttl: number
   scheduler_enabled: boolean
   webhooks_enabled: boolean
+  /** The `thallo.search` capability switch (public search API + reindexing). */
+  search_enabled: boolean
   /** Entry uuid rendered at `/`; '' = no homepage (standalone index). Send '' to clear. */
   homepage_entry: string
   /** Asset uuid of the site logo; '' = unset (site name renders instead). */

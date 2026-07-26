@@ -15,7 +15,7 @@ use Thallo\Tenancy\Contracts\TenantSeedRepair;
  * starter shop block types; {@see \App\Tests\Integration\Commerce\ShopBlocksTest} covers the
  * capability gate, boot() write-safety, schema/definition shape, and everything else that needs
  * no real multi-tenant retrofit harness. Mirrors
- * {@see \App\Tests\Integration\Commerce\ProductPageStarterTenancyTest}'s identical split for the
+ * {@see \App\Tests\Integration\Commerce\ProductStoryStarterTenancyTest}'s identical split for the
  * identical reason (Task 6/11 Slice-1 precedent) — opt-in via THALLO_TENANCY_DEV_LINK=1, the
  * WHOLE class self-skips otherwise (RetrofitHarnessTestCase::setUpBeforeClass()).
  *

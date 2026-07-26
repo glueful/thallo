@@ -27,7 +27,7 @@ use Thallo\Tenancy\System\SystemFlags;
  * fingerprinted asset serving. {@see \App\Tests\Integration\Commerce\ShopJsRuntimeTest} covers
  * `shop.js`'s executable JS contract; {@see \App\Tests\Integration\Commerce\ShopBlockTypeProvisioningTest}
  * covers the DEV_LINK-gated fresh-tenant provisioning + `thallo:tenant:sync` adoption (mirrors
- * the ProductPageStarterTest/ProductPageStarterTenancyTest split for the identical reason: none
+ * the ProductStoryStarterTest/ProductStoryStarterTenancyTest split for the identical reason: none
  * of the coverage here needs a real multi-tenant retrofit harness).
  */
 final class ShopBlocksTest extends AppTestCase
@@ -42,7 +42,7 @@ final class ShopBlocksTest extends AppTestCase
         $this->truncateCommerceCatalog();
         $this->flags()->put('tenancy.schema_state', 'widened');
         $this->flags()->put('tenancy.default_tenant_uuid', self::TENANT_A);
-        // Mirrors ProductPageStarterTest's identical idiom: seedLinkedEntry() below inserts
+        // Mirrors ProductStoryStarterTest's identical idiom: seedLinkedEntry() below inserts
         // directly into `entries`, and EngineEntryExistenceReader checks the row's OWN
         // tenant_uuid whenever the column is present — defensively ensured here regardless of
         // migration state.
