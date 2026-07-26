@@ -190,6 +190,32 @@ final class SeoHeadRenderTest extends AppTestCase
         self::assertStringContainsString('<meta property="og:title" content="Safe Title">', $out);
     }
 
+    public function testEntryBackedHomepageRendersItsHeadAtRoot(): void
+    {
+        // home() renders index.twig directly (never through renderEntry), so it must
+        // thread its own seo context (seo-head spec §1/§2: the homepage IS an entry
+        // page). The homepage shape: og:type website, and never a canonical pointing
+        // at the entry's own path.
+        $entry = $this->seedBilingualPublishedEntry();
+        $this->metaRepo()->upsert($entry, 'en', ['description' => 'Home description']);
+        $this->container()->get(\App\Settings\SettingsStore::class)
+            ->putMany(['homepage_entry' => $entry]);
+
+        try {
+            $html = $this->renderPage('/');
+
+            self::assertStringContainsString('<meta property="og:type" content="website">', $html);
+            self::assertStringContainsString('content="Home description"', $html);
+            self::assertStringNotContainsString(
+                'rel="canonical" href="https://site.test/blog/hello"',
+                $html,
+                'the homepage must never canonicalize to the entry path',
+            );
+        } finally {
+            $this->container()->get(\App\Settings\SettingsStore::class)->forget('homepage_entry');
+        }
+    }
+
     public function testPolicyAllowsSeoHeadAndBumpedVersion(): void
     {
         self::assertContains('seo_head', TemplatePolicy::FUNCTIONS);
