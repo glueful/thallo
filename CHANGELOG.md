@@ -913,6 +913,14 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   the entry editor + a capability-gated Review queue page.
 
 ### Changed
+- **Starter content type renamed: "Product page" → "Product story"** (slug `product_page` →
+  `product-story`, sourceId `thallo-commerce:product-page` → `thallo-commerce:product-story`):
+  the old name read as the storefront page a product displays on, when the type is actually
+  the editorial enrichment content linked to a commerce product. Existing installs rename the
+  provisioned row in place — update the provenance row's `source_id` to the new spelling,
+  then `thallo:tenant:sync --all --kind=content_type` renames the type (same uuid; entries
+  and product links untouched). Done pre-launch so no published install ever carries the old
+  identifiers. The add-to-cart starter block's description now says "Product story" as well.
 - **Modules, not extensions** (2026-07-25 design, executed on framework 1.72.0): the ten
   `packages/thallo-*` provider packages are now library-typed composer modules registered in
   `config/serviceproviders.php` — they no longer appear in the extensions catalog,

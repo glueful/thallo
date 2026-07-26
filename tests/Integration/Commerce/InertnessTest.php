@@ -16,7 +16,7 @@ use Thallo\Commerce\CommerceIntegrationServiceProvider;
 use Thallo\Commerce\Console\CommerceDiagnoseCommand;
 use Thallo\Commerce\Links\ProductLinkRepository;
 use Thallo\Commerce\Links\ProductLinkService;
-use Thallo\Commerce\Starter\ProductPageContributor;
+use Thallo\Commerce\Starter\ProductStoryContributor;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Contracts\Starter\StarterContributorRegistry;
 use Thallo\Tenancy\Purge\PurgeHandler;
@@ -86,7 +86,7 @@ final class InertnessTest extends AppTestCase
             // -- no starter contribution --
             $starterRegistry = $container->get(StarterContributorRegistry::class);
             foreach ($starterRegistry->all() as $contributor) {
-                self::assertNotInstanceOf(ProductPageContributor::class, $contributor);
+                self::assertNotInstanceOf(ProductStoryContributor::class, $contributor);
             }
 
             // -- BUT migrations are still applied (installed unconditionally, boot() outside

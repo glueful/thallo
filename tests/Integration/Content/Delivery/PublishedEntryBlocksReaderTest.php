@@ -40,7 +40,7 @@ final class PublishedEntryBlocksReaderTest extends AppTestCase
         );
     }
 
-    /** A content type with a `body: blocks` field, mirroring the commerce "Product page" starter shape. */
+    /** A content type with a `body: blocks` field, mirroring the commerce "Product story" starter shape. */
     private function createType(bool $publicDelivery = true): string
     {
         return (new ContentTypeRepository($this->connection()))->create([

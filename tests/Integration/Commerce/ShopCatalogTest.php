@@ -26,7 +26,7 @@ use Thallo\Tenancy\System\SystemFlags;
  * index, product detail (commerce-only and enrichment-linked), category archive.
  *
  * Tenant is driven via mode (b) (widened schema + persisted default tenant, {@see SystemFlags}),
- * mirroring ProductLinkServiceTest/ProductPageStarterTest's identical convention in this same
+ * mirroring ProductLinkServiceTest/ProductStoryStarterTest's identical convention in this same
  * directory. Unlike those classes, this suite does NOT alter `entries` to add a transient
  * `tenant_uuid` column: {@see \App\Content\Authoring\EngineEntryExistenceReader::exists()} only
  * enforces the tenant check when that column is present on the row, so enrichment entries
@@ -52,7 +52,7 @@ final class ShopCatalogTest extends AppTestCase
     protected function tearDown(): void
     {
         $this->truncateCommerceCatalog();
-        // Never leave 'widened' persisted past this class (ProductPageStarterTest's identical
+        // Never leave 'widened' persisted past this class (ProductStoryStarterTest's identical
         // discipline): a later PHPUnit PROCESS's very first (process-shared) boot reads
         // thallo_system_flags before any test's setUp() truncates it.
         $this->flags()->forget('tenancy.schema_state');
@@ -214,7 +214,7 @@ final class ShopCatalogTest extends AppTestCase
     }
 
     /**
-     * Fix B (Commerce-Slice-2 review): the starter "Product page" content type is route-less
+     * Fix B (Commerce-Slice-2 review): the starter "Product story" content type is route-less
      * in normal editorial use — its canonical URL is the SHOP product page
      * (`/shop/products/{slug}`), so an editor has no reason to ever assign it a route of its
      * own via {@see \App\Content\Repositories\RouteRepository::assign()}. Before Fix B,
@@ -577,7 +577,7 @@ final class ShopCatalogTest extends AppTestCase
 
     /**
      * Fix B fixture: a real published entry with a `heading` block — deliberately WITHOUT
-     * calling {@see RouteRepository::assign()} at all, mirroring the starter "Product page"
+     * calling {@see RouteRepository::assign()} at all, mirroring the starter "Product story"
      * type's normal editorial use (linked purely for enrichment; the canonical URL is the
      * shop path, not this entry's own).
      */

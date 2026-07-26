@@ -6,20 +6,20 @@ namespace App\Tests\Integration\Commerce;
 
 use App\Tests\Support\RetrofittedTenantTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
-use Thallo\Commerce\Starter\ProductPageContributor;
+use Thallo\Commerce\Starter\ProductStoryContributor;
 use Thallo\Tenancy\Console\TenantSyncCommand;
 use Thallo\Tenancy\Contracts\TenantSeedRepair;
 
 /**
- * Task 11 — the tenant-provisioning/sync half of the starter "Product page" content-type
- * contribution (design spec §9); {@see \App\Tests\Integration\Commerce\ProductPageStarterTest}
+ * Task 11 — the tenant-provisioning/sync half of the starter "Product story" content-type
+ * contribution (design spec §9); {@see \App\Tests\Integration\Commerce\ProductStoryStarterTest}
  * covers the capability gate, boot() write-safety, and the end-to-end linkage, none of which
  * need real multi-tenant infrastructure. Mirrors
  * {@see \App\Tests\Integration\Content\Starter\StarterContributorTenancyTest} (Task 5's own
  * equivalent split) with ONE structural difference: T5's stub 'event' contributor has no
  * production wiring, so that test registers it manually in `setUpBeforeClass()`. This pack's
  * real {@see \Thallo\Commerce\CommerceIntegrationServiceProvider::boot()} ALREADY registers
- * {@see ProductPageContributor} with the shared registry as part of this harness's normal full
+ * {@see ProductStoryContributor} with the shared registry as part of this harness's normal full
  * boot (Commerce + thallo-commerce are enabled providers, thallo.commerce defaults on) — a
  * second manual registration here would collide on sourceId. Nothing to wire; the RED cases are
  * proven purely by the real provider having already run.
@@ -28,9 +28,9 @@ use Thallo\Tenancy\Contracts\TenantSeedRepair;
  * enable step for pre-existing workspaces — see this pack's README), not a single tenant uuid —
  * the one deliberate divergence from StarterContributorTenancyTest's `--kind` invocation.
  */
-final class ProductPageStarterTenancyTest extends RetrofittedTenantTestCase
+final class ProductStoryStarterTenancyTest extends RetrofittedTenantTestCase
 {
-    public function testFreshTenantProvisioningCreatesProductPage(): void
+    public function testFreshTenantProvisioningCreatesProductStory(): void
     {
         $this->container()->get(TenantSeedRepair::class)->repair(self::$tenantAUuid);
 
@@ -42,23 +42,23 @@ final class ProductPageStarterTenancyTest extends RetrofittedTenantTestCase
             ),
         );
 
-        self::assertSame(['category', 'pages', 'post', ProductPageContributor::SLUG], $slugs);
+        self::assertSame(['category', 'pages', 'post', ProductStoryContributor::SLUG], $slugs);
     }
 
-    public function testTenantSyncAllWithKindContentTypeAdoptsProductPageIdempotently(): void
+    public function testTenantSyncAllWithKindContentTypeAdoptsProductStoryIdempotently(): void
     {
         $first = $this->syncAllContentTypeKind();
         self::assertSame(
             'added',
-            $first[self::$tenantBUuid][ProductPageContributor::SOURCE_ID] ?? null,
-            'first --all sync of a pre-existing (unseeded) tenant must add product_page',
+            $first[self::$tenantBUuid][ProductStoryContributor::SOURCE_ID] ?? null,
+            'first --all sync of a pre-existing (unseeded) tenant must add product-story',
         );
 
         $second = $this->syncAllContentTypeKind();
         self::assertSame(
             'unchanged',
-            $second[self::$tenantBUuid][ProductPageContributor::SOURCE_ID] ?? null,
-            'a second --all sync run must be a no-op for the already-adopted product_page type',
+            $second[self::$tenantBUuid][ProductStoryContributor::SOURCE_ID] ?? null,
+            'a second --all sync run must be a no-op for the already-adopted product-story type',
         );
     }
 
