@@ -131,6 +131,10 @@ final class SeedBlockTypesTest extends AppTestCase
         self::assertArrayNotHasKey('hover_style', $nav);
         self::assertSame(['chevron-down', 'chevron-right', 'plus', 'none'], $nav['submenu_icon']['enum']);
         self::assertSame(['hover', 'click'], $nav['submenu_trigger']['enum']);
+        // Accessible landmark label (theme-runtime spec §7): optional string,
+        // the template defaults to 'Navigation' when absent.
+        self::assertSame('string', $nav['aria_label']['type'] ?? null);
+        self::assertArrayNotHasKey('required', $nav['aria_label']);
     }
 
     public function testRerunSkipsEverythingAndPreservesAdminEdits(): void

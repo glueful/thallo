@@ -83,6 +83,31 @@ final class RegionRenderingTest extends AppTestCase
         self::assertStringContainsString('<footer class="site-footer">', $empty);
     }
 
+    public function testLayoutShellSkipLinkMainTargetAndFallbackNavDisclosure(): void
+    {
+        $entry = $this->seedBilingualPublishedEntry();
+        $html = $this->renderHome($entry);
+        // Skip link is the FIRST element in <body> (theme-runtime spec §7).
+        self::assertMatchesRegularExpression(
+            '~<body>\s*<a class="skip-link" href="#main">~',
+            $html,
+        );
+        // …and it has a focusable target: the main landmark.
+        self::assertStringContainsString('<main id="main" tabindex="-1"', $html);
+        // Fallback nav: a labelled landmark wrapped in the SAME details
+        // disclosure pattern the navigation block uses.
+        self::assertStringContainsString('<nav class="site-nav" aria-label="Main navigation">', $html);
+        self::assertStringContainsString(
+            '<details class="site-nav__mobile thallo-block-navigation__mobile" data-thallo-enhance="navigation">',
+            $html,
+        );
+        self::assertStringContainsString(
+            '<summary class="thallo-block-navigation__hamburger">'
+            . '<span class="thallo-block-navigation__hamburger-icon" aria-hidden="true"></span>Menu</summary>',
+            $html,
+        );
+    }
+
     /**
      * The P1 canonical-grammar proof (nav-v2 spec §3): entry menu-item urls are
      * CanonicalPathBuilder outputs; current_path is the page-cache normalizer's

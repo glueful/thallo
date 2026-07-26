@@ -184,6 +184,9 @@ final class StarterBlockTypes
                     ['name' => 'submenu_icon', 'type' => 'enum',
                         'enum' => ['chevron-down', 'chevron-right', 'plus', 'none']],
                     ['name' => 'submenu_trigger', 'type' => 'enum', 'enum' => ['hover', 'click']],
+                    // Accessible landmark label (theme-runtime spec §7): names the
+                    // <nav> for assistive tech; the template defaults to 'Navigation'.
+                    ['name' => 'aria_label', 'type' => 'string', 'label' => 'Navigation label (assistive)'],
                 ]],
             ['slug' => 'separator', 'label' => 'Separator', 'icon' => 'i-lucide-separator-horizontal',
                 'category' => 'Layout',
