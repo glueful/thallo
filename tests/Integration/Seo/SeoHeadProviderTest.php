@@ -166,6 +166,48 @@ final class SeoHeadProviderTest extends AppTestCase
         );
     }
 
+    public function testAlreadyAbsoluteProjectorHrefsPassThroughWithoutDoublePrefixing(): void
+    {
+        // A deployment with `thallo.seo.public_url_base` set makes the projector emit
+        // ABSOLUTE hrefs — prefixing the origin again would corrupt them
+        // (https://origin.testhttps://site.test/...). They must pass through untouched
+        // until the base authorities unify (seo-head spec §7.3).
+        $entry = $this->seedBilingualPublishedEntry();
+
+        $absoluteProjector = new CanonicalProjector(
+            new DeliveryRepository($this->connection()),
+            $this->container()->get(RouteRepository::class),
+            $this->container()->get(ContentTypeRepository::class),
+            new CanonicalPathBuilder(
+                new PathRenderer('/{locale}/{type}/{slug}', 'https://site.test', 'en'),
+                $this->container()->get(LocaleManagerInterface::class),
+            ),
+            'en',
+        );
+        $context = new ApplicationContext($this->appContext()->getBasePath(), 'testing');
+        $context->setContainer($this->container());
+        $context->mergeConfigDefaults('app', ['urls' => ['base' => self::ORIGIN]]);
+        $provider = new EngineSeoHeadProvider(
+            $context,
+            $this->container()->get(SeoMetaResolver::class),
+            $absoluteProjector,
+            new ThalloCanonicalPublicOriginResolver(new SystemFlags($context), null, null, null),
+            $this->container()->get(HomepageEntryProvider::class),
+            $this->container()->get(RouteRepository::class),
+            $this->container()->get(ContentTypeRepository::class),
+        );
+
+        $head = $provider->headFor($entry, 'en');
+
+        self::assertNotNull($head);
+        self::assertNotNull($head['canonical']);
+        self::assertStringStartsWith('https://site.test/', (string) $head['canonical']);
+        self::assertStringNotContainsString('origin.test', (string) $head['canonical']);
+        foreach ($head['alternates'] as $alt) {
+            self::assertStringStartsWith('https://site.test/', $alt['href']);
+        }
+    }
+
     // ---- fixtures --------------------------------------------------------------------
 
     /**

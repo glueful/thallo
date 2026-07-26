@@ -112,7 +112,17 @@ final class EngineSeoHeadProvider implements SeoHeadResolver
 
     private function absolute(?string $origin, ?string $path): ?string
     {
-        if ($origin === null || $path === null || $path === '') {
+        if ($path === null || $path === '') {
+            return null;
+        }
+        // A deployment with `thallo.seo.public_url_base` set makes CanonicalProjector
+        // emit ALREADY-ABSOLUTE hrefs (PathRenderer prefixes them). Prefixing again
+        // would corrupt the URL — pass them through instead; unifying the two base
+        // authorities is the seo-head spec's named follow-up (§7.3).
+        if (preg_match('#^https?://#i', $path) === 1) {
+            return $path;
+        }
+        if ($origin === null) {
             return null;
         }
         return $origin . $path;
