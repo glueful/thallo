@@ -85,6 +85,12 @@ final class StorefrontInertnessTest extends AppTestCase
                 ]),
             )->getStatusCode();
 
+            // The shop pack registered NOTHING, so every probe falls through to the rest of
+            // the app: GETs land on render's `GET /{path}` catch-all (which 404s unknown
+            // paths); non-GETs match that catch-all's PATH template with the wrong method
+            // and 405 — production-parity either way, and both prove the shop route is
+            // absent (a registered shop route would accept the method).
+
             // Catalog.
             self::assertSame(404, $hit('GET', '/shop'), 'shop index');
             self::assertSame(404, $hit('GET', '/shop/products/whatever'), 'product detail');
@@ -93,15 +99,15 @@ final class StorefrontInertnessTest extends AppTestCase
             // Cart.
             self::assertSame(404, $hit('GET', '/cart'), 'cart page');
             self::assertSame(404, $hit('GET', '/_shop/cart'), 'mini-cart json');
-            self::assertSame(404, $hit('POST', '/_shop/cart/add'), 'cart add');
-            self::assertSame(404, $hit('POST', '/_shop/cart/update'), 'cart update');
-            self::assertSame(404, $hit('POST', '/_shop/cart/remove'), 'cart remove');
-            self::assertSame(404, $hit('POST', '/_shop/cart/discount'), 'cart discount');
+            self::assertSame(405, $hit('POST', '/_shop/cart/add'), 'cart add');
+            self::assertSame(405, $hit('POST', '/_shop/cart/update'), 'cart update');
+            self::assertSame(405, $hit('POST', '/_shop/cart/remove'), 'cart remove');
+            self::assertSame(405, $hit('POST', '/_shop/cart/discount'), 'cart discount');
 
             // Checkout.
             self::assertSame(404, $hit('GET', '/checkout'), 'checkout page');
-            self::assertSame(404, $hit('POST', '/_shop/checkout/quote'), 'checkout quote');
-            self::assertSame(404, $hit('POST', '/_shop/checkout/place'), 'checkout place');
+            self::assertSame(405, $hit('POST', '/_shop/checkout/quote'), 'checkout quote');
+            self::assertSame(405, $hit('POST', '/_shop/checkout/place'), 'checkout place');
             self::assertSame(404, $hit('GET', '/checkout/return/whatever'), 'payment return');
             self::assertSame(404, $hit('GET', '/checkout/cancel/whatever'), 'payment cancel');
             self::assertSame(404, $hit('GET', '/checkout/confirmation/whatever'), 'confirmation');

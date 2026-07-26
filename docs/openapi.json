@@ -20524,6 +20524,121 @@
                 }
             }
         },
+        "\/v1\/search": {
+            "get": {
+                "operationId": "getV1Search",
+                "summary": "GET \/v1\/search",
+                "tags": [
+                    "Search"
+                ],
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Successful response"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "\/sitemap.xml": {
             "get": {
                 "operationId": "getSitemapxml",
@@ -23662,6 +23777,9 @@
                                                         "webhooks_enabled": {
                                                             "type": "boolean"
                                                         },
+                                                        "search_enabled": {
+                                                            "type": "boolean"
+                                                        },
                                                         "homepage_entry": {
                                                             "type": "string"
                                                         },
@@ -23857,6 +23975,13 @@
                                             "null"
                                         ]
                                     },
+                                    "search_enabled": {
+                                        "type": [
+                                            "boolean",
+                                            "null"
+                                        ],
+                                        "description": "The `thallo.search` capability switch (public search API + reindexing)."
+                                    },
                                     "homepage_entry": {
                                         "type": [
                                             "string",
@@ -23931,6 +24056,7 @@
                                 "cache_ttl": "example",
                                 "scheduler_enabled": true,
                                 "webhooks_enabled": true,
+                                "search_enabled": true,
                                 "homepage_entry": "example",
                                 "site_logo": "example",
                                 "site_logo_dark": "example",
@@ -23986,6 +24112,9 @@
                                                             "type": "boolean"
                                                         },
                                                         "webhooks_enabled": {
+                                                            "type": "boolean"
+                                                        },
+                                                        "search_enabled": {
                                                             "type": "boolean"
                                                         },
                                                         "homepage_entry": {

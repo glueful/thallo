@@ -26,6 +26,12 @@ final class GeneralSettings
         'cache_ttl'         => ['thallo.delivery.cache_ttl', 'int', 60],
         'scheduler_enabled' => ['thallo.scheduler.enabled', 'bool', true],
         'webhooks_enabled'  => ['thallo.pipeline.webhooks_enabled', 'bool', true],
+        // The `thallo.search` capability switch. Its deploy default lives in the
+        // `thallo.capabilities` MAP, whose keys contain dots — dotted config access
+        // can't reach it, so value() resolves this key's default specially (absent
+        // key = enabled, matching DefaultCapabilityRegistry semantics). The stored
+        // row feeds back into the registry via makeCapabilityRegistry().
+        'search_enabled'    => ['', 'bool', true],
         'homepage_entry'    => ['render.homepage_entry', 'string', ''],
         'site_logo'         => ['thallo.site_logo', 'string', ''],
         // Dark-scheme logo variant (site-identity spec): an OVERRIDE — unset
@@ -157,6 +163,12 @@ final class GeneralSettings
         return (bool) $this->value('webhooks_enabled');
     }
 
+    /** The EFFECTIVE `thallo.search` capability state (row → capabilities map → enabled). */
+    public function searchEnabled(): bool
+    {
+        return (bool) $this->value('search_enabled');
+    }
+
     /**
      * The effective settings (for the admin General page).
      *
@@ -202,6 +214,13 @@ final class GeneralSettings
         [$cfg, $type, $def] = self::DEFS[$key];
         $raw = $this->store->get($key);
         if ($raw === null) {
+            // search_enabled's deploy default sits in the thallo.capabilities map, whose
+            // keys contain dots — read the map wholesale (absent key = enabled).
+            if ($key === 'search_enabled') {
+                $map = (array) config($this->context, 'thallo.capabilities', []);
+                return ($map['thallo.search'] ?? true) === true;
+            }
+
             // No override stored — fall back to the deploy-time config/.env value.
             return config($this->context, $cfg, $def);
         }

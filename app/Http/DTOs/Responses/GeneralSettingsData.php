@@ -22,6 +22,8 @@ final class GeneralSettingsData implements ResponseData
         public readonly int $cache_ttl,
         public readonly bool $scheduler_enabled,
         public readonly bool $webhooks_enabled,
+        /** The `thallo.search` capability switch (public search API + reindexing). */
+        public readonly bool $search_enabled,
         public readonly string $homepage_entry,
         /** Asset uuid of the site logo; '' = unset (site name renders instead). */
         public readonly string $site_logo,

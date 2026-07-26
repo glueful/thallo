@@ -63,6 +63,7 @@ const settings = (): GeneralSettings => ({
   cache_ttl: 60,
   scheduler_enabled: true,
   webhooks_enabled: true,
+  search_enabled: false,
   homepage_entry: '',
   site_logo: '',
   site_logo_dark: '',
@@ -169,6 +170,26 @@ describe('general settings page — site logo', () => {
 
     expect(wrapper.find('[data-test="theme-card"]').exists()).toBe(false)
     expect(notify.error).not.toHaveBeenCalled()
+  })
+
+  it('the search toggle hydrates from the server and saves with the form', async () => {
+    saveMock.mockResolvedValue({ ...settings(), search_enabled: true })
+    const wrapper = mount(GeneralSettingsPage)
+    await flushPromises()
+
+    // Hydrated OFF (the server default); flip it on and save. USwitch renders a
+    // switch button, not an input — drive it via v-model like the other specs.
+    const toggle = wrapper.findComponent<{ $emit: (e: string, v: boolean) => void }>(
+      '[data-test="search-enabled"]',
+    )
+    expect(toggle.exists()).toBe(true)
+    toggle.vm.$emit('update:modelValue', true)
+    await flushPromises()
+
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
+    await saveBtn!.trigger('click')
+    await flushPromises()
+    expect(saveMock.mock.calls[0]![0]).toMatchObject({ search_enabled: true })
   })
 
   it('renders dark-logo and favicon fields; the favicon preview only when set', async () => {

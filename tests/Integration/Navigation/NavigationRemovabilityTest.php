@@ -41,8 +41,11 @@ final class NavigationRemovabilityTest extends AppTestCase
 
     public function testRoutesAbsentWhenDisabled(): void
     {
+        // GETs fall through to render's `GET /{path}` catch-all (404 for unknown paths);
+        // the PUT matches that catch-all's PATH template with the wrong method (405).
+        // Both prove the pack registered nothing.
         self::assertSame(404, $this->hit('GET', '/v1/admin/navigation/menus'));
-        self::assertSame(404, $this->hit('PUT', '/v1/admin/navigation/menus/main/items'));
+        self::assertSame(405, $this->hit('PUT', '/v1/admin/navigation/menus/main/items'));
         self::assertSame(404, $this->hit('GET', '/v1/menus/main'));
     }
 

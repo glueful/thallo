@@ -7,6 +7,16 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Content search switch in Settings › General** (runtime, no restart or `.env` edit): a
+  new feature toggle controls the `thallo.search` capability. The stored `search_enabled`
+  value is a SYSTEM settings key (unscoped channel — readable at boot before tenant
+  resolution, never tenant-fragmented) overlaid onto the deploy-time `thallo.capabilities`
+  map when the capability registry is built, so a save applies on the next request;
+  rowless installs keep the config default. Because `/v1/search` registration is
+  boot-gated and the compiled route cache is keyed by route-file signatures, saving a
+  changed value also clears the route cache. Fail-soft to the config map on pre-migration
+  boots. The switch sits beside the scheduler/webhooks toggles, with a reminder to run
+  `thallo:search:reindex` after enabling.
 - **Commerce adoption + content linkage foundation** (`packages/thallo-commerce`, slice 1
   of the ecommerce content-integration track): `glueful/commerce` runs embedded with
   per-workspace data behind the standard `thallo.commerce` capability — a three-mode
@@ -925,6 +935,12 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   in-repo before this change).
 
 ### Fixed
+- Test harness: dedicated in-process boots now reset the provider route-file latch
+  (`ServiceProvider::resetLoadedRoutes()`) alongside the existing `RouteManifest` reset,
+  so a second boot no longer silently loses every pack route another boot loaded first.
+  Five capability-off route tests were updated to production-parity expectations exposed
+  by the fix: with render's `GET /{path}` catch-all present, non-GET probes of absent
+  pack routes return 405 (path claimed for GET), not 404.
 - Extension activation writes (the tenancy enablement flow and the admin extensions toggle)
   now recompile the provider cache from the just-written `config/extensions.php` — the
   context config cache is cleared before the recompile, which previously resolved through

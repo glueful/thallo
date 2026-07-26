@@ -7,8 +7,11 @@ namespace App\Http\Controllers;
 use App\Http\DTOs\Responses\GeneralSettingsResultData;
 use App\Http\DTOs\UpdateGeneralSettingsData;
 use App\Settings\GeneralSettings;
+use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Events\EventService;
 use Glueful\Http\Response;
+use Glueful\Routing\RouteCache;
+use Glueful\Routing\RouteManifest;
 use Thallo\Contracts\Delivery\PreviewThemeValidator;
 use Thallo\Contracts\Settings\ThemeAppearanceChanged;
 use Thallo\Contracts\Settings\ThemeChanged;
@@ -31,6 +34,7 @@ final class GeneralSettingsController
 
     public function __construct(
         private readonly GeneralSettings $settings,
+        private readonly ApplicationContext $context,
         private readonly ?\Thallo\Contracts\Delivery\PublicRouteResolver $resolver = null,
         private readonly ?\App\Content\Repositories\ContentTypeRepository $contentTypes = null,
         /** Soft-bound (theme-setting spec §1): null = render pack absent, theme is inert. */
@@ -72,6 +76,7 @@ final class GeneralSettingsController
         $themeBefore = $this->settings->themeOverride();
         $accentBefore = $this->settings->themeAccent();
         $neutralBefore = $this->settings->themeNeutral();
+        $searchBefore = $this->settings->searchEnabled();
 
         $this->settings->save([
             'theme' => $input->theme,
@@ -85,6 +90,7 @@ final class GeneralSettingsController
             'cache_ttl' => $input->cache_ttl,
             'scheduler_enabled' => $input->scheduler_enabled,
             'webhooks_enabled' => $input->webhooks_enabled,
+            'search_enabled' => $input->search_enabled,
             'homepage_entry' => $input->homepage_entry,
             'site_logo' => $input->site_logo,
             'site_logo_dark' => $input->site_logo_dark,
@@ -110,6 +116,16 @@ final class GeneralSettingsController
                 $this->settings->themeAccent(),
                 $this->settings->themeNeutral(),
             ));
+        }
+
+        // The search switch gates ROUTE REGISTRATION at boot (SearchServiceProvider only
+        // registers /v1/search while the capability is on), and the compiled route cache is
+        // keyed by route-file signatures — a capability flip changes no files, so the stale
+        // cache would keep serving the old route set forever. Clear it when the effective
+        // value actually changed; the next request boots with the new state.
+        if ($input->search_enabled !== null && $this->settings->searchEnabled() !== $searchBefore) {
+            (new RouteCache($this->context))->clear();
+            RouteManifest::reset();
         }
 
         return Response::success(

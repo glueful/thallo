@@ -232,6 +232,11 @@ abstract class AppTestCase extends TestCase
         file_put_contents($overrideFile, "<?php\nreturn " . var_export($config, true) . ";\n");
 
         RouteManifest::reset();
+        // Providers latch loaded route files process-globally (ServiceProvider::$loadedRoutes):
+        // without this reset, whichever dedicated boot loads a pack's routes file FIRST steals
+        // it from every later boot in the process — the later app silently registers none of
+        // that pack's routes (404s that pass in isolation, fail in the full run).
+        \Glueful\Extensions\ServiceProvider::resetLoadedRoutes();
         foreach (glob($root . '/storage/cache/routes_*.php') ?: [] as $f) {
             @unlink($f);
         }
@@ -252,6 +257,7 @@ abstract class AppTestCase extends TestCase
                 }
             }
             RouteManifest::reset();
+            \Glueful\Extensions\ServiceProvider::resetLoadedRoutes();
         }
     }
 
