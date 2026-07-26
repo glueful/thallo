@@ -402,6 +402,17 @@ final class FieldValidator
                 $errors[$path] = 'unknown block type' . (is_string($type) ? " '{$type}'" : '');
                 continue;
             }
+            // Tabs authoring cap (theme-runtime spec §4): the no-JS floor's enumerated
+            // CSS pairs at most 12 items, and content over the cap cannot exist —
+            // pre-launch decision, zero tabs blocks in any install when this landed —
+            // so the check is unconditional, no grandfather path.
+            if ($type === 'tabs') {
+                $items = $block['data']['items'] ?? null;
+                if (is_array($items) && array_is_list($items) && count($items) > 12) {
+                    $errors["{$path}.items"] = 'tabs supports at most 12 items';
+                    continue;
+                }
+            }
             $id = isset($block['id']) && is_string($block['id']) && $block['id'] !== ''
                 ? $block['id']
                 : Utils::generateNanoID();

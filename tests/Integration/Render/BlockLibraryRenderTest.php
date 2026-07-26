@@ -334,6 +334,33 @@ final class BlockLibraryRenderTest extends AppTestCase
         self::assertStringContainsString('id="tabs-tabsblock002-1"', $out);
     }
 
+    public function testTabsFloorCarriesNoAriaAndEnhancedModeCssStandsReady(): void
+    {
+        // Honest floor (theme-runtime spec §4): radios+labels are NOT tabs
+        // semantics, so the server markup carries NO role= at all — the runtime's
+        // tabs module adds real tab semantics when it enhances.
+        $out = $this->render([['id' => 'tabsblock001', 'type' => 'tabs', 'data' => [
+            'items' => [['id' => 'tabsblock01t', 'type' => 'tab', 'data' => ['label' => 'L', 'content' => []]]],
+        ]]]);
+        self::assertStringNotContainsString('role=', $out);
+
+        // Enhanced mode owns panel visibility via [hidden] (marker-scoped rules
+        // AFTER the floor rules) — pinned as strings so the handoff can't be
+        // silently dropped from the theme CSS.
+        $css = (string) file_get_contents(
+            $this->appContext()->getBasePath()
+                . '/packages/thallo-render/themes/default/assets/blocks.css',
+        );
+        self::assertStringContainsString(
+            '.thallo-block-tabs[data-thallo-enhanced~="tabs"] .thallo-block-tabs__panel { display: block; }',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.thallo-block-tabs[data-thallo-enhanced~="tabs"] .thallo-block-tabs__panel[hidden] { display: none; }',
+            $css,
+        );
+    }
+
     public function testCarouselBaseIsPureScrollSnapAndLayoutLoadsBlocksJsOnce(): void
     {
         $out = $this->render([['id' => 'cr1', 'type' => 'carousel', 'data' => [
