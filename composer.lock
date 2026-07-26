@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b547ec7f2422a5e3b58dffd91e38d7f7",
+    "content-hash": "acc0ec09104c6a422c0857d157a38a21",
     "packages": [
         {
             "name": "composer/semver",
@@ -813,16 +813,16 @@
         },
         {
             "name": "glueful/framework",
-            "version": "v1.71.3",
+            "version": "v1.72.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "0c19addaf863381d4c5507faf52a0cc62018efda"
+                "reference": "419e0de2d25d5bb4145264522c209bffe646b8d2"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/0c19addaf863381d4c5507faf52a0cc62018efda",
-                "reference": "0c19addaf863381d4c5507faf52a0cc62018efda",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/419e0de2d25d5bb4145264522c209bffe646b8d2",
+                "reference": "419e0de2d25d5bb4145264522c209bffe646b8d2",
                 "shasum": ""
             },
             "require": {
@@ -917,7 +917,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-25T22:32:26+00:00"
+            "time": "2026-07-26T02:59:17+00:00"
         },
         {
             "name": "glueful/i18n",
