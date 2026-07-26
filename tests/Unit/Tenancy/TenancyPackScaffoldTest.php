@@ -15,13 +15,15 @@ final class TenancyPackScaffoldTest extends TestCase
         self::assertIsArray(TenancyServiceProvider::services());
     }
 
-    public function testProviderIsRegisteredForActivation(): void
+    public function testProviderIsRegisteredAsAnAppModule(): void
     {
-        $enabled = require dirname(__DIR__, 3) . '/config/extensions.php';
+        // Modules-not-extensions: thallo-tenancy is an app-integrated module, registered in
+        // config/serviceproviders.php (not the extension activation list in extensions.php).
+        $enabled = require dirname(__DIR__, 3) . '/config/serviceproviders.php';
         self::assertContains(
             'Thallo\\Tenancy\\TenancyServiceProvider',
             $enabled['enabled'] ?? [],
-            'the tenancy pack provider must be in config/extensions.php enabled[]',
+            'the tenancy module provider must be in config/serviceproviders.php enabled[]',
         );
     }
 }

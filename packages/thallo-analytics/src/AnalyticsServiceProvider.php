@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Analytics;
 
+use Glueful\Extensions\DeclaresLoadOrder;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Migrations\MigrationPriority;
 use Glueful\Events\Auth\AuthenticationFailedEvent;
@@ -22,8 +23,24 @@ use Thallo\Contracts\Capability\CapabilityRegistry;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
 
-final class AnalyticsServiceProvider extends ServiceProvider
+final class AnalyticsServiceProvider extends ServiceProvider implements DeclaresLoadOrder
 {
+    public static function loadAfter(): array
+    {
+        return [];
+    }
+
+    /**
+     * Post-extension tier (modules-not-extensions spec §5.2): app-integrated modules load
+     * AFTER the extension universe, reproducing the pre-conversion order in which they lived
+     * at the tail of config/extensions.php. Inter-module order comes from the
+     * serviceproviders.php list (the orderer's stable tie-break).
+     */
+    public static function loadPriority(): int
+    {
+        return 100;
+    }
+
     /** @return array<string, array<string, mixed>> */
     public static function services(): array
     {

@@ -70,11 +70,11 @@ final class SearchEndpointTest extends AppTestCase
         return Request::create('/v1/search', 'GET', $query, [], [], ['HTTP_ACCEPT' => 'application/json']);
     }
 
-    public function testRouteAbsentByDefaultBecausePackIsOptIn(): void
+    public function testRouteAbsentByDefaultBecauseCapabilityIsOff(): void
     {
-        // thallo-search is opt-in (not in the default config/extensions.php allow-list), so the
-        // route is NOT registered in the standard boot. Enablement wires it up — see
-        // SearchEnablementTest, which boots with the provider added.
+        // The thallo-search module always loads, but the `thallo.search` capability is disabled
+        // in config/thallo.php by default, so the route is NOT registered in the standard boot.
+        // Switching the capability on wires it up — see SearchEnablementTest.
         self::assertNull($this->findRoute('GET', '/v1/search'), '/v1/search must be opt-in, not default');
     }
 

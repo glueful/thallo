@@ -377,22 +377,23 @@ final class RenderContributionTest extends AppTestCase
         };
     }
 
-    public function testProviderOrderInTheRealActivationListDoesNotConstrainContributionTiming(): void
+    public function testProviderOrderInTheRealModuleListDoesNotConstrainContributionTiming(): void
     {
-        // Ground the claim in the ACTUAL activation list (config/extensions.php): thallo-commerce
-        // (the pack that will contribute in Task 7) boots BEFORE thallo-render, while
-        // thallo-workflow boots AFTER it. The registry must accept contributions from EITHER
-        // side — consumption (the freeze trigger) is deferred to first read, not tied to any
-        // provider's boot() position. testContributionRegisteredAfterAllProvidersHaveBootedIs...
-        // below proves that deferred-consumption mechanism against the real factories.
+        // Ground the claim in the ACTUAL module registration list (config/serviceproviders.php,
+        // where the always-on thallo modules live): thallo-commerce (the pack that will
+        // contribute in Task 7) boots BEFORE thallo-render, while thallo-workflow boots AFTER
+        // it. The registry must accept contributions from EITHER side — consumption (the freeze
+        // trigger) is deferred to first read, not tied to any provider's boot() position.
+        // testContributionRegisteredAfterAllProvidersHaveBootedIs... below proves that
+        // deferred-consumption mechanism against the real factories.
         $root = dirname(__DIR__, 3);
-        $enabled = (require $root . '/config/extensions.php')['enabled'];
+        $enabled = (require $root . '/config/serviceproviders.php')['enabled'];
         $renderIndex = array_search(RenderServiceProvider::class, $enabled, true);
         $commerceIndex = array_search(CommerceIntegrationServiceProvider::class, $enabled, true);
         $workflowIndex = array_search(WorkflowServiceProvider::class, $enabled, true);
-        self::assertIsInt($renderIndex, 'RenderServiceProvider must be in the real activation list');
-        self::assertIsInt($commerceIndex, 'CommerceIntegrationServiceProvider must be in the real activation list');
-        self::assertIsInt($workflowIndex, 'WorkflowServiceProvider must be in the real activation list');
+        self::assertIsInt($renderIndex, 'RenderServiceProvider must be in the real module list');
+        self::assertIsInt($commerceIndex, 'CommerceIntegrationServiceProvider must be in the real module list');
+        self::assertIsInt($workflowIndex, 'WorkflowServiceProvider must be in the real module list');
         self::assertLessThan($renderIndex, $commerceIndex, 'thallo-commerce boots BEFORE thallo-render');
         self::assertGreaterThan($renderIndex, $workflowIndex, 'thallo-workflow boots AFTER thallo-render');
     }

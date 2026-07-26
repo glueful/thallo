@@ -1,7 +1,7 @@
 {
   "name": "glueful/thallo-workflow",
   "description": "Editorial approval workflow for Thallo: single-stage review state machine over draft/publish, as a removable capability pack.",
-  "type": "glueful-extension",
+  "type": "library",
   "license": "MIT",
   "authors": [
     { "name": "Michael Tawiah Sowah", "email": "michael@glueful.dev" }

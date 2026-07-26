@@ -12,12 +12,14 @@ use Thallo\Search\Index\ResilientContentReindexer;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * thallo-search is OPT-IN — absent from the default config/extensions.php allow-list (a lean
- * install binds no reindexer and does not register /v1/search; see CapabilityGatingTest +
- * SearchEndpointTest::testRouteAbsentByDefaultBecausePackIsOptIn). This proves the other
- * direction: once the provider is enabled, the boot gate registers /v1/search and binds the
- * (resilient) ContentReindexer. Dedicated enabled boot via a temp config/testing/extensions.php
- * override carrying the real allow-list + this provider.
+ * thallo-search is an always-loaded module whose behaviour is OPT-IN via the `thallo.search`
+ * capability (disabled in config/thallo.php by default — a lean install resolves the no-op
+ * reindexer and does not register /v1/search; see CapabilityGatingTest +
+ * SearchEndpointTest::testRouteAbsentByDefaultBecauseCapabilityIsOff). This proves the other
+ * direction: once the capability is switched on, the boot gate registers /v1/search and the
+ * reindexer seam resolves to the real (resilient) implementation. Dedicated enabled boot via a
+ * temp config/testing/thallo.php override (array_replace_recursive keeps every other thallo
+ * key); the committed config/testing/extensions.php tenancy-off shield applies automatically.
  */
 final class SearchEnablementTest extends AppTestCase
 {
@@ -31,17 +33,9 @@ final class SearchEnablementTest extends AppTestCase
             return;
         }
 
-        // The real allow-list plus thallo-search (opt-in, so not in the default list). Read
-        // through config/testing/extensions.php (the committed tenancy-off test shield), NOT the
-        // raw config/extensions.php: the latter is also what `extensions:enable` mutates in
-        // place, so a dogfooding workstation with tenancy switched on (or another pack newly
-        // wired in) would otherwise leak unrelated provider state into this search-only boot.
-        /** @var array{enabled: list<string>} $base */
-        $base = require dirname(__DIR__, 3) . '/config/testing/extensions.php';
-        $enabled = $base['enabled'];
-        $enabled[] = 'Thallo\\Search\\SearchServiceProvider';
-
-        self::$enabledApp = self::bootAppWithConfigOverride('extensions', ['enabled' => $enabled]);
+        self::$enabledApp = self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.search' => true],
+        ]);
     }
 
     public function testRouteRegisteredWhenEnabled(): void
@@ -51,7 +45,7 @@ final class SearchEnablementTest extends AppTestCase
         $status = (new Application(self::$enabledApp))->handle(
             Request::create('/v1/search?q=x&locale=en', 'GET', [], [], [], ['HTTP_ACCEPT' => 'application/json']),
         )->getStatusCode();
-        self::assertNotSame(404, $status, 'enabling thallo-search must register /v1/search');
+        self::assertNotSame(404, $status, 'enabling the thallo.search capability must register /v1/search');
     }
 
     public function testReindexerBoundToResilientWhenEnabled(): void

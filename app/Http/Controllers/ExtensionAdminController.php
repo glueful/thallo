@@ -14,6 +14,7 @@ use Glueful\Extensions\Install\HostNotWritableException;
 use Glueful\Extensions\Install\InstallDisabledException;
 use Glueful\Extensions\Install\PackageNotAllowedException;
 use Glueful\Extensions\PackageManifest;
+use Glueful\Extensions\ProtectedProviders;
 use Glueful\Helpers\RequestHelper;
 use Glueful\Http\Response;
 use Glueful\Routing\Attributes\ApiOperation;
@@ -272,12 +273,22 @@ final class ExtensionAdminController
             return Response::notFound("No installed extension named “{$name}”.");
         }
 
+        // Protected providers refuse before any state change: their activation is owned by a
+        // lifecycle flow (extensions.protected), and this generic toggle must never bypass it.
+        if (($refusal = ProtectedProviders::refusalFor($this->context, $candidate->provider)) !== null) {
+            return Response::error($refusal, 409);
+        }
+
         $configPath = config_path($this->context, 'extensions.php');
         try {
             $writer = new ExtensionStateWriter();
             $enable
                 ? $writer->enable($configPath, $candidate->provider)
                 : $writer->disable($configPath, $candidate->provider);
+            // The recompile must resolve from the JUST-WRITTEN extensions.php — the enabled
+            // list was read (and cached on the context) at boot, before this write, and
+            // framework 1.72.0's writeCacheNow() resolves through that config cache.
+            $this->context->clearConfigCache();
             app($this->context, ExtensionManager::class)->writeCacheNow();
         } catch (\Throwable $e) {
             return Response::error('Could not update extension state: ' . $e->getMessage(), 500);

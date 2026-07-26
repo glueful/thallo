@@ -1385,7 +1385,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-analytics",
-                "reference": "5de0c9f296c1a3639e2560b5b766afd93755b5dc"
+                "reference": "a6547807eff39fd522eb56da6faf2fa6ea9788f6"
             },
             "require": {
                 "glueful/extension-contracts": "*",
@@ -1393,7 +1393,7 @@
                 "glueful/thallo-contracts": "*",
                 "php": "^8.3"
             },
-            "type": "glueful-extension",
+            "type": "library",
             "extra": {
                 "glueful": {
                     "provider": "Thallo\\Analytics\\AnalyticsServiceProvider"
@@ -1424,7 +1424,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-collections",
-                "reference": "75a359eb15720e8e17d14d681c4877cb2997a98b"
+                "reference": "076a6d3b430492a66b5352157c747a586906e02e"
             },
             "require": {
                 "glueful/framework": "^1.64.0",
@@ -1432,7 +1432,7 @@
                 "glueful/thallo-tenancy": "*",
                 "php": "^8.3"
             },
-            "type": "glueful-extension",
+            "type": "library",
             "extra": {
                 "glueful": {
                     "provider": "Thallo\\Collections\\CollectionsServiceProvider"
@@ -1463,7 +1463,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-commerce",
-                "reference": "80d27594cedfa248f12061456301d522f7df3f42"
+                "reference": "893ebeac3d1530897571b15975d0154d2726fb46"
             },
             "require": {
                 "glueful/commerce": "^1.5.0",
@@ -1473,7 +1473,7 @@
                 "glueful/thallo-tenancy": "*",
                 "php": "^8.3"
             },
-            "type": "glueful-extension",
+            "type": "library",
             "extra": {
                 "glueful": {
                     "provider": "Thallo\\Commerce\\CommerceIntegrationServiceProvider"
@@ -1535,7 +1535,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-importers",
-                "reference": "75ad2be918f26847be549393372da066f550f8e8"
+                "reference": "4c8b4d75085c2a54ad498b4e025af13bafff007c"
             },
             "require": {
                 "glueful/aegis": "^1.14.0",
@@ -1547,7 +1547,7 @@
                 "php": "^8.3",
                 "symfony/html-sanitizer": "^7.0 || ^8.0"
             },
-            "type": "glueful-extension",
+            "type": "library",
             "extra": {
                 "glueful": {
                     "provider": "Thallo\\Importers\\ImportersServiceProvider"
@@ -1578,7 +1578,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-navigation",
-                "reference": "24ac32a9336e3531e39b08c632fde34bddd7137d"
+                "reference": "8672695e34bd7e484556b5e842ecd15053be824e"
             },
             "require": {
                 "glueful/extension-contracts": "*",
@@ -1586,7 +1586,7 @@
                 "glueful/thallo-contracts": "*",
                 "php": "^8.3"
             },
-            "type": "glueful-extension",
+            "type": "library",
             "extra": {
                 "glueful": {
                     "provider": "Thallo\\Navigation\\NavigationServiceProvider"
@@ -1617,7 +1617,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-render",
-                "reference": "ceb492dd45820daff292fe79f753ed77a79e830e"
+                "reference": "1c552b9438775fed07abfe735fa14f252f65e596"
             },
             "require": {
                 "glueful/framework": "^1.65.2",
@@ -1626,7 +1626,7 @@
                 "php": "^8.3",
                 "twig/twig": "^3.0"
             },
-            "type": "glueful-extension",
+            "type": "library",
             "extra": {
                 "glueful": {
                     "provider": "Thallo\\Render\\RenderServiceProvider"
@@ -1657,7 +1657,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-search",
-                "reference": "fd1969527b913d56a9a038ea96df130c20a08465"
+                "reference": "55c2ee5c7535253f539bf8da85f2a89bfad6a1bb"
             },
             "require": {
                 "glueful/framework": "^1.65.0",
@@ -1665,7 +1665,7 @@
                 "glueful/thallo-contracts": "*",
                 "php": "^8.3"
             },
-            "type": "glueful-extension",
+            "type": "library",
             "extra": {
                 "glueful": {
                     "provider": "Thallo\\Search\\SearchServiceProvider"
@@ -1696,7 +1696,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-seo",
-                "reference": "14d03d398068bb3e5f762b1c389fb0d4dfeb923e"
+                "reference": "71bb486438e39f3d222671559db0e38a65ddc90c"
             },
             "require": {
                 "glueful/extension-contracts": "*",
@@ -1705,7 +1705,7 @@
                 "glueful/thallo-tenancy": "*",
                 "php": "^8.3"
             },
-            "type": "glueful-extension",
+            "type": "library",
             "extra": {
                 "glueful": {
                     "provider": "Thallo\\Seo\\SeoServiceProvider"
@@ -1736,7 +1736,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-tenancy",
-                "reference": "c3c2ac7177ace42723589b20d812ebda2581be16"
+                "reference": "1f08b7389f6b84680f0bc713192a25afd417360b"
             },
             "require": {
                 "glueful/extension-contracts": "*",
@@ -1744,7 +1744,7 @@
                 "glueful/thallo-contracts": "*",
                 "php": "^8.3"
             },
-            "type": "glueful-extension",
+            "type": "library",
             "extra": {
                 "glueful": {
                     "provider": "Thallo\\Tenancy\\TenancyServiceProvider"
@@ -1775,7 +1775,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-workflow",
-                "reference": "3ec3f3b6168c09a73098f73b362a1d459160acd4"
+                "reference": "4301d68ff2f9d6b16d25423a326afe1e610b572e"
             },
             "require": {
                 "glueful/extension-contracts": "*",
@@ -1783,7 +1783,7 @@
                 "glueful/thallo-contracts": "*",
                 "php": "^8.3"
             },
-            "type": "glueful-extension",
+            "type": "library",
             "extra": {
                 "glueful": {
                     "provider": "Thallo\\Workflow\\WorkflowServiceProvider"

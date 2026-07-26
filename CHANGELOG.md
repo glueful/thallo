@@ -903,12 +903,34 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   the entry editor + a capability-gated Review queue page.
 
 ### Changed
+- **Modules, not extensions** (2026-07-25 design, executed on framework 1.72.0): the ten
+  `packages/thallo-*` provider packages are now library-typed composer modules registered in
+  `config/serviceproviders.php` — they no longer appear in the extensions catalog,
+  `config/extensions.php`, or the in-admin extensions browser, which now shows only real
+  installable extensions. Load order is declarative (`DeclaresLoadOrder`): modules share the
+  post-extension priority tier in list order, with thallo-commerce explicitly ordered after
+  glueful/commerce's provider. The resolved boot order is identical to the previous
+  activation list (verified against a captured baseline) except thallo-search, which now
+  always loads with its behaviour gated by the new `thallo.search` capability
+  (`config/thallo.php`, off by default — the `/v1/search` route and the real reindexer stay
+  inert, preserving the previous opt-in posture). The tenancy enforcement provider is listed
+  in the new `extensions.protected` map, so every generic enable/disable surface (framework
+  CLI and controller, Thallo's extensions admin) refuses it with a pointer to
+  Settings › Workspaces.
 - **lemma-contracts (BREAKING):** `MenuUpdated` moved from
   `Glueful\Lemma\Navigation\Events\MenuUpdated` to
   `Glueful\Lemma\Contracts\Navigation\MenuUpdated` (cross-pack seams live in
   contracts; lemma-render subscribes without depending on lemma-navigation). No
   deprecated alias — subscribers must re-import the contracts FQCN (none existed
   in-repo before this change).
+
+### Fixed
+- Extension activation writes (the tenancy enablement flow and the admin extensions toggle)
+  now recompile the provider cache from the just-written `config/extensions.php` — the
+  context config cache is cleared before the recompile, which previously resolved through
+  the enabled list cached at boot and persisted the pre-write activation state. The tenancy
+  flow also switched from an explicit extensions-only provider list to the full resolved
+  list, so the recompiled cache always carries the always-on Thallo modules.
 
 ### Security
 - Admin routes (`lemma_permission` gate) now require API-key principals to carry a key scope

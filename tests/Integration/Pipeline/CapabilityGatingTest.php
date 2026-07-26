@@ -16,17 +16,19 @@ use App\Tests\Support\RecordingContentReindexer;
 use App\Tests\Support\RecordingEdgeCache;
 use Glueful\Cache\Contracts\EdgeCacheInterface;
 use Glueful\Cache\NullEdgeCache;
+use Thallo\Search\Index\NullContentReindexer;
 
 /**
  * Proves the two capability-gated listeners (V1_DESIGN §5) are a CLEAN NO-OP in the
- * default Thallo install — which enables users/aegis/media/email but NOT glueful/cdn or a
- * search reindexer — while the rest of the pipeline (cache/webhook) still runs.
+ * default Thallo install — which enables users/aegis/media/email but NOT glueful/cdn, and
+ * ships the search module with its `thallo.search` capability off (no-op reindexer) — while
+ * the rest of the pipeline (cache/webhook) still runs.
  *
  * This is the headline behaviour: a lean install must publish with cache + webhook effects
  * and ZERO error from CDN purge / search reindex. The test proves the gate in BOTH
  * directions:
- *   - DEFAULT env (no cdn/search reindexer): publishing succeeds, neither listener touches a
- *     missing service, nothing throws.
+ *   - DEFAULT env (no-op cdn + no-op reindexer): publishing succeeds, neither listener does
+ *     real work, nothing throws.
  *   - PRESENT env (a real EdgeCache / a content reindexer substituted in): the listeners DO act —
  *     PurgeCdnListener purges by the delivery surrogate tags; ReindexSearchListener requests
  *     a provider-neutral reindex for the entry.
@@ -61,23 +63,25 @@ final class CapabilityGatingTest extends AppTestCase
 
     // ---- default env: cdn/search reindexer absent -> clean no-op --------------------
 
-    public function testTheDefaultInstallHasNeitherCdnNorContentReindexer(): void
+    public function testTheDefaultInstallBindsOnlyNoOpCdnAndReindexer(): void
     {
         // The CDN seam is always bound (to the no-op NullEdgeCache); it must report disabled.
         $edge = $this->container()->get(EdgeCacheInterface::class);
         self::assertInstanceOf(NullEdgeCache::class, $edge, 'default install must bind NullEdgeCache');
         self::assertFalse($edge->isEnabled(), 'NullEdgeCache must report the CDN disabled');
 
-        // The content reindexer is unbound entirely by default.
-        self::assertFalse(
-            $this->container()->has(ContentReindexer::class),
-            'default install must not bind a content reindexer'
+        // The reindexer seam is also always bound (thallo-search is an always-loaded module),
+        // but with the `thallo.search` capability off by default it resolves to the no-op.
+        self::assertInstanceOf(
+            NullContentReindexer::class,
+            $this->container()->get(ContentReindexer::class),
+            'default install must resolve the no-op content reindexer (thallo.search off)'
         );
     }
 
     public function testPublishIsCleanWithNeitherCapabilityPresent(): void
     {
-        // No substitution: the real default container (NullEdgeCache, no content reindexer).
+        // No substitution: the real default container (NullEdgeCache, no-op reindexer).
         $this->container()->get(PublishService::class)->publish($this->entry, 'en', 'user00000001');
 
         // The publish succeeded: the entry is published.
@@ -97,7 +101,7 @@ final class CapabilityGatingTest extends AppTestCase
         $this->addToAssertionCount(1);
     }
 
-    public function testReindexSearchListenerSkipsWhenNoContentReindexerIsBound(): void
+    public function testReindexSearchListenerSkipsWhenTheReindexerIsTheNullNoOp(): void
     {
         $listener = $this->container()->get(ReindexSearchListener::class);
         $listener(new EntryPublished($this->entry, $this->type, 'en', 1, 'user00000001'));

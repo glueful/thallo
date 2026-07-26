@@ -103,6 +103,11 @@ return [
     // enabled state; migrations are not — they run when installed). Keys are full
     // capability ids (with dots); this whole map is read at once, never via dotted access.
     'capabilities' => [
+        // Parity migration (modules-not-extensions spec §5.2): Search was previously OFF by
+        // provider absence (never in the extensions activation list). As an always-loaded
+        // module the registry's absent-key default would silently enable it — this explicit
+        // default keeps it off until deliberately switched on.
+        'thallo.search' => false,
         // 'thallo.forms' => false,
     ],
 
