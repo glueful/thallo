@@ -45,6 +45,7 @@ import { useNotify } from '@/composables/useNotify'
 import { useSectionState, type SectionState } from '@/composables/useSectionState'
 import { ProductRevisionCoordinatorKey } from '@/composables/useProductRevisionCoordinator'
 import { rebaseStructured } from '@/utils/sectionRebase'
+import { slugify } from '@/utils/slugify'
 import TablePagination from '@/components/TablePagination.vue'
 import SectionStateChip from './SectionStateChip.vue'
 
@@ -94,15 +95,28 @@ const state = reactive(blankState())
 const formError = ref<string | null>(null)
 const formRef = useTemplateRef<Form<Schema>>('formRef')
 
+// Auto-derive the slug from the name while CREATING, until the user edits the slug directly
+// (the content-type create screen's exact behavior). Never during edit — renaming an existing
+// attribute must not silently rewrite the slug variants/filters reference.
+const slugTouched = ref(false)
+watch(
+  () => state.name,
+  (name) => {
+    if (!slugTouched.value && editingUuid.value === null) state.slug = slugify(name)
+  },
+)
+
 function openCreate() {
   editingUuid.value = null
   Object.assign(state, blankState())
+  slugTouched.value = false
   formError.value = null
   formOpen.value = true
 }
 
 function openEdit(attr: CommerceAttribute) {
   editingUuid.value = attr.uuid
+  slugTouched.value = true
   state.name = attr.name
   state.slug = attr.slug
   state.position = attr.position
@@ -175,11 +189,21 @@ const editingValueUuid = ref<string | null>(null)
 const valueState = reactive({ slug: '', value: '', position: 0 })
 const valueFormError = ref<string | null>(null)
 
+// Same auto-derive for values: the value text drives the slug while creating, untouched.
+const valueSlugTouched = ref(false)
+watch(
+  () => valueState.value,
+  (value) => {
+    if (!valueSlugTouched.value && editingValueUuid.value === null) valueState.slug = slugify(value)
+  },
+)
+
 function openCreateValue(attributeUuid: string) {
   expandedUuid.value = attributeUuid
   valueFormAttributeUuid.value = attributeUuid
   editingValueUuid.value = null
   Object.assign(valueState, { slug: '', value: '', position: 0 })
+  valueSlugTouched.value = false
   valueFormError.value = null
   valueFormOpen.value = true
 }
@@ -188,6 +212,7 @@ function openEditValue(attributeUuid: string, val: CommerceAttributeValue) {
   expandedUuid.value = attributeUuid
   valueFormAttributeUuid.value = attributeUuid
   editingValueUuid.value = val.uuid
+  valueSlugTouched.value = true
   valueState.slug = val.slug
   valueState.value = val.value
   valueState.position = val.position
@@ -732,6 +757,7 @@ const saveDisabled = computed(
                   v-model="valueState.slug"
                   class="w-full"
                   data-test="attribute-value-slug-input"
+                  @update:model-value="valueSlugTouched = true"
                 />
               </UFormField>
               <UFormField label="Position" name="position">
@@ -796,7 +822,12 @@ const saveDisabled = computed(
           <UInput v-model="state.name" class="w-full" data-test="attribute-name-input" />
         </UFormField>
         <UFormField label="Slug" name="slug" required>
-          <UInput v-model="state.slug" class="w-full" data-test="attribute-slug-input" />
+          <UInput
+            v-model="state.slug"
+            class="w-full"
+            data-test="attribute-slug-input"
+            @update:model-value="slugTouched = true"
+          />
         </UFormField>
         <UFormField label="Position" name="position">
           <UInput

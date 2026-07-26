@@ -31,6 +31,7 @@ import { useNotify } from '@/composables/useNotify'
 import { useSectionState, type SectionState } from '@/composables/useSectionState'
 import { ProductRevisionCoordinatorKey } from '@/composables/useProductRevisionCoordinator'
 import { rebaseSet } from '@/utils/sectionRebase'
+import { slugify } from '@/utils/slugify'
 import TablePagination from '@/components/TablePagination.vue'
 import SectionStateChip from './SectionStateChip.vue'
 
@@ -78,15 +79,28 @@ const state = reactive(blankState())
 const formError = ref<string | null>(null)
 const formRef = useTemplateRef<Form<Schema>>('formRef')
 
+// Auto-derive the slug from the name while CREATING, until the user edits the slug directly
+// (the content-type create screen's exact behavior). Never during edit — the tag slug is
+// immutable after creation anyway (see submitForm).
+const slugTouched = ref(false)
+watch(
+  () => state.name,
+  (name) => {
+    if (!slugTouched.value && editingUuid.value === null) state.slug = slugify(name)
+  },
+)
+
 function openCreate() {
   editingUuid.value = null
   Object.assign(state, blankState())
+  slugTouched.value = false
   formError.value = null
   formOpen.value = true
 }
 
 function openEdit(tag: CommerceTag) {
   editingUuid.value = tag.uuid
+  slugTouched.value = true
   state.name = tag.name
   state.slug = tag.slug
   formError.value = null
@@ -394,6 +408,7 @@ const saveDisabled = computed(
             :disabled="editingUuid !== null"
             class="w-full"
             data-test="tag-slug-input"
+            @update:model-value="slugTouched = true"
           />
         </UFormField>
         <div class="col-span-2 flex gap-2">

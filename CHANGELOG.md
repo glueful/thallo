@@ -913,6 +913,10 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   the entry editor + a capability-gated Review queue page.
 
 ### Changed
+- Commerce taxonomy forms (Categories, Tags, Attributes and attribute values) auto-derive
+  the slug from the name while creating — same behavior as the content-type create screen:
+  the slug stays editable, a direct slug edit stops the auto-derive, and editing an existing
+  record never rewrites its slug.
 - **Starter content type renamed: "Product page" → "Product story"** (slug `product_page` →
   `product-story`, sourceId `thallo-commerce:product-page` → `thallo-commerce:product-story`):
   the old name read as the storefront page a product displays on, when the type is actually

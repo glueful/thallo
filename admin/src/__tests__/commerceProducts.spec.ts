@@ -4149,6 +4149,33 @@ describe('CategoriesTab (category management)', () => {
     })
   })
 
+  it('auto-derives the slug from the name while creating, until the slug is edited', async () => {
+    categoriesData.value = []
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="category-add"]').trigger('click')
+    await wrapper.find('[data-test="category-name-input"]').setValue('Summer Sale!')
+    const slug = () =>
+      (wrapper.find('[data-test="category-slug-input"]').element as HTMLInputElement).value
+    expect(slug()).toBe('summer-sale')
+
+    // A direct slug edit stops the auto-derive — later name edits leave it alone.
+    await wrapper.find('[data-test="category-slug-input"]').setValue('custom')
+    await wrapper.find('[data-test="category-name-input"]').setValue('Renamed')
+    expect(slug()).toBe('custom')
+  })
+
+  it('never auto-rewrites the slug while editing an existing category', async () => {
+    categoriesData.value = [category({ uuid: 'c1', name: 'Old', slug: 'old' })]
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="category-edit"]').trigger('click')
+    await wrapper.find('[data-test="category-name-input"]').setValue('Completely new name')
+    expect(
+      (wrapper.find('[data-test="category-slug-input"]').element as HTMLInputElement).value,
+    ).toBe('old')
+  })
+
   it('surfaces a duplicate-slug 422 message instead of vanishing it', async () => {
     categoriesData.value = []
     categoryCreateMock.mockRejectedValue(
@@ -4586,6 +4613,21 @@ describe('TagsTab (tag management)', () => {
     expect(tagCreateMock).toHaveBeenCalledWith({ slug: 'new', name: 'New' })
   })
 
+  it('auto-derives the slug from the name while creating, until the slug is edited', async () => {
+    tagsPage.value = { tags: [], total: 0, current_page: 1, per_page: 24 }
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="tag-add"]').trigger('click')
+    await wrapper.find('[data-test="tag-name-input"]').setValue('Best Seller')
+    const slug = () =>
+      (wrapper.find('[data-test="tag-slug-input"]').element as HTMLInputElement).value
+    expect(slug()).toBe('best-seller')
+
+    await wrapper.find('[data-test="tag-slug-input"]').setValue('bs')
+    await wrapper.find('[data-test="tag-name-input"]').setValue('Renamed')
+    expect(slug()).toBe('bs')
+  })
+
   it('surfaces a duplicate-slug 422 message instead of vanishing it', async () => {
     tagsPage.value = { tags: [], total: 0, current_page: 1, per_page: 24 }
     tagCreateMock.mockRejectedValue(
@@ -5004,6 +5046,21 @@ describe('AttributesTab (attribute management)', () => {
     })
   })
 
+  it('auto-derives the slug from the name while creating, until the slug is edited', async () => {
+    attributesPage.value = { attributes: [], total: 0, current_page: 1, per_page: 24 }
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="attribute-add"]').trigger('click')
+    await wrapper.find('[data-test="attribute-name-input"]').setValue('Heel Height')
+    const slug = () =>
+      (wrapper.find('[data-test="attribute-slug-input"]').element as HTMLInputElement).value
+    expect(slug()).toBe('heel-height')
+
+    await wrapper.find('[data-test="attribute-slug-input"]').setValue('heel')
+    await wrapper.find('[data-test="attribute-name-input"]').setValue('Renamed')
+    expect(slug()).toBe('heel')
+  })
+
   it('surfaces a duplicate-slug 422 message instead of vanishing it', async () => {
     attributesPage.value = { attributes: [], total: 0, current_page: 1, per_page: 24 }
     attributeCreateMock.mockRejectedValue(
@@ -5152,6 +5209,27 @@ describe('AttributesTab (attribute management)', () => {
       attributeUuid: 'a1',
       input: { slug: 'red', value: 'Red', position: 0 },
     })
+  })
+
+  it('auto-derives the value slug from the value text while creating, until the slug is edited', async () => {
+    attributesPage.value = {
+      attributes: [attribute({ uuid: 'a1', name: 'Color', values: [] })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    const wrapper = mountTab()
+
+    await wrapper.find('[data-test="attribute-values-toggle"]').trigger('click')
+    await wrapper.find('[data-test="attribute-value-add"]').trigger('click')
+    await wrapper.find('[data-test="attribute-value-value-input"]').setValue('Navy Blue')
+    const slug = () =>
+      (wrapper.find('[data-test="attribute-value-slug-input"]').element as HTMLInputElement).value
+    expect(slug()).toBe('navy-blue')
+
+    await wrapper.find('[data-test="attribute-value-slug-input"]').setValue('navy')
+    await wrapper.find('[data-test="attribute-value-value-input"]').setValue('Renamed')
+    expect(slug()).toBe('navy')
   })
 
   it('surfaces the composite-conflict "slug already in use for this attribute" 422 on add-value, not vanishing it', async () => {
