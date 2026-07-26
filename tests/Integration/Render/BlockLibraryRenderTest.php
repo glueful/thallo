@@ -552,13 +552,14 @@ final class BlockLibraryRenderTest extends AppTestCase
         );
         self::assertStringContainsString(
             '<summary class="thallo-block-navigation__hamburger">'
-            . '<span class="thallo-block-navigation__hamburger-icon" aria-hidden="true"></span>Menu</summary>',
+            . '<span class="thallo-block-navigation__hamburger-icon" aria-hidden="true"></span>'
+            . '<span class="thallo-block-navigation__hamburger-label">Menu</span></summary>',
             $out,
         );
         // The disclosure WRAPS the list: hamburger summary, then the list,
         // inside the same details element.
         self::assertMatchesRegularExpression(
-            '#__mobile" data-thallo-enhance="navigation">\s*<summary[^>]*>.*?Menu</summary>\s*'
+            '#__mobile" data-thallo-enhance="navigation">\s*<summary[^>]*>.*?Menu</span></summary>\s*'
             . '<ul class="thallo-block-navigation__list">#s',
             $out,
         );

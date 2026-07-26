@@ -103,7 +103,8 @@ final class RegionRenderingTest extends AppTestCase
         );
         self::assertStringContainsString(
             '<summary class="thallo-block-navigation__hamburger">'
-            . '<span class="thallo-block-navigation__hamburger-icon" aria-hidden="true"></span>Menu</summary>',
+            . '<span class="thallo-block-navigation__hamburger-icon" aria-hidden="true"></span>'
+            . '<span class="thallo-block-navigation__hamburger-label">Menu</span></summary>',
             $html,
         );
     }
