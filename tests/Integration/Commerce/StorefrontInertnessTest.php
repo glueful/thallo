@@ -231,8 +231,7 @@ final class StorefrontInertnessTest extends AppTestCase
             // no shop HTML, no shop.js script tag, no /cart links (capability-boundary pin).
             /** @var RenderContextExtension $extension */
             $extension = $container->get(RenderContextExtension::class);
-            $extension->resetBlockDepth();
-            $extension->resetBlockFrames();
+            $extension->resetPerRenderState();
             $extension->setBlockAnnotations(false);
             $extension->setLocale('en');
             $html = $extension->blocks($env, ['entry' => null, 'site' => []], [

@@ -424,8 +424,7 @@ final class NoJsAddToCartTest extends AppTestCase
         $env = $this->container()->get(TwigFactory::class)->environment();
         /** @var RenderContextExtension $extension */
         $extension = $this->container()->get(RenderContextExtension::class);
-        $extension->resetBlockDepth();
-        $extension->resetBlockFrames();
+        $extension->resetPerRenderState();
         $extension->setBlockAnnotations(false);
         $extension->setLocale('en');
 

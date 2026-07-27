@@ -148,8 +148,7 @@ final class RegionAdminController
         // shared singleton; admin preview must not leak state into page renders.
         $ext = $container->get(RenderContextExtension::class);
         $ext->setLocale((string) config($this->context, 'i18n.default_locale', 'en'));
-        $ext->resetBlockDepth();
-        $ext->resetBlockFrames();
+        $ext->resetPerRenderState();
         $ext->resetTags();
         $ext->setAssetBase(null);
 
