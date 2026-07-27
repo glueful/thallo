@@ -60,12 +60,13 @@ final class ThemeClonerTest extends AppTestCase
         self::assertTrue((new RenderThemeValidator($this->themesDir))->isValidTheme('corporate'));
     }
 
-    public function testPackDefaultCloneExcludesTheCompatibilityLoader(): void
+    public function testPackDefaultCloneCarriesNoBehavioralJs(): void
     {
         $this->cloner()->clone('corporate');
 
-        // The rest of assets/ is copied; the temporary compatibility loader is not
-        // theme content (theme-runtime spec §2.4) and must never seed a new theme.
+        // The pack default ships CSS only (the blocks.js compatibility loader was
+        // removed — theme-runtime spec §11.4), so a fresh clone can never fork
+        // behavior; the cloner itself is back to an unqualified full copy.
         self::assertFileExists($this->themesDir . '/corporate/assets/site.css');
         self::assertFileDoesNotExist($this->themesDir . '/corporate/assets/blocks.js');
     }

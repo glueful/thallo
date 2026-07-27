@@ -7,6 +7,9 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- The default theme's `blocks.js` compatibility loader is removed (theme-runtime spec
+  §11.4, executed pre-launch — no released version ever shipped it): the theme now ships
+  CSS only, and `ThemeCloner` is back to an unqualified full copy.
 - **SEO head partial** (rendered delivery): entry pages — the entry-backed homepage
   included — now ship a complete head composed from thallo-seo data behind the new
   `SeoHeadResolver` contract: meta description, absolute canonical + hreflang alternates

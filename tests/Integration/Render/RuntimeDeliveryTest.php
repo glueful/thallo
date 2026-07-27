@@ -71,14 +71,22 @@ final class RuntimeDeliveryTest extends AppTestCase
         );
     }
 
-    public function testCompatibilityLoaderIsBehaviorFreeAndRequestsOnlyTheAlias(): void
+    public function testCompatibilityLoaderIsGoneFromTheDefaultTheme(): void
     {
-        $loader = (string) file_get_contents($this->appContext()->getBasePath()
+        // theme-runtime spec §11.4, executed pre-launch: no released version ever
+        // shipped the loader, so nothing depends on asset('blocks.js') any more.
+        self::assertFileDoesNotExist($this->appContext()->getBasePath()
             . '/packages/thallo-render/themes/default/assets/blocks.js');
-        self::assertStringContainsString('/_thallo/runtime/runtime.js', $loader);
-        self::assertStringNotContainsString('querySelectorAll', $loader);
-        self::assertStringNotContainsString('addEventListener(\'click\'', $loader);
-        self::assertLessThan(1200, strlen($loader), 'loader must stay tiny and behavior-free');
+    }
+
+    public function testFingerprintedRuntimeServesJavascriptMime(): void
+    {
+        // JS mime coverage moved here when the theme lost its last .js asset.
+        $current = (string) $this->map()->fingerprintedName('runtime.js');
+        self::assertStringContainsString(
+            'javascript',
+            (string) $this->hit('/_thallo/runtime/' . $current)->headers->get('Content-Type'),
+        );
     }
 
     public function testLayoutLoadsRuntimeScriptNotThemeBlocksJs(): void
