@@ -161,6 +161,8 @@ use App\Content\Pipeline\Listeners\ProjectPublishedReferencesListener;
 use App\Content\Pipeline\Listeners\PurgeCdnListener;
 use App\Content\Pipeline\Listeners\MediaUsageProjector;
 use App\Content\Pipeline\Listeners\ReindexSearchListener;
+use App\Content\Pipeline\Listeners\SeoMetaChangedListener;
+use Thallo\Contracts\Seo\SeoMetaChanged;
 use App\Content\Blocks\BlockMigrationGate;
 use App\Content\Blocks\BlockRestoreProjector;
 use App\Content\Blocks\EngineBlockEditableFieldResolver;
@@ -190,6 +192,7 @@ use App\Content\Retention\VersionPruner;
 use App\Content\Schema\Migration\SchemaProjector;
 use App\Content\Scheduling\ScheduleRunner;
 use App\Content\Seo\CanonicalProjector;
+use App\Content\Seo\EngineSeoHeadProvider;
 use App\Content\Routing\RootMountGuard;
 use App\Content\Seo\CanonicalPathBuilder;
 use App\Settings\EngineAdminUrlProvider;
@@ -228,7 +231,10 @@ use Thallo\Contracts\Authoring\DraftSummaryReader;
 use Thallo\Contracts\Authoring\PublishGate;
 use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
 use Thallo\Contracts\Delivery\EntryTargetResolver;
+use Thallo\Contracts\Delivery\HomepageEntryProvider;
 use Thallo\Contracts\Delivery\MediaUrlResolver;
+use Thallo\Contracts\Delivery\SeoHeadResolver;
+use Thallo\Seo\Meta\SeoMetaResolver;
 use Thallo\Contracts\Settings\AdminUrlProvider;
 use Thallo\Contracts\Settings\SiteFaviconProvider;
 use Thallo\Contracts\Settings\SiteLogoProvider;
@@ -816,6 +822,10 @@ final class ThalloServiceProvider extends ServiceProvider
                 'factory' => [self::class, 'makeCanonicalProjector'],
                 'shared' => true,
             ],
+            SeoHeadResolver::class => [
+                'factory' => [self::class, 'makeSeoHeadProvider'],
+                'shared' => true,
+            ],
         ];
     }
 
@@ -932,6 +942,11 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             PurgeCdnListener::class => [
                 'class' => PurgeCdnListener::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            SeoMetaChangedListener::class => [
+                'class' => SeoMetaChangedListener::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -1840,6 +1855,19 @@ final class ThalloServiceProvider extends ServiceProvider
         );
     }
 
+    public static function makeSeoHeadProvider(ContainerInterface $container): EngineSeoHeadProvider
+    {
+        return new EngineSeoHeadProvider(
+            $container->get(ApplicationContext::class),
+            $container->get(SeoMetaResolver::class),
+            $container->get(CanonicalProjector::class),
+            $container->get(CanonicalPublicOriginResolver::class),
+            $container->get(HomepageEntryProvider::class),
+            $container->get(RouteRepository::class),
+            $container->get(ContentTypeRepository::class),
+        );
+    }
+
     public function boot(ApplicationContext $context): void
     {
         // Routes: routes/admin.php is auto-discovered by RouteManifest. Do NOT
@@ -2005,6 +2033,11 @@ final class ThalloServiceProvider extends ServiceProvider
             // ("where is this asset used") but carry no cache tags — webhook only.
             AssetAttached::class => [DispatchWebhookListener::class, MediaUsageProjector::class],
             AssetDetached::class => [DispatchWebhookListener::class, MediaUsageProjector::class],
+            // SEO override upserts (a clear included) → local + edge purge of the entry's
+            // rendered pages (seo-head spec §5). Entry tag only — never type-level tags.
+            SeoMetaChanged::class => [
+                SeoMetaChangedListener::class,
+            ],
         ];
 
         // Collection row CRUD → audit log + analytics facts. Gated on the pack being INSTALLED

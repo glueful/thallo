@@ -4,17 +4,39 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Seo;
 
+use App\Content\Repositories\ContentTypeRepository;
+use App\Content\Repositories\EntryRepository;
+use App\Content\Repositories\ReferenceProjectionRepository;
+use App\Content\Repositories\RouteRepository;
+use App\Content\Repositories\VersionRepository;
+use App\Content\Services\PublishService;
+use App\Content\Validation\FieldValidator;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
 use App\Tests\Support\AppTestCase;
+use App\Tests\Support\RecordingArrayCache;
+use App\Tests\Support\RecordingEdgeCache;
+use Glueful\Cache\Contracts\EdgeCacheInterface;
+use Glueful\Cache\NullEdgeCache;
 use Thallo\Contracts\Capability\CapabilityRegistry;
+use Thallo\Contracts\Delivery\ContentDeliveryReader;
+use Thallo\Contracts\Schema\ContentTypeReader;
 use Thallo\Seo\Http\Controllers\AdminSeoMetaController;
 use Thallo\Seo\Http\Controllers\SeoMetaController;
+use Thallo\Seo\Meta\SeoMetaRepository;
+use Thallo\Seo\Meta\SeoMetaResolver;
 use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;
 
 final class SeoMetaEndpointTest extends AppTestCase
 {
     use SeedsPublishedContent;
+
+    protected function tearDown(): void
+    {
+        // Restore any substituted singletons so the spies never leak into later tests.
+        $this->restoreSingletons();
+        parent::tearDown();
+    }
 
     public function testCapabilityAndTableExist(): void
     {
@@ -161,6 +183,121 @@ final class SeoMetaEndpointTest extends AppTestCase
         self::assertSame('OG only', $data['og_title']);
     }
 
+    // ---- SeoMetaChanged purge pipeline (seo-head spec §5) -----------------------------
+
+    public function testUpsertDispatchesSeoMetaChangedAndPurgesEntryCaches(): void
+    {
+        // Swap in a recording tagged cache + a "real CDN present" edge cache (the
+        // CapabilityGatingTest / CacheInvalidationTest substitution idiom).
+        $cache = new RecordingArrayCache();
+        $this->setSingleton('cache.store', $cache);
+        $edge = new RecordingEdgeCache();
+        $this->setSingleton(EdgeCacheInterface::class, $edge);
+
+        // Prime a probe value under the entry's surrogate tag so the internal purge is
+        // observable at driver level, not just as a recorded call.
+        $entryTag = 'thallo:entry:e-evt';
+        $cache->set('render:page:e-evt', '<html>cached</html>');
+        $cache->addTags('render:page:e-evt', [$entryTag]);
+        self::assertTrue($cache->has('render:page:e-evt'));
+
+        $controller = $this->container()->get(AdminSeoMetaController::class);
+        $put = Request::create(
+            '/v1/admin/seo/meta/e-evt?locale=en',
+            'PUT',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode(['title' => 'New']),
+        );
+        self::assertSame(200, $controller->update($put, 'e-evt')->getStatusCode());
+
+        // Internal layer: the tagged probe is gone, via exactly the entry tag.
+        self::assertFalse(
+            $cache->has('render:page:e-evt'),
+            'the upsert must invalidate the entry-tagged page cache'
+        );
+        self::assertContains($entryTag, $cache->allInvalidatedTags());
+
+        // Edge layer: purgeByTag ran exactly once, with exactly the entry tag —
+        // a meta edit must never purge type-level tags.
+        self::assertSame([$entryTag], $edge->purgedTags);
+    }
+
+    public function testEmptyValuesClearStillDispatches(): void
+    {
+        $cache = new RecordingArrayCache();
+        $this->setSingleton('cache.store', $cache);
+        $edge = new RecordingEdgeCache();
+        $this->setSingleton(EdgeCacheInterface::class, $edge);
+
+        $entryTag = 'thallo:entry:e-clear';
+        $cache->set('render:page:e-clear', '<html>cached</html>');
+        $cache->addTags('render:page:e-clear', [$entryTag]);
+
+        // All-null body: the explicit clear path — every field reset, robots to default.
+        $controller = $this->container()->get(AdminSeoMetaController::class);
+        $put = Request::create(
+            '/v1/admin/seo/meta/e-clear?locale=en',
+            'PUT',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode([
+                'title' => null,
+                'description' => null,
+                'og_title' => null,
+                'og_description' => null,
+                'og_image' => null,
+                'twitter_card' => null,
+                'robots' => null,
+            ]),
+        );
+        self::assertSame(200, $controller->update($put, 'e-clear')->getStatusCode());
+
+        self::assertFalse(
+            $cache->has('render:page:e-clear'),
+            'a clear is still a change — it must invalidate the entry-tagged page cache'
+        );
+        self::assertContains($entryTag, $cache->allInvalidatedTags());
+        self::assertSame([$entryTag], $edge->purgedTags);
+    }
+
+    public function testLeanInstallSkipsEdgePurgeCleanly(): void
+    {
+        // No edge substitution: the default container binds the disabled NullEdgeCache.
+        self::assertInstanceOf(NullEdgeCache::class, $this->container()->get(EdgeCacheInterface::class));
+
+        $cache = new RecordingArrayCache();
+        $this->setSingleton('cache.store', $cache);
+
+        $entryTag = 'thallo:entry:e-lean';
+        $cache->set('render:page:e-lean', '<html>cached</html>');
+        $cache->addTags('render:page:e-lean', [$entryTag]);
+
+        $controller = $this->container()->get(AdminSeoMetaController::class);
+        $put = Request::create(
+            '/v1/admin/seo/meta/e-lean?locale=en',
+            'PUT',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode(['title' => 'Lean']),
+        );
+
+        // The disabled edge cache must be a clean skip — no exception — while the
+        // internal invalidation still happens.
+        self::assertSame(200, $controller->update($put, 'e-lean')->getStatusCode());
+        self::assertFalse(
+            $cache->has('render:page:e-lean'),
+            'internal invalidation must not depend on a CDN being present'
+        );
+        self::assertContains($entryTag, $cache->allInvalidatedTags());
+    }
+
     public function testEmptyStringOgOverrideFallsBackToResolvedTitle(): void
     {
         $entry = $this->seedBilingualPublishedEntry();
@@ -182,6 +319,76 @@ final class SeoMetaEndpointTest extends AppTestCase
         self::assertSame('Custom', $data['og']['title'], "empty-string og_title must fall back, not emit ''");
     }
 
+    public function testUnmappedTypeDerivesTitleFromTheTitleFieldNotBareSiteName(): void
+    {
+        // 'post' has NO seo.fallbacks entry (the test env maps no types at all) — the
+        // conventional `title` field must feed the templated title, not the bare site name.
+        $this->seedPublishedEntryInType('post', true, 'en', 'hello-post', 'Hello Post');
+
+        $resp = $this->container()->get(SeoMetaController::class)
+            ->show(new Request(['locale' => 'en']), 'post', 'hello-post');
+        self::assertSame(200, $resp->getStatusCode());
+        $data = json_decode((string) $resp->getContent(), true)['data'];
+
+        self::assertSame($this->expectedTemplatedTitle('Hello Post'), $data['title']);
+        self::assertNotSame(
+            $this->seoDefaults()['site_name'],
+            $data['title'],
+            'unmapped type must not fall straight to the bare site name',
+        );
+    }
+
+    public function testUnmappedTypeWithoutTitleFieldStillFallsToSiteName(): void
+    {
+        // Unmapped type whose schema carries no `title` field at all → site name (unchanged).
+        $this->seedPublishedEntryWithSchema(
+            'note',
+            [['name' => 'body', 'type' => 'string', 'required' => true]],
+            ['body' => 'A note without any title field'],
+            'en',
+            'just-a-note',
+        );
+
+        $resp = $this->container()->get(SeoMetaController::class)
+            ->show(new Request(['locale' => 'en']), 'note', 'just-a-note');
+        self::assertSame(200, $resp->getStatusCode());
+        $data = json_decode((string) $resp->getContent(), true)['data'];
+
+        self::assertSame($this->seoDefaults()['site_name'], $data['title']);
+    }
+
+    public function testMappedTitleFieldStillWinsOverTheTitleConvention(): void
+    {
+        $this->seedPublishedEntryWithSchema(
+            'press',
+            [
+                ['name' => 'headline', 'type' => 'string', 'required' => true],
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+            ],
+            ['headline' => 'Big Scoop', 'title' => 'Conventional Title'],
+            'en',
+            'big-scoop',
+        );
+
+        // The shared resolver is wired from config (no fallbacks in the test env); build one
+        // with a mapped title_field over the SAME container reader/repo to prove the mapping
+        // still outranks the `title` convention through the endpoint.
+        $repo = $this->container()->get(SeoMetaRepository::class);
+        $resolver = new SeoMetaResolver(
+            $this->container()->get(ContentDeliveryReader::class),
+            static fn (string $entryUuid, string $locale): ?array => $repo->find($entryUuid, $locale),
+            fallbacks: ['press' => ['title_field' => 'headline']],
+            defaults: $this->seoDefaults(),
+        );
+        $controller = new SeoMetaController($resolver, $this->container()->get(ContentTypeReader::class));
+
+        $resp = $controller->show(new Request(['locale' => 'en']), 'press', 'big-scoop');
+        self::assertSame(200, $resp->getStatusCode());
+        $data = json_decode((string) $resp->getContent(), true)['data'];
+
+        self::assertSame($this->expectedTemplatedTitle('Big Scoop'), $data['title']);
+    }
+
     public function testPublicMetaRouteIsRegistered(): void
     {
         self::assertNotNull(
@@ -201,5 +408,123 @@ final class SeoMetaEndpointTest extends AppTestCase
                 "admin meta {$method} must require seo.manage",
             );
         }
+    }
+
+    /**
+     * The env's SEO defaults, normalized exactly like SeoServiceProvider::makeSeoMetaResolver().
+     *
+     * @return array{site_name:string,default_og_image:string,title_template:string}
+     */
+    private function seoDefaults(): array
+    {
+        $defaults = (array) config($this->appContext(), 'seo.defaults', []);
+        return [
+            'site_name' => (string) ($defaults['site_name'] ?? 'Thallo'),
+            'default_og_image' => (string) ($defaults['default_og_image'] ?? ''),
+            'title_template' => (string) ($defaults['title_template'] ?? '{title} — {site_name}'),
+        ];
+    }
+
+    private function expectedTemplatedTitle(string $title): string
+    {
+        $defaults = $this->seoDefaults();
+        return strtr($defaults['title_template'], [
+            '{title}' => $title,
+            '{site_name}' => $defaults['site_name'],
+        ]);
+    }
+
+    /**
+     * Seed a published public-delivery type with a CUSTOM schema + field values (the shared
+     * concern's helpers hardcode a `title` field; the title-convention cases need types with
+     * and without one). Returns the entry uuid.
+     *
+     * @param list<array<string,mixed>> $schema
+     * @param array<string,mixed>       $fields
+     */
+    private function seedPublishedEntryWithSchema(
+        string $typeSlug,
+        array $schema,
+        array $fields,
+        string $locale,
+        string $routeSlug,
+    ): string {
+        $types = new ContentTypeRepository($this->connection());
+        $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
+        $type = $types->create([
+            'slug' => $typeSlug,
+            'name' => ucfirst($typeSlug),
+            'public_delivery' => true,
+            'schema' => $schema,
+        ]);
+        $entry = $entries->createEntry($type, $locale, 1, 'user00000001');
+        $entries->saveDraft($entry, $locale, $fields, 1, 0, 'user00000001');
+        (new RouteRepository($this->connection()))->assign($entry, $type, $locale, $routeSlug);
+        (new PublishService(
+            $this->appContext(),
+            $entries,
+            new VersionRepository($this->connection()),
+            $types,
+            new FieldValidator(),
+            new ReferenceProjectionRepository($this->connection()),
+        ))->publish($entry, $locale, 'user00000001');
+        return $entry;
+    }
+
+    // ---- container surgery (the compiled container exposes no setter) ----------------
+
+    /** @var array<string, array{0: bool, 1: mixed}> id => [existed, priorValue] */
+    private array $priorSingletons = [];
+
+    private function restoreSingletons(): void
+    {
+        foreach (array_reverse($this->priorSingletons, true) as $id => [$existed, $value]) {
+            $this->writeSingleton($id, $existed, $value);
+        }
+        $this->priorSingletons = [];
+    }
+
+    private function setSingleton(string $id, mixed $value): void
+    {
+        $this->stashSingleton($id);
+        $this->writeSingleton($id, true, $value);
+    }
+
+    private function stashSingleton(string $id): void
+    {
+        if (array_key_exists($id, $this->priorSingletons)) {
+            return;
+        }
+        $singletons = $this->singletons();
+        $this->priorSingletons[$id] = [
+            array_key_exists($id, $singletons),
+            $singletons[$id] ?? null,
+        ];
+    }
+
+    private function writeSingleton(string $id, bool $present, mixed $value): void
+    {
+        $container = $this->container();
+        $prop = (new \ReflectionClass($container))->getProperty('singletons');
+        $prop->setAccessible(true);
+        /** @var array<string, mixed> $singletons */
+        $singletons = $prop->getValue($container);
+        if ($present) {
+            $singletons[$id] = $value;
+        } else {
+            unset($singletons[$id]);
+        }
+        $prop->setValue($container, $singletons);
+    }
+
+    /** @return array<string, mixed> */
+    private function singletons(): array
+    {
+        $container = $this->container();
+        $prop = (new \ReflectionClass($container))->getProperty('singletons');
+        $prop->setAccessible(true);
+        /** @var array<string, mixed> $singletons */
+        $singletons = $prop->getValue($container);
+        return $singletons;
     }
 }

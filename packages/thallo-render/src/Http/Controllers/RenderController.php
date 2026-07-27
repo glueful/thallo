@@ -13,6 +13,7 @@ use Thallo\Contracts\Delivery\HomepageEntryProvider;
 use Thallo\Contracts\Delivery\PreviewSession;
 use Thallo\Contracts\Delivery\PreviewSessionVerifier;
 use Thallo\Contracts\Delivery\PublicRouteResolver;
+use Thallo\Contracts\Delivery\SeoHeadResolver;
 use Thallo\Render\Contribution\RenderContributionRegistry;
 use Thallo\Render\HomepageConfigError;
 use Thallo\Render\Http\Middleware\PreviewSessionMiddleware;
@@ -74,7 +75,16 @@ final class RenderController
          * dirs in a themed preview) rather than throwing.
          */
         private readonly ?RenderContributionRegistry $contributions = null,
+        /** Composed SEO head data (seo-head spec §3); null = no head tags. */
+        private readonly ?SeoHeadResolver $seoHeadResolver = null,
     ) {
+    }
+
+    /** @return array<string,mixed>|null */
+    private function seoHead(string $entryUuid, string $locale): ?array
+    {
+        // Soft-bound (seo-head spec §3): absent wiring degrades to no head tags.
+        return $this->seoHeadResolver?->headFor($entryUuid, $locale);
     }
 
     /**
@@ -131,6 +141,10 @@ final class RenderController
                 $typeSlug !== '' ? $typeSlug : null,
                 $result['presentation'] ?? null,
             );
+            // The entry-backed homepage renders index.twig directly (never through
+            // renderEntry), so it threads its own seo context — headFor() gives the
+            // homepage shape: canonical '/', og:type website (seo-head spec §2).
+            $extra['seo'] = $this->seoHead($homepageEntry, $locale);
         }
 
         // Homepage ALWAYS renders index.twig (spec §4) — the entry, when configured,
@@ -606,6 +620,11 @@ final class RenderController
             $typeSlug !== '' ? $typeSlug : null,
             $result['presentation'] ?? null,
         );
+        // seo-head spec §3: composed head data for the SAME entry identity the
+        // cache tags below carry (tagResponse's uuid derivation) — entry renders
+        // are the ONLY context that gains the `seo` key.
+        $uuid = is_string($entry['uuid'] ?? null) ? $entry['uuid'] : '';
+        $extra['seo'] = $uuid !== '' ? $this->seoHead($uuid, $locale) : null;
         // In-session chrome gets the admin bar for the entry BEING VIEWED —
         // browsing another page in-session offers "edit what you see".
         if (($extra['preview'] ?? false) === true && is_string($entry['entry_uuid'] ?? null)) {

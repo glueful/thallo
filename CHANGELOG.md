@@ -7,6 +7,17 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **SEO head partial** (rendered delivery): entry pages — the entry-backed homepage
+  included — now ship a complete head composed from thallo-seo data behind the new
+  `SeoHeadResolver` contract: meta description, absolute canonical + hreflang alternates
+  + x-default, Open Graph (`og:type` article/website, title/description/image/url/
+  site_name), `twitter:card` only when explicitly overridden, `robots` only for real
+  directives. The homepage canonicalizes to `/` (never its entry path); previews emit
+  exactly `noindex, nofollow` and no canonical/OG; every URL attribute passes the
+  safe-url discipline (unsafe values are omitted, never emitted). SEO override edits now
+  dispatch `SeoMetaChanged` and purge the entry's cached rendered pages locally AND at
+  the CDN edge. The seo meta resolver (and the headless `/v1/seo/meta` endpoint) derives
+  unmapped-type titles from the conventional `title` field instead of the bare site name.
 - **Package-owned theme runtime + theme accessibility refresh** (`packages/thallo-render`,
   theme-runtime track): the default theme's behavioral JS moves out of the theme into one
   package-owned `runtime.js` — a `ThalloRuntime` module registry (color-mode, forms,
