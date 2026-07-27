@@ -107,7 +107,20 @@ final class EngineSeoHeadProvider implements SeoHeadResolver
         } catch (\Throwable) {
             return null;
         }
-        return $origin === '' ? null : $origin;
+        if ($origin === '') {
+            return null;
+        }
+        // The un-overridden BASE_URL default. An install that never configured its
+        // public origin must OMIT canonical/OG URLs (the spec's blank-origin posture),
+        // not tell crawlers the site lives at localhost — this fired on a real install
+        // (seo-head spec §2). Deliberately the exact default literal: an explicitly
+        // configured localhost base (e.g. http://localhost:8080) is a choice and keeps
+        // its URLs. Scoped HERE, not in the origin resolver — media URLs and the
+        // storefront CSRF origin check must keep working on genuine localhost dev.
+        if ($origin === 'http://localhost') {
+            return null;
+        }
+        return $origin;
     }
 
     private function absolute(?string $origin, ?string $path): ?string
