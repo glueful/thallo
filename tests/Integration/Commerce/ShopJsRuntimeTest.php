@@ -69,8 +69,13 @@ final class ShopJsRuntimeTest extends AppTestCase
         }
     }
 
-    /** Build a self-checking node harness around the real shop.js source. */
-    private function harness(string $shopJsSrc): string
+    /**
+     * Shared node-harness prelude: the minimal DOM stub (elements, attribute-selector
+     * matcher, document), the recording fetch mock, the FormData fake, and the loader that
+     * evaluates the real shop.js source against them — extracted verbatim from the original
+     * harness so every runtime test in this file exercises the exact same stubs.
+     */
+    private function harnessPrelude(string $shopJsSrc): string
     {
         $src = json_encode($shopJsSrc, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
@@ -284,7 +289,13 @@ final class ShopJsRuntimeTest extends AppTestCase
           var fn = new Function('window', 'document', src);
           fn(win, doc);
         }
+        JS;
+    }
 
+    /** Build a self-checking node harness around the real shop.js source. */
+    private function harness(string $shopJsSrc): string
+    {
+        return $this->harnessPrelude($shopJsSrc) . "\n\n" . <<<JS
         // ------------------------------------------------------------------
         // Scenario 1: a cart-mutation form — one JSON POST, live region updates,
         // focus + aria-live, double-submit suppression.
@@ -537,6 +548,196 @@ final class ShopJsRuntimeTest extends AppTestCase
           assert(calls.length === 0, 'scenario6: no request is ever attempted in this case');
 
           console.log('scenario6 OK');
+        })
+
+        .then(function () { console.log('ALL_PASS'); })
+        .catch(function (e) { console.error('FAIL: uncaught ' + (e && e.stack ? e.stack : e)); process.exit(1); });
+        JS;
+    }
+
+    public function testTwoMiniCartShellsCoalesceToOneCartFetchAndBothRegionsPaint(): void
+    {
+        $src = $this->shopJs();
+        // One real assertion even without node — the surface the harness hooks into must exist.
+        self::assertStringContainsString('window.thalloShop', $src);
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate shop.js');
+        }
+
+        $this->runNodeHarness($node, $this->coalescingHarness($src), 'coalesce');
+    }
+
+    public function testSecondEvaluationOfShopJsIsBehaviorallyInert(): void
+    {
+        $src = $this->shopJs();
+        self::assertStringContainsString('window.thalloShop', $src);
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate shop.js');
+        }
+
+        $this->runNodeHarness($node, $this->secondEvalHarness($src), 'second_eval');
+
+        // Supplementary structural check only — the red/green authority is the behavioral
+        // harness above (same export object, unchanged listener count, one fetch across evals).
+        self::assertStringContainsString('/* shop-runtime:start */', $src);
+    }
+
+    /** Write a harness to a temp file, run it under node, and assert it prints ALL_PASS. */
+    private function runNodeHarness(string $node, string $harnessJs, string $suffix): void
+    {
+        $file = sys_get_temp_dir() . '/thallo_shop_js_' . $suffix . '_' . getmypid() . '.mjs';
+        file_put_contents($file, $harnessJs);
+        try {
+            $out = [];
+            $code = 0;
+            exec(escapeshellarg($node) . ' ' . escapeshellarg($file) . ' 2>&1', $out, $code);
+            $output = implode("\n", $out);
+            self::assertSame(0, $code, "runtime harness failed:\n" . $output);
+            self::assertStringContainsString('ALL_PASS', $output);
+        } finally {
+            @unlink($file);
+        }
+    }
+
+    /**
+     * Harness for the coalesced mini-cart hydration (shopjs-on-runtime spec §2.2): two
+     * shells trigger ONE GET /_shop/cart and ONE document-wide paint; a re-init while the
+     * fetch is in flight joins it; once settled, a re-init fetches fresh state.
+     */
+    private function coalescingHarness(string $shopJsSrc): string
+    {
+        return $this->harnessPrelude($shopJsSrc) . "\n\n" . <<<JS
+        // ------------------------------------------------------------------
+        // TWO mini-cart shells (each with its own count region) plus a header
+        // count badge OUTSIDE any shell — cart regions are document-wide.
+        // ------------------------------------------------------------------
+
+        (async function coalescing() {
+          var doc = new Doc(); // readyState 'complete' — init() runs at eval time
+
+          var count1 = el('span', { 'data-shop-cart-count': '' });
+          doc.body.appendChild(el('div', { 'data-shop-mini-cart': '' }, [count1]));
+          var count2 = el('span', { 'data-shop-cart-count': '' });
+          doc.body.appendChild(el('div', { 'data-shop-mini-cart': '' }, [count2]));
+          var headerCount = el('span', { 'data-shop-cart-count': '' });
+          doc.body.appendChild(headerCount);
+
+          var calls = [];
+          var queue = [{ ok: true, status: 200, data: { item_count: 3, items: [] } }];
+          var win = {
+            document: doc, location: { href: '' }, fetch: makeFetch(queue, calls), FormData: FakeFormData,
+          };
+
+          loadShopJs(win, doc);
+
+          assert(calls.length === 1, 'coalesce: exactly one GET /_shop/cart despite two shells');
+          assert(calls[0].url === '/_shop/cart', 'coalesce: the single hydration fetch targets /_shop/cart');
+
+          // A re-init WHILE the first fetch is still in flight (another shell enhancing
+          // concurrently) must join the pending fetch, not start a second request.
+          win.thalloShop.init();
+          assert(calls.length === 1, 'coalesce: a re-init while in flight joins the pending fetch');
+
+          await flush();
+
+          assert(count1.textContent === '3', 'coalesce: first shell count region painted');
+          assert(count2.textContent === '3', 'coalesce: second shell count region painted');
+          assert(headerCount.textContent === '3', 'coalesce: header count outside any shell painted');
+
+          // The slot clears on settle: a later enhance (e.g. a freshly inserted shell
+          // re-running init()) fetches FRESH cart state, matching today's semantics.
+          calls.length = 0;
+          queue.push({ ok: true, status: 200, data: { item_count: 5, items: [] } });
+          win.thalloShop.init();
+          assert(calls.length === 1, 'coalesce: after settle a re-init issues a fresh cart fetch');
+          await flush();
+          assert(headerCount.textContent === '5', 'coalesce: the settled-slot refetch painted fresh state');
+
+          console.log('coalescing OK');
+        })()
+
+        .then(function () { console.log('ALL_PASS'); })
+        .catch(function (e) { console.error('FAIL: uncaught ' + (e && e.stack ? e.stack : e)); process.exit(1); });
+        JS;
+    }
+
+    /**
+     * Harness proving a second evaluation of shop.js is behaviorally INERT (every shop
+     * block template emits its own script tag, so the file WILL be evaluated repeatedly):
+     * same export object, no extra DOMContentLoaded listener, init runs once.
+     */
+    private function secondEvalHarness(string $shopJsSrc): string
+    {
+        return $this->harnessPrelude($shopJsSrc) . "\n\n" . <<<JS
+        // ------------------------------------------------------------------
+        // Variant 1 (readyState 'loading'): the second evaluation keeps the SAME
+        // export object and attaches NO extra DOMContentLoaded listener.
+        // ------------------------------------------------------------------
+
+        (async function secondEvalWhileLoading() {
+          var doc = new Doc();
+          doc.readyState = 'loading';
+          var win = { document: doc, location: { href: '' } };
+
+          loadShopJs(win, doc);
+          assert(
+            win.thalloShop && typeof win.thalloShop.init === 'function',
+            'guard: first eval exposed window.thalloShop',
+          );
+          assert(
+            (doc._listeners['DOMContentLoaded'] || []).length === 1,
+            'guard: first eval attached exactly one DOMContentLoaded listener',
+          );
+
+          // The HARNESS tags the export object — shop.js itself never writes __tag.
+          win.thalloShop.__tag = 'first';
+
+          loadShopJs(win, doc); // second evaluation of the same source
+
+          assert(
+            win.thalloShop.__tag === 'first',
+            'guard: second eval must keep the SAME export object (no replacement)',
+          );
+          assert(
+            (doc._listeners['DOMContentLoaded'] || []).length === 1,
+            'guard: second eval must not attach another DOMContentLoaded listener',
+          );
+
+          console.log('secondEvalWhileLoading OK');
+        })()
+
+        // ------------------------------------------------------------------
+        // Variant 2 (readyState 'complete', mini-cart shell present): init ran
+        // ONCE — exactly one cart fetch across BOTH evaluations.
+        // ------------------------------------------------------------------
+
+        .then(async function secondEvalAfterComplete() {
+          var doc = new Doc(); // readyState 'complete'
+          var count = el('span', { 'data-shop-cart-count': '' });
+          doc.body.appendChild(el('div', { 'data-shop-mini-cart': '' }, [count]));
+
+          var calls = [];
+          var queue = [{ ok: true, status: 200, data: { item_count: 2, items: [] } }];
+          var win = {
+            document: doc, location: { href: '' }, fetch: makeFetch(queue, calls), FormData: FakeFormData,
+          };
+
+          loadShopJs(win, doc);
+          await flush(); // first hydration fully settles (any in-flight slot is clear)
+
+          assert(calls.length === 1, 'guard: first eval hydrated the mini-cart once');
+          assert(count.textContent === '2', 'guard: first eval painted the count region');
+
+          loadShopJs(win, doc); // second eval AFTER settle — must not re-run init()
+          await flush();
+
+          assert(calls.length === 1, 'guard: exactly one cart fetch across both evaluations');
+
+          console.log('secondEvalAfterComplete OK');
         })
 
         .then(function () { console.log('ALL_PASS'); })
