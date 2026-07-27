@@ -407,9 +407,14 @@ final class RuntimeShopCoexistenceTest extends AppTestCase
         // ------------------------------------------------------------------
         // Load the theme-runtime core FIRST — the adopted configuration: the core
         // is on the page before any shop block script tag, so shop.js registers
-        // its six shop-* modules instead of self-driving, and the core's single
-        // deferred boot pass (a microtask — readyState is already 'complete')
-        // binds BOTH worlds.
+        // its six shop-* modules instead of self-driving. This harness evals both
+        // files in ONE task, so the core's deferred boot (a microtask — readyState
+        // is already 'complete') runs after the registrations and covers both
+        // worlds here, with shop.js's scheduled catch-up pass a marker-gated
+        // no-op behind it. On REAL pages the two files are separate defer script
+        // tasks and the boot fires BEFORE shop.js registers — there the catch-up
+        // pass is what binds the shop modules (pinned by ShopJsRuntimeTest's
+        // separate-tasks harness).
         // ------------------------------------------------------------------
 
         try {

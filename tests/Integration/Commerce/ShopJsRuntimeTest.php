@@ -899,6 +899,23 @@ final class ShopJsRuntimeTest extends AppTestCase
         );
     }
 
+    public function testDeferDeliveryAsSeparateScriptTasksStillEnhancesShopModules(): void
+    {
+        $src = $this->shopJs();
+        self::assertStringContainsString("register('shop-mini-cart'", $src);
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate shop.js');
+        }
+
+        $this->runNodeHarness(
+            $node,
+            $this->runtimeSeparateTasksHarness($this->shopJs(), $this->runtimeJs()),
+            'runtime_separate_tasks'
+        );
+    }
+
     /**
      * Harness proving that with the runtime present, shop.js registers its six modules on
      * the core (probed via the duplicate-name throw), attaches NO DOMContentLoaded listener
@@ -1135,8 +1152,14 @@ final class ShopJsRuntimeTest extends AppTestCase
           };
 
           loadRuntime(win, doc, consoleStub);
+          // Real defer delivery (separate script tasks): the core's boot fires at this
+          // task boundary with zero shop modules registered, so shop.js's marker-gated
+          // catch-up pass is the SINGLE pass enhancing the shop shells below. Same-task
+          // evaluation would run boot AND catch-up — and since a FAILED component stays
+          // unmarked by design, both passes would retry it and log twice.
+          await new Promise(function (r) { setImmediate(r); });
           loadShopJs(win, doc);
-          await flush(); // the core's deferred boot
+          await flush(); // shop.js's scheduled catch-up pass
 
           assert(calls.length === 2, 'containment: the sibling grid AND the later featured module fetched');
           assert(
@@ -1230,6 +1253,70 @@ final class ShopJsRuntimeTest extends AppTestCase
           assertNoShopBehavior('after an explicit window.thalloShop.init()');
 
           console.log('canvasStage OK');
+        })()
+
+        .then(function () { console.log('ALL_PASS'); })
+        .catch(function (e) { console.error('FAIL: uncaught ' + (e && e.stack ? e.stack : e)); process.exit(1); });
+        JS;
+    }
+
+    /**
+     * Regression harness for REAL defer delivery (2026-07-27 review finding): on a served
+     * page runtime.js and shop.js execute as SEPARATE script tasks, and the microtask
+     * checkpoint between tasks fires the core's Promise.resolve() boot BEFORE shop.js's
+     * task registers its six modules — so shop.js must schedule its own marker-gated
+     * catch-up pass or nothing shop-owned ever enhances. `loadPage` is deliberately NOT
+     * used here: its single-task evaluation is exactly the configuration that masked the
+     * bug. The two-shells fixture also pins the coalescing contract under CORE-driven
+     * per-shell hydrateMiniCart invocations (the only configuration exercising the
+     * in-flight-slot join shell-by-shell): two shells, BOTH painted, exactly ONE
+     * GET /_shop/cart.
+     */
+    private function runtimeSeparateTasksHarness(string $shopJsSrc, string $runtimeSrc): string
+    {
+        return $this->harnessPrelude($shopJsSrc, $runtimeSrc) . "\n\n" . <<<JS
+        (async function separateTasks() {
+          var doc = new Doc();
+          doc.readyState = 'interactive'; // what defer scripts actually observe at eval time
+
+          var form = el('form', { action: '/_shop/cart/add' }, [el('button', { type: 'submit' })]);
+          doc.body.appendChild(form);
+          var count1 = el('span', { 'data-shop-cart-count': '' });
+          doc.body.appendChild(el('div', { 'data-shop-mini-cart': '' }, [count1]));
+          var count2 = el('span', { 'data-shop-cart-count': '' });
+          doc.body.appendChild(el('div', { 'data-shop-mini-cart': '' }, [count2]));
+
+          var calls = [];
+          var queue = [{ ok: true, status: 200, data: { item_count: 3, items: [] } }];
+          var win = {
+            document: doc, location: { href: '' }, fetch: makeFetch(queue, calls), FormData: FakeFormData,
+          };
+
+          loadRuntime(win, doc);
+          // The task boundary between the two script executions: setImmediate schedules
+          // a MACROtask, so every pending microtask — the core's Promise.resolve() boot,
+          // which fires with zero shop modules registered — flushes first, exactly like
+          // the checkpoint between two defer <script> tasks in a real browser.
+          await new Promise(function (r) { setImmediate(r); });
+
+          loadShopJs(win, doc);
+          await new Promise(function (r) { setImmediate(r); });
+          await flush();
+
+          assert(
+            (form._listeners['submit'] || []).length === 1,
+            'separate-tasks: the cart form got its submit listener despite the pre-registration boot'
+          );
+          var cartFetches = calls.filter(function (c) { return c.url === '/_shop/cart'; });
+          assert(
+            cartFetches.length === 1,
+            'separate-tasks: exactly ONE GET /_shop/cart despite two shells (core-driven coalescing)'
+          );
+          assert(calls.length === 1, 'separate-tasks: no other fetch was issued');
+          assert(count1.textContent === '3', 'separate-tasks: first mini-cart shell painted');
+          assert(count2.textContent === '3', 'separate-tasks: second mini-cart shell painted');
+
+          console.log('separateTasks OK');
         })()
 
         .then(function () { console.log('ALL_PASS'); })
