@@ -7,6 +7,16 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **shop.js on the theme runtime** (`packages/thallo-commerce`, shopjs-on-runtime track):
+  shop.js now registers its six commerce concerns (`shop-form`, `shop-gallery`,
+  `shop-mini-cart`, `shop-product-grid`, `shop-featured-product`, `shop-add-to-cart`) as
+  modules on the theme runtime — the core drives scanning, stamps `data-thallo-enhanced`
+  component markers, contains per-component failures, and formalizes the canvas skip —
+  with an exactly-once execution guard (every shop block template emits its own script
+  tag) and a coalesced cart fetch (one `GET /_shop/cart` and one document-wide paint
+  regardless of shell count). Pages without the runtime (copied pre-runtime layouts) keep
+  the self-driving fallback unchanged, and `window.thalloShop.init()` delegates to
+  `ThalloRuntime.enhance()` on runtime pages.
 - The default theme's `blocks.js` compatibility loader is removed (theme-runtime spec
   §11.4, executed pre-launch — no released version ever shipped it): the theme now ships
   CSS only, and `ThemeCloner` is back to an unqualified full copy.

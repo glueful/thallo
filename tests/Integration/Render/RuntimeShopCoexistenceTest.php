@@ -7,21 +7,29 @@ namespace App\Tests\Integration\Render;
 use App\Tests\Support\AppTestCase;
 
 /**
- * Coexistence proof for the theme runtime and shop.js (theme-runtime spec §8): the two
- * independently-loaded behavior layers share one document without duplicate ownership.
- * Mirrors {@see \App\Tests\Integration\Commerce\ShopJsRuntimeTest}'s Node +
- * hand-stubbed-DOM harness (its Element/Doc/selector stubs, extended with class-selector
- * matching so the runtime's own querySelector calls resolve) and loads BOTH served
- * byte-sources — `packages/thallo-render/runtime/runtime.js` and
+ * Coexistence proof for the theme runtime and shop.js (theme-runtime spec §8 +
+ * shopjs-on-runtime adoption): the two independently-delivered behavior layers share ONE
+ * document and ONE core registry without duplicate ownership. Mirrors
+ * {@see \App\Tests\Integration\Commerce\ShopJsRuntimeTest}'s Node + hand-stubbed-DOM
+ * harness (its Element/Doc/selector stubs, extended with class-selector matching so the
+ * runtime's own querySelector calls resolve) and loads BOTH served byte-sources —
+ * `packages/thallo-render/runtime/runtime.js` and
  * `packages/thallo-commerce/assets/shop.js`; neither has a build step, so these files ARE
  * the served bytes — into ONE stub document containing a `form[data-thallo-form]` block
- * (result box + submit button) and shop.js's own cart/checkout form stubs. Proves: neither
- * eval throws; the runtime intercepts the thallo form (aria-busy during the mocked fetch)
- * while shop.js intercepts its forms (the checkout fetch carrying X-Idempotency-Key); and
- * — via per-element listener recording with load-order checkpoints — the runtime attached
- * NOTHING to the shop forms and shop.js attached NOTHING to the thallo form. Skips (does
- * not fail) without node, but still asserts structural source markers, including static
- * selector disjointness between the two files.
+ * (result box + submit button) and shop.js's own cart/checkout form stubs, in the ADOPTED
+ * load order: the theme-runtime core first, then shop.js, so shop.js REGISTERS its six
+ * `shop-*` modules and the core's single deferred boot pass binds both worlds. Proves:
+ * neither eval throws; shop.js attaches nothing at eval time (no self-binding on runtime
+ * pages); the shared registry holds the five theme modules AND the six shop modules
+ * (probed via the duplicate-registration throw); ownership stays disjoint in marker form
+ * (the thallo form carries `data-thallo-enhanced~="forms"` only, the shop forms
+ * `~="shop-form"` only, and `data-shop-bound` never lands on the thallo form); a second
+ * core enhance() pass re-binds nothing; and each owner's submit fingerprint is intact —
+ * the runtime intercepts the thallo form (aria-busy during the mocked fetch, no
+ * credentials option) while shop.js intercepts its forms (same-origin credentials, the
+ * checkout fetch carrying X-Idempotency-Key). Skips (does not fail) without node, but
+ * still asserts structural source markers, including static selector disjointness
+ * between the two files.
  */
 final class RuntimeShopCoexistenceTest extends AppTestCase
 {
@@ -64,6 +72,8 @@ final class RuntimeShopCoexistenceTest extends AppTestCase
         self::assertStringNotContainsString('data-shop-', $runtime);
         self::assertStringContainsString('window.thalloShop', $shop);
         self::assertStringContainsString('form[action="/_shop/cart/update"]', $shop);
+        self::assertStringContainsString("register('shop-form'", $shop);
+        self::assertStringContainsString("register('shop-add-to-cart'", $shop);
         self::assertStringNotContainsString('data-thallo-form', $shop);
         self::assertStringNotContainsString('/_forms/submit', $shop);
 
@@ -395,34 +405,11 @@ final class RuntimeShopCoexistenceTest extends AppTestCase
         global.FormData = FakeFormData;
 
         // ------------------------------------------------------------------
-        // Load shop.js FIRST: every listener it attaches lands before the runtime
-        // exists, so later listener deltas are attributable to the runtime alone.
-        // ------------------------------------------------------------------
-
-        try {
-          eval($shop);
-        } catch (e) {
-          fail('shop.js eval threw: ' + (e && e.stack ? e.stack : e));
-        }
-        assert(global.thalloShop && typeof global.thalloShop.bindForm === 'function',
-          'shop.js exposed window.thalloShop');
-
-        assert(shopCartForm._listeners.submit && shopCartForm._listeners.submit.length === 1,
-          'shop.js bound its cart form');
-        assert(shopPlaceForm._listeners.submit && shopPlaceForm._listeners.submit.length === 1,
-          'shop.js bound its checkout form');
-        assert(Object.keys(thalloForm._listeners).length === 0,
-          'shop.js attached NOTHING to the thallo form');
-        assert(thalloForm.getAttribute('data-shop-bound') === null,
-          'shop.js did not stamp its bound marker on the thallo form');
-        assert(calls.length === 0,
-          'no hydration fetches for a document without shop block shells');
-        var cartHandler = shopCartForm._listeners.submit[0];
-        var placeHandler = shopPlaceForm._listeners.submit[0];
-
-        // ------------------------------------------------------------------
-        // Load the theme runtime into the SAME document; its deferred boot pass
-        // runs on a microtask (readyState is already 'complete').
+        // Load the theme-runtime core FIRST — the adopted configuration: the core
+        // is on the page before any shop block script tag, so shop.js registers
+        // its six shop-* modules instead of self-driving, and the core's single
+        // deferred boot pass (a microtask — readyState is already 'complete')
+        // binds BOTH worlds.
         // ------------------------------------------------------------------
 
         try {
@@ -433,32 +420,100 @@ final class RuntimeShopCoexistenceTest extends AppTestCase
         assert(global.ThalloRuntime && typeof global.ThalloRuntime.enhance === 'function',
           'runtime.js exposed window.ThalloRuntime');
 
+        try {
+          eval($shop);
+        } catch (e) {
+          fail('shop.js eval threw: ' + (e && e.stack ? e.stack : e));
+        }
+        assert(global.thalloShop && typeof global.thalloShop.bindForm === 'function',
+          'shop.js exposed window.thalloShop');
+
+        // -- adoption checkpoint: shop.js no longer self-binds at eval time -----
+        // Registration is its ONLY load-time effect on runtime pages; every
+        // listener lands later, in the core's boot pass.
+        assert(Object.keys(shopCartForm._listeners).length === 0
+          && Object.keys(shopPlaceForm._listeners).length === 0,
+          'shop.js attached no listeners at eval time (the core boot drives)');
+        assert(shopCartForm.getAttribute('data-shop-bound') === null
+          && shopPlaceForm.getAttribute('data-shop-bound') === null,
+          'no shop form is bound before the core boot pass');
+        assert(Object.keys(thalloForm._listeners).length === 0,
+          'shop.js attached NOTHING to the thallo form');
+        assert(calls.length === 0,
+          'no hydration fetches for a document without shop block shells');
+
+        // -- ONE shared registry: five theme modules + six shop modules ---------
+        // Probed via the core's duplicate-name throw (silent replacement is the
+        // failure mode the registry contract forbids).
+        var registeredNames = ['color-mode', 'forms', 'carousel', 'navigation', 'tabs',
+          'shop-form', 'shop-gallery', 'shop-mini-cart',
+          'shop-product-grid', 'shop-featured-product', 'shop-add-to-cart'];
+        for (var rn = 0; rn < registeredNames.length; rn++) {
+          var probeThrew = false;
+          try {
+            global.ThalloRuntime.register(registeredNames[rn], { selector: 'x', enhance: function () {} });
+          } catch (e) {
+            probeThrew = true;
+            assert(String(e && e.message).indexOf('already registered') !== -1,
+              'duplicate probe for ' + registeredNames[rn] + ' threw the duplicate-name error');
+          }
+          assert(probeThrew,
+            'the shared registry contains ' + registeredNames[rn] + ' (duplicate probe throws)');
+        }
+
+        function markerList(elm) {
+          var v = elm.getAttribute('data-thallo-enhanced');
+          return v === null ? [] : v.split(/\\s+/).filter(Boolean);
+        }
+
         (async function () {
           await flush();
 
-          // -- listener-ownership checkpoint after both scripts booted ------------
+          // -- listener-ownership checkpoint after the core's single boot pass ----
           assert(thalloForm._listeners.submit && thalloForm._listeners.submit.length === 1,
-            'the runtime bound the thallo form on its boot pass');
+            'the boot pass bound the thallo form (forms module)');
           assert(Object.keys(thalloForm._listeners).join(',') === 'submit',
-            'the runtime added only a submit listener to the thallo form');
-          assert(thalloForm.getAttribute('data-thallo-enhanced') === 'forms',
-            'the runtime marked the thallo form as enhanced by the forms module');
+            'only a submit listener was added to the thallo form');
           assert(Object.keys(shopCartForm._listeners).join(',') === 'submit'
-            && shopCartForm._listeners.submit.length === 1
-            && shopCartForm._listeners.submit[0] === cartHandler,
-            'the runtime attached NOTHING to the shop cart form');
+            && shopCartForm._listeners.submit.length === 1,
+            'the boot pass bound the shop cart form (shop-form module) exactly once');
           assert(Object.keys(shopPlaceForm._listeners).join(',') === 'submit'
-            && shopPlaceForm._listeners.submit.length === 1
-            && shopPlaceForm._listeners.submit[0] === placeHandler,
-            'the runtime attached NOTHING to the shop checkout form');
-          assert(shopCartForm.getAttribute('data-thallo-enhanced') === null,
-            'the runtime did not mark the shop cart form');
-          assert(shopPlaceForm.getAttribute('data-thallo-enhanced') === null,
-            'the runtime did not mark the shop checkout form');
+            && shopPlaceForm._listeners.submit.length === 1,
+            'the boot pass bound the shop checkout form (shop-form module) exactly once');
+          var cartHandler = shopCartForm._listeners.submit[0];
+          var placeHandler = shopPlaceForm._listeners.submit[0];
+
+          // -- no cross-ownership, in marker form ---------------------------------
+          assert(markerList(thalloForm).indexOf('forms') !== -1,
+            'the thallo form carries data-thallo-enhanced~="forms"');
+          assert(markerList(thalloForm).join(',') === 'forms',
+            'the thallo form carries ONLY the theme forms marker — no shop-* module touched it');
+          assert(thalloForm.getAttribute('data-shop-bound') === null,
+            'shop.js did not stamp its bound marker on the thallo form');
+          assert(markerList(shopCartForm).indexOf('shop-form') !== -1,
+            'the shop cart form carries data-thallo-enhanced~="shop-form"');
+          assert(markerList(shopCartForm).join(',') === 'shop-form',
+            'the shop cart form carries ONLY the shop-form marker — no theme module touched it');
+          assert(markerList(shopPlaceForm).join(',') === 'shop-form',
+            'the shop checkout form carries ONLY the shop-form marker — no theme module touched it');
+          assert(shopCartForm.getAttribute('data-shop-bound') === '1'
+            && shopPlaceForm.getAttribute('data-shop-bound') === '1',
+            'shop.js stamped its inner idempotency marker on its own forms only');
+
           assert(box.getAttribute('role') === 'status'
             && box.getAttribute('aria-live') === 'polite',
             'the runtime wired the thallo result box as a live region (enhance ran)');
           assert(calls.length === 0, 'neither script fetched anything at load time');
+
+          // -- a second core pass is inert: markers gate BOTH worlds --------------
+          global.ThalloRuntime.enhance(doc.documentElement);
+          assert(thalloForm._listeners.submit.length === 1
+            && shopCartForm._listeners.submit.length === 1
+            && shopCartForm._listeners.submit[0] === cartHandler
+            && shopPlaceForm._listeners.submit.length === 1
+            && shopPlaceForm._listeners.submit[0] === placeHandler,
+            're-running enhance() re-bound nothing (markers gate both worlds)');
+          assert(calls.length === 0, 'the second enhance() pass fetched nothing');
 
           // -- thallo form submit: intercepted by the RUNTIME only ----------------
           var evtA = fireSubmit(thalloForm);
@@ -488,7 +543,7 @@ final class RuntimeShopCoexistenceTest extends AppTestCase
             'ok modifier applied to the thallo result box');
           assert(calls.length === 1, 'nothing issued further fetches for the thallo submit');
 
-          // -- shop cart submit: intercepted by SHOP.JS only ----------------------
+          // -- shop cart submit: intercepted by SHOP.JS's handler (core-bound) ----
           var evtB = fireSubmit(shopCartForm);
           assert(evtB.defaultPrevented === true, 'shop.js intercepted the cart submit');
           assert(calls.length === 2 && calls[1].url === '/_shop/cart/update',
