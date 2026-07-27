@@ -8,6 +8,11 @@
  * `/_shop/blocks/*` and `/_shop/cart` JSON endpoints, so a block placed on ANY page shows
  * live catalog/cart data without the page's own render pipeline knowing about commerce.
  *
+ * On runtime pages (window.ThalloRuntime present) the theme-runtime core drives all of this
+ * through six registered `shop-*` modules — shop.js attaches no load hook of its own there.
+ * On runtime-absent pages (a copied pre-runtime layout) shop.js self-drives via its own
+ * init() exactly as before adoption.
+ *
  * Hard rule (spec §10): PRG is the no-JS path, not an AJAX retry strategy. Once fetch() has
  * been called, a rejection is AMBIGUOUS (the server may or may not have received the
  * request) — this file never issues a second automatic POST and never falls back to a
@@ -21,6 +26,11 @@
 
   if (typeof document === 'undefined') {
     return;
+  }
+
+  /* shop-runtime:start */
+  if (window.thalloShop) {
+    return; // every shop block template emits its own <script> tag; run once
   }
 
   var STATUS_ID = 'thallo-shop-status';
@@ -369,12 +379,21 @@
   }
 
   // ---- block hydration: mini-cart ------------------------------------------------
+  // Cart regions are DOCUMENT-WIDE (header count badges live outside the shells), so
+  // the fetch AND the paint are shared: the first shell to enhance starts them, every
+  // concurrent shell awaits the same in-flight promise, and the slot clears on settle
+  // so a later enhance of a freshly inserted shell fetches fresh state
+  // (shopjs-on-runtime spec §2.2).
+  var cartFetchInFlight = null;
 
-  function hydrateMiniCarts() {
-    if (qsa(document, '[data-shop-mini-cart]').length === 0 || typeof window.fetch !== 'function') {
+  function hydrateMiniCart() {
+    if (typeof window.fetch !== 'function') {
       return;
     }
-    window
+    if (cartFetchInFlight) {
+      return;
+    }
+    cartFetchInFlight = window
       .fetch('/_shop/cart', { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(function (res) {
         return res.json();
@@ -383,8 +402,66 @@
         updateCartRegions(data);
       })
       .catch(function () {
-        // Leave the safe static (empty/no-JS) shell as-is.
+        // Hydration is enhancement only — a failed cart read leaves the safe static
+        // (empty/no-JS) shell as-is (same posture as every other hydrate).
+      })
+      .then(function () {
+        cartFetchInFlight = null;
       });
+  }
+
+  // The drawer disclosure (mini-cart-in-the-chrome, 2026-07-27): the toggle ships
+  // aria-expanded="false" and shop.css hides the panel until it flips — this binding is the
+  // only thing that flips it. Per-toggle inner marker (same idempotency layer as bindForm's
+  // guard) keeps re-enhancement from stacking listeners; the outside-click closer is bound
+  // once per page and never closes a drawer it cannot positively place outside its shell.
+  var outsideCartCloseBound = false;
+
+  function bindMiniCartShell(el) {
+    var toggle = qs(el, '[data-shop-cart-toggle]');
+    if (!toggle || toggle.getAttribute('data-shop-cart-toggle-bound') === '1') {
+      return;
+    }
+    toggle.setAttribute('data-shop-cart-toggle-bound', '1');
+
+    toggle.addEventListener('click', function () {
+      var open = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+
+    el.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && toggle.getAttribute('aria-expanded') === 'true') {
+        toggle.setAttribute('aria-expanded', 'false');
+        if (typeof toggle.focus === 'function') {
+          toggle.focus();
+        }
+      }
+    });
+
+    if (!outsideCartCloseBound) {
+      outsideCartCloseBound = true;
+      document.addEventListener('click', function (event) {
+        var open = qsa(document, '[data-shop-cart-toggle][aria-expanded="true"]');
+        for (var i = 0; i < open.length; i++) {
+          var shell = typeof open[i].closest === 'function' ? open[i].closest('[data-shop-mini-cart]') : null;
+          if (!shell || typeof shell.contains !== 'function' || shell.contains(event.target)) {
+            continue;
+          }
+          open[i].setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+  }
+
+  function hydrateMiniCarts() {
+    var shells = qsa(document, '[data-shop-mini-cart]');
+    if (shells.length === 0) {
+      return;
+    }
+    for (var i = 0; i < shells.length; i++) {
+      bindMiniCartShell(shells[i]);
+    }
+    hydrateMiniCart();
   }
 
   // ---- block hydration: product-grid ------------------------------------------------
@@ -694,7 +771,7 @@
 
   // ---- init -----------------------------------------------------------------------
 
-  function init() {
+  function directSweep() {
     var forms = qsa(document, FORM_SELECTOR);
     for (var i = 0; i < forms.length; i++) {
       bindForm(forms[i]);
@@ -709,14 +786,61 @@
     hydrateAddToCarts();
   }
 
-  if (document.readyState === 'loading') {
+  function init() {
+    // Runtime pages: the core owns scanning, markers, canvas policy, and containment —
+    // a direct sweep would bypass all four and re-fetch already-hydrated components
+    // (shopjs-on-runtime spec §2.4). enhance() is component-idempotent, so init()
+    // remains safe to call after inserting new blocks.
+    if (window.ThalloRuntime) {
+      window.ThalloRuntime.enhance(document.documentElement);
+      return;
+    }
+    directSweep();
+  }
+
+  /* shop-runtime:end */
+  if (window.ThalloRuntime) {
+    // Adoption (theme-runtime spec §2.5 / shopjs-on-runtime spec §2.2): the core
+    // drives; enhance closures ARE the per-component functions above. All six are
+    // canvas-skip (the default) — formalizing that shop behavior never runs in the
+    // canvas stage.
+    window.ThalloRuntime.register('shop-form', { selector: FORM_SELECTOR, enhance: bindForm });
+    window.ThalloRuntime.register('shop-gallery', { selector: '[data-shop-gallery]', enhance: bindGallery });
+    window.ThalloRuntime.register('shop-mini-cart', {
+      selector: '[data-shop-mini-cart]',
+      enhance: function (el) {
+        bindMiniCartShell(el);
+        hydrateMiniCart();
+      },
+    });
+    window.ThalloRuntime.register('shop-product-grid', { selector: '[data-shop-block="product-grid"]', enhance: hydrateProductGrid });
+    window.ThalloRuntime.register('shop-featured-product', { selector: '[data-shop-block="featured-product"]', enhance: hydrateFeaturedProduct });
+    window.ThalloRuntime.register('shop-add-to-cart', { selector: '[data-shop-block="add-to-cart"]', enhance: hydrateAddToCart });
+    if (document.readyState !== 'loading') {
+      // Boot-timing reality check: on a served page the runtime core and this file are
+      // SEPARATE defer <script> tasks, and a microtask checkpoint runs between tasks —
+      // so the core's deferred boot (Promise.resolve().then(boot) once readyState is
+      // past 'loading') has ALREADY fired before the six registrations above existed.
+      // Without a catch-up pass, nothing shop-owned would ever enhance. init()
+      // delegates to ThalloRuntime.enhance(document.documentElement), and the core's
+      // data-thallo-enhanced markers gate that pass per component — so wherever the
+      // boot pass DID cover a component (same-task evaluation, e.g. a test harness
+      // evaluating both files in one task), this pass is a no-op.
+      // While readyState is still 'loading', the core's boot is waiting on
+      // DOMContentLoaded and will cover these registrations itself — schedule nothing.
+      Promise.resolve().then(init);
+    }
+  } else if (document.readyState === 'loading') {
+    // Fallback (spec §2.3): a copied pre-runtime layout has no ThalloRuntime — shop.js
+    // self-drives exactly as before adoption.
     document.addEventListener('DOMContentLoaded', init);
   } else {
     init();
   }
 
-  // Exposed for the executable test harness (ShopJsRuntimeTest) and for callers that need
-  // to re-run hydration after injecting new blocks (e.g. a builder preview inserting one).
+  // Exposed for the executable test harness (ShopJsRuntimeTest) and for callers that
+  // need to re-run enhancement after injecting new blocks (e.g. a builder preview
+  // inserting one). On runtime pages init() delegates to the core (see above).
   window.thalloShop = {
     init: init,
     bindForm: bindForm,

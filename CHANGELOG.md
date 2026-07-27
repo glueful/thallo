@@ -7,6 +7,49 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Storefront styling for shop blocks and cart/checkout pages** (`packages/thallo-commerce`):
+  `shop.css` now covers the four shop blocks (`mini-cart`, `product-grid`,
+  `featured-product`, `add-to-cart`) and the cart, checkout, and confirmation pages —
+  previously only the catalog pages (index/product/category) had styles, so blocks and
+  the cart rendered as bare semantic HTML. Every shop block template and the three page
+  templates now link the stylesheet (same fingerprinted asset pipeline as shop.js).
+  Styles are theme-neutral: blocks inherit the surrounding theme's font and colors,
+  accent via the existing `--shop-accent` custom property.
+- **Mini-cart drawer disclosure**: the mini-cart toggle's `aria-expanded` wiring is now
+  real — shop.js binds the toggle (click opens/closes, Escape closes and refocuses,
+  clicking outside closes), and shop.css keys the dropdown panel's visibility off the
+  aria state. Previously the toggle was dead markup and the panel rendered permanently
+  expanded. Idempotent via an inner bound-marker, covered by a dedicated node-harness
+  test.
+- The commerce **Mini cart** block can now be placed in the header and footer global
+  regions (the classic cart-in-the-header storefront pattern) — added to both region
+  palettes. The palette entry is inert without commerce: the picker only offers the
+  block while `thallo.commerce` is on, and a stored one falls to the missing-template
+  fallback while it is off.
+- **Clean commerce capability boundary** (`packages/thallo-commerce`): disabling
+  `thallo.commerce` now removes commerce from rendered pages entirely — the pack's
+  template dir registers inside the capability gate, so stored shop blocks fall to the
+  ordinary missing-template fallback (no shop HTML, no `/_shop/assets/shop.js` script
+  tag and its 404 noise, no `/cart` links) instead of dead static shells. A boot-time
+  flip reconciler purges the rendered-page cache (`thallo:render:page`) and the edge
+  whenever the capability's enabled state changes between boots, so previously cached
+  script tags disappear immediately in both directions. Stored block/link/catalog data
+  is never touched, re-enabling restores templates and blocks with no migration or
+  resync, and the shop-prefix path reservations plus the general theme runtime remain
+  active regardless of capability state.
+- **shop.js on the theme runtime** (`packages/thallo-commerce`, shopjs-on-runtime track):
+  shop.js now registers its six commerce concerns (`shop-form`, `shop-gallery`,
+  `shop-mini-cart`, `shop-product-grid`, `shop-featured-product`, `shop-add-to-cart`) as
+  modules on the theme runtime — the core drives scanning, stamps `data-thallo-enhanced`
+  component markers, contains per-component failures, and formalizes the canvas skip —
+  with an exactly-once execution guard (every shop block template emits its own script
+  tag) and a coalesced cart fetch (one `GET /_shop/cart` and one document-wide paint
+  regardless of shell count). Pages without the runtime (copied pre-runtime layouts) keep
+  the self-driving fallback unchanged, and `window.thalloShop.init()` delegates to
+  `ThalloRuntime.enhance()` on runtime pages.
+- The default theme's `blocks.js` compatibility loader is removed (theme-runtime spec
+  §11.4, executed pre-launch — no released version ever shipped it): the theme now ships
+  CSS only, and `ThemeCloner` is back to an unqualified full copy.
 - **SEO head partial** (rendered delivery): entry pages — the entry-backed homepage
   included — now ship a complete head composed from thallo-seo data behind the new
   `SeoHeadResolver` contract: meta description, absolute canonical + hreflang alternates

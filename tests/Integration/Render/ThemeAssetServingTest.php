@@ -23,11 +23,13 @@ final class ThemeAssetServingTest extends AppTestCase
         self::assertStringContainsString('.site-header', (string) $res->getContent());
     }
 
-    public function testServesJsWithJavascriptMime(): void
+    public function testRemovedCompatibilityLoaderFourOhFours(): void
     {
+        // The default theme ships CSS only since the blocks.js compatibility loader was
+        // removed (theme-runtime spec §11.4). JS mime coverage for served scripts lives
+        // in RuntimeDeliveryTest (the /_thallo/runtime endpoint).
         $res = $this->handle(Request::create('/theme-assets/blocks.js', 'GET'));
-        self::assertSame(200, $res->getStatusCode());
-        self::assertStringContainsString('javascript', (string) $res->headers->get('Content-Type'));
+        self::assertSame(404, $res->getStatusCode());
     }
 
     public function testTraversalAndMissesAre404(): void

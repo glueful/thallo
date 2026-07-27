@@ -72,6 +72,42 @@ final class RegionAdminApiTest extends AppTestCase
         self::assertCount(2, $regions[0]['blocks']);
     }
 
+    public function testMiniCartIsInBothPalettesAndSavesIntoTheHeader(): void
+    {
+        // Commerce mini-cart in the chrome (user decision 2026-07-27): the classic
+        // cart-in-the-header storefront pattern. The palette entry is app-side policy;
+        // the block TYPE itself is commerce-provisioned, seeded here the same way the
+        // core starter types are seeded in controller().
+        $controller = $this->controller();
+        $repo = new BlockTypeRepository($this->connection());
+        if ($repo->findBySlug('mini-cart') === null) {
+            $repo->create([
+                'slug' => 'mini-cart',
+                'label' => 'Mini cart',
+                'icon' => 'i-lucide-shopping-cart',
+                'category' => 'Commerce',
+                'description' => 'Live cart count with a drawer.',
+                'schema' => [],
+            ]);
+        }
+
+        $regions = json_decode((string) $controller->index()->getContent(), true)['data']['regions'];
+        self::assertContains('mini-cart', $regions[0]['palette'], 'header palette offers the mini cart');
+        self::assertContains('mini-cart', $regions[1]['palette'], 'footer palette offers the mini cart');
+
+        $resp = $controller->update($this->dto([
+            'blocks' => [
+                ['id' => 'apihdrcart01', 'type' => 'mini-cart', 'data' => []],
+            ],
+            'settings' => [],
+        ]), 'header');
+        self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
+
+        $saved = (new RegionRepository($this->connection()))->find('header');
+        self::assertNotNull($saved);
+        self::assertSame(['mini-cart'], array_column($saved['blocks'], 'type'));
+    }
+
     public function testOutOfPaletteBlockIs422WithDotPath(): void
     {
         try {

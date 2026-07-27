@@ -14,7 +14,12 @@ use Symfony\Component\HttpFoundation\Request;
 use Thallo\Commerce\Console\CommerceDiagnoseCommand;
 use Thallo\Commerce\Http\Shop\CartCookie;
 use Thallo\Commerce\Http\Shop\GuestOrderCookie;
+use Glueful\Cache\CacheStore;
+use Thallo\Commerce\Shop\CapabilityFlipPurge;
 use Thallo\Commerce\Starter\ShopBlockTypesContributor;
+use Thallo\Render\RenderContextExtension;
+use Thallo\Render\Templates\RuntimeAssetMap;
+use Thallo\Render\TwigFactory;
 use Thallo\Tenancy\System\SystemFlags;
 
 /**
@@ -159,6 +164,122 @@ final class StorefrontInertnessTest extends AppTestCase
                         . 'while thallo.commerce is disabled',
                 );
             }
+        } finally {
+            self::resetSharedRepositoryConnection();
+        }
+    }
+
+    // ==================================================================
+    // capability disabled: the pack templates leave the render chain — stored
+    // shop blocks render NO shop HTML, no shop.js tag, no /cart links — while
+    // stored catalog data survives and re-enabling restores everything
+    // ==================================================================
+
+    public function testCapabilityDisabledRemovesShopMarkupFromRenderedPagesButNeverStoredData(): void
+    {
+        $this->flags()->forget('tenancy.schema_state');
+        $this->flags()->forget('tenancy.default_tenant_uuid');
+
+        // Stored catalog data created BEFORE the disabled boot (capability-boundary pin:
+        // disabling removes the rendered integration, never the underlying data).
+        $slug = 'capability-off-preserve-' . (++self::$seq);
+        $this->container()->get(CatalogService::class)->createProduct($this->appContext(), [
+            'slug' => $slug,
+            'name' => 'Capability Off Preserve Product',
+            'status' => 'active',
+            'type' => 'digital',
+            'variants' => [[
+                'sku' => 'capability-off-sku-' . self::$seq,
+                'price' => 1000,
+                'currency' => 'USD',
+                'option_values' => [],
+            ]],
+        ]);
+
+        // Control on the ENABLED (primary) boot: the shop templates ARE in the chain.
+        $enabledEnv = $this->container()->get(TwigFactory::class)->environment();
+        self::assertTrue(
+            $enabledEnv->getLoader()->exists('blocks/mini-cart.twig'),
+            'sanity: enabled boot serves shop templates',
+        );
+
+        $disabledApp = self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.commerce' => false],
+        ]);
+
+        try {
+            $container = $disabledApp->getContainer();
+
+            // The pack template dir left the Twig loader entirely.
+            $env = $container->get(TwigFactory::class)->environment();
+            foreach (
+                [
+                    'blocks/mini-cart.twig',
+                    'blocks/product-grid.twig',
+                    'blocks/featured-product.twig',
+                    'blocks/add-to-cart.twig',
+                    'shop/index.twig',
+                ] as $template
+            ) {
+                self::assertFalse(
+                    $env->getLoader()->exists($template),
+                    "'{$template}' must not resolve while thallo.commerce is disabled",
+                );
+            }
+
+            // Stored shop blocks render through the NORMAL missing-template fallback:
+            // no shop HTML, no shop.js script tag, no /cart links (capability-boundary pin).
+            /** @var RenderContextExtension $extension */
+            $extension = $container->get(RenderContextExtension::class);
+            $extension->resetBlockDepth();
+            $extension->resetBlockFrames();
+            $extension->setBlockAnnotations(false);
+            $extension->setLocale('en');
+            $html = $extension->blocks($env, ['entry' => null, 'site' => []], [
+                ['id' => 'b1', 'type' => 'mini-cart', 'data' => []],
+                ['id' => 'b2', 'type' => 'product-grid', 'data' => ['source' => 'latest']],
+            ]);
+            self::assertStringNotContainsString('data-shop-', $html);
+            self::assertStringNotContainsString('shop.js', $html);
+            self::assertStringNotContainsString('/cart', $html);
+            self::assertMatchesRegularExpression(
+                '/no template for block "mini-cart"|Missing block template: blocks\/mini-cart\.twig/',
+                $html,
+                'stored shop blocks fall to blocks()\' ordinary missing-template fallback',
+            );
+
+            // boot() ran the flip reconciler on this capability-off boot (its own store's
+            // marker records the state — this is what makes the NEXT flip purge fire).
+            self::assertSame(
+                'off',
+                $container->get(CacheStore::class)->get(CapabilityFlipPurge::MARKER_KEY),
+                'the capability-off boot must record its state for flip detection',
+            );
+
+            // The general theme runtime is render-owned and unaffected (capability pin).
+            self::assertNotNull(
+                $container->get(RuntimeAssetMap::class)->fingerprintedName('runtime.js'),
+                'runtime.js delivery must not depend on thallo.commerce',
+            );
+
+            // Stored catalog data survived the disabled boot untouched.
+            $row = $this->connection()->table('commerce_products')->where('slug', '=', $slug)->first();
+            self::assertNotNull($row, 'disabling the capability must never delete stored catalog data');
+        } finally {
+            self::resetSharedRepositoryConnection();
+        }
+
+        // Re-enabling restores the templates with no migration or resync — registration is
+        // purely boot-time (capability-boundary pin).
+        $reEnabledApp = self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.commerce' => true],
+        ]);
+        try {
+            $reEnv = $reEnabledApp->getContainer()->get(TwigFactory::class)->environment();
+            self::assertTrue(
+                $reEnv->getLoader()->exists('blocks/mini-cart.twig'),
+                're-enable restores shop templates without migration or resync',
+            );
         } finally {
             self::resetSharedRepositoryConnection();
         }

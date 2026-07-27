@@ -93,6 +93,27 @@ final class SeoHeadProviderTest extends AppTestCase
         self::assertSame('Curated description', $head['description']);
     }
 
+    public function testUnconfiguredLocalhostDefaultOmitsUrlBearingKeys(): void
+    {
+        // The un-overridden BASE_URL default must behave like a blank origin (omit,
+        // never tell crawlers the site lives at localhost) — observed firing on a real
+        // install. An EXPLICIT localhost base with a port stays a deliberate choice.
+        $entry = $this->seedBilingualPublishedEntry();
+        $this->metaRepo()->upsert($entry, 'en', ['description' => 'Curated description']);
+
+        $head = $this->provider('http://localhost')->headFor($entry, 'en');
+
+        self::assertNotNull($head);
+        self::assertNull($head['canonical']);
+        self::assertSame([], $head['alternates']);
+        self::assertNull($head['og']['url']);
+        self::assertSame('Curated description', $head['description']);
+
+        $configured = $this->provider('http://localhost:8080')->headFor($entry, 'en');
+        self::assertNotNull($configured);
+        self::assertStringStartsWith('http://localhost:8080/', (string) $configured['canonical']);
+    }
+
     public function testRelativeDefaultOgImageIsAbsolutized(): void
     {
         $entry = $this->seedBilingualPublishedEntry();
