@@ -7,6 +7,17 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Clean commerce capability boundary** (`packages/thallo-commerce`): disabling
+  `thallo.commerce` now removes commerce from rendered pages entirely — the pack's
+  template dir registers inside the capability gate, so stored shop blocks fall to the
+  ordinary missing-template fallback (no shop HTML, no `/_shop/assets/shop.js` script
+  tag and its 404 noise, no `/cart` links) instead of dead static shells. A boot-time
+  flip reconciler purges the rendered-page cache (`thallo:render:page`) and the edge
+  whenever the capability's enabled state changes between boots, so previously cached
+  script tags disappear immediately in both directions. Stored block/link/catalog data
+  is never touched, re-enabling restores templates and blocks with no migration or
+  resync, and the shop-prefix path reservations plus the general theme runtime remain
+  active regardless of capability state.
 - **shop.js on the theme runtime** (`packages/thallo-commerce`, shopjs-on-runtime track):
   shop.js now registers its six commerce concerns (`shop-form`, `shop-gallery`,
   `shop-mini-cart`, `shop-product-grid`, `shop-featured-product`, `shop-add-to-cart`) as
