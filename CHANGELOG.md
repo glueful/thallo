@@ -30,6 +30,8 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 - **Mini-cart icon toggle**: the mini-cart trigger is now the standard storefront
   pattern — a shopping-cart icon button (commerce-owned inline SVG, `currentColor`) with
   the live count as a corner badge, keeping an `sr-only` "Cart" label for screen readers.
+  The badge hides while the cart is empty (the shell ships it hidden; the cart paint
+  reveals it only when items exist — no "0" badge before or after hydration).
 - **Mini-cart drawer disclosure**: the mini-cart toggle's `aria-expanded` wiring is now
   real — shop.js binds the toggle (click opens/closes, Escape closes and refocuses,
   clicking outside closes), and shop.css keys the dropdown panel's visibility off the

@@ -724,6 +724,7 @@ final class ShopJsRuntimeTest extends AppTestCase
           await flush();
 
           assert(count1.textContent === '3', 'coalesce: first shell count region painted');
+          assert(count1.hidden === false, 'coalesce: a non-empty cart reveals the count badge');
           assert(count2.textContent === '3', 'coalesce: second shell count region painted');
           assert(headerCount.textContent === '3', 'coalesce: header count outside any shell painted');
 
@@ -756,7 +757,9 @@ final class ShopJsRuntimeTest extends AppTestCase
         (async function drawerToggle() {
           var doc = new Doc(); // readyState 'complete' — init() runs at eval time
 
-          var toggle = el('button', { 'data-shop-cart-toggle': '', 'aria-expanded': 'false' });
+          var badge = el('span', { 'data-shop-cart-count': '' });
+          badge.hidden = true; // template ships the badge hidden (zero is noise)
+          var toggle = el('button', { 'data-shop-cart-toggle': '', 'aria-expanded': 'false' }, [badge]);
           var panel = el('div', { 'data-shop-cart-drawer': '' });
           var shell = el('div', { 'data-shop-mini-cart': '' }, [toggle, panel]);
           doc.body.appendChild(shell);
@@ -770,6 +773,7 @@ final class ShopJsRuntimeTest extends AppTestCase
           loadShopJs(win, doc);
           await flush();
 
+          assert(badge.hidden === true, 'drawer: an empty cart keeps the count badge hidden after paint');
           assert(toggle.getAttribute('data-shop-cart-toggle-bound') === '1',
             'drawer: the toggle carries the inner bound marker after enhancement');
           var clicks = toggle._listeners['click'] || [];
