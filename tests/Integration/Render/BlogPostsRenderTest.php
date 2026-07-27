@@ -49,9 +49,13 @@ final class BlogPostsRenderTest extends AppTestCase
     }
 
     /** @param list<array<string,mixed>> $list */
-    private function render(array $list): string
+    private function render(array $list, ?string $regionSlug = null): string
     {
-        return $this->env()->createTemplate('{{ blocks(list) }}')->render(['list' => $list]);
+        // The shared per-render reset every real render boundary performs — the
+        // priority-image claim must never leak between tests on the singleton.
+        $this->container()->get(RenderContextExtension::class)->resetPerRenderState();
+        return $this->env()->createTemplate('{{ blocks(list) }}')
+            ->render(['list' => $list, 'region_slug' => $regionSlug]);
     }
 
     public function testBlogPostsEmptyRendersPlaceholderOnlyInPreview(): void
@@ -86,8 +90,13 @@ final class BlogPostsRenderTest extends AppTestCase
     {
         $this->createPostType();
         // One post WITH a cover, one WITHOUT — the coverless card omits __image.
+        // The cover is a REAL public image blob: the card resolves media_image()
+        // first and only renders __image when it resolves (storefront-performance
+        // spec §3 — an unresolvable cover omits the element entirely).
+        $cover = Utils::generateNanoID();
+        $this->seedPublicImageBlob($cover);
         $this->publishPost(['title' => 'With cover', 'excerpt' => 'Has an image.',
-            'cover' => Utils::generateNanoID()], 'with-cover');
+            'cover' => $cover], 'with-cover');
         $this->publishPost(['title' => 'No cover', 'excerpt' => 'Text only.'], 'no-cover');
 
         $out = $this->render([[
@@ -105,7 +114,50 @@ final class BlogPostsRenderTest extends AppTestCase
         self::assertStringContainsString('thallo-block-blog_posts__date', $out);
     }
 
+    public function testNestedBlogPostsInHeaderRegionNeverClaimsPriority(): void
+    {
+        // Region validation constrains only top-level palette entries, so a nested
+        // blog_posts block can still reach blog_posts.twig inside a region render.
+        // The card macro's ISOLATED context must not erase the region ancestry —
+        // region_slug is threaded as a macro argument so the needs_context claim
+        // helper still sees the header region (storefront-performance spec §4).
+        $this->createPostType();
+        $cover = Utils::generateNanoID();
+        $this->seedPublicImageBlob($cover);
+        $this->publishPost(['title' => 'Nested cover', 'cover' => $cover], 'nested-cover');
+
+        $out = $this->render([[
+            'id' => 'container-region',
+            'type' => 'container',
+            'data' => ['content' => [[
+                'id' => 'nested-posts',
+                'type' => 'blog_posts',
+                'data' => ['type' => 'post', 'limit' => 1],
+            ]]],
+        ]], regionSlug: 'header');
+
+        self::assertStringContainsString('thallo-block-blog_posts__image', $out);
+        self::assertStringNotContainsString('fetchpriority', $out);
+        self::assertStringContainsString('loading="lazy"', $out);
+    }
+
     // ── Seeding helpers (modeled on EntryListReaderTest) ──────────────────────
+
+    /** A public, active image blob — the shape MediaVariantUrlResolverTest seeds. */
+    private function seedPublicImageBlob(string $uuid): void
+    {
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $uuid,
+            'name' => 'blog-cover-' . $uuid,
+            'mime_type' => 'image/jpeg',
+            'size' => 123,
+            'url' => 'uploads/' . $uuid . '.bin',
+            'visibility' => 'public',
+            'status' => 'active',
+            'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+    }
 
     private function createPostType(): string
     {
