@@ -282,6 +282,135 @@ final class ListingArchivePagesTest extends AppTestCase
         );
     }
 
+    // ---- editorial listing rows (storefront-performance spec §8) ---------------------
+
+    /** Public image blob a listing cover can resolve against (Task 1's seed shape). */
+    private function seedCoverBlob(string $uuid, string $mime = 'image/jpeg'): void
+    {
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $uuid,
+            'name' => 'listing-test-' . $uuid,
+            'mime_type' => $mime,
+            'size' => 123,
+            'url' => 'uploads/' . $uuid . '.bin',
+            'visibility' => 'public',
+            'status' => 'active',
+            'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /**
+     * seedMemberPost variant for the row-degradation fixtures: arbitrary extra fields
+     * (cover/excerpt survive shaping — the empty selector returns fields unprojected),
+     * a DISTINCT published_at so page membership is deterministic under the default
+     * `published_at DESC` order, and null slug = published without a route.
+     *
+     * @param array<string,mixed> $extraFields
+     */
+    private function seedRowPost(
+        string $entryUuid,
+        string $versionUuid,
+        ?string $slug,
+        string $title,
+        array $extraFields,
+        string $publishedAt,
+    ): void {
+        $db = $this->connection();
+        $db->table('entries')->insert([
+            'uuid' => $entryUuid, 'content_type_uuid' => $this->postType, 'status' => 'active',
+            'created_at' => '2026-06-01 00:00:00', 'updated_at' => '2026-06-01 00:00:00',
+        ]);
+        $db->table('entry_versions')->insert([
+            'uuid' => $versionUuid, 'entry_uuid' => $entryUuid, 'locale' => 'en', 'version' => 1,
+            'fields' => json_encode(
+                ['title' => $title, 'category' => []] + $extraFields,
+                JSON_THROW_ON_ERROR,
+            ),
+            'schema_version' => 1, 'created_at' => '2026-06-01 00:00:00',
+        ]);
+        $db->table('entry_publications')->insert([
+            'entry_uuid' => $entryUuid, 'locale' => 'en', 'version_uuid' => $versionUuid,
+            'published_at' => $publishedAt,
+        ]);
+        if ($slug !== null) {
+            (new RouteRepository($db))->assign($entryUuid, $this->postType, 'en', $slug);
+        }
+        $this->container()->get(PublishedReferenceRepository::class)
+            ->projectFromPublished($entryUuid, $this->postType, 'en');
+    }
+
+    public function testListingRowsDegradeAcrossAllPinnedStates(): void
+    {
+        // Five degradation states across three pages (per_page=2, published_at DESC):
+        //   page 1: A cover+excerpt, B cover-only — the only RESOLVABLE covers
+        //   page 2: C excerpt-only, D neither
+        //   page 3: E cover uuid set but UNSEEDED (set != resolved — the spec §8 gate)
+        $this->seedCoverBlob('lrowcover001');
+        $this->seedRowPost('lrowa0000001', 'vlrowa000001', 'row-a', 'Row A', [
+            'cover' => 'lrowcover001', 'excerpt' => 'A summary',
+        ], '2026-06-10 01:00:00');
+        $this->seedRowPost('lrowb0000001', 'vlrowb000001', 'row-b', 'Row B', [
+            'cover' => 'lrowcover001',
+        ], '2026-06-09 01:00:00');
+        $this->seedRowPost('lrowc0000001', 'vlrowc000001', 'row-c', 'Row C', [
+            'excerpt' => 'C summary',
+        ], '2026-06-08 01:00:00');
+        $this->seedRowPost('lrowd0000001', 'vlrowd000001', 'row-d', 'Row D', [], '2026-06-07 01:00:00');
+        $this->seedRowPost('lrowe0000001', 'vlrowe000001', 'row-e', 'Row E', [
+            'cover' => 'lrownope9999',
+        ], '2026-06-06 01:00:00');
+
+        // Page 1 — both rows have resolvable covers: two media columns, ONE priority image.
+        $one = (string) $this->handle(Request::create('/post', 'GET'))->getContent();
+        self::assertSame(2, substr_count($one, 'listing-row__media'));
+        self::assertSame(
+            1,
+            substr_count($one, 'fetchpriority="high"'),
+            'listing thumbnails participate in the page-wide first-eligible claim',
+        );
+        self::assertStringContainsString(
+            'loading="lazy" decoding="async"',
+            $one,
+            'the second resolvable listing thumbnail is not another priority image',
+        );
+        self::assertStringContainsString('alt=""', $one);
+        self::assertStringContainsString('?width=160 160w', $one); // real candidates at thumb widths
+        self::assertStringContainsString('sizes="(max-width: 48rem) 96px, 160px"', $one);
+        self::assertStringContainsString('listing-row__excerpt', $one); // A's excerpt
+        self::assertStringContainsString('listing-row--linked', $one);
+        self::assertStringContainsString('<time', $one);
+
+        // Page 2 — no covers at all: the media column is absent, nothing claims priority.
+        $two = (string) $this->handle(Request::create('/post/page/2', 'GET'))->getContent();
+        self::assertStringContainsString('Row C', $two);
+        self::assertStringContainsString('Row D', $two);
+        self::assertStringNotContainsString('listing-row__media', $two);
+        self::assertStringNotContainsString('fetchpriority', $two);
+        self::assertSame(1, substr_count($two, 'listing-row__excerpt')); // C only — D omits the <p>
+
+        // Page 3 — cover SET but unresolvable: resolved media gates the column (spec §8),
+        // never a placeholder image.
+        $three = (string) $this->handle(Request::create('/post/page/3', 'GET'))->getContent();
+        self::assertStringContainsString('Row E', $three);
+        self::assertStringNotContainsString('listing-row__media', $three);
+        self::assertStringNotContainsString('<img', $three);
+        self::assertStringNotContainsString('fetchpriority', $three);
+    }
+
+    public function testRoutelessListingItemGetsNoLinkAffordance(): void
+    {
+        // Published WITHOUT a route (ListingItemShaper hrefs it null): the row renders
+        // with a <span> title and no --linked modifier — no link affordance at all.
+        $this->seedRowPost('lrowfree0001', 'vlrowfree001', null, 'Routeless row', [], '2026-06-05 01:00:00');
+
+        $html = (string) $this->handle(Request::create('/post', 'GET'))->getContent();
+        self::assertStringContainsString('Routeless row', $html);
+        self::assertStringContainsString('<span class="listing-row__title">', $html);
+        self::assertStringNotContainsString('listing-row--linked', $html);
+        self::assertStringNotContainsString('<a class="listing-row__title"', $html);
+    }
+
     public function testEmptyListingRendersPageOne(): void
     {
         // 'blog' is allowlisted but has no entries in this test → 200, empty items,
