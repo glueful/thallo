@@ -8,9 +8,11 @@ use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Repositories\ContentTypeRepository;
 use App\Content\Repositories\EntryRepository;
 use App\Content\Repositories\ReferenceProjectionRepository;
+use App\Content\Repositories\RouteRepository;
 use App\Content\Repositories\VersionRepository;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
+use App\Settings\SettingsStore;
 use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
 use App\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
@@ -39,6 +41,10 @@ final class PriorityClaimRenderBoundaryTest extends AppTestCase
         // entry cached during a kernel render must not leak into later tests.
         $this->container()->get(CacheStore::class)->deletePattern('render:*');
         $this->container()->get(\Thallo\Seo\Cache\SitemapCache::class)->forgetAll();
+        // The logo-vs-body test's site logo and blobs must not bleed into other
+        // full-render tests (a configured site_logo changes every layout header).
+        $this->container()->get(SettingsStore::class)->forget('site_logo');
+        $this->connection()->table('blobs')->where('name', 'LIKE', 'pcbt-blob-%')->forceDelete();
         parent::tearDown();
     }
 
@@ -94,6 +100,92 @@ final class PriorityClaimRenderBoundaryTest extends AppTestCase
         self::assertSame(200, $res->getStatusCode());
         self::assertTrue($ext->claimPriorityImage([]), 'the full render after a fragment reset the claim');
         self::assertFalse($ext->claimPriorityImage([]), 'at most one claim per render');
+    }
+
+    public function testFullPageClaimGoesToTheBodyImageNeverTheSiteLogo(): void
+    {
+        // Spec §9: the site logo renders FIRST (layout.twig header, before any body
+        // block) yet never claims the at-most-one fetchpriority slot — the first
+        // eligible BODY image must still win it on a real end-to-end render.
+        $this->seedPublicBlob('pcbtlogo0001');
+        $this->seedPublicBlob('pcbtbody0001');
+        $this->container()->get(SettingsStore::class)->putMany(['site_logo' => 'pcbtlogo0001']);
+        $this->seedRoutedEntryWithImageBlockBody('pcbtd', 'logo-vs-body', 'pcbtbody0001');
+
+        $res = $this->handle(Request::create('/pcbtd/logo-vs-body', 'GET'));
+        self::assertSame(200, $res->getStatusCode());
+        $html = (string) $res->getContent();
+
+        self::assertSame(1, substr_count($html, 'fetchpriority="high"'), 'exactly one priority image per page');
+        // The single claim sits on the body image…
+        self::assertSame(1, preg_match('/<img[^>]*fetchpriority="high"[^>]*>/', $html, $priority));
+        self::assertStringContainsString('pcbtbody0001', $priority[0]);
+        // …while the site logo (rendered first) stays eager-but-unclaimed.
+        self::assertSame(1, preg_match('/<img class="site-logo"[^>]*>/', $html, $logo));
+        self::assertStringContainsString('pcbtlogo0001', $logo[0]);
+        self::assertStringContainsString('loading="eager"', $logo[0]);
+        self::assertStringNotContainsString('fetchpriority', $logo[0]);
+    }
+
+    private function seedPublicBlob(string $uuid): void
+    {
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $uuid,
+            'name' => 'pcbt-blob-' . $uuid,
+            'mime_type' => 'image/jpeg',
+            'size' => 123,
+            'url' => 'uploads/' . $uuid . '.bin',
+            'visibility' => 'public',
+            'status' => 'active',
+            'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+    }
+
+    /**
+     * A ROUTED published entry whose `body` holds one image block — the full-page
+     * shape the logo-vs-body test renders through RenderController (routed twin of
+     * seedRouteLessEntryWithHeadingBlock below).
+     */
+    private function seedRoutedEntryWithImageBlockBody(string $typeSlug, string $routeSlug, string $blobUuid): void
+    {
+        $blockTypes = $this->container()->get(BlockTypeRepository::class);
+        if ($blockTypes->findBySlug('image') === null) {
+            $blockTypes->create([
+                'slug' => 'image',
+                'label' => 'Image',
+                'schema' => [
+                    ['name' => 'image', 'type' => 'asset', 'required' => true],
+                    ['name' => 'alt', 'type' => 'string'],
+                ],
+            ]);
+        }
+
+        $types = new ContentTypeRepository($this->connection());
+        $typeUuid = $types->create([
+            'slug' => $typeSlug,
+            'name' => ucfirst($typeSlug),
+            'public_delivery' => true,
+            'schema' => [
+                ['name' => 'title', 'type' => 'string', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
+            ],
+        ]);
+        $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
+        $entry = $entries->createEntry($typeUuid, 'en', 1, 'user00000001');
+        $entries->saveDraft($entry, 'en', [
+            'title' => 'Logo vs body',
+            'body' => [['id' => 'b1', 'type' => 'image', 'data' => ['image' => $blobUuid, 'alt' => 'Body image']]],
+        ], 1, 0, 'user00000001');
+        (new RouteRepository($this->connection()))->assign($entry, $typeUuid, 'en', $routeSlug);
+        (new PublishService(
+            $this->appContext(),
+            $entries,
+            new VersionRepository($this->connection()),
+            $types,
+            new FieldValidator($this->connection()),
+            new ReferenceProjectionRepository($this->connection()),
+        ))->publish($entry, 'en', 'user00000001');
     }
 
     /**

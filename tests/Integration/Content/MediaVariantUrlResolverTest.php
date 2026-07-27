@@ -83,6 +83,16 @@ final class MediaVariantUrlResolverTest extends AppTestCase
         self::assertNull($exhausted['srcset'], 'null srcset — base src stands');
     }
 
+    public function testSvgImageKeepsSrcButNeverGetsResizeCandidates(): void
+    {
+        // image/* but NOT in the raster set UploadController::formatFromMime decodes:
+        // a ?width= candidate would 500 at serve time, and browsers do not fall back
+        // to src when a chosen srcset candidate fails. Valid image, no candidates.
+        $this->seedBlob('variantsvg01', 'image/svg+xml');
+        $result = $this->resolver()->variants('variantsvg01', [320, 640]);
+        self::assertSame(['src' => '/api/blobs/variantsvg01', 'srcset' => null], $result);
+    }
+
     public function testIncapableResolverStillDistinguishesValidFromInvalid(): void
     {
         $this->seedBlob('variantimg03', 'image/png');
