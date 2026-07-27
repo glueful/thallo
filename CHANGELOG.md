@@ -7,6 +7,11 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- The commerce **Mini cart** block can now be placed in the header and footer global
+  regions (the classic cart-in-the-header storefront pattern) — added to both region
+  palettes. The palette entry is inert without commerce: the picker only offers the
+  block while `thallo.commerce` is on, and a stored one falls to the missing-template
+  fallback while it is off.
 - **Clean commerce capability boundary** (`packages/thallo-commerce`): disabling
   `thallo.commerce` now removes commerce from rendered pages entirely — the pack's
   template dir registers inside the capability gate, so stored shop blocks fall to the

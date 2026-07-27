@@ -15,11 +15,19 @@ final class RegionDefinitions
 {
     /** @var array<string, list<string>> region slug → allowed TOP-LEVEL block types */
     public const PALETTES = [
-        'header' => ['logo', 'navigation', 'button', 'color_mode', 'social_links', 'container', 'columns', 'rich_text'],
+        // `mini-cart` is commerce-owned (thallo.commerce): the picker only offers it while
+        // the capability is on (it needs the registered block-type definition), and a stored
+        // one renders through the missing-template fallback while the capability is off —
+        // the palette entry itself is inert without commerce.
+        'header' => [
+            'logo', 'navigation', 'button', 'color_mode', 'social_links', 'container', 'columns', 'rich_text',
+            'mini-cart',
+        ],
         'footer' => [
             'logo', 'navigation', 'button', 'social_links', 'container', 'columns', 'rich_text',
             'separator', 'spacer', 'icon', 'image', 'shortcode', 'html',
             'footer', 'links',
+            'mini-cart',
         ],
     ];
 
