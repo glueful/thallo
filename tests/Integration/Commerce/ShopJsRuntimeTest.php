@@ -652,6 +652,19 @@ final class ShopJsRuntimeTest extends AppTestCase
         self::assertStringContainsString('/* shop-runtime:start */', $src);
     }
 
+    public function testMiniCartDrawerToggleBindsOnceAndDrivesAriaExpanded(): void
+    {
+        $src = $this->shopJs();
+        self::assertStringContainsString('window.thalloShop', $src);
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate shop.js');
+        }
+
+        $this->runNodeHarness($node, $this->drawerToggleHarness($src), 'drawer_toggle');
+    }
+
     /** Write a harness to a temp file, run it under node, and assert it prints ALL_PASS. */
     private function runNodeHarness(string $node, string $harnessJs, string $suffix): void
     {
@@ -724,6 +737,65 @@ final class ShopJsRuntimeTest extends AppTestCase
           assert(headerCount.textContent === '5', 'coalesce: the settled-slot refetch painted fresh state');
 
           console.log('coalescing OK');
+        })()
+
+        .then(function () { console.log('ALL_PASS'); })
+        .catch(function (e) { console.error('FAIL: uncaught ' + (e && e.stack ? e.stack : e)); process.exit(1); });
+        JS;
+    }
+
+    /**
+     * Harness for the mini-cart drawer disclosure (mini-cart-in-the-chrome, 2026-07-27):
+     * the toggle gains exactly ONE click listener (inner `data-shop-cart-toggle-bound`
+     * marker), clicks flip aria-expanded (shop.css keys the panel's visibility off it),
+     * Escape closes an open drawer, and re-running the sweep never stacks listeners.
+     */
+    private function drawerToggleHarness(string $shopJsSrc): string
+    {
+        return $this->harnessPrelude($shopJsSrc) . "\n\n" . <<<JS
+        (async function drawerToggle() {
+          var doc = new Doc(); // readyState 'complete' — init() runs at eval time
+
+          var toggle = el('button', { 'data-shop-cart-toggle': '', 'aria-expanded': 'false' });
+          var panel = el('div', { 'data-shop-cart-drawer': '' });
+          var shell = el('div', { 'data-shop-mini-cart': '' }, [toggle, panel]);
+          doc.body.appendChild(shell);
+
+          var calls = [];
+          var queue = [{ ok: true, status: 200, data: { item_count: 0, items: [] } }];
+          var win = {
+            document: doc, location: { href: '' }, fetch: makeFetch(queue, calls), FormData: FakeFormData,
+          };
+
+          loadShopJs(win, doc);
+          await flush();
+
+          assert(toggle.getAttribute('data-shop-cart-toggle-bound') === '1',
+            'drawer: the toggle carries the inner bound marker after enhancement');
+          var clicks = toggle._listeners['click'] || [];
+          assert(clicks.length === 1, 'drawer: exactly one click listener after first enhance');
+
+          clicks[0]({});
+          assert(toggle.getAttribute('aria-expanded') === 'true', 'drawer: a click opens (aria-expanded true)');
+          clicks[0]({});
+          assert(toggle.getAttribute('aria-expanded') === 'false', 'drawer: a second click closes');
+
+          clicks[0]({});
+          assert(toggle.getAttribute('aria-expanded') === 'true', 'drawer: reopened for the Escape case');
+          var keydowns = shell._listeners['keydown'] || [];
+          assert(keydowns.length === 1, 'drawer: exactly one Escape handler on the shell');
+          keydowns[0]({ key: 'Escape' });
+          assert(toggle.getAttribute('aria-expanded') === 'false', 'drawer: Escape closes the open drawer');
+
+          // Re-running the sweep (fresh blocks inserted elsewhere → init()) must not
+          // stack listeners — the inner marker is the guard, same layer as bindForm's.
+          win.thalloShop.init();
+          assert((toggle._listeners['click'] || []).length === 1,
+            'drawer: re-init does not stack toggle listeners');
+          assert((shell._listeners['keydown'] || []).length === 1,
+            'drawer: re-init does not stack Escape handlers');
+
+          console.log('drawer toggle OK');
         })()
 
         .then(function () { console.log('ALL_PASS'); })

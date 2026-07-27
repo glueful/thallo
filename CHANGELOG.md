@@ -7,6 +7,20 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Storefront styling for shop blocks and cart/checkout pages** (`packages/thallo-commerce`):
+  `shop.css` now covers the four shop blocks (`mini-cart`, `product-grid`,
+  `featured-product`, `add-to-cart`) and the cart, checkout, and confirmation pages —
+  previously only the catalog pages (index/product/category) had styles, so blocks and
+  the cart rendered as bare semantic HTML. Every shop block template and the three page
+  templates now link the stylesheet (same fingerprinted asset pipeline as shop.js).
+  Styles are theme-neutral: blocks inherit the surrounding theme's font and colors,
+  accent via the existing `--shop-accent` custom property.
+- **Mini-cart drawer disclosure**: the mini-cart toggle's `aria-expanded` wiring is now
+  real — shop.js binds the toggle (click opens/closes, Escape closes and refocuses,
+  clicking outside closes), and shop.css keys the dropdown panel's visibility off the
+  aria state. Previously the toggle was dead markup and the panel rendered permanently
+  expanded. Idempotent via an inner bound-marker, covered by a dedicated node-harness
+  test.
 - The commerce **Mini cart** block can now be placed in the header and footer global
   regions (the classic cart-in-the-header storefront pattern) — added to both region
   palettes. The palette entry is inert without commerce: the picker only offers the
