@@ -27,6 +27,9 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   templates now link the stylesheet (same fingerprinted asset pipeline as shop.js).
   Styles are theme-neutral: blocks inherit the surrounding theme's font and colors,
   accent via the existing `--shop-accent` custom property.
+- **Mini-cart icon toggle**: the mini-cart trigger is now the standard storefront
+  pattern — a shopping-cart icon button (commerce-owned inline SVG, `currentColor`) with
+  the live count as a corner badge, keeping an `sr-only` "Cart" label for screen readers.
 - **Mini-cart drawer disclosure**: the mini-cart toggle's `aria-expanded` wiring is now
   real — shop.js binds the toggle (click opens/closes, Escape closes and refocuses,
   clicking outside closes), and shop.css keys the dropdown panel's visibility off the
