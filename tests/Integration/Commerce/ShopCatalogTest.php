@@ -13,12 +13,18 @@ use App\Content\Repositories\VersionRepository;
 use App\Content\Services\PublishService;
 use App\Content\Validation\FieldValidator;
 use App\Tests\Support\AppTestCase;
+use App\Tests\Support\CountingPdoStatement;
 use Glueful\Application;
+use Glueful\Cache\CacheStore;
+use Glueful\Extensions\Commerce\Catalog\AddonService;
 use Glueful\Extensions\Commerce\Catalog\CatalogService;
 use Glueful\Extensions\Commerce\Catalog\CategoryRepository;
+use Glueful\Extensions\Commerce\Catalog\ProductMediaService;
+use Glueful\Helpers\Utils;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Commerce\Links\ProductLinkService;
 use Thallo\Commerce\Shop\ShopUrlGenerator;
+use Thallo\Contracts\Delivery\StorefrontWishlistResolver;
 use Thallo\Tenancy\System\SystemFlags;
 
 /**
@@ -51,6 +57,9 @@ final class ShopCatalogTest extends AppTestCase
 
     protected function tearDown(): void
     {
+        // The query-budget test installs the counting statement class on the SHARED suite
+        // PDO — restore the default so no other test measures through it.
+        $this->connection()->getPDO()->setAttribute(\PDO::ATTR_STATEMENT_CLASS, [\PDOStatement::class]);
         $this->truncateCommerceCatalog();
         // Never leave 'widened' persisted past this class (ProductStoryStarterTest's identical
         // discipline): a later PHPUnit PROCESS's very first (process-shared) boot reads
@@ -63,6 +72,7 @@ final class ShopCatalogTest extends AppTestCase
     private function truncateCommerceCatalog(): void
     {
         $pdo = $this->connection()->getPDO();
+        $pdo->exec('DELETE FROM commerce_product_addons');
         $pdo->exec('DELETE FROM commerce_product_categories');
         $pdo->exec('DELETE FROM commerce_product_media');
         $pdo->exec('DELETE FROM commerce_variants');
@@ -476,6 +486,164 @@ final class ShopCatalogTest extends AppTestCase
     }
 
     // ------------------------------------------------------------------
+    // Concept A cards (storefront-v1 Task 5): honest cart modes, category
+    // rail, tile tags, wishlist hearts, constant query budget
+    // ------------------------------------------------------------------
+
+    public function testGridCardRendersDirectPrgCartFormForSingleVariantNoRequiredAddonProduct(): void
+    {
+        $productUuid = $this->seedProduct(self::TENANT_A, 'card-direct-prod', 1999);
+        $variant = $this->connection()->table('commerce_variants')
+            ->where('product_uuid', '=', $productUuid)
+            ->first();
+        self::assertNotNull($variant);
+
+        $html = (string) $this->handle(Request::create('/shop', 'GET'))->getContent();
+
+        // A REAL PRG form posting to the SAME endpoint shop.js's shop-form module already
+        // intercepts — a working no-JS add, never a JS-only shell.
+        self::assertStringContainsString('method="post" action="/_shop/cart/add"', $html);
+        self::assertStringContainsString('name="variant_uuid" value="' . $variant['uuid'] . '"', $html);
+        self::assertStringNotContainsString('shop-grid__action--options', $html);
+    }
+
+    public function testGridCardRendersOptionsLinkNotAFormWhenAnActiveRequiredAddonExists(): void
+    {
+        // The SAME single-active-variant fixture as the direct test above — the required
+        // add-on ALONE must flip the card to options (AddToCartViewModel's link decision).
+        $productUuid = $this->seedProduct(self::TENANT_A, 'card-addon-prod', 1999);
+        $this->container()->get(AddonService::class)->create($this->appContext(), $productUuid, [
+            'name' => 'Engraving',
+            'field_type' => 'checkbox',
+            'price_delta' => 500,
+            'required' => true,
+        ]);
+        $urls = $this->container()->get(ShopUrlGenerator::class);
+
+        $html = (string) $this->handle(Request::create('/shop', 'GET'))->getContent();
+
+        self::assertStringNotContainsString('action="/_shop/cart/add"', $html);
+        self::assertStringContainsString('shop-grid__action--options', $html);
+        self::assertStringContainsString('href="' . $urls->product('card-addon-prod') . '"', $html);
+    }
+
+    public function testGridCardRendersOptionsLinkForAMultiVariantProduct(): void
+    {
+        $this->seedProduct(self::TENANT_A, 'card-multi-prod', 1999, variantCount: 2);
+        $urls = $this->container()->get(ShopUrlGenerator::class);
+
+        $html = (string) $this->handle(Request::create('/shop', 'GET'))->getContent();
+
+        self::assertStringNotContainsString('action="/_shop/cart/add"', $html);
+        self::assertStringContainsString('shop-grid__action--options', $html);
+        self::assertStringContainsString('href="' . $urls->product('card-multi-prod') . '"', $html);
+    }
+
+    public function testCategoryRailRendersEveryChipAndMarksTheCategoryPageChipActive(): void
+    {
+        $gadgets = $this->seedCategory(self::TENANT_A, 'gadgets', 'Gadgets');
+        $this->seedCategory(self::TENANT_A, 'lamps', 'Lamps');
+        $productUuid = $this->seedProduct(self::TENANT_A, 'rail-prod', 999);
+        (new CategoryRepository())->attachProduct($this->appContext(), $productUuid, $gadgets);
+        $urls = $this->container()->get(ShopUrlGenerator::class);
+
+        $index = (string) $this->handle(Request::create('/shop', 'GET'))->getContent();
+        self::assertStringContainsString('href="' . $urls->category('gadgets') . '"', $index);
+        self::assertStringContainsString('href="' . $urls->category('lamps') . '"', $index);
+        // "All" is the active chip on the index.
+        self::assertStringContainsString(
+            'shop-rail__chip--active" aria-current="page" href="' . $urls->shopIndex() . '"',
+            $index,
+        );
+
+        $archive = (string) $this->handle(Request::create('/shop/categories/gadgets', 'GET'))->getContent();
+        self::assertStringContainsString(
+            'shop-rail__chip--active" aria-current="page" href="' . $urls->category('gadgets') . '"',
+            $archive,
+        );
+        self::assertStringContainsString('href="' . $urls->category('lamps') . '"', $archive);
+        self::assertStringNotContainsString(
+            'shop-rail__chip--active" aria-current="page" href="' . $urls->shopIndex() . '"',
+            $archive,
+        );
+    }
+
+    public function testTileTagShowsTheDeterministicFirstCategoryAndIsAbsentWithoutCategories(): void
+    {
+        // Category `position ASC` beats `name ASC`: 'Zeta First' (position 0) must win over
+        // 'Alpha Late' (position 1) even though 'Alpha…' sorts first alphabetically.
+        $first = $this->seedCategory(self::TENANT_A, 'zeta-first', 'Zeta First');
+        $late = $this->seedCategory(self::TENANT_A, 'alpha-late', 'Alpha Late', position: 1);
+        $tagged = $this->seedProduct(self::TENANT_A, 'tagged-prod', 999);
+        $this->seedProduct(self::TENANT_A, 'untagged-prod', 999);
+        (new CategoryRepository())->attachProduct($this->appContext(), $tagged, $first);
+        (new CategoryRepository())->attachProduct($this->appContext(), $tagged, $late);
+
+        $html = (string) $this->handle(Request::create('/shop', 'GET'))->getContent();
+
+        self::assertStringContainsString('shop-grid__tag">Zeta First<', $html);
+        // The untagged product's card carries NO tag — exactly one tag on the whole page.
+        self::assertSame(1, substr_count($html, 'class="shop-grid__tag"'));
+    }
+
+    public function testGridCardHeartsRenderHiddenWithToggleWiringAndThePageRootCarriesTheScope(): void
+    {
+        $productUuid = $this->seedProduct(self::TENANT_A, 'heart-prod', 999);
+        $scope = $this->container()->get(StorefrontWishlistResolver::class)->storageScope();
+        self::assertNotNull($scope, 'precondition: the wishlist seam must answer a scope in this suite');
+
+        $html = (string) $this->handle(Request::create('/shop', 'GET'))->getContent();
+
+        // Hearts ship `hidden` (spec §5): visible ONLY after the wishlist store initializes.
+        self::assertStringContainsString(
+            'hidden data-shop-wishlist-toggle data-product-uuid="' . $productUuid . '" aria-pressed="false"',
+            $html,
+        );
+        self::assertStringContainsString('aria-label="Save Heart prod to wishlist"', $html);
+        self::assertStringContainsString('data-shop-scope="' . $scope . '"', $html);
+    }
+
+    public function testShopIndexQueryCountIsConstantInProductCount(): void
+    {
+        // Ground-truth statement counting on the shared suite PDO (Task 3's helper): the
+        // counter is cumulative, so warm up first, SNAPSHOT, then assert on the DELTA.
+        // Installed BEFORE any traffic so every later prepare() yields a counting statement.
+        $this->connection()->getPDO()->setAttribute(\PDO::ATTR_STATEMENT_CLASS, [CountingPdoStatement::class]);
+
+        for ($i = 1; $i <= 2; $i++) {
+            $this->seedGridProductWithGalleryMedia('budget-prod-' . $i);
+        }
+
+        // Warm-up render: Twig compilation, settings/flags memos, route dispatch.
+        self::assertSame(200, $this->handle(Request::create('/shop', 'GET'))->getStatusCode());
+
+        $this->purgeShopCache();
+        $before = CountingPdoStatement::$count;
+        self::assertSame(200, $this->handle(Request::create('/shop', 'GET'))->getStatusCode());
+        $twoProductQueries = CountingPdoStatement::$count - $before;
+
+        for ($i = 3; $i <= 6; $i++) {
+            $this->seedGridProductWithGalleryMedia('budget-prod-' . $i);
+        }
+
+        $this->purgeShopCache();
+        $before = CountingPdoStatement::$count;
+        self::assertSame(200, $this->handle(Request::create('/shop', 'GET'))->getStatusCode());
+        $sixProductQueries = CountingPdoStatement::$count - $before;
+
+        self::assertSame(
+            $twoProductQueries,
+            $sixProductQueries,
+            sprintf(
+                'shop index query count must be constant in product count — a per-card loop '
+                . 'crept back in (2 products: %d queries, 6 products: %d queries)',
+                $twoProductQueries,
+                $sixProductQueries,
+            ),
+        );
+    }
+
+    // ------------------------------------------------------------------
     // helpers
     // ------------------------------------------------------------------
 
@@ -484,15 +652,57 @@ final class ShopCatalogTest extends AppTestCase
         return $this->container()->get(SystemFlags::class);
     }
 
+    private function purgeShopCache(): void
+    {
+        $this->container()->get(CacheStore::class)->deletePattern('shop:*');
+    }
+
+    /**
+     * A grid product with admin-default media: ONE role-'gallery' row (no cover) — the shape
+     * that forced the old per-missing-cover fallback loop, so the query-budget test actually
+     * exercises the media pipeline per card.
+     */
+    private function seedGridProductWithGalleryMedia(string $slug): void
+    {
+        $productUuid = $this->seedProduct(self::TENANT_A, $slug, 1999);
+        $blobUuid = Utils::generateNanoID();
+        $this->connection()->table('blobs')->insert([
+            'uuid' => $blobUuid,
+            'name' => $slug . '.png',
+            'mime_type' => 'image/png',
+            'size' => 123,
+            'url' => 'uploads/' . $slug . '.png',
+            'visibility' => 'public',
+            'status' => 'active',
+            'created_by' => 'user00000001',
+            'created_at' => gmdate('Y-m-d H:i:s'),
+        ]);
+        $this->container()->get(ProductMediaService::class)->attach($this->appContext(), $productUuid, [
+            'blob_uuid' => $blobUuid,
+            'role' => 'gallery',
+        ]);
+    }
+
     private function seedProduct(
         string $tenant,
         string $slug,
         int $priceCents,
         ?string $description = null,
         string $status = 'active',
+        int $variantCount = 1,
     ): string {
         $previous = $this->flags()->get('tenancy.default_tenant_uuid') ?? self::TENANT_A;
         $this->flags()->put('tenancy.default_tenant_uuid', $tenant);
+
+        $variants = [];
+        for ($i = 0; $i < $variantCount; $i++) {
+            $variants[] = [
+                'sku' => 'sku-' . $slug . '-' . (++self::$seq),
+                'price' => $priceCents + $i,
+                'currency' => 'USD',
+                'option_values' => [],
+            ];
+        }
 
         $product = $this->container()->get(CatalogService::class)->createProduct($this->appContext(), [
             'slug' => $slug,
@@ -500,12 +710,7 @@ final class ShopCatalogTest extends AppTestCase
             'description' => $description,
             'status' => $status,
             'type' => 'physical',
-            'variants' => [[
-                'sku' => 'sku-' . $slug . '-' . (++self::$seq),
-                'price' => $priceCents,
-                'currency' => 'USD',
-                'option_values' => [],
-            ]],
+            'variants' => $variants,
         ]);
 
         $this->flags()->put('tenancy.default_tenant_uuid', $previous);
@@ -513,7 +718,7 @@ final class ShopCatalogTest extends AppTestCase
         return (string) $product['uuid'];
     }
 
-    private function seedCategory(string $tenant, string $slug, string $name): string
+    private function seedCategory(string $tenant, string $slug, string $name, int $position = 0): string
     {
         self::$seq++;
         $uuid = 'shpcat' . str_pad((string) self::$seq, 6, '0', STR_PAD_LEFT);
@@ -522,7 +727,7 @@ final class ShopCatalogTest extends AppTestCase
             'tenant_uuid' => $tenant,
             'slug' => $slug,
             'name' => $name,
-            'position' => 0,
+            'position' => $position,
         ]);
 
         return $uuid;
