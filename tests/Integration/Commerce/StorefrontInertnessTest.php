@@ -100,6 +100,7 @@ final class StorefrontInertnessTest extends AppTestCase
             self::assertSame(404, $hit('GET', '/shop'), 'shop index');
             self::assertSame(404, $hit('GET', '/shop/products/whatever'), 'product detail');
             self::assertSame(404, $hit('GET', '/shop/categories/whatever'), 'category archive');
+            self::assertSame(404, $hit('GET', '/shop/wishlist'), 'wishlist page');
 
             // Cart.
             self::assertSame(404, $hit('GET', '/cart'), 'cart page');
@@ -117,7 +118,8 @@ final class StorefrontInertnessTest extends AppTestCase
             self::assertSame(404, $hit('GET', '/checkout/cancel/whatever'), 'payment cancel');
             self::assertSame(404, $hit('GET', '/checkout/confirmation/whatever'), 'confirmation');
 
-            // `/_shop/*` block-data + fingerprinted assets.
+            // `/_shop/*` block-data + wishlist resolution + fingerprinted assets.
+            self::assertSame(404, $hit('GET', '/_shop/wishlist/items'), 'wishlist items endpoint');
             self::assertSame(404, $hit('GET', '/_shop/blocks/product-grid'), 'product-grid block data');
             self::assertSame(404, $hit('GET', '/_shop/blocks/featured-product'), 'featured-product block data');
             self::assertSame(404, $hit('GET', '/_shop/blocks/add-to-cart'), 'add-to-cart block data');
