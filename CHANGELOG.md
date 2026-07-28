@@ -7,6 +7,14 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Figtree is the default theme's typeface** (self-hosted, SIL OFL): variable roman +
+  italic latin subsets with reproducible provenance (upstream tag, checksums, exact
+  subsetting command committed), loaded via a new existence-aware `font_faces_style()`
+  Twig helper — preload and `@font-face` share one byte-identical URL, custom themes
+  without the files fall through to the system stack untouched, and a metric-matched
+  Arial fallback eliminates swap reflow. Shop pages inherit the theme face (their own
+  font-family overrides removed). Fonts carry their own 128KB payload budget test,
+  separate from the runtime's.
 - **Storefront performance & listing polish** (`packages/thallo-render` + delivery seam):
   responsive images behind a new optional `MediaVariantUrlResolver` render contract (the
   Thallo app always binds its MIME-aware implementation while candidate generation stays

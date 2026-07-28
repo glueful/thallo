@@ -143,4 +143,24 @@ final class FontFacesStyleTest extends AppTestCase
         $this->expectException(RuntimeError::class);
         $this->ext()->fontFacesStyle('Figtree', '../../../etc/passwd');
     }
+
+    public function testDefaultLayoutEmitsTheFontHeadBeforeSiteCss(): void
+    {
+        $res = $this->handle(\Symfony\Component\HttpFoundation\Request::create('/', 'GET'));
+        $html = (string) $res->getContent();
+        self::assertStringContainsString('rel="preload" as="font"', $html);
+        self::assertStringContainsString('font-family: "Figtree"', $html);
+        self::assertTrue(
+            strpos($html, 'rel="preload" as="font"') < strpos($html, 'site.css'),
+            'font head precedes the stylesheet link',
+        );
+    }
+
+    public function testShopCssNoLongerDeclaresPageFontFamilies(): void
+    {
+        $css = (string) file_get_contents(
+            dirname(__DIR__, 3) . '/packages/thallo-commerce/assets/shop.css',
+        );
+        self::assertStringNotContainsString('font-family: -apple-system', $css);
+    }
 }
