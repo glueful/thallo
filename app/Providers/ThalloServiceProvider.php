@@ -234,6 +234,7 @@ use Thallo\Contracts\Authoring\PublishGate;
 use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
 use Thallo\Contracts\Delivery\EntryTargetResolver;
 use Thallo\Contracts\Delivery\HomepageEntryProvider;
+use Thallo\Contracts\Delivery\MediaUrlBatchResolver;
 use Thallo\Contracts\Delivery\MediaUrlResolver;
 use Thallo\Contracts\Delivery\MediaVariantUrlResolver;
 use Thallo\Contracts\Delivery\SeoHeadResolver;
@@ -1060,6 +1061,12 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'factory' => [self::class, 'makeMediaUrlResolver'],
             ],
+            // One object, two interfaces: the batch seam IS the single-url
+            // resolver, so the servability predicate cannot drift between them.
+            MediaUrlBatchResolver::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeMediaUrlBatchResolver'],
+            ],
             MediaVariantUrlResolver::class => [
                 'shared' => true,
                 'factory' => [self::class, 'makeMediaVariantUrlResolver'],
@@ -1183,6 +1190,12 @@ final class ThalloServiceProvider extends ServiceProvider
             (bool) config($context, 'uploads.enabled', true),
             config($context, 'uploads.access', 'private'),
         );
+    }
+
+    /** The batch interface resolves to the SHARED MediaUrlResolver instance. */
+    public static function makeMediaUrlBatchResolver(ContainerInterface $container): EngineMediaUrlResolver
+    {
+        return $container->get(MediaUrlResolver::class);
     }
 
     public static function makeMediaVariantUrlResolver(ContainerInterface $container): EngineMediaVariantUrlResolver
