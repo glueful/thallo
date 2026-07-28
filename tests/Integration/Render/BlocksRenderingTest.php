@@ -164,14 +164,16 @@ final class BlocksRenderingTest extends AppTestCase
         self::assertContains('font_faces_style', TemplatePolicy::FUNCTIONS);
         self::assertContains('shop_wishlist_scope', TemplatePolicy::FUNCTIONS);
         self::assertContains('shop_wishlist_url', TemplatePolicy::FUNCTIONS);
-        // 15 = shop_wishlist_scope + shop_wishlist_url joined the allowlist (storefront-v1 spec §5)
-        self::assertSame(15, TemplatePolicy::CACHE_VERSION);
+        self::assertContains('shop_styles_url', TemplatePolicy::FUNCTIONS);
+        // 16 = shop_styles_url joined the allowlist (the theme's head storefront stylesheet)
+        self::assertSame(16, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);
         self::assertSame([], $linter->lint('{{ blocks(entry.fields.body) }}'));
         self::assertSame([], $linter->lint('{{ media(data.image) }}'));
         self::assertSame([], $linter->lint('{{ site_logo() }}'));
+        self::assertSame([], $linter->lint('{{ shop_styles_url() }}'));
         self::assertSame([], $linter->lint('{{ icon(data.icon) ?? data.icon }}'));
         self::assertSame([], $linter->lint('{{ region_blocks(\'header\') }}'));
         self::assertSame([], $linter->lint("{{ region_settings('header').width|default('contained') }}"));

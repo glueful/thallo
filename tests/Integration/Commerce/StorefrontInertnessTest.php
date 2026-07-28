@@ -290,6 +290,41 @@ final class StorefrontInertnessTest extends AppTestCase
         }
     }
 
+    public function testThemeHeadCarriesTheFingerprintedStorefrontStylesheetOnlyWhileEnabled(): void
+    {
+        // Blocks can only emit their stylesheet link inside the BODY, and that link is the
+        // uncacheable alias that 302s — so the header's cart/wishlist chrome painted unstyled
+        // and restyled on EVERY navigation. The theme links the fingerprinted file from
+        // <head> instead; with the capability off it must emit nothing at all (a <link> to a
+        // 404 on every page would be worse than no styling).
+        $html = (string) $this->handle(Request::create('/shop', 'GET'))->getContent();
+        $head = substr($html, 0, strpos($html, '</head>') ?: 0);
+
+        self::assertMatchesRegularExpression(
+            '#<link rel="stylesheet" href="/_shop/assets/shop-[0-9a-f]+\.css">#',
+            $head,
+            'the head carries the FINGERPRINTED stylesheet (never the 302 alias)',
+        );
+        self::assertStringNotContainsString('/_shop/assets/shop.css', $head, 'never the alias in head');
+
+        $this->flags()->forget('tenancy.schema_state');
+        $this->flags()->forget('tenancy.default_tenant_uuid');
+        $disabledApp = self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.commerce' => false],
+        ]);
+        try {
+            $resolver = $disabledApp->getContainer()->get(
+                \Thallo\Contracts\Delivery\StorefrontLinkResolver::class,
+            );
+            self::assertNull(
+                $resolver->stylesheetUrl(),
+                'capability off → no stylesheet URL, so the theme head emits no link',
+            );
+        } finally {
+            self::resetSharedRepositoryConnection();
+        }
+    }
+
     // ==================================================================
     // capability disabled: the catch-all still renders an ordinary builder page
     // ==================================================================
