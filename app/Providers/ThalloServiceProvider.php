@@ -8,6 +8,7 @@ use App\Capabilities\DefaultCapabilityRegistry;
 use App\Setup\SetupService;
 use App\Content\Delivery\DeliveryRepository;
 use App\Content\Delivery\EngineMediaUrlResolver;
+use App\Content\Delivery\EngineMediaVariantUrlResolver;
 use App\Content\Delivery\FilterCompiler;
 use App\Content\Delivery\ReferenceFilterResolver;
 use App\Content\Delivery\ReferenceResolver;
@@ -50,6 +51,7 @@ use Glueful\Uploader\Contracts\BlobAccessPolicy;
 use Glueful\Uploader\Contracts\BlobCreatedHook;
 use Glueful\Uploader\Contracts\BlobPublicUrlProvider;
 use Glueful\Uploader\Contracts\BlobRouteMiddlewareProvider;
+use Glueful\Uploader\Contracts\MediaProcessorInterface;
 use Glueful\Extensions\Contracts\Tenancy\FullTenantResolutionReadiness;
 use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;
 use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;
@@ -233,6 +235,7 @@ use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
 use Thallo\Contracts\Delivery\EntryTargetResolver;
 use Thallo\Contracts\Delivery\HomepageEntryProvider;
 use Thallo\Contracts\Delivery\MediaUrlResolver;
+use Thallo\Contracts\Delivery\MediaVariantUrlResolver;
 use Thallo\Contracts\Delivery\SeoHeadResolver;
 use Thallo\Seo\Meta\SeoMetaResolver;
 use Thallo\Contracts\Settings\AdminUrlProvider;
@@ -1057,6 +1060,10 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'factory' => [self::class, 'makeMediaUrlResolver'],
             ],
+            MediaVariantUrlResolver::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeMediaVariantUrlResolver'],
+            ],
             // Factory (not autowire): the theme validator is a SOFT render-pack
             // binding — passed only when present, so core stays removability-clean.
             PreviewController::class => [
@@ -1175,6 +1182,26 @@ final class ThalloServiceProvider extends ServiceProvider
             api_prefix($context) . '/blobs',
             (bool) config($context, 'uploads.enabled', true),
             config($context, 'uploads.access', 'private'),
+        );
+    }
+
+    public static function makeMediaVariantUrlResolver(ContainerInterface $container): EngineMediaVariantUrlResolver
+    {
+        $context = $container->get(ApplicationContext::class);
+        // Candidate-generation gate mirrors UploadController::serveBlob's own check
+        // (spec §3): a processor is bound AND uploads.image_processing.enabled. The resolver
+        // itself stays bound so its MIME gate still omits invalid media. Incapable → valid
+        // images degrade to {src, srcset: null}; never fabricate ?width= URLs.
+        $capable = $container->has(MediaProcessorInterface::class)
+            && (bool) config($context, 'uploads.image_processing.enabled', true);
+
+        return new EngineMediaVariantUrlResolver(
+            $container->get(Connection::class),
+            api_prefix($context) . '/blobs',
+            (bool) config($context, 'uploads.enabled', true),
+            config($context, 'uploads.access', 'private'),
+            (int) config($context, 'uploads.image_processing.max_width', 2048),
+            $capable,
         );
     }
 

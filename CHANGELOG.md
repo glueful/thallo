@@ -7,6 +7,18 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Storefront performance & listing polish** (`packages/thallo-render` + delivery seam):
+  responsive images behind a new optional `MediaVariantUrlResolver` render contract (the
+  Thallo app always binds its MIME-aware implementation while candidate generation stays
+  capability-gated; without real resizing, templates emit a plain `<img>` and non-image
+  assets are omitted instead of ever rendering as broken images); at most one
+  priority (LCP) image per page — the first eligible body image claims
+  `fetchpriority="high"`, everything else lazy-loads; editorial listing rows for
+  archive/listing/terms pages (cover thumbnail, clamped excerpt, date, whole-row hover
+  with a semantic title link, server-side degradation when fields are absent);
+  `content-visibility` relief on listing rows and the footer; a cross-document root
+  crossfade via `@view-transition` (reduced-motion disabled); and a CI budget test
+  pinning the single-runtime asset posture at 12KB gzipped.
 - **Storefront styling for shop blocks and cart/checkout pages** (`packages/thallo-commerce`):
   `shop.css` now covers the four shop blocks (`mini-cart`, `product-grid`,
   `featured-product`, `add-to-cart`) and the cart, checkout, and confirmation pages —
