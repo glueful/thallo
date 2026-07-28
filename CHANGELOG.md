@@ -28,10 +28,9 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   Styles are theme-neutral: blocks inherit the surrounding theme's font and colors,
   accent via the existing `--shop-accent` custom property.
 - **Shop grid product cards**: the shop index and category grids share a new
-  `shop/_product_card.twig` partial with a modern contained-card treatment — bordered
-  card with hover lift and subtle image zoom (both disabled under reduced motion), soft
-  square image panel, bold name, star rating (only when reviews exist), and a prominent
-  price row with struck compare-at.
+  `shop/_product_card.twig` partial with a modern borderless card treatment — soft
+  square image panel, bold name linking to the product detail page, star rating (only
+  when reviews exist), and a prominent price row with struck compare-at.
 - **Mini-cart icon toggle**: the mini-cart trigger is now the standard storefront
   pattern — a shopping-cart icon button (commerce-owned inline SVG, `currentColor`) with
   the live count as a corner badge, keeping an `sr-only` "Cart" label for screen readers.
