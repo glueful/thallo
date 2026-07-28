@@ -460,6 +460,46 @@ final class ShopBlocksTest extends AppTestCase
         self::assertCount(30, $large['items']); // only 30 exist — never more than available
     }
 
+    /**
+     * shop.js paints grid items via `buildProductCard()`, which consumes the CLOSED
+     * ProductCardViewModel projection — so the grid JSON must be EXACTLY the pinned card
+     * allowlist (no options-arrow-forever, no missing category tag, no leaked fields).
+     */
+    public function testProductGridItemsAreThePinnedCardProjectionWithHonestCartModes(): void
+    {
+        $directUuid = $this->seedSimpleProduct('grid-card-direct', 'Card direct');
+        $categoryUuid = $this->seedCategory('grid-card-cat');
+        $this->attachCategory($directUuid, $categoryUuid);
+        $this->seedMultiVariantProduct('grid-card-select', 'Card select');
+        $variant = $this->connection()->table('commerce_variants')
+            ->where('product_uuid', '=', $directUuid)
+            ->first();
+        self::assertNotNull($variant);
+
+        $data = $this->getBlockJson('/_shop/blocks/product-grid?source=newest');
+        self::assertCount(2, $data['items']);
+
+        foreach ($data['items'] as $item) {
+            self::assertSame(
+                ['uuid', 'name', 'url', 'cover_url', 'rating', 'price_formatted',
+                    'compare_at_formatted', 'category_name', 'cart_mode', 'direct_variant_uuid'],
+                array_keys($item),
+            );
+        }
+
+        $byName = array_column($data['items'], null, 'name');
+
+        // Single active variant, no required add-on — the ONE honest direct-add case.
+        self::assertSame('direct', $byName['Card direct']['cart_mode']);
+        self::assertSame($variant['uuid'], $byName['Card direct']['direct_variant_uuid']);
+        self::assertSame('Grid-card-cat', $byName['Card direct']['category_name']);
+
+        // Multi-variant reduces to 'options' — the card links to the detail page instead.
+        self::assertSame('options', $byName['Card select']['cart_mode']);
+        self::assertNull($byName['Card select']['direct_variant_uuid']);
+        self::assertNull($byName['Card select']['category_name']);
+    }
+
     public function testFeaturedProductResolvesByExplicitSlug(): void
     {
         $this->seedSimpleProduct('featured-explicit', 'Featured explicit');

@@ -26,7 +26,7 @@ use App\Tests\Support\AppTestCase;
  *
  * The full byte contract runs in BOTH delivery configurations (shopjs-on-runtime spec §3):
  * standalone (runtime-absent fallback, shop.js self-drives) and with the theme-runtime core
- * evaluated first (shop.js registers seven `shop-*` modules and the core's boot drives
+ * evaluated first (shop.js registers nine `shop-*` modules and the core's boot drives
  * enhancement) — see {@see runByteContract()}. The runtime-specific tests below cover the
  * registration surface, exactly-once re-execution, init() delegation, per-component
  * containment, and the canvas-stage guarantee.
@@ -1118,7 +1118,7 @@ final class ShopJsRuntimeTest extends AppTestCase
         JS;
     }
 
-    public function testRuntimePresentRegistersSevenModulesAndCoreDrivesEnhancement(): void
+    public function testRuntimePresentRegistersNineModulesAndCoreDrivesEnhancement(): void
     {
         $src = $this->shopJs();
         self::assertStringContainsString("register('shop-form'", $src);
@@ -1225,7 +1225,7 @@ final class ShopJsRuntimeTest extends AppTestCase
     }
 
     /**
-     * Harness proving that with the runtime present, shop.js registers its seven modules on
+     * Harness proving that with the runtime present, shop.js registers its nine modules on
      * the core (probed via the duplicate-name throw), attaches NO DOMContentLoaded listener
      * of its own (a DELTA from the post-runtime-eval snapshot — the core registers its own
      * when readyState is 'loading', so an absolute zero would be wrong), and that firing
@@ -1263,7 +1263,8 @@ final class ShopJsRuntimeTest extends AppTestCase
           );
 
           var names = ['shop-form', 'shop-gallery', 'shop-buy', 'shop-mini-cart',
-            'shop-product-grid', 'shop-featured-product', 'shop-add-to-cart'];
+            'shop-product-grid', 'shop-featured-product', 'shop-add-to-cart',
+            'shop-wishlist', 'shop-wishlist-page'];
           for (var i = 0; i < names.length; i++) {
             var threw = false;
             try {
@@ -1765,6 +1766,15 @@ final class ShopJsRuntimeTest extends AppTestCase
               url: url,
               resolveWith: function (data) {
                 settle({ ok: true, status: 200, json: function () { return Promise.resolve(data); } });
+              },
+              // An HTTP error whose body still parses as JSON — the framework serves JSON
+              // error envelopes, so a 500/422 response is NOT a network rejection.
+              resolveWithStatus: function (status, data) {
+                settle({
+                  ok: status >= 200 && status < 300,
+                  status: status,
+                  json: function () { return Promise.resolve(data); },
+                });
               },
             });
             return promise;
@@ -2355,6 +2365,67 @@ final class ShopJsRuntimeTest extends AppTestCase
             'generation: the fresh answer painted, got ' + JSON.stringify(cardNames(fx.grid)));
 
           console.log('staleGeneration OK');
+        })
+
+        .then(async function aServerErrorEnvelopeNeverWipesTheSavedList() {
+          var doc = new Doc();
+          var fx = pageFixture(doc);
+          var storage = fakeStorage(JSON.stringify([A, B]));
+          var calls = [];
+          var fetchStub = deferredFetch(calls);
+          var win = wishWin(doc, storage, fetchStub);
+          var events = recordEvents(doc);
+
+          loadShopJs(win, doc);
+          await flush();
+          assert(calls.length === 1, 'error500: the resolution request went out');
+
+          // A transient 500 whose body is the framework's JSON error envelope — it parses
+          // fine, and without the res.ok guard every snapshot uuid would look "omitted".
+          fetchStub.pending[0].resolveWithStatus(500, { success: false, message: 'Server error' });
+          await flush();
+
+          assert(JSON.stringify(stored(storage)) === JSON.stringify([A, B]),
+            'error500: localStorage is untouched, got ' + JSON.stringify(stored(storage)));
+          assert(events.length === 0, 'error500: an error response never publishes a removal');
+          assert(fx.root.getAttribute('aria-busy') === 'false', 'error500: the page still settles (no stuck spinner)');
+          assert(fx.empty.hidden === true, 'error500: a failed resolution is NOT an empty wishlist');
+          assert(fx.status.hidden === false && fx.status.textContent.indexOf('could not load') !== -1,
+            'error500: the failure status is shown, got "' + fx.status.textContent + '"');
+
+          console.log('errorEnvelope500 OK');
+        })
+
+        .then(async function aValidationEnvelopeWithEmptyItemsRemovesNothing() {
+          var doc = new Doc();
+          var fx = pageFixture(doc);
+          var storage = fakeStorage(JSON.stringify([A, B, C]));
+          var calls = [];
+          var fetchStub = deferredFetch(calls);
+          var win = wishWin(doc, storage, fetchStub);
+          var events = recordEvents(doc);
+
+          loadShopJs(win, doc);
+          await flush();
+          assert(calls.length === 1, 'error422: the resolution request went out');
+
+          // The endpoint's own 422 envelope carries `items: []` — the WORST impostor: it is
+          // exactly the shape that means "everything was omitted" on a 200.
+          fetchStub.pending[0].resolveWithStatus(422, {
+            error: 'uuids[] must be a list of at most 100 product uuids.',
+            items: [],
+          });
+          await flush();
+
+          assert(JSON.stringify(stored(storage)) === JSON.stringify([A, B, C]),
+            'error422: NOTHING was removed, got ' + JSON.stringify(stored(storage)));
+          assert(events.length === 0, 'error422: an error response never publishes a removal');
+          assert(fx.root.getAttribute('aria-busy') === 'false', 'error422: the page still settles');
+          assert(fx.empty.hidden === true, 'error422: a 422 is NOT an empty wishlist');
+          assert(fx.status.hidden === false && fx.status.textContent.indexOf('could not load') !== -1,
+            'error422: the failure status is shown, got "' + fx.status.textContent + '"');
+
+          console.log('errorEnvelope422 OK');
         })
 
         .then(function () { console.log('ALL_PASS'); })
