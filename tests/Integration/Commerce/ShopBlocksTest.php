@@ -39,6 +39,29 @@ final class ShopBlocksTest extends AppTestCase
 
     private static int $seq = 0;
 
+    /**
+     * `entries.tenant_uuid` is added ONCE PER CLASS, not per test. Postgres never reclaims a
+     * dropped column's slot, so the old per-test ADD/DROP cycle permanently burned one of the
+     * table's 1600 slots on every single test — the shared app_test DB hit the ceiling and every
+     * suite touching `entries` died with "tables can have at most 1600 columns". The schema shape
+     * during the class is identical to before; only the churn is gone.
+     */
+    public static function setUpBeforeClass(): void
+    {
+        parent::setUpBeforeClass();
+        self::$app?->getContainer()->get(\Glueful\Database\Connection::class)->getPDO()->exec(
+            "ALTER TABLE entries ADD COLUMN IF NOT EXISTS tenant_uuid VARCHAR(191) NOT NULL DEFAULT ''"
+        );
+    }
+
+    public static function tearDownAfterClass(): void
+    {
+        self::$app?->getContainer()->get(\Glueful\Database\Connection::class)->getPDO()->exec(
+            'ALTER TABLE entries DROP COLUMN IF EXISTS tenant_uuid'
+        );
+        parent::tearDownAfterClass();
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -49,15 +72,11 @@ final class ShopBlocksTest extends AppTestCase
         // directly into `entries`, and EngineEntryExistenceReader checks the row's OWN
         // tenant_uuid whenever the column is present — defensively ensured here regardless of
         // migration state.
-        $this->connection()->getPDO()->exec(
-            "ALTER TABLE entries ADD COLUMN IF NOT EXISTS tenant_uuid VARCHAR(191) NOT NULL DEFAULT ''"
-        );
     }
 
     protected function tearDown(): void
     {
         $this->truncateCommerceCatalog();
-        $this->connection()->getPDO()->exec('ALTER TABLE entries DROP COLUMN IF EXISTS tenant_uuid');
         $this->flags()->forget('tenancy.schema_state');
         $this->flags()->forget('tenancy.default_tenant_uuid');
         parent::tearDown();
