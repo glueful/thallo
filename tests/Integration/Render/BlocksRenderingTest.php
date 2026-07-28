@@ -162,8 +162,10 @@ final class BlocksRenderingTest extends AppTestCase
         self::assertContains('custom_css', TemplatePolicy::FUNCTIONS);
         self::assertContains('form_render', TemplatePolicy::FUNCTIONS);
         self::assertContains('font_faces_style', TemplatePolicy::FUNCTIONS);
-        // 14 = font_faces_style joined the function allowlist (default-theme-font spec §3)
-        self::assertSame(14, TemplatePolicy::CACHE_VERSION);
+        self::assertContains('shop_wishlist_scope', TemplatePolicy::FUNCTIONS);
+        self::assertContains('shop_wishlist_url', TemplatePolicy::FUNCTIONS);
+        // 15 = shop_wishlist_scope + shop_wishlist_url joined the allowlist (storefront-v1 spec §5)
+        self::assertSame(15, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);
@@ -177,6 +179,7 @@ final class BlocksRenderingTest extends AppTestCase
         self::assertSame([], $linter->lint('{{ custom_css() }}'));
         self::assertSame([], $linter->lint('{% set f = form_render(block) %}{{ f.token|default }}'));
         self::assertSame([], $linter->lint("{{ font_faces_style('X', 'fonts/x.woff2') }}"));
+        self::assertSame([], $linter->lint('{{ shop_wishlist_url() }}{{ shop_wishlist_scope() }}'));
     }
 
     public function testSafeHtmlSanitizesAndFailsClosed(): void
