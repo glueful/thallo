@@ -290,6 +290,24 @@ final class StorefrontInertnessTest extends AppTestCase
         }
     }
 
+    public function testRegionUpdatePurgesTheShopPageCacheNotJustTheRenderCache(): void
+    {
+        // Header/footer chrome renders on shop pages, but those are held in the SHOP cache.
+        // RegionUpdated used to have ONE subscriber (the render-cache purge), so removing a
+        // header block cleared it everywhere EXCEPT /shop & friends, which kept serving stale
+        // chrome until their TTL lapsed.
+        $cache = $this->container()->get(\Glueful\Cache\CacheStore::class);
+        $key = 'shopcachepurgeprobe';
+        $cache->set($key, 'stale-chrome');
+        $cache->addTags($key, ['thallo:shop:catalog']);
+        self::assertSame('stale-chrome', $cache->get($key), 'probe seeded under the shop tag');
+
+        $this->container()->get(\Glueful\Events\EventService::class)
+            ->dispatch(new \Thallo\Contracts\Content\RegionUpdated('header'));
+
+        self::assertNull($cache->get($key), 'a region save must purge the shop page cache too');
+    }
+
     public function testThemeHeadCarriesTheFingerprintedStorefrontStylesheetOnlyWhileEnabled(): void
     {
         // Blocks can only emit their stylesheet link inside the BODY, and that link is the
