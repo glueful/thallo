@@ -108,6 +108,40 @@ final class RegionAdminApiTest extends AppTestCase
         self::assertSame(['mini-cart'], array_column($saved['blocks'], 'type'));
     }
 
+    public function testWishlistLinkIsInBothPalettesAndSavesIntoTheHeader(): void
+    {
+        // Storefront-v1 Task 8 (spec §5): the wishlist link is placeable in the chrome exactly
+        // like the mini cart — app-side palette policy, commerce-provisioned block TYPE.
+        $controller = $this->controller();
+        $repo = new BlockTypeRepository($this->connection());
+        if ($repo->findBySlug('wishlist-link') === null) {
+            $repo->create([
+                'slug' => 'wishlist-link',
+                'label' => 'Wishlist link',
+                'icon' => 'i-lucide-heart',
+                'category' => 'Commerce',
+                'description' => 'A link to the wishlist page with a live saved-item count.',
+                'schema' => [['name' => 'label', 'type' => 'string']],
+            ]);
+        }
+
+        $regions = json_decode((string) $controller->index()->getContent(), true)['data']['regions'];
+        self::assertContains('wishlist-link', $regions[0]['palette'], 'header palette offers the wishlist link');
+        self::assertContains('wishlist-link', $regions[1]['palette'], 'footer palette offers the wishlist link');
+
+        $resp = $controller->update($this->dto([
+            'blocks' => [
+                ['id' => 'apihdrwish01', 'type' => 'wishlist-link', 'data' => []],
+            ],
+            'settings' => [],
+        ]), 'header');
+        self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
+
+        $saved = (new RegionRepository($this->connection()))->find('header');
+        self::assertNotNull($saved);
+        self::assertSame(['wishlist-link'], array_column($saved['blocks'], 'type'));
+    }
+
     public function testOutOfPaletteBlockIs422WithDotPath(): void
     {
         try {

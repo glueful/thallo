@@ -17,14 +17,17 @@ use Thallo\Commerce\Shop\ManualProductListNormalizer;
 use Thallo\Commerce\Shop\ShopAssetMap;
 use Thallo\Commerce\Shop\ShopUrlGenerator;
 use Thallo\Commerce\Starter\ShopBlockTypesContributor;
+use Thallo\Contracts\Delivery\StorefrontWishlistResolver;
 use Thallo\Contracts\Starter\StarterBlockTypeRegistry;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\TwigFactory;
 use Thallo\Tenancy\System\SystemFlags;
 
 /**
- * Task 11 (storefront-rendering spec §5.2/§10): the 4 shop block types + their templates +
- * fingerprinted asset serving. {@see \App\Tests\Integration\Commerce\ShopJsRuntimeTest} covers
+ * Task 11 (storefront-rendering spec §5.2/§10) + storefront-v1 Task 8 (spec §5): the 5 shop
+ * block types (`wishlist-link` joined the four originals) + their templates + fingerprinted
+ * asset serving, plus the structural parity gate between `_product_card.twig` and shop.js's
+ * `buildProductCard()`. {@see \App\Tests\Integration\Commerce\ShopJsRuntimeTest} covers
  * `shop.js`'s executable JS contract; {@see \App\Tests\Integration\Commerce\ShopBlockTypeProvisioningTest}
  * covers the DEV_LINK-gated fresh-tenant provisioning + `thallo:tenant:sync` adoption (mirrors
  * the ProductStoryStarterTest/ProductStoryStarterTenancyTest split for the identical reason: none
@@ -81,10 +84,10 @@ final class ShopBlocksTest extends AppTestCase
     // A. Contributor definitions (pure)
     // ==================================================================
 
-    public function testContributorReturnsTheFourDefinitionsWithStableSourceIdsAndSlugs(): void
+    public function testContributorReturnsTheFiveDefinitionsWithStableSourceIdsAndSlugs(): void
     {
         $definitions = (new ShopBlockTypesContributor())->blockTypeDefinitions();
-        self::assertCount(4, $definitions);
+        self::assertCount(5, $definitions);
 
         $bySlug = [];
         foreach ($definitions as $definition) {
@@ -96,7 +99,21 @@ final class ShopBlocksTest extends AppTestCase
         self::assertArrayHasKey('featured-product', $bySlug);
         self::assertArrayHasKey('add-to-cart', $bySlug);
         self::assertArrayHasKey('mini-cart', $bySlug);
+        self::assertArrayHasKey('wishlist-link', $bySlug);
         self::assertSame('Commerce', $bySlug['product-grid']->category);
+        self::assertSame('Commerce', $bySlug['wishlist-link']->category);
+        self::assertSame(ShopBlockTypesContributor::SLUG_WISHLIST_LINK, $bySlug['wishlist-link']->slug);
+    }
+
+    public function testWishlistLinkSchemaIsASingleOptionalLabelString(): void
+    {
+        $definitions = (new ShopBlockTypesContributor())->blockTypeDefinitions();
+        $wishlist = self::findBySlug($definitions, 'wishlist-link');
+
+        self::assertCount(1, $wishlist->schema);
+        self::assertSame('label', $wishlist->schema[0]['name']);
+        self::assertSame('string', $wishlist->schema[0]['type']);
+        self::assertFalse((bool) ($wishlist->schema[0]['required'] ?? false));
     }
 
     public function testContributorSchemasPassBlockSchemaValidation(): void
@@ -598,6 +615,219 @@ final class ShopBlocksTest extends AppTestCase
         $html = $this->renderBlock('add-to-cart', [], ['uuid' => 'entryuuid002']);
         self::assertStringContainsString('data-product-slug=""', $html);
         self::assertStringContainsString('data-entry-uuid="entryuuid002"', $html);
+    }
+
+    // ==================================================================
+    // F2. wishlist-link block (storefront-v1 Task 8, spec §5)
+    // ==================================================================
+
+    public function testWishlistLinkTemplateRendersAPlainLinkWithAHiddenCountBadge(): void
+    {
+        $url = $this->container()->get(StorefrontWishlistResolver::class)->wishlistUrl();
+        self::assertNotNull($url, 'precondition: the wishlist seam must answer a URL in this suite');
+
+        $html = $this->renderBlock('wishlist-link', []);
+
+        // A plain <a> to the GENERATOR-owned wishlist URL — never a hand-built path, never a
+        // disclosure widget: no-JS gets an ordinary working link.
+        self::assertStringContainsString('href="' . $url . '"', $html);
+        self::assertStringNotContainsString('aria-expanded', $html);
+        // The badge ships hidden (a zero count is noise) — shop.js reveals it at n > 0.
+        self::assertMatchesRegularExpression(
+            '/<span[^>]*data-shop-wishlist-count[^>]*\bhidden\b/',
+            $html,
+            'the wishlist count badge must ship hidden, exactly like the cart badge',
+        );
+        self::assertStringContainsString('/_shop/assets/shop.js', $html);
+    }
+
+    public function testWishlistLinkTemplateRendersTheConfiguredLabel(): void
+    {
+        $html = $this->renderBlock('wishlist-link', ['label' => 'Saved items']);
+        self::assertStringContainsString('Saved items', $html);
+    }
+
+    public function testEveryShopBlockRootCarriesTheWishlistScope(): void
+    {
+        // Spec §5 root emission: hydrated hearts inside a BUILDER-page block find the storage
+        // scope from the nearest root — no metadata fetch, no per-block seam call in shop.js.
+        $scope = $this->container()->get(StorefrontWishlistResolver::class)->storageScope();
+        self::assertNotNull($scope, 'precondition: the wishlist seam must answer a scope in this suite');
+
+        foreach (
+            [
+                'mini-cart' => [],
+                'product-grid' => ['source' => 'newest'],
+                'featured-product' => ['product_slug' => 'widget'],
+                'add-to-cart' => ['product_slug' => 'widget'],
+                'wishlist-link' => [],
+            ] as $type => $data
+        ) {
+            self::assertStringContainsString(
+                'data-shop-scope="' . $scope . '"',
+                $this->renderBlock($type, $data),
+                "the {$type} block root must carry the wishlist storage scope",
+            );
+        }
+    }
+
+    // ==================================================================
+    // G. buildProductCard() ↔ _product_card.twig structural parity
+    // ==================================================================
+
+    public function testBuildProductCardMatchesTheServerCardsClassDataAndAriaHooks(): void
+    {
+        $direct = $this->seedSimpleProduct('parity-direct', 'Parity direct');
+        $categoryUuid = $this->seedCategory('parity-category');
+        $this->attachCategory($direct, $categoryUuid);
+        $options = $this->seedMultiVariantProduct('parity-options', 'Parity options');
+
+        // The SAME card projection both renderers consume: the endpoint's JSON is exactly
+        // ProductCardViewModel::toArray(), which `_product_card.twig` also renders from.
+        $json = $this->getBlockJson(
+            '/_shop/wishlist/items?uuids[]=' . $direct . '&uuids[]=' . $options,
+        );
+        self::assertCount(2, $json['items'], 'precondition: both fixtures resolve as cards');
+        self::assertSame('direct', $json['items'][0]['cart_mode']);
+        self::assertSame('options', $json['items'][1]['cart_mode']);
+
+        $serverHtml = (string) $this->handle(Request::create($this->urls()->shopIndex(), 'GET'))->getContent();
+        self::assertStringContainsString('shop-grid__item', $serverHtml, 'precondition: the server grid rendered');
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate shop.js buildProductCard()');
+        }
+
+        $hooks = $this->builtCardHooks($node, $json['items']);
+
+        // The pinned hook set (spec §5): exact markup equality is NOT the contract — the
+        // class/data/ARIA hooks are, so a redesign of either renderer cannot silently drift.
+        foreach (
+            [
+                'class:shop-grid__item', 'class:shop-grid__tile', 'class:shop-grid__media',
+                'class:shop-grid__image', 'class:shop-grid__image--empty', 'class:shop-grid__tag',
+                'class:shop-grid__actions', 'class:shop-grid__action', 'class:shop-grid__cart-form',
+                'class:shop-grid__action--cart', 'class:shop-grid__action--options',
+                'class:shop-grid__action--wishlist', 'class:shop-grid__body', 'class:shop-grid__name',
+                'class:shop-grid__price', 'class:shop-grid__price-current',
+                'attr:data-shop-wishlist-toggle', 'attr:data-product-uuid', 'attr:aria-pressed',
+                'attr:aria-label', 'attr:hidden', 'attr:href',
+            ] as $hook
+        ) {
+            self::assertContains($hook, $hooks, "buildProductCard() must emit the {$hook} hook");
+        }
+
+        // …and every hook the client builds must exist in the server-rendered card too.
+        foreach ($hooks as $hook) {
+            self::assertStringContainsString(
+                substr($hook, (int) strpos($hook, ':') + 1),
+                $serverHtml,
+                "hook '{$hook}' is client-only — the two card renderers have drifted",
+            );
+        }
+    }
+
+    private function findNode(): ?string
+    {
+        $env = getenv('THALLO_NODE_BIN');
+        if (is_string($env) && $env !== '' && is_executable($env)) {
+            return $env;
+        }
+        $which = trim((string) shell_exec('command -v node 2>/dev/null'));
+
+        return $which !== '' ? $which : null;
+    }
+
+    /**
+     * Runs shop.js's OWN `buildProductCard()` (the served bytes — there is no build step)
+     * against the given card JSON under node, and returns the structural hooks of the elements
+     * it builds: `class:<token>`, `attr:<name>` (including a reflected `hidden`).
+     *
+     * @param list<array<string,mixed>> $cards
+     * @return list<string>
+     */
+    private function builtCardHooks(string $node, array $cards): array
+    {
+        $src = json_encode(
+            (string) file_get_contents($this->assetsDir() . '/shop.js'),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        );
+        $data = json_encode($cards, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        $harness = <<<JS
+        'use strict';
+
+        function Element(tagName) {
+          this.tagName = tagName;
+          this.attrs = {};
+          this.children = [];
+          this.parentNode = null;
+          this._text = '';
+          this.className = '';
+          this.hidden = false;
+        }
+        Object.defineProperty(Element.prototype, 'textContent', {
+          get: function () { return this._text; },
+          set: function (v) { this._text = String(v); this.children = []; },
+        });
+        Element.prototype.getAttribute = function (n) {
+          return Object.prototype.hasOwnProperty.call(this.attrs, n) ? this.attrs[n] : null;
+        };
+        Element.prototype.setAttribute = function (n, v) { this.attrs[n] = String(v); };
+        Element.prototype.appendChild = function (c) { this.children.push(c); c.parentNode = this; return c; };
+        Element.prototype.addEventListener = function () {};
+
+        var doc = {
+          readyState: 'loading', // nothing self-drives: only buildProductCard() is exercised
+          documentElement: new Element('html'),
+          body: new Element('body'),
+          createElement: function (tag) { return new Element(tag); },
+          createElementNS: function (ns, tag) { return new Element(tag); },
+          addEventListener: function () {},
+          querySelector: function () { return null; },
+          querySelectorAll: function () { return []; },
+          getElementById: function () { return null; },
+        };
+        var win = { document: doc, location: { href: '' } };
+        new Function('window', 'document', $src)(win, doc);
+
+        if (!win.thalloShop || typeof win.thalloShop.buildProductCard !== 'function') {
+          console.error('FAIL: shop.js exposes no buildProductCard()');
+          process.exit(1);
+        }
+
+        var hooks = [];
+        function walk(node) {
+          String(node.className || '').split(/\s+/).forEach(function (token) {
+            if (token) { hooks.push('class:' + token); }
+          });
+          Object.keys(node.attrs).forEach(function (name) { hooks.push('attr:' + name); });
+          if (node.hidden === true) { hooks.push('attr:hidden'); }
+          node.children.forEach(walk);
+        }
+        $data.forEach(function (card) { walk(win.thalloShop.buildProductCard(card)); });
+        console.log(JSON.stringify(hooks));
+        JS;
+
+        $file = sys_get_temp_dir() . '/thallo_shop_card_parity_' . getmypid() . '.mjs';
+        file_put_contents($file, $harness);
+        try {
+            $out = [];
+            $code = 0;
+            exec(escapeshellarg($node) . ' ' . escapeshellarg($file) . ' 2>&1', $out, $code);
+            $output = implode("\n", $out);
+            self::assertSame(0, $code, "card-parity harness failed:\n" . $output);
+            $hooks = json_decode(trim($output), true);
+            self::assertIsArray($hooks, "card-parity harness printed no hook list:\n" . $output);
+
+            /** @var list<string> $unique */
+            $unique = array_values(array_unique(array_map(static fn ($h): string => (string) $h, $hooks)));
+
+            return $unique;
+        } finally {
+            @unlink($file);
+        }
     }
 
     // ==================================================================

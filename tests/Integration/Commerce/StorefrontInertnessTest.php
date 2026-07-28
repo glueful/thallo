@@ -131,11 +131,11 @@ final class StorefrontInertnessTest extends AppTestCase
     }
 
     // ==================================================================
-    // capability disabled: the 4 shop blocks are absent from the ACTUAL
+    // capability disabled: the 5 shop blocks are absent from the ACTUAL
     // starter block-type provisioning surface (BlockTypeKind::definitions())
     // ==================================================================
 
-    public function testCapabilityDisabledMeansTheFourShopBlocksAreAbsentFromBlockTypeKindDefinitions(): void
+    public function testCapabilityDisabledMeansTheFiveShopBlocksAreAbsentFromBlockTypeKindDefinitions(): void
     {
         $this->flags()->forget('tenancy.schema_state');
         $this->flags()->forget('tenancy.default_tenant_uuid');
@@ -157,6 +157,9 @@ final class StorefrontInertnessTest extends AppTestCase
                     ShopBlockTypesContributor::SLUG_FEATURED_PRODUCT,
                     ShopBlockTypesContributor::SLUG_ADD_TO_CART,
                     ShopBlockTypesContributor::SLUG_MINI_CART,
+                    // Storefront-v1 Task 8: the wishlist link is capability-gated exactly like
+                    // its four siblings — a disabled capability contributes NO shop block type.
+                    ShopBlockTypesContributor::SLUG_WISHLIST_LINK,
                 ] as $shopSlug
             ) {
                 self::assertNotContains(
@@ -220,6 +223,7 @@ final class StorefrontInertnessTest extends AppTestCase
                     'blocks/product-grid.twig',
                     'blocks/featured-product.twig',
                     'blocks/add-to-cart.twig',
+                    'blocks/wishlist-link.twig',
                     'shop/index.twig',
                 ] as $template
             ) {

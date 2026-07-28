@@ -17,10 +17,10 @@ use App\Tests\Support\AppTestCase;
  * `packages/thallo-commerce/assets/shop.js`; neither has a build step, so these files ARE
  * the served bytes — into ONE stub document containing a `form[data-thallo-form]` block
  * (result box + submit button) and shop.js's own cart/checkout form stubs, in the ADOPTED
- * load order: the theme-runtime core first, then shop.js, so shop.js REGISTERS its seven
+ * load order: the theme-runtime core first, then shop.js, so shop.js REGISTERS its nine
  * `shop-*` modules and the core's single deferred boot pass binds both worlds. Proves:
  * neither eval throws; shop.js attaches nothing at eval time (no self-binding on runtime
- * pages); the shared registry holds the five theme modules AND the seven shop modules
+ * pages); the shared registry holds the five theme modules AND the nine shop modules
  * (probed via the duplicate-registration throw); ownership stays disjoint in marker form
  * (the thallo form carries `data-thallo-enhanced~="forms"` only, the shop forms
  * `~="shop-form"` only, and `data-shop-bound` never lands on the thallo form); a second
@@ -74,6 +74,8 @@ final class RuntimeShopCoexistenceTest extends AppTestCase
         self::assertStringContainsString('form[action="/_shop/cart/update"]', $shop);
         self::assertStringContainsString("register('shop-form'", $shop);
         self::assertStringContainsString("register('shop-add-to-cart'", $shop);
+        self::assertStringContainsString("register('shop-wishlist'", $shop);
+        self::assertStringContainsString("register('shop-wishlist-page'", $shop);
         self::assertStringNotContainsString('data-thallo-form', $shop);
         self::assertStringNotContainsString('/_forms/submit', $shop);
 
@@ -407,7 +409,7 @@ final class RuntimeShopCoexistenceTest extends AppTestCase
         // ------------------------------------------------------------------
         // Load the theme-runtime core FIRST — the adopted configuration: the core
         // is on the page before any shop block script tag, so shop.js registers
-        // its six shop-* modules instead of self-driving. This harness evals both
+        // its nine shop-* modules instead of self-driving. This harness evals both
         // files in ONE task, so the core's deferred boot (a microtask — readyState
         // is already 'complete') runs after the registrations and covers both
         // worlds here, with shop.js's scheduled catch-up pass a marker-gated
@@ -447,12 +449,13 @@ final class RuntimeShopCoexistenceTest extends AppTestCase
         assert(calls.length === 0,
           'no hydration fetches for a document without shop block shells');
 
-        // -- ONE shared registry: five theme modules + seven shop modules -------
+        // -- ONE shared registry: five theme modules + nine shop modules --------
         // Probed via the core's duplicate-name throw (silent replacement is the
         // failure mode the registry contract forbids).
         var registeredNames = ['color-mode', 'forms', 'carousel', 'navigation', 'tabs',
           'shop-form', 'shop-gallery', 'shop-buy', 'shop-mini-cart',
-          'shop-product-grid', 'shop-featured-product', 'shop-add-to-cart'];
+          'shop-product-grid', 'shop-featured-product', 'shop-add-to-cart',
+          'shop-wishlist', 'shop-wishlist-page'];
         for (var rn = 0; rn < registeredNames.length; rn++) {
           var probeThrew = false;
           try {

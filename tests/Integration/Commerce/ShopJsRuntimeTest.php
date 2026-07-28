@@ -250,6 +250,13 @@ final class ShopJsRuntimeTest extends AppTestCase
         Doc.prototype.addEventListener = function (type, fn) {
           (this._listeners[type] = this._listeners[type] || []).push(fn);
         };
+        // The wishlist store broadcasts its state change as a document CustomEvent
+        // (storefront-v1 spec §5) — dispatch delivers it to the listeners above.
+        Doc.prototype.dispatchEvent = function (event) {
+          var listeners = this._listeners[event && event.type] || [];
+          for (var i = 0; i < listeners.length; i++) { listeners[i](event); }
+          return true;
+        };
         Doc.prototype.querySelectorAll = function (sel) { return collect(this.body, sel, []); };
         Doc.prototype.querySelector = function (sel) { return collect(this.body, sel, [])[0] || null; };
 
@@ -1618,6 +1625,787 @@ final class ShopJsRuntimeTest extends AppTestCase
           assert(count2.textContent === '3', 'separate-tasks: second mini-cart shell painted');
 
           console.log('separateTasks OK');
+        })()
+
+        .then(function () { console.log('ALL_PASS'); })
+        .catch(function (e) { console.error('FAIL: uncaught ' + (e && e.stack ? e.stack : e)); process.exit(1); });
+        JS;
+    }
+
+    // ==================================================================
+    // Wishlist store + hearts + badges + page (storefront-v1 Task 8, spec §5)
+    // ==================================================================
+
+    public function testWishlistStorageAdapterFailuresAreContainedAndFailClosed(): void
+    {
+        $src = $this->shopJs();
+        self::assertStringContainsString('thallo:wishlist:v1:', $src);
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate shop.js');
+        }
+
+        $this->runNodeHarness($node, $this->wishlistStorageHarness($src), 'wishlist_storage');
+    }
+
+    public function testWishlistStorePrimitivesOrderBoundAndPublishOnlyAfterASuccessfulWrite(): void
+    {
+        $src = $this->shopJs();
+        self::assertStringContainsString('thallo:wishlist-changed', $src);
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate shop.js');
+        }
+
+        $this->runNodeHarness($node, $this->wishlistPrimitivesHarness($src), 'wishlist_primitives');
+    }
+
+    public function testWishlistHeartsAndBadgesTrackTheSingleStoreAuthority(): void
+    {
+        $src = $this->shopJs();
+        self::assertStringContainsString("register('shop-wishlist'", $src);
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate shop.js');
+        }
+
+        $this->runNodeHarness($node, $this->wishlistUiHarness($src), 'wishlist_ui');
+    }
+
+    public function testWishlistPageHydrationReconciliationAndRaces(): void
+    {
+        $src = $this->shopJs();
+        self::assertStringContainsString("register('shop-wishlist-page'", $src);
+        self::assertStringContainsString('/_shop/wishlist/items?', $src);
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate shop.js');
+        }
+
+        $this->runNodeHarness($node, $this->wishlistPageHarness($src), 'wishlist_page');
+    }
+
+    public function testWishlistCrossTabStorageEventReSanitizesAndRepublishes(): void
+    {
+        $src = $this->shopJs();
+        self::assertStringContainsString("'storage'", $src);
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate shop.js');
+        }
+
+        $this->runNodeHarness($node, $this->wishlistCrossTabHarness($src), 'wishlist_cross_tab');
+    }
+
+    /**
+     * Shared wishlist fixtures: a fake localStorage whose every operation can be made to throw
+     * INDEPENDENTLY (the adapter contract), a CustomEvent shim, a window carrying a `storage`
+     * listener registry (cross-tab), a deferrable fetch (so a response can be settled at an
+     * exact point in a race), and the DOM fixtures the modules discover.
+     */
+    private function wishlistPrelude(): string
+    {
+        return <<<JS
+
+        var SCOPE = 'scopeAAAAAAAA';
+        var KEY = 'thallo:wishlist:v1:' + SCOPE;
+
+        /** A pinned product-uuid shape: exactly 12 alphanumeric chars, like the endpoint's. */
+        function pid(n) { return ('prod' + n + 'xxxxxxxxxxxx').slice(0, 12); }
+
+        var A = pid('a');
+        var B = pid('b');
+        var C = pid('c');
+        var D = pid('d');
+
+        function fakeStorage(initialRaw, failures) {
+          return {
+            map: initialRaw === null || initialRaw === undefined ? {} : (function () {
+              var m = {}; m[KEY] = initialRaw; return m;
+            })(),
+            failures: failures || {},
+            getItem: function (k) {
+              if (this.failures.getItem) { throw new Error('getItem denied'); }
+              return Object.prototype.hasOwnProperty.call(this.map, k) ? this.map[k] : null;
+            },
+            setItem: function (k, v) {
+              if (this.failures.setItem) { throw new Error('setItem denied'); }
+              this.map[k] = String(v);
+            },
+            removeItem: function (k) {
+              if (this.failures.removeItem) { throw new Error('removeItem denied'); }
+              delete this.map[k];
+            },
+          };
+        }
+
+        function stored(storage) {
+          var raw = storage.map[KEY];
+          return raw === undefined ? null : JSON.parse(raw);
+        }
+
+        function CustomEventStub(type, init) {
+          this.type = type;
+          this.detail = (init && init.detail) || null;
+        }
+
+        /** A fetch whose every call is settled EXPLICITLY — the only way to pin a race. */
+        function deferredFetch(calls) {
+          var pending = [];
+          function fetchStub(url, opts) {
+            calls.push({ url: url, opts: opts });
+            var settle;
+            var promise = new Promise(function (resolve) { settle = resolve; });
+            pending.push({
+              url: url,
+              resolveWith: function (data) {
+                settle({ ok: true, status: 200, json: function () { return Promise.resolve(data); } });
+              },
+            });
+            return promise;
+          }
+          fetchStub.pending = pending;
+          return fetchStub;
+        }
+
+        function wishWin(doc, storage, fetchFn) {
+          var listeners = {};
+          return {
+            document: doc,
+            location: { href: '' },
+            fetch: fetchFn,
+            FormData: FakeFormData,
+            localStorage: storage,
+            CustomEvent: CustomEventStub,
+            _windowListeners: listeners,
+            addEventListener: function (type, fn) {
+              (listeners[type] = listeners[type] || []).push(fn);
+            },
+          };
+        }
+
+        function fireStorage(win, key, newValue) {
+          var listeners = win._windowListeners['storage'] || [];
+          for (var i = 0; i < listeners.length; i++) {
+            listeners[i]({ type: 'storage', key: key, newValue: newValue });
+          }
+          return listeners.length;
+        }
+
+        function recordEvents(doc) {
+          var events = [];
+          doc.addEventListener('thallo:wishlist-changed', function (event) { events.push(event); });
+          return events;
+        }
+
+        function heart(uuid, name) {
+          var btn = el('button', {
+            type: 'button',
+            'data-shop-wishlist-toggle': '',
+            'data-product-uuid': uuid,
+            'aria-pressed': 'false',
+            'aria-label': 'Save ' + name + ' to wishlist',
+          });
+          btn.hidden = true; // every server-rendered heart ships hidden (spec §5)
+          return btn;
+        }
+
+        function badge() {
+          var span = el('span', { 'data-shop-wishlist-count': '' });
+          span.textContent = '0';
+          span.hidden = true; // the badge ships hidden — a zero count is noise
+          return span;
+        }
+
+        /** A scoped page root: the ONE authority hearts/badges/pages read the scope from. */
+        function scopedRoot(doc, children) {
+          var root = el('section', { 'data-shop-scope': SCOPE }, children || []);
+          doc.body.appendChild(root);
+          return root;
+        }
+
+        function pageFixture(doc, withScope) {
+          var status = el('p', { 'data-shop-wishlist-status': '' });
+          status.textContent = 'Loading your saved items…';
+          var empty = el('div', { 'data-shop-wishlist-empty': '' });
+          empty.hidden = true;
+          var grid = el('ul', { 'data-shop-wishlist-grid': '' });
+          grid.hidden = true;
+          var attrs = { 'data-shop-wishlist-page': '', 'aria-busy': 'true' };
+          if (withScope !== false) { attrs['data-shop-scope'] = SCOPE; }
+          var root = el('section', attrs, [status, empty, grid]);
+          doc.body.appendChild(root);
+          return { root: root, status: status, empty: empty, grid: grid };
+        }
+
+        function cardJson(uuid, name) {
+          return {
+            uuid: uuid,
+            name: name,
+            url: '/shop/products/' + uuid,
+            cover_url: null,
+            rating: null,
+            price_formatted: '\$10.00',
+            compare_at_formatted: null,
+            category_name: null,
+            cart_mode: 'options',
+            direct_variant_uuid: null,
+          };
+        }
+
+        function cardNames(grid) {
+          var names = [];
+          for (var i = 0; i < grid.children.length; i++) {
+            var link = grid.children[i].querySelector('.shop-grid__name');
+            names.push(link ? link.textContent : '(no name)');
+          }
+          return names;
+        }
+        JS;
+    }
+
+    /**
+     * Storage-adapter contract (spec §5): a valid stored list round-trips and the hearts
+     * REVEAL; corrupt JSON resets to `[]`; a throwing `getItem` or a throwing init `setItem`
+     * fails CLOSED (the heart stays hidden — never an inert control) without preventing any
+     * other shop.js module from enhancing.
+     */
+    private function wishlistStorageHarness(string $shopJsSrc): string
+    {
+        return $this->harnessPrelude($shopJsSrc) . $this->wishlistPrelude() . "\n\n" . <<<JS
+        (async function validStoredListRoundTrips() {
+          var doc = new Doc();
+          var saved = heart(A, 'Alpha');
+          var unsaved = heart(B, 'Beta');
+          scopedRoot(doc, [saved, unsaved]);
+
+          var storage = fakeStorage(JSON.stringify([A]));
+          var win = wishWin(doc, storage, makeFetch([], []));
+
+          loadShopJs(win, doc);
+          await flush();
+
+          assert(saved.hidden === false, 'storage: a ready store REVEALS the heart');
+          assert(saved.getAttribute('aria-pressed') === 'true', 'storage: a stored uuid renders pressed');
+          assert(unsaved.getAttribute('aria-pressed') === 'false', 'storage: an unsaved uuid renders unpressed');
+          // ready ONLY after the sanitized value round-trips through setItem.
+          assert(JSON.stringify(stored(storage)) === JSON.stringify([A]),
+            'storage: initialization wrote the sanitized value back');
+
+          console.log('validStoredListRoundTrips OK');
+        })()
+
+        .then(async function corruptJsonResetsToEmpty() {
+          var doc = new Doc();
+          var btn = heart(A, 'Alpha');
+          scopedRoot(doc, [btn]);
+
+          var storage = fakeStorage('{ not json at all');
+          var win = wishWin(doc, storage, makeFetch([], []));
+
+          loadShopJs(win, doc);
+          await flush();
+
+          assert(JSON.stringify(stored(storage)) === '[]', 'corrupt: a corrupt payload resets to []');
+          assert(btn.hidden === false, 'corrupt: recovery still yields a ready store (heart revealed)');
+          assert(btn.getAttribute('aria-pressed') === 'false', 'corrupt: nothing is saved after a reset');
+
+          console.log('corruptJsonResetsToEmpty OK');
+        })
+
+        .then(async function hostileValuesAreSanitized() {
+          var doc = new Doc();
+          var btn = heart(A, 'Alpha');
+          scopedRoot(doc, [btn]);
+
+          var hostile = [A, A, 'not-a-uuid!', 42, null, B];
+          for (var i = 0; i < 200; i++) { hostile.push(pid('h' + i)); }
+          var storage = fakeStorage(JSON.stringify(hostile));
+          var win = wishWin(doc, storage, makeFetch([], []));
+
+          loadShopJs(win, doc);
+          await flush();
+
+          var list = stored(storage);
+          assert(list.length === 100, 'sanitize: a hostile/legacy list is clamped to 100, got ' + list.length);
+          assert(list[0] === A && list[1] === B, 'sanitize: duplicates/malformed values drop, order preserved');
+
+          console.log('hostileValuesAreSanitized OK');
+        })
+
+        .then(async function getItemThrowsFailsClosedAndContainsTheFailure() {
+          var doc = new Doc();
+          var btn = heart(A, 'Alpha');
+          scopedRoot(doc, [btn]);
+          // A mini-cart shell in the SAME document: a denied storage backend must never stop
+          // another module from enhancing (containment).
+          var count = el('span', { 'data-shop-cart-count': '' });
+          doc.body.appendChild(el('div', { 'data-shop-mini-cart': '' }, [count]));
+
+          var calls = [];
+          var queue = [{ ok: true, status: 200, data: { item_count: 2, items: [] } }];
+          var storage = fakeStorage(JSON.stringify([A]), { getItem: true });
+          var win = wishWin(doc, storage, makeFetch(queue, calls));
+
+          loadShopJs(win, doc);
+          await flush();
+
+          assert(btn.hidden === true, 'denied: a throwing getItem leaves the heart HIDDEN (fail closed)');
+          assert(btn.getAttribute('aria-pressed') === 'false', 'denied: no false persistence is shown');
+          assert(count.textContent === '2', 'denied: the mini-cart module still enhanced (containment)');
+
+          console.log('getItemThrowsFailsClosedAndContainsTheFailure OK');
+        })
+
+        .then(async function setItemThrowsOnInitIsNotReady() {
+          var doc = new Doc();
+          var btn = heart(A, 'Alpha');
+          scopedRoot(doc, [btn]);
+
+          var storage = fakeStorage(JSON.stringify([A]), { setItem: true });
+          var win = wishWin(doc, storage, makeFetch([], []));
+
+          loadShopJs(win, doc);
+          await flush();
+
+          assert(btn.hidden === true, 'unwritable: a failed init round-trip never reveals the heart');
+          assert(win.thalloShop.wishlist(SCOPE).ready() === false, 'unwritable: the store is not ready');
+          // A click on a heart that was never revealed/bound changes nothing.
+          var clicks = btn._listeners['click'] || [];
+          assert(clicks.length === 0, 'unwritable: an unready store binds no toggle listener');
+
+          console.log('setItemThrowsOnInitIsNotReady OK')
+        })
+
+        .then(async function noScopeNeverInitializes() {
+          var doc = new Doc();
+          var btn = heart(A, 'Alpha');
+          doc.body.appendChild(btn); // NO [data-shop-scope] anywhere — commerce absent/inactive
+
+          var storage = fakeStorage(JSON.stringify([A]));
+          var win = wishWin(doc, storage, makeFetch([], []));
+
+          loadShopJs(win, doc);
+          await flush();
+
+          assert(btn.hidden === true, 'no-scope: without a scope the wishlist never initializes');
+          assert(stored(storage) !== null ? JSON.stringify(stored(storage)) === JSON.stringify([A]) : true,
+            'no-scope: storage is never rewritten');
+
+          console.log('noScopeNeverInitializes OK');
+        })
+
+        .then(function () { console.log('ALL_PASS'); })
+        .catch(function (e) { console.error('FAIL: uncaught ' + (e && e.stack ? e.stack : e)); process.exit(1); });
+        JS;
+    }
+
+    /**
+     * Store primitives (spec §5): `add` unshifts newest-first and drops the OLDEST at 100, a
+     * duplicate `add` is a NO-OP, `toggle` DELEGATES to add/remove, remove-then-re-add lands at
+     * the front, and every publish happens only AFTER a successful write — with the exact
+     * `thallo:wishlist-changed` `{scope, uuids}` event shape.
+     */
+    private function wishlistPrimitivesHarness(string $shopJsSrc): string
+    {
+        return $this->harnessPrelude($shopJsSrc) . $this->wishlistPrelude() . "\n\n" . <<<JS
+        (async function primitives() {
+          var doc = new Doc();
+          scopedRoot(doc, [heart(A, 'Alpha')]);
+          var storage = fakeStorage('[]');
+          var win = wishWin(doc, storage, makeFetch([], []));
+          var events = recordEvents(doc);
+
+          loadShopJs(win, doc);
+          await flush();
+
+          var store = win.thalloShop.wishlist(SCOPE);
+          assert(store.ready() === true, 'primitives: the store is ready');
+          assert(typeof store.add === 'function' && typeof store.remove === 'function'
+            && typeof store.toggle === 'function', 'primitives: add/remove/toggle are exposed');
+
+          assert(store.add(A) === true, 'primitives: add persists');
+          assert(store.add(B) === true, 'primitives: a second add persists');
+          assert(JSON.stringify(store.uuids()) === JSON.stringify([B, A]),
+            'primitives: add UNSHIFTS (newest first), got ' + JSON.stringify(store.uuids()));
+          assert(JSON.stringify(stored(storage)) === JSON.stringify([B, A]),
+            'primitives: the newest-first order is what persisted');
+
+          // Duplicate add: a NO-OP — no reorder, no write, no event (defensive API surface;
+          // the UI only ever toggles).
+          var eventsBefore = events.length;
+          var storedBefore = JSON.stringify(stored(storage));
+          assert(store.add(B) === false, 'primitives: adding an already-saved uuid is a NO-OP');
+          assert(JSON.stringify(store.uuids()) === JSON.stringify([B, A]),
+            'primitives: a duplicate add never reorders');
+          assert(events.length === eventsBefore, 'primitives: a NO-OP add publishes nothing');
+          assert(JSON.stringify(stored(storage)) === storedBefore, 'primitives: a NO-OP add writes nothing');
+
+          // toggle DELEGATES: present -> remove, absent -> add.
+          store.toggle(B);
+          assert(JSON.stringify(store.uuids()) === JSON.stringify([A]), 'primitives: toggle removed the present uuid');
+          store.toggle(B);
+          assert(JSON.stringify(store.uuids()) === JSON.stringify([B, A]),
+            'primitives: remove-then-re-add lands at the FRONT (that IS newest-first)');
+
+          // Exact event shape.
+          var last = events[events.length - 1];
+          assert(last.type === 'thallo:wishlist-changed', 'primitives: the event name is pinned');
+          assert(last.detail && last.detail.scope === SCOPE, 'primitives: detail.scope is the storage scope');
+          assert(JSON.stringify(last.detail.uuids) === JSON.stringify([B, A]),
+            'primitives: detail.uuids is the new list');
+
+          console.log('primitives OK');
+        })()
+
+        .then(async function boundedAtOneHundredDroppingTheOldest() {
+          var doc = new Doc();
+          scopedRoot(doc, [heart(A, 'Alpha')]);
+          var storage = fakeStorage('[]');
+          var win = wishWin(doc, storage, makeFetch([], []));
+
+          loadShopJs(win, doc);
+          await flush();
+
+          var store = win.thalloShop.wishlist(SCOPE);
+          for (var i = 0; i < 100; i++) { store.add(pid('n' + i)); }
+          assert(store.uuids().length === 100, 'bound: exactly 100 saved');
+          assert(store.uuids()[99] === pid('n0'), 'bound: the OLDEST sits at the tail');
+
+          store.add(D);
+          var list = store.uuids();
+          assert(list.length === 100, 'bound: still 100 after overflow');
+          assert(list[0] === D, 'bound: the newest is at the front');
+          assert(list.indexOf(pid('n0')) === -1, 'bound: the OLDEST was dropped from the tail');
+          assert(JSON.stringify(stored(storage)) === JSON.stringify(list), 'bound: the bounded list persisted');
+
+          console.log('boundedAtOneHundred OK');
+        })
+
+        .then(async function publishOnlyAfterASuccessfulWrite() {
+          var doc = new Doc();
+          var btn = heart(A, 'Alpha');
+          scopedRoot(doc, [btn]);
+          var count = badge();
+          doc.body.appendChild(count);
+          var storage = fakeStorage('[]');
+          var win = wishWin(doc, storage, makeFetch([], []));
+          var events = recordEvents(doc);
+
+          loadShopJs(win, doc);
+          await flush();
+
+          var store = win.thalloShop.wishlist(SCOPE);
+          store.add(A);
+          assert(events.length === 1, 'write-first: a successful write published exactly once');
+
+          // The quota now refuses every write: the toggle must change NOTHING the user can see.
+          storage.failures.setItem = true;
+          assert(store.toggle(B) === false, 'write-first: a failed write reports failure');
+          assert(JSON.stringify(store.uuids()) === JSON.stringify([A]),
+            'write-first: a failed write leaves the in-memory list untouched');
+          assert(events.length === 1, 'write-first: a failed write publishes NOTHING');
+          assert(btn.getAttribute('aria-pressed') === 'true', 'write-first: the heart still shows the true state');
+          assert(count.textContent === '1', 'write-first: the badge still shows the true count');
+
+          console.log('publishOnlyAfterASuccessfulWrite OK');
+        })
+
+        .then(function () { console.log('ALL_PASS'); })
+        .catch(function (e) { console.error('FAIL: uncaught ' + (e && e.stack ? e.stack : e)); process.exit(1); });
+        JS;
+    }
+
+    /**
+     * Hearts + badges (spec §5): one store authority drives every heart and count on the page —
+     * `aria-pressed` and the product-specific label swap on toggle, the badge hidden at zero and
+     * counting above it, and two hearts for the SAME product converge.
+     */
+    private function wishlistUiHarness(string $shopJsSrc): string
+    {
+        return $this->harnessPrelude($shopJsSrc) . $this->wishlistPrelude() . "\n\n" . <<<JS
+        (async function heartsAndBadges() {
+          var doc = new Doc();
+          var gridHeart = heart(A, 'Alpha Widget');
+          var detailHeart = heart(A, 'Alpha Widget'); // the SAME product, a second surface
+          var otherHeart = heart(B, 'Beta Widget');
+          var count = badge();
+          scopedRoot(doc, [gridHeart, detailHeart, otherHeart, count]);
+
+          var storage = fakeStorage('[]');
+          var win = wishWin(doc, storage, makeFetch([], []));
+
+          loadShopJs(win, doc);
+          await flush();
+
+          assert(count.hidden === true, 'badge: hidden at zero');
+          assert(gridHeart.hidden === false && detailHeart.hidden === false,
+            'hearts: revealed behind a ready store');
+
+          var clicks = gridHeart._listeners['click'] || [];
+          assert(clicks.length === 1, 'hearts: exactly one click listener');
+          clicks[0]({});
+
+          assert(gridHeart.getAttribute('aria-pressed') === 'true', 'hearts: the clicked heart is pressed');
+          assert(gridHeart.getAttribute('aria-label') === 'Remove Alpha Widget from wishlist',
+            'hearts: the label swaps to the product-specific REMOVE label, got: '
+              + gridHeart.getAttribute('aria-label'));
+          assert(detailHeart.getAttribute('aria-pressed') === 'true',
+            'hearts: the other surface for the SAME product converged (one authority)');
+          assert(otherHeart.getAttribute('aria-pressed') === 'false', 'hearts: an unrelated product is untouched');
+          assert(count.hidden === false && count.textContent === '1', 'badge: revealed with the count at 1');
+
+          clicks[0]({});
+          assert(gridHeart.getAttribute('aria-pressed') === 'false', 'hearts: a second click un-saves');
+          assert(gridHeart.getAttribute('aria-label') === 'Save Alpha Widget to wishlist',
+            'hearts: the label swaps back to the SAVE label');
+          assert(count.hidden === true && count.textContent === '0', 'badge: hidden again at zero');
+
+          // Re-running the sweep must not stack listeners (the inner-marker layer).
+          win.thalloShop.init();
+          assert((gridHeart._listeners['click'] || []).length === 1, 'hearts: re-init does not stack listeners');
+
+          console.log('heartsAndBadges OK');
+        })()
+
+        .then(function () { console.log('ALL_PASS'); })
+        .catch(function (e) { console.error('FAIL: uncaught ' + (e && e.stack ? e.stack : e)); process.exit(1); });
+        JS;
+    }
+
+    /**
+     * The wishlist page (spec §5): cards paint in STORED order through `buildProductCard`,
+     * `aria-busy` clears only AFTER settle, the empty state appears only when the settled list is
+     * empty (never a flash), an applicable response removes ONLY the uuids its own request
+     * snapshot asked about, and every race — a toggle during flight, a stale generation —
+     * ignores the answer and schedules exactly ONE fresh reconciliation.
+     */
+    private function wishlistPageHarness(string $shopJsSrc): string
+    {
+        return $this->harnessPrelude($shopJsSrc) . $this->wishlistPrelude() . "\n\n" . <<<JS
+        (async function paintsInStoredOrderAndRemovesOnlyOmittedUuids() {
+          var doc = new Doc();
+          var fx = pageFixture(doc);
+          var storage = fakeStorage(JSON.stringify([A, B, C]));
+          var calls = [];
+          var fetchStub = deferredFetch(calls);
+          var win = wishWin(doc, storage, fetchStub);
+          var events = recordEvents(doc);
+
+          loadShopJs(win, doc);
+          await flush();
+
+          assert(calls.length === 1, 'page: exactly one resolution request');
+          assert(calls[0].url === '/_shop/wishlist/items?uuids[]=' + A + '&uuids[]=' + B + '&uuids[]=' + C,
+            'page: the request carries the stored uuids in order, got ' + calls[0].url);
+          assert(fx.root.getAttribute('aria-busy') === 'true', 'page: aria-busy stays true while in flight');
+          assert(fx.empty.hidden === true, 'page: the empty state NEVER flashes before settle');
+
+          // B is omitted by the response — the endpoint IS the reconciliation authority.
+          fetchStub.pending[0].resolveWith({ items: [cardJson(A, 'Alpha'), cardJson(C, 'Gamma')] });
+          await flush();
+
+          assert(fx.root.getAttribute('aria-busy') === 'false', 'page: aria-busy cleared AFTER settle');
+          assert(fx.grid.hidden === false, 'page: the grid is revealed');
+          assert(JSON.stringify(cardNames(fx.grid)) === JSON.stringify(['Alpha', 'Gamma']),
+            'page: cards painted in stored order, got ' + JSON.stringify(cardNames(fx.grid)));
+          assert(fx.empty.hidden === true, 'page: a non-empty settled list never shows the empty state');
+          assert(JSON.stringify(stored(storage)) === JSON.stringify([A, C]),
+            'page: ONLY the omitted uuid was removed, got ' + JSON.stringify(stored(storage)));
+          assert(events.length === 1, 'page: the reconciliation removal published exactly once');
+
+          // The painted cards are live: their hearts are bound to the same store.
+          var painted = fx.grid.children[0].querySelector('[data-shop-wishlist-toggle]');
+          assert(painted !== null, 'page: a painted card carries a heart');
+          assert(painted.hidden === false && painted.getAttribute('aria-pressed') === 'true',
+            'page: a painted heart is revealed and pressed (it IS saved)');
+          (painted._listeners['click'] || [])[0]({});
+          await flush();
+          assert(JSON.stringify(stored(storage)) === JSON.stringify([C]),
+            'page: un-saving from a painted card persists');
+          assert(JSON.stringify(cardNames(fx.grid)) === JSON.stringify(['Gamma']),
+            'page: the removed card left the grid');
+
+          console.log('paintsInStoredOrder OK');
+        })()
+
+        .then(async function emptyStoreShowsTheEmptyStateWithoutAnyRequest() {
+          var doc = new Doc();
+          var fx = pageFixture(doc);
+          var storage = fakeStorage('[]');
+          var calls = [];
+          var win = wishWin(doc, storage, deferredFetch(calls));
+
+          loadShopJs(win, doc);
+          await flush();
+
+          assert(calls.length === 0, 'empty: an empty store never queries the endpoint');
+          assert(fx.empty.hidden === false, 'empty: the settled-empty list shows the empty state');
+          assert(fx.grid.hidden === true, 'empty: the grid stays hidden');
+          assert(fx.root.getAttribute('aria-busy') === 'false', 'empty: aria-busy cleared');
+
+          console.log('emptyStore OK');
+        })
+
+        .then(async function deniedStorageNeverShowsAFalseEmptyState() {
+          var doc = new Doc();
+          var fx = pageFixture(doc);
+          var storage = fakeStorage(JSON.stringify([A]), { getItem: true });
+          var calls = [];
+          var win = wishWin(doc, storage, deferredFetch(calls));
+
+          loadShopJs(win, doc);
+          await flush();
+
+          assert(calls.length === 0, 'denied: nothing to resolve without a readable store');
+          assert(fx.empty.hidden === true, 'denied: a denied store is NOT "nothing saved yet"');
+          assert(fx.root.getAttribute('aria-busy') === 'false', 'denied: the page still settles (no stuck spinner)');
+          assert(fx.status.hidden === false && fx.status.textContent.length > 0,
+            'denied: the status region explains why');
+
+          console.log('deniedStorage OK');
+        })
+
+        .then(async function aToggleDuringFlightIgnoresTheAnswerAndRefetchesOnce() {
+          var doc = new Doc();
+          var fx = pageFixture(doc);
+          var storage = fakeStorage(JSON.stringify([A, B]));
+          var calls = [];
+          var fetchStub = deferredFetch(calls);
+          var win = wishWin(doc, storage, fetchStub);
+
+          loadShopJs(win, doc);
+          await flush();
+          assert(calls.length === 1, 'race: the initial resolution is in flight');
+
+          // A heart toggled elsewhere on the page WHILE the fetch is in flight.
+          var store = win.thalloShop.wishlist(SCOPE);
+          store.add(D);
+          assert(JSON.stringify(store.uuids()) === JSON.stringify([D, A, B]), 'race: the in-flight toggle persisted');
+
+          // The stale answer would have removed B — it must be IGNORED (the revision moved).
+          fetchStub.pending[0].resolveWith({ items: [cardJson(A, 'Alpha')] });
+          await flush();
+
+          assert(JSON.stringify(store.uuids()) === JSON.stringify([D, A, B]),
+            'race: a superseded response never removes anything, got ' + JSON.stringify(store.uuids()));
+          assert(calls.length === 2, 'race: EXACTLY one fresh reconciliation was scheduled, got ' + calls.length);
+          assert(calls[1].url === '/_shop/wishlist/items?uuids[]=' + D + '&uuids[]=' + A + '&uuids[]=' + B,
+            'race: the refetch asks from CURRENT state, got ' + calls[1].url);
+          assert(fx.root.getAttribute('aria-busy') === 'true', 'race: the page has NOT settled on a stale answer');
+          assert(fx.empty.hidden === true, 'race: no empty flash mid-race');
+
+          fetchStub.pending[1].resolveWith({
+            items: [cardJson(D, 'Delta'), cardJson(A, 'Alpha'), cardJson(B, 'Beta')],
+          });
+          await flush();
+
+          assert(calls.length === 2, 'race: the settled reconciliation schedules nothing further');
+          assert(fx.root.getAttribute('aria-busy') === 'false', 'race: the page settles on the FRESH answer');
+          assert(JSON.stringify(cardNames(fx.grid)) === JSON.stringify(['Delta', 'Alpha', 'Beta']),
+            'race: the fresh answer painted, got ' + JSON.stringify(cardNames(fx.grid)));
+
+          console.log('toggleDuringFlight OK');
+        })
+
+        .then(async function aStaleGenerationIsIgnored() {
+          var doc = new Doc();
+          var fx = pageFixture(doc);
+          var storage = fakeStorage(JSON.stringify([A, B]));
+          var calls = [];
+          var fetchStub = deferredFetch(calls);
+          var win = wishWin(doc, storage, fetchStub);
+
+          loadShopJs(win, doc);
+          await flush();
+
+          var store = win.thalloShop.wishlist(SCOPE);
+          store.reconcile(); // a SECOND, newer reconciliation supersedes the page's first
+          await flush();
+          assert(calls.length === 2, 'generation: two requests are in flight');
+
+          // The NEWEST generation answers first and applies…
+          fetchStub.pending[1].resolveWith({ items: [cardJson(A, 'Alpha'), cardJson(B, 'Beta')] });
+          await flush();
+          assert(JSON.stringify(store.uuids()) === JSON.stringify([A, B]), 'generation: the latest answer applied');
+          assert(fx.root.getAttribute('aria-busy') === 'true',
+            'generation: the PAGE has not settled — its own request was superseded');
+
+          // …then the STALE one lands, omitting B. It must never be applied — and the page
+          // schedules exactly ONE fresh reconciliation instead of settling on it.
+          fetchStub.pending[0].resolveWith({ items: [cardJson(A, 'Alpha')] });
+          await flush();
+
+          assert(JSON.stringify(store.uuids()) === JSON.stringify([A, B]),
+            'generation: a stale generation never removes, got ' + JSON.stringify(store.uuids()));
+          assert(JSON.stringify(stored(storage)) === JSON.stringify([A, B]),
+            'generation: storage is untouched by the stale answer');
+          assert(calls.length === 3, 'generation: exactly one fresh reconciliation followed, got ' + calls.length);
+          assert(fx.root.getAttribute('aria-busy') === 'true', 'generation: still busy until the fresh answer');
+
+          fetchStub.pending[2].resolveWith({ items: [cardJson(A, 'Alpha'), cardJson(B, 'Beta')] });
+          await flush();
+          assert(fx.root.getAttribute('aria-busy') === 'false', 'generation: the fresh answer settled the page');
+          assert(JSON.stringify(cardNames(fx.grid)) === JSON.stringify(['Alpha', 'Beta']),
+            'generation: the fresh answer painted, got ' + JSON.stringify(cardNames(fx.grid)));
+
+          console.log('staleGeneration OK');
+        })
+
+        .then(function () { console.log('ALL_PASS'); })
+        .catch(function (e) { console.error('FAIL: uncaught ' + (e && e.stack ? e.stack : e)); process.exit(1); });
+        JS;
+    }
+
+    /**
+     * Cross-tab convergence (spec §5): the adapter listens for the browser `storage` event,
+     * re-sanitizes the changed value, and publishes the SAME state event — so hearts, badges and
+     * the page in this tab converge on what the other tab persisted.
+     */
+    private function wishlistCrossTabHarness(string $shopJsSrc): string
+    {
+        return $this->harnessPrelude($shopJsSrc) . $this->wishlistPrelude() . "\n\n" . <<<JS
+        (async function crossTab() {
+          var doc = new Doc();
+          var btn = heart(A, 'Alpha');
+          var count = badge();
+          scopedRoot(doc, [btn, count]);
+
+          var storage = fakeStorage('[]');
+          var win = wishWin(doc, storage, makeFetch([], []));
+          var events = recordEvents(doc);
+
+          loadShopJs(win, doc);
+          await flush();
+
+          assert(btn.getAttribute('aria-pressed') === 'false', 'cross-tab: nothing saved initially');
+
+          // Another tab saved A (and left one hostile value in the payload).
+          var listeners = fireStorage(win, KEY, JSON.stringify([A, 'not-a-uuid!', A]));
+          assert(listeners === 1, 'cross-tab: the adapter listens for the storage event');
+          await flush();
+
+          assert(btn.getAttribute('aria-pressed') === 'true', 'cross-tab: this tab converged on the new state');
+          assert(count.hidden === false && count.textContent === '1',
+            'cross-tab: the value was RE-SANITIZED (duplicate/malformed dropped) and the badge repainted');
+          var last = events[events.length - 1];
+          assert(last && last.detail && last.detail.scope === SCOPE,
+            'cross-tab: the same state event is published');
+          assert(JSON.stringify(last.detail.uuids) === JSON.stringify([A]),
+            'cross-tab: the published list is the sanitized one');
+
+          // An unrelated key must not disturb this store.
+          fireStorage(win, 'some:other:key', JSON.stringify([B]));
+          await flush();
+          assert(btn.getAttribute('aria-pressed') === 'true', 'cross-tab: an unrelated key changes nothing');
+          assert(count.textContent === '1', 'cross-tab: an unrelated key never repaints the badge');
+
+          console.log('crossTab OK');
         })()
 
         .then(function () { console.log('ALL_PASS'); })
