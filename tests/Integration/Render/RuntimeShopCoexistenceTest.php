@@ -17,10 +17,10 @@ use App\Tests\Support\AppTestCase;
  * `packages/thallo-commerce/assets/shop.js`; neither has a build step, so these files ARE
  * the served bytes — into ONE stub document containing a `form[data-thallo-form]` block
  * (result box + submit button) and shop.js's own cart/checkout form stubs, in the ADOPTED
- * load order: the theme-runtime core first, then shop.js, so shop.js REGISTERS its six
+ * load order: the theme-runtime core first, then shop.js, so shop.js REGISTERS its seven
  * `shop-*` modules and the core's single deferred boot pass binds both worlds. Proves:
  * neither eval throws; shop.js attaches nothing at eval time (no self-binding on runtime
- * pages); the shared registry holds the five theme modules AND the six shop modules
+ * pages); the shared registry holds the five theme modules AND the seven shop modules
  * (probed via the duplicate-registration throw); ownership stays disjoint in marker form
  * (the thallo form carries `data-thallo-enhanced~="forms"` only, the shop forms
  * `~="shop-form"` only, and `data-shop-bound` never lands on the thallo form); a second
@@ -447,11 +447,11 @@ final class RuntimeShopCoexistenceTest extends AppTestCase
         assert(calls.length === 0,
           'no hydration fetches for a document without shop block shells');
 
-        // -- ONE shared registry: five theme modules + six shop modules ---------
+        // -- ONE shared registry: five theme modules + seven shop modules -------
         // Probed via the core's duplicate-name throw (silent replacement is the
         // failure mode the registry contract forbids).
         var registeredNames = ['color-mode', 'forms', 'carousel', 'navigation', 'tabs',
-          'shop-form', 'shop-gallery', 'shop-mini-cart',
+          'shop-form', 'shop-gallery', 'shop-buy', 'shop-mini-cart',
           'shop-product-grid', 'shop-featured-product', 'shop-add-to-cart'];
         for (var rn = 0; rn < registeredNames.length; rn++) {
           var probeThrew = false;

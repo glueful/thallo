@@ -411,7 +411,15 @@ final class ShopCatalogTest extends AppTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertStringNotContainsString('POISON-MARKER-XYZ', $html);
         self::assertStringNotContainsString(self::TENANT_A, $html, 'tenant_uuid must never leak into markup');
-        self::assertStringNotContainsString($productUuid, $html, 'the internal uuid must never leak into markup');
+        // The product uuid IS deliberately in the markup since storefront-v1 Task 6 — but ONLY
+        // as the detail heart's wishlist wiring (spec §5: the store is UUID-keyed, same contract
+        // as the grid cards). Exactly one occurrence, and it is that attribute.
+        self::assertSame(
+            1,
+            substr_count($html, $productUuid),
+            'the product uuid must appear ONLY as the detail heart data-product-uuid wiring',
+        );
+        self::assertStringContainsString('data-product-uuid="' . $productUuid . '"', $html);
         self::assertStringNotContainsString('catalog_revision', $html);
     }
 
@@ -641,6 +649,95 @@ final class ShopCatalogTest extends AppTestCase
                 $sixProductQueries,
             ),
         );
+    }
+
+    // ------------------------------------------------------------------
+    // Concept A product page (storefront-v1 Task 6): buy-area price data
+    // attributes, quantity stepper, detail heart, breadcrumb, root scope
+    // ------------------------------------------------------------------
+
+    public function testProductPageEmitsPriceDataStepperDetailHeartAndRootScope(): void
+    {
+        $productUuid = $this->seedProduct(self::TENANT_A, 'buy-area-prod', 8900);
+        $scope = $this->container()->get(StorefrontWishlistResolver::class)->storageScope();
+        self::assertNotNull($scope, 'precondition: the wishlist seam must answer a scope in this suite');
+
+        $html = (string) $this->handle(Request::create('/shop/products/buy-area-prod', 'GET'))->getContent();
+
+        // The pinned buy-area data attributes (spec amendment): data-currency +
+        // data-currency-exponent ONCE on the form; direct mode carries the single variant's
+        // minor price on the form (select mode moves it onto each <option> instead).
+        self::assertStringContainsString(
+            'data-currency="USD" data-currency-exponent="2" data-price-minor="8900">',
+            $html,
+        );
+        // The stepper restyles the EXISTING quantity input — still the real form input, 1–99.
+        self::assertStringContainsString('data-shop-qty-minus', $html);
+        self::assertStringContainsString('data-shop-qty-plus', $html);
+        self::assertStringContainsString(
+            '<input type="number" name="quantity" min="1" max="99" step="1" value="1" inputmode="numeric">',
+            $html,
+        );
+        // The server keeps rendering the unit price in the button text (the no-JS truth the
+        // JS recompute later replaces).
+        self::assertStringContainsString('data-shop-buy-price', $html);
+        self::assertStringContainsString('$89.00', $html);
+        // The detail heart: the EXACT attribute contract the grid cards ship (Task 5) —
+        // hidden until the wishlist store is ready, product-specific label.
+        self::assertStringContainsString(
+            'hidden data-shop-wishlist-toggle data-product-uuid="' . $productUuid . '" aria-pressed="false"',
+            $html,
+        );
+        self::assertStringContainsString('aria-label="Save Buy area prod to wishlist"', $html);
+        // Spec §5: EVERY shop page root emits the opaque scope (same omit-when-null rule as
+        // the index page's own root).
+        self::assertStringContainsString('class="shop-product" data-shop-scope="' . $scope . '"', $html);
+    }
+
+    public function testProductPageSelectModeCarriesPriceMinorPerOption(): void
+    {
+        $productUuid = $this->seedProduct(self::TENANT_A, 'buy-select-prod', 1999, variantCount: 2);
+        $variants = $this->connection()->table('commerce_variants')
+            ->where('product_uuid', '=', $productUuid)
+            ->get();
+        self::assertCount(2, $variants);
+
+        $html = (string) $this->handle(Request::create('/shop/products/buy-select-prod', 'GET'))->getContent();
+
+        foreach ($variants as $variant) {
+            self::assertStringContainsString(
+                '<option value="' . $variant['uuid'] . '" data-price-minor="' . $variant['price'] . '">',
+                $html,
+            );
+        }
+        // Currency + exponent stay ONCE on the form; the form-level price attribute is
+        // direct-mode-only — in select mode the selected option is the price authority.
+        self::assertStringContainsString('data-currency="USD" data-currency-exponent="2">', $html);
+        self::assertDoesNotMatchRegularExpression('/<form[^>]*data-price-minor/', $html);
+    }
+
+    public function testProductPageBreadcrumbLinksThroughTheFirstCategory(): void
+    {
+        // Same deterministic "first" as the grid tags: position ASC beats name ASC.
+        $first = $this->seedCategory(self::TENANT_A, 'zeta-crumb', 'Zeta Crumb');
+        $late = $this->seedCategory(self::TENANT_A, 'alpha-crumb', 'Alpha Crumb', position: 1);
+        $productUuid = $this->seedProduct(self::TENANT_A, 'crumb-prod', 999);
+        $this->seedProduct(self::TENANT_A, 'crumbless-prod', 999);
+        (new CategoryRepository())->attachProduct($this->appContext(), $productUuid, $first);
+        (new CategoryRepository())->attachProduct($this->appContext(), $productUuid, $late);
+        $urls = $this->container()->get(ShopUrlGenerator::class);
+
+        $html = (string) $this->handle(Request::create('/shop/products/crumb-prod', 'GET'))->getContent();
+        self::assertStringContainsString(
+            '<a href="' . $urls->category('zeta-crumb') . '">Zeta Crumb</a>',
+            $html,
+        );
+        self::assertStringNotContainsString('Alpha Crumb', $html);
+
+        // No category assignment → no category crumb at all (never an empty link).
+        $bare = (string) $this->handle(Request::create('/shop/products/crumbless-prod', 'GET'))->getContent();
+        self::assertStringNotContainsString($urls->category('zeta-crumb'), $bare);
+        self::assertStringNotContainsString($urls->category('alpha-crumb'), $bare);
     }
 
     // ------------------------------------------------------------------

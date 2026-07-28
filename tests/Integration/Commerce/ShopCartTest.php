@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Thallo\Commerce\Http\Shop\CartCookie;
 use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
+use Thallo\Contracts\Delivery\StorefrontWishlistResolver;
 use Thallo\Tenancy\System\SystemFlags;
 
 use function config;
@@ -293,6 +294,12 @@ final class ShopCartTest extends AppTestCase
         self::assertSame(200, $page->getStatusCode());
         self::assertStringContainsString('Cart test product', $html);
         self::assertStringNotContainsString('Your cart is empty', $html);
+
+        // Storefront-v1 Task 6 (spec §5): EVERY shop page root emits the opaque wishlist
+        // scope — same omit-when-null rule as the shop index's own root.
+        $scope = $this->container()->get(StorefrontWishlistResolver::class)->storageScope();
+        self::assertNotNull($scope, 'precondition: the wishlist seam must answer a scope in this suite');
+        self::assertStringContainsString('data-shop-scope="' . $scope . '"', $html);
     }
 
     // ------------------------------------------------------------------

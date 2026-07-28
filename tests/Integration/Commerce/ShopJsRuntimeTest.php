@@ -26,7 +26,7 @@ use App\Tests\Support\AppTestCase;
  *
  * The full byte contract runs in BOTH delivery configurations (shopjs-on-runtime spec §3):
  * standalone (runtime-absent fallback, shop.js self-drives) and with the theme-runtime core
- * evaluated first (shop.js registers six `shop-*` modules and the core's boot drives
+ * evaluated first (shop.js registers seven `shop-*` modules and the core's boot drives
  * enhancement) — see {@see runByteContract()}. The runtime-specific tests below cover the
  * registration surface, exactly-once re-execution, init() delegation, per-component
  * containment, and the canvas-stage guarantee.
@@ -665,6 +665,19 @@ final class ShopJsRuntimeTest extends AppTestCase
         $this->runNodeHarness($node, $this->drawerToggleHarness($src), 'drawer_toggle');
     }
 
+    public function testProductBuyStepperBoundsAndExponentAwarePriceLabel(): void
+    {
+        $src = $this->shopJs();
+        self::assertStringContainsString("register('shop-buy'", $src);
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate shop.js');
+        }
+
+        $this->runNodeHarness($node, $this->buyStepperHarness($src), 'buy_stepper');
+    }
+
     /** Write a harness to a temp file, run it under node, and assert it prints ALL_PASS. */
     private function runNodeHarness(string $node, string $harnessJs, string $suffix): void
     {
@@ -808,6 +821,217 @@ final class ShopJsRuntimeTest extends AppTestCase
     }
 
     /**
+     * Harness for the product buy area (storefront-v1 Task 6): the stepper clamps the REAL
+     * quantity input to 1–99, and the [data-shop-buy-price] label recomputes qty × minor via
+     * CHECKED integer math + Intl.NumberFormat with the exponent the form carries — while a
+     * malformed/absent exponent or an unsafe product leaves the server-rendered label
+     * untouched, and a variant switch re-reads the SELECTED option's data-price-minor.
+     */
+    private function buyStepperHarness(string $shopJsSrc): string
+    {
+        return $this->harnessPrelude($shopJsSrc) . "\n\n" . <<<JS
+        function buyFixture(doc, formAttrs, priceText, selectChildren) {
+          var minus = el('button', { type: 'button', 'data-shop-qty-minus': '' });
+          var plus = el('button', { type: 'button', 'data-shop-qty-plus': '' });
+          var qty = el('input', {
+            type: 'number', name: 'quantity', min: '1', max: '99', step: '1', value: '1',
+          });
+          var price = el('span', { 'data-shop-buy-price': '' });
+          price.textContent = priceText;
+          var submit = el('button', { type: 'submit' }, [price]);
+          var children = [];
+          var select = null;
+          if (selectChildren) {
+            select = el('select', { name: 'variant_uuid' }, selectChildren);
+            children.push(select);
+          }
+          children.push(minus, qty, plus, submit);
+          formAttrs.action = '/_shop/cart/add';
+          formAttrs['data-shop-buy'] = '';
+          var form = el('form', formAttrs, children);
+          doc.body.appendChild(form);
+          return { form: form, minus: minus, plus: plus, qty: qty, price: price, select: select };
+        }
+
+        function newWin(doc) {
+          return {
+            document: doc, location: { href: '' }, fetch: makeFetch([], []), FormData: FakeFormData,
+          };
+        }
+
+        // ------------------------------------------------------------------
+        // Scenario 1: stepper bounds + USD label math (exponent 2).
+        // ------------------------------------------------------------------
+
+        (async function stepperBoundsAndUsd() {
+          var doc = new Doc();
+          doc.documentElement.lang = 'en-US'; // deterministic Intl locale for the assertions
+          var fx = buyFixture(doc, {
+            'data-currency': 'USD', 'data-currency-exponent': '2', 'data-price-minor': '70000',
+          }, '$700.00', null);
+          var win = newWin(doc);
+
+          loadShopJs(win, doc);
+          await flush();
+
+          assert(fx.form.getAttribute('data-shop-buy-bound') === '1',
+            'buy: the form carries the inner bound marker after enhancement');
+          var minusClicks = fx.minus._listeners['click'] || [];
+          var plusClicks = fx.plus._listeners['click'] || [];
+          assert(minusClicks.length === 1 && plusClicks.length === 1,
+            'buy: each stepper button bound exactly once');
+
+          minusClicks[0]({});
+          assert(fx.qty.value === '1', 'buy: minus at 1 stays 1');
+
+          plusClicks[0]({});
+          plusClicks[0]({});
+          assert(fx.qty.value === '3', 'buy: plus stepped 1 -> 3');
+          assert(fx.price.textContent.indexOf('2,100') !== -1,
+            'buy: USD label recomputed (70000 x 3 -> contains 2,100), got: ' + fx.price.textContent);
+
+          fx.qty.value = '98';
+          plusClicks[0]({});
+          plusClicks[0]({});
+          assert(fx.qty.value === '99', 'buy: plus caps at 99');
+
+          // Re-running the sweep must not stack listeners (inner marker, bindForm's layer).
+          win.thalloShop.init();
+          assert((fx.minus._listeners['click'] || []).length === 1
+            && (fx.plus._listeners['click'] || []).length === 1,
+            'buy: re-init does not stack stepper listeners');
+
+          console.log('scenario stepper+USD OK');
+        })()
+
+        // ------------------------------------------------------------------
+        // Scenario 2: JPY (exponent 0) — grouping, no decimals.
+        // ------------------------------------------------------------------
+
+        .then(async function jpyLabel() {
+          var doc = new Doc();
+          doc.documentElement.lang = 'en-US';
+          var fx = buyFixture(doc, {
+            'data-currency': 'JPY', 'data-currency-exponent': '0', 'data-price-minor': '500',
+          }, 'JPY-SERVER-LABEL', null);
+          var win = newWin(doc);
+
+          loadShopJs(win, doc);
+          await flush();
+
+          (fx.plus._listeners['click'] || [])[0]({});
+          assert(fx.qty.value === '2', 'jpy: plus stepped 1 -> 2');
+          assert(fx.price.textContent.indexOf('1,000') !== -1,
+            'jpy: label contains 1,000 (500 x 2, exponent 0), got: ' + fx.price.textContent);
+          assert(fx.price.textContent.indexOf('.') === -1,
+            'jpy: a zero-exponent currency renders no decimals, got: ' + fx.price.textContent);
+
+          console.log('scenario JPY OK');
+        })
+
+        // ------------------------------------------------------------------
+        // Scenario 3: KWD (exponent 3) — three decimals.
+        // ------------------------------------------------------------------
+
+        .then(async function kwdLabel() {
+          var doc = new Doc();
+          doc.documentElement.lang = 'en-US';
+          var fx = buyFixture(doc, {
+            'data-currency': 'KWD', 'data-currency-exponent': '3', 'data-price-minor': '1250',
+          }, 'KWD-SERVER-LABEL', null);
+          var win = newWin(doc);
+
+          loadShopJs(win, doc);
+          await flush();
+
+          (fx.plus._listeners['click'] || [])[0]({});
+          assert(fx.price.textContent.indexOf('2.500') !== -1,
+            'kwd: label contains 2.500 (1250 x 2, exponent 3), got: ' + fx.price.textContent);
+
+          console.log('scenario KWD OK');
+        })
+
+        // ------------------------------------------------------------------
+        // Scenario 4: guards — absent exponent, malformed exponent, unsafe
+        // product: the stepper still steps, the label NEVER changes.
+        // ------------------------------------------------------------------
+
+        .then(async function labelGuards() {
+          var doc = new Doc();
+          doc.documentElement.lang = 'en-US';
+          var absent = buyFixture(doc, {
+            'data-currency': 'USD', 'data-price-minor': '70000',
+          }, 'ABSENT-EXPONENT-LABEL', null);
+          var malformed = buyFixture(doc, {
+            'data-currency': 'USD', 'data-currency-exponent': 'banana', 'data-price-minor': '70000',
+          }, 'MALFORMED-EXPONENT-LABEL', null);
+          var unsafe = buyFixture(doc, {
+            // MAX_SAFE_INTEGER: x2 leaves Number.isSafeInteger territory — never displayed.
+            'data-currency': 'USD', 'data-currency-exponent': '2', 'data-price-minor': '9007199254740991',
+          }, 'UNSAFE-PRODUCT-LABEL', null);
+          var win = newWin(doc);
+
+          loadShopJs(win, doc);
+          await flush();
+
+          (absent.plus._listeners['click'] || [])[0]({});
+          assert(absent.qty.value === '2', 'guards: the stepper still steps without an exponent');
+          assert(absent.price.textContent === 'ABSENT-EXPONENT-LABEL',
+            'guards: an absent exponent leaves the server label untouched');
+
+          (malformed.plus._listeners['click'] || [])[0]({});
+          assert(malformed.price.textContent === 'MALFORMED-EXPONENT-LABEL',
+            'guards: a malformed exponent leaves the server label untouched');
+
+          (unsafe.plus._listeners['click'] || [])[0]({});
+          assert(unsafe.price.textContent === 'UNSAFE-PRODUCT-LABEL',
+            'guards: minor x qty past Number.MAX_SAFE_INTEGER leaves the server label untouched');
+
+          console.log('scenario guards OK');
+        })
+
+        // ------------------------------------------------------------------
+        // Scenario 5: a variant switch re-reads the SELECTED option's
+        // data-price-minor and recomputes from the NEW minor price.
+        // ------------------------------------------------------------------
+
+        .then(async function variantSwitch() {
+          var doc = new Doc();
+          doc.documentElement.lang = 'en-US';
+          var optA = el('option', { value: 'var-a', 'data-price-minor': '1000' });
+          var optB = el('option', { value: 'var-b', 'data-price-minor': '2500' });
+          var fx = buyFixture(doc, {
+            'data-currency': 'USD', 'data-currency-exponent': '2',
+          }, 'SELECT-SERVER-LABEL', [optA, optB]);
+          fx.select.value = 'var-a';
+          var win = newWin(doc);
+
+          loadShopJs(win, doc);
+          await flush();
+
+          var changes = fx.select._listeners['change'] || [];
+          assert(changes.length === 1, 'switch: the variant select bound exactly once');
+
+          fx.select.value = 'var-b';
+          changes[0]({});
+          assert(fx.price.textContent.indexOf('25.00') !== -1,
+            'switch: the label recomputed from the NEW option minor price (2500 -> 25.00), got: '
+              + fx.price.textContent);
+
+          fx.select.value = 'var-a';
+          changes[0]({});
+          assert(fx.price.textContent.indexOf('10.00') !== -1,
+            'switch: switching back recomputes from var-a (1000 -> 10.00), got: ' + fx.price.textContent);
+
+          console.log('scenario variant switch OK');
+        })
+
+        .then(function () { console.log('ALL_PASS'); })
+        .catch(function (e) { console.error('FAIL: uncaught ' + (e && e.stack ? e.stack : e)); process.exit(1); });
+        JS;
+    }
+
+    /**
      * Harness proving a second evaluation of shop.js is behaviorally INERT (every shop
      * block template emits its own script tag, so the file WILL be evaluated repeatedly):
      * same export object, no extra DOMContentLoaded listener, init runs once.
@@ -887,11 +1111,12 @@ final class ShopJsRuntimeTest extends AppTestCase
         JS;
     }
 
-    public function testRuntimePresentRegistersSixModulesAndCoreDrivesEnhancement(): void
+    public function testRuntimePresentRegistersSevenModulesAndCoreDrivesEnhancement(): void
     {
         $src = $this->shopJs();
         self::assertStringContainsString("register('shop-form'", $src);
         self::assertStringContainsString("register('shop-add-to-cart'", $src);
+        self::assertStringContainsString("register('shop-buy'", $src);
 
         $node = $this->findNode();
         if ($node === null) {
@@ -993,7 +1218,7 @@ final class ShopJsRuntimeTest extends AppTestCase
     }
 
     /**
-     * Harness proving that with the runtime present, shop.js registers its six modules on
+     * Harness proving that with the runtime present, shop.js registers its seven modules on
      * the core (probed via the duplicate-name throw), attaches NO DOMContentLoaded listener
      * of its own (a DELTA from the post-runtime-eval snapshot — the core registers its own
      * when readyState is 'loading', so an absolute zero would be wrong), and that firing
@@ -1030,7 +1255,7 @@ final class ShopJsRuntimeTest extends AppTestCase
             'registration: the window.thalloShop export survives on runtime pages'
           );
 
-          var names = ['shop-form', 'shop-gallery', 'shop-mini-cart',
+          var names = ['shop-form', 'shop-gallery', 'shop-buy', 'shop-mini-cart',
             'shop-product-grid', 'shop-featured-product', 'shop-add-to-cart'];
           for (var i = 0; i < names.length; i++) {
             var threw = false;

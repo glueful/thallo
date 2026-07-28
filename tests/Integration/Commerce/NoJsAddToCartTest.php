@@ -85,7 +85,7 @@ final class NoJsAddToCartTest extends AppTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertStringContainsString(
-            '<form class="shop-product__add-to-cart" method="post" action="/_shop/cart/add">',
+            '<form class="shop-product__add-to-cart" method="post" action="/_shop/cart/add" data-shop-buy',
             $html,
         );
         self::assertStringContainsString(
@@ -93,7 +93,7 @@ final class NoJsAddToCartTest extends AppTestCase
             $html,
         );
         self::assertStringContainsString('name="quantity"', $html);
-        self::assertStringContainsString('<button type="submit">Add to cart</button>', $html);
+        self::assertStringContainsString('<button class="shop-product__submit" type="submit">Add to cart', $html);
         // Never hidden — this is not a JS-revealed shell (contrast with the add-to-cart BLOCK's
         // own `data-shop-add-to-cart-form ... hidden` shell).
         self::assertDoesNotMatchRegularExpression(
@@ -155,12 +155,12 @@ final class NoJsAddToCartTest extends AppTestCase
 
         self::assertSame(200, $response->getStatusCode());
         self::assertStringContainsString('<select name="variant_uuid" required>', $html);
-        self::assertStringContainsString('<option value="' . $variantA . '">', $html);
-        self::assertStringContainsString('<option value="' . $variantB . '">', $html);
+        self::assertStringContainsString('<option value="' . $variantA . '"', $html);
+        self::assertStringContainsString('<option value="' . $variantB . '"', $html);
         // A select-mode product must never ALSO carry a pre-filled hidden variant_uuid — the
         // customer has to make a real choice.
         self::assertStringNotContainsString('<input type="hidden" name="variant_uuid"', $html);
-        self::assertStringContainsString('<button type="submit">Add to cart</button>', $html);
+        self::assertStringContainsString('<button class="shop-product__submit" type="submit">Add to cart', $html);
     }
 
     // ------------------------------------------------------------------
