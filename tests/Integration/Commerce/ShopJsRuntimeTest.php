@@ -781,6 +781,7 @@ final class ShopJsRuntimeTest extends AppTestCase
           badge.hidden = true; // template ships the badge hidden (zero is noise)
           var toggle = el('button', { 'data-shop-cart-toggle': '', 'aria-expanded': 'false' }, [badge]);
           var panel = el('div', { 'data-shop-cart-drawer': '' });
+          panel.hidden = true; // the template ships the drawer hidden (shop.css makes it authoritative)
           var shell = el('div', { 'data-shop-mini-cart': '' }, [toggle, panel]);
           doc.body.appendChild(shell);
 
@@ -801,8 +802,10 @@ final class ShopJsRuntimeTest extends AppTestCase
 
           clicks[0]({});
           assert(toggle.getAttribute('aria-expanded') === 'true', 'drawer: a click opens (aria-expanded true)');
+          assert(panel.hidden === false, 'drawer: opening CLEARS the panel hidden attribute');
           clicks[0]({});
           assert(toggle.getAttribute('aria-expanded') === 'false', 'drawer: a second click closes');
+          assert(panel.hidden === true, 'drawer: closing restores the panel hidden attribute');
 
           clicks[0]({});
           assert(toggle.getAttribute('aria-expanded') === 'true', 'drawer: reopened for the Escape case');
