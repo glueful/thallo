@@ -150,7 +150,7 @@ final class RegionAdminController
         $ext->setLocale((string) config($this->context, 'i18n.default_locale', 'en'));
         $ext->resetPerRenderState();
         $ext->resetTags();
-        $ext->setAssetBase(null);
+        $ext->setAssetContext(null, null);
 
         // Absolute base (P1 pin): the SPA loads this document from a blob: URL,
         // where host-relative asset paths don't resolve — the <base> anchors

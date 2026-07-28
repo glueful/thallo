@@ -458,15 +458,58 @@ final class PreviewSessionTest extends AppTestCase
         $res = $this->handle(Request::create('/_preview/' . $token, 'GET'));
         self::assertSame(200, $res->getStatusCode());
         self::assertStringContainsString('ALTPREV:Alt themed', (string) $res->getContent());
-        // …with token-scoped asset URLs.
-        self::assertStringContainsString('/_preview-assets/' . $token . '/', (string) $res->getContent());
+        // …with token-scoped asset URLs: the theme stylesheet URL sits under the
+        // token base, bare — the closing quote right after the rel path proves no
+        // live ?t=/&v= busters leaked onto the preview context (spec §3).
+        self::assertStringContainsString(
+            'href="/_preview-assets/' . $token . '/site.css"',
+            (string) $res->getContent(),
+        );
 
         // The memoized boot environment is NOT poisoned: a plain request right after
-        // renders the boot theme with normal asset URLs.
+        // renders the boot theme with normal asset URLs — reset-FIRST cleared the
+        // preview context, then the live render re-set the constructor-backed one
+        // (theme buster + content fingerprint intact, &amp; is Twig's autoescape).
         $plain = $this->handle(Request::create('/blog/hello', 'GET'));
         self::assertStringNotContainsString('ALTPREV:', (string) $plain->getContent());
-        self::assertStringContainsString('/theme-assets/', (string) $plain->getContent());
+        self::assertStringContainsString(
+            '/theme-assets/site.css?t=default&amp;v=',
+            (string) $plain->getContent(),
+        );
         self::assertStringNotContainsString('/_preview-assets/', (string) $plain->getContent());
+    }
+
+    public function testLiveRequestThenThemedPreviewUsesPreviewOnlyAssetsWithoutLiveBusters(): void
+    {
+        // The mirror order of the poisoning test above: live FIRST, then the themed
+        // preview — the preview must not inherit the live render's buster behavior,
+        // and its asset context (base AND dir) must be the preview theme's.
+        $this->makeAltTheme();
+        $this->seedBilingualPublishedEntry();
+        $entry = $this->seedDraftEntry('Alt after live');
+        $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en', null, 'altprev');
+
+        // Live first: constructor-backed context (theme-assets base + busters).
+        $plain = $this->handle(Request::create('/blog/hello', 'GET'));
+        self::assertStringContainsString(
+            '/theme-assets/site.css?t=default&amp;v=',
+            (string) $plain->getContent(),
+        );
+
+        // Themed preview right after: token base, bare URLs (no ?t=/&v=).
+        $res = $this->handle(Request::create('/_preview/' . $token, 'GET'));
+        self::assertSame(200, $res->getStatusCode());
+        $html = (string) $res->getContent();
+        self::assertStringContainsString('ALTPREV:Alt after live', $html);
+        self::assertStringContainsString('href="/_preview-assets/' . $token . '/alt.css"', $html);
+        self::assertStringNotContainsString('/theme-assets/', $html);
+
+        // And the emitted URL RESOLVES: alt.css exists ONLY in the preview theme's
+        // activePaths()['assets'] — URL emission and the asset route agree on the theme.
+        $css = $this->handle(Request::create('/_preview-assets/' . $token . '/alt.css', 'GET'));
+        self::assertSame(200, $css->getStatusCode());
+        self::assertInstanceOf(\Symfony\Component\HttpFoundation\BinaryFileResponse::class, $css);
+        self::assertStringEndsWith('/themes/altprev/assets/alt.css', $css->getFile()->getPathname());
     }
 
     /**
@@ -591,7 +634,8 @@ final class PreviewSessionTest extends AppTestCase
         file_put_contents($base . '/theme.json', json_encode(['name' => 'altprev']));
         file_put_contents(
             $base . '/templates/entry.twig',
-            "{% extends 'layout.twig' %}{% block content %}ALTPREV:{{ entry.fields.title }}{% endblock %}",
+            "{% extends 'layout.twig' %}{% block content %}ALTPREV:{{ entry.fields.title }}"
+            . "<link rel=\"stylesheet\" href=\"{{ asset('alt.css') }}\">{% endblock %}",
         );
         file_put_contents($base . '/assets/alt.css', '/* alt theme css */');
     }
