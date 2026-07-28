@@ -161,8 +161,9 @@ final class BlocksRenderingTest extends AppTestCase
         self::assertContains('site_favicon', TemplatePolicy::FUNCTIONS);
         self::assertContains('custom_css', TemplatePolicy::FUNCTIONS);
         self::assertContains('form_render', TemplatePolicy::FUNCTIONS);
-        // 13 = seo_head joined the function allowlist (seo-head spec §3)
-        self::assertSame(13, TemplatePolicy::CACHE_VERSION);
+        self::assertContains('font_faces_style', TemplatePolicy::FUNCTIONS);
+        // 14 = font_faces_style joined the function allowlist (default-theme-font spec §3)
+        self::assertSame(14, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);
@@ -175,6 +176,7 @@ final class BlocksRenderingTest extends AppTestCase
         self::assertSame([], $linter->lint('{{ site_favicon() }}'));
         self::assertSame([], $linter->lint('{{ custom_css() }}'));
         self::assertSame([], $linter->lint('{% set f = form_render(block) %}{{ f.token|default }}'));
+        self::assertSame([], $linter->lint("{{ font_faces_style('X', 'fonts/x.woff2') }}"));
     }
 
     public function testSafeHtmlSanitizesAndFailsClosed(): void
