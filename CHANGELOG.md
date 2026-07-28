@@ -7,6 +7,21 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Storefront v1 — Concept A** (`packages/thallo-commerce` + delivery seams; requires
+  glueful/commerce 1.8.0's batched catalog reads): the shop and category pages gain a
+  category chip rail, per-card category tags, and hover-revealed cart/wishlist actions —
+  the cart button is a real PRG form for single-variant products with no required add-ons
+  (AddToCartViewModel stays the sole purchasability authority) and a view-options link
+  otherwise. The product page gains a quantity stepper with an exponent-aware
+  price-in-button label (0/2/3-decimal currencies; server label untouched on any doubt), a
+  wishlist heart, and a first-category breadcrumb. **Wishlist v1 is device-local**:
+  tenant-scoped opaque localStorage (UUIDs only, bounded 100, newest first), a bounded
+  ordered resolution endpoint (`private, no-store`; error responses can never wipe the
+  saved set), a progressively hydrated `/shop/wishlist` page, and a `wishlist-link` block
+  placeable in headers/footers/bodies — all fail-closed without JavaScript or storage, and
+  fully inert while `thallo.commerce` is off. An account-backed wishlist is the named
+  follow-up; card lists everywhere now build through one batched projection
+  (constant query count regardless of product count).
 - **Figtree is the default theme's typeface** (self-hosted, SIL OFL): variable roman +
   italic latin subsets with reproducible provenance (upstream tag, checksums, exact
   subsetting command committed), loaded via a new existence-aware `font_faces_style()`
