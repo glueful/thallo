@@ -20,6 +20,14 @@ final class AssetContextTest extends AppTestCase
         return $this->container()->get(RenderContextExtension::class);
     }
 
+    protected function tearDown(): void
+    {
+        // The extension is a process-shared singleton: never leave a preview
+        // asset context behind for the next test, even on assertion failure.
+        $this->ext()->resetPerRenderState();
+        parent::tearDown();
+    }
+
     public function testNullNullContextIsConstructorBackedLiveBehavior(): void
     {
         $ext = $this->ext();

@@ -503,6 +503,9 @@ final class PreviewSessionTest extends AppTestCase
         self::assertStringContainsString('ALTPREV:Alt after live', $html);
         self::assertStringContainsString('href="/_preview-assets/' . $token . '/alt.css"', $html);
         self::assertStringNotContainsString('/theme-assets/', $html);
+        // The altprev theme ships no fonts: a wrong-dir existence check (boot theme
+        // instead of the preview dir) would emit preview-base font URLs here.
+        self::assertStringNotContainsString('rel="preload" as="font"', $html);
 
         // And the emitted URL RESOLVES: alt.css exists ONLY in the preview theme's
         // activePaths()['assets'] — URL emission and the asset route agree on the theme.

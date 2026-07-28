@@ -22,6 +22,14 @@ final class FontFacesStyleTest extends AppTestCase
         return $ext;
     }
 
+    protected function tearDown(): void
+    {
+        // The extension is a process-shared singleton: never leave a preview
+        // asset context behind for the next test, even on assertion failure.
+        $this->container()->get(RenderContextExtension::class)->resetPerRenderState();
+        parent::tearDown();
+    }
+
     public function testDefaultThemeEmitsPreloadAndBothFacesWithByteIdenticalUrls(): void
     {
         $html = (string) $this->ext()->fontFacesStyle(
@@ -72,18 +80,21 @@ final class FontFacesStyleTest extends AppTestCase
         // Alternate dir WITH a font file: emits preview-base URLs.
         $dir = sys_get_temp_dir() . '/font-ctx-' . uniqid('', true);
         mkdir($dir . '/fonts', 0755, true);
-        copy(
-            dirname(__DIR__, 3) . '/packages/thallo-render/themes/default/assets/fonts/figtree-roman-latin.woff2',
-            $dir . '/fonts/figtree-roman-latin.woff2',
-        );
-        $ext->resetPerRenderState();
-        $ext->setAssetContext('/_preview-assets/tok2', $dir);
-        $html = (string) $ext->fontFacesStyle('Figtree', 'fonts/figtree-roman-latin.woff2');
-        self::assertStringContainsString('href="/_preview-assets/tok2/fonts/figtree-roman-latin.woff2"', $html);
-        unlink($dir . '/fonts/figtree-roman-latin.woff2');
-        rmdir($dir . '/fonts');
-        rmdir($dir);
-        $ext->resetPerRenderState();
+        try {
+            copy(
+                dirname(__DIR__, 3) . '/packages/thallo-render/themes/default/assets/fonts/figtree-roman-latin.woff2',
+                $dir . '/fonts/figtree-roman-latin.woff2',
+            );
+            $ext->resetPerRenderState();
+            $ext->setAssetContext('/_preview-assets/tok2', $dir);
+            $html = (string) $ext->fontFacesStyle('Figtree', 'fonts/figtree-roman-latin.woff2');
+            self::assertStringContainsString('href="/_preview-assets/tok2/fonts/figtree-roman-latin.woff2"', $html);
+        } finally {
+            @unlink($dir . '/fonts/figtree-roman-latin.woff2');
+            @rmdir($dir . '/fonts');
+            @rmdir($dir);
+            $ext->resetPerRenderState();
+        }
     }
 
     /**
@@ -112,29 +123,31 @@ final class FontFacesStyleTest extends AppTestCase
 
     public function testHostileAssetBaseIsEscapedForHtmlAndCssIndependently(): void
     {
+        $ext = $this->ext();
         $dir = sys_get_temp_dir() . '/font-hostile-' . uniqid('', true);
         mkdir($dir . '/fonts', 0755, true);
-        copy(
-            dirname(__DIR__, 3) . '/packages/thallo-render/themes/default/assets/fonts/figtree-roman-latin.woff2',
-            $dir . '/fonts/figtree-roman-latin.woff2',
-        );
+        try {
+            copy(
+                dirname(__DIR__, 3) . '/packages/thallo-render/themes/default/assets/fonts/figtree-roman-latin.woff2',
+                $dir . '/fonts/figtree-roman-latin.woff2',
+            );
 
-        $ext = $this->ext();
-        $ext->setAssetContext('/preview?x="&y=</style>\\' . "\x01", $dir);
-        $html = (string) $ext->fontFacesStyle('Figtree', 'fonts/figtree-roman-latin.woff2');
+            $ext->setAssetContext('/preview?x="&y=</style>\\' . "\x01", $dir);
+            $html = (string) $ext->fontFacesStyle('Figtree', 'fonts/figtree-roman-latin.woff2');
 
-        self::assertStringContainsString('&quot;', $html, 'href is HTML-attribute escaped');
-        preg_match('/<style>(.*)<\/style>/s', $html, $style);
-        self::assertStringNotContainsString('&quot;', $style[1], 'CSS never receives HTML entities');
-        self::assertStringNotContainsString('</style><script>', $html);
-        self::assertStringNotContainsString("\x01", $style[1]);
-        self::assertStringNotContainsString("\x7F", $style[1]);
-        self::assertSame(1, substr_count($html, '</style>'));
-
-        unlink($dir . '/fonts/figtree-roman-latin.woff2');
-        rmdir($dir . '/fonts');
-        rmdir($dir);
-        $ext->resetPerRenderState();
+            self::assertStringContainsString('&quot;', $html, 'href is HTML-attribute escaped');
+            preg_match('/<style>(.*)<\/style>/s', $html, $style);
+            self::assertStringNotContainsString('&quot;', $style[1], 'CSS never receives HTML entities');
+            self::assertStringNotContainsString('</style><script>', $html);
+            self::assertStringNotContainsString("\x01", $style[1]);
+            self::assertStringNotContainsString("\x7F", $style[1]);
+            self::assertSame(1, substr_count($html, '</style>'));
+        } finally {
+            @unlink($dir . '/fonts/figtree-roman-latin.woff2');
+            @rmdir($dir . '/fonts');
+            @rmdir($dir);
+            $ext->resetPerRenderState();
+        }
     }
 
     public function testUnsafeRelativePathKeepsAssetExceptionBehavior(): void
