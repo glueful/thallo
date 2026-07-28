@@ -159,6 +159,25 @@ final class RegionAdminController
 
         $html = $container->get(TwigFactory::class)->environment()->render('region-preview.twig', $context);
 
-        return Response::success(['html' => $html], 'Preview rendered.');
+        return Response::success(['html' => self::withoutNoscriptFallbacks($html)], 'Preview rendered.');
+    }
+
+    /**
+     * Drop `<noscript>` fallbacks from the preview document.
+     *
+     * The SPA frames this HTML with `sandbox="allow-same-origin"` and deliberately WITHOUT
+     * `allow-scripts` (granting both to same-origin content would defeat the sandbox, and
+     * blocks can carry operator-authored markup). Scripting is therefore off inside the
+     * frame, so the browser renders every block's no-JS fallback — a stray "View cart"
+     * under the mini-cart, "Browse products" under a product grid — none of which a visitor
+     * ever sees on the real, scripted page. Stripping them here (one place, so new blocks
+     * cannot drift) makes the preview show the shell state the operator is actually
+     * arranging. Enhancement-dependent CONTENT (live cart counts, hydrated grids) still
+     * cannot appear in a script-free frame; that is inherent to the isolation choice.
+     */
+    private static function withoutNoscriptFallbacks(string $html): string
+    {
+        // `<noscript>` never nests, so a non-greedy element match is exact here.
+        return (string) preg_replace('#<noscript\b[^>]*>.*?</noscript>#is', '', $html);
     }
 }

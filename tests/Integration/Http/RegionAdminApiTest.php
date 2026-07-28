@@ -142,6 +142,44 @@ final class RegionAdminApiTest extends AppTestCase
         self::assertSame(['wishlist-link'], array_column($saved['blocks'], 'type'));
     }
 
+    public function testPreviewStripsNoScriptFallbacksTheFrameWouldOtherwiseShow(): void
+    {
+        // The SPA frames the preview with sandbox="allow-same-origin" and NO allow-scripts,
+        // so a browser inside it renders every <noscript> fallback — a stray "View cart"
+        // under the mini cart that no visitor ever sees on the real, scripted page. The
+        // preview must ship the shell state instead.
+        $controller = $this->controller();
+        $repo = new BlockTypeRepository($this->connection());
+        if ($repo->findBySlug('mini-cart') === null) {
+            $repo->create([
+                'slug' => 'mini-cart',
+                'label' => 'Mini cart',
+                'icon' => 'i-lucide-shopping-cart',
+                'category' => 'Commerce',
+                'description' => 'Live cart count with a drawer.',
+                'schema' => [],
+            ]);
+        }
+
+        $resp = $controller->preview($this->previewDto([
+            'regions' => [
+                'header' => [
+                    'blocks' => [['id' => 'prevhdrcart1', 'type' => 'mini-cart', 'data' => []]],
+                    'settings' => [],
+                ],
+            ],
+        ]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/v1/admin/regions/preview'));
+
+        self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
+        $html = json_decode((string) $resp->getContent(), true)['data']['html'];
+
+        self::assertStringContainsString('thallo-block-mini-cart', $html, 'the block itself still renders');
+        self::assertStringNotContainsString('<noscript', $html, 'no-JS fallbacks are stripped from the preview');
+        self::assertStringNotContainsString('__noscript', $html);
+        // The drawer's own "View cart" link survives — it is hidden by the shell, not stripped.
+        self::assertStringContainsString('data-shop-cart-drawer', $html);
+    }
+
     public function testOutOfPaletteBlockIs422WithDotPath(): void
     {
         try {
