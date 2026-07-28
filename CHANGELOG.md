@@ -1063,6 +1063,12 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   in-repo before this change).
 
 ### Fixed
+- The `/cart` page now re-renders after a successful cart mutation. Its rows, per-line
+  forms, totals and empty-state are server-rendered, but the mutation response only fed
+  the mini-cart regions — so a removed line stayed on screen until the visitor refreshed
+  by hand. shop.js now reloads when the cart page is the one displaying that state
+  (`data-shop-cart-page`), landing on exactly what the no-JS PRG redirect reaches, for the
+  same two round trips; add-to-cart elsewhere still never discards the page being read.
 - Test harness: dedicated in-process boots now reset the provider route-file latch
   (`ServiceProvider::resetLoadedRoutes()`) alongside the existing `RouteManifest` reset,
   so a second boot no longer silently loses every pack route another boot loaded first.

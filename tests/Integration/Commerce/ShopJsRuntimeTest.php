@@ -685,6 +685,19 @@ final class ShopJsRuntimeTest extends AppTestCase
         $this->runNodeHarness($node, $this->buyStepperHarness($src), 'buy_stepper');
     }
 
+    public function testSuccessfulCartMutationRefreshesTheServerRenderedCartPageOnly(): void
+    {
+        $src = $this->shopJs();
+        self::assertStringContainsString('data-shop-cart-page', $src);
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate shop.js');
+        }
+
+        $this->runNodeHarness($node, $this->cartPageRefreshHarness($src), 'cart_page_refresh');
+    }
+
     /** Write a harness to a temp file, run it under node, and assert it prints ALL_PASS. */
     private function runNodeHarness(string $node, string $harnessJs, string $suffix): void
     {
@@ -823,6 +836,83 @@ final class ShopJsRuntimeTest extends AppTestCase
             'drawer: re-init does not stack Escape handlers');
 
           console.log('drawer toggle OK');
+        })()
+
+        .then(function () { console.log('ALL_PASS'); })
+        .catch(function (e) { console.error('FAIL: uncaught ' + (e && e.stack ? e.stack : e)); process.exit(1); });
+        JS;
+    }
+
+    /**
+     * Harness for the cart PAGE refresh.
+     *
+     * A cart mutation's JSON response feeds `updateCartRegions()`, which paints the mini-cart
+     * regions and nothing else. The cart page's own line rows, per-line forms, discount row,
+     * totals and the empty-state swap are SERVER-rendered, so before this behavior a visitor
+     * who removed a line watched it sit there until they refreshed by hand. Re-rendering that
+     * markup in JS would duplicate cart.twig; reloading re-renders it from the one authority
+     * (the same state the no-JS PRG redirect lands on, for the same two round trips).
+     *
+     * Scoped to pages that actually display it: a product-page add-to-cart must NOT reload,
+     * or every add would throw away the page the visitor is reading.
+     */
+    private function cartPageRefreshHarness(string $shopJsSrc): string
+    {
+        return $this->harnessPrelude($shopJsSrc) . "\n\n" . <<<JS
+        function mutationForm(doc, action) {
+          var variant = el('input', { type: 'hidden', name: 'variant_uuid', value: 'var-1' });
+          var button = el('button', { type: 'submit' });
+          var form = el('form', { action: action }, [variant, button]);
+          doc.body.appendChild(form);
+          return form;
+        }
+
+        function cartWin(doc, counter) {
+          var queue = [{ ok: true, status: 200, data: {
+            items: [], item_count: 0, grand_total_formatted: '0.00', currency: 'USD', cart_url: '/cart',
+          } }];
+          return {
+            document: doc,
+            location: { href: '', reload: function () { counter.n += 1; } },
+            fetch: makeFetch(queue, counter.calls), FormData: FakeFormData,
+          };
+        }
+
+        (async function cartPageRefresh() {
+          // --- on the cart page: a successful remove re-renders from the server ------------
+          var doc = new Doc();
+          doc.body.appendChild(el('section', { 'data-shop-cart-page': '' }));
+          var form = mutationForm(doc, '/_shop/cart/remove');
+          doc.body.appendChild(el('span', { 'data-shop-cart-count': '' }));
+
+          var page = { n: 0, calls: [] };
+          var win = cartWin(doc, page);
+          await loadPage(win, doc);
+
+          fireSubmit(form);
+          assert(page.n === 0, 'cart page: nothing reloads before the response lands');
+          await flush();
+
+          assert(page.calls.length === 1, 'cart page: the remove posted exactly once');
+          assert(page.calls[0].url === '/_shop/cart/remove', 'cart page: posted to the remove action');
+          assert(page.n === 1, 'cart page: a successful mutation reloads the server-rendered page');
+
+          // --- elsewhere: an add-to-cart must NOT throw away the page being read -----------
+          var doc2 = new Doc();
+          var form2 = mutationForm(doc2, '/_shop/cart/add');
+          doc2.body.appendChild(el('span', { 'data-shop-cart-count': '' }));
+
+          var product = { n: 0, calls: [] };
+          var win2 = cartWin(doc2, product);
+          await loadPage(win2, doc2);
+
+          fireSubmit(form2);
+          await flush();
+
+          assert(product.calls.length === 1, 'product page: the add posted exactly once');
+          assert(product.n === 0, 'product page: a successful add never reloads the page');
+
+          console.log('cart page refresh OK');
         })()
 
         .then(function () { console.log('ALL_PASS'); })
