@@ -24,6 +24,7 @@ final class MemberSignupService
         private readonly SignupConfig $config,
         private readonly SignupRolePolicy $roles,
         private readonly SignupIntentRepository $intents,
+        private readonly VerifiedAccountActivator $activator,
         private readonly SignupVerifier $verifier,
         private readonly ContinuationTokens $continuations,
         private readonly SignupThrottle $throttle,
@@ -87,81 +88,34 @@ final class MemberSignupService
     /** @return array<string,mixed> */
     public function activate(string $intentUuid, string $continuationToken): array
     {
-        $intent = $this->intents->find($intentUuid);
-        if ($intent === null || ($intent['kind'] ?? null) !== 'member') {
-            throw new SignupException('Signup intent is unavailable.', 404);
-        }
-        if (($intent['status'] ?? null) === 'consumed') {
-            return ['status' => 'consumed', 'outcome' => $intent['completion_outcome']];
-        }
-        $tenantUuid = (string) ($intent['tenant_uuid'] ?? '');
-        try {
-            return $this->tenants->runAsTenant($tenantUuid, function () use ($intentUuid, $tenantUuid): array {
-                return $this->connection->transaction(function () use ($intentUuid, $tenantUuid): array {
-                    $intent = $this->intents->lockForUpdate($intentUuid);
-                    if ($intent === null || ($intent['status'] ?? null) !== 'email_verified') {
-                        throw new SignupException('Signup intent cannot be activated.', 409);
-                    }
-                    $tenant = $this->administration->getTenant($this->context, $tenantUuid);
-                    $role = $this->config->memberSignupRole($tenantUuid);
-                    if (
-                        ($tenant['status'] ?? null) !== 'active'
-                        || !$this->config->memberSignupEnabled($tenantUuid)
-                        || !$this->roles->isEligible($tenantUuid, $role)
-                    ) {
-                        throw new SignupException('Workspace signup policy changed before activation.', 409);
-                    }
-                    $email = (string) $intent['email'];
-                    if ($this->users->emailExists($email)) {
-                        $this->intents->consume($intentUuid, 'existing_account_handoff');
-                        return ['status' => 'consumed', 'outcome' => 'existing_account_handoff'];
-                    }
-                    $username = (string) $intent['username'];
-                    if ($this->users->usernameExists($username)) {
-                        throw new SignupException('Username is no longer available.', 409, [
-                            'username' => 'Choose another username.',
-                        ], 'USERNAME_CONFLICT');
-                    }
-                    $userUuid = $this->users->create([
-                        'username' => $username,
-                        'email' => $email,
-                        'password' => (string) $intent['password_hash'],
-                        'status' => 'active',
-                        'email_verified_at' => gmdate('Y-m-d H:i:s'),
-                    ]);
-                    $this->users->updateProfile($userUuid, [
-                        'first_name' => (string) $intent['first_name'],
-                        'last_name' => (string) $intent['last_name'],
-                    ]);
-                    $this->administration->addMember($this->context, $tenantUuid, $userUuid, $role);
-                    $this->intents->setResults($intentUuid, $userUuid, $tenantUuid);
-                    $this->intents->consume($intentUuid, 'activated');
-                    $this->connection->afterCommit(fn () => $this->audit->record(
-                        'signup.member_activated',
-                        $userUuid,
-                        $tenantUuid,
-                        ['intent_uuid' => $intentUuid, 'role' => $role],
-                    ));
-                    return ['status' => 'active', 'user_uuid' => $userUuid, 'tenant_uuid' => $tenantUuid];
-                });
-            });
-        } catch (SignupException $exception) {
-            if ($exception->errorCode === 'USERNAME_CONFLICT') {
-                return [
-                    'status' => 'conflict',
-                    'code' => 'USERNAME_CONFLICT',
-                    'continuation_token' => $continuationToken,
-                    'errors' => $exception->errors,
-                ];
-            }
-            throw $exception;
-        } catch (\Throwable $exception) {
-            if ($this->users->emailExists((string) $intent['email'])) {
-                $this->intents->consume($intentUuid, 'existing_account_handoff');
-                return ['status' => 'consumed', 'outcome' => 'existing_account_handoff'];
-            }
-            throw $exception;
-        }
+        return $this->activator->activate(
+            $intentUuid,
+            $continuationToken,
+            'member',
+            function (string $userUuid, array $intent, string $tenantUuid) use ($intentUuid): void {
+                // Workspace policy is re-checked HERE, under the same row lock and inside the
+                // same transaction, so a policy that changed mid-flight rolls the identity back
+                // instead of granting a membership the workspace no longer permits.
+                $tenant = $this->administration->getTenant($this->context, $tenantUuid);
+                $role = $this->config->memberSignupRole($tenantUuid);
+                if (
+                    ($tenant['status'] ?? null) !== 'active'
+                    || !$this->config->memberSignupEnabled($tenantUuid)
+                    || !$this->roles->isEligible($tenantUuid, $role)
+                ) {
+                    throw new SignupException('Workspace signup policy changed before activation.', 409);
+                }
+
+                $this->administration->addMember($this->context, $tenantUuid, $userUuid, $role);
+
+                $this->connection->afterCommit(fn () => $this->audit->record(
+                    'signup.member_activated',
+                    $userUuid,
+                    $tenantUuid,
+                    ['intent_uuid' => $intentUuid, 'role' => $role],
+                ));
+            },
+        );
     }
 
     /** @return array<string,mixed> */

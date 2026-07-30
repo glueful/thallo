@@ -98,6 +98,7 @@ use App\Http\Controllers\TenantHostCooldownController;
 use App\Http\Controllers\TenantRolesController;
 use App\Http\Controllers\SignupController;
 use App\Signup\ContinuationTokens;
+use App\Signup\CustomerSignupService;
 use App\Signup\DefaultSignupDiagnostics;
 use App\Signup\MemberSignupService;
 use App\Signup\NullSignupChallenge;
@@ -107,6 +108,7 @@ use App\Signup\SignupConfig;
 use App\Signup\SignupCoordinator;
 use App\Signup\SignupIntentRepository;
 use App\Signup\SignupMailSender;
+use App\Signup\VerifiedAccountActivator;
 use App\Signup\SignupRolePolicy;
 use App\Signup\SignupTelemetry;
 use App\Signup\SignupThrottle;
@@ -348,7 +350,9 @@ final class ThalloServiceProvider extends ServiceProvider
             SignupVerifier::class => $autowired(SignupVerifier::class),
             ContinuationTokens::class => $autowired(ContinuationTokens::class),
             SignupThrottle::class => $autowired(SignupThrottle::class),
+            VerifiedAccountActivator::class => $autowired(VerifiedAccountActivator::class),
             MemberSignupService::class => $autowired(MemberSignupService::class),
+            CustomerSignupService::class => $autowired(CustomerSignupService::class),
             WorkspaceSignupService::class => $autowired(WorkspaceSignupService::class),
             SignupCoordinator::class => $autowired(SignupCoordinator::class),
             SignupController::class => $autowired(SignupController::class),
