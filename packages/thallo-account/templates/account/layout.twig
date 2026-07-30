@@ -5,6 +5,9 @@
    which avoids the child-`set`-does-not-reach-parent Twig inheritance trap. #}
 {% block title %}{{ block('account_heading') }} — {{ site.name }}{% endblock %}
 {% block content %}
+  {# The pack's own stylesheet, served fingerprinted from /_account/assets/account.css. Emitted in
+     the body like the shop blocks' shop.css — account pages are uncached, so this is safe. #}
+  <link rel="stylesheet" href="/_account/assets/account.css">
   <section class="account">
     <div class="account__card">
       <h1 class="account__heading">{% block account_heading %}Account{% endblock %}</h1>

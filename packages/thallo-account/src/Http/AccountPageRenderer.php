@@ -34,9 +34,17 @@ final class AccountPageRenderer
 
     /**
      * @param array<string,mixed> $extra
+     * @param bool $chrome Whether to render the theme's header + footer. The anonymous auth pages
+     *                     are focused and chrome-free (the default); the signed-in dashboard opts
+     *                     back in so a customer can navigate the store.
      */
-    public function render(Request $request, string $template, array $extra = [], int $status = 200): Response
-    {
+    public function render(
+        Request $request,
+        string $template,
+        array $extra = [],
+        int $status = 200,
+        bool $chrome = false,
+    ): Response {
         $env = $this->twigFactory->environment();
         $locale = (string) config($this->context, 'i18n.default_locale', 'en');
 
@@ -57,8 +65,8 @@ final class AccountPageRenderer
             'presentation' => [
                 'show_title' => true,
                 'layout' => 'centered',
-                'header' => 'default',
-                'footer' => 'default',
+                'header' => $chrome ? 'default' : 'hidden',
+                'footer' => $chrome ? 'default' : 'hidden',
             ],
         ] + $extra;
 

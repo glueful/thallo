@@ -72,7 +72,7 @@ final class AccountPageController
             // Plain generateToken: `auth` has already attached the identity, so the middleware
             // binds the token to THIS session's uuid. Uncached page, so embedding it is safe.
             'csrf_token' => $this->csrf->generateToken($request),
-        ]);
+        ], 200, chrome: true);
     }
 
     /**
