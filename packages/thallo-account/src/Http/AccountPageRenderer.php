@@ -56,6 +56,7 @@ final class AccountPageRenderer
         $this->extension->setLocale($locale);
 
         $context = [
+            'chrome' => $chrome,
             'site' => [
                 'name' => (string) config($this->context, 'render.site_name', 'Thallo'),
                 'locale' => $locale,
