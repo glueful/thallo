@@ -41,6 +41,7 @@ final class AccountPageController
         // The pending intent is the one register set — the form posts to /account/verify/{id}.
         return $this->renderer->render($request, 'account/verify.twig', [
             'intent_uuid' => (string) $request->cookies->get(AccountAuthController::PENDING_INTENT_COOKIE, ''),
+            'resent' => $request->query->get('resent') === '1',
         ]);
     }
 

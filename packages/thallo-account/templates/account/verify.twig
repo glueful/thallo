@@ -1,6 +1,9 @@
 {% extends 'account/layout.twig' %}
 {% block account_heading %}Enter your code{% endblock %}
 {% block account %}
+  {% if resent|default(false) %}
+    <p class="account__notice account__notice--ok" role="status">A new code is on its way to your email.</p>
+  {% endif %}
   <p class="account__notice">
     We sent a verification code to your email. Enter it below to finish creating your account.
   </p>

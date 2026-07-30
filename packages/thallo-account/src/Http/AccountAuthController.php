@@ -130,10 +130,18 @@ final class AccountAuthController
     {
         $intentUuid = (string) $request->cookies->get(self::PENDING_INTENT_COOKIE, '');
         if ($intentUuid !== '') {
-            $this->registration->resend($intentUuid, $request->getClientIp() ?? '0.0.0.0');
+            try {
+                $this->registration->resend($intentUuid, $request->getClientIp() ?? '0.0.0.0');
+            } catch (\Throwable) {
+                // Robust + neutral: a delivery failure must not break the page. The operator sees
+                // it in the log; the visitor is told a new code is on its way either way.
+            }
+
+            // The flag drives a "code sent" confirmation on the verify page.
+            return new RedirectResponse('/account/verify?resent=1');
         }
 
-        // Neutral regardless: a present or absent pointer both land back on the verify page.
+        // No pending signup on this browser — nothing to resend.
         return new RedirectResponse('/account/verify');
     }
 
