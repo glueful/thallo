@@ -7,6 +7,28 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Storefront customer accounts** (`packages/thallo-account`, gated by the `thallo.accounts`
+  capability; requires glueful/framework ^1.74.0): a shopping visitor gets a global Glueful
+  identity and **zero workspace authority** — no membership, role, or permission. The guarantee is
+  structural, not a rule: the customer activation path has no branch that can reach `addMember()`,
+  and a test asserts the authority tables stay empty after a shopper activates. Registration
+  collects first name, last name, email and password, with the **email as the username** (framework
+  1.74.0's widened username validation is what allows it — changing the username later is a named
+  follow-up, not a shipped feature). The themed `/account/*` pages cover register → mailed one-time-
+  code verification → activation, sign in over an HttpOnly session cookie (through the framework's
+  `LoginOrchestrator`, so the two-factor gate is un-bypassable and login fails closed on a
+  challenge), the signed-in account page, password recovery, and sign out. Registration and recovery
+  are neutrality-preserving: the contracts (`RegistrationResult` / `RecoveryResult` /
+  `RecoveryVerification`) cannot express "unknown email" or "delivery failed", and the app glue
+  collapses every outcome, so a storefront can never become an account-existence oracle. Under the
+  hood the shared signup pipeline is refactored around a `VerifiedAccountActivator` primitive that
+  both member and customer signup reach through, and `SignupCoordinator` now dispatches on intent
+  kind explicitly (member / customer / workspace) instead of a binary ternary that silently routed
+  unknown kinds to workspace provisioning. Anonymous account POSTs are protected by same-origin
+  provenance plus a rate limit, cookie-authenticated mutations by a session-bound CSRF token — a
+  route-inventory test enforces that matrix as a gate. Enabling this needs the HttpOnly
+  session-cookie transport, which Thallo now turns **on by default** (`SESSION_COOKIE_ENABLED`;
+  disable to opt out) — the cookie stays opt-in per route and leaves bearer API auth unchanged.
 - **Storefront v1 — Concept A** (`packages/thallo-commerce` + delivery seams; requires
   glueful/commerce 1.8.0's batched catalog reads): the shop and category pages gain a
   category chip rail, per-card category tags, and hover-revealed cart/wishlist actions —
