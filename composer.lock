@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "aa2afa46abc19d6d2ec41274b5c08dde",
+    "content-hash": "c4e58ffa645d8da842e125537e418bc9",
     "packages": [
         {
             "name": "composer/semver",
@@ -1378,6 +1378,45 @@
                 "source": "https://github.com/glueful/tenancy/tree/v2.0.0"
             },
             "time": "2026-07-12T06:09:31+00:00"
+        },
+        {
+            "name": "glueful/thallo-account",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-account",
+                "reference": "a16b9c2d008c19f29bb7edf69ab126ef72bca046"
+            },
+            "require": {
+                "glueful/framework": "^1.74.0",
+                "glueful/thallo-contracts": "*",
+                "glueful/thallo-render": "*",
+                "php": "^8.3"
+            },
+            "type": "library",
+            "extra": {
+                "glueful": {
+                    "provider": "Thallo\\Account\\AccountServiceProvider"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Account\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Storefront customer accounts for Thallo — themed registration, sign-in and account pages, as a removable capability pack.",
+            "transport-options": {
+                "relative": true
+            }
         },
         {
             "name": "glueful/thallo-analytics",

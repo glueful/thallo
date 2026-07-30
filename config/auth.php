@@ -37,4 +37,19 @@ return [
         // re-verifying (seconds). Session-scoped marker, not user-scoped.
         'disable_freshness' => (int) env('TWO_FACTOR_DISABLE_FRESHNESS', 300),
     ],
+
+    // HttpOnly session-cookie transport (framework ≥ 1.73.0). Thallo ships it ON by default
+    // because the storefront account pages (glueful/thallo-account) sign visitors in over this
+    // cookie — shipping it off would leave an enabled account capability whose login cannot work
+    // without an undocumented deployment step. Operators disable it with SESSION_COOKIE_ENABLED=false.
+    //
+    // This block deliberately sets ONLY `enabled`. Every cookie attribute — Secure, HttpOnly,
+    // SameSite=Lax and the host-only (null) domain — is centralized in the framework's
+    // SessionCookieConfig defaults, so it stays production-safe without being restated here.
+    // Enabling the transport does not cookie-authenticate any route: the `session_cookie`
+    // middleware is opt-in per route, bearer authentication is unchanged, and `thallo.accounts`
+    // gates only the themed account surfaces, never the framework's /auth/* identity endpoints.
+    'session_cookie' => [
+        'enabled' => env('SESSION_COOKIE_ENABLED', true),
+    ],
 ];

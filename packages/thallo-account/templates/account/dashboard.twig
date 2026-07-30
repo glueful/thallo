@@ -1,0 +1,20 @@
+{% extends 'account/layout.twig' %}
+{% block account_heading %}Your account{% endblock %}
+{% block account %}
+  <p class="account__welcome">
+    Signed in as {{ user.username|default(user.email|default('your account')) }}.
+  </p>
+  {% if nav_items %}
+    <nav class="account__nav" aria-label="Account">
+      <ul>
+        {% for item in nav_items %}
+          <li><a href="{{ item.path }}">{{ item.label }}</a></li>
+        {% endfor %}
+      </ul>
+    </nav>
+  {% endif %}
+  <form method="post" action="/account/logout" class="account__form">
+    <input type="hidden" name="_token" value="{{ csrf_token }}">
+    <button type="submit" class="account__submit">Sign out</button>
+  </form>
+{% endblock %}

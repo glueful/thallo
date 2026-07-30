@@ -12,6 +12,7 @@
     }
   ],
   "repositories": [
+    { "type": "path", "url": "packages/thallo-account" },
     { "type": "path", "url": "packages/thallo-analytics" },
     { "type": "path", "url": "packages/thallo-collections" },
     { "type": "path", "url": "packages/thallo-commerce" },
@@ -37,6 +38,7 @@
     "glueful/meilisearch": "^1.6",
     "glueful/payvia": "^2.2",
     "glueful/tenancy": "^2.0.0",
+    "glueful/thallo-account": "*",
     "glueful/thallo-analytics": "*",
     "glueful/thallo-collections": "*",
     "glueful/thallo-commerce": "*",

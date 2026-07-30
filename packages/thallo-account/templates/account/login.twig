@@ -1,0 +1,19 @@
+{% extends 'account/layout.twig' %}
+{% block account_heading %}Sign in{% endblock %}
+{% block account %}
+  <form method="post" action="/account/login" class="account__form">
+    <label class="account__field">
+      <span>Email</span>
+      <input type="email" name="email" value="{{ email|default('') }}" autocomplete="email" required>
+    </label>
+    <label class="account__field">
+      <span>Password</span>
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit" class="account__submit">Sign in</button>
+  </form>
+  <p class="account__links">
+    <a href="/account/register">Create an account</a>
+    <a href="/account/forgot-password">Forgot password?</a>
+  </p>
+{% endblock %}

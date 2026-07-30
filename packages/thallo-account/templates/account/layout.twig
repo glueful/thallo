@@ -1,0 +1,17 @@
+{% extends 'layout.twig' %}
+{# Shared shell for the storefront account pages. Extends the active theme's layout so the pages
+   inherit the site chrome (header, footer, fonts, color mode); each page overrides account_heading
+   and the account block. account_heading is re-rendered into the document <title> via block(),
+   which avoids the child-`set`-does-not-reach-parent Twig inheritance trap. #}
+{% block title %}{{ block('account_heading') }} — {{ site.name }}{% endblock %}
+{% block content %}
+  <section class="account">
+    <div class="account__card">
+      <h1 class="account__heading">{% block account_heading %}Account{% endblock %}</h1>
+      {% if error is defined and error %}
+        <p class="account__error" role="alert">{{ error }}</p>
+      {% endif %}
+      {% block account %}{% endblock %}
+    </div>
+  </section>
+{% endblock %}

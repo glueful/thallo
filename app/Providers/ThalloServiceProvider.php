@@ -329,7 +329,32 @@ final class ThalloServiceProvider extends ServiceProvider
             self::consoleCommandServices(),
             self::formServices(),
             self::signupServices(),
+            self::accountServices(),
         );
+    }
+
+    /**
+     * Storefront account contracts, implemented by the app over the signup pipeline and the users
+     * extension. The account PACK consumes only these interfaces, never `App\Signup`.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function accountServices(): array
+    {
+        $bind = static fn (string $impl): array => [
+            'class' => $impl,
+            'shared' => true,
+            'autowire' => true,
+        ];
+
+        return [
+            \Thallo\Contracts\Account\StorefrontAccountRegistration::class =>
+                $bind(\App\Account\AppStorefrontAccountRegistration::class),
+            \Thallo\Contracts\Account\StorefrontAccountRecovery::class =>
+                $bind(\App\Account\AppStorefrontAccountRecovery::class),
+            \Thallo\Contracts\Account\AccountNavigationRegistry::class =>
+                $bind(\App\Account\InMemoryAccountNavigationRegistry::class),
+        ];
     }
 
     /** @return array<string, array<string, mixed>> */

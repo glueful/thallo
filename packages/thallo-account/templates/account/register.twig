@@ -1,0 +1,26 @@
+{% extends 'account/layout.twig' %}
+{% block account_heading %}Create your account{% endblock %}
+{% block account %}
+  <form method="post" action="/account/register" class="account__form">
+    <label class="account__field">
+      <span>First name</span>
+      <input type="text" name="first_name" value="{{ first_name|default('') }}" autocomplete="given-name" required>
+    </label>
+    <label class="account__field">
+      <span>Last name</span>
+      <input type="text" name="last_name" value="{{ last_name|default('') }}" autocomplete="family-name" required>
+    </label>
+    <label class="account__field">
+      <span>Email</span>
+      <input type="email" name="email" value="{{ email|default('') }}" autocomplete="email" required>
+    </label>
+    <label class="account__field">
+      <span>Password</span>
+      <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+    </label>
+    <button type="submit" class="account__submit">Create account</button>
+  </form>
+  <p class="account__links">
+    <a href="/account/login">Already have an account? Sign in</a>
+  </p>
+{% endblock %}
