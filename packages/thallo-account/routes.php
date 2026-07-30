@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use Glueful\Routing\Router;
+use Thallo\Account\Http\AccountAssetController;
 use Thallo\Account\Http\AccountAuthController;
 use Thallo\Account\Http\AccountPageController;
+use Thallo\Account\Http\AccountSessionController;
 
 /** @var Router $router */
 
@@ -66,3 +68,18 @@ $router->get('/account', [AccountPageController::class, 'dashboard'])
     ->middleware($authedShell)->name('account.dashboard');
 $router->post('/account/logout', [AccountAuthController::class, 'logout'])
     ->middleware($authedMutation)->name('account.logout');
+
+// --- Account chrome: the header/footer block's asset + the private hydration endpoint ---
+
+// Fingerprinted static asset (account.js): ONE route serves the stable alias (302, no-store) and
+// the fingerprinted file (immutable) — the controller distinguishes them. The asset is global,
+// so it carries only the tenant_system marker.
+$router->get('/_account/assets/{file}', [AccountAssetController::class, 'serve'])
+    ->middleware($page)->name('account.asset');
+
+// The private session-state endpoint the account-link block hydrates from. `session_cookie:optional`
+// adapts a valid cookie into a Bearer header (and drops a lapsed one to anonymous); `auth:optional`
+// sets `user` when present and lets a signed-out visitor through instead of 401-ing the chrome. The
+// controller marks the response `private, no-store` — it must never enter a shared cache.
+$router->get('/_account/session', [AccountSessionController::class, 'show'])
+    ->middleware(['session_cookie:optional', 'auth:optional', 'tenant_system'])->name('account.session');

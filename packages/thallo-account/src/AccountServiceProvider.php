@@ -6,24 +6,32 @@ namespace Thallo\Account;
 
 use Glueful\Auth\Session\SameOriginGuard;
 use Glueful\Bootstrap\ApplicationContext;
+use Glueful\Cache\CacheStore;
+use Glueful\Cache\Contracts\EdgeCacheInterface;
 use Glueful\Extensions\ServiceProvider;
+use Psr\Container\ContainerInterface;
+use Thallo\Account\Assets\AccountAssetMap;
+use Thallo\Account\Blocks\AccountBlockTypesContributor;
 use Thallo\Account\Contribution\AccountTemplatePathContributor;
+use Thallo\Account\Http\AccountAssetController;
 use Thallo\Account\Http\AccountAuthController;
 use Thallo\Account\Http\AccountPageController;
 use Thallo\Account\Http\AccountPageRenderer;
+use Thallo\Account\Http\AccountSessionController;
 use Thallo\Account\Http\Middleware\AccountSameOriginMiddleware;
 use Thallo\Contracts\Capability\Capability;
 use Thallo\Contracts\Capability\CapabilityRegistry;
+use Thallo\Contracts\Starter\StarterBlockTypeRegistry;
 use Thallo\Render\Contribution\RenderContributionRegistry;
 
 use function app;
 
 /**
  * Storefront customer accounts, as a removable capability pack. The pack owns the themed
- * `/account/*` pages and consumes the neutral account contracts — never the app-side signup
- * services (a test walks these sources to keep that boundary real). The `thallo.accounts`
- * capability gates only this product surface: the framework's `/auth/*` identity endpoints and the
- * session-cookie transport are never gated by it.
+ * `/account/*` pages and the `account-link` header/footer block, and consumes the neutral account
+ * contracts — never the app-side signup services (a test walks these sources to keep that boundary
+ * real). The `thallo.accounts` capability gates only this product surface: the framework's
+ * `/auth/*` identity endpoints and the session-cookie transport are never gated by it.
  */
 final class AccountServiceProvider extends ServiceProvider
 {
@@ -55,12 +63,34 @@ final class AccountServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            AccountSessionController::class => [
+                'class' => AccountSessionController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            // Built from the pack's own assets/ dir — a cheap, side-effect-free scan, so it is bound
+            // unconditionally (harmless while the capability is off, when no route reaches it).
+            AccountAssetMap::class => [
+                'factory' => [self::class, 'makeAccountAssetMap'],
+                'shared' => true,
+            ],
+            AccountAssetController::class => [
+                'class' => AccountAssetController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
         ];
     }
 
     public static function makeAccountSameOrigin(): AccountSameOriginMiddleware
     {
         return new AccountSameOriginMiddleware(new SameOriginGuard());
+    }
+
+    public static function makeAccountAssetMap(): AccountAssetMap
+    {
+        // src/ -> pack root -> /assets
+        return new AccountAssetMap(dirname(__DIR__) . '/assets');
     }
 
     public function register(ApplicationContext $context): void
@@ -77,21 +107,58 @@ final class AccountServiceProvider extends ServiceProvider
             description: 'Themed registration, sign-in and account pages for storefront visitors.',
         ));
 
-        // Routes and templates register only while the capability is ENABLED. The framework's
-        // /auth/* APIs and the session-cookie transport are never gated by it — this switch
-        // controls Thallo's product surface, not global identity infrastructure.
+        // A capability flip between boots must purge cached pages that still hold the account chrome
+        // whose routes now 404. There is no flip event — the capability is deploy-time config — so
+        // this is a boot-time reconciler, invoked OUTSIDE the gate so it fires precisely on the boot
+        // where the capability turned OFF (a boot where the gated branch below does not run).
+        $this->reconcileCapabilityState($context, $registry->isEnabled('thallo.accounts'));
+
+        // Routes, templates and the block type register only while the capability is ENABLED. The
+        // framework's /auth/* APIs and the session-cookie transport are never gated by it — this
+        // switch controls Thallo's product surface, not global identity infrastructure.
         if (!$registry->isEnabled('thallo.accounts')) {
             return;
         }
 
         $this->loadRoutesFrom(__DIR__ . '/../routes.php');
 
-        // Without this the routes exist and every render throws a Twig loader error — the pack
-        // would look wired and 500 on first request. Soft-guarded: thallo-render may be absent.
+        // Without this the routes exist and every render throws a Twig loader error — the pack would
+        // look wired and 500 on first request. Soft-guarded: thallo-render may be absent.
         $container = $context->getContainer();
         if ($container->has(RenderContributionRegistry::class)) {
             $container->get(RenderContributionRegistry::class)
                 ->registerTemplatePaths(new AccountTemplatePathContributor());
         }
+
+        // Capability-boundary pin: the account-link block type registers only while enabled, so a
+        // stored block falls to the missing-template fallback when the capability is off.
+        $this->registerAccountBlockTypeContributor($container);
+    }
+
+    private function registerAccountBlockTypeContributor(ContainerInterface $container): void
+    {
+        if (!$container->has(StarterBlockTypeRegistry::class)) {
+            return;
+        }
+        /** @var StarterBlockTypeRegistry $registry */
+        $registry = $container->get(StarterBlockTypeRegistry::class);
+        foreach ($registry->all() as $existing) {
+            if ($existing instanceof AccountBlockTypesContributor) {
+                return; // already registered — idempotent no-op on a second boot.
+            }
+        }
+        $registry->register(new AccountBlockTypesContributor());
+    }
+
+    private function reconcileCapabilityState(ApplicationContext $context, bool $enabled): void
+    {
+        $container = $context->getContainer();
+        if (!$container->has(CacheStore::class)) {
+            return; // CLI or pre-migration boot — defer the purge to the next fully-wired boot.
+        }
+        $edge = $container->has(EdgeCacheInterface::class)
+            ? $container->get(EdgeCacheInterface::class)
+            : null;
+        (new CapabilityFlipPurge($container->get(CacheStore::class), $edge))->reconcile($enabled);
     }
 }

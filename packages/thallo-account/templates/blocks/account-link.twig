@@ -1,0 +1,22 @@
+{# account-link — account-chrome plan: a stable, cacheable shell that is BYTE-IDENTICAL for every
+   visitor. The shared page cache stores this markup, so a server-rendered name would be served to
+   the next stranger; identity arrives ONLY through client-side hydration. account.js fetches
+   GET /_account/session (private, no-store) and, on an authenticated visitor, hides the sign-in
+   link and reveals the menu. On anonymous OR any error it leaves the shell exactly as rendered —
+   the working "Sign in" link — never a half-painted menu. The label is block config (the same for
+   everyone), so the shell stays byte-identical. #}
+{% set signin_label = data.label|default('')|trim ?: 'Sign in' %}
+<div class="thallo-block thallo-block-account-link" data-account-link>
+  {# Always rendered and no-JS friendly: a plain sign-in link. account.js hides it once it
+     confirms a session. #}
+  <a class="thallo-block-account-link__signin" href="/account/login" data-account-signin>{{ signin_label }}</a>
+  {# Ships hidden and empty — the universal shell carries no identity. account.js reveals it and
+     fills the name + links only after /_account/session confirms an authenticated visitor. #}
+  <div class="thallo-block-account-link__menu" data-account-menu hidden>
+    <a class="thallo-block-account-link__account" href="/account">
+      <span class="thallo-block-account-link__name" data-account-name></span>
+    </a>
+    <ul class="thallo-block-account-link__links" data-account-links></ul>
+  </div>
+</div>
+<script src="/_account/assets/account.js" defer></script>
