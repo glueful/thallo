@@ -25,19 +25,15 @@ use Thallo\Commerce\Shop\ViewModels\CategoryViewModel;
 use Thallo\Commerce\Shop\ViewModels\GridViewModel;
 use Thallo\Commerce\Shop\ViewModels\ProductViewModel;
 use Thallo\Render\EntryBlocksRenderer;
-use Thallo\Render\Http\Middleware\RenderPageCache;
-use Thallo\Render\RenderContextExtension;
-use Thallo\Render\TwigFactory;
-
-use function config;
 
 /**
  * The read-only storefront catalog surface (storefront-rendering spec §3/§6): shop index,
  * product detail, category archive. Every response is themed HTML built from CLOSED view
  * models — never a raw commerce row — and every markup URL comes from
- * {@see ShopUrlGenerator}. Reuses the exact rendering mechanism entry pages use: the SAME
- * {@see TwigFactory}-built `Environment` (carrying the render pack's `RenderContextExtension`,
- * so `blocks()`, `asset()`, `menu()`, etc. all work identically inside shop templates).
+ * {@see ShopUrlGenerator}. Reuses the exact rendering mechanism entry pages use — via the
+ * shared {@see ShopPageRenderer}: the SAME {@see \Thallo\Render\TwigFactory}-built
+ * `Environment` (carrying the render pack's `RenderContextExtension`, so `blocks()`,
+ * `asset()`, `menu()`, etc. all work identically inside shop templates).
  *
  * The product template's enrichment region (Commerce-Slice-2 Fix B) is rendered via
  * {@see EntryBlocksRenderer::renderPublishedBlocks()} — a route-INDEPENDENT read, unlike
@@ -61,12 +57,18 @@ final class ShopCatalogController
         private readonly ProductLinkService $links,
         private readonly PackSlugLifecycleAuthority $slugs,
         private readonly ShopUrlGenerator $urls,
-        private readonly TwigFactory $twigFactory,
-        private readonly RenderContextExtension $extension,
+        // The shared shop-page render seam (storefront-v1 Task 7) — this controller's old
+        // private render() extracted verbatim so the wishlist page renders identically.
+        private readonly ShopPageRenderer $pages,
+        // The shared batched card pipeline (extracted buildGrid() body) — also consumed by
+        // ShopWishlistController so grid and wishlist cards can never drift.
+        private readonly ShopProductCardAssembler $cards,
         private readonly EntryBlocksRenderer $blocksRenderer,
         // The ONE anonymous-media URL authority rendered pages already use (visibility-checked,
         // API-prefix-correct) — the app binds it; autowiring injects it. Nullable so the pack
         // never hard-requires an app-only binding: without it, pages honestly render imageless.
+        // (The batched companion now lives inside ShopProductCardAssembler; this per-row
+        // resolver remains for the product page's gallery reads.)
         private readonly ?MediaUrlResolver $mediaUrls = null,
     ) {
     }
@@ -89,6 +91,8 @@ final class ShopCatalogController
 
         return $this->render($request, 'shop/index.twig', [
             'grid' => $grid,
+            'categories' => $this->categoryRail($tenant),
+            'shop_index' => $this->urls->shopIndex(),
             'canonical' => $this->urls->shopIndex(),
         ]);
     }
@@ -109,6 +113,8 @@ final class ShopCatalogController
         return $this->render($request, 'shop/category.twig', [
             'category' => CategoryViewModel::fromRow($category, $this->urls),
             'grid' => $grid,
+            'categories' => $this->categoryRail($tenant, $slug),
+            'shop_index' => $this->urls->shopIndex(),
             'canonical' => $this->urls->category($slug),
         ]);
     }
@@ -167,8 +173,18 @@ final class ShopCatalogController
 
         $enrichment = $this->resolveEnrichment($tenant, $uuid);
 
+        // Breadcrumb (storefront-v1 Task 6): the SAME deterministic first-category projection
+        // the grid tags use (Task 1's batched read — the single-product call is the same
+        // bounded query), or null when the product has no direct category assignment.
+        $breadcrumbCategory = $this->categories->firstCategoryProjectionsForProducts(
+            $this->context,
+            $tenant,
+            [$uuid],
+        )[$uuid] ?? null;
+
         $response = $this->render($request, 'shop/product.twig', [
             'product' => $vm,
+            'breadcrumb_category' => $breadcrumbCategory,
             'enrichment_html' => $enrichment['html'] ?? null,
             'canonical' => $this->urls->product($slug),
             'shop_index' => $this->urls->shopIndex(),
@@ -271,37 +287,18 @@ final class ShopCatalogController
     }
 
     /**
+     * The batched card pipeline (storefront-v1 Task 5): delegated to the shared
+     * {@see ShopProductCardAssembler} (extracted from this method's original body, Task 7) —
+     * ONE call per concern for the whole page, per-row reduction to the closed card view
+     * model. The query budget is constant in product count, and ShopCatalogTest's
+     * counting-statement guard fails if a per-card loop returns.
+     *
      * @param array{items: list<array<string,mixed>>, total: int} $result
      * @param callable(int): string $pathFor
      */
     private function buildGrid(string $tenant, array $result, int $page, callable $pathFor): GridViewModel
     {
-        $productUuids = array_map(static fn (array $p): string => (string) $p['uuid'], $result['items']);
-        $variantsByProduct = $this->variants->forProducts($this->context, $tenant, $productUuids);
-        $covers = $this->media->coversForProducts($this->context, $tenant, $productUuids);
-
-        // Cover-role first, first gallery image as the fallback (the admin attaches with role
-        // 'gallery' by default — cover-only grids rendered admin-managed products imageless).
-        // The fallback read + per-item resolver lookups run on cache FILL only (shop-cached page).
-        $coverUrls = [];
-        foreach ($productUuids as $productUuid) {
-            $row = $covers[$productUuid] ?? null;
-            if ($row === null) {
-                $rows = $this->media->forProduct($this->context, $tenant, $productUuid);
-                $row = $rows[0] ?? null;
-            }
-            $coverUrls[$productUuid] = $this->mediaUrl($row);
-        }
-
-        $items = array_map(
-            fn (array $product): ProductViewModel => ProductViewModel::fromRow(
-                $product,
-                $variantsByProduct[(string) $product['uuid']] ?? [],
-                $coverUrls[(string) $product['uuid']] ?? null,
-                $this->urls,
-            ),
-            $result['items'],
-        );
+        $items = $this->cards->cards($tenant, $result['items']);
 
         $total = $result['total'];
         $totalPages = max(1, (int) ceil($total / self::PER_PAGE));
@@ -314,6 +311,26 @@ final class ShopCatalogController
             totalPages: $totalPages,
             prevPath: $page > 1 ? $pathFor($page - 1) : null,
             nextPath: $page < $totalPages ? $pathFor($page + 1) : null,
+        );
+    }
+
+    /**
+     * The chip rail (storefront-v1 spec §2): every category for the tenant as a closed
+     * `{name, url, active}` projection — never a raw row. Empty → templates skip the rail
+     * entirely. `$activeSlug` marks the category page's own chip; the index passes none
+     * (its "All" chip is the template's own active state).
+     *
+     * @return list<array{name: string, url: string, active: bool}>
+     */
+    private function categoryRail(string $tenant, ?string $activeSlug = null): array
+    {
+        return array_map(
+            fn (array $row): array => [
+                'name' => (string) $row['name'],
+                'url' => $this->urls->category((string) $row['slug']),
+                'active' => $activeSlug !== null && (string) $row['slug'] === $activeSlug,
+            ],
+            $this->categories->all($this->context, $tenant),
         );
     }
 
@@ -338,54 +355,16 @@ final class ShopCatalogController
         return $page < 1 ? 1 : $page;
     }
 
-    private function defaultLocale(): string
-    {
-        // Storefront-rendering spec §9: "Locale is the render pipeline's resolved locale
-        // (default locale in v1 when no locale route is present)" — Render itself carries no
-        // separate injectable locale-manager service; RenderController's own defaultLocale()
-        // and RenderServiceProvider::makeRenderContextExtension() both read this exact config
-        // key. Shop pages have no locale route segment in v1, so this IS that resolved locale.
-        return (string) config($this->context, 'i18n.default_locale', 'en');
-    }
-
     /**
-     * Mirrors RenderController::render()'s reset-before-render discipline: `RenderContextExtension`
-     * is a process-shared singleton (same instance the render pipeline uses), so every render
-     * through it must reset render-scoped state first — never inherit a previous render's tags,
-     * asset base, block depth, or theme-appearance override.
+     * Delegates to the shared {@see ShopPageRenderer} — this method's original body (the
+     * reset-before-render discipline + context assembly), extracted verbatim in Task 7 so
+     * the wishlist page renders through the identical mechanism.
      *
      * @param array<string,mixed> $extra
      */
     private function render(Request $request, string $template, array $extra, int $status = 200): Response
     {
-        $env = $this->twigFactory->environment();
-        $locale = $this->defaultLocale();
-
-        $this->extension->resetTags();
-        $this->extension->resetPerRenderState();
-        $this->extension->setAssetBase(null);
-        $this->extension->setBlockAnnotations(false);
-        $this->extension->setThemeAppearanceOverride(null, null);
-        $this->extension->setLocale($locale);
-
-        $context = [
-            'site' => [
-                'name' => (string) config($this->context, 'render.site_name', 'Thallo'),
-                'locale' => $locale,
-                'locales' => [],
-            ],
-            'current_path' => RenderPageCache::normalizePath($request->getPathInfo()),
-            'presentation' => [
-                'show_title' => true,
-                'layout' => 'centered',
-                'header' => 'default',
-                'footer' => 'default',
-            ],
-        ] + $extra;
-
-        $html = $env->render($template, $context);
-
-        return new Response($html, $status, ['Content-Type' => 'text/html; charset=UTF-8']);
+        return $this->pages->render($request, $template, $extra, $status);
     }
 
     /** Non-revealing 404 (storefront-rendering spec §3): the SAME themed body every time. */

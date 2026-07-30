@@ -24,6 +24,14 @@ namespace Thallo\Contracts\Delivery;
  */
 interface StorefrontLinkResolver
 {
+    /**
+     * The fingerprinted storefront stylesheet URL for the theme's `<head>`, or NULL while the
+     * storefront capability is off. The ONLY capability-aware member here: the others compose
+     * a path that simply goes unvisited when commerce is disabled, whereas emitting a
+     * `<link>` to a route that 404s would break every page in the console.
+     */
+    public function stylesheetUrl(): ?string;
+
     /** The canonical `/{shop-prefix}/products/{slug}` URL for a product slug. */
     public function productUrl(string $slug): string;
 

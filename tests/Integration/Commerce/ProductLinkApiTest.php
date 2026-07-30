@@ -43,17 +43,37 @@ final class ProductLinkApiTest extends AppTestCase
     private const TENANT_ALTERED_TABLES = ['entries', 'content_types', 'entry_drafts', 'entry_versions',
         'entry_publications'];
 
+    /**
+     * The widened `tenant_uuid` columns are added ONCE PER CLASS, not per test. Postgres never
+     * reclaims a dropped column's slot, so the old per-test ADD/DROP cycle burned one slot per
+     * table PER TEST — the shared app_test DB hit the hard 1600-column ceiling and every suite
+     * touching those tables died with "tables can have at most 1600 columns". Same schema shape
+     * during the class; only the churn is gone.
+     */
+    public static function setUpBeforeClass(): void
+    {
+        parent::setUpBeforeClass();
+        $pdo = self::$app?->getContainer()->get(\Glueful\Database\Connection::class)->getPDO();
+        foreach (self::TENANT_ALTERED_TABLES as $table) {
+            $pdo?->exec("ALTER TABLE {$table} ADD COLUMN IF NOT EXISTS tenant_uuid VARCHAR(191) NOT NULL DEFAULT ''");
+        }
+    }
+
+    public static function tearDownAfterClass(): void
+    {
+        $pdo = self::$app?->getContainer()->get(\Glueful\Database\Connection::class)->getPDO();
+        foreach (self::TENANT_ALTERED_TABLES as $table) {
+            $pdo?->exec("ALTER TABLE {$table} DROP COLUMN IF EXISTS tenant_uuid");
+        }
+        parent::tearDownAfterClass();
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->connection()->getPDO()->exec('DELETE FROM commerce_products');
         $this->flags()->put('tenancy.schema_state', 'widened');
         $this->flags()->put('tenancy.default_tenant_uuid', self::TENANT_A);
-        foreach (self::TENANT_ALTERED_TABLES as $table) {
-            $this->connection()->getPDO()->exec(
-                "ALTER TABLE {$table} ADD COLUMN IF NOT EXISTS tenant_uuid VARCHAR(191) NOT NULL DEFAULT ''"
-            );
-        }
 
         // searchEntries' locale resolution reads enabled locales from i18n_locales; the
         // fr-row assertion needs fr ENABLED, so this class owns its locale setup instead
@@ -79,9 +99,6 @@ final class ProductLinkApiTest extends AppTestCase
     protected function tearDown(): void
     {
         $this->connection()->getPDO()->exec('DELETE FROM commerce_products');
-        foreach (self::TENANT_ALTERED_TABLES as $table) {
-            $this->connection()->getPDO()->exec("ALTER TABLE {$table} DROP COLUMN IF EXISTS tenant_uuid");
-        }
         parent::tearDown();
     }
 

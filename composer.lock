@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "acc0ec09104c6a422c0857d157a38a21",
+    "content-hash": "c4e58ffa645d8da842e125537e418bc9",
     "packages": [
         {
             "name": "composer/semver",
@@ -563,16 +563,16 @@
         },
         {
             "name": "glueful/commerce",
-            "version": "v1.7.0",
+            "version": "v1.8.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/commerce.git",
-                "reference": "ec72304ef770fd4fb2f25736809da1d513042d4b"
+                "reference": "5a14acf6d5b0fa1395502784a0ecd6a4b0dc4d11"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/commerce/zipball/ec72304ef770fd4fb2f25736809da1d513042d4b",
-                "reference": "ec72304ef770fd4fb2f25736809da1d513042d4b",
+                "url": "https://api.github.com/repos/glueful/commerce/zipball/5a14acf6d5b0fa1395502784a0ecd6a4b0dc4d11",
+                "reference": "5a14acf6d5b0fa1395502784a0ecd6a4b0dc4d11",
                 "shasum": ""
             },
             "require": {
@@ -590,7 +590,7 @@
                 "glueful": {
                     "icon": "assets/icon.png",
                     "name": "Commerce",
-                    "version": "1.7.0",
+                    "version": "1.8.0",
                     "provider": "Glueful\\Extensions\\Commerce\\CommerceServiceProvider",
                     "requires": {
                         "glueful": ">=1.71.0",
@@ -639,9 +639,9 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/commerce/issues",
-                "source": "https://github.com/glueful/commerce/tree/v1.7.0"
+                "source": "https://github.com/glueful/commerce/tree/v1.8.0"
             },
-            "time": "2026-07-25T22:37:53+00:00"
+            "time": "2026-07-29T19:20:44+00:00"
         },
         {
             "name": "glueful/email-notification",
@@ -813,16 +813,16 @@
         },
         {
             "name": "glueful/framework",
-            "version": "v1.72.1",
+            "version": "v1.74.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "8c06d99d3e631914d7c4c537fa1647f31a60ee4b"
+                "reference": "1a878f93db7f63258531a00b9bf5291213fed377"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/8c06d99d3e631914d7c4c537fa1647f31a60ee4b",
-                "reference": "8c06d99d3e631914d7c4c537fa1647f31a60ee4b",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/1a878f93db7f63258531a00b9bf5291213fed377",
+                "reference": "1a878f93db7f63258531a00b9bf5291213fed377",
                 "shasum": ""
             },
             "require": {
@@ -917,7 +917,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-07-26T07:29:41+00:00"
+            "time": "2026-07-30T16:31:43+00:00"
         },
         {
             "name": "glueful/i18n",
@@ -1380,6 +1380,45 @@
             "time": "2026-07-12T06:09:31+00:00"
         },
         {
+            "name": "glueful/thallo-account",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-account",
+                "reference": "a16b9c2d008c19f29bb7edf69ab126ef72bca046"
+            },
+            "require": {
+                "glueful/framework": "^1.74.0",
+                "glueful/thallo-contracts": "*",
+                "glueful/thallo-render": "*",
+                "php": "^8.3"
+            },
+            "type": "library",
+            "extra": {
+                "glueful": {
+                    "provider": "Thallo\\Account\\AccountServiceProvider"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Account\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Storefront customer accounts for Thallo — themed registration, sign-in and account pages, as a removable capability pack.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
             "name": "glueful/thallo-analytics",
             "version": "0.1.0",
             "dist": {
@@ -1463,10 +1502,10 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-commerce",
-                "reference": "893ebeac3d1530897571b15975d0154d2726fb46"
+                "reference": "5f7886bd923bf2c9b8c0dfa474d3ab349ab557d1"
             },
             "require": {
-                "glueful/commerce": "^1.5.0",
+                "glueful/commerce": "^1.8.0",
                 "glueful/extension-contracts": "*",
                 "glueful/framework": "^1.71.0",
                 "glueful/thallo-contracts": "*",

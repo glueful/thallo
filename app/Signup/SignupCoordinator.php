@@ -15,6 +15,7 @@ final class SignupCoordinator
         private readonly ContinuationTokens $continuations,
         private readonly SignupThrottle $throttle,
         private readonly MemberSignupService $members,
+        private readonly CustomerSignupService $customers,
         private readonly WorkspaceSignupService $workspaces,
     ) {
     }
@@ -48,9 +49,13 @@ final class SignupCoordinator
         /** @var array<string,mixed> $intent */
         $intent = $result['intent'];
         $token = (string) $result['token'];
-        return ($intent['kind'] ?? null) === 'member'
-            ? $this->members->activate($intentUuid, $token)
-            : $this->workspaces->provision($intentUuid, $token);
+        return match ($intent['kind'] ?? null) {
+            'member' => $this->members->activate($intentUuid, $token),
+            'customer' => $this->customers->activate($intentUuid, $token),
+            'workspace' => $this->workspaces->provision($intentUuid, $token),
+            // An unknown kind must not fall through to whichever branch happens to be last.
+            default => throw new SignupException('Signup intent is unavailable.', 404),
+        };
     }
 
     /** @param array<string,mixed> $payload @return array<string,mixed> */
@@ -65,9 +70,13 @@ final class SignupCoordinator
         if ($intent === null) {
             throw new SignupException('Signup intent is unavailable.', 404);
         }
-        return ($intent['kind'] ?? null) === 'member'
-            ? $this->members->continue($intentUuid, $token, $operationId, $operation, $payload)
-            : $this->workspaces->continue($intentUuid, $token, $operationId, $operation, $payload);
+        return match ($intent['kind'] ?? null) {
+            'member' => $this->members->continue($intentUuid, $token, $operationId, $operation, $payload),
+            'workspace' => $this->workspaces->continue($intentUuid, $token, $operationId, $operation, $payload),
+            // Customers have no username-change operation, and an unknown kind must not fall
+            // through to whichever branch happens to be last.
+            default => throw new SignupException('Signup intent is unavailable.', 404),
+        };
     }
 
     /** @return array{accepted:true} */

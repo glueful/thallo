@@ -29,13 +29,28 @@
   {% endif %}
   <script type="application/ld+json">{{ structuredData|json_encode(constant('JSON_UNESCAPED_SLASHES'))|raw }}</script>
 
-  <article class="shop-product">
+  {# data-shop-scope (storefront-v1 spec §5): EVERY shop page root emits the opaque wishlist
+     storage scope — OMITTED entirely (never empty) when the seam answers null, exactly like
+     the index page's own root. #}
+  {% set wishlist_scope = shop_wishlist_scope() %}
+  <article class="shop-product"{% if wishlist_scope %} data-shop-scope="{{ wishlist_scope }}"{% endif %}>
+    {# Breadcrumb (storefront-v1 Task 6): Shop / first category (when one is assigned —
+       the controller's deterministic first-category projection) / product name. The category
+       link goes through the generator-owned shop_category_url(), never a hand-built path. #}
     <nav class="shop-product__breadcrumb" aria-label="Breadcrumb">
       <a href="{{ shop_index }}">Shop</a>
       <span aria-hidden="true">/</span>
+      {% if breadcrumb_category %}
+        <a href="{{ shop_category_url(breadcrumb_category.slug) }}">{{ breadcrumb_category.name }}</a>
+        <span aria-hidden="true">/</span>
+      {% endif %}
       <span>{{ product.name }}</span>
     </nav>
 
+    {# Two-column detail layout (approved Concept A artifact): media column left, buy column
+       right; one column below the 48rem breakpoint. #}
+    <div class="shop-product__layout">
+    <div class="shop-product__media">
     {# The gallery leads (the composed-editor mock): cover image first, thumbnail strip when more
        exist. Every URL here came pre-resolved through the anonymous-media authority — a product
        with no publicly servable image simply renders no gallery block. #}
@@ -68,7 +83,31 @@
       </div>
     {% endif %}
 
+    </div>{# /media #}
+    <div class="shop-product__info">
+    {# Category eyebrow (artifact): the same deterministic first-category the breadcrumb uses. #}
+    {% if breadcrumb_category %}
+      <p class="shop-product__eyebrow">{{ breadcrumb_category.name }}</p>
+    {% endif %}
     <h1 class="shop-product__name">{{ product.name }}</h1>
+    {# Rating ABOVE the price (artifact order), rendered as filled/empty stars plus the
+       numeric average and review count — the same rating data the cards already show. #}
+    {# Always rendered (operator decision 2026-07-28) — zeros + all-empty stars when the
+       product has no reviews yet, so the buy column's rhythm never shifts. #}
+    {% set rating_average = product.rating ? product.rating.average : 0 %}
+    {% set rating_count = product.rating ? product.rating.count : 0 %}
+    <p class="shop-product__rating{% if not product.rating %} shop-product__rating--none{% endif %}">
+      <span class="shop-product__stars" aria-hidden="true">
+        {% for i in 1..5 %}
+          <svg class="shop-product__star{% if i > rating_average|round %} shop-product__star--empty{% endif %}"
+               viewBox="0 0 24 24" fill="currentColor" focusable="false">
+            <path d="M12 2l2.9 6.26 6.85.63-5.17 4.6 1.53 6.72L12 16.7l-6.11 3.51 1.53-6.72-5.17-4.6 6.85-.63z"/>
+          </svg>
+        {% endfor %}
+      </span>
+      <span>{{ rating_average }}</span>
+      <span class="shop-product__rating-count">· {{ rating_count }} review{{ rating_count == 1 ? '' : 's' }}</span>
+    </p>
     {% if product.priceFormatted %}
       <p class="shop-product__price">
         <span class="shop-product__price-current">{{ product.priceFormatted }}</span>
@@ -76,9 +115,6 @@
           <s class="shop-product__price-compare">{{ product.compareAtFormatted }}</s>
         {% endif %}
       </p>
-    {% endif %}
-    {% if product.rating %}
-      <p class="shop-product__rating">{{ product.rating.average }} ({{ product.rating.count }})</p>
     {% endif %}
     {# Rich HTML through the render pack's fail-closed sanitizer (sanitizer spec §4) — plain-text
        legacy descriptions pass through escaped; markup is sanitized, never trusted raw. #}
@@ -101,25 +137,46 @@
        this markup — this page is shop-cached ({@see \Thallo\Commerce\Shop\ShopPageCache}), and
        {@see \Thallo\Commerce\Http\Shop\ShopCsrfGuard}'s Origin/Referer check is the
        REQUEST-level defense, so a cached copy of this exact form is safe for every visitor. #}
+    {# Buy area (storefront-v1 Task 6, per the approved mock): select row above, action row =
+       stepper pill + price-in-button; the detail heart sits beside the action row, same
+       attribute contract as the grid cards (hidden until the wishlist store is ready). The
+       form carries data-currency + data-currency-exponent ONCE (exponent ONLY from commerce
+       Money::exponentFor(), omitted when unknown — shop.js then leaves the label alone);
+       direct mode adds data-price-minor on the form, select mode on each <option>. The server
+       keeps rendering the unit price inside [data-shop-buy-price] — the no-JS truth shop.js's
+       shop-buy module recomputes as qty × minor. The stepper buttons are type="button": no-JS
+       leaves the plain quantity input working exactly as before. #}
+    <div class="shop-product__buy">
     {% if product.addToCart.available and product.addToCart.mode in ['direct', 'select'] %}
-      <form class="shop-product__add-to-cart" method="post" action="/_shop/cart/add">
+      <form class="shop-product__add-to-cart" method="post" action="/_shop/cart/add" data-shop-buy
+        {%- if product.addToCart.currency %} data-currency="{{ product.addToCart.currency }}"{% endif %}
+        {%- if product.addToCart.currencyExponent is not null %} data-currency-exponent="{{ product.addToCart.currencyExponent }}"{% endif %}
+        {%- if product.addToCart.directPriceMinor is not null %} data-price-minor="{{ product.addToCart.directPriceMinor }}"{% endif %}>
         {% if product.addToCart.mode == 'direct' %}
           <input type="hidden" name="variant_uuid" value="{{ product.addToCart.variantUuid }}">
+          {% set unit_price = product.priceFormatted %}
         {% else %}
           <label class="shop-product__variant-label">
             <span class="sr-only">Options</span>
             <select name="variant_uuid" required>
               {% for variant in product.addToCart.variants %}
-                <option value="{{ variant.uuid }}">{{ variant.label }} — {{ variant.price_formatted }}</option>
+                <option value="{{ variant.uuid }}" data-price-minor="{{ variant.price_minor }}">{{ variant.label }} — {{ variant.price_formatted }}</option>
               {% endfor %}
             </select>
           </label>
+          {% set unit_price = product.addToCart.variants[0].price_formatted %}
         {% endif %}
-        <label class="shop-product__quantity">
-          <span class="sr-only">Quantity</span>
-          <input type="number" name="quantity" min="1" step="1" value="1" inputmode="numeric">
-        </label>
-        <button type="submit">Add to cart</button>
+        <div class="shop-product__buy-row">
+          <div class="shop-product__stepper">
+            <button type="button" data-shop-qty-minus aria-label="Decrease quantity">&#8722;</button>
+            <label class="shop-product__quantity">
+              <span class="sr-only">Quantity</span>
+              <input type="number" name="quantity" min="1" max="99" step="1" value="1" inputmode="numeric">
+            </label>
+            <button type="button" data-shop-qty-plus aria-label="Increase quantity">+</button>
+          </div>
+          <button class="shop-product__submit" type="submit">Add to cart{% if unit_price %} — <span data-shop-buy-price>{{ unit_price }}</span>{% endif %}</button>
+        </div>
       </form>
     {% elseif product.addToCart.available %}
       {# mode is 'link' here: a required add-on or zero purchasable variants — this pack has no
@@ -129,6 +186,30 @@
          answer without inventing an out-of-scope add-on UI. #}
       <p class="shop-product__unavailable">This product is not available for online purchase right now.</p>
     {% endif %}
+      <button class="shop-product__wishlist" type="button"
+              hidden data-shop-wishlist-toggle data-product-uuid="{{ product.uuid }}" aria-pressed="false"
+              aria-label="Save {{ product.name }} to wishlist">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+        </svg>
+      </button>
+    </div>
+
+    {# Availability line (artifact's trust strip, honest subset): "In stock" is derived from
+       the SAME closed add-to-cart decision the buy area uses. The mock's other two claims
+       (returns window, free-shipping threshold) are store POLICY the product model has no
+       source for — they are deliberately not rendered rather than asserted as fact; they
+       belong to a store-settings follow-up. #}
+    {% if product.addToCart.available and product.addToCart.mode in ['direct', 'select'] %}
+      <p class="shop-product__availability">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false">
+          <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+        </svg>
+        In stock
+      </p>
+    {% endif %}
+    </div>{# /info #}
+    </div>{# /layout #}
 
     {# Optional enrichment (Commerce-Slice-2 Fix B): the linked entry's blocks region, ALREADY
        rendered server-side by Thallo\Render\EntryBlocksRenderer (a route-independent read —

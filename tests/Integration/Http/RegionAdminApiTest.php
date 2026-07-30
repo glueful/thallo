@@ -108,6 +108,78 @@ final class RegionAdminApiTest extends AppTestCase
         self::assertSame(['mini-cart'], array_column($saved['blocks'], 'type'));
     }
 
+    public function testWishlistLinkIsInBothPalettesAndSavesIntoTheHeader(): void
+    {
+        // Storefront-v1 Task 8 (spec §5): the wishlist link is placeable in the chrome exactly
+        // like the mini cart — app-side palette policy, commerce-provisioned block TYPE.
+        $controller = $this->controller();
+        $repo = new BlockTypeRepository($this->connection());
+        if ($repo->findBySlug('wishlist-link') === null) {
+            $repo->create([
+                'slug' => 'wishlist-link',
+                'label' => 'Wishlist link',
+                'icon' => 'i-lucide-heart',
+                'category' => 'Commerce',
+                'description' => 'A link to the wishlist page with a live saved-item count.',
+                'schema' => [['name' => 'label', 'type' => 'string']],
+            ]);
+        }
+
+        $regions = json_decode((string) $controller->index()->getContent(), true)['data']['regions'];
+        self::assertContains('wishlist-link', $regions[0]['palette'], 'header palette offers the wishlist link');
+        self::assertContains('wishlist-link', $regions[1]['palette'], 'footer palette offers the wishlist link');
+
+        $resp = $controller->update($this->dto([
+            'blocks' => [
+                ['id' => 'apihdrwish01', 'type' => 'wishlist-link', 'data' => []],
+            ],
+            'settings' => [],
+        ]), 'header');
+        self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
+
+        $saved = (new RegionRepository($this->connection()))->find('header');
+        self::assertNotNull($saved);
+        self::assertSame(['wishlist-link'], array_column($saved['blocks'], 'type'));
+    }
+
+    public function testPreviewStripsNoScriptFallbacksTheFrameWouldOtherwiseShow(): void
+    {
+        // The SPA frames the preview with sandbox="allow-same-origin" and NO allow-scripts,
+        // so a browser inside it renders every <noscript> fallback — a stray "View cart"
+        // under the mini cart that no visitor ever sees on the real, scripted page. The
+        // preview must ship the shell state instead.
+        $controller = $this->controller();
+        $repo = new BlockTypeRepository($this->connection());
+        if ($repo->findBySlug('mini-cart') === null) {
+            $repo->create([
+                'slug' => 'mini-cart',
+                'label' => 'Mini cart',
+                'icon' => 'i-lucide-shopping-cart',
+                'category' => 'Commerce',
+                'description' => 'Live cart count with a drawer.',
+                'schema' => [],
+            ]);
+        }
+
+        $resp = $controller->preview($this->previewDto([
+            'regions' => [
+                'header' => [
+                    'blocks' => [['id' => 'prevhdrcart1', 'type' => 'mini-cart', 'data' => []]],
+                    'settings' => [],
+                ],
+            ],
+        ]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/v1/admin/regions/preview'));
+
+        self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
+        $html = json_decode((string) $resp->getContent(), true)['data']['html'];
+
+        self::assertStringContainsString('thallo-block-mini-cart', $html, 'the block itself still renders');
+        self::assertStringNotContainsString('<noscript', $html, 'no-JS fallbacks are stripped from the preview');
+        self::assertStringNotContainsString('__noscript', $html);
+        // The drawer's own "View cart" link survives — it is hidden by the shell, not stripped.
+        self::assertStringContainsString('data-shop-cart-drawer', $html);
+    }
+
     public function testOutOfPaletteBlockIs422WithDotPath(): void
     {
         try {

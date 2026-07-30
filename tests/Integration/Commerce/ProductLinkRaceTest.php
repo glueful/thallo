@@ -40,21 +40,40 @@ final class ProductLinkRaceTest extends AppTestCase
 
     private static int $seq = 0;
 
+    /**
+     * `entries.tenant_uuid` is added ONCE PER CLASS, not per test. Postgres never reclaims a
+     * dropped column's slot, so the old per-test ADD/DROP cycle permanently burned one of the
+     * table's 1600 slots on every single test — the shared app_test DB hit the ceiling and every
+     * suite touching `entries` died with "tables can have at most 1600 columns". The schema shape
+     * during the class is identical to before; only the churn is gone.
+     */
+    public static function setUpBeforeClass(): void
+    {
+        parent::setUpBeforeClass();
+        self::$app?->getContainer()->get(\Glueful\Database\Connection::class)->getPDO()->exec(
+            "ALTER TABLE entries ADD COLUMN IF NOT EXISTS tenant_uuid VARCHAR(191) NOT NULL DEFAULT ''"
+        );
+    }
+
+    public static function tearDownAfterClass(): void
+    {
+        self::$app?->getContainer()->get(\Glueful\Database\Connection::class)->getPDO()->exec(
+            'ALTER TABLE entries DROP COLUMN IF EXISTS tenant_uuid'
+        );
+        parent::tearDownAfterClass();
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
         $this->connection()->getPDO()->exec('DELETE FROM commerce_products');
         $this->container()->get(SystemFlags::class)->put('tenancy.schema_state', 'widened');
         $this->container()->get(SystemFlags::class)->put('tenancy.default_tenant_uuid', self::TENANT);
-        $this->connection()->getPDO()->exec(
-            "ALTER TABLE entries ADD COLUMN IF NOT EXISTS tenant_uuid VARCHAR(191) NOT NULL DEFAULT ''"
-        );
     }
 
     protected function tearDown(): void
     {
         $this->connection()->getPDO()->exec('DELETE FROM commerce_products');
-        $this->connection()->getPDO()->exec('ALTER TABLE entries DROP COLUMN IF EXISTS tenant_uuid');
         parent::tearDown();
     }
 

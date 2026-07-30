@@ -100,6 +100,7 @@ final class StorefrontInertnessTest extends AppTestCase
             self::assertSame(404, $hit('GET', '/shop'), 'shop index');
             self::assertSame(404, $hit('GET', '/shop/products/whatever'), 'product detail');
             self::assertSame(404, $hit('GET', '/shop/categories/whatever'), 'category archive');
+            self::assertSame(404, $hit('GET', '/shop/wishlist'), 'wishlist page');
 
             // Cart.
             self::assertSame(404, $hit('GET', '/cart'), 'cart page');
@@ -117,7 +118,8 @@ final class StorefrontInertnessTest extends AppTestCase
             self::assertSame(404, $hit('GET', '/checkout/cancel/whatever'), 'payment cancel');
             self::assertSame(404, $hit('GET', '/checkout/confirmation/whatever'), 'confirmation');
 
-            // `/_shop/*` block-data + fingerprinted assets.
+            // `/_shop/*` block-data + wishlist resolution + fingerprinted assets.
+            self::assertSame(404, $hit('GET', '/_shop/wishlist/items'), 'wishlist items endpoint');
             self::assertSame(404, $hit('GET', '/_shop/blocks/product-grid'), 'product-grid block data');
             self::assertSame(404, $hit('GET', '/_shop/blocks/featured-product'), 'featured-product block data');
             self::assertSame(404, $hit('GET', '/_shop/blocks/add-to-cart'), 'add-to-cart block data');
@@ -129,11 +131,11 @@ final class StorefrontInertnessTest extends AppTestCase
     }
 
     // ==================================================================
-    // capability disabled: the 4 shop blocks are absent from the ACTUAL
+    // capability disabled: the 5 shop blocks are absent from the ACTUAL
     // starter block-type provisioning surface (BlockTypeKind::definitions())
     // ==================================================================
 
-    public function testCapabilityDisabledMeansTheFourShopBlocksAreAbsentFromBlockTypeKindDefinitions(): void
+    public function testCapabilityDisabledMeansTheFiveShopBlocksAreAbsentFromBlockTypeKindDefinitions(): void
     {
         $this->flags()->forget('tenancy.schema_state');
         $this->flags()->forget('tenancy.default_tenant_uuid');
@@ -155,6 +157,9 @@ final class StorefrontInertnessTest extends AppTestCase
                     ShopBlockTypesContributor::SLUG_FEATURED_PRODUCT,
                     ShopBlockTypesContributor::SLUG_ADD_TO_CART,
                     ShopBlockTypesContributor::SLUG_MINI_CART,
+                    // Storefront-v1 Task 8: the wishlist link is capability-gated exactly like
+                    // its four siblings — a disabled capability contributes NO shop block type.
+                    ShopBlockTypesContributor::SLUG_WISHLIST_LINK,
                 ] as $shopSlug
             ) {
                 self::assertNotContains(
@@ -218,6 +223,7 @@ final class StorefrontInertnessTest extends AppTestCase
                     'blocks/product-grid.twig',
                     'blocks/featured-product.twig',
                     'blocks/add-to-cart.twig',
+                    'blocks/wishlist-link.twig',
                     'shop/index.twig',
                 ] as $template
             ) {
@@ -278,6 +284,59 @@ final class StorefrontInertnessTest extends AppTestCase
             self::assertTrue(
                 $reEnv->getLoader()->exists('blocks/mini-cart.twig'),
                 're-enable restores shop templates without migration or resync',
+            );
+        } finally {
+            self::resetSharedRepositoryConnection();
+        }
+    }
+
+    public function testRegionUpdatePurgesTheShopPageCacheNotJustTheRenderCache(): void
+    {
+        // Header/footer chrome renders on shop pages, but those are held in the SHOP cache.
+        // RegionUpdated used to have ONE subscriber (the render-cache purge), so removing a
+        // header block cleared it everywhere EXCEPT /shop & friends, which kept serving stale
+        // chrome until their TTL lapsed.
+        $cache = $this->container()->get(\Glueful\Cache\CacheStore::class);
+        $key = 'shopcachepurgeprobe';
+        $cache->set($key, 'stale-chrome');
+        $cache->addTags($key, ['thallo:shop:catalog']);
+        self::assertSame('stale-chrome', $cache->get($key), 'probe seeded under the shop tag');
+
+        $this->container()->get(\Glueful\Events\EventService::class)
+            ->dispatch(new \Thallo\Contracts\Content\RegionUpdated('header'));
+
+        self::assertNull($cache->get($key), 'a region save must purge the shop page cache too');
+    }
+
+    public function testThemeHeadCarriesTheFingerprintedStorefrontStylesheetOnlyWhileEnabled(): void
+    {
+        // Blocks can only emit their stylesheet link inside the BODY, and that link is the
+        // uncacheable alias that 302s — so the header's cart/wishlist chrome painted unstyled
+        // and restyled on EVERY navigation. The theme links the fingerprinted file from
+        // <head> instead; with the capability off it must emit nothing at all (a <link> to a
+        // 404 on every page would be worse than no styling).
+        $html = (string) $this->handle(Request::create('/shop', 'GET'))->getContent();
+        $head = substr($html, 0, strpos($html, '</head>') ?: 0);
+
+        self::assertMatchesRegularExpression(
+            '#<link rel="stylesheet" href="/_shop/assets/shop-[0-9a-f]+\.css">#',
+            $head,
+            'the head carries the FINGERPRINTED stylesheet (never the 302 alias)',
+        );
+        self::assertStringNotContainsString('/_shop/assets/shop.css', $head, 'never the alias in head');
+
+        $this->flags()->forget('tenancy.schema_state');
+        $this->flags()->forget('tenancy.default_tenant_uuid');
+        $disabledApp = self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.commerce' => false],
+        ]);
+        try {
+            $resolver = $disabledApp->getContainer()->get(
+                \Thallo\Contracts\Delivery\StorefrontLinkResolver::class,
+            );
+            self::assertNull(
+                $resolver->stylesheetUrl(),
+                'capability off → no stylesheet URL, so the theme head emits no link',
             );
         } finally {
             self::resetSharedRepositoryConnection();

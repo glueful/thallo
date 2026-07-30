@@ -4,26 +4,30 @@
   <link rel="canonical" href="{{ canonical }}">
   {# Baseline shop styling (same fingerprinted asset the product page loads). #}
   <link rel="stylesheet" href="/_shop/assets/shop.css">
-  <section class="shop-index">
-    <h1>Shop</h1>
+  {# data-shop-scope (storefront-v1 spec §5): the opaque wishlist storage scope shop.js's
+     wishlist store reads — the attribute is OMITTED entirely (never empty) when the seam
+     answers null (commerce off / seam unbound), so wishlist enhancement simply stays off. #}
+  {% set wishlist_scope = shop_wishlist_scope() %}
+  <section class="shop-index"{% if wishlist_scope %} data-shop-scope="{{ wishlist_scope }}"{% endif %}>
+    <div class="shop-titlerow">
+      <h1>Shop</h1>
+      {# Muted count beside the heading (approved artifact). #}
+      <span class="shop-titlerow__count">{{ grid.total }} product{{ grid.total == 1 ? '' : 's' }}</span>
+    </div>
+    {# Category chip rail (spec §2): "All" (active here) + one chip per category; zero
+       categories → no rail at all. Every href comes from ShopUrlGenerator via the
+       controller's closed {name, url, active} projection. #}
+    {% if categories %}
+      <nav class="shop-rail" aria-label="Categories">
+        <a class="shop-rail__chip shop-rail__chip--active" aria-current="page" href="{{ shop_index }}">All</a>
+        {% for chip in categories %}
+          <a class="shop-rail__chip" href="{{ chip.url }}">{{ chip.name }}</a>
+        {% endfor %}
+      </nav>
+    {% endif %}
     <ul class="shop-grid">
       {% for product in grid.items %}
-        <li class="shop-grid__item">
-          <a href="{{ product.url }}">
-            {% if product.coverUrl %}
-              <img class="shop-grid__image" src="{{ product.coverUrl }}" alt="{{ product.name }}" loading="lazy">
-            {% else %}
-              <span class="shop-grid__image shop-grid__image--empty" aria-hidden="true"></span>
-            {% endif %}
-            <span class="shop-grid__name">{{ product.name }}</span>
-            {% if product.priceFormatted %}
-              <span class="shop-grid__price">
-                {{ product.priceFormatted }}
-                {% if product.compareAtFormatted %}<s>{{ product.compareAtFormatted }}</s>{% endif %}
-              </span>
-            {% endif %}
-          </a>
-        </li>
+        {% include 'shop/_product_card.twig' %}
       {% else %}
         <li class="empty">No products yet.</li>
       {% endfor %}

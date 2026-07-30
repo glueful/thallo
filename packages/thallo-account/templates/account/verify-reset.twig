@@ -1,0 +1,18 @@
+{% extends 'account/layout.twig' %}
+{% block account_heading %}Enter your reset code{% endblock %}
+{% block account %}
+  <p class="account__notice">
+    If an account exists for your email, we sent a reset code. Enter your email and the code to continue.
+  </p>
+  <form method="post" action="/account/verify-reset" class="account__form">
+    <label class="account__field">
+      <span>Email</span>
+      <input type="email" name="email" value="{{ email|default('') }}" autocomplete="email" required>
+    </label>
+    <label class="account__field">
+      <span>Reset code</span>
+      <input type="text" name="otp" inputmode="numeric" autocomplete="one-time-code" required>
+    </label>
+    <button type="submit" class="account__submit">Continue</button>
+  </form>
+{% endblock %}

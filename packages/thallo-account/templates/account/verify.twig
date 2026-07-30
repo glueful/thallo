@@ -1,0 +1,17 @@
+{% extends 'account/layout.twig' %}
+{% block account_heading %}Enter your code{% endblock %}
+{% block account %}
+  <p class="account__notice">
+    We sent a verification code to your email. Enter it below to finish creating your account.
+  </p>
+  <form method="post" action="/account/verify/{{ intent_uuid }}" class="account__form">
+    <label class="account__field">
+      <span>Verification code</span>
+      <input type="text" name="otp" inputmode="numeric" autocomplete="one-time-code" required>
+    </label>
+    <button type="submit" class="account__submit">Verify</button>
+  </form>
+  <form method="post" action="/account/resend" class="account__resend">
+    <button type="submit" class="account__link-button">Resend code</button>
+  </form>
+{% endblock %}

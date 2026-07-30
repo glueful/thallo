@@ -51,6 +51,9 @@ use Thallo\Commerce\Http\Shop\ShopCartController;
 use Thallo\Commerce\Http\Shop\ShopCatalogController;
 use Thallo\Commerce\Http\Shop\ShopCheckoutController;
 use Thallo\Commerce\Http\Shop\ShopCsrfGuard;
+use Thallo\Commerce\Http\Shop\ShopPageRenderer;
+use Thallo\Commerce\Http\Shop\ShopProductCardAssembler;
+use Thallo\Commerce\Http\Shop\ShopWishlistController;
 use Thallo\Commerce\Listeners\EntryDeletedListener;
 use Thallo\Commerce\Listeners\ProductDeletedListener;
 use Thallo\Commerce\Purge\CommercePurgeHandler;
@@ -61,6 +64,7 @@ use Thallo\Commerce\Shop\ShopAssetMap;
 use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnAppearanceChange;
 use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnCatalogChange;
 use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnLinkChange;
+use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnRegionUpdate;
 use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnSlugChange;
 use Thallo\Commerce\Shop\Listeners\PurgeShopCacheOnThemeChange;
 use Thallo\Commerce\Shop\PackCheckoutAttemptAuthority;
@@ -69,14 +73,17 @@ use Thallo\Commerce\Shop\ShopFrameEmbedding;
 use Thallo\Commerce\Shop\ShopPageCache;
 use Thallo\Commerce\Shop\ShopStorefrontLinkResolver;
 use Thallo\Commerce\Shop\ShopUrlGenerator;
+use Thallo\Commerce\Shop\ShopWishlistSurface;
 use Thallo\Commerce\Shop\StorefrontPreviewUrlBuilder;
 use Thallo\Commerce\Starter\ProductStoryContributor;
 use Thallo\Commerce\Starter\ShopBlockTypesContributor;
 use Thallo\Commerce\Tenancy\ThalloCommerceTenantResolution;
 use Thallo\Contracts\Capability\Capability;
 use Thallo\Contracts\Capability\CapabilityRegistry;
+use Thallo\Contracts\Content\RegionUpdated;
 use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
 use Thallo\Contracts\Delivery\StorefrontLinkResolver;
+use Thallo\Contracts\Delivery\StorefrontWishlistResolver;
 use Thallo\Contracts\Events\ContentLifecycleEvent;
 use Thallo\Contracts\Settings\ThemeAppearanceChanged;
 use Thallo\Contracts\Settings\ThemeChanged;
@@ -282,8 +289,38 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
                 'factory' => [self::class, 'makeStorefrontLinkResolver'],
                 'shared'  => true,
             ],
+            // Storefront-v1 Task 4 (spec §5): the wishlist seam thallo-render's
+            // RenderContextExtension consumes (`shop_wishlist_scope()`/`shop_wishlist_url()`).
+            // Bound unconditionally like StorefrontLinkResolver immediately above — compiled
+            // services can't be capability-conditional — but UNLIKE that pure adapter, the
+            // implementation itself re-checks `thallo.commerce` on every call and answers null
+            // while it's off (the SettingsStoreCommerceOverride gate-at-use-time posture).
+            StorefrontWishlistResolver::class => [
+                'factory' => [self::class, 'makeStorefrontWishlistResolver'],
+                'shared'  => true,
+            ],
+            // Storefront-v1 Task 7: the shared shop-page render seam (ShopCatalogController's
+            // old private render(), extracted verbatim) and the shared batched card pipeline
+            // (its old buildGrid() body) — both consumed by ShopCatalogController AND
+            // ShopWishlistController so pages and cards can never drift between the two.
+            ShopPageRenderer::class => [
+                'class'    => ShopPageRenderer::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            ShopProductCardAssembler::class => [
+                'class'    => ShopProductCardAssembler::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
             ShopCatalogController::class => [
                 'class'    => ShopCatalogController::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            // Storefront-v1 Task 7: the wishlist page shell + bounded resolution endpoint.
+            ShopWishlistController::class => [
+                'class'    => ShopWishlistController::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
@@ -349,6 +386,10 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
             ],
             PurgeShopCacheOnLinkChange::class => [
                 'factory' => [self::class, 'makePurgeShopCacheOnLinkChange'],
+                'shared'  => true,
+            ],
+            PurgeShopCacheOnRegionUpdate::class => [
+                'factory' => [self::class, 'makePurgeShopCacheOnRegionUpdate'],
                 'shared'  => true,
             ],
             PurgeShopCacheOnThemeChange::class => [
@@ -452,7 +493,29 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
     /** Commerce-Slice-2 Fix A: a thin {@see ShopUrlGenerator} adapter — see the class docblock. */
     public static function makeStorefrontLinkResolver(ContainerInterface $container): ShopStorefrontLinkResolver
     {
-        return new ShopStorefrontLinkResolver($container->get(ShopUrlGenerator::class));
+        return new ShopStorefrontLinkResolver(
+            $container->get(ShopUrlGenerator::class),
+            static fn (): bool => $container->has(CapabilityRegistry::class)
+                && $container->get(CapabilityRegistry::class)->isEnabled('thallo.commerce'),
+        );
+    }
+
+    /**
+     * Storefront-v1 Task 4 (spec §5): tenant resolution goes through the SAME shared
+     * {@see CommerceTenantResolution} seam Commerce itself consumes (resolved live per call
+     * inside the surface — see its docblock), and the capability closure re-reads
+     * {@see CapabilityRegistry} on every invocation so a flip is honored immediately, with the
+     * `has()` guard keeping pre-registry boots (CLI, partial harnesses) fail-closed to "off".
+     */
+    public static function makeStorefrontWishlistResolver(ContainerInterface $container): ShopWishlistSurface
+    {
+        return new ShopWishlistSurface(
+            $container->get(ApplicationContext::class),
+            $container->get(ShopUrlGenerator::class),
+            $container->get(CommerceTenantResolution::class),
+            static fn (): bool => $container->has(CapabilityRegistry::class)
+                && $container->get(CapabilityRegistry::class)->isEnabled('thallo.commerce'),
+        );
     }
 
     /**
@@ -588,6 +651,12 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
     public static function makePurgeShopCacheOnLinkChange(ContainerInterface $container): PurgeShopCacheOnLinkChange
     {
         return new PurgeShopCacheOnLinkChange($container);
+    }
+
+    public static function makePurgeShopCacheOnRegionUpdate(
+        ContainerInterface $container,
+    ): PurgeShopCacheOnRegionUpdate {
+        return new PurgeShopCacheOnRegionUpdate($container);
     }
 
     public static function makePurgeShopCacheOnThemeChange(
@@ -893,6 +962,12 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
         $events->addListener(ProductLinkChanged::class, [
             app($context, PurgeShopCacheOnLinkChange::class),
             'onLinkChanged',
+        ]);
+        // Header/footer chrome renders on shop pages too, but those live in the SHOP cache —
+        // without this the render-cache purge alone left stale chrome on /shop & friends.
+        $events->addListener(RegionUpdated::class, [
+            app($context, PurgeShopCacheOnRegionUpdate::class),
+            'onRegionUpdated',
         ]);
         $events->addListener(ThemeChanged::class, [
             app($context, PurgeShopCacheOnThemeChange::class),

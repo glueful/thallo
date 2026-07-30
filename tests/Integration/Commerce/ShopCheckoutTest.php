@@ -43,6 +43,7 @@ use Thallo\Commerce\Http\Shop\GuestOrderCookie;
 use Thallo\Commerce\Http\Shop\ShopCheckoutController;
 use Thallo\Commerce\Shop\ShopUrlGenerator;
 use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
+use Thallo\Contracts\Delivery\StorefrontWishlistResolver;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\TwigFactory;
 use Thallo\Tenancy\System\SystemFlags;
@@ -132,6 +133,50 @@ final class ShopCheckoutTest extends AppTestCase
         self::assertSame(200, $confirm->getStatusCode());
         self::assertStringContainsString('Payment pending', (string) $confirm->getContent());
         $this->assertNoStore($confirm);
+    }
+
+    // ==================================================================
+    // storefront-v1 Task 6 (spec §5): EVERY shop page root emits the scope
+    // ==================================================================
+
+    public function testCheckoutAndConfirmationPageRootsCarryTheWishlistScope(): void
+    {
+        $scope = $this->container()->get(StorefrontWishlistResolver::class)->storageScope();
+        self::assertNotNull($scope, 'precondition: the wishlist seam must answer a scope in this suite');
+
+        $variant = $this->seedVariant();
+        $cartToken = $this->addToCart($variant);
+
+        $checkoutPage = $this->handle(Request::create('/checkout', 'GET', [], [CartCookie::NAME => $cartToken]));
+        self::assertSame(200, $checkoutPage->getStatusCode());
+        self::assertStringContainsString(
+            'data-shop-scope="' . $scope . '"',
+            (string) $checkoutPage->getContent(),
+            'the checkout page root must carry the opaque wishlist scope',
+        );
+
+        $place = $this->place($cartToken, [
+            'idempotency_key' => 'scope-key-1',
+            'email' => 'scope-buyer@example.com',
+            'addresses' => ['shipping' => ['country' => 'US']],
+        ]);
+        self::assertSame(200, $place->getStatusCode(), (string) $place->getContent());
+        $order = $this->orderByEmail('scope-buyer@example.com');
+        $cookie = $this->cookieValueFrom($place, GuestOrderCookie::NAME);
+        self::assertNotNull($cookie);
+
+        $confirm = $this->handle(Request::create(
+            '/checkout/confirmation/' . $order['order_number'],
+            'GET',
+            [],
+            [GuestOrderCookie::NAME => $cookie],
+        ));
+        self::assertSame(200, $confirm->getStatusCode());
+        self::assertStringContainsString(
+            'data-shop-scope="' . $scope . '"',
+            (string) $confirm->getContent(),
+            'the confirmation page root must carry the opaque wishlist scope',
+        );
     }
 
     // ==================================================================

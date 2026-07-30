@@ -98,6 +98,7 @@ use App\Http\Controllers\TenantHostCooldownController;
 use App\Http\Controllers\TenantRolesController;
 use App\Http\Controllers\SignupController;
 use App\Signup\ContinuationTokens;
+use App\Signup\CustomerSignupService;
 use App\Signup\DefaultSignupDiagnostics;
 use App\Signup\MemberSignupService;
 use App\Signup\NullSignupChallenge;
@@ -107,6 +108,7 @@ use App\Signup\SignupConfig;
 use App\Signup\SignupCoordinator;
 use App\Signup\SignupIntentRepository;
 use App\Signup\SignupMailSender;
+use App\Signup\VerifiedAccountActivator;
 use App\Signup\SignupRolePolicy;
 use App\Signup\SignupTelemetry;
 use App\Signup\SignupThrottle;
@@ -234,6 +236,7 @@ use Thallo\Contracts\Authoring\PublishGate;
 use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
 use Thallo\Contracts\Delivery\EntryTargetResolver;
 use Thallo\Contracts\Delivery\HomepageEntryProvider;
+use Thallo\Contracts\Delivery\MediaUrlBatchResolver;
 use Thallo\Contracts\Delivery\MediaUrlResolver;
 use Thallo\Contracts\Delivery\MediaVariantUrlResolver;
 use Thallo\Contracts\Delivery\SeoHeadResolver;
@@ -326,7 +329,32 @@ final class ThalloServiceProvider extends ServiceProvider
             self::consoleCommandServices(),
             self::formServices(),
             self::signupServices(),
+            self::accountServices(),
         );
+    }
+
+    /**
+     * Storefront account contracts, implemented by the app over the signup pipeline and the users
+     * extension. The account PACK consumes only these interfaces, never `App\Signup`.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function accountServices(): array
+    {
+        $bind = static fn (string $impl): array => [
+            'class' => $impl,
+            'shared' => true,
+            'autowire' => true,
+        ];
+
+        return [
+            \Thallo\Contracts\Account\StorefrontAccountRegistration::class =>
+                $bind(\App\Account\AppStorefrontAccountRegistration::class),
+            \Thallo\Contracts\Account\StorefrontAccountRecovery::class =>
+                $bind(\App\Account\AppStorefrontAccountRecovery::class),
+            \Thallo\Contracts\Account\AccountNavigationRegistry::class =>
+                $bind(\App\Account\InMemoryAccountNavigationRegistry::class),
+        ];
     }
 
     /** @return array<string, array<string, mixed>> */
@@ -347,7 +375,9 @@ final class ThalloServiceProvider extends ServiceProvider
             SignupVerifier::class => $autowired(SignupVerifier::class),
             ContinuationTokens::class => $autowired(ContinuationTokens::class),
             SignupThrottle::class => $autowired(SignupThrottle::class),
+            VerifiedAccountActivator::class => $autowired(VerifiedAccountActivator::class),
             MemberSignupService::class => $autowired(MemberSignupService::class),
+            CustomerSignupService::class => $autowired(CustomerSignupService::class),
             WorkspaceSignupService::class => $autowired(WorkspaceSignupService::class),
             SignupCoordinator::class => $autowired(SignupCoordinator::class),
             SignupController::class => $autowired(SignupController::class),
@@ -1060,6 +1090,12 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'factory' => [self::class, 'makeMediaUrlResolver'],
             ],
+            // One object, two interfaces: the batch seam IS the single-url
+            // resolver, so the servability predicate cannot drift between them.
+            MediaUrlBatchResolver::class => [
+                'shared' => true,
+                'factory' => [self::class, 'makeMediaUrlBatchResolver'],
+            ],
             MediaVariantUrlResolver::class => [
                 'shared' => true,
                 'factory' => [self::class, 'makeMediaVariantUrlResolver'],
@@ -1183,6 +1219,12 @@ final class ThalloServiceProvider extends ServiceProvider
             (bool) config($context, 'uploads.enabled', true),
             config($context, 'uploads.access', 'private'),
         );
+    }
+
+    /** The batch interface resolves to the SHARED MediaUrlResolver instance. */
+    public static function makeMediaUrlBatchResolver(ContainerInterface $container): EngineMediaUrlResolver
+    {
+        return $container->get(MediaUrlResolver::class);
     }
 
     public static function makeMediaVariantUrlResolver(ContainerInterface $container): EngineMediaVariantUrlResolver

@@ -53,6 +53,38 @@ abstract class AppTestCase extends TestCase
         if (self::$app === null) {
             self::$app = TestApplication::instance()->getContext();
         }
+
+        // Self-heal the process-shared RBAC provider (2026-07-28). PermissionManager holds the
+        // active provider in a STATIC, and Aegis registers it exactly once — during the single
+        // shared boot above. Several things legitimately clear that static mid-run: the
+        // framework's own Glueful\Testing\TestCase::tearDown() (which the Feature suite
+        // inherits), a secondary boot, and PreviewFlowTest's deliberate drop. Left null, EVERY
+        // later permission check default-denies — surfacing as a cascade of confusing
+        // "expected true, got false" failures and, far worse, letting a test that asserts
+        // DENIAL pass for entirely the wrong reason. Order-dependence was proven, not guessed:
+        // `phpunit tests/Feature tests/Integration/Http` failed 10 RBAC assertions while the
+        // reverse order passed, and the full suite only survived because an unrelated
+        // secondary-boot test happened to re-register the provider first.
+        self::restoreSharedPermissionProviderIfCleared();
+    }
+
+    /**
+     * Re-register the shared boot's RBAC provider when the process-static has been cleared.
+     * No-op when a provider is already active (never re-initializes a healthy one).
+     */
+    private static function restoreSharedPermissionProviderIfCleared(): void
+    {
+        if (self::$app === null) {
+            return;
+        }
+        $container = self::$app->getContainer();
+        if (!$container->has('permission.manager')) {
+            return;
+        }
+        if ($container->get('permission.manager')->getProvider() !== null) {
+            return;
+        }
+        self::restoreSharedPermissionProvider();
     }
 
     /** Verified once per process: are the tables actually migrated? */

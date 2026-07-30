@@ -10,6 +10,47 @@ use Glueful\Validation\ValidationException;
 
 final class SignupInput
 {
+    /**
+     * Storefront customer registration input.
+     *
+     * `anonymous()` cannot be reused: it validates a `UsernameDTO`, and a shopper never supplies
+     * a username. `customer()` validates exactly what the storefront form collects — email,
+     * password, and first/last name — so registration input still passes through one validator
+     * rather than ad-hoc string handling in the service. The username is derived from the email
+     * downstream; it is never a form field.
+     *
+     * @param array<string,mixed> $input {email, password, first_name, last_name}
+     * @return array{email:string,password:string,first_name:string,last_name:string}
+     */
+    public static function customer(array $input): array
+    {
+        $errors = [];
+        try {
+            $email = strtolower(EmailDTO::from(['email' => $input['email'] ?? ''])->email);
+        } catch (ValidationException) {
+            $email = '';
+            $errors['email'] = 'Enter a valid email address.';
+        }
+        $password = is_string($input['password'] ?? null) ? $input['password'] : '';
+        if (strlen($password) < 8) {
+            $errors['password'] = 'Password must contain at least 8 characters.';
+        }
+        // First and last name are separate fields, each run through the same name() helper the
+        // member form uses, so one validator owns the shape.
+        $first = self::name($input['first_name'] ?? null, 'first_name', $errors);
+        $last = self::name($input['last_name'] ?? null, 'last_name', $errors);
+        if ($errors !== []) {
+            throw new SignupException('Signup details are invalid.', 422, $errors);
+        }
+
+        return [
+            'email' => $email,
+            'password' => $password,
+            'first_name' => $first,
+            'last_name' => $last,
+        ];
+    }
+
     /** @param array<string,mixed> $input @return array<string,string> */
     public static function anonymous(array $input): array
     {

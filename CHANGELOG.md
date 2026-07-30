@@ -7,6 +7,51 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Storefront customer accounts** (`packages/thallo-account`, gated by the `thallo.accounts`
+  capability; requires glueful/framework ^1.74.0): a shopping visitor gets a global Glueful
+  identity and **zero workspace authority** — no membership, role, or permission. The guarantee is
+  structural, not a rule: the customer activation path has no branch that can reach `addMember()`,
+  and a test asserts the authority tables stay empty after a shopper activates. Registration
+  collects first name, last name, email and password, with the **email as the username** (framework
+  1.74.0's widened username validation is what allows it — changing the username later is a named
+  follow-up, not a shipped feature). The themed `/account/*` pages cover register → mailed one-time-
+  code verification → activation, sign in over an HttpOnly session cookie (through the framework's
+  `LoginOrchestrator`, so the two-factor gate is un-bypassable and login fails closed on a
+  challenge), the signed-in account page, password recovery, and sign out. Registration and recovery
+  are neutrality-preserving: the contracts (`RegistrationResult` / `RecoveryResult` /
+  `RecoveryVerification`) cannot express "unknown email" or "delivery failed", and the app glue
+  collapses every outcome, so a storefront can never become an account-existence oracle. Under the
+  hood the shared signup pipeline is refactored around a `VerifiedAccountActivator` primitive that
+  both member and customer signup reach through, and `SignupCoordinator` now dispatches on intent
+  kind explicitly (member / customer / workspace) instead of a binary ternary that silently routed
+  unknown kinds to workspace provisioning. Anonymous account POSTs are protected by same-origin
+  provenance plus a rate limit, cookie-authenticated mutations by a session-bound CSRF token — a
+  route-inventory test enforces that matrix as a gate. Enabling this needs the HttpOnly
+  session-cookie transport, which Thallo now turns **on by default** (`SESSION_COOKIE_ENABLED`;
+  disable to opt out) — the cookie stays opt-in per route and leaves bearer API auth unchanged.
+- **Storefront v1 — Concept A** (`packages/thallo-commerce` + delivery seams; requires
+  glueful/commerce 1.8.0's batched catalog reads): the shop and category pages gain a
+  category chip rail, per-card category tags, and hover-revealed cart/wishlist actions —
+  the cart button is a real PRG form for single-variant products with no required add-ons
+  (AddToCartViewModel stays the sole purchasability authority) and a view-options link
+  otherwise. The product page gains a quantity stepper with an exponent-aware
+  price-in-button label (0/2/3-decimal currencies; server label untouched on any doubt), a
+  wishlist heart, and a first-category breadcrumb. **Wishlist v1 is device-local**:
+  tenant-scoped opaque localStorage (UUIDs only, bounded 100, newest first), a bounded
+  ordered resolution endpoint (`private, no-store`; error responses can never wipe the
+  saved set), a progressively hydrated `/shop/wishlist` page, and a `wishlist-link` block
+  placeable in headers/footers/bodies — all fail-closed without JavaScript or storage, and
+  fully inert while `thallo.commerce` is off. An account-backed wishlist is the named
+  follow-up; card lists everywhere now build through one batched projection
+  (constant query count regardless of product count).
+- **Figtree is the default theme's typeface** (self-hosted, SIL OFL): variable roman +
+  italic latin subsets with reproducible provenance (upstream tag, checksums, exact
+  subsetting command committed), loaded via a new existence-aware `font_faces_style()`
+  Twig helper — preload and `@font-face` share one byte-identical URL, custom themes
+  without the files fall through to the system stack untouched, and a metric-matched
+  Arial fallback eliminates swap reflow. Shop pages inherit the theme face (their own
+  font-family overrides removed). Fonts carry their own 128KB payload budget test,
+  separate from the runtime's.
 - **Storefront performance & listing polish** (`packages/thallo-render` + delivery seam):
   responsive images behind a new optional `MediaVariantUrlResolver` render contract (the
   Thallo app always binds its MIME-aware implementation while candidate generation stays
@@ -27,6 +72,15 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   templates now link the stylesheet (same fingerprinted asset pipeline as shop.js).
   Styles are theme-neutral: blocks inherit the surrounding theme's font and colors,
   accent via the existing `--shop-accent` custom property.
+- **Shop grid product cards**: the shop index and category grids share a new
+  `shop/_product_card.twig` partial with a modern borderless card treatment — soft
+  square image panel, bold name linking to the product detail page, star rating (only
+  when reviews exist), and a prominent price row with struck compare-at.
+- **Mini-cart icon toggle**: the mini-cart trigger is now the standard storefront
+  pattern — a shopping-cart icon button (commerce-owned inline SVG, `currentColor`) with
+  the live count as a corner badge, keeping an `sr-only` "Cart" label for screen readers.
+  The badge hides while the cart is empty (the shell ships it hidden; the cart paint
+  reveals it only when items exist — no "0" badge before or after hydration).
 - **Mini-cart drawer disclosure**: the mini-cart toggle's `aria-expanded` wiring is now
   real — shop.js binds the toggle (click opens/closes, Escape closes and refocuses,
   clicking outside closes), and shop.css keys the dropdown panel's visibility off the
@@ -1031,6 +1085,12 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   in-repo before this change).
 
 ### Fixed
+- The `/cart` page now re-renders after a successful cart mutation. Its rows, per-line
+  forms, totals and empty-state are server-rendered, but the mutation response only fed
+  the mini-cart regions — so a removed line stayed on screen until the visitor refreshed
+  by hand. shop.js now reloads when the cart page is the one displaying that state
+  (`data-shop-cart-page`), landing on exactly what the no-JS PRG redirect reaches, for the
+  same two round trips; add-to-cart elsewhere still never discards the page being read.
 - Test harness: dedicated in-process boots now reset the provider route-file latch
   (`ServiceProvider::resetLoadedRoutes()`) alongside the existing `RouteManifest` reset,
   so a second boot no longer silently loses every pack route another boot loaded first.

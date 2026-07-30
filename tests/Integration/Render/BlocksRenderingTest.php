@@ -161,20 +161,27 @@ final class BlocksRenderingTest extends AppTestCase
         self::assertContains('site_favicon', TemplatePolicy::FUNCTIONS);
         self::assertContains('custom_css', TemplatePolicy::FUNCTIONS);
         self::assertContains('form_render', TemplatePolicy::FUNCTIONS);
-        // 13 = seo_head joined the function allowlist (seo-head spec §3)
-        self::assertSame(13, TemplatePolicy::CACHE_VERSION);
+        self::assertContains('font_faces_style', TemplatePolicy::FUNCTIONS);
+        self::assertContains('shop_wishlist_scope', TemplatePolicy::FUNCTIONS);
+        self::assertContains('shop_wishlist_url', TemplatePolicy::FUNCTIONS);
+        self::assertContains('shop_styles_url', TemplatePolicy::FUNCTIONS);
+        // 16 = shop_styles_url joined the allowlist (the theme's head storefront stylesheet)
+        self::assertSame(16, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);
         self::assertSame([], $linter->lint('{{ blocks(entry.fields.body) }}'));
         self::assertSame([], $linter->lint('{{ media(data.image) }}'));
         self::assertSame([], $linter->lint('{{ site_logo() }}'));
+        self::assertSame([], $linter->lint('{{ shop_styles_url() }}'));
         self::assertSame([], $linter->lint('{{ icon(data.icon) ?? data.icon }}'));
         self::assertSame([], $linter->lint('{{ region_blocks(\'header\') }}'));
         self::assertSame([], $linter->lint("{{ region_settings('header').width|default('contained') }}"));
         self::assertSame([], $linter->lint('{{ site_favicon() }}'));
         self::assertSame([], $linter->lint('{{ custom_css() }}'));
         self::assertSame([], $linter->lint('{% set f = form_render(block) %}{{ f.token|default }}'));
+        self::assertSame([], $linter->lint("{{ font_faces_style('X', 'fonts/x.woff2') }}"));
+        self::assertSame([], $linter->lint('{{ shop_wishlist_url() }}{{ shop_wishlist_scope() }}'));
     }
 
     public function testSafeHtmlSanitizesAndFailsClosed(): void

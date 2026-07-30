@@ -21,6 +21,7 @@ return [
         'App\\Providers\\ThalloServiceProvider',
         // Thallo modules — pre-conversion relative order preserved (Search, previously
         // disabled-by-absence, slots alphabetically; its capability default is OFF).
+        'Thallo\\Account\\AccountServiceProvider',
         'Thallo\\Analytics\\AnalyticsServiceProvider',
         'Thallo\\Collections\\CollectionsServiceProvider',
         'Thallo\\Commerce\\CommerceIntegrationServiceProvider',
