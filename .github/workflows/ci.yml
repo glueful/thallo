@@ -16,6 +16,7 @@ env:
     tests/Integration/Search
   INTEGRATION_SHARD_B: >-
     tests/Integration/Tenancy
+    tests/Integration/Account
     tests/Integration/Analytics
     tests/Integration/Authority
     tests/Integration/Capabilities
