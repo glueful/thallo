@@ -19,6 +19,7 @@ use Thallo\Account\Http\AccountAuthController;
 use Thallo\Account\Http\AccountPageController;
 use Thallo\Account\Http\AccountPageRenderer;
 use Thallo\Account\Http\AccountSessionController;
+use Thallo\Account\Http\AccountSettingsController;
 use Thallo\Account\Http\Middleware\AccountSameOriginMiddleware;
 use Thallo\Contracts\Capability\Capability;
 use Thallo\Contracts\Capability\CapabilityRegistry;
@@ -75,6 +76,11 @@ final class AccountServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            AccountSettingsController::class => [
+                'class' => AccountSettingsController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             // Built from the pack's own assets/ dir — a cheap, side-effect-free scan, so it is bound
             // unconditionally (harmless while the capability is off, when no route reaches it).
             AccountAssetMap::class => [
@@ -128,6 +134,9 @@ final class AccountServiceProvider extends ServiceProvider
         }
 
         $this->loadRoutesFrom(__DIR__ . '/../routes.php');
+        // The admin API for account settings — same capability gate as the public routes, so it is
+        // absent (404) when thallo.accounts is off.
+        $this->loadRoutesFrom(__DIR__ . '/../routes/admin-routes.php');
 
         // Without this the routes exist and every render throws a Twig loader error — the pack would
         // look wired and 500 on first request. Soft-guarded: thallo-render may be absent.
