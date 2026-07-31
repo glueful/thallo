@@ -68,6 +68,26 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   `validatePagePath()`; the richer `validate()` contract for `next` is unchanged. Commerce adopts
   the page-inventory concept: **Commerce → Settings → Store** now lists the default store pages
   (Shop, Wishlist, Cart, Checkout) with paths computed from the live shop prefix.
+- **Checkout page + hosted payment initiation** (`packages/thallo-commerce` + payvia/commerce
+  seams; requires unreleased glueful/payvia > 2.2.0 and glueful/commerce > 1.8.0 — repin at
+  release): `/checkout` becomes a real checkout. A no-JS-first quote leg (a non-mutating POST
+  renders totals, shipping-method radios, and field errors directly — no PRG, nothing is
+  session-backed; the submitted idempotency key is reused verbatim) shares ONE projection with
+  the JSON quote endpoint, so the two can never fork; placement failures now re-render the page
+  with state preserved instead of the lossy `?checkout_err` flag. One form, two honest
+  submitters (Update totals → `/checkout`; Place order → `formaction` placement), with shop.js
+  keeping a single submit owner that now honors the submitter's `formaction`, patches
+  exponent-aware formatted totals, rebuilds the shipping-method radios (selection preserved),
+  and re-quotes on address/method changes — fail-open on any error. The pre-placement posture
+  line is provider-neutral by design; `CheckoutPresentation` stays the sole post-placement
+  authority. Signed-in shoppers get their email prefilled (a new
+  `StorefrontAccountIdentityReader` contract over the users extension — JWT claims carry no
+  email) and their orders ownership-stamped (`user_uuid`); anonymous checkout is byte-identical
+  to before. Hosted payments become real: payvia's collector now lifts a payable-type-agnostic
+  metadata convention (`email`, `callback_url`, `cancel_url`) into gateway options, Stripe gains
+  hosted Checkout Sessions beside Paystack, and thallo binds commerce's new
+  `OrderPaymentReturnUrlProvider` to compose return/cancel URLs from the canonical trusted
+  origin (never the request Host; non-HTTPS origins contractually yield no URLs).
 - **Storefront v1 — Concept A** (`packages/thallo-commerce` + delivery seams; requires
   glueful/commerce 1.8.0's batched catalog reads): the shop and category pages gain a
   category chip rail, per-card category tags, and hover-revealed cart/wishlist actions —
