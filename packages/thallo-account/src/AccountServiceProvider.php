@@ -10,6 +10,7 @@ use Glueful\Cache\CacheStore;
 use Glueful\Cache\Contracts\EdgeCacheInterface;
 use Glueful\Extensions\ServiceProvider;
 use Psr\Container\ContainerInterface;
+use Thallo\Account\AccountReturnPath;
 use Thallo\Account\Assets\AccountAssetMap;
 use Thallo\Account\Blocks\AccountBlockTypesContributor;
 use Thallo\Account\Contribution\AccountTemplatePathContributor;
@@ -47,6 +48,12 @@ final class AccountServiceProvider extends ServiceProvider
                 'factory' => [self::class, 'makeAccountSameOrigin'],
                 'shared' => true,
                 'alias' => ['account_same_origin'],
+            ],
+            // The single return-path authority: pure, no deps, shared by both account controllers.
+            AccountReturnPath::class => [
+                'class' => AccountReturnPath::class,
+                'shared' => true,
+                'autowire' => true,
             ],
             AccountPageRenderer::class => [
                 'class' => AccountPageRenderer::class,

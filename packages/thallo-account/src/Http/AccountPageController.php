@@ -7,6 +7,7 @@ namespace Thallo\Account\Http;
 use Glueful\Routing\Middleware\CSRFMiddleware;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Thallo\Account\AccountReturnPath;
 use Thallo\Contracts\Account\AccountNavigationItem;
 use Thallo\Contracts\Account\AccountNavigationRegistry;
 use Thallo\Contracts\Capability\CapabilityRegistry;
@@ -23,12 +24,18 @@ final class AccountPageController
         private readonly AccountNavigationRegistry $navigation,
         private readonly CapabilityRegistry $capabilities,
         private readonly CSRFMiddleware $csrf,
+        private readonly AccountReturnPath $returnPaths,
     ) {
     }
 
     public function loginPage(Request $request): Response
     {
-        return $this->renderer->render($request, 'account/login.twig');
+        // Validate the GET `?next=` and reflect ONLY the accepted value into the form — a hostile
+        // one is dropped, never echoed. The configured fallback is NOT resolved here; the POST
+        // handler is authoritative for where a successful sign-in actually lands.
+        $next = $this->returnPaths->validate((string) $request->query->get('next', ''));
+
+        return $this->renderer->render($request, 'account/login.twig', ['next' => $next]);
     }
 
     public function registerPage(Request $request): Response

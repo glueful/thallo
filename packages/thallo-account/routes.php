@@ -20,16 +20,19 @@ use Thallo\Account\Http\AccountSessionController;
  *     rate limit. Proven as a gate by AccountFlowTest's route-inventory test.
  *   - Cookie-authenticated mutations: the framework's session-bound CSRF token (`csrf`).
  *
- * Every route carries the `tenant_system` marker: storefront accounts are a GLOBAL Glueful identity
- * with zero tenant scope, so these routes are system-global by construction (the tenancy route-
- * coverage test requires every Thallo route to declare exactly one posture; `tenant_system` is a
- * pure no-op classification marker). The theme layout the pages render reads the single store's
- * global chrome directly, so no per-request tenant bootstrap is needed.
+ * Identity itself stays global, but the pages read WORKSPACE-OWNED redirect settings and render the
+ * store's public chrome, so each account page/form/dashboard/logout resolves a public tenant profile
+ * FIRST — `tenant_profile:public` + `tenant_bootstrap` at the front of the list, ahead of the
+ * same-origin/CSRF code that may resolve the workspace's public origin — matching Render/Commerce
+ * public routes; tenancy-off falls back to the `''` sentinel. Only the fingerprinted asset and the
+ * private session endpoint stay `tenant_system` (system-global): they carry no tenant-scoped data.
  */
-$anonymousForm = ['account_same_origin', 'rate_limit:10,60', 'tenant_system'];
-$page = ['tenant_system'];
-$authedShell = ['session_cookie', 'auth', 'tenant_system'];
-$authedMutation = ['session_cookie', 'auth', 'csrf', 'tenant_system'];
+$profile = ['tenant_profile:public', 'tenant_bootstrap'];
+$anonymousForm = [...$profile, 'account_same_origin', 'rate_limit:10,60'];
+$page = $profile;
+$authedShell = [...$profile, 'session_cookie', 'auth'];
+$authedMutation = [...$profile, 'session_cookie', 'auth', 'csrf'];
+$asset = ['tenant_system'];
 
 // Sign in.
 $router->get('/account/login', [AccountPageController::class, 'loginPage'])
@@ -75,7 +78,7 @@ $router->post('/account/logout', [AccountAuthController::class, 'logout'])
 // the fingerprinted file (immutable) — the controller distinguishes them. The asset is global,
 // so it carries only the tenant_system marker.
 $router->get('/_account/assets/{file}', [AccountAssetController::class, 'serve'])
-    ->middleware($page)->name('account.asset');
+    ->middleware($asset)->name('account.asset');
 
 // The private session-state endpoint the storefront account chrome hydrates from. `session_cookie:optional`
 // adapts a valid cookie into a Bearer header (and drops a lapsed one to anonymous); `auth:optional`

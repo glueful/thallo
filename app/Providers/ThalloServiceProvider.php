@@ -1711,6 +1711,13 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            // Public-account-surface plan Task 3: thallo-account's redirect-settings contract,
+            // satisfied by SettingsStore rows (same pack-defines/app-provides shape as commerce).
+            \Thallo\Account\Settings\AccountSettingsStore::class => [
+                'class' => \App\Settings\AccountSettingsBridge::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             GeneralSettings::class => [
                 'class' => GeneralSettings::class,
                 'shared' => true,

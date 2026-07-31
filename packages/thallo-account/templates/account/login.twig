@@ -2,6 +2,9 @@
 {% block account_heading %}Sign in{% endblock %}
 {% block account %}
   <form method="post" action="/account/login" class="account__form">
+    {# Carries a validated post-login redirect target. The controller only ever supplies a value
+       that already passed AccountReturnPath, so hostile input is never reflected here. #}
+    <input type="hidden" name="next" value="{{ next|default('') }}">
     <label class="account__field">
       <span>Email</span>
       <input type="email" name="email" value="{{ email|default('') }}" autocomplete="email" required>
