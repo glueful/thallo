@@ -1,0 +1,128 @@
+/*
+ * account-blocks.css — styling for the composable account form blocks (login-form, register-form,
+ * forgot-password-form). Deliberately separate from account.css (which styles the chrome-free
+ * themed /account/* PAGES — full-viewport background, card, logo): blocks render inside a site
+ * theme's own chrome, so they carry only form styling, namespaced per block. Values mirror
+ * account.css so a composed page stays visually consistent with the themed pages.
+ */
+
+.thallo-block-login-form,
+.thallo-block-register-form,
+.thallo-block-forgot-password-form {
+  max-width: 27rem;
+}
+
+.thallo-block-login-form__heading,
+.thallo-block-register-form__heading,
+.thallo-block-forgot-password-form__heading {
+  margin: 0 0 1.25rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.thallo-block-login-form__form,
+.thallo-block-register-form__form,
+.thallo-block-forgot-password-form__form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.125rem;
+}
+
+.thallo-block-login-form__field,
+.thallo-block-register-form__field,
+.thallo-block-forgot-password-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4375rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #475569;
+}
+
+.thallo-block-login-form__field input,
+.thallo-block-register-form__field input,
+.thallo-block-forgot-password-form__field input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+  color: #0f172a;
+  background: rgba(248, 250, 252, 0.9);
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.thallo-block-login-form__field input:focus,
+.thallo-block-register-form__field input:focus,
+.thallo-block-forgot-password-form__field input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.thallo-block-login-form__submit,
+.thallo-block-register-form__submit,
+.thallo-block-forgot-password-form__submit {
+  margin-top: 0.375rem;
+  width: 100%;
+  padding: 0.5625rem 1rem;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.thallo-block-login-form__submit:hover,
+.thallo-block-register-form__submit:hover,
+.thallo-block-forgot-password-form__submit:hover {
+  background: #2563eb;
+}
+
+.thallo-block-login-form__submit:focus-visible,
+.thallo-block-register-form__submit:focus-visible,
+.thallo-block-forgot-password-form__submit:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.thallo-block-login-form__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.25rem 0 0;
+  font-size: 0.875rem;
+}
+
+.thallo-block-login-form__links a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.thallo-block-login-form__links a:hover {
+  text-decoration: underline;
+}
+
+/* Revealed by account-forms.js for ?account_error=<code>; ships [hidden] in the cached HTML. */
+.thallo-block-login-form__error {
+  margin: 0 0 1.25rem;
+  padding: 0.625rem 0.75rem;
+  background: rgba(254, 242, 242, 0.9);
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  color: #b91c1c;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.thallo-block-forgot-password-form__notice {
+  margin: 0 0 1.25rem;
+  color: #64748b;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}

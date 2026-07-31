@@ -44,9 +44,15 @@ final class BlockTypeEnforcementTest extends AppTestCase
         if ($repo->findBySlug('auth-state') !== null) {
             return;
         }
+        // Mirrors AccountBlockTypesContributor::ALLOWED_CHILD_TYPES (literals, not an import —
+        // this app-core test stays independent of thallo-account): the vetted cache-safe set,
+        // including the three account form blocks (account-form-blocks plan Task 2).
         $slot = [
             'type' => 'blocks',
-            'block_types' => ['button', 'links', 'rich_text', 'logo', 'navigation'],
+            'block_types' => [
+                'button', 'links', 'rich_text', 'logo', 'navigation',
+                'login-form', 'register-form', 'forgot-password-form',
+            ],
             'enforce_block_types' => true,
         ];
         $repo->create([
@@ -77,6 +83,31 @@ final class BlockTypeEnforcementTest extends AppTestCase
         self::assertSame('auth-state', $clean['blocks'][0]['type']);
         self::assertCount(1, $clean['blocks'][0]['data']['signed_out']);
         self::assertSame('button', $clean['blocks'][0]['data']['signed_out'][0]['type']);
+    }
+
+    public function testAnEnforcedSlotAcceptsTheVettedLoginFormBlock(): void
+    {
+        // The vetted-enhanced case (account-form-blocks plan Task 2): `login-form` is IN the
+        // allowlist, so it validates inside a signed_out slot like any other permitted child.
+        $repo = $this->repoWithStarters();
+        $this->seedAuthState($repo);
+        $repo->create([
+            'slug' => 'login-form',
+            'label' => 'Sign-in form',
+            'schema' => [['name' => 'heading', 'type' => 'string']],
+        ]);
+        $validator = new RegionValidator(new FieldValidator($this->connection(), $this->appContext(), $repo));
+
+        $clean = $validator->validate('header', [
+            ['id' => 'as1', 'type' => 'auth-state', 'data' => [
+                'signed_out' => [
+                    ['id' => 'lf1', 'type' => 'login-form', 'data' => ['heading' => 'Welcome back']],
+                ],
+                'signed_in' => [],
+            ]],
+        ], []);
+
+        self::assertSame('login-form', $clean['blocks'][0]['data']['signed_out'][0]['type']);
     }
 
     public function testRegionSaveRejectsADisallowedChildAtThePreciseSlotPath(): void
