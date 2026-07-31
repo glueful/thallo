@@ -6,11 +6,16 @@ namespace App\Tests\Integration\Commerce;
 
 use App\Settings\SettingsStore;
 use App\Tests\Support\AppTestCase;
+use Glueful\Extensions\Commerce\Catalog\VariantRepository;
+use Glueful\Extensions\Commerce\Tenancy\CommerceTenantResolution;
 use Glueful\Http\Response;
 use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Commerce\Http\CommerceSettingsController;
+use Thallo\Commerce\Settings\CommerceSettingsStore;
 use Thallo\Commerce\Settings\SettingsStoreCommerceOverride;
+use Thallo\Commerce\Shop\ShopAssetMap;
+use Thallo\Commerce\Shop\ShopUrlGenerator;
 use Thallo\Tenancy\System\SystemFlags;
 
 /**
@@ -244,6 +249,52 @@ final class CommerceSettingsEndpointTest extends AppTestCase
     {
         $data = $this->data($this->put(['commerce.currency' => 'EUR']));
         self::assertSame('EUR', $data['settings']['commerce.currency']['value']);
+    }
+
+    // -----------------------------------------------------------------
+    // Store pages inventory (account-form-blocks plan Task 1)
+    // -----------------------------------------------------------------
+
+    public function testShowListsTheFourStorePagesFromTheUrlGenerator(): void
+    {
+        // The backend payload authority for `pages`: exactly the four fixed, linkable pages, every
+        // path from the LIVE ShopUrlGenerator (the single prefix authority) — never the router.
+        $urls = $this->container()->get(ShopUrlGenerator::class);
+
+        $data = $this->data($this->controller()->show(Request::create('/x')));
+
+        self::assertSame([
+            ['label' => 'Shop', 'path' => $urls->shopIndex()],
+            ['label' => 'Wishlist', 'path' => $urls->wishlist()],
+            ['label' => 'Cart', 'path' => $urls->cart()],
+            ['label' => 'Checkout', 'path' => $urls->checkout()],
+        ], $data['pages']);
+
+        // Never parameterized pages or per-order transitional hops.
+        foreach (array_column($data['pages'], 'path') as $path) {
+            self::assertStringNotContainsString('{', $path);
+            self::assertStringNotContainsString('products/', $path);
+            self::assertStringNotContainsString('categories/', $path);
+            self::assertStringNotContainsString('confirmation', $path);
+        }
+    }
+
+    public function testStorePagePathsFollowTheConfiguredPrefix(): void
+    {
+        // A reconfigured shop prefix flows into the inventory (prefix-dependent pages follow it;
+        // cart/checkout stay stable root-level workflow paths by design).
+        $controller = new CommerceSettingsController(
+            $this->appContext(),
+            $this->container()->get(CommerceTenantResolution::class),
+            $this->container()->get(VariantRepository::class),
+            null,
+            $this->container()->get(CommerceSettingsStore::class),
+            new ShopUrlGenerator('boutique', $this->container()->get(ShopAssetMap::class)),
+        );
+
+        $paths = array_column($this->data($controller->show(Request::create('/x')))['pages'], 'path');
+
+        self::assertSame(['/boutique', '/boutique/wishlist', '/cart', '/checkout'], $paths);
     }
 
     // -----------------------------------------------------------------

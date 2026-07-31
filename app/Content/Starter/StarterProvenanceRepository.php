@@ -67,6 +67,18 @@ final class StarterProvenanceRepository
             ]);
     }
 
+    /**
+     * HARD delete — a starter definition's provenance record no longer applies (physical
+     * retirement of the definition itself), not a soft state transition. No-op if absent.
+     */
+    public function deleteBySource(string $kind, string $sourceId): void
+    {
+        $this->db->table('starter_provenance')
+            ->where('definition_kind', '=', $kind)
+            ->where('source_id', '=', $sourceId)
+            ->delete();
+    }
+
     public function markState(string $uuid, string $state): void
     {
         if (!in_array($state, ['applied', 'customized', 'orphaned_source'], true)) {

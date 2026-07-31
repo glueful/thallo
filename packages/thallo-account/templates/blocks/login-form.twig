@@ -1,0 +1,41 @@
+{# login-form — the sign-in form as a composable block (account-form-blocks plan Task 2). CACHE-SAFE
+   by construction: an anonymous same-origin-guarded POST with no session CSRF token and no
+   per-visitor state, so the block is byte-identical in the shared page cache.
+
+   Static markup deliberately carries NO return_to: account-forms.js injects it at enhance time, so
+   a no-JS submit flows through the themed /account/login page where errors render normally. With
+   JS, a failed attempt 303s back here with ?account_error=<code> and the script reveals the
+   matching hidden message below (role="alert", focused), refills the email from sessionStorage,
+   and strips the param. The `next` value is block config (shared, cache-safe) — the SERVER
+   validates it on POST, so a hostile stored value is simply ignored. #}
+{% set heading = data.heading|default('')|trim %}
+{% set next = data.next|default('')|trim %}
+{% set show_links = data.show_links is defined ? data.show_links : true %}
+<div class="thallo-block thallo-block-login-form" data-account-form="login">
+  <link rel="stylesheet" href="/_account/assets/account-blocks.css">
+  {% if heading != '' %}<h2 class="thallo-block-login-form__heading">{{ heading }}</h2>{% endif %}
+  {# Ships hidden in the shared HTML; account-forms.js reveals it for ?account_error=credentials.
+     role="alert" announces on reveal; tabindex=-1 lets the script move focus to it. #}
+  <p class="thallo-block-login-form__error" data-account-error="credentials" role="alert" tabindex="-1" hidden>
+    We could not sign you in. Check your email and password.
+  </p>
+  <form method="post" action="/account/login" class="thallo-block-login-form__form">
+    {% if next != '' %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+    <label class="thallo-block-login-form__field">
+      <span>Email</span>
+      <input type="email" name="email" autocomplete="email" required>
+    </label>
+    <label class="thallo-block-login-form__field">
+      <span>Password</span>
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit" class="thallo-block-login-form__submit">Sign in</button>
+  </form>
+  {% if show_links %}
+  <p class="thallo-block-login-form__links">
+    <a href="/account/forgot-password">Forgot password?</a>
+    <a href="/account/register">Create an account</a>
+  </p>
+  {% endif %}
+</div>
+<script src="/_account/assets/account-forms.js" defer></script>

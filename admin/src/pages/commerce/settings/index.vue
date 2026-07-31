@@ -6,6 +6,7 @@
 import { computed, ref } from 'vue'
 import { useCommerceMeta } from '@/queries/commerceMeta'
 import StorePanel from './components/StorePanel.vue'
+import StorePagesCard from './components/StorePagesCard.vue'
 import ZonesPanel from './components/ZonesPanel.vue'
 import ClassesPanel from './components/ClassesPanel.vue'
 import TaxRatesPanel from './components/TaxRatesPanel.vue'
@@ -40,6 +41,7 @@ const tabItems = [
       <UTabs v-model="tab" variant="link" :items="tabItems" :content="false" class="mb-4" data-test="settings-tabs" />
 
       <template v-if="tab === 'store'">
+        <StorePagesCard />
         <StorePanel :can-manage="canManage" />
       </template>
       <template v-else-if="tab === 'payments'">

@@ -8,10 +8,13 @@ use Glueful\Auth\Session\LoginOrchestrator;
 use Glueful\Auth\Session\SessionCookieIssuer;
 use Glueful\Auth\Session\SessionLogout;
 use Glueful\Http\Exceptions\Domain\AuthenticationException;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Thallo\Account\AccountReturnPath;
+use Thallo\Account\Settings\AccountSettingsStore;
 use Thallo\Contracts\Account\StorefrontAccountRecovery;
 use Thallo\Contracts\Account\StorefrontAccountRegistration;
 
@@ -45,33 +48,59 @@ final class AccountAuthController
         private readonly SessionCookieIssuer $cookies,
         private readonly SessionLogout $sessionLogout,
         private readonly AccountPageRenderer $renderer,
+        private readonly AccountReturnPath $returnPaths,
+        private readonly AccountSettingsStore $settings,
+        private readonly LoggerInterface $logger,
     ) {
     }
 
     public function login(Request $request): Response
     {
         $email = $this->email($request);
+        // Revalidate the posted `next` (POST is authoritative). Only the validated value is ever
+        // reflected back into the form, so a tampered hidden field can never become an open redirect.
+        $safeNext = $this->safeNext($request);
+        // The PRG-back contract (form-blocks plan Task 3): a custom page embedding login-form
+        // posts a JS-injected `return_to`. PATH-ONLY by contract (validatePagePath), so the one
+        // allowlisted error code below appends without merge/fragment ambiguity. Absent or unsafe
+        // → the themed 422 fallback (exactly what a no-JS submit gets, since static block markup
+        // carries no return_to).
+        $returnTo = $this->returnPaths->validatePagePath($this->input($request, 'return_to'));
 
         try {
             $outcome = $this->login->login(['username' => $email, 'password' => $this->input($request, 'password')]);
         } catch (AuthenticationException) {
+            if ($returnTo !== null) {
+                // Only the allowlisted code travels — never email, provider text, or messages.
+                // `credentials` covers unknown-email and wrong-password identically (neutrality).
+                return new RedirectResponse($returnTo . '?account_error=credentials', Response::HTTP_SEE_OTHER);
+            }
+
             return $this->renderer->render($request, 'account/login.twig', [
                 'error' => 'We could not sign you in. Check your email and password.',
                 'email' => $email,
+                'next' => $safeNext,
             ], 422);
         }
 
         if (!$outcome->isAuthenticated()) {
             // Two-factor challenge. The storefront has no second-factor step yet, so it refuses
-            // rather than route around the gate: no session, no cookie.
+            // rather than route around the gate: no session, no cookie. The validated `next`
+            // survives the re-render so it still applies once the visitor can complete sign-in.
+            // 2FA is NAVIGATION, not an error code: `return_to` deliberately does NOT apply here —
+            // the themed page is the dedicated flow until a real challenge step exists.
             return $this->renderer->render($request, 'account/login.twig', [
                 'error' => 'This account needs an extra verification step the storefront cannot complete yet.',
                 'email' => $email,
+                'next' => $safeNext,
             ], 422);
         }
 
-        // The cookie is written onto the redirect itself, so the very next request carries it.
-        $response = new RedirectResponse('/account');
+        // Precedence: a safe `next` wins, else the operator's configured post-login target, else
+        // `/account`. The cookie is written onto the 303 redirect itself, so the next request
+        // carries it. 303 forces the browser to GET the target after the POST.
+        $target = $this->returnPaths->resolve($safeNext, $this->settings->afterLogin(), '/account');
+        $response = new RedirectResponse($target, Response::HTTP_SEE_OTHER);
 
         return $this->cookies->issue($response, $outcome->session());
     }
@@ -130,10 +159,18 @@ final class AccountAuthController
     {
         $intentUuid = (string) $request->cookies->get(self::PENDING_INTENT_COOKIE, '');
         if ($intentUuid !== '') {
-            $this->registration->resend($intentUuid, $request->getClientIp() ?? '0.0.0.0');
+            try {
+                $this->registration->resend($intentUuid, $request->getClientIp() ?? '0.0.0.0');
+            } catch (\Throwable) {
+                // Robust + neutral: a delivery failure must not break the page. The operator sees
+                // it in the log; the visitor is told a new code is on its way either way.
+            }
+
+            // The flag drives a "code sent" confirmation on the verify page.
+            return new RedirectResponse('/account/verify?resent=1');
         }
 
-        // Neutral regardless: a present or absent pointer both land back on the verify page.
+        // No pending signup on this browser — nothing to resend.
         return new RedirectResponse('/account/verify');
     }
 
@@ -188,16 +225,47 @@ final class AccountAuthController
 
     public function logout(Request $request): Response
     {
-        // SessionLogout revokes the server session (best effort) and always clears both cookies on
-        // the response it returns.
-        $response = new RedirectResponse('/account/login');
+        // Precedence: a safe posted `next` wins, else the configured post-logout target, else the
+        // login page. The 303 carries the cookie-clearing headers SessionLogout writes.
+        $target = $this->returnPaths->resolve(
+            $this->safeNext($request),
+            $this->settings->afterLogout(),
+            '/account/login',
+        );
+        $result = $this->sessionLogout->logout($request, new RedirectResponse($target, Response::HTTP_SEE_OTHER));
 
-        return $this->sessionLogout->logout($request, $response)->response;
+        if ($result->revoked) {
+            return $result->response;
+        }
+
+        // Revocation FAILED: the server session may still be live, so we must NOT report a
+        // successful sign-out. Return a cookie-cleared 500 (the cookies were still expired on the
+        // response) and log it — a "signed out" redirect over a live session would be a lie.
+        $this->logger->warning('Account sign-out could not revoke the server session', [
+            'ip' => $request->getClientIp(),
+        ]);
+        $failed = new Response(
+            'We could not complete sign-out. Please try again.',
+            Response::HTTP_INTERNAL_SERVER_ERROR,
+        );
+        foreach ($result->response->headers->getCookies() as $cookie) {
+            $failed->headers->setCookie($cookie);
+        }
+
+        return $failed;
     }
 
     private function email(Request $request): string
     {
         return strtolower(trim($this->input($request, 'email')));
+    }
+
+    /** The posted `next`, validated to a safe application-relative path, or null when absent/unsafe. */
+    private function safeNext(Request $request): ?string
+    {
+        $next = $this->input($request, 'next');
+
+        return $next !== '' ? $this->returnPaths->validate($next) : null;
     }
 
     private function shortLivedCookie(string $name, string $value, int $ttl): Cookie

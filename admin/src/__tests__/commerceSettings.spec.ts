@@ -131,6 +131,7 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
 })
 
 import StorePanel from '@/pages/commerce/settings/components/StorePanel.vue'
+import StorePagesCard from '@/pages/commerce/settings/components/StorePagesCard.vue'
 import ZonesPanel from '@/pages/commerce/settings/components/ZonesPanel.vue'
 import ClassesPanel from '@/pages/commerce/settings/components/ClassesPanel.vue'
 import TaxRatesPanel from '@/pages/commerce/settings/components/TaxRatesPanel.vue'
@@ -1342,6 +1343,7 @@ describe('Settings page tab shell', () => {
     expect(wrapper.text()).toContain('Tax rates')
     // Store is the DEFAULT tab (store-settings spec §3.5); Zones renders only after a switch.
     expect(wrapper.findComponent(StorePanel).exists()).toBe(true)
+    expect(wrapper.findComponent(StorePagesCard).exists()).toBe(true)
     expect(wrapper.findComponent(ZonesPanel).exists()).toBe(false)
   })
 
@@ -1416,6 +1418,7 @@ function storeSettings(
     },
     currency_locked: overrides.currency_locked ?? false,
     has_priced_products: overrides.has_priced_products ?? false,
+    pages: overrides.pages ?? [],
   }
 }
 
@@ -1934,5 +1937,46 @@ describe('MarketplacePanel', () => {
 
     expect(wrapper.find('[data-test="marketplace-activate"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="marketplace-commission-save"]').exists()).toBe(false)
+  })
+})
+
+// ── StorePagesCard: default store pages inventory (account-form-blocks plan Task 1) ───────────
+
+describe('StorePagesCard', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    storeSettingsData.value = storeSettings({
+      pages: [
+        { label: 'Shop', path: '/shop' },
+        { label: 'Wishlist', path: '/shop/wishlist' },
+        { label: 'Cart', path: '/cart' },
+        { label: 'Checkout', path: '/checkout' },
+      ],
+    })
+    storeSettingsStatus.value = 'success'
+  })
+
+  it('renders the read-only inventory with one link per page', async () => {
+    const wrapper = mount(StorePagesCard, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    const links = wrapper.findAll('[data-testid="store-page-link"]')
+    expect(links.map((l) => l.text())).toEqual(['/shop', '/shop/wishlist', '/cart', '/checkout'])
+    expect(links.map((l) => l.attributes('href'))).toEqual([
+      '/shop',
+      '/shop/wishlist',
+      '/cart',
+      '/checkout',
+    ])
+    expect(wrapper.text()).toContain('Store pages')
+  })
+
+  it('renders nothing (without crashing) when the server omits pages', async () => {
+    storeSettingsData.value = storeSettings() // factory default: pages []
+    const wrapper = mount(StorePagesCard, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="store-pages"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-testid="store-page-link"]')).toHaveLength(0)
   })
 })

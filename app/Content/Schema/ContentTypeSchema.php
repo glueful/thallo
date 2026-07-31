@@ -58,6 +58,7 @@ final class ContentTypeSchema implements ContentSchemaReader
             'max_items' => $f->maxItems,
             'reference_slug_field' => $f->type === 'reference' ? $f->referenceSlugField : null,
             'block_types' => $f->blockTypes,
+            'enforce_block_types' => $f->enforceBlockTypes,
             'pattern' => $f->pattern,
             'min' => $f->min,
             'max' => $f->max,

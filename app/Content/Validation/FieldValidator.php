@@ -163,10 +163,11 @@ final class FieldValidator
 
             // Blocks (block-builder spec §4): per-block validation against the block
             // type's schema, dot-path errors `field.index[.blockField]`. The field's
-            // block_types allowlist is PICKER-ONLY and deliberately not enforced here.
+            // block_types allowlist is picker-only by default; enforce_block_types opts
+            // into hard rejection of anything outside it (see validateBlocks()).
             if ($field->type === 'blocks') {
                 [$cleanBlocks, $blockErrors] = $this->validateBlocks(
-                    $field->name,
+                    $field,
                     $value,
                     $strict,
                     $depth,
@@ -363,17 +364,22 @@ final class FieldValidator
      * dangling references inside block data reject at publish). Errors carry dot
      * paths: `field.index[.blockField]`.
      *
+     * When `$field->enforceBlockTypes` is true and `$field->blockTypes` is non-empty, a
+     * registered-but-disallowed type is rejected before recursion — the opt-in hard
+     * enforcement of the field's allowlist (default stays picker-only).
+     *
      * @param array<string,bool> $seenBlockIds the ENTRY-WIDE block-id set
      * @return array{0: list<array{id: string, type: string, data: array<string,mixed>}>,
      *   1: array<string,string>}
      */
     private function validateBlocks(
-        string $fieldName,
+        FieldDefinition $field,
         mixed $value,
         bool $strict,
         int $depth,
         array &$seenBlockIds,
     ): array {
+        $fieldName = $field->name;
         if (!is_array($value) || !array_is_list($value)) {
             return [[], [$fieldName => 'must be an ordered list of blocks']];
         }
@@ -400,6 +406,13 @@ final class FieldValidator
             $type = $block['type'] ?? null;
             if (!is_string($type) || !isset($schemas[$type])) {
                 $errors[$path] = 'unknown block type' . (is_string($type) ? " '{$type}'" : '');
+                continue;
+            }
+            // Opt-in hard enforcement (default stays picker-only): reject a registered type
+            // that is not in this field's allowlist before it ever recurses into that block's
+            // own schema — so a disallowed child never gets a chance to validate as "clean".
+            if ($field->enforceBlockTypes && $field->blockTypes !== [] && !in_array($type, $field->blockTypes, true)) {
+                $errors[$path] = "block type '{$type}' is not allowed here";
                 continue;
             }
             // Tabs authoring cap (theme-runtime spec §4): the no-JS floor's enumerated

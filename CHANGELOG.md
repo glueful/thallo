@@ -29,6 +29,45 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   route-inventory test enforces that matrix as a gate. Enabling this needs the HttpOnly
   session-cookie transport, which Thallo now turns **on by default** (`SESSION_COOKIE_ENABLED`;
   disable to opt out) — the cookie stays opt-in per route and leaves bearer API auth unchanged.
+- **Public account surface — conditional chrome, safe redirects, and admin settings**
+  (`packages/thallo-account` + admin SPA): the storefront account chrome is now a reusable,
+  cache-safe **`auth-state`** block instead of a bespoke sign-in link. It renders two allowlisted
+  child slots (`signed_out` / `signed_in`) server-side into the shared page cache, the signed-in
+  branch shipped `hidden inert`; a single coalesced `/_account/session` read hydrates every instance
+  in one synchronous, fail-closed swap (any error leaves the signed-out state). Both branches live
+  in cacheable HTML, so the block is presentation only, never an authorization boundary. Enforcing
+  which children a slot may hold added a general primitive: `blocks` fields gain an opt-in
+  **`enforce_block_types`** flag that turns their previously picker-only `block_types` allowlist into
+  a hard server-side reject at the exact slot path, closing both the entry-write and region-write
+  paths through the shared `FieldValidator` (the default stays picker-only, so no existing content is
+  stranded). Operators can configure **post-login / post-logout redirects**, and a visitor may pass
+  a `?next=` — both flow through one `AccountReturnPath` authority that accepts only a normalized
+  application-relative path and rejects every open-redirect shape (protocol-relative, absolute,
+  scheme, backslash, control char, percent-encoded bypass); a sign-out that cannot revoke the server
+  session returns a cookie-cleared 500 rather than a misleading "signed out" redirect. A new
+  **Settings → Accounts** admin page (gated by `thallo.accounts` + `content.manage`) lists the themed
+  account pages and edits the two redirects — with curated, field-specific suggestions beside
+  free-text entry: after sign-in offers `/account` plus the enabled account sections; after sign-out
+  offers `/` and the sign-in page; both offer published site pages (so a custom landing page is one
+  click away); transitional auth pages (register / verify / reset / logout) are never suggested. It
+  is contributed into the shared Settings menu through a nav seam that never duplicates the Settings
+  group. The deprecated `account-link` block is physically retired
+  (`thallo:account:retire-account-link`).
+- **Account form blocks + Store pages inventory** (`packages/thallo-account` /
+  `packages/thallo-commerce` + admin SPA): devs can now compose **custom versions of the account
+  pages** — three cache-safe form blocks (`login-form`, `register-form`, `forgot-password-form`)
+  render the standard anonymous forms byte-identically into the shared page cache (same-origin
+  provenance + rate limit, no session CSRF token) and join `auth-state`'s enforced slot allowlist.
+  The login block carries a modern inline-error experience: its enhance script injects a path-only
+  `return_to` (so a no-JS submit falls back to the themed page), a failed sign-in 303s back to the
+  custom page carrying only an allowlisted code (`credentials` — never PII in the URL), a hidden
+  `role="alert"` message is revealed and focused, the email is refilled from a consume-once,
+  TTL-bounded, host+page-scoped sessionStorage stash, and `history.replaceState()` strips the code
+  so refresh/back never replays it. 2FA keeps the themed fail-closed page (navigation, not an
+  error code) and enumeration neutrality holds. `AccountReturnPath` gains the path-only
+  `validatePagePath()`; the richer `validate()` contract for `next` is unchanged. Commerce adopts
+  the page-inventory concept: **Commerce → Settings → Store** now lists the default store pages
+  (Shop, Wishlist, Cart, Checkout) with paths computed from the live shop prefix.
 - **Storefront v1 — Concept A** (`packages/thallo-commerce` + delivery seams; requires
   glueful/commerce 1.8.0's batched catalog reads): the shop and category pages gain a
   category chip rail, per-card category tags, and hover-revealed cart/wishlist actions —

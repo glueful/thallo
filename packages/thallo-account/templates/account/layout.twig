@@ -5,8 +5,25 @@
    which avoids the child-`set`-does-not-reach-parent Twig inheritance trap. #}
 {% block title %}{{ block('account_heading') }} — {{ site.name }}{% endblock %}
 {% block content %}
-  <section class="account">
+  {# The pack's own stylesheet, served fingerprinted from /_account/assets/account.css. Emitted in
+     the body like the shop blocks' shop.css — account pages are uncached, so this is safe. #}
+  <link rel="stylesheet" href="/_account/assets/account.css">
+  {# Auth pages are chrome-free: paint the full-viewport gradient behind the card. The signed-in
+     dashboard keeps the store chrome, so it gets neither the background nor the in-card logo. #}
+  {% set bare = not (chrome|default(false)) %}
+  {% if bare %}<div class="account-bg" aria-hidden="true"></div>{% endif %}
+  <section class="account{% if not bare %} account--chrome{% endif %}">
     <div class="account__card">
+      {% if bare %}
+        {% set logo = site_logo() %}
+        <div class="account__brand">
+          {% if logo %}
+            <img class="account__logo" src="{{ logo }}" alt="{{ site.name }}">
+          {% else %}
+            <span class="account__brand-name">{{ site.name }}</span>
+          {% endif %}
+        </div>
+      {% endif %}
       <h1 class="account__heading">{% block account_heading %}Account{% endblock %}</h1>
       {% if error is defined and error %}
         <p class="account__error" role="alert">{{ error }}</p>
@@ -14,4 +31,5 @@
       {% block account %}{% endblock %}
     </div>
   </section>
+  <script src="/_account/assets/account-pages.js" defer></script>
 {% endblock %}

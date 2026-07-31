@@ -64,6 +64,7 @@ use Thallo\Contracts\Content\FormSealer;
 use Thallo\Tenancy\Reverification\DomainReverificationAuditListener;
 use App\Content\Console\PruneVersionsCommand;
 use App\Content\Console\PolicyManifestCommand;
+use App\Content\Console\RetireAccountLinkCommand;
 use App\Content\Console\RunBlockBackfillCommand;
 use App\Content\Console\SeedBlockTypesCommand;
 use App\Content\Console\SyncBlockTypesCommand;
@@ -1710,6 +1711,20 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            // Public-account-surface plan Task 3: thallo-account's redirect-settings contract,
+            // satisfied by SettingsStore rows (same pack-defines/app-provides shape as commerce).
+            \Thallo\Account\Settings\AccountSettingsStore::class => [
+                'class' => \App\Settings\AccountSettingsBridge::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            // Published site pages as convenience redirect targets (public-account-surface plan
+            // Task 4, phase 2): pack-defines / app-provides over the delivery layer.
+            \Thallo\Contracts\Delivery\PublishedPageDirectory::class => [
+                'class' => \App\Content\Delivery\PublishedPageDirectoryBridge::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             GeneralSettings::class => [
                 'class' => GeneralSettings::class,
                 'shared' => true,
@@ -1787,6 +1802,11 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             SyncBlockTypesCommand::class => [
                 'class' => SyncBlockTypesCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            RetireAccountLinkCommand::class => [
+                'class' => RetireAccountLinkCommand::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -1983,6 +2003,7 @@ final class ThalloServiceProvider extends ServiceProvider
             PolicyManifestCommand::class,
             SeedBlockTypesCommand::class,
             SyncBlockTypesCommand::class,
+            RetireAccountLinkCommand::class,
             RunBlockBackfillCommand::class,
             RunBackfillCommand::class,
             RunDueSchedulesCommand::class,

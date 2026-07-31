@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { visibleNav, type AdminModule } from '@/registry/adminModules'
+import { visibleNav, type AdminModule, type SettingsAnchor } from '@/registry/adminModules'
 import { adminManifest } from '@/registry/manifest'
 
 const core: AdminModule = { id: 'core', nav: { main: [{ label: 'Home', to: '/' }] } }
@@ -45,6 +45,57 @@ describe('admin module visibility (pure over the declared list)', () => {
   })
 })
 
+describe('the Settings contribution seam', () => {
+  const settingsParent: SettingsAnchor = {
+    label: 'Settings',
+    contributionSlot: 'settings',
+    children: [{ label: 'General', to: '/settings/general' }],
+  }
+  const coreWithSettings: AdminModule = { id: 'core', nav: { main: [settingsParent] } }
+  const contributor: AdminModule = {
+    id: 'x',
+    requires: ['thallo.x'],
+    nav: { settings: [{ label: 'Accounts', to: '/settings/accounts' }] },
+  }
+  const settingsNode = (main: ReturnType<typeof visibleNav>[0]): SettingsAnchor | undefined =>
+    main.find((n) => n.label === 'Settings') as SettingsAnchor | undefined
+
+  it('appends a contribution AFTER the core Settings children', () => {
+    const [main] = visibleNav(() => true, [coreWithSettings, contributor])
+    expect(settingsNode(main)?.children?.map((c) => c.label)).toEqual(['General', 'Accounts'])
+  })
+
+  it('strips the private contributionSlot marker from the rendered node', () => {
+    const [main] = visibleNav(() => true, [coreWithSettings])
+    expect(settingsNode(main)?.contributionSlot).toBeUndefined()
+  })
+
+  it('omits a gated contribution when its capability is not visible', () => {
+    const [main] = visibleNav(() => false, [coreWithSettings, contributor])
+    expect(settingsNode(main)?.children?.map((c) => c.label)).toEqual(['General'])
+  })
+
+  it('is deterministic across calls and never mutates the static parent', () => {
+    visibleNav(() => true, [coreWithSettings, contributor])
+    const [main] = visibleNav(() => true, [coreWithSettings, contributor])
+    // A second call does not accumulate a duplicate contribution...
+    expect(settingsNode(main)?.children?.filter((c) => c.label === 'Accounts')).toHaveLength(1)
+    // ...and the declared parent is untouched (its marker and children stand).
+    expect(settingsParent.contributionSlot).toBe('settings')
+    expect(settingsParent.children?.map((c) => c.label)).toEqual(['General'])
+  })
+
+  it('adds Accounts to the real Settings group only when thallo.accounts is visible', () => {
+    const [mainOn] = visibleNav((id) => id === 'thallo.accounts')
+    const on = settingsNode(mainOn)
+    expect(on?.children?.some((c) => c.to === '/settings/accounts')).toBe(true)
+    expect(on?.contributionSlot).toBeUndefined() // marker never leaks into rendered nav
+
+    const [mainOff] = visibleNav(() => false)
+    expect(settingsNode(mainOff)?.children?.some((c) => c.to === '/settings/accounts')).toBe(false)
+  })
+})
+
 describe('the static manifest', () => {
   it('declares every module once, core first, in render order', () => {
     const ids = adminManifest.map((m) => m.id)
@@ -61,6 +112,7 @@ describe('the static manifest', () => {
       'commerce',
       'submissions',
       'tenancy',
+      'account',
     ])
   })
 

@@ -10,6 +10,7 @@ use Glueful\Cache\CacheStore;
 use Glueful\Cache\Contracts\EdgeCacheInterface;
 use Glueful\Extensions\ServiceProvider;
 use Psr\Container\ContainerInterface;
+use Thallo\Account\AccountReturnPath;
 use Thallo\Account\Assets\AccountAssetMap;
 use Thallo\Account\Blocks\AccountBlockTypesContributor;
 use Thallo\Account\Contribution\AccountTemplatePathContributor;
@@ -18,6 +19,7 @@ use Thallo\Account\Http\AccountAuthController;
 use Thallo\Account\Http\AccountPageController;
 use Thallo\Account\Http\AccountPageRenderer;
 use Thallo\Account\Http\AccountSessionController;
+use Thallo\Account\Http\AccountSettingsController;
 use Thallo\Account\Http\Middleware\AccountSameOriginMiddleware;
 use Thallo\Contracts\Capability\Capability;
 use Thallo\Contracts\Capability\CapabilityRegistry;
@@ -28,7 +30,7 @@ use function app;
 
 /**
  * Storefront customer accounts, as a removable capability pack. The pack owns the themed
- * `/account/*` pages and the `account-link` header/footer block, and consumes the neutral account
+ * `/account/*` pages and consumes the neutral account
  * contracts — never the app-side signup services (a test walks these sources to keep that boundary
  * real). The `thallo.accounts` capability gates only this product surface: the framework's
  * `/auth/*` identity endpoints and the session-cookie transport are never gated by it.
@@ -48,6 +50,12 @@ final class AccountServiceProvider extends ServiceProvider
                 'shared' => true,
                 'alias' => ['account_same_origin'],
             ],
+            // The single return-path authority: pure, no deps, shared by both account controllers.
+            AccountReturnPath::class => [
+                'class' => AccountReturnPath::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             AccountPageRenderer::class => [
                 'class' => AccountPageRenderer::class,
                 'shared' => true,
@@ -65,6 +73,11 @@ final class AccountServiceProvider extends ServiceProvider
             ],
             AccountSessionController::class => [
                 'class' => AccountSessionController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            AccountSettingsController::class => [
+                'class' => AccountSettingsController::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -121,6 +134,9 @@ final class AccountServiceProvider extends ServiceProvider
         }
 
         $this->loadRoutesFrom(__DIR__ . '/../routes.php');
+        // The admin API for account settings — same capability gate as the public routes, so it is
+        // absent (404) when thallo.accounts is off.
+        $this->loadRoutesFrom(__DIR__ . '/../routes/admin-routes.php');
 
         // Without this the routes exist and every render throws a Twig loader error — the pack would
         // look wired and 500 on first request. Soft-guarded: thallo-render may be absent.
@@ -130,8 +146,8 @@ final class AccountServiceProvider extends ServiceProvider
                 ->registerTemplatePaths(new AccountTemplatePathContributor());
         }
 
-        // Capability-boundary pin: the account-link block type registers only while enabled, so a
-        // stored block falls to the missing-template fallback when the capability is off.
+        // Capability-boundary pin: account block types register only while enabled, so a stored
+        // block falls to the missing-template fallback when the capability is off.
         $this->registerAccountBlockTypeContributor($container);
     }
 

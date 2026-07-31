@@ -49,4 +49,46 @@ final class BlocksFieldSchemaTest extends TestCase
         $dto = new FieldDefinitionData(name: 'body', type: 'blocks', block_types: ['hero']);
         self::assertSame(['hero'], $dto->toArray()['block_types']);
     }
+
+    public function testEnforceBlockTypesParsesAndRoundTripsThroughToArray(): void
+    {
+        $schema = ContentTypeSchema::fromArray([[
+            'name' => 'body',
+            'type' => 'blocks',
+            'block_types' => ['hero', 'quote'],
+            'enforce_block_types' => true,
+        ]]);
+        $field = $schema->field('body');
+        self::assertTrue($field->enforceBlockTypes);
+
+        $out = $schema->toArray()[0];
+        self::assertTrue($out['enforce_block_types']);
+    }
+
+    public function testEnforceBlockTypesAbsentOrFalseIsOmittedFromToArray(): void
+    {
+        // Absent key: defaults false, and the falsy default never appears in toArray()
+        // (mirrors block_types' own absent-when-empty rule).
+        $absent = ContentTypeSchema::fromArray([['name' => 'body', 'type' => 'blocks']]);
+        self::assertFalse($absent->field('body')->enforceBlockTypes);
+        self::assertArrayNotHasKey('enforce_block_types', $absent->toArray()[0]);
+
+        // Explicit false: same outcome as absent.
+        $explicitFalse = ContentTypeSchema::fromArray([[
+            'name' => 'body', 'type' => 'blocks', 'enforce_block_types' => false,
+        ]]);
+        self::assertFalse($explicitFalse->field('body')->enforceBlockTypes);
+        self::assertArrayNotHasKey('enforce_block_types', $explicitFalse->toArray()[0]);
+    }
+
+    public function testRequestDtoCarriesEnforceBlockTypesThrough(): void
+    {
+        $dto = new FieldDefinitionData(
+            name: 'body',
+            type: 'blocks',
+            block_types: ['hero'],
+            enforce_block_types: true,
+        );
+        self::assertTrue($dto->toArray()['enforce_block_types']);
+    }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Account;
 
+use App\Settings\SettingsStore;
 use App\Signup\SignupIntentRepository;
 use App\Tests\Support\AppTestCase;
 use Glueful\Auth\AuthenticationService;
@@ -13,9 +14,12 @@ use Glueful\Auth\Session\SessionCookieIssuer;
 use Glueful\Auth\Session\SessionLogout;
 use Glueful\Routing\Router;
 use Glueful\Security\OTP;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Thallo\Account\AccountReturnPath;
 use Thallo\Account\Http\AccountAuthController;
 use Thallo\Account\Http\AccountPageRenderer;
+use Thallo\Account\Settings\AccountSettingsStore;
 use Thallo\Contracts\Account\StorefrontAccountRecovery;
 use Thallo\Contracts\Account\StorefrontAccountRegistration;
 use Thallo\Render\TwigFactory;
@@ -175,6 +179,9 @@ final class AccountFlowTest extends AppTestCase
             $this->container()->get(SessionCookieIssuer::class),
             $this->container()->get(SessionLogout::class),
             $this->container()->get(AccountPageRenderer::class),
+            $this->container()->get(AccountReturnPath::class),
+            $this->container()->get(AccountSettingsStore::class),
+            $this->container()->get(LoggerInterface::class),
         );
 
         $request = Request::create('/account/login', 'POST', [
@@ -255,6 +262,193 @@ final class AccountFlowTest extends AppTestCase
         }
 
         self::assertFalse($present, 'the session routes must be absent when the transport is disabled');
+    }
+
+    // --- Configurable redirects + return-path safety (Task 3) --------------------------------
+
+    public function testLoginRedirectsToASafeNextAsA303(): void
+    {
+        $this->seedUser('nextok@example.test');
+
+        $login = $this->postSameOrigin('/account/login', [
+            'email' => 'nextok@example.test',
+            'password' => 'sufficiently-long-secret',
+            'next' => '/account/orders',
+        ]);
+
+        self::assertSame(303, $login->getStatusCode(), (string) $login->getContent());
+        self::assertSame('/account/orders', $login->headers->get('Location'));
+        self::assertArrayHasKey('gf_session', $this->cookiesFrom($login));
+    }
+
+    public function testLoginIgnoresAHostileNextAndUsesTheFixedDefault(): void
+    {
+        $this->seedUser('nextbad@example.test');
+
+        $login = $this->postSameOrigin('/account/login', [
+            'email' => 'nextbad@example.test',
+            'password' => 'sufficiently-long-secret',
+            'next' => '//evil.example/x',
+        ]);
+
+        self::assertSame(303, $login->getStatusCode());
+        self::assertSame('/account', $login->headers->get('Location'));
+    }
+
+    public function testLoginUsesTheConfiguredRedirectWhenNoNextIsGiven(): void
+    {
+        $this->seedUser('nextcfg@example.test');
+        $this->container()->get(AccountSettingsStore::class)->saveRedirects('/account/dashboard', null);
+        $this->container()->get(SettingsStore::class)->clearCache();
+
+        $login = $this->postSameOrigin('/account/login', [
+            'email' => 'nextcfg@example.test',
+            'password' => 'sufficiently-long-secret',
+        ]);
+
+        self::assertSame(303, $login->getStatusCode());
+        self::assertSame('/account/dashboard', $login->headers->get('Location'));
+    }
+
+    public function testTheLoginPageReflectsOnlyASafeNext(): void
+    {
+        $safe = (string) $this->get('/account/login?next=/account/orders')->getContent();
+        self::assertStringContainsString('name="next" value="/account/orders"', $safe);
+
+        $hostile = (string) $this->get('/account/login?next=//evil.example')->getContent();
+        self::assertStringContainsString('name="next" value=""', $hostile);
+        self::assertStringNotContainsString('evil.example', $hostile);
+    }
+
+    public function testAFailedLoginPreservesASafeNextButDropsAHostileOne(): void
+    {
+        $this->seedUser('nextfail@example.test');
+
+        $safe = $this->postSameOrigin('/account/login', [
+            'email' => 'nextfail@example.test',
+            'password' => 'wrong-password',
+            'next' => '/account/orders',
+        ]);
+        self::assertSame(422, $safe->getStatusCode());
+        self::assertStringContainsString('name="next" value="/account/orders"', (string) $safe->getContent());
+
+        // POST revalidation: a tampered hidden field is dropped, never reflected back.
+        $hostile = $this->postSameOrigin('/account/login', [
+            'email' => 'nextfail@example.test',
+            'password' => 'wrong-password',
+            'next' => '//evil.example',
+        ]);
+        self::assertSame(422, $hostile->getStatusCode());
+        self::assertStringNotContainsString('evil.example', (string) $hostile->getContent());
+    }
+
+    public function testAFailedLoginWithASafeReturnToGoes303BackWithTheCredentialsCode(): void
+    {
+        // The PRG-back contract (form-blocks plan Task 3): a custom page embedding login-form
+        // posts return_to (JS-injected); invalid credentials 303 BACK to that page carrying only
+        // the allowlisted code — no email, no provider text, no session cookie.
+        $this->seedUser('prgback@example.test');
+
+        $response = $this->postSameOrigin('/account/login', [
+            'email' => 'prgback@example.test',
+            'password' => 'wrong-password',
+            'return_to' => '/signin',
+        ]);
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('/signin?account_error=credentials', $response->headers->get('Location'));
+        self::assertArrayNotHasKey('gf_session', $this->cookiesFrom($response));
+    }
+
+    public function testAHostileOrNonPageReturnToFallsBackToTheThemed422(): void
+    {
+        $this->seedUser('prgbad@example.test');
+
+        foreach (['//evil.example', '/signin?tab=1', '/signin#form'] as $returnTo) {
+            $response = $this->postSameOrigin('/account/login', [
+                'email' => 'prgbad@example.test',
+                'password' => 'wrong-password',
+                'return_to' => $returnTo,
+            ]);
+
+            self::assertSame(422, $response->getStatusCode(), "return_to {$returnTo} must fall back");
+            self::assertStringNotContainsString('evil.example', (string) $response->getContent());
+        }
+    }
+
+    public function testATwoFactorChallengeStaysOnTheThemed422EvenWithAValidReturnTo(): void
+    {
+        // 2FA is navigation, not an error code: the storefront fails closed on the themed page —
+        // never a 303 with a code — even when the custom page supplied a valid return_to.
+        $this->seedUser('prg2fa@example.test');
+
+        $twoFactor = new class implements TwoFactorServiceInterface {
+            public function isEnabled(string $userUuid): bool
+            {
+                return true;
+            }
+
+            /** @return array{token: string, expires_in: int, delivered_to: string} */
+            public function beginLogin(array $user, ?string $preferredProvider = null): array
+            {
+                return ['token' => 'challenge-token', 'expires_in' => 300, 'delivered_to' => 'e***@example.test'];
+            }
+        };
+
+        $controller = new AccountAuthController(
+            $this->container()->get(StorefrontAccountRegistration::class),
+            $this->container()->get(StorefrontAccountRecovery::class),
+            new LoginOrchestrator($this->container()->get(AuthenticationService::class), $twoFactor),
+            $this->container()->get(SessionCookieIssuer::class),
+            $this->container()->get(SessionLogout::class),
+            $this->container()->get(AccountPageRenderer::class),
+            $this->container()->get(AccountReturnPath::class),
+            $this->container()->get(AccountSettingsStore::class),
+            $this->container()->get(LoggerInterface::class),
+        );
+
+        $response = $controller->login(Request::create('/account/login', 'POST', [
+            'email' => 'prg2fa@example.test',
+            'password' => 'sufficiently-long-secret',
+            'return_to' => '/signin',
+        ]));
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertNull($response->headers->get('Location'));
+        self::assertArrayNotHasKey('gf_session', $this->cookiesFrom($response));
+    }
+
+    public function testLogoutRedirectsToASafeNextAsA303(): void
+    {
+        $cookies = $this->signInAs('logoutnext@example.test');
+
+        $logout = $this->postSameOrigin('/account/logout', [
+            '_token' => $this->csrfTokenFor($cookies),
+            'next' => '/account/orders',
+        ], $cookies);
+
+        self::assertSame(303, $logout->getStatusCode());
+        self::assertSame('/account/orders', $logout->headers->get('Location'));
+        $cleared = $this->cookiesFrom($logout);
+        self::assertArrayHasKey('gf_session', $cleared);
+        self::assertLessThan(time(), $cleared['gf_session']->getExpiresTime());
+    }
+
+    public function testLogoutRevocationFailureIsA500ThatStillClearsCookies(): void
+    {
+        // A non-empty session cookie whose token no longer resolves to a live session makes
+        // SessionLogout report revoked=false. The controller must NOT claim a successful sign-out:
+        // it returns a 500 while still expiring the cookies, rather than a redirect over a session
+        // that may still be alive.
+        $controller = $this->container()->get(AccountAuthController::class);
+        $request = Request::create('/account/logout', 'POST', [], ['gf_session' => 'not-a-live-token']);
+
+        $response = $controller->logout($request);
+
+        self::assertSame(500, $response->getStatusCode());
+        $cleared = $this->cookiesFrom($response);
+        self::assertArrayHasKey('gf_session', $cleared);
+        self::assertLessThan(time(), $cleared['gf_session']->getExpiresTime());
     }
 
     /**

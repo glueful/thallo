@@ -49,10 +49,13 @@ final class FieldDefinitionData implements RequestData
         public readonly ?int $max_items = null,
         #[Rule('string')]
         public readonly ?string $reference_slug_field = null,
-        /** @var list<string> Picker-only block-type allowlist for a `blocks` field. */
+        /** @var list<string> Block-type allowlist for a `blocks` field (picker-only unless enforce_block_types). */
         #[ArrayOf('string')]
         #[Rule('array')]
         public readonly array $block_types = [],
+        /** @var bool Opt-in hard server-side enforcement of `block_types`; default false. */
+        #[Rule('boolean')]
+        public readonly bool $enforce_block_types = false,
         /** @var string|null Anchored regex body a string/text value must fully match. */
         #[Rule('string')]
         public readonly ?string $pattern = null,
@@ -86,6 +89,7 @@ final class FieldDefinitionData implements RequestData
             'max_items' => $this->max_items,
             'reference_slug_field' => $this->reference_slug_field,
             'block_types' => $this->block_types,
+            'enforce_block_types' => $this->enforce_block_types,
             'pattern' => $this->pattern,
             'min' => $this->min,
             'max' => $this->max,
