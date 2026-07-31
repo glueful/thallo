@@ -1,0 +1,15 @@
+{# auth-state — a cache-safe conditional block (public-account-surface plan Task 2): two allowlisted
+   child slots, both rendered server-side and BOTH shipped in the shared/cached HTML. This block is
+   presentation only, never an authorization boundary — `signed_in` must never carry sensitive data,
+   privileged actions, or per-visitor secrets (real auth stays server-side on `/account/*`). Visibility
+   is toggled client-side by account.js reading the private GET /_account/session.
+
+   Fail closed, no-JS friendly: `signed_out` renders visible (the safe default — "we could not tell"
+   reads as anonymous), `signed_in` starts `hidden inert`. NO `display` CSS on the wrappers, so the UA
+   [hidden] rule governs visibility — removing the attribute is what reveals it. The child blocks carry
+   their own styling; this block needs no stylesheet. #}
+<div class="thallo-block thallo-block-auth-state" data-auth-state>
+  <div data-auth-when="anonymous">{{ blocks(data.signed_out) }}</div>
+  <div data-auth-when="authenticated" hidden inert>{{ blocks(data.signed_in) }}</div>
+</div>
+<script src="/_account/assets/account.js" defer></script>

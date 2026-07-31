@@ -10,10 +10,12 @@ use Symfony\Component\HttpFoundation\Request;
 
 /**
  * The account chrome's cache-safety boundary: per-visitor identity leaves the server ONLY through
- * the private `/_account/session` endpoint, never through a cacheable page. The runtime module
- * hydrates it and fails closed, and the asset alias survives a deploy. (The `account-link` block
- * itself — the thing the runtime module used to enhance — was physically retired pre-launch; see
- * `Thallo\Account\Console\RetireAccountLinkCommand`. The capability still gates `/_account/*`.)
+ * the private `/_account/session` endpoint, never through a cacheable page. The `auth-state` block
+ * renders BOTH branches server-side (public-account-surface plan Task 2) so the shared page cache
+ * stores it byte-identically for every visitor; account.js hydrates it and fails closed, and the
+ * asset alias survives a deploy. (The `account-link` block this replaced was physically retired
+ * pre-launch; see `Thallo\Account\Console\RetireAccountLinkCommand`. The capability still gates
+ * `/_account/*`.)
  */
 final class AccountCacheIsolationTest extends AppTestCase
 {
@@ -40,17 +42,19 @@ final class AccountCacheIsolationTest extends AppTestCase
         $body = json_decode((string) $this->get('/_account/session')->getContent(), true);
 
         self::assertFalse($body['data']['authenticated']);
-        self::assertNull($body['data']['display_name']);
+        // Minimal session response (Global Constraints): `{ authenticated: bool }` only —
+        // no display_name, no links.
+        self::assertSame(['authenticated'], array_keys($body['data']));
     }
 
-    public function testAnAuthenticatedVisitorSeesTheirOwnNameOnlyThroughHydration(): void
+    public function testAnAuthenticatedVisitorGetsAuthenticatedTrueOnlyThroughHydration(): void
     {
         $cookies = $this->signInAs('hydrate@example.test');
 
         $body = json_decode((string) $this->get('/_account/session', $cookies)->getContent(), true);
 
         self::assertTrue($body['data']['authenticated']);
-        self::assertNotNull($body['data']['display_name']);
+        self::assertSame(['authenticated'], array_keys($body['data']));
     }
 
     public function testACacheableCatalogPageIsByteIdenticalForSignedInAndAnonymousVisitors(): void
@@ -117,7 +121,7 @@ final class AccountCacheIsolationTest extends AppTestCase
     public function testTheAssetRegistersExactlyOneRuntimeModuleAndIsInertOnASecondEvaluation(): void
     {
         $source = $this->accountJsSource();
-        self::assertStringContainsString("register('account-link'", $source);
+        self::assertStringContainsString("register('auth-state'", $source);
 
         $node = $this->findNode();
         if ($node === null) {
@@ -135,15 +139,87 @@ final class AccountCacheIsolationTest extends AppTestCase
         $this->runNodeHarness($node, $this->accountFailClosedHarness($this->accountJsSource()), 'account_fail_closed');
     }
 
+    public function testHydrationCoalescesOneFetchAndSwapsBothAttributesAcrossMultipleInstances(): void
+    {
+        // Global Constraints: "one session request per document" — a page with the block
+        // placed in BOTH header and footer must still fire exactly one /_account/session
+        // fetch, and every instance reflects the same authenticated result.
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate account.js');
+        }
+        $this->runNodeHarness(
+            $node,
+            $this->accountCoalescingHarness($this->accountJsSource()),
+            'account_coalescing',
+        );
+    }
+
+    // --- The auth-state block's server-rendered defaults --------------------------------------
+
+    public function testAuthStateBlockRendersBothSlotsWithDefaultsAndLinksAccountJs(): void
+    {
+        $env = $this->container()->get(\Thallo\Render\TwigFactory::class)->environment();
+        self::assertTrue($env->getLoader()->exists('blocks/auth-state.twig'));
+
+        /** @var \Thallo\Render\RenderContextExtension $extension */
+        $extension = $this->container()->get(\Thallo\Render\RenderContextExtension::class);
+        $extension->resetPerRenderState();
+        $extension->setBlockAnnotations(false);
+        $extension->setLocale('en');
+        $html = $extension->blocks($env, ['entry' => null, 'site' => []], [
+            ['id' => 'authstateb01', 'type' => 'auth-state', 'data' => ['signed_out' => [], 'signed_in' => []]],
+        ]);
+
+        self::assertStringContainsString('data-auth-state', $html);
+        // Fail-closed defaults: anonymous visible (no hidden/inert), authenticated starts
+        // hidden+inert — the UA [hidden] rule governs visibility, no `display` CSS involved.
+        self::assertStringContainsString('<div data-auth-when="anonymous">', $html);
+        self::assertStringContainsString('<div data-auth-when="authenticated" hidden inert>', $html);
+        self::assertStringContainsString('src="/_account/assets/account.js" defer', $html);
+    }
+
     // --- Capability flip across separate boots -----------------------------------------------
 
-    public function testACapabilityOffBootStill404sThePrivateSessionEndpoint(): void
+    public function testACapabilityOffBootStill404sTheSessionEndpointAndFallsBackForAuthStateChrome(): void
     {
+        // Control on the ENABLED (primary) boot: the auth-state template IS in the chain.
+        $enabledEnv = $this->container()->get(\Thallo\Render\TwigFactory::class)->environment();
+        self::assertTrue(
+            $enabledEnv->getLoader()->exists('blocks/auth-state.twig'),
+            'sanity: enabled boot serves the account pack templates',
+        );
+
         $off = self::bootAppWithConfigOverride('thallo', [
             'capabilities' => ['thallo.accounts' => false],
         ]);
 
         try {
+            $container = $off->getContainer();
+
+            // The pack template dir left the Twig loader entirely — no chrome renders.
+            $env = $container->get(\Thallo\Render\TwigFactory::class)->environment();
+            self::assertFalse(
+                $env->getLoader()->exists('blocks/auth-state.twig'),
+                'auth-state must not resolve while thallo.accounts is disabled',
+            );
+
+            /** @var \Thallo\Render\RenderContextExtension $extension */
+            $extension = $container->get(\Thallo\Render\RenderContextExtension::class);
+            $extension->resetPerRenderState();
+            $extension->setBlockAnnotations(false);
+            $extension->setLocale('en');
+            $html = $extension->blocks($env, ['entry' => null, 'site' => []], [
+                ['id' => 'authstateb02', 'type' => 'auth-state', 'data' => ['signed_out' => [], 'signed_in' => []]],
+            ]);
+            self::assertStringNotContainsString('data-auth-state', $html);
+            self::assertStringNotContainsString('account.js', $html);
+            self::assertMatchesRegularExpression(
+                '/no template for block "auth-state"|Missing block template: blocks\/auth-state\.twig/',
+                $html,
+                'a stored auth-state block falls to blocks()\' ordinary missing-template fallback',
+            );
+
             $response = (new Application($off))->handle(
                 Request::create('/_account/session', 'GET', [], [], [], ['HTTP_ACCEPT' => 'application/json']),
             );
@@ -272,14 +348,31 @@ final class AccountCacheIsolationTest extends AppTestCase
         JS;
     }
 
+    /** JS helper (embedded in each harness below) building one auth-state instance's stub DOM. */
+    private function authStateFixtureJs(): string
+    {
+        return <<<'JS'
+        function makeAuthStateRoot() {
+          var anon = new El({});
+          var authed = new El({ hidden: '', inert: '' });
+          var root = new El({ 'data-auth-state': '' });
+          root._map = {
+            '[data-auth-when="anonymous"]': anon,
+            '[data-auth-when="authenticated"]': authed,
+          };
+          return { root: root, anon: anon, authed: authed };
+        }
+        JS;
+    }
+
     private function accountRuntimeHarness(string $source): string
     {
-        return $this->harnessPrelude($source) . "\n\n" . <<<'JS'
+        return $this->harnessPrelude($source) . "\n\n" . $this->authStateFixtureJs() . "\n\n" . <<<'JS'
         var registered = [];
         var calls = [];
-        var link = new El({ 'data-account-link': '' });
+        var instance = makeAuthStateRoot();
         var docEl = new El({});
-        docEl._all = { '[data-account-link]': [link] };
+        docEl._all = { '[data-auth-state]': [instance.root] };
         var doc = {
           readyState: 'complete',
           documentElement: docEl,
@@ -298,7 +391,7 @@ final class AccountCacheIsolationTest extends AppTestCase
 
         flush().then(function () {
           assert(registered.length === 1, 'expected exactly one registration, got ' + registered.length);
-          assert(registered[0].name === 'account-link', 'expected account-link, got ' + registered[0].name);
+          assert(registered[0].name === 'auth-state', 'expected auth-state, got ' + registered[0].name);
           assert(calls.length === 1, 'expected exactly one fetch, got ' + calls.length);
           console.log('ALL_PASS');
         }).catch(function (e) { fail(String(e && e.stack || e)); });
@@ -307,20 +400,12 @@ final class AccountCacheIsolationTest extends AppTestCase
 
     private function accountFailClosedHarness(string $source): string
     {
-        return $this->harnessPrelude($source) . "\n\n" . <<<'JS'
+        return $this->harnessPrelude($source) . "\n\n" . $this->authStateFixtureJs() . "\n\n" . <<<'JS'
         var registered = [];
         var calls = [];
-        var signin = new El({});          // visible: no 'hidden'
-        var menu = new El({ hidden: '' }); // ships hidden
-        var link = new El({ 'data-account-link': '' });
-        link._map = {
-          '[data-account-signin]': signin,
-          '[data-account-menu]': menu,
-          '[data-account-name]': new El({}),
-          '[data-account-links]': new El({}),
-        };
+        var instance = makeAuthStateRoot();
         var docEl = new El({});
-        docEl._all = { '[data-account-link]': [link] };
+        docEl._all = { '[data-auth-state]': [instance.root] };
         var doc = {
           readyState: 'complete',
           documentElement: docEl,
@@ -335,10 +420,52 @@ final class AccountCacheIsolationTest extends AppTestCase
         evalAccount(win, doc, fetchFn);
 
         flush().then(function () { return flush(); }).then(function () {
-          // Fail closed: a 500 leaves the shell exactly as rendered.
-          assert(!signin.hasAttribute('hidden'), 'sign-in link must stay visible on a failed hydration');
-          assert(menu.hasAttribute('hidden'), 'menu must stay hidden on a failed hydration');
+          // Fail closed: a 500 leaves BOTH branches exactly as server-rendered.
+          assert(!instance.anon.hasAttribute('hidden'), 'anonymous branch must stay visible on a failed hydration');
+          assert(!instance.anon.hasAttribute('inert'), 'anonymous branch must stay non-inert on a failed hydration');
+          assert(instance.authed.hasAttribute('hidden'), 'authenticated branch must stay hidden on a failed hydration');
+          assert(instance.authed.hasAttribute('inert'), 'authenticated branch must stay inert on a failed hydration');
           assert(calls.length === 1, 'expected exactly one fetch, got ' + calls.length);
+          console.log('ALL_PASS');
+        }).catch(function (e) { fail(String(e && e.stack || e)); });
+        JS;
+    }
+
+    private function accountCoalescingHarness(string $source): string
+    {
+        return $this->harnessPrelude($source) . "\n\n" . $this->authStateFixtureJs() . "\n\n" . <<<'JS'
+        var registered = [];
+        var calls = [];
+        var a = makeAuthStateRoot();
+        var b = makeAuthStateRoot();
+        var docEl = new El({});
+        docEl._all = { '[data-auth-state]': [a.root, b.root] };
+        var doc = {
+          readyState: 'complete',
+          documentElement: docEl,
+          addEventListener: function () {},
+          createElement: function () { return new El({}); },
+          querySelectorAll: function (sel) { return docEl._all[sel] || []; },
+        };
+        var win = { thalloAccount: undefined };
+        win.ThalloRuntime = makeRuntime(registered);
+        // Exactly ONE behavior queued: a second fetch call would hit "no fetch behavior
+        // queued" and surface as an uncaught rejection — the strongest possible proof that
+        // two instances share a single request.
+        var fetchFn = makeFetch([
+          { ok: true, status: 200, data: { data: { authenticated: true } } },
+        ], calls);
+
+        evalAccount(win, doc, fetchFn);
+
+        flush().then(function () { return flush(); }).then(function () {
+          assert(calls.length === 1, 'expected exactly one fetch for two instances, got ' + calls.length);
+          [a, b].forEach(function (inst, i) {
+            assert(inst.anon.hasAttribute('hidden'), 'instance ' + i + ': anonymous must be hidden once authenticated');
+            assert(inst.anon.hasAttribute('inert'), 'instance ' + i + ': anonymous must be inert once authenticated');
+            assert(!inst.authed.hasAttribute('hidden'), 'instance ' + i + ': authenticated must be revealed');
+            assert(!inst.authed.hasAttribute('inert'), 'instance ' + i + ': authenticated must be revealed (inert)');
+          });
           console.log('ALL_PASS');
         }).catch(function (e) { fail(String(e && e.stack || e)); });
         JS;

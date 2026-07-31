@@ -44,12 +44,21 @@ final class FieldDefinition implements FieldDescriptor
         /** Field name on the referenced entry used as its slug identifier; reference fields only. */
         public readonly ?string $referenceSlugField = null,
         /**
-         * Picker-only allowlist of block-type slugs for a `blocks` field ([] = all
-         * active). NEVER a server-side validation constraint (block-builder spec §1).
+         * Allowlist of block-type slugs for a `blocks` field ([] = all active).
+         * Picker-only BY DEFAULT (block-builder spec §1) — the admin UI offers
+         * only these types, but FieldValidator does not reject others unless
+         * `enforceBlockTypes` opts into hard server-side enforcement.
          *
          * @var list<string>
          */
         public readonly array $blockTypes = [],
+        /**
+         * Opt-in hard server-side enforcement of `blockTypes` (default false preserves the
+         * historical picker-only behavior for every existing field). Valid only on `blocks`
+         * fields; ignored/false for every other type. See {@see \App\Content\Validation\
+         * FieldValidator::validateBlocks()}.
+         */
+        public readonly bool $enforceBlockTypes = false,
         /**
          * Anchored regex BODY (no delimiters) a string/text value must fully match;
          * null = unconstrained. Generic value validation (block-library spec §5) —
@@ -184,10 +193,12 @@ final class FieldDefinition implements FieldDescriptor
             }
         }
 
-        // `blocks` (block-builder spec §1): block_types is a PICKER-ONLY allowlist —
-        // FieldValidator deliberately does not enforce it (tightening it must never
-        // strand existing content). Blocks fields are never filterable.
+        // `blocks` (block-builder spec §1): block_types is a picker-only allowlist by
+        // default — FieldValidator does not enforce it unless enforce_block_types opts
+        // in (tightening the DEFAULT must never strand existing content). Blocks fields
+        // are never filterable.
         $blockTypes = [];
+        $enforceBlockTypes = false;
         if ($type === 'blocks') {
             if ($filterable) {
                 throw new SchemaParseException("blocks field '{$name}' cannot be filterable");
@@ -196,6 +207,7 @@ final class FieldDefinition implements FieldDescriptor
                 array_map('strval', (array) ($raw['block_types'] ?? [])),
                 static fn(string $v): bool => $v !== ''
             ));
+            $enforceBlockTypes = (bool) ($raw['enforce_block_types'] ?? false);
         }
 
         // Generic value constraints (block-library spec §5): `pattern` on
@@ -240,6 +252,7 @@ final class FieldDefinition implements FieldDescriptor
             maxItems: $maxItems,
             referenceSlugField: $referenceSlugField,
             blockTypes: $blockTypes,
+            enforceBlockTypes: $enforceBlockTypes,
             pattern: $pattern,
             min: $min,
             max: $max,
