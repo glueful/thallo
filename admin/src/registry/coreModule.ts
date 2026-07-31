@@ -1,9 +1,9 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
-import type { AdminModule } from './adminModules'
+import type { AdminModule, SettingsAnchor } from './adminModules'
 
 // The first-party (core) admin nav, registered as an always-on module (no `requires`).
 // Pack modules register their own nav with a `requires` capability id elsewhere.
-const main: NavigationMenuItem[] = [
+const main: (NavigationMenuItem | SettingsAnchor)[] = [
   {
     label: 'Home',
     icon: 'i-lucide-house',
@@ -81,6 +81,8 @@ const main: NavigationMenuItem[] = [
   {
     label: 'Settings',
     icon: 'i-lucide-settings',
+    // Private marker: module `settings` contributions merge in here (see adminModules.visibleNav).
+    contributionSlot: 'settings',
     children: [
       {
         label: 'Content Types',

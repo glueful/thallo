@@ -9,6 +9,7 @@ import { templatesModule } from './templatesModule'
 import { commerceModule } from './commerceModule'
 import { submissionsModule } from './submissionsModule'
 import { tenancyModule } from './tenancyModule'
+import { accountModule } from './accountModule'
 
 /**
  * The STATIC admin menu manifest: every module the sidebar can ever show, declared in
@@ -31,4 +32,5 @@ export const adminManifest: readonly AdminModule[] = [
   commerceModule,
   submissionsModule,
   tenancyModule,
+  accountModule,
 ]
