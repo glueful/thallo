@@ -11,9 +11,10 @@ const pages = computed(() => settings.value?.pages ?? [])
 </script>
 
 <template>
+  <!-- max-w-2xl matches StorePanel below, so the two sections align. -->
   <section
     v-if="pages.length > 0"
-    class="mb-6 rounded-lg border border-default"
+    class="mb-6 max-w-2xl rounded-lg border border-default"
     data-testid="store-pages"
   >
     <div class="border-b border-default px-5 py-3">
