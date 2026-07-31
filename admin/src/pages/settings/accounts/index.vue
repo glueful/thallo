@@ -129,6 +129,7 @@ onMounted(load)
               <UInput
                 v-model="afterLogin"
                 placeholder="/account"
+                class="w-full"
                 data-testid="after-login-input"
               />
             </UFormField>
@@ -141,6 +142,7 @@ onMounted(load)
               <UInput
                 v-model="afterLogout"
                 placeholder="/account/login"
+                class="w-full"
                 data-testid="after-logout-input"
               />
             </UFormField>
