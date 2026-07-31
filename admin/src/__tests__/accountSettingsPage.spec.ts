@@ -28,6 +28,13 @@ const settings = () => ({
   ],
   after_login: '/account/orders',
   after_logout: null as string | null,
+  suggestions: {
+    after_login: [{ label: 'Account', path: '/account' }],
+    after_logout: [
+      { label: 'Home', path: '/' },
+      { label: 'Sign in', path: '/account/login' },
+    ],
+  },
 })
 
 describe('settings/accounts page', () => {
@@ -44,6 +51,20 @@ describe('settings/accounts page', () => {
     expect(links.map((l) => l.text())).toEqual(['/account/login', '/account'])
     const loginInput = wrapper.find('[data-testid="after-login-input"]').element as HTMLInputElement
     expect(loginInput.value).toBe('/account/orders')
+  })
+
+  it('offers the curated redirect suggestions as datalist options', async () => {
+    const wrapper = mount(AccountSettingsPage)
+    await flushPromises()
+
+    const loginOpts = wrapper
+      .findAll('#after-login-suggestions option')
+      .map((o) => o.attributes('value'))
+    expect(loginOpts).toContain('/account')
+    const logoutOpts = wrapper
+      .findAll('#after-logout-suggestions option')
+      .map((o) => o.attributes('value'))
+    expect(logoutOpts).toEqual(['/', '/account/login'])
   })
 
   it('saves valid redirects, clearing a blanked field to null', async () => {

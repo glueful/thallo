@@ -109,6 +109,23 @@ final class AccountSettingsAdminTest extends AppTestCase
         self::assertArrayHasKey('after_logout', $data);
     }
 
+    public function testSuggestionsAreCuratedPerFieldAndExcludeAuthActionPages(): void
+    {
+        $data = $this->data($this->controller()->show());
+        $login = array_column($data['suggestions']['after_login'], 'path');
+        $logout = array_column($data['suggestions']['after_logout'], 'path');
+
+        // after_login: the account dashboard (+ any enabled account sections, none in this env).
+        self::assertContains('/account', $login);
+        // after_logout: home + sign-in only — the visitor is anonymous, no account sections.
+        self::assertSame(['/', '/account/login'], $logout);
+        // Transitional auth-action pages are never suggested (no redirect loops / dead flows).
+        foreach (['/account/register', '/account/verify', '/account/forgot-password', '/account/logout'] as $bad) {
+            self::assertNotContains($bad, $login, "{$bad} must not be an after-login suggestion");
+            self::assertNotContains($bad, $logout, "{$bad} must not be an after-logout suggestion");
+        }
+    }
+
     public function testUpdateRejectsAHostileRedirectWith422AndDoesNotMutate(): void
     {
         $before = $this->store()->afterLogin();

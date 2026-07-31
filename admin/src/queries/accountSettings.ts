@@ -6,10 +6,20 @@ export interface AccountPage {
   path: string
 }
 
+export interface AccountSuggestion {
+  label: string
+  path: string
+}
+
 export interface AccountSettings {
   pages: AccountPage[]
   after_login: string | null
   after_logout: string | null
+  /** Curated convenience targets per field; the value still passes server validation on save. */
+  suggestions: {
+    after_login: AccountSuggestion[]
+    after_logout: AccountSuggestion[]
+  }
 }
 
 function base(): string {
@@ -25,6 +35,10 @@ function unwrap(json: unknown): AccountSettings {
     pages: value.pages,
     after_login: value.after_login ?? null,
     after_logout: value.after_logout ?? null,
+    suggestions: {
+      after_login: value.suggestions?.after_login ?? [],
+      after_logout: value.suggestions?.after_logout ?? [],
+    },
   }
 }
 

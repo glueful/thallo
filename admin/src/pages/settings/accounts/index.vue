@@ -72,9 +72,8 @@ onMounted(load)
     <template #body>
       <div class="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
         <p class="text-sm text-muted">
-          The storefront account pages, and where visitors land after signing in or out. Redirects
-          must be site-relative paths (a single leading <code>/</code>); leave one blank to use the
-          default.
+          The account pages, and where visitors land after signing in or out. Redirects must be
+          site-relative paths (a single leading <code>/</code>); leave one blank to use the default.
         </p>
 
         <div v-if="loading" class="flex flex-col gap-3">
@@ -130,8 +129,18 @@ onMounted(load)
                 v-model="afterLogin"
                 placeholder="/account"
                 class="w-full"
+                list="after-login-suggestions"
                 data-testid="after-login-input"
               />
+              <datalist id="after-login-suggestions">
+                <option
+                  v-for="s in settings?.suggestions.after_login ?? []"
+                  :key="s.path"
+                  :value="s.path"
+                >
+                  {{ s.label }}
+                </option>
+              </datalist>
             </UFormField>
 
             <UFormField
@@ -143,8 +152,18 @@ onMounted(load)
                 v-model="afterLogout"
                 placeholder="/account/login"
                 class="w-full"
+                list="after-logout-suggestions"
                 data-testid="after-logout-input"
               />
+              <datalist id="after-logout-suggestions">
+                <option
+                  v-for="s in settings?.suggestions.after_logout ?? []"
+                  :key="s.path"
+                  :value="s.path"
+                >
+                  {{ s.label }}
+                </option>
+              </datalist>
             </UFormField>
 
             <div class="flex items-center gap-3">

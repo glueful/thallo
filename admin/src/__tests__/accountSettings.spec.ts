@@ -9,12 +9,16 @@ import { fetchAccountSettings, saveAccountRedirects, isSafeReturnPath } from '@/
 describe('account settings query layer', () => {
   beforeEach(() => authFetch.mockReset())
 
-  it('fetchAccountSettings unwraps data (pages + redirects) from the right endpoint', async () => {
+  it('fetchAccountSettings unwraps data (pages + redirects + suggestions) from the right endpoint', async () => {
     authFetch.mockResolvedValue({
       data: {
         pages: [{ label: 'Sign in', path: '/account/login' }],
         after_login: '/account/orders',
         after_logout: null,
+        suggestions: {
+          after_login: [{ label: 'Account', path: '/account' }],
+          after_logout: [{ label: 'Home', path: '/' }],
+        },
       },
     })
 
@@ -23,7 +27,15 @@ describe('account settings query layer', () => {
     expect(s.pages).toEqual([{ label: 'Sign in', path: '/account/login' }])
     expect(s.after_login).toBe('/account/orders')
     expect(s.after_logout).toBeNull()
+    expect(s.suggestions.after_login).toEqual([{ label: 'Account', path: '/account' }])
+    expect(s.suggestions.after_logout).toEqual([{ label: 'Home', path: '/' }])
     expect(authFetch.mock.calls[0][0]).toBe('/v1/admin/settings/accounts')
+  })
+
+  it('defaults suggestions to empty when the server omits them', async () => {
+    authFetch.mockResolvedValue({ data: { pages: [], after_login: null, after_logout: null } })
+    const s = await fetchAccountSettings()
+    expect(s.suggestions).toEqual({ after_login: [], after_logout: [] })
   })
 
   it('saveAccountRedirects PUTs the pair and clears an override with null', async () => {

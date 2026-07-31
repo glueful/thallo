@@ -11,13 +11,16 @@ use Thallo\Account\AccountReturnPath;
 use Thallo\Account\Http\DTOs\Responses\AccountSettingsResultData;
 use Thallo\Account\Http\DTOs\UpdateAccountSettingsData;
 use Thallo\Account\Settings\AccountSettingsStore;
+use Thallo\Contracts\Account\AccountNavigationRegistry;
+use Thallo\Contracts\Capability\CapabilityRegistry;
 
 /**
- * Read/write the storefront account surface's admin settings: a FIXED, allowlisted inventory of the
- * themed account pages an operator can link to, plus the two configurable redirect overrides
- * (post-login / post-logout). Consumes only the pack's own {@see AccountSettingsStore} and
- * {@see AccountReturnPath} — never an app class. Gated by `thallo.accounts` (route-file load) +
- * `content.manage` (per-route); see `routes/admin-routes.php`.
+ * Read/write the account surface's admin settings: a FIXED, allowlisted inventory of the themed
+ * account pages an operator can link to, the two configurable redirect overrides (post-login /
+ * post-logout), and curated per-field redirect suggestions. Consumes only the pack's own contracts
+ * ({@see AccountSettingsStore}, {@see AccountReturnPath}, {@see AccountNavigationRegistry}) — never
+ * an app class. Gated by `thallo.accounts` (route-file load) + `content.manage` (per-route); see
+ * `routes/admin-routes.php`.
  *
  * The page inventory is a hardcoded allowlist, never derived from the router — the admin API never
  * exposes arbitrary route inventory.
@@ -36,6 +39,8 @@ final class AccountSettingsController
     public function __construct(
         private readonly AccountSettingsStore $settings,
         private readonly AccountReturnPath $returnPaths,
+        private readonly AccountNavigationRegistry $navigation,
+        private readonly CapabilityRegistry $capabilities,
     ) {
     }
 
@@ -85,13 +90,51 @@ final class AccountSettingsController
         return Response::success($this->payload(), 'Account settings saved.');
     }
 
-    /** @return array{pages: list<array{label: string, path: string}>, after_login: ?string, after_logout: ?string} */
+    /**
+     * @return array{
+     *   pages: list<array{label: string, path: string}>,
+     *   after_login: ?string, after_logout: ?string,
+     *   suggestions: array{after_login: list<array{label: string, path: string}>,
+     *     after_logout: list<array{label: string, path: string}>},
+     * }
+     */
     private function payload(): array
     {
         return [
             'pages' => self::PAGES,
             'after_login' => $this->settings->afterLogin(),
             'after_logout' => $this->settings->afterLogout(),
+            'suggestions' => $this->suggestions(),
+        ];
+    }
+
+    /**
+     * Curated, convenience-only redirect targets per field (the value still passes through
+     * {@see AccountReturnPath} on save). Transitional auth-action pages (register / verify / password
+     * reset / logout) are deliberately never suggested — they would create a redirect loop or land a
+     * visitor in a dead authentication flow. Published site pages are merged in separately.
+     *
+     * - after_login: `/account` plus the ENABLED account sections — an authenticated destination.
+     * - after_logout: `/` and the sign-in page — the visitor is anonymous again, so no account sections.
+     *
+     * @return array{after_login: list<array{label: string, path: string}>,
+     *   after_logout: list<array{label: string, path: string}>}
+     */
+    private function suggestions(): array
+    {
+        $afterLogin = [['label' => 'Account', 'path' => '/account']];
+        foreach ($this->navigation->items() as $item) {
+            if ($item->capability === null || $this->capabilities->isEnabled($item->capability)) {
+                $afterLogin[] = ['label' => $item->label, 'path' => $item->path];
+            }
+        }
+
+        return [
+            'after_login' => $afterLogin,
+            'after_logout' => [
+                ['label' => 'Home', 'path' => '/'],
+                ['label' => 'Sign in', 'path' => '/account/login'],
+            ],
         ];
     }
 
