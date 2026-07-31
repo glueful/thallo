@@ -77,7 +77,7 @@ $router->post('/account/logout', [AccountAuthController::class, 'logout'])
 $router->get('/_account/assets/{file}', [AccountAssetController::class, 'serve'])
     ->middleware($page)->name('account.asset');
 
-// The private session-state endpoint the account-link block hydrates from. `session_cookie:optional`
+// The private session-state endpoint the storefront account chrome hydrates from. `session_cookie:optional`
 // adapts a valid cookie into a Bearer header (and drops a lapsed one to anonymous); `auth:optional`
 // sets `user` when present and lets a signed-out visitor through instead of 401-ing the chrome. The
 // controller marks the response `private, no-store` — it must never enter a shared cache.

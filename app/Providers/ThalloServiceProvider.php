@@ -64,6 +64,7 @@ use Thallo\Contracts\Content\FormSealer;
 use Thallo\Tenancy\Reverification\DomainReverificationAuditListener;
 use App\Content\Console\PruneVersionsCommand;
 use App\Content\Console\PolicyManifestCommand;
+use App\Content\Console\RetireAccountLinkCommand;
 use App\Content\Console\RunBlockBackfillCommand;
 use App\Content\Console\SeedBlockTypesCommand;
 use App\Content\Console\SyncBlockTypesCommand;
@@ -1790,6 +1791,11 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            RetireAccountLinkCommand::class => [
+                'class' => RetireAccountLinkCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             RunBlockBackfillCommand::class => [
                 'class' => RunBlockBackfillCommand::class,
                 'shared' => true,
@@ -1983,6 +1989,7 @@ final class ThalloServiceProvider extends ServiceProvider
             PolicyManifestCommand::class,
             SeedBlockTypesCommand::class,
             SyncBlockTypesCommand::class,
+            RetireAccountLinkCommand::class,
             RunBlockBackfillCommand::class,
             RunBackfillCommand::class,
             RunDueSchedulesCommand::class,

@@ -7,14 +7,13 @@ namespace App\Tests\Integration\Account;
 use App\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Symfony\Component\HttpFoundation\Request;
-use Thallo\Render\RenderContextExtension;
-use Thallo\Render\TwigFactory;
 
 /**
  * The account chrome's cache-safety boundary: per-visitor identity leaves the server ONLY through
- * the private `/_account/session` endpoint, never through a cacheable page. The block shell is
- * byte-identical for everyone; the runtime module hydrates it and fails closed; the asset alias
- * survives a deploy; and a capability flip removes the chrome cleanly.
+ * the private `/_account/session` endpoint, never through a cacheable page. The runtime module
+ * hydrates it and fails closed, and the asset alias survives a deploy. (The `account-link` block
+ * itself — the thing the runtime module used to enhance — was physically retired pre-launch; see
+ * `Thallo\Account\Console\RetireAccountLinkCommand`. The capability still gates `/_account/*`.)
  */
 final class AccountCacheIsolationTest extends AppTestCase
 {
@@ -115,16 +114,6 @@ final class AccountCacheIsolationTest extends AppTestCase
         self::assertSame(404, $this->get('/_account/assets/account-deadbeefdead.js')->getStatusCode());
     }
 
-    public function testTheScriptTagIsEmittedOnlyWhenTheBlockIsPresent(): void
-    {
-        $withBlock = $this->renderRegionWith(['account-link']);
-        $withoutBlock = $this->renderRegionWith([]);
-
-        // The alias, not a fingerprint — that is what makes a cached page survive a deploy.
-        self::assertStringContainsString('/_account/assets/account.js', $withBlock);
-        self::assertStringNotContainsString('/_account/assets/', $withoutBlock);
-    }
-
     public function testTheAssetRegistersExactlyOneRuntimeModuleAndIsInertOnASecondEvaluation(): void
     {
         $source = $this->accountJsSource();
@@ -148,68 +137,17 @@ final class AccountCacheIsolationTest extends AppTestCase
 
     // --- Capability flip across separate boots -----------------------------------------------
 
-    public function testACapabilityOffBootRendersNoAccountChrome(): void
+    public function testACapabilityOffBootStill404sThePrivateSessionEndpoint(): void
     {
         $off = self::bootAppWithConfigOverride('thallo', [
             'capabilities' => ['thallo.accounts' => false],
         ]);
 
         try {
-            $container = $off->getContainer();
-            $env = $container->get(TwigFactory::class)->environment();
-            /** @var RenderContextExtension $render */
-            $render = $container->get(RenderContextExtension::class);
-            $render->resetPerRenderState();
-            $render->setBlockAnnotations(false);
-            $render->setLocale('en');
-
-            // Represents content persisted while accounts were enabled. Capability-off removes the
-            // pack template path; it never mutates the stored block.
-            $html = $render->blocks($env, ['entry' => null, 'site' => []], [[
-                'id' => 'account-block-1',
-                'type' => 'account-link',
-                'data' => [],
-            ]]);
-
-            self::assertStringNotContainsString('data-account-link', $html);
-            self::assertStringNotContainsString('/_account/assets/account.js', $html);
-
             $response = (new Application($off))->handle(
                 Request::create('/_account/session', 'GET', [], [], [], ['HTTP_ACCEPT' => 'application/json']),
             );
             self::assertSame(404, $response->getStatusCode());
-        } finally {
-            self::resetSharedRepositoryConnection();
-        }
-    }
-
-    public function testACapabilityOnBootRendersTheUniversalShell(): void
-    {
-        $on = self::bootAppWithConfigOverride('thallo', [
-            'capabilities' => ['thallo.accounts' => true],
-        ]);
-
-        try {
-            $container = $on->getContainer();
-            $env = $container->get(TwigFactory::class)->environment();
-            self::assertTrue(
-                $env->getLoader()->exists('blocks/account-link.twig'),
-                'sanity: the enabled boot must contribute the account template path',
-            );
-
-            /** @var RenderContextExtension $render */
-            $render = $container->get(RenderContextExtension::class);
-            $render->resetPerRenderState();
-            $render->setBlockAnnotations(false);
-            $render->setLocale('en');
-            $html = $render->blocks($env, ['entry' => null, 'site' => []], [[
-                'id' => 'account-block-1',
-                'type' => 'account-link',
-                'data' => [],
-            ]]);
-
-            self::assertStringContainsString('data-account-link', $html);
-            self::assertStringContainsString('/_account/assets/account.js', $html);
         } finally {
             self::resetSharedRepositoryConnection();
         }
@@ -240,24 +178,6 @@ final class AccountCacheIsolationTest extends AppTestCase
         $route = $this->findRoute($method, $path);
 
         return $route === null ? [] : array_map('strval', (array) ($route['middleware'] ?? []));
-    }
-
-    /** @param list<string> $types */
-    private function renderRegionWith(array $types): string
-    {
-        $env = $this->container()->get(TwigFactory::class)->environment();
-        /** @var RenderContextExtension $render */
-        $render = $this->container()->get(RenderContextExtension::class);
-        $render->resetPerRenderState();
-        $render->setBlockAnnotations(false);
-        $render->setLocale('en');
-
-        $blocks = [];
-        foreach ($types as $i => $type) {
-            $blocks[] = ['id' => 'blk-' . $i, 'type' => $type, 'data' => []];
-        }
-
-        return $render->blocks($env, ['entry' => null, 'site' => []], $blocks);
     }
 
     private function accountJsSource(): string

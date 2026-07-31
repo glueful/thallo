@@ -28,7 +28,7 @@ use function app;
 
 /**
  * Storefront customer accounts, as a removable capability pack. The pack owns the themed
- * `/account/*` pages and the `account-link` header/footer block, and consumes the neutral account
+ * `/account/*` pages and consumes the neutral account
  * contracts — never the app-side signup services (a test walks these sources to keep that boundary
  * real). The `thallo.accounts` capability gates only this product surface: the framework's
  * `/auth/*` identity endpoints and the session-cookie transport are never gated by it.
@@ -130,8 +130,8 @@ final class AccountServiceProvider extends ServiceProvider
                 ->registerTemplatePaths(new AccountTemplatePathContributor());
         }
 
-        // Capability-boundary pin: the account-link block type registers only while enabled, so a
-        // stored block falls to the missing-template fallback when the capability is off.
+        // Capability-boundary pin: account block types register only while enabled, so a stored
+        // block falls to the missing-template fallback when the capability is off.
         $this->registerAccountBlockTypeContributor($container);
     }
 
