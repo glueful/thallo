@@ -813,12 +813,20 @@ export interface StoreSettingEntry {
   overridden: boolean
 }
 
+/** One default store page (fixed server-side allowlist; paths follow the live shop prefix). */
+export interface StorePage {
+  label: string
+  path: string
+}
+
 export interface StoreSettings {
   settings: Record<string, StoreSettingEntry>
   /** True once ORDERS exist — recorded money history; the currency lock's predicate. */
   currency_locked: boolean
   /** Priced products exist (no lock, but a currency change reinterprets their numbers). */
   has_priced_products: boolean
+  /** The default store pages (Shop/Wishlist/Cart/Checkout); [] when the server omits them. */
+  pages: StorePage[]
 }
 
 export const STORE_SETTING_KEYS = [
@@ -853,15 +861,23 @@ function normalizeStoreSettings(raw: unknown): StoreSettings {
     settings?: Record<string, unknown>
     currency_locked?: boolean
     has_priced_products?: boolean
+    pages?: unknown
   }
   const settings: Record<string, StoreSettingEntry> = {}
   for (const key of STORE_SETTING_KEYS) {
     settings[key] = normalizeStoreEntry(data.settings?.[key])
   }
+  const pages: StorePage[] = Array.isArray(data.pages)
+    ? data.pages.map((p) => {
+        const page = (p ?? {}) as Partial<StorePage>
+        return { label: String(page.label ?? ''), path: String(page.path ?? '') }
+      })
+    : []
   return {
     settings,
     currency_locked: data.currency_locked === true,
     has_priced_products: data.has_priced_products === true,
+    pages,
   }
 }
 
