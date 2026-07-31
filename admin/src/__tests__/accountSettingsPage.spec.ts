@@ -20,6 +20,7 @@ vi.mock('vue-router/auto', () => ({
 }))
 
 import AccountSettingsPage from '@/pages/settings/accounts/index.vue'
+import PathCombobox from '@/pages/settings/accounts/components/PathCombobox.vue'
 
 const settings = () => ({
   pages: [
@@ -53,18 +54,31 @@ describe('settings/accounts page', () => {
     expect(loginInput.value).toBe('/account/orders')
   })
 
-  it('offers the curated redirect suggestions as datalist options', async () => {
+  it('offers the curated redirect suggestions when a field is focused', async () => {
     const wrapper = mount(AccountSettingsPage)
     await flushPromises()
 
-    const loginOpts = wrapper
-      .findAll('#after-login-suggestions option')
-      .map((o) => o.attributes('value'))
-    expect(loginOpts).toContain('/account')
-    const logoutOpts = wrapper
-      .findAll('#after-logout-suggestions option')
-      .map((o) => o.attributes('value'))
-    expect(logoutOpts).toEqual(['/', '/account/login'])
+    // Focusing the input fires focusin (bubbles) in the browser; trigger it on the combobox root.
+    const login = wrapper.findAllComponents(PathCombobox)[0]
+    await login.trigger('focusin')
+    const opts = login.findAll('[data-testid="path-suggestion"]').map((o) => o.text())
+    expect(opts.some((t) => t.includes('/account'))).toBe(true)
+  })
+
+  it('fills the field from a picked suggestion', async () => {
+    const wrapper = mount(AccountSettingsPage)
+    await flushPromises()
+
+    const logout = wrapper.findAllComponents(PathCombobox)[1]
+    await logout.trigger('focusin')
+    const signIn = logout
+      .findAll('[data-testid="path-suggestion"]')
+      .find((o) => o.text().includes('/account/login'))
+    await signIn?.trigger('mousedown')
+    await flushPromises()
+
+    const input = wrapper.find('[data-testid="after-logout-input"]').element as HTMLInputElement
+    expect(input.value).toBe('/account/login')
   })
 
   it('saves valid redirects, clearing a blanked field to null', async () => {

@@ -7,6 +7,7 @@ import {
   isSafeReturnPath,
   type AccountSettings,
 } from '@/queries/accountSettings'
+import PathCombobox from './components/PathCombobox.vue'
 
 // Verified-capability guard: direct navigation to this page requires thallo.accounts to be
 // ENABLED (not merely visible in the sidebar). The router guard reads isEnabled().
@@ -125,22 +126,12 @@ onMounted(load)
               help="Where a visitor lands after signing in. Blank uses /account."
               :error="loginInvalid ? 'Enter a site-relative path beginning with a single /.' : undefined"
             >
-              <UInput
+              <PathCombobox
                 v-model="afterLogin"
+                :suggestions="settings?.suggestions.after_login ?? []"
                 placeholder="/account"
-                class="w-full"
-                list="after-login-suggestions"
-                data-testid="after-login-input"
+                testid="after-login-input"
               />
-              <datalist id="after-login-suggestions">
-                <option
-                  v-for="s in settings?.suggestions.after_login ?? []"
-                  :key="s.path"
-                  :value="s.path"
-                >
-                  {{ s.label }}
-                </option>
-              </datalist>
             </UFormField>
 
             <UFormField
@@ -148,22 +139,12 @@ onMounted(load)
               help="Where a visitor lands after signing out. Blank uses /account/login."
               :error="logoutInvalid ? 'Enter a site-relative path beginning with a single /.' : undefined"
             >
-              <UInput
+              <PathCombobox
                 v-model="afterLogout"
+                :suggestions="settings?.suggestions.after_logout ?? []"
                 placeholder="/account/login"
-                class="w-full"
-                list="after-logout-suggestions"
-                data-testid="after-logout-input"
+                testid="after-logout-input"
               />
-              <datalist id="after-logout-suggestions">
-                <option
-                  v-for="s in settings?.suggestions.after_logout ?? []"
-                  :key="s.path"
-                  :value="s.path"
-                >
-                  {{ s.label }}
-                </option>
-              </datalist>
             </UFormField>
 
             <div class="flex items-center gap-3">
