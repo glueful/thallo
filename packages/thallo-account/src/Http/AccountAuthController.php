@@ -60,10 +60,22 @@ final class AccountAuthController
         // Revalidate the posted `next` (POST is authoritative). Only the validated value is ever
         // reflected back into the form, so a tampered hidden field can never become an open redirect.
         $safeNext = $this->safeNext($request);
+        // The PRG-back contract (form-blocks plan Task 3): a custom page embedding login-form
+        // posts a JS-injected `return_to`. PATH-ONLY by contract (validatePagePath), so the one
+        // allowlisted error code below appends without merge/fragment ambiguity. Absent or unsafe
+        // → the themed 422 fallback (exactly what a no-JS submit gets, since static block markup
+        // carries no return_to).
+        $returnTo = $this->returnPaths->validatePagePath($this->input($request, 'return_to'));
 
         try {
             $outcome = $this->login->login(['username' => $email, 'password' => $this->input($request, 'password')]);
         } catch (AuthenticationException) {
+            if ($returnTo !== null) {
+                // Only the allowlisted code travels — never email, provider text, or messages.
+                // `credentials` covers unknown-email and wrong-password identically (neutrality).
+                return new RedirectResponse($returnTo . '?account_error=credentials', Response::HTTP_SEE_OTHER);
+            }
+
             return $this->renderer->render($request, 'account/login.twig', [
                 'error' => 'We could not sign you in. Check your email and password.',
                 'email' => $email,
@@ -75,6 +87,8 @@ final class AccountAuthController
             // Two-factor challenge. The storefront has no second-factor step yet, so it refuses
             // rather than route around the gate: no session, no cookie. The validated `next`
             // survives the re-render so it still applies once the visitor can complete sign-in.
+            // 2FA is NAVIGATION, not an error code: `return_to` deliberately does NOT apply here —
+            // the themed page is the dedicated flow until a real challenge step exists.
             return $this->renderer->render($request, 'account/login.twig', [
                 'error' => 'This account needs an extra verification step the storefront cannot complete yet.',
                 'email' => $email,

@@ -53,6 +53,21 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   is contributed into the shared Settings menu through a nav seam that never duplicates the Settings
   group. The deprecated `account-link` block is physically retired
   (`thallo:account:retire-account-link`).
+- **Account form blocks + Store pages inventory** (`packages/thallo-account` /
+  `packages/thallo-commerce` + admin SPA): devs can now compose **custom versions of the account
+  pages** — three cache-safe form blocks (`login-form`, `register-form`, `forgot-password-form`)
+  render the standard anonymous forms byte-identically into the shared page cache (same-origin
+  provenance + rate limit, no session CSRF token) and join `auth-state`'s enforced slot allowlist.
+  The login block carries a modern inline-error experience: its enhance script injects a path-only
+  `return_to` (so a no-JS submit falls back to the themed page), a failed sign-in 303s back to the
+  custom page carrying only an allowlisted code (`credentials` — never PII in the URL), a hidden
+  `role="alert"` message is revealed and focused, the email is refilled from a consume-once,
+  TTL-bounded, host+page-scoped sessionStorage stash, and `history.replaceState()` strips the code
+  so refresh/back never replays it. 2FA keeps the themed fail-closed page (navigation, not an
+  error code) and enumeration neutrality holds. `AccountReturnPath` gains the path-only
+  `validatePagePath()`; the richer `validate()` contract for `next` is unchanged. Commerce adopts
+  the page-inventory concept: **Commerce → Settings → Store** now lists the default store pages
+  (Shop, Wishlist, Cart, Checkout) with paths computed from the live shop prefix.
 - **Storefront v1 — Concept A** (`packages/thallo-commerce` + delivery seams; requires
   glueful/commerce 1.8.0's batched catalog reads): the shop and category pages gain a
   category chip rail, per-card category tags, and hover-revealed cart/wishlist actions —

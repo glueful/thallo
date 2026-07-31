@@ -342,6 +342,82 @@ final class AccountFlowTest extends AppTestCase
         self::assertStringNotContainsString('evil.example', (string) $hostile->getContent());
     }
 
+    public function testAFailedLoginWithASafeReturnToGoes303BackWithTheCredentialsCode(): void
+    {
+        // The PRG-back contract (form-blocks plan Task 3): a custom page embedding login-form
+        // posts return_to (JS-injected); invalid credentials 303 BACK to that page carrying only
+        // the allowlisted code — no email, no provider text, no session cookie.
+        $this->seedUser('prgback@example.test');
+
+        $response = $this->postSameOrigin('/account/login', [
+            'email' => 'prgback@example.test',
+            'password' => 'wrong-password',
+            'return_to' => '/signin',
+        ]);
+
+        self::assertSame(303, $response->getStatusCode());
+        self::assertSame('/signin?account_error=credentials', $response->headers->get('Location'));
+        self::assertArrayNotHasKey('gf_session', $this->cookiesFrom($response));
+    }
+
+    public function testAHostileOrNonPageReturnToFallsBackToTheThemed422(): void
+    {
+        $this->seedUser('prgbad@example.test');
+
+        foreach (['//evil.example', '/signin?tab=1', '/signin#form'] as $returnTo) {
+            $response = $this->postSameOrigin('/account/login', [
+                'email' => 'prgbad@example.test',
+                'password' => 'wrong-password',
+                'return_to' => $returnTo,
+            ]);
+
+            self::assertSame(422, $response->getStatusCode(), "return_to {$returnTo} must fall back");
+            self::assertStringNotContainsString('evil.example', (string) $response->getContent());
+        }
+    }
+
+    public function testATwoFactorChallengeStaysOnTheThemed422EvenWithAValidReturnTo(): void
+    {
+        // 2FA is navigation, not an error code: the storefront fails closed on the themed page —
+        // never a 303 with a code — even when the custom page supplied a valid return_to.
+        $this->seedUser('prg2fa@example.test');
+
+        $twoFactor = new class implements TwoFactorServiceInterface {
+            public function isEnabled(string $userUuid): bool
+            {
+                return true;
+            }
+
+            /** @return array{token: string, expires_in: int, delivered_to: string} */
+            public function beginLogin(array $user, ?string $preferredProvider = null): array
+            {
+                return ['token' => 'challenge-token', 'expires_in' => 300, 'delivered_to' => 'e***@example.test'];
+            }
+        };
+
+        $controller = new AccountAuthController(
+            $this->container()->get(StorefrontAccountRegistration::class),
+            $this->container()->get(StorefrontAccountRecovery::class),
+            new LoginOrchestrator($this->container()->get(AuthenticationService::class), $twoFactor),
+            $this->container()->get(SessionCookieIssuer::class),
+            $this->container()->get(SessionLogout::class),
+            $this->container()->get(AccountPageRenderer::class),
+            $this->container()->get(AccountReturnPath::class),
+            $this->container()->get(AccountSettingsStore::class),
+            $this->container()->get(LoggerInterface::class),
+        );
+
+        $response = $controller->login(Request::create('/account/login', 'POST', [
+            'email' => 'prg2fa@example.test',
+            'password' => 'sufficiently-long-secret',
+            'return_to' => '/signin',
+        ]));
+
+        self::assertSame(422, $response->getStatusCode());
+        self::assertNull($response->headers->get('Location'));
+        self::assertArrayNotHasKey('gf_session', $this->cookiesFrom($response));
+    }
+
     public function testLogoutRedirectsToASafeNextAsA303(): void
     {
         $cookies = $this->signInAs('logoutnext@example.test');

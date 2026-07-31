@@ -53,6 +53,22 @@ final class AccountReturnPath
     }
 
     /**
+     * The PATH-ONLY variant for a posted `return_to` (form-blocks plan Task 3): everything
+     * {@see validate()} enforces, PLUS no `?` or `#`. The error-return controller appends its one
+     * allowlisted query parameter to the accepted value, so a path-only contract removes any
+     * merge/duplicate-key/fragment ambiguity. `next` destinations keep the richer validate().
+     */
+    public function validatePagePath(string $candidate): ?string
+    {
+        $safe = $this->validate($candidate);
+        if ($safe === null || str_contains($safe, '?') || str_contains($safe, '#')) {
+            return null;
+        }
+
+        return $safe;
+    }
+
+    /**
      * Resolve the effective redirect: a valid `next` wins, else a valid configured default, else
      * the fixed fallback. Both candidates are validated INDEPENDENTLY — a hostile `next` never
      * suppresses a valid configured default, and a hostile configured value never leaks through.

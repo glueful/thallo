@@ -97,4 +97,52 @@ final class AccountReturnPathTest extends TestCase
     {
         self::assertSame('/account', $this->paths->resolve(null, null, '/account'));
     }
+
+    // --- validatePagePath: the PATH-ONLY posted-return authority (form-blocks plan Task 3) ----
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function pageOnlyCandidates(): iterable
+    {
+        yield 'root' => ['/'];
+        yield 'custom page' => ['/signin'];
+        yield 'nested custom page' => ['/members/welcome'];
+    }
+
+    /** @dataProvider pageOnlyCandidates */
+    public function testValidatePagePathAcceptsAPlainPath(string $candidate): void
+    {
+        self::assertSame($candidate, $this->paths->validatePagePath($candidate));
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function nonPageCandidates(): iterable
+    {
+        // Every hostile shape validate() rejects stays rejected...
+        yield 'protocol-relative' => ['//evil.example'];
+        yield 'absolute' => ['https://evil.example/x'];
+        yield 'scheme' => ['javascript:alert(1)'];
+        yield 'encoded' => ['%2f%2fevil.example'];
+        // ...and ADDITIONALLY anything carrying a query or fragment — the controller appends its
+        // one allowlisted parameter, so a path-only contract removes merge/duplicate-key ambiguity.
+        yield 'query' => ['/signin?tab=recent'];
+        yield 'fragment' => ['/signin#form'];
+        yield 'query and fragment' => ['/signin?a=1#b'];
+    }
+
+    /** @dataProvider nonPageCandidates */
+    public function testValidatePagePathRejectsNonPageCandidates(string $candidate): void
+    {
+        self::assertNull($this->paths->validatePagePath($candidate));
+    }
+
+    public function testValidateStillAcceptsQueryAndFragmentForNextDestinations(): void
+    {
+        // The richer contract is untouched: post-login `next` may legitimately carry either.
+        self::assertSame('/account/orders?tab=recent', $this->paths->validate('/account/orders?tab=recent'));
+        self::assertSame('/account#section', $this->paths->validate('/account#section'));
+    }
 }
