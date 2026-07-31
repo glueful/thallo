@@ -13,6 +13,7 @@ use Thallo\Account\Http\DTOs\UpdateAccountSettingsData;
 use Thallo\Account\Settings\AccountSettingsStore;
 use Thallo\Contracts\Account\AccountNavigationRegistry;
 use Thallo\Contracts\Capability\CapabilityRegistry;
+use Thallo\Contracts\Delivery\PublishedPageDirectory;
 
 /**
  * Read/write the account surface's admin settings: a FIXED, allowlisted inventory of the themed
@@ -41,6 +42,8 @@ final class AccountSettingsController
         private readonly AccountReturnPath $returnPaths,
         private readonly AccountNavigationRegistry $navigation,
         private readonly CapabilityRegistry $capabilities,
+        /** Soft-bound: null when no delivery layer is available (published pages simply omitted). */
+        private readonly ?PublishedPageDirectory $pages = null,
     ) {
     }
 
@@ -112,7 +115,8 @@ final class AccountSettingsController
      * Curated, convenience-only redirect targets per field (the value still passes through
      * {@see AccountReturnPath} on save). Transitional auth-action pages (register / verify / password
      * reset / logout) are deliberately never suggested — they would create a redirect loop or land a
-     * visitor in a dead authentication flow. Published site pages are merged in separately.
+     * visitor in a dead authentication flow. Published site pages (via {@see PublishedPageDirectory},
+     * when a delivery layer is bound) are appended to both fields.
      *
      * - after_login: `/account` plus the ENABLED account sections — an authenticated destination.
      * - after_logout: `/` and the sign-in page — the visitor is anonymous again, so no account sections.
@@ -129,12 +133,18 @@ final class AccountSettingsController
             }
         }
 
+        $afterLogout = [
+            ['label' => 'Home', 'path' => '/'],
+            ['label' => 'Sign in', 'path' => '/account/login'],
+        ];
+
+        // Published site pages are valid post-auth destinations for BOTH fields — e.g. a custom
+        // landing or thank-you page an author created. Convenience only; validated on save.
+        $pages = $this->pages?->publicPages() ?? [];
+
         return [
-            'after_login' => $afterLogin,
-            'after_logout' => [
-                ['label' => 'Home', 'path' => '/'],
-                ['label' => 'Sign in', 'path' => '/account/login'],
-            ],
+            'after_login' => array_merge($afterLogin, $pages),
+            'after_logout' => array_merge($afterLogout, $pages),
         ];
     }
 

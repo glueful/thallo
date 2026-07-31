@@ -1718,6 +1718,13 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            // Published site pages as convenience redirect targets (public-account-surface plan
+            // Task 4, phase 2): pack-defines / app-provides over the delivery layer.
+            \Thallo\Contracts\Delivery\PublishedPageDirectory::class => [
+                'class' => \App\Content\Delivery\PublishedPageDirectoryBridge::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             GeneralSettings::class => [
                 'class' => GeneralSettings::class,
                 'shared' => true,

@@ -14,9 +14,13 @@ use Glueful\Extensions\Aegis\Repositories\RolePermissionRepository;
 use Glueful\Helpers\Utils;
 use Glueful\Http\Response;
 use Symfony\Component\HttpFoundation\Request;
+use Thallo\Account\AccountReturnPath;
 use Thallo\Account\Http\AccountSettingsController;
 use Thallo\Account\Http\DTOs\UpdateAccountSettingsData;
 use Thallo\Account\Settings\AccountSettingsStore;
+use Thallo\Contracts\Account\AccountNavigationRegistry;
+use Thallo\Contracts\Capability\CapabilityRegistry;
+use Thallo\Contracts\Delivery\PublishedPageDirectory;
 
 /**
  * The admin API for account settings (public-account-surface plan Task 4): capability-gated route
@@ -124,6 +128,30 @@ final class AccountSettingsAdminTest extends AppTestCase
             self::assertNotContains($bad, $login, "{$bad} must not be an after-login suggestion");
             self::assertNotContains($bad, $logout, "{$bad} must not be an after-logout suggestion");
         }
+    }
+
+    public function testPublishedPagesAreAppendedToBothRedirectFields(): void
+    {
+        // A stand-in delivery layer offering one published page — proves the controller merges it
+        // into BOTH after-login and after-logout suggestions (a custom landing/thank-you page).
+        $pages = new class implements PublishedPageDirectory {
+            /** @return list<array{label: string, path: string}> */
+            public function publicPages(): array
+            {
+                return [['label' => '/pricing', 'path' => '/pricing']];
+            }
+        };
+        $controller = new AccountSettingsController(
+            $this->container()->get(AccountSettingsStore::class),
+            $this->container()->get(AccountReturnPath::class),
+            $this->container()->get(AccountNavigationRegistry::class),
+            $this->container()->get(CapabilityRegistry::class),
+            $pages,
+        );
+
+        $data = $this->data($controller->show());
+        self::assertContains('/pricing', array_column($data['suggestions']['after_login'], 'path'));
+        self::assertContains('/pricing', array_column($data['suggestions']['after_logout'], 'path'));
     }
 
     public function testUpdateRejectsAHostileRedirectWith422AndDoesNotMutate(): void

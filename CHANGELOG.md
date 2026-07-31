@@ -46,9 +46,13 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   scheme, backslash, control char, percent-encoded bypass); a sign-out that cannot revoke the server
   session returns a cookie-cleared 500 rather than a misleading "signed out" redirect. A new
   **Settings → Accounts** admin page (gated by `thallo.accounts` + `content.manage`) lists the themed
-  account pages and edits the two redirects, contributed into the shared Settings menu through a nav
-  seam that never duplicates the Settings group. The deprecated `account-link` block is physically
-  retired (`thallo:account:retire-account-link`).
+  account pages and edits the two redirects — with curated, field-specific suggestions beside
+  free-text entry: after sign-in offers `/account` plus the enabled account sections; after sign-out
+  offers `/` and the sign-in page; both offer published site pages (so a custom landing page is one
+  click away); transitional auth pages (register / verify / reset / logout) are never suggested. It
+  is contributed into the shared Settings menu through a nav seam that never duplicates the Settings
+  group. The deprecated `account-link` block is physically retired
+  (`thallo:account:retire-account-link`).
 - **Storefront v1 — Concept A** (`packages/thallo-commerce` + delivery seams; requires
   glueful/commerce 1.8.0's batched catalog reads): the shop and category pages gain a
   category chip rail, per-card category tags, and hover-revealed cart/wishlist actions —
