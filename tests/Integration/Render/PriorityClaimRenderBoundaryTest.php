@@ -89,7 +89,7 @@ final class PriorityClaimRenderBoundaryTest extends AppTestCase
         $html = $this->container()->get(EntryBlocksRenderer::class)
             ->renderPublishedBlocks($this->appContext(), '', $entryUuid);
         self::assertNotNull($html);
-        self::assertStringContainsString('PCBT-FRAGMENT-MARKER', $html);
+        self::assertStringContainsString('PCBT-FRAGMENT-MARKER', (string) $html);
         self::assertTrue($ext->claimPriorityImage([]), 'the fragment render reset the claim at its boundary');
         self::assertFalse($ext->claimPriorityImage([]), 'at most one claim per fragment render');
 
