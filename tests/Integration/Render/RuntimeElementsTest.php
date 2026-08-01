@@ -74,6 +74,100 @@ final class RuntimeElementsTest extends AppTestCase
         $this->runHarness($this->bootCompleteHarness($this->runtimeJs()), 'boot-complete');
     }
 
+    /**
+     * Regression for the scan-before-projection race (final review, navigation
+     * finding 1): a manual same-task ThalloRuntime.enhance() can reach the drawer
+     * (selector `[data-thallo-enhance="navigation"]`) BEFORE the element's own
+     * connection microtask has projected `.thallo-block-navigation` /
+     * `--reveal-hover` onto the host. Before the fix, `mobile.closest('.thallo-block-navigation')`
+     * found nothing (the class isn't there yet) and fell back to the drawer
+     * itself, so the module's root-scoped work (the `--js` class stamp, and the
+     * reveal-hover hover-intent wiring) landed on the wrong element and stayed
+     * wrong for the component's lifetime (enhance() runs once; the closed-over
+     * `root` never gets corrected once projection eventually lands). The fix
+     * makes closest() also match the bare `thallo-navigation` tag name (stable
+     * from the start, unlike the projected class) and treats the `reveal-hover`
+     * ATTRIBUTE (present in markup immediately) as equivalent to the projected
+     * class.
+     */
+    public function testManualEnhanceBeforeConnectionMicrotaskFlushResolvesNavigationRootToHost(): void
+    {
+        $this->runHarness($this->manualNavEnhanceHarness($this->runtimeJs()), 'manual-nav-enhance');
+    }
+
+    /** Case: manual RT.enhance() reaching the drawer ahead of the connection microtask. */
+    private function manualNavEnhanceHarness(string $src): string
+    {
+        $json = json_encode($src, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        $prelude = $this->stubPrelude();
+
+        return <<<JS
+        {$prelude}
+
+        eval({$json});
+        var RT = window.ThalloRuntime;
+
+        (async function () {
+          var n = makeNavHost(true); // host carries the reveal-hover ATTRIBUTE; drawer inside
+
+          // A nested submenu <details>, wrapped the way real markup wraps it (a
+          // parent the hover-intent listeners attach to), so reveal-hover behavior
+          // is directly observable, not just the root-resolution side effect.
+          var li = el('li');
+          var sub = el('details');
+          sub.classList.add('thallo-block-navigation__details');
+          sub.open = false;
+          var summary = el('summary');
+          summary.setAttribute('data-nav-toggle', '');
+          sub.appendChild(summary);
+          var panel = el('div');
+          panel.setAttribute('data-nav-panel', '');
+          sub.appendChild(panel);
+          li.appendChild(sub);
+          n.drawer.appendChild(li);
+
+          // Upgrade queues the connection microtask but does NOT flush it — this
+          // models the parser-upgrade timing without letting projection run yet.
+          upgrade('thallo-navigation', n.host);
+
+          // Manual, same-task RT.enhance() reaches the drawer via the module
+          // selector BEFORE the queued connection microtask (and therefore
+          // projection) has run.
+          RT.enhance(n.host);
+
+          assert(n.host.classList.contains('thallo-block-navigation--js'),
+            'root resolved to the HOST (tag-name closest match), not the drawer, ' +
+            'even though the class had not been projected yet');
+          assert(!sub.open, 'sanity: submenu starts closed');
+
+          li.dispatchEvent({ type: 'mouseenter' });
+          assert(sub.open === true,
+            'reveal-hover behavior is active: honored via the reveal-hover ATTRIBUTE ' +
+            'fallback even though the class was not projected yet at enhance() time');
+
+          // Flushing the (still-pending) connection microtask afterwards must be a
+          // harmless no-op for the module (already marked) and must finish
+          // projecting the host classes the module bypassed at manual-enhance time.
+          await flush();
+          assert(n.host.classList.contains('thallo-block-navigation'), 'root class projected on flush');
+          assert(n.host.classList.contains('thallo-block-navigation--reveal-hover'),
+            'reveal-hover class projected on flush');
+          assert((n.drawer.getAttribute('data-thallo-enhanced') || '').split(' ')
+            .filter(function (t) { return t === 'navigation'; }).length === 1,
+            'drawer marked exactly once: flush did not double-enhance');
+
+          n.host.disconnectedCallback();
+          assert(!n.host.classList.contains('thallo-block-navigation--js'), 'disconnect: --js class gone');
+          assert(!n.host.classList.contains('thallo-block-navigation--reveal-hover'),
+            'disconnect: reveal-hover class gone');
+          assert(!n.host.classList.contains('thallo-block-navigation'), 'disconnect: root class gone');
+          assert(n.drawer.getAttribute('data-thallo-enhanced') === null, 'disconnect: drawer marker gone');
+
+          console.log('ALL_PASS');
+        })().catch(function (e) { console.error('FAIL: ' + (e && e.stack)); process.exit(1); });
+        JS;
+    }
+
     /** Shared stub prelude: generic DOM node factory + customElements/document/window. */
     private function stubPrelude(): string
     {
@@ -101,7 +195,10 @@ final class RuntimeElementsTest extends AppTestCase
         //     parent-aware appendChild, closest()/contains() walking the tree, and a
         //     minimal matches()/querySelector(All)() supporting '.class' and
         //     '[attr]'/'[attr="value"]' selectors (the only shapes the modules use). --
-        function matchesSelector(node, sel) {
+        // Comma-separated selector lists (e.g. '.thallo-block-navigation, thallo-navigation')
+        // and bare tag-name selectors, in addition to the existing '.class' / '[attr]' forms —
+        // needed to model closest() resolving a custom-element host by tag name.
+        function matchesOne(node, sel) {
           if (sel.charAt(0) === '.') { return node.classList.contains(sel.slice(1)); }
           if (sel.charAt(0) === '[') {
             var m = /^\[([\w-]+)(="([^"]*)")?\]$/.exec(sel);
@@ -111,7 +208,11 @@ final class RuntimeElementsTest extends AppTestCase
             if (val === undefined) { return node.hasAttribute(name); }
             return node.getAttribute(name) === val;
           }
+          if (/^[\w-]+$/.test(sel)) { return node.tagName === sel.toUpperCase(); }
           return false;
+        }
+        function matchesSelector(node, sel) {
+          return sel.split(',').some(function (part) { return matchesOne(node, part.trim()); });
         }
         function el(tag) {
           var attrs = {};

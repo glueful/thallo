@@ -213,7 +213,11 @@ final class NavigationRuntimeTest extends AppTestCase
               return sel === '.thallo-block-navigation__details' ? [a.d, b.d] : [];
             },
             querySelector: function () { return null; },
-            closest: function (sel) { return sel === '.thallo-block-navigation' ? root : null; },
+            // Real closest() supports comma-separated selector lists (the fix for
+            // the scan-before-projection race adds a `thallo-navigation` tag-name
+            // fallback alongside the class) — match on substring rather than exact
+            // equality so this stub keeps working with either selector shape.
+            closest: function (sel) { return sel.indexOf('.thallo-block-navigation') !== -1 ? root : null; },
             contains: function (n) { return members.indexOf(n) !== -1; }
           });
           detailsOpenProp(mobile);
@@ -484,7 +488,11 @@ final class NavigationRuntimeTest extends AppTestCase
               return sel === '.thallo-block-navigation__details' ? [a.d, b.d] : [];
             },
             querySelector: function () { return null; },
-            closest: function (sel) { return sel === '.thallo-block-navigation' ? root : null; },
+            // Real closest() supports comma-separated selector lists (the fix for
+            // the scan-before-projection race adds a `thallo-navigation` tag-name
+            // fallback alongside the class) — match on substring rather than exact
+            // equality so this stub keeps working with either selector shape.
+            closest: function (sel) { return sel.indexOf('.thallo-block-navigation') !== -1 ? root : null; },
             contains: function (n) { return members.indexOf(n) !== -1; }
           });
           detailsOpenProp(mobile);
