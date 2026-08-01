@@ -300,4 +300,345 @@ final class CarouselRuntimeTest extends AppTestCase
         console.log('ALL_PASS');
         JS;
     }
+
+    /** Shared exec-and-assert plumbing for the harnesses below. */
+    private function runHarness(string $js, string $suffix): void
+    {
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate the carousel runtime module');
+        }
+
+        $file = sys_get_temp_dir() . '/thallo_carousel_runtime_' . $suffix . '_' . getmypid() . '.mjs';
+        file_put_contents($file, $js);
+        try {
+            $out = [];
+            $code = 0;
+            exec(escapeshellarg($node) . ' ' . escapeshellarg($file) . ' 2>&1', $out, $code);
+            self::assertSame(0, $code, "carousel harness failed:\n" . implode("\n", $out));
+            self::assertStringContainsString('ALL_PASS', implode("\n", $out));
+        } finally {
+            @unlink($file);
+        }
+    }
+
+    public function testCarouselStructuralNoOpReturnsFalseAndRetriesOnNextPass(): void
+    {
+        $this->runHarness($this->structuralFalseHarness($this->runtimeJs()), 'structural');
+    }
+
+    /**
+     * Structural no-op returns false (never marks). A carousel root MISSING the
+     * viewport must leave the shared marker untouched — and, because unmarked
+     * components are retried, a second enhance() pass re-runs the module rather
+     * than treating it as already handled.
+     */
+    private function structuralFalseHarness(string $src): string
+    {
+        $json = json_encode($src, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return <<<JS
+        'use strict';
+        function assert(c, m) { if (!c) { console.error('FAIL: ' + m); process.exit(1); } }
+
+        global.matchMedia = function () {
+          return { matches: false, addEventListener: function () {} };
+        };
+
+        function makeEl(tag) {
+          var attrs = {};
+          var node = {
+            tagName: String(tag).toUpperCase(),
+            nodeType: 1,
+            className: '',
+            dataset: {},
+            children: [],
+            appendChild: function (c) { node.children.push(c); return c; },
+            getAttribute: function (n) { return attrs[n] === undefined ? null : attrs[n]; },
+            setAttribute: function (n, v) { attrs[n] = String(v); },
+            removeAttribute: function (n) { delete attrs[n]; },
+            addEventListener: function () {},
+            matches: function () { return false; },
+            querySelectorAll: function () { return []; },
+            querySelector: function () { return null; }
+          };
+          return node;
+        }
+
+        var inert = {
+          dataset: {},
+          matches: function () { return false; },
+          querySelectorAll: function () { return []; },
+          querySelector: function () { return null; },
+          getAttribute: function () { return null; },
+          setAttribute: function () {},
+          addEventListener: function () {},
+          dispatchEvent: function () { return true; }
+        };
+        global.document = {
+          readyState: 'complete',
+          hidden: false,
+          addEventListener: function () {},
+          querySelector: function () { return null; },
+          querySelectorAll: function () { return []; },
+          createElement: makeEl,
+          documentElement: inert
+        };
+        global.window = global;
+
+        eval($json);
+
+        var viewportQueries = 0;
+        var root = makeEl('div');
+        root.className = 'thallo-block-carousel';
+        root.matches = function (sel) { return sel === '.thallo-block-carousel'; };
+        root.querySelector = function (sel) {
+          if (sel === '.thallo-block-carousel__viewport') { viewportQueries++; }
+          return null; // viewport (and track) genuinely absent
+        };
+
+        window.ThalloRuntime.enhance(root);
+        assert(viewportQueries === 1, 'first pass queried for the viewport');
+        assert((root.getAttribute('data-thallo-enhanced') || '').indexOf('carousel') === -1,
+          'structural false never marks the carousel token');
+
+        window.ThalloRuntime.enhance(root);
+        assert(viewportQueries === 2, 'unmarked component retried the module on a second pass');
+        assert((root.getAttribute('data-thallo-enhanced') || '').indexOf('carousel') === -1,
+          'still unmarked after the second pass');
+
+        console.log('ALL_PASS');
+        JS;
+    }
+
+    public function testCarouselTeardownRemovesEveryInjectedNodeListenerObserverAndTimer(): void
+    {
+        $this->runHarness($this->teardownHarness($this->runtimeJs()), 'teardown');
+    }
+
+    /**
+     * Teardown accounting, driven through the PUBLIC element lifecycle only (no
+     * production test hook): register a harness-only x-carousel-lifecycle adapter
+     * over the existing 'carousel' module (Task 2's registerElement bridge), connect
+     * it on a valid 3-slide root with arrows/dots/autoplay all on, then disconnect
+     * and assert every injected node, listener (same ref), observer, and timer was
+     * torn down — followed by a clean reconnect.
+     */
+    private function teardownHarness(string $src): string
+    {
+        $json = json_encode($src, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return <<<JS
+        'use strict';
+        function assert(c, m) { if (!c) { console.error('FAIL: ' + m); process.exit(1); } }
+
+        // --- timer recorders ---------------------------------------------------
+        var intervalSeq = 0;
+        var activeIntervals = {};
+        var clearIntervalCalls = 0;
+        global.setInterval = function (fn, ms) {
+          intervalSeq++;
+          activeIntervals[intervalSeq] = { fn: fn, ms: ms };
+          return intervalSeq;
+        };
+        global.clearInterval = function (id) { clearIntervalCalls++; delete activeIntervals[id]; };
+        function activeCount() { return Object.keys(activeIntervals).length; }
+
+        // --- matchMedia: reduced motion off, so autoplay actually wires up -----
+        global.matchMedia = function () {
+          return { matches: false, addEventListener: function () {} };
+        };
+
+        // --- IntersectionObserver stub with disconnect tracking ----------------
+        var ioInstances = [];
+        global.IntersectionObserver = function (cb) {
+          var inst = { cb: cb, observed: [], disconnectCalls: 0 };
+          inst.observe = function (t) { inst.observed.push(t); };
+          inst.disconnect = function () { inst.disconnectCalls++; };
+          ioInstances.push(inst);
+          return inst;
+        };
+
+        // --- element stub: parent-aware appendChild/removeChild + listener
+        //     add/remove tracked with same-reference bookkeeping ----------------
+        function makeEl(tag) {
+          var attrs = {};
+          var node = {
+            tagName: String(tag || 'div').toUpperCase(),
+            nodeType: 1,
+            className: '',
+            textContent: '',
+            dataset: {},
+            children: [],
+            parentNode: null,
+            isConnected: true,
+            listeners: {},
+            addedRefs: {},
+            removedRefs: {},
+            appendChild: function (c) { c.parentNode = node; node.children.push(c); return c; },
+            removeChild: function (c) {
+              var i = node.children.indexOf(c);
+              if (i !== -1) { node.children.splice(i, 1); c.parentNode = null; }
+              return c;
+            },
+            getAttribute: function (n) { return attrs[n] === undefined ? null : attrs[n]; },
+            setAttribute: function (n, v) { attrs[n] = String(v); },
+            removeAttribute: function (n) { delete attrs[n]; },
+            addEventListener: function (t, fn) {
+              (node.listeners[t] = node.listeners[t] || []).push(fn);
+              (node.addedRefs[t] = node.addedRefs[t] || []).push(fn);
+            },
+            removeEventListener: function (t, fn) {
+              (node.removedRefs[t] = node.removedRefs[t] || []).push(fn);
+              var list = node.listeners[t] || [];
+              var idx = list.indexOf(fn);
+              if (idx !== -1) { list.splice(idx, 1); }
+            },
+            matches: function () { return false; },
+            querySelectorAll: function () { return []; },
+            querySelector: function () { return null; }
+          };
+          return node;
+        }
+
+        // Inert <html> stub: keeps the color-mode module's hard gate closed.
+        var inert = {
+          dataset: {},
+          matches: function () { return false; },
+          querySelectorAll: function () { return []; },
+          querySelector: function () { return null; },
+          getAttribute: function () { return null; },
+          setAttribute: function () {},
+          addEventListener: function () {},
+          dispatchEvent: function () { return true; }
+        };
+        var doc = {
+          readyState: 'complete',
+          hidden: false,
+          listeners: {},
+          addedRefs: {},
+          removedRefs: {},
+          addEventListener: function (t, fn) {
+            (doc.listeners[t] = doc.listeners[t] || []).push(fn);
+            (doc.addedRefs[t] = doc.addedRefs[t] || []).push(fn);
+          },
+          removeEventListener: function (t, fn) {
+            (doc.removedRefs[t] = doc.removedRefs[t] || []).push(fn);
+            var list = doc.listeners[t] || [];
+            var idx = list.indexOf(fn);
+            if (idx !== -1) { list.splice(idx, 1); }
+          },
+          querySelector: function () { return null; },
+          querySelectorAll: function () { return []; },
+          createElement: makeEl,
+          documentElement: inert
+        };
+        global.document = doc;
+        global.window = global;
+
+        // --- customElements bridge stub (Task 2 pattern) ------------------------
+        global.HTMLElement = function () {};
+        var defined = {};
+        global.customElements = { define: function (tag, cls) { defined[tag] = cls; } };
+        function upgrade(tag, node) {
+          node.connectedCallback = defined[tag].prototype.connectedCallback;
+          node.disconnectedCallback = defined[tag].prototype.disconnectedCallback;
+          node.connectedCallback();
+          return node;
+        }
+        function flush() { return new Promise(function (r) { setTimeout(r, 0); }); }
+
+        eval($json);
+        var RT = window.ThalloRuntime;
+        RT.registerElement('x-carousel-lifecycle', 'carousel', {});
+
+        (async function () {
+          var slides = [0, 400, 800].map(function (x) { return { nodeType: 1, offsetLeft: x }; });
+          var track = { offsetLeft: 0, children: slides };
+          var viewport = makeEl('div');
+          viewport.scrollLeft = 0;
+          viewport.scrollTo = function (opts) { viewport.scrollLeft = opts.left; };
+
+          var root = makeEl('div');
+          root.className = 'thallo-block-carousel';
+          root.dataset = { arrows: '1', dots: '1', autoplay: '1' };
+          root.querySelector = function (sel) {
+            if (sel === '.thallo-block-carousel__viewport') { return viewport; }
+            if (sel === '.thallo-block-carousel__track') { return track; }
+            return null;
+          };
+
+          upgrade('x-carousel-lifecycle', root);
+          await flush();
+
+          assert((root.getAttribute('data-thallo-enhanced') || '').indexOf('carousel') !== -1,
+            'connect enhanced + marked the host');
+
+          function findByClass(cls) {
+            for (var i = 0; i < root.children.length; i++) {
+              if (root.children[i].className === cls) { return root.children[i]; }
+            }
+            return null;
+          }
+          assert(findByClass('thallo-block-carousel__prev') !== null, 'prev arrow injected');
+          assert(findByClass('thallo-block-carousel__next') !== null, 'next arrow injected');
+          assert(findByClass('thallo-block-carousel__dots') !== null, 'dots wrap injected');
+          assert(findByClass('thallo-block-carousel__status') !== null, 'status region injected');
+          assert(findByClass('thallo-block-carousel__pause') !== null, 'pause button injected');
+          assert(activeCount() === 1, 'autoplay timer running before teardown');
+          assert(ioInstances.length === 1 && ioInstances[0].observed[0] === root,
+            'IntersectionObserver observing the root');
+
+          // Refs addEventListener received — teardown must removeEventListener the SAME ones.
+          var scrollRef = viewport.addedRefs.scroll && viewport.addedRefs.scroll[0];
+          var pointerdownRef = viewport.addedRefs.pointerdown && viewport.addedRefs.pointerdown[0];
+          var keydownRef = viewport.addedRefs.keydown && viewport.addedRefs.keydown[0];
+          var wheelRef = viewport.addedRefs.wheel && viewport.addedRefs.wheel[0];
+          var touchstartRef = viewport.addedRefs.touchstart && viewport.addedRefs.touchstart[0];
+          var visibilityRef = doc.addedRefs.visibilitychange && doc.addedRefs.visibilitychange[0];
+          assert(scrollRef && pointerdownRef && keydownRef && wheelRef && touchstartRef && visibilityRef,
+            'every expected listener was registered before teardown');
+
+          root.disconnectedCallback();
+
+          assert(findByClass('thallo-block-carousel__prev') === null, 'prev arrow removed');
+          assert(findByClass('thallo-block-carousel__next') === null, 'next arrow removed');
+          assert(findByClass('thallo-block-carousel__dots') === null, 'dots wrap removed');
+          assert(findByClass('thallo-block-carousel__status') === null, 'status region removed');
+          assert(findByClass('thallo-block-carousel__pause') === null, 'pause button removed');
+          assert(root.children.length === 0, 'no injected node remains under root');
+
+          assert(viewport.removedRefs.scroll && viewport.removedRefs.scroll[0] === scrollRef,
+            'scroll listener removed with the SAME ref it was added with');
+          assert(viewport.removedRefs.pointerdown && viewport.removedRefs.pointerdown[0] === pointerdownRef,
+            'pointerdown listener removed with the SAME ref');
+          assert(viewport.removedRefs.keydown && viewport.removedRefs.keydown[0] === keydownRef,
+            'keydown listener removed with the SAME ref');
+          assert(viewport.removedRefs.wheel && viewport.removedRefs.wheel[0] === wheelRef,
+            'wheel listener removed with the SAME ref');
+          assert(viewport.removedRefs.touchstart && viewport.removedRefs.touchstart[0] === touchstartRef,
+            'touchstart listener removed with the SAME ref');
+          assert(doc.removedRefs.visibilitychange && doc.removedRefs.visibilitychange[0] === visibilityRef,
+            'document visibilitychange listener removed with the SAME ref');
+
+          assert(ioInstances[0].disconnectCalls === 1, 'IntersectionObserver.disconnect called');
+          assert(clearIntervalCalls >= 1, 'clearInterval called for the live timer');
+          assert(activeCount() === 0, 'no interval remains running after teardown');
+
+          assert((root.getAttribute('data-thallo-enhanced') || '').indexOf('carousel') === -1,
+            'carousel marker removed on disconnect');
+
+          // Reconnect + flush enhances cleanly again.
+          root.connectedCallback();
+          await flush();
+          assert((root.getAttribute('data-thallo-enhanced') || '').indexOf('carousel') !== -1,
+            'reconnect re-marked the host');
+          assert(findByClass('thallo-block-carousel__prev') !== null,
+            'reconnect re-injected the arrows');
+          assert(activeCount() === 1, 'reconnect restarted autoplay');
+
+          console.log('ALL_PASS');
+        })().catch(function (e) { console.error('FAIL: ' + (e && e.stack)); process.exit(1); });
+        JS;
+    }
 }
