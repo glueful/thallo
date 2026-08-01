@@ -972,7 +972,10 @@ final class ElementCssAliasTest extends AppTestCase
             $css,
         );
         self::assertStringContainsString('thallo-carousel, thallo-tabs { display: block; }', $css);
-        self::assertStringContainsString('thallo-color-mode-toggle { display: inline-block; }', $css);
+        // Task 7 review amendment: NO bare display rule for the toggle — a type selector
+        // (0,0,1) would beat the :where() alias (0,0,0) and break the segmented-control
+        // inline-flex layout. Assert the harmful rule is ABSENT.
+        self::assertStringNotContainsString('thallo-color-mode-toggle { display: inline-block;', $css);
         self::assertStringContainsString(
             'html:not([data-color-mode-enabled="true"]) thallo-color-mode-toggle { display: none; }',
             $css,
@@ -1016,7 +1019,6 @@ In `blocks.css`:
 /* Custom-element floor (web-components spec §5): autonomous elements default to
    display:inline; the structural elements are page sections. */
 thallo-carousel, thallo-tabs { display: block; }
-thallo-color-mode-toggle { display: inline-block; }
 /* Feature off -> the toggle hides entirely (server stamps the flag on <html>). */
 html:not([data-color-mode-enabled="true"]) thallo-color-mode-toggle { display: none; }
 ```

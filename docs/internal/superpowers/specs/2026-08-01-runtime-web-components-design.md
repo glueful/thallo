@@ -211,9 +211,12 @@ specificity for every rule that styles a block root the elements can adopt:
 ```
 
 plus explicit `display: block` for `thallo-carousel`, `thallo-tabs`, and
-`thallo-navigation`. `thallo-color-mode-toggle` uses an inline-compatible display
-(`inline-block`, with its existing inner segmented-control layout unchanged), not the
-page-section block default. Note the toggle block's existing root class is
+`thallo-navigation`. `thallo-color-mode-toggle` needs NO explicit display floor rule
+(Task 7 review amendment): the `:where()` alias already applies the block's
+`inline-flex` — inline-compatible by definition — and a bare
+`thallo-color-mode-toggle { display: … }` type selector (specificity 0,0,1) would
+override the zero-specificity alias and break the segmented-control layout. The
+feature-off hide rule still wins over the alias (0,1,1 &gt; 0,0,0). Note the toggle block's existing root class is
 `thallo-block-color_mode` — underscore, from the block slug — so its alias is
 `:where(.thallo-block-color_mode, thallo-color-mode-toggle)`, not a hyphenated guess. `blocks.css` also owns the feature-off rule:
 
