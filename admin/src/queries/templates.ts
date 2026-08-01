@@ -23,6 +23,8 @@ export interface TemplateDetail {
   source: string
   version_uuid: string | null
   readonly?: boolean
+  /** Present only for the pinned disk-only rows (blocks/html.twig, blocks/shortcode.twig). */
+  readonly_reason?: string
 }
 
 export interface TemplateVersion {

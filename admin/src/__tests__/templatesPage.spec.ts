@@ -171,6 +171,43 @@ describe('templates page', () => {
     expect(wrapper.find('[data-test="delete-override"]').exists()).toBe(false)
   })
 
+  it('disk-only rows show the pinned reason in the read-only note', async () => {
+    fetchTemplatesMock.mockResolvedValue({
+      theme: 'default',
+      themes: ['default'],
+      templates: [
+        ...rows(),
+        {
+          path: 'blocks/html.twig',
+          origin: 'default',
+          overridden: false,
+          updated_at: null,
+          readonly: true,
+        },
+      ],
+    })
+    fetchTemplateMock.mockResolvedValue({
+      path: 'blocks/html.twig',
+      theme: 'default',
+      origin: 'default',
+      source: '{{ html|raw }}',
+      version_uuid: null,
+      readonly: true,
+      readonly_reason: 'Raw-HTML escape hatch — |raw by design; disk-only.',
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.find('[data-test="template-item-blocks/html.twig"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="readonly-badge"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="save-template"]').exists()).toBe(false)
+    const note = wrapper.find('[data-test="readonly-note"]')
+    expect(note.exists()).toBe(true)
+    expect(note.text()).toContain('Raw-HTML escape hatch')
+  })
+
   it('the pinned custom.css entry opens the empty state on 404 without an error toast', async () => {
     const wrapper = mountPage()
     await flushPromises()

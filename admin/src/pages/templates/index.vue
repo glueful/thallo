@@ -25,6 +25,7 @@ const selectedPath = ref<string | null>(null)
 const source = ref('')
 const origin = ref<string>('')
 const isReadOnly = ref(false)
+const readonlyReason = ref<string | null>(null)
 const violations = ref<PolicyViolation[]>([])
 const saving = ref(false)
 const historyOpen = ref(false)
@@ -53,6 +54,7 @@ async function openCustomCss() {
     source.value = detail.source
     origin.value = detail.origin
     isReadOnly.value = false
+    readonlyReason.value = null
     violations.value = []
   } catch (err) {
     if (err instanceof ApiError && err.status === 404) {
@@ -60,6 +62,7 @@ async function openCustomCss() {
       source.value = ''
       origin.value = 'empty'
       isReadOnly.value = false
+      readonlyReason.value = null
       violations.value = []
       return
     }
@@ -125,6 +128,7 @@ async function open(path: string) {
     source.value = detail.source
     origin.value = detail.origin
     isReadOnly.value = detail.readonly === true
+    readonlyReason.value = detail.readonly_reason ?? null
     violations.value = []
   } catch (err) {
     notify.error(err, "Couldn't load template")
@@ -236,80 +240,80 @@ onMounted(loadList)
             data-test="template-search"
           />
           <div class="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
-          <!-- Site custom CSS (custom-css spec §5): pinned, always visible. -->
-          <div class="border-b border-default pb-1">
-            <p class="px-2 pb-0.5 text-xs font-semibold text-muted">Site</p>
-            <button
-              class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-elevated"
-              :class="{ 'bg-elevated': selectedPath === 'custom.css' }"
-              data-test="template-item-custom.css"
-              @click="openCustomCss()"
+            <!-- Site custom CSS (custom-css spec §5): pinned, always visible. -->
+            <div class="border-b border-default pb-1">
+              <p class="px-2 pb-0.5 text-xs font-semibold text-muted">Site</p>
+              <button
+                class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-elevated"
+                :class="{ 'bg-elevated': selectedPath === 'custom.css' }"
+                data-test="template-item-custom.css"
+                @click="openCustomCss()"
+              >
+                <UIcon name="i-lucide-paintbrush" class="size-4 shrink-0 text-muted" />
+                <span class="min-w-0 flex-1 truncate">custom.css</span>
+                <UBadge size="xs" :color="customCssRow ? 'primary' : 'neutral'" variant="subtle">
+                  {{ customCssRow ? 'db' : 'empty' }}
+                </UBadge>
+              </button>
+            </div>
+            <UCollapsible
+              v-for="[family, rows] in groups"
+              :key="family"
+              :open="searching ? true : (openFolders[family] ?? family === 'root')"
+              :unmount-on-hide="false"
+              @update:open="openFolders[family] = $event"
             >
-              <UIcon name="i-lucide-paintbrush" class="size-4 shrink-0 text-muted" />
-              <span class="min-w-0 flex-1 truncate">custom.css</span>
-              <UBadge size="xs" :color="customCssRow ? 'primary' : 'neutral'" variant="subtle">
-                {{ customCssRow ? 'db' : 'empty' }}
-              </UBadge>
-            </button>
-          </div>
-          <UCollapsible
-            v-for="[family, rows] in groups"
-            :key="family"
-            :open="searching ? true : (openFolders[family] ?? family === 'root')"
-            :unmount-on-hide="false"
-            @update:open="openFolders[family] = $event"
-          >
-            <UButton
-              class="w-full justify-between"
-              color="neutral"
-              variant="ghost"
-              size="sm"
-              :data-test="`template-group-${family}`"
-            >
-              <span class="flex min-w-0 items-center gap-2">
+              <UButton
+                class="w-full justify-between"
+                color="neutral"
+                variant="ghost"
+                size="sm"
+                :data-test="`template-group-${family}`"
+              >
+                <span class="flex min-w-0 items-center gap-2">
+                  <UIcon
+                    name="i-lucide-folder"
+                    class="size-4 shrink-0 text-muted group-data-[state=open]:hidden"
+                  />
+                  <UIcon
+                    name="i-lucide-folder-open"
+                    class="hidden size-4 shrink-0 text-muted group-data-[state=open]:inline-block"
+                  />
+                  <span class="truncate font-medium">{{ family }}</span>
+                  <span class="text-xs text-muted">{{ rows.length }}</span>
+                </span>
                 <UIcon
-                  name="i-lucide-folder"
-                  class="size-4 shrink-0 text-muted group-data-[state=open]:hidden"
+                  name="i-lucide-chevron-right"
+                  class="size-4 shrink-0 text-muted transition-transform group-data-[state=open]:rotate-90"
                 />
-                <UIcon
-                  name="i-lucide-folder-open"
-                  class="hidden size-4 shrink-0 text-muted group-data-[state=open]:inline-block"
-                />
-                <span class="truncate font-medium">{{ family }}</span>
-                <span class="text-xs text-muted">{{ rows.length }}</span>
-              </span>
-              <UIcon
-                name="i-lucide-chevron-right"
-                class="size-4 shrink-0 text-muted transition-transform group-data-[state=open]:rotate-90"
-              />
-            </UButton>
-            <template #content>
-              <ul class="mt-0.5 space-y-0.5 pl-3">
-                <li v-for="t in rows" :key="t.path">
-                  <button
-                    class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-elevated"
-                    :class="{ 'bg-elevated': t.path === selectedPath }"
-                    :data-test="`template-item-${t.path}`"
-                    :title="t.path"
-                    @click="open(t.path)"
-                  >
-                    <UIcon name="i-lucide-file-code" class="size-4 shrink-0 text-muted" />
-                    <span class="min-w-0 flex-1 truncate">{{ fileName(t.path, family) }}</span>
-                    <UBadge
-                      size="xs"
-                      :color="t.origin === 'db' ? 'primary' : 'neutral'"
-                      variant="subtle"
+              </UButton>
+              <template #content>
+                <ul class="mt-0.5 space-y-0.5 pl-3">
+                  <li v-for="t in rows" :key="t.path">
+                    <button
+                      class="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-sm hover:bg-elevated"
+                      :class="{ 'bg-elevated': t.path === selectedPath }"
+                      :data-test="`template-item-${t.path}`"
+                      :title="t.path"
+                      @click="open(t.path)"
                     >
-                      {{ t.readonly ? 'read-only' : t.origin }}
-                    </UBadge>
-                  </button>
-                </li>
-              </ul>
-            </template>
-          </UCollapsible>
-          <p v-if="groups.length === 0" class="px-2 py-4 text-sm text-muted">
-            No templates match “{{ query }}”.
-          </p>
+                      <UIcon name="i-lucide-file-code" class="size-4 shrink-0 text-muted" />
+                      <span class="min-w-0 flex-1 truncate">{{ fileName(t.path, family) }}</span>
+                      <UBadge
+                        size="xs"
+                        :color="t.origin === 'db' ? 'primary' : 'neutral'"
+                        variant="subtle"
+                      >
+                        {{ t.readonly ? 'read-only' : t.origin }}
+                      </UBadge>
+                    </button>
+                  </li>
+                </ul>
+              </template>
+            </UCollapsible>
+            <p v-if="groups.length === 0" class="px-2 py-4 text-sm text-muted">
+              No templates match “{{ query }}”.
+            </p>
           </div>
         </aside>
 
@@ -359,7 +363,14 @@ onMounted(loadList)
             />
           </div>
 
-          <p v-if="isReadOnly" class="text-xs text-muted" data-test="readonly-note">
+          <p
+            v-if="isReadOnly && readonlyReason"
+            class="text-xs text-muted"
+            data-test="readonly-note"
+          >
+            {{ readonlyReason }}
+          </p>
+          <p v-else-if="isReadOnly" class="text-xs text-muted" data-test="readonly-note">
             Read-only theme file — browse it for class names, then override them in
             <code>custom.css</code>.
           </p>
@@ -373,8 +384,7 @@ onMounted(loadList)
             content-editing surface.
           </p>
           <p v-else-if="origin !== 'db'" class="text-xs text-muted" data-test="fs-origin-note">
-            Filesystem template ({{ origin }}) — saving creates a database override that shadows
-            it.
+            Filesystem template ({{ origin }}) — saving creates a database override that shadows it.
           </p>
 
           <!-- Only THIS region scrolls: the file header and notes above stay fixed. -->
@@ -430,7 +440,12 @@ onMounted(loadList)
                 />
               </UFormField>
               <div class="flex justify-end gap-2">
-                <UButton variant="ghost" color="neutral" label="Cancel" @click="cloneOpen = false" />
+                <UButton
+                  variant="ghost"
+                  color="neutral"
+                  label="Cancel"
+                  @click="cloneOpen = false"
+                />
                 <UButton
                   :loading="cloning"
                   :disabled="cloneName.trim() === ''"
