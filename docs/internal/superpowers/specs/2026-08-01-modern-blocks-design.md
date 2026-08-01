@@ -51,14 +51,20 @@ New Twig function on `RenderContextExtension`, allowlisted (pin 5):
 - **Per-render dedupe is a bandwidth optimization, NOT the correctness guard (P1):**
   fragment render boundaries reset per-render state independently
   (`EntryBlocksRenderer.php:64` resets extension state for enrichment fragments), so
-  a page can legitimately carry the same tag twice. Each asset therefore opens with
-  an **exactly-once IIFE guard** (`if (window.__thalloBlockGallery) return;
-  window.__thalloBlockGallery = true;` — same pattern per asset) so double
-  execution never double-registers (double `ThalloRuntime.register` throws by
-  design).
-- Ordering is structural: the layout's `runtime_script()` and all `block_script()`
-  tags are `defer`, and defer executes in document order — the registry always
-  exists before a block asset registers; all defer scripts run before the boot scan.
+  a page can legitimately carry the same tag twice. Each asset therefore has an
+  **exactly-once IIFE guard**, but sets that guard only after `window.ThalloRuntime`
+  exists and `register()` succeeds. A runtime-absent or failed registration leaves
+  the guard unset and the static floor intact; a later execution may retry. A
+  successful registration sets the guard and immediately calls
+  `ThalloRuntime.enhance(document.documentElement)`, so every block already in the
+  document is considered without waiting for another global boot.
+- **Late registration is an explicit supported path (P1):** `defer` preserves script
+  order, but the runtime queues its boot in a microtask and browsers perform a
+  microtask checkpoint after each deferred script. The initial boot may therefore
+  finish before a body-emitted block asset registers. The asset-local `enhance()`
+  call above is the correctness authority; runtime idempotency and the canvas gate
+  make the second pass safe. Tests must reproduce registration after the initial
+  boot rather than assuming all deferred assets register first.
 - Documented limitation: HTML fragments inserted post-load don't execute script
   tags; dynamically injected blocks need the asset already present (canvas
   unaffected — behaviors are canvas-skipped).
@@ -68,7 +74,7 @@ New Twig function on `RenderContextExtension`, allowlisted (pin 5):
 - **Carousel schema** gains `style` enum `['default', 'hero']` → existing
   enum→modifier convention emits `thallo-block-carousel--hero`.
 - **Hero block semantic fix (P2):** `hero.twig` currently always emits `<h1>`
-  (`hero.twig:18`), so a carousel of heroes would emit several H1s. The hero block
+  (`hero.twig:22`), so a carousel of heroes would emit several H1s. The hero block
   schema gains `heading_level` enum `['h1', 'h2', 'h3']` **defaulting to `h1`**
   (backward compatible); the template renders the chosen tag. The recipe pins the
   guidance: slides use `h2` unless the slider is the page's sole hero, in which case
@@ -99,6 +105,15 @@ separation so alternatives may be phrases), `suffix` (string), `effect` enum
 A block with empty `rotate_words` renders `prefix suffix` with the reveal effect
 only — rotation machinery absent.
 
+**Alternative normalization and authoring bound (P1):** one contract governs
+validation and rendering: normalize CRLF/CR to LF, split on LF, trim each value,
+and discard blank values. `FieldValidator::validateBlocks()` gains a narrow
+`animated_text` rule, following the existing tabs-cap precedent, that rejects more
+than **5** normalized alternatives with a field-level `rotate_words` error. The
+template applies the same normalization and renders the complete accepted list; it
+must never truncate or silently discard a sixth value. A CRLF/blank-line parity
+test pins that validator and template interpret the field identically.
+
 **Width reservation (P1 — no Twig string measuring):** the template renders EVERY
 alternative stacked in the same CSS grid cell (`grid-area: 1 / 1`); inactive
 alternatives are `visibility: hidden`; the module toggles which one is visible. The
@@ -111,17 +126,22 @@ stack is `aria-hidden="true"`. No `aria-live` announcements for rotation.
 
 **Motion bound (P2):** rotation is finite — ONE full cycle through the
 alternatives, then settle on the final alternative. The complete cycle must finish
-within **5 seconds**: the template uses at most the first 5 alternatives (documented
-cap) and the module rotates at 1000ms intervals (≤4 transitions ⇒ ≤4s < 5s), so no
+within **5 seconds**: save-time validation permits at most 5 normalized alternatives
+and the module rotates at 1000ms intervals (≤4 transitions ⇒ ≤4s < 5s), so no
 pause control is owed under the moving-content rule.
 
 **`block-animated-text.js`:** exactly-once guard; registers `animated-text`
-(selector `.thallo-block-animated_text`, canvas `skip`): IntersectionObserver adds
-the in-view class once (CSS keyframes perform the reveal); rotation starts on first
-intersection, pauses while offscreen or `document.hidden`, resumes to complete its
-single cycle; `prefers-reduced-motion` → module no-ops entirely (static floor: first
-alternative visible). `enhance()` returns cleanup (IO, timers, listeners);
-missing structural pieces → `false`.
+(selector `.thallo-block-animated_text`, canvas `skip`). Static markup is visible by
+default. Only after structural checks pass and a usable `IntersectionObserver` is
+installed may the module add a prepared class; CSS reveal transforms/opacity are
+scoped beneath that class. The observer then adds the in-view class once and starts
+rotation. If IO is unavailable, reduced motion is requested, canvas skips the
+module, the asset fails, or enhancement is a structural no-op, no prepared class is
+left behind and the text remains visible. Setup is transactional: a throw removes
+any staged class/listener/observer before propagating to the runtime's containment
+boundary. Rotation pauses while offscreen or `document.hidden`, then resumes to
+complete its single cycle. `enhance()` returns cleanup (prepared/in-view classes,
+IO, timers, listeners); missing structural pieces → `false`.
 
 ### 4. `gallery` block (Media)
 
@@ -147,9 +167,13 @@ authored `false` back to `true`. The anchor grid IS the no-JS floor.
 
 **`block-gallery.js`:** exactly-once guard; registers `gallery` (selector
 `.thallo-block-gallery`, canvas `skip`): intercepts thumb clicks only when
-`data-lightbox` is on; lazily creates ONE native `<dialog>` per gallery on first
-open — full image, prev/next controls, an "n of m" position status, a labeled close
-icon; native `<dialog>` supplies Esc, modality, and focus containment; close
+`data-lightbox` is on **and** native modal dialog support is usable. On first click,
+the module lazily creates ONE `<dialog>` per gallery, confirms that `showModal()` is
+callable, and calls it successfully before `preventDefault()`. Unsupported dialog,
+construction failure, or a thrown `showModal()` leaves the event untouched so the
+real full-size anchor navigates normally. The dialog contains the full image,
+prev/next controls, an "n of m" position status, and a labeled close icon; native
+`<dialog>` supplies Esc, modality, and focus containment; close
 **explicitly restores focus to the originating thumbnail**; reduced motion disables
 transitions only (the lightbox stays functional); galleries on one page are
 independently scoped; `enhance()` cleanup removes listeners and any generated
@@ -162,15 +186,25 @@ dialog.
   its own reviewed decision).
 - Both templates enter the shipped-template ratchet lint gate; `block_script` joins
   the linter allowlist (pin 5) so they round-trip the DB editor.
+  `admin/src/pages/templates/components/twigCompletions.ts` gains the matching
+  completion in the same change; `TwigCompletionsParityTest` remains the authority
+  that editor vocabulary and `TemplatePolicy` cannot drift.
 - Node harness tests per module (eval `runtime.js` + the asset bytes together, same
-  stub pattern): exactly-once guard under double execution; reveal-once; finite
-  cycle + settle + 5s bound; pause gates (offscreen/hidden); reduced-motion no-op;
-  gallery dialog lifecycle, position status, focus restore, `data-lightbox` off,
-  cleanup accounting for both modules.
+  stub pattern): exactly-once guard under double execution; a missing runtime does
+  not burn the guard; registration after the runtime's initial boot immediately
+  enhances existing blocks; reveal-once; prepared-class fail-safe under missing IO,
+  reduced motion, structural no-op, and setup failure; finite cycle + settle + 5s
+  bound; pause gates (offscreen/hidden); gallery dialog lifecycle, position status,
+  focus restore, `data-lightbox` off, unsupported/throwing dialog preserves normal
+  anchor navigation, and cleanup accounting for both modules.
+- Validation tests pin the five-alternative save-time limit, field-level error,
+  CRLF/blank normalization, and validator/template parity; the sixth normalized
+  alternative is rejected rather than truncated.
 - **Playwright gate extension** (`tools/runtime-browser` — the existing
   infrastructure is the correct path): one fixture page with an animated_text block
   and a two-gallery page exercising the real `<dialog>` (modality, Esc, focus
-  restore) and the real IO reveal in chromium.
+  restore), the real IO reveal, and the browser's late-deferred-registration order in
+  chromium.
 - Seeder/sync: two new `StarterBlockTypes` entries + carousel `style` + hero
   `heading_level`; `blocks:seed` idempotent; `SyncBlockTypesCommand` delivers the
   field additions to existing installs; `StarterTemplatesTest` extended.
