@@ -89,7 +89,19 @@ const FILTERS = [
   'url_encode',
 ]
 
-const TESTS = ['defined', 'empty', 'even', 'iterable', 'null', 'odd', 'divisible by', 'sequence', 'mapping']
+const TESTS = [
+  'defined',
+  'empty',
+  'even',
+  'iterable',
+  'null',
+  'odd',
+  'true',
+  'same as',
+  'divisible by',
+  'sequence',
+  'mapping',
+]
 
 const SNIPPETS: Completion[] = [
   snippetCompletion('{% if ${condition} %}\n\t${}\n{% endif %}', {
