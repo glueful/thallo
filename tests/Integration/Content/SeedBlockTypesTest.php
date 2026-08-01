@@ -46,7 +46,8 @@ final class SeedBlockTypesTest extends AppTestCase
         // — columns + links compose it. 37 types; html seeds DEACTIVATED; hero/cta
         // carry the Nuxt UI shapes; container declares value constraints.
         // blog_posts (blog-posts spec): dynamic listing of published posts as cards.
-        self::assertSame(44, $expected);
+        // modern-blocks spec §2/§3: animated_text (Content) + gallery (Media) added.
+        self::assertSame(46, $expected);
         // Style block (style-block spec §3): scoped accent/neutral re-skin + class hook.
         $style = $repo->findBySlug('style');
         self::assertSame('Layout', $style['category']);
@@ -77,9 +78,46 @@ final class SeedBlockTypesTest extends AppTestCase
         self::assertSame(['accordion_item'], $accordion['items']['block_types']);
         $heroFields = array_column($repo->findBySlug('hero')['schema'], 'name');
         self::assertSame(
-            ['headline', 'title', 'description', 'links', 'image', 'orientation', 'reverse'],
+            ['headline', 'title', 'description', 'links', 'image', 'orientation', 'reverse', 'heading_level'],
             $heroFields,
         );
+        $heroSchema = array_column($repo->findBySlug('hero')['schema'], null, 'name');
+        self::assertSame(['h1', 'h2', 'h3'], $heroSchema['heading_level']['enum']);
+
+        // Carousel gains a `style` variant enum (modern-blocks spec §4).
+        $carousel = array_column($repo->findBySlug('carousel')['schema'], null, 'name');
+        self::assertSame(['default', 'hero'], $carousel['style']['enum']);
+
+        // animated_text (modern-blocks spec §3): reveal heading with an optional
+        // rotating word list — capped at 5 alternatives by FieldValidator (Task 2).
+        $animatedText = $repo->findBySlug('animated_text');
+        self::assertSame('Content', $animatedText['category']);
+        $animatedTextFields = array_column($animatedText['schema'], null, 'name');
+        self::assertSame(
+            ['prefix', 'rotate_words', 'suffix', 'effect', 'tag'],
+            array_column($animatedText['schema'], 'name'),
+        );
+        self::assertSame('string', $animatedTextFields['prefix']['type']);
+        self::assertSame('text', $animatedTextFields['rotate_words']['type']);
+        self::assertSame('string', $animatedTextFields['suffix']['type']);
+        self::assertSame(['fade', 'slide-up', 'blur'], $animatedTextFields['effect']['enum']);
+        self::assertSame(['h1', 'h2', 'h3', 'p'], $animatedTextFields['tag']['enum']);
+
+        // gallery (modern-blocks spec §2): a responsive image grid, hard-enforced to
+        // only accept `image` child blocks (enforce_block_types opts into that).
+        $gallery = $repo->findBySlug('gallery');
+        self::assertSame('Media', $gallery['category']);
+        $galleryFields = array_column($gallery['schema'], null, 'name');
+        self::assertSame(
+            ['items', 'columns', 'aspect', 'lightbox'],
+            array_column($gallery['schema'], 'name'),
+        );
+        self::assertSame('blocks', $galleryFields['items']['type']);
+        self::assertSame(['image'], $galleryFields['items']['block_types']);
+        self::assertTrue($galleryFields['items']['enforce_block_types']);
+        self::assertSame(['2', '3', '4'], $galleryFields['columns']['enum']);
+        self::assertSame(['natural', 'square', 'landscape'], $galleryFields['aspect']['enum']);
+        self::assertSame('boolean', $galleryFields['lightbox']['type']);
         $ctaFields = array_column($repo->findBySlug('cta')['schema'], 'name');
         self::assertSame(
             ['title', 'description', 'variant', 'orientation', 'reverse', 'links'],
