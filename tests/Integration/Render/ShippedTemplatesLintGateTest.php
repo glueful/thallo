@@ -125,7 +125,7 @@ final class ShippedTemplatesLintGateTest extends AppTestCase
             self::assertStringContainsString(
                 'include target must be a constant string.',
                 $violation['message'],
-                "Pinned template blocks/shortcode.twig must fail ONLY for non-constant include denial, got: {$violation['message']}"
+                "blocks/shortcode.twig must fail ONLY for non-constant include denial, got: {$violation['message']}"
             );
         }
     }
