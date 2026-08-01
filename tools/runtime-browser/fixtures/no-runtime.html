@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<!--
+  FF-B fixture: same four README examples as elements.html, but the runtime
+  script is simply omitted — this is the "no-JS floor" / "before the runtime
+  loads" case for the computed-display spec. Only the REAL theme CSS is
+  loaded; there must be no <script> here.
+-->
+<html lang="en" data-color-mode-enabled="true">
+<head>
+  <meta charset="utf-8">
+  <title>runtime-browser fixture: no-runtime</title>
+  <link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/site.css">
+  <link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/blocks.css">
+  <link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/navigation.css">
+</head>
+<body>
+
+<section data-fixture="carousel">
+<thallo-carousel arrows dots>
+  <div class="thallo-block-carousel__viewport">
+    <div class="thallo-block-carousel__track">
+      <div>Slide one</div>
+      <div>Slide two</div>
+      <div>Slide three</div>
+    </div>
+  </div>
+</thallo-carousel>
+</section>
+
+<section data-fixture="tabs">
+<thallo-tabs>
+  <input class="thallo-block-tabs__radio" type="radio" name="tabs-demo" id="tabs-demo-1" checked>
+  <input class="thallo-block-tabs__radio" type="radio" name="tabs-demo" id="tabs-demo-2">
+  <div class="thallo-block-tabs__list">
+    <label class="thallo-block-tabs__label" for="tabs-demo-1">One</label>
+    <label class="thallo-block-tabs__label" for="tabs-demo-2">Two</label>
+  </div>
+  <div class="thallo-block-tabs__panels">
+    <div class="thallo-block-tabs__panel">Panel one content.</div>
+    <div class="thallo-block-tabs__panel">Panel two content.</div>
+  </div>
+</thallo-tabs>
+</section>
+
+<section data-fixture="navigation">
+<thallo-navigation>
+  <nav class="thallo-block-navigation__nav" aria-label="Navigation">
+    <details class="thallo-block-navigation__mobile" data-thallo-enhance="navigation">
+      <summary class="thallo-block-navigation__hamburger">
+        <span class="thallo-block-navigation__hamburger-icon" aria-hidden="true"></span>
+        <span class="thallo-block-navigation__hamburger-label">Menu</span>
+      </summary>
+      <ul class="thallo-block-navigation__list">
+        <li class="thallo-block-navigation__item">
+          <a class="thallo-block-navigation__link" href="/">Home</a>
+        </li>
+        <li class="thallo-block-navigation__item">
+          <a class="thallo-block-navigation__link" href="/about">About</a>
+        </li>
+      </ul>
+    </details>
+  </nav>
+</thallo-navigation>
+</section>
+
+<section data-fixture="toggle">
+<thallo-color-mode-toggle role="radiogroup" aria-label="Color mode">
+  <button type="button" class="thallo-block-color_mode__option" data-color-mode-set="light" role="radio" aria-checked="false" aria-label="Light">☀</button>
+  <button type="button" class="thallo-block-color_mode__option" data-color-mode-set="system" role="radio" aria-checked="false" aria-label="System">◻</button>
+  <button type="button" class="thallo-block-color_mode__option" data-color-mode-set="dark" role="radio" aria-checked="false" aria-label="Dark">☾</button>
+</thallo-color-mode-toggle>
+</section>
+
+</body>
+</html>

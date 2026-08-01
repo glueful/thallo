@@ -130,7 +130,7 @@ core IIFE into one end-of-file footer placed after every module registration and
 element-registration sections. The footer preserves today's behavior (`DOMContentLoaded`
 when loading, one microtask otherwise) but queues it only after `customElements.define()`
 has upgraded existing hosts and queued their connection microtasks. Therefore option
-projection/element enhancement wins before the legacy whole-document scan in both
+projection/element enhancement wins before the class-based whole-document scan (non-deprecated) in both
 parser and late-loaded-runtime paths; the scan then observes the shared marker and is
 a no-op. No public `start()` API is added.
 

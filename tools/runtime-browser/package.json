@@ -1,0 +1,13 @@
+{
+  "name": "@thallo/runtime-browser",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Real-Chromium smoke gate for the thallo-render theme runtime custom elements.",
+  "scripts": {
+    "test": "playwright test",
+    "install-browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
+  }
+}

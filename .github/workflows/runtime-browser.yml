@@ -1,0 +1,49 @@
+name: Runtime Browser
+
+on:
+  push:
+    paths: ['packages/thallo-render/**', 'tools/runtime-browser/**']
+  pull_request:
+    paths: ['packages/thallo-render/**', 'tools/runtime-browser/**']
+
+defaults:
+  run:
+    working-directory: tools/runtime-browser
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: tools/runtime-browser/package-lock.json
+
+      - run: npm ci
+
+      - name: Resolve installed Playwright version
+        id: playwright-version
+        run: echo "version=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v5
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Chromium (with system deps)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      # The cache restores the browser binaries but not the OS-level shared
+      # libraries Chromium links against — those must always be (re)checked.
+      - name: Install Chromium OS dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run the smoke gate
+        run: npm test
