@@ -102,7 +102,7 @@ final class BlockScriptTest extends AppTestCase
 }
 ```
 
-(Note: `testEmittedAssetsExistAndAreServedFingerprinted` stays RED until Tasks 5/6 add the asset files — mark it `#[Depends]`-free but EXPECT it red until then; alternatively commit it in Task 5. Decision: move that one test method to Task 5's step so Task 1 lands green. Keep only the catalog/dedupe test here.)
+(STAGING DECISION — unambiguous: do NOT include `testEmittedAssetsExistAndAreServedFingerprinted` in this task; Task 1 lands with only the catalog/dedupe test so it commits green. That test method lands in TASK 6 Step 3 (once both asset files exist). The code above shows it for context only.)
 
 `TemplateLinterTest` additions:
 
@@ -327,10 +327,10 @@ New entries (Content section for animated_text; Media section for gallery):
 - Produces: the class contract Tasks 5/6 JS selects on: `.thallo-block-animated_text` root with `[data-effect]`, `.thallo-block-animated_text__rotate` span stack with `.thallo-block-animated_text__word` children (first one `--active`); `.thallo-block-gallery` root with `[data-lightbox]`, `.thallo-block-gallery__item` anchors.
 
 - [ ] **Step 1: Failing tests** (StarterTemplatesTest idiom — render each block via the real pipeline):
-  - animated_text with `prefix "Build" / rotate_words "fast\nwell" / suffix "with Thallo"`: root tag defaults sensibly (`h2` when tag empty), `aria-label="Build fast with Thallo"`, rotate stack `aria-hidden="true"`, BOTH words present stacked, first word active, no `--prepared` class in server output (JS-only), `block_script` tag present exactly once for two animated_text blocks in one render.
+  - animated_text with `prefix "Build" / rotate_words "fast\nwell" / suffix "with Thallo"`: root tag defaults sensibly (`h2` when tag empty), `aria-label="Build fast with Thallo"`, rotate stack `aria-hidden="true"`, BOTH words present stacked, first word active, and the CSS-visible phrase assembled from prefix + active word + suffix is exactly `Build fast with Thallo` (no whitespace-control concatenation). No `--prepared` class appears in server output (JS-only); `block_script` is present exactly once for two animated_text blocks in one render.
   - animated_text with empty rotate_words: no rotate stack, no script tag requirement (template still calls block_script — acceptable; assert prefix+suffix render).
   - CRLF parity: rotate_words `"a\r\nb\r\rc"` renders exactly the 3 normalized words (call `FieldValidator::normalizeRotateWords` in the test to compute the expectation — THE parity assertion).
-  - gallery: two image children + one unresolvable → exactly 2 anchors, each `<a href>` to the full blob with aria-label; `data-lightbox="1"` by default; `lightbox: false` → `data-lightbox="0"` (the `?? true` pin — an authored false must survive); columns/aspect modifiers on the root.
+  - gallery: two valid image children + one missing uuid + one public PDF → exactly 2 anchors. Build a resolved-item list first through `media_image(uuid, [])`, then render it, so malformed/unresolved/non-image assets are omitted before an anchor exists. Fallback labels are exactly `Image 1 of 2` / `Image 2 of 2` (authored alt still wins); `data-lightbox="1"` by default; `lightbox: false` → `data-lightbox="0"` (the `?? true` pin — an authored false must survive); columns/aspect modifiers on the root.
   - hero: default renders `<h1>` (unchanged); `heading_level: 'h2'` renders `<h2>`; carousel `style: 'hero'` root carries `thallo-block-carousel--hero`.
 
 - [ ] **Step 2: Run** — red (templates missing).
@@ -348,9 +348,12 @@ New entries (Content section for animated_text; Media section for gallery):
 {% set clean = [] %}
 {% for w in words %}{% if w|trim != '' %}{% set clean = clean|merge([w|trim]) %}{% endif %}{% endfor %}
 {% set tag = data.tag|default('h2') %}
+{% set prefix = data.prefix|default('') %}
+{% set suffix = data.suffix|default('') %}
 {% set label = ((data.prefix|default('')) ~ ' ' ~ (clean|first|default('')) ~ ' ' ~ (data.suffix|default('')))|trim %}
 {% set inner %}
-  {{- data.prefix|default('')|editable_text('prefix') }}
+  {%- if prefix != '' %}{{ prefix|editable_text('prefix') }}{% endif -%}
+  {%- if prefix != '' and clean is not empty %}{{ ' ' }}{% endif -%}
   {%- if clean is not empty %}
   <span class="thallo-block-animated_text__rotate" aria-hidden="true">
     {%- for w in clean %}
@@ -358,7 +361,8 @@ New entries (Content section for animated_text; Media section for gallery):
     {%- endfor %}
   </span>
   {%- endif %}
-  {{ data.suffix|default('')|editable_text('suffix') -}}
+  {%- if suffix != '' and (prefix != '' or clean is not empty) %}{{ ' ' }}{% endif -%}
+  {%- if suffix != '' %}{{ suffix|editable_text('suffix') }}{% endif -%}
 {% endset %}
 {% if tag == 'h1' %}<h1 class="thallo-block thallo-block-animated_text thallo-block-animated_text--{{ data.effect|default('fade') }}" data-effect="{{ data.effect|default('fade') }}" aria-label="{{ label }}">{{ inner }}</h1>
 {% elseif tag == 'h3' %}<h3 class="thallo-block thallo-block-animated_text thallo-block-animated_text--{{ data.effect|default('fade') }}" data-effect="{{ data.effect|default('fade') }}" aria-label="{{ label }}">{{ inner }}</h3>
@@ -377,21 +381,30 @@ New entries (Content section for animated_text; Media section for gallery):
    (modern-blocks spec §4). Lightbox is progressive (block-gallery.js). Resolve-first:
    unresolved/non-image items are omitted entirely — no dead anchors. #}
 {% set items = data.items|default([]) %}
+{% set resolved = [] %}
+{% for item in items %}
+  {% set uuid = item.data.image|default('') %}
+  {% set image = uuid ? media_image(uuid, []) : null %}
+  {% if image %}
+    {% set resolved = resolved|merge([{item: item, full: image.src, alt: item.data.alt|default('')}]) %}
+  {% endif %}
+{% endfor %}
 {% set lightbox = data.lightbox ?? true %}
 <div class="thallo-block thallo-block-gallery thallo-block-gallery--cols-{{ data.columns|default('3') }} thallo-block-gallery--{{ data.aspect|default('natural') }}" data-lightbox="{{ lightbox ? '1' : '0' }}">
-  {%- set shown = 0 %}
-  {%- for item in items %}
-    {%- set full = media(item.data.image|default(null)) %}
-    {%- if full %}
-      {%- set shown = shown + 1 %}
-  <a class="thallo-block-gallery__item" href="{{ full }}" aria-label="{{ item.data.alt|default('Image ' ~ shown) }}">{{ blocks([item]) }}</a>
-    {%- endif %}
+  {%- for image in resolved %}
+  <a class="thallo-block-gallery__item" href="{{ image.full }}" aria-label="{{ image.alt ?: 'Image ' ~ loop.index ~ ' of ' ~ loop.length }}">{{ blocks([image.item]) }}</a>
   {%- endfor %}
 </div>
 {{ block_script('gallery') }}
 ```
 
-(CHECK: `media()` with a null/invalid uuid returns null (verify signature — it takes a string; guard with `item.data.image is defined and item.data.image` before calling if needed). `blocks([item])` re-renders the image block through the hierarchy — the established pattern.)
+`media_image(uuid, [])` is deliberate: unlike `media()`, the app's bound
+`MediaVariantUrlResolver` proves `image/*` and returns the original `src` with no
+resize candidates. The empty-string guard keeps malformed children away from the
+string-only helper. The test uses the production binding and a real public PDF, so a
+future fallback to MIME-blind `media()` fails. `blocks([image.item])` then re-renders
+the already-proven image child through the established hierarchy. Building the
+projection before output is also what makes the exact `N of M` label possible.
 
 `hero.twig` line 22 area — replace the fixed `<h1>` with branches on `data.heading_level|default('h1')` (`h1`/`h2`/`h3`), keeping the exact class and `editable_text` call on each branch.
 
@@ -418,15 +431,31 @@ New entries (Content section for animated_text; Media section for gallery):
 }
 
 /* gallery (modern-blocks spec §4): the grid + real anchors are the no-JS floor. */
-.thallo-block-gallery { display: grid; gap: var(--space-2); }
+.thallo-block-gallery { display: grid; gap: var(--space-2); max-width: var(--container); margin-inline: auto; padding-inline: var(--space-4); }
 .thallo-block-gallery--cols-2 { grid-template-columns: repeat(2, 1fr); }
 .thallo-block-gallery--cols-3 { grid-template-columns: repeat(3, 1fr); }
 .thallo-block-gallery--cols-4 { grid-template-columns: repeat(4, 1fr); }
 @media (max-width: 40rem) { .thallo-block-gallery { grid-template-columns: repeat(2, 1fr); } }
-.thallo-block-gallery__item { display: block; }
-.thallo-block-gallery__item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thallo-block-gallery__item { display: block; min-width: 0; color: inherit; overflow: hidden; }
+/* An item is a nested image block, not a bare img: neutralize its standalone
+   container before applying gallery geometry. Natural mode keeps its authored
+   ratio/caption; fixed crops make the figure the containing block and overlay the
+   caption so it cannot break the tile's aspect ratio. */
+.thallo-block-gallery__item .thallo-block-image {
+  max-width: none; height: 100%; margin: 0; padding: 0; position: relative;
+}
+.thallo-block-gallery__item .thallo-block-image img {
+  display: block; width: 100%; max-width: none; height: auto; box-shadow: none;
+}
 .thallo-block-gallery--square .thallo-block-gallery__item { aspect-ratio: 1; }
 .thallo-block-gallery--landscape .thallo-block-gallery__item { aspect-ratio: 3 / 2; }
+.thallo-block-gallery--square .thallo-block-image img,
+.thallo-block-gallery--landscape .thallo-block-image img { height: 100%; object-fit: cover; }
+.thallo-block-gallery--square .thallo-block-image figcaption,
+.thallo-block-gallery--landscape .thallo-block-image figcaption {
+  position: absolute; inset: auto 0 0; margin: 0; padding: var(--space-2);
+  color: var(--accent-ink); background: rgb(0 0 0 / 0.62);
+}
 .thallo-block-gallery__dialog { border: 0; padding: 0; background: transparent; max-width: min(92vw, 70rem); }
 .thallo-block-gallery__dialog::backdrop { background: rgb(0 0 0 / 0.8); }
 .thallo-block-gallery__dialog img { max-width: 100%; max-height: 85vh; display: block; margin-inline: auto; }
@@ -439,25 +468,38 @@ Hero contract (the six spec points — place the one-slide rule AFTER the `--per
 
 ```css
 /* Hero slider preset (modern-blocks spec §2): presentation only — mechanics inherit. */
-.thallo-block-carousel--hero { max-width: none; padding-inline: 0; }                     /* 1: full-bleed */
-.thallo-block-carousel--hero .thallo-block-carousel__track > * { flex: 0 0 100%; }       /* 2: one per view (after --per-N) */
-.thallo-block-carousel--hero .thallo-block-hero { display: grid; min-height: 60vh; }     /* 3: stacked grid */
-.thallo-block-carousel--hero .thallo-block-hero > * { grid-area: 1 / 1; }
-.thallo-block-carousel--hero .thallo-block-hero__media { z-index: 0; }
-.thallo-block-carousel--hero .thallo-block-hero__media img { width: 100%; height: 100%; object-fit: cover; }
-.thallo-block-carousel--hero .thallo-block-hero__content { z-index: 2; align-self: end; padding: var(--space-6); }
-.thallo-block-carousel--hero .thallo-block-hero::after {                                 /* 4: scrim between media and text */
+.thallo-block-carousel--hero { max-width: none; padding-inline: 0; }                       /* 1: full-bleed */
+.thallo-block-carousel--hero .thallo-block-carousel__track > * { flex: 0 0 100%; }         /* 2: one per view (after --per-N) */
+.thallo-block-carousel--hero .thallo-block-hero { min-height: 60vh; padding-block: 0; }    /* 3: stacked grid */
+.thallo-block-carousel--hero .thallo-block-hero__inner {
+  display: grid; min-height: inherit; max-width: none; margin: 0; padding: 0;
+}
+.thallo-block-carousel--hero .thallo-block-hero__wrapper,
+.thallo-block-carousel--hero .thallo-block-hero__media { grid-area: 1 / 1; }
+.thallo-block-carousel--hero .thallo-block-hero__media { z-index: 0; align-self: stretch; }
+.thallo-block-carousel--hero .thallo-block-hero__media img {
+  width: 100%; height: 100%; max-width: none; max-height: none; margin: 0;
+  aspect-ratio: auto; object-fit: cover; box-shadow: none;
+}
+.thallo-block-carousel--hero .thallo-block-hero__wrapper {
+  z-index: 2; align-self: end; padding: var(--space-6);
+}
+.thallo-block-carousel--hero .thallo-block-hero__inner::after {                           /* 4: scrim between media and text */
   content: ''; grid-area: 1 / 1; z-index: 1; align-self: stretch;
   background: linear-gradient(to top, rgb(0 0 0 / 0.65), transparent 55%);
 }
-.thallo-block-carousel--hero .thallo-block-hero__content,
-.thallo-block-carousel--hero .thallo-block-hero__content :is(h1, h2, h3, p) {
-  color: var(--hero-overlay-ink, #fff);                                                  /* 5: contrast tokens */
+.thallo-block-carousel--hero .thallo-block-hero__wrapper,
+.thallo-block-carousel--hero .thallo-block-hero__wrapper :is(h1, h2, h3, p) {
+  color: var(--accent-ink);                                                              /* 5: on-media token */
 }
 /* 6: no-image fallback — a hero slide without media keeps the standard hero background. */
 ```
 
-(READ `hero.twig` + the existing hero CSS first and adapt the child-selector names (`__media`/`__content`) to the REAL class names — the structure above is the contract, the selectors must match the actual template. If the hero block has no distinct media/content wrappers, adapt with the template's real structure and note it.)
+These are the live `hero.twig` selectors (`__inner`, `__wrapper`, `__media`), not
+pseudocode. The max-dimension, aspect-ratio, margin and shadow resets are mandatory:
+the base Hero image is otherwise capped at 40rem × 26rem and cannot fill the slide.
+Task 7 proves the resulting geometry in Chromium rather than treating CSS source
+presence as evidence.
 
 - [ ] **Step 4: Run** — `vendor/bin/phpunit --filter "StarterTemplatesTest|ShippedTemplatesLintGateTest|BlocksRenderingTest|BlockScriptTest"` green (the lint gate now sweeps the two new templates — they MUST pass; if a construct is denied, restructure the template, never the policy).
 
@@ -531,19 +573,22 @@ Hero contract (the six spec points — place the one-slide rule AFTER the `--per
         }
         if (inView) { maybeRun(); } else { stop(); }
       });
-      io.observe(root);
+      // Register rollback BEFORE every side effect. Removal/disconnect before an
+      // add/observe is harmless; recording it afterwards leaves a partial-mutation
+      // window if a DOM implementation mutates and then throws.
       undo.push(function () { io.disconnect(); });
+      io.observe(root);
 
       var onVis = function () { if (document.hidden) { stop(); } else { maybeRun(); } };
-      document.addEventListener('visibilitychange', onVis);
       undo.push(function () { document.removeEventListener('visibilitychange', onVis); });
+      document.addEventListener('visibilitychange', onVis);
 
       // Prepared LAST (fail-safe handoff, spec §3): reveal CSS engages only now.
-      root.classList.add('thallo-block-animated_text--prepared');
       undo.push(function () {
         root.classList.remove('thallo-block-animated_text--prepared');
         root.classList.remove('thallo-block-animated_text--in-view');
       });
+      root.classList.add('thallo-block-animated_text--prepared');
     } catch (err) {
       stop();
       for (var u = undo.length - 1; u >= 0; u--) { try { undo[u](); } catch (e2) {} }
@@ -553,7 +598,9 @@ Hero contract (the six spec points — place the one-slide rule AFTER the `--per
     return function () {
       stop();
       setActive(0);
-      for (var u2 = undo.length - 1; u2 >= 0; u2--) { undo[u2](); }
+      for (var u2 = undo.length - 1; u2 >= 0; u2--) {
+        try { undo[u2](); } catch (cleanupErr) {}
+      }
     };
   }
 
@@ -567,7 +614,7 @@ Hero contract (the six spec points — place the one-slide rule AFTER the `--per
 })();
 ```
 
-- [ ] **Step 2: Node harness test** (`AnimatedTextAssetTest.php` — RuntimeElementsBridgeTest skeleton; harness evals `runtime.js` bytes, then the asset bytes, with the stub DOM + `matchMedia`/`IntersectionObserver` stubs). Cases: double-eval of the asset registers once (no throw, guard set once); eval with `window.ThalloRuntime` deleted → guard NOT set, static untouched, re-eval after restoring runtime works (retry path); registration after a completed boot enhances an existing block (self-enhance); reveal class added once on intersection; rotation completes exactly `words.length - 1` steps then stops (timers stub) and settles on last word; offscreen/hidden pause + resume; reduced-motion → enhance returns false, no classes; cleanup restores first word active + removes classes/IO/listener.
+- [ ] **Step 2: Node harness test** (`AnimatedTextAssetTest.php` — RuntimeElementsBridgeTest skeleton; harness evals `runtime.js` THEN the asset bytes, with the stub DOM + `matchMedia`/`IntersectionObserver` stubs). Cases: double-eval of the asset registers once (no throw, guard set once); eval with `window.ThalloRuntime` deleted → guard NOT set, static untouched, re-eval after restoring runtime works (retry path); registration after a completed boot enhances an existing block (self-enhance); reveal class added once on intersection; rotation completes exactly `words.length - 1` steps then stops (timers stub) and settles on last word; offscreen/hidden pause + resume; reduced-motion → enhance returns false, no classes; cleanup restores first word active + removes classes/IO/listener. Three failure-injection cases throw after partially mutating `observe`, `addEventListener`, and `classList.add`; each must leave no observer, listener, prepared/in-view class, timer, or runtime marker. A cleanup action that throws must not prevent the remaining cleanup actions from running.
 
 - [ ] **Step 3: Budget test** (`BlockAssetBudgetTest.php`):
 
@@ -657,8 +704,13 @@ final class BlockAssetBudgetTest extends AppTestCase
       d.addEventListener('close', function () {
         if (lastTrigger && lastTrigger.focus) { lastTrigger.focus(); } // explicit focus restore
       });
-      document.body.appendChild(d);
       return d;
+    }
+    function discardDialog() {
+      if (!dialog) { return; }
+      if (dialog.open && dialog.close) { try { dialog.close(); } catch (closeErr) {} }
+      if (dialog.parentNode) { dialog.parentNode.removeChild(dialog); }
+      dialog = null;
     }
     function show(n) {
       var count = anchors.length;
@@ -675,33 +727,36 @@ final class BlockAssetBudgetTest extends AppTestCase
       if (!a || anchors.indexOf(a) === -1) { return; }
       if (!supported()) { return; } // anchor navigates normally
       try {
-        if (!dialog) { dialog = build(); }
+        if (!dialog) {
+          dialog = build();       // build cannot leak: append happens only after return
+          document.body.appendChild(dialog);
+        }
         lastTrigger = a;
         show(anchors.indexOf(a));
         dialog.showModal(); // must SUCCEED before we cancel navigation
       } catch (err) {
+        discardDialog();
+        lastTrigger = null;
         return; // construction/showModal failure: leave the click untouched
       }
       e.preventDefault();
     }
 
-    root.addEventListener('click', onClick);
     undo.push(function () { root.removeEventListener('click', onClick); });
-    undo.push(function () {
-      if (dialog) {
-        if (dialog.open && dialog.close) { dialog.close(); }
-        if (dialog.parentNode) { dialog.parentNode.removeChild(dialog); }
-        dialog = null;
-      }
-    });
+    root.addEventListener('click', onClick);
+    undo.push(discardDialog);
 
-    return function () { for (var u = undo.length - 1; u >= 0; u--) { undo[u](); } };
+    return function () {
+      for (var u = undo.length - 1; u >= 0; u--) {
+        try { undo[u](); } catch (cleanupErr) {}
+      }
+    };
   }
 ```
 
 (NOTE the ordering trap the spec pins: `showModal()` is called INSIDE the try and `preventDefault()` only after it returns — a throwing/unsupported dialog leaves the real anchor click to navigate.)
 
-- [ ] **Step 2: Node harness test** (`GalleryAssetTest.php`): guard/self-enhance frame cases (as Task 5); `data-lightbox="0"` → enhance returns false, click untouched; supported-dialog stubs: first click builds one dialog, `showModal` called, `preventDefault` called, status "1 of N"; prev/next wrap; close restores focus to originating anchor; UNSUPPORTED dialog (no HTMLDialogElement stub) → no preventDefault, no dialog; `showModal` throwing → no preventDefault, dialog not left open; two galleries → independent state, one registration; cleanup removes listener + dialog node.
+- [ ] **Step 2: Node harness test** (`GalleryAssetTest.php`): guard/self-enhance frame cases (as Task 5); `data-lightbox="0"` → enhance returns false, click untouched; supported-dialog stubs: first click builds one dialog, `showModal` called, `preventDefault` called, status "1 of N"; prev/next wrap; close restores focus to originating anchor; UNSUPPORTED dialog (no HTMLDialogElement stub) → no preventDefault, no dialog; construction and `showModal` throws each → no preventDefault, **no generated dialog remains attached**, and a later click can retry successfully; two galleries → independent state, one registration; cleanup removes listener + dialog node even when another cleanup action throws.
 
 - [ ] **Step 3: Widen `BlockAssetBudgetTest`** to iterate `RenderContextExtension::BLOCK_SCRIPT_ASSETS`; add `testEmittedAssetsExistAndAreServedFingerprinted` (from Task 1's note) to `BlockScriptTest`.
 
@@ -714,16 +769,19 @@ final class BlockAssetBudgetTest extends AppTestCase
 ### Task 7: Playwright gate extension
 
 **Files:**
-- Create: `tools/runtime-browser/fixtures/blocks.html` (animated_text markup ×2 — one in-viewport, one below the fold — plus TWO gallery instances; real CSS + real `runtime.js` with `defer` + the two block assets emitted AFTER runtime.js exactly as `block_script` would)
+- Create: `tools/runtime-browser/fixtures/blocks.html` (animated_text markup ×2 — one in-viewport, one below the fold — TWO gallery instances, and hero-carousel slides with/without media; real CSS + real `runtime.js` with `defer` + the two block assets emitted AFTER runtime.js exactly as `block_script` would)
 - Create: `tools/runtime-browser/tests/block-assets.spec.js`
 - Modify: `tools/runtime-browser/README.md` (one line)
 
 **Interfaces:** consumes shipped assets + templates' class contract.
 
 - [ ] **Step 1: Specs** (chromium; follow the existing spec style):
-  - animated text: below-fold block has no `--in-view` before scroll; scrolling it in adds the reveal; rotation settles on the LAST word after ≤5s (`page.waitForFunction` on the active word); `prefers-reduced-motion` emulation (`page.emulateMedia`) → no `--prepared` class, static text visible.
-  - gallery: click thumb → real `<dialog[open]>` with backdrop; Esc closes AND focus returns to the thumbnail (`document.activeElement`); next/prev update status "n of m"; second gallery state independent; with JS disabled (context option) thumbnails navigate to the full image URL.
+  - animated text: the initial CSS-visible phrase is exactly `Build fast with Thallo`; below-fold block has no `--in-view` before scroll; scrolling it in adds the reveal; rotation settles on the LAST word after ≤5s (`page.waitForFunction` on the active word); `prefers-reduced-motion` emulation (`page.emulateMedia`) → no `--prepared` class, static text visible.
+  - gallery layout: natural mode's nested `.thallo-block-image` has zero standalone padding/margin and preserves natural image height; square/landscape item bounding boxes match their declared ratios within one CSS pixel, images fill/crop those boxes, and fixed-crop captions overlay rather than expanding the tile.
+  - gallery behavior: click thumb → real `<dialog[open]>` with backdrop; Esc closes AND focus returns to the thumbnail (`document.activeElement`); next/prev update status "n of m"; second gallery state independent; with JS disabled (context option) thumbnails navigate to the full image URL.
+  - hero preset: at desktop and mobile widths the hero carousel spans the main viewport, every slide is one viewport wide even when `--per-3` is present, `__wrapper` and `__media` occupy the same grid cell, the image has no 40rem/26rem cap and fills the slide, the scrim pseudo-element is present between media and text, and the no-image slide retains a non-transparent fallback with readable text.
   - late-registration order: a fixture variant loading `runtime.js` and the block assets in the REAL deferred order proves blocks enhance on first load (marker present exactly once).
+  - capture desktop (1440px) and mobile (390px) fixture screenshots as test artifacts for the operator's visual pass; computed-style assertions above remain the automated authority.
 
 - [ ] **Step 2: Run** — `cd tools/runtime-browser && npm test` — all green (including the pre-existing 11).
 
