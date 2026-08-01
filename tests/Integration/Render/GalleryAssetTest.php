@@ -535,6 +535,40 @@ final class GalleryAssetTest extends AppTestCase
             assert(ctx.document.body.children.length === 1, 'the retry actually attached a dialog');
           })();
 
+          // 10b. showModal throw AND the discard's removeChild also throws (the onClick
+          //      catch call site is NOT wrapped by the undo-stack's own try/catch, unlike
+          //      scenario 12's cleanup() path): the click handler itself must not
+          //      propagate the removeChild failure, `dialog` must still end up nulled, and
+          //      a LATER click must rebuild a fresh dialog rather than reusing/erroring.
+          (function () {
+            var ctx = makeSandbox(true);
+            runInContext(RUNTIME_SRC, ctx);
+            var gallery = buildGallery(3);
+            var spy = captureEnhance(ctx, 'gallery');
+            runInContext(ASSET_SRC, ctx);
+            spy.fn(gallery.root);
+
+            ctx.__throwOnShowModal = true;
+            var originalRemoveChild = ctx.document.body.removeChild;
+            ctx.document.body.removeChild = function () {
+              throw new Error('injected: body.removeChild boom');
+            };
+
+            var threw = false;
+            var evt;
+            try { evt = click(gallery.root, gallery.anchors[0]); } catch (e) { threw = true; }
+            assert(threw === false, 'removeChild throwing inside the onClick catch must not propagate');
+            assert(evt.defaultPrevented === false, 'showModal+removeChild throw: preventDefault never called');
+            assert(ctx.__dialogCreateCount === 1, 'exactly one dialog build attempt for the failed click');
+
+            ctx.document.body.removeChild = originalRemoveChild;
+            ctx.__throwOnShowModal = false;
+
+            var evt2 = click(gallery.root, gallery.anchors[0]);
+            assert(evt2.defaultPrevented === true, 'a later click rebuilds and succeeds (dialog was nulled)');
+            assert(ctx.__dialogCreateCount === 2, 'the later click built a genuinely NEW dialog (dialog was nulled, not reused)');
+          })();
+
           // 11. Two galleries on the same page: ONE registration total, but independent
           //     per-gallery state (dialogs, current index, focus target never cross over).
           await (async function () {
