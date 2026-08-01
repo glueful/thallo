@@ -40,6 +40,14 @@ is copied or mocked:
 `fixtures/no-runtime.html` is the same markup with the `<script>` tag
 omitted, for the no-JS / "before the runtime loads" display spec.
 
+`fixtures/blocks.html` hand-renders the modern-blocks additions
+(animated_text, gallery, and the hero-carousel preset) from their `.twig`
+templates' class contract, plus `packages/thallo-render/runtime/block-animated-text.js`
+and `block-gallery.js` loaded `defer` after `runtime.js`, exactly as `block_script()`
+emits them; `fixtures/media/*.svg` are small checked-in real image files (not
+copies of anything, not data: URIs — top-level navigation to `data:` URLs is
+blocked by Chromium, which the no-JS gallery spec below needs to work around).
+
 Why a hand-rolled static server instead of `php -S` or an `http-server`
 package: PHP happens to be on this machine's `PATH`, but the CI job for this
 gate never installs PHP (it only needs Node + a Chromium binary), and an
@@ -74,6 +82,16 @@ npm static-file-server dependency is unnecessary weight for two lines of
   computes `display: inline-flex` via the `:where()` alias when
   `html[data-color-mode-enabled="true"]`, and `display: none` when that
   attribute is absent.
+- `block-assets.spec.js` — against `fixtures/blocks.html`: animated_text's
+  exact visible phrase, reveal-on-scroll timing and rotation settling, and
+  the `prefers-reduced-motion` static floor; the gallery's nested
+  `.thallo-block-image` reset, aspect-ratio-box geometry, and fixed-crop
+  caption overlay; the gallery lightbox's real `<dialog>`/backdrop/Escape/
+  focus-return/status/independent-instance behavior and its no-JS anchor
+  floor; the hero-carousel preset's full-bleed/one-viewport-per-slide/
+  shared-grid-cell/uncapped-image/scrim/no-image-fallback geometry at
+  desktop and mobile widths; and the two block assets' real deferred load
+  order enhancing on first load with exactly one marker token each.
 
 ## Running
 
