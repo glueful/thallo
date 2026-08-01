@@ -165,8 +165,9 @@ final class BlocksRenderingTest extends AppTestCase
         self::assertContains('shop_wishlist_scope', TemplatePolicy::FUNCTIONS);
         self::assertContains('shop_wishlist_url', TemplatePolicy::FUNCTIONS);
         self::assertContains('shop_styles_url', TemplatePolicy::FUNCTIONS);
-        // 16 = shop_styles_url joined the allowlist (the theme's head storefront stylesheet)
-        self::assertSame(16, TemplatePolicy::CACHE_VERSION);
+        // 17 = admin-contributed-templates spec §3 policy expansion (twelve reviewed functions,
+        // range()/RangeBinary denied, TrueTest allowed for bare boolean function conditions)
+        self::assertSame(17, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);
