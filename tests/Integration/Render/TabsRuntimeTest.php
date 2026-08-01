@@ -338,6 +338,15 @@ final class TabsRuntimeTest extends AppTestCase
         assert(fb.list.addCount === 1 && fb.labels[0].addCount === 1,
           'phase-2 throw: earlier attachments happened before rollback');
 
+        // Unpairable structure, directly: 3 radios but only 2 labels. enhance()
+        // throws before ANY mutation (the pairing check runs before the undo log
+        // even exists), so this is a stronger guarantee than the fail-safes above —
+        // not just "rolled back", but never touched at all.
+        var un = makeTabs(3);
+        un.list.children = un.labels.slice(0, 2); // break the 1:1 radio/label pairing
+        RT.enhance(un.root);
+        assertNoResidue(un, 'unpairable (3 radios, 2 labels)');
+
         console.log('ALL_PASS');
         JS;
     }
@@ -450,6 +459,7 @@ final class TabsRuntimeTest extends AppTestCase
         function makeTabs(n, opts) {
           opts = opts || {};
           var checkedIdx = opts.checked === undefined ? 0 : opts.checked;
+          var servedHidden = opts.servedHidden || []; // panel indices SERVED with [hidden]
           var radios = [];
           var labels = [];
           var panels = [];
@@ -459,7 +469,9 @@ final class TabsRuntimeTest extends AppTestCase
             radio.dispatchEvent = function () { return true; };
             radios.push(radio);
             labels.push(el(['thallo-block-tabs__label']));
-            panels.push(el(['thallo-block-tabs__panel']));
+            var panel = el(['thallo-block-tabs__panel']);
+            if (servedHidden.indexOf(i) !== -1) { panel.setAttribute('hidden', ''); }
+            panels.push(panel);
           }
           var list = el(['thallo-block-tabs__list']);
           list.children = labels;
@@ -506,7 +518,15 @@ final class TabsRuntimeTest extends AppTestCase
         RT.registerElement('x-tabs-lifecycle', 'tabs', {});
 
         (async function () {
-          var t = makeTabs(3);
+          // Panel 0 is SERVED with [hidden] already present (baselineHidden[0] = true) —
+          // and it is also the initially-checked/current tab, so Phase 1 never touches
+          // its [hidden] attribute at all (only non-current panels get it set): the
+          // only thing that can ever restore it is the baseline-restore step in the
+          // module's teardown closure. This exercises the `if (baselineHidden[k])`
+          // true-branch, which no other test reaches (every other fixture's served
+          // floor has zero hidden panels), and pins the exact restored value instead
+          // of a looser "some state" assertion.
+          var t = makeTabs(3, { servedHidden: [0] });
 
           upgrade('x-tabs-lifecycle', t.root);
           await flush();
@@ -531,7 +551,12 @@ final class TabsRuntimeTest extends AppTestCase
           assert(t.radios[2].checked === false, 'served floor: radio 3 unchecked (baseline)');
           assert(t.radios[1].checked === false, 'served floor: radio 2 unchecked (baseline)');
           t.panels.forEach(function (p, ix) {
-            assert(p.getAttribute('hidden') === null, 'served floor: panel ' + ix + ' not [hidden]');
+            if (ix === 0) {
+              assert(p.getAttribute('hidden') !== null,
+                'served floor: panel 0 restored to its SERVED [hidden] baseline');
+            } else {
+              assert(p.getAttribute('hidden') === null, 'served floor: panel ' + ix + ' not [hidden]');
+            }
             assert(p.getAttribute('role') === null, 'served floor: panel ' + ix + ' role removed');
             assert(p.getAttribute('aria-labelledby') === null,
               'served floor: panel ' + ix + ' aria-labelledby removed');

@@ -14,8 +14,9 @@ use App\Tests\Support\AppTestCase;
  * wins); thallo-color-mode-toggle is the explicit pipeline exception — it never enters
  * registerElement, it only re-syncs window.thalloColorMode.reflect() on connect.
  * Mirrors RuntimeElementsBridgeTest's Node + hand-stubbed-DOM + customElements pattern,
- * with dataset support added to the stub node (the carousel module reads
- * root.dataset.arrows, and projection writes BOTH the attribute and dataset).
+ * with the stub node reflecting data-* setAttribute/removeAttribute calls into .dataset
+ * (the carousel module reads root.dataset.arrows; production projects only the
+ * attribute and relies on native dataset reflection, same as a real browser).
  */
 final class RuntimeElementsTest extends AppTestCase
 {
@@ -190,11 +191,12 @@ final class RuntimeElementsTest extends AppTestCase
           return { matches: false, addEventListener: function () {}, removeEventListener: function () {} };
         };
 
-        // --- generic element stub: classList, attrs, dataset (NOT auto-synced with
-        //     setAttribute — the brief's note: projection must write both explicitly),
-        //     parent-aware appendChild, closest()/contains() walking the tree, and a
-        //     minimal matches()/querySelector(All)() supporting '.class' and
-        //     '[attr]'/'[attr="value"]' selectors (the only shapes the modules use). --
+        // --- generic element stub: classList, attrs, dataset (data-* setAttribute /
+        //     removeAttribute reflect into .dataset — single-segment names only, mirroring
+        //     what a real browser does natively), parent-aware appendChild,
+        //     closest()/contains() walking the tree, and a minimal matches()/
+        //     querySelector(All)() supporting '.class' and '[attr]'/'[attr="value"]'
+        //     selectors (the only shapes the modules use). --
         // Comma-separated selector lists (e.g. '.thallo-block-navigation, thallo-navigation')
         // and bare tag-name selectors, in addition to the existing '.class' / '[attr]' forms —
         // needed to model closest() resolving a custom-element host by tag name.
@@ -237,8 +239,19 @@ final class RuntimeElementsTest extends AppTestCase
               return c;
             },
             getAttribute: function (n) { return attrs[n] === undefined ? null : attrs[n]; },
-            setAttribute: function (n, v) { attrs[n] = String(v); },
-            removeAttribute: function (n) { delete attrs[n]; },
+            // Real browsers reflect data-* attributes into .dataset automatically (the
+            // production project() helper no longer dual-writes it); mirror ONLY the
+            // single-segment sugar names the carousel module reads (data-arrows ->
+            // dataset.arrows) — no camelCase translation for multi-segment names, since
+            // nothing here needs it.
+            setAttribute: function (n, v) {
+              attrs[n] = String(v);
+              if (n.indexOf('data-') === 0) { node.dataset[n.slice(5)] = String(v); }
+            },
+            removeAttribute: function (n) {
+              delete attrs[n];
+              if (n.indexOf('data-') === 0) { delete node.dataset[n.slice(5)]; }
+            },
             hasAttribute: function (n) { return attrs[n] !== undefined; },
             addEventListener: function (t, fn) { (listeners[t] = listeners[t] || []).push(fn); },
             removeEventListener: function (t, fn) {
@@ -438,8 +451,7 @@ final class RuntimeElementsTest extends AppTestCase
           // 3. Existing data-* wins over sugar: explicit data-arrows="0" survives.
           var c2 = makeCarouselHost();
           c2.host.setAttribute('arrows', '');
-          c2.host.setAttribute('data-arrows', '0');
-          c2.host.dataset.arrows = '0'; // stub does not auto-sync setAttribute -> dataset
+          c2.host.setAttribute('data-arrows', '0'); // stub reflects this into dataset.arrows too
           upgrade('thallo-carousel', c2.host);
           await flush();
           assert(c2.host.getAttribute('data-arrows') === '0',
