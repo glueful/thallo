@@ -50,8 +50,13 @@ conventions, and late-inserted markup upgrades itself without calling
    must remove them and restore the fallback DOM; reconnect re-enhances cleanly.
 7. **Forms stays attribute-driven** (`data-thallo-form` on the native `<form>`); an
    autonomous wrapper element is a weak abstraction and ships nowhere in v1.
-8. **Size budget unchanged**: the existing 12,288-byte gzip ceiling stands unless
-   implementation actually exceeds it — no pre-emptive bump.
+8. **Size budget** — reviewed increase (user-ruled at the Task 5→6 stop point, the
+   budget gate's intended use): previous ceiling 12,288 bytes gzip; **new ceiling
+   14,336**; reason: four-element Web Components API plus lifecycle teardown.
+   Tasks 1-5 measured 12,223; the final post-Task-6 size is recorded in the
+   CHANGELOG and the budget-test comment. If the completed runtime exceeds 14,336,
+   STOP again — never an automatic raise. Architectural comments are never stripped
+   merely to satisfy a threshold.
 
 ## Design
 

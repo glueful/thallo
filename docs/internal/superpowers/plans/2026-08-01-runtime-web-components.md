@@ -21,7 +21,7 @@
 - Projection is transactional: canvas-skip / missing target / structural `false` / contained throw / disconnect-before-microtask all undo projection and store no lifecycle record.
 - Cleanup keyed by (component, module); disconnect removes ONLY that module's marker token.
 - Private pipeline order: canvas policy → marker check → try/catch → mark. Outcomes `enhanced | already-enhanced | canvas-skipped | structural-noop | failed` are internal, never public API.
-- Size budget: existing 12,288-byte gzip ceiling in `RuntimeSizeBudgetTest` unchanged (current 9,798). If genuinely exceeded, STOP and surface — do not bump silently.
+- Size budget — REVISED by user ruling at the Task 5→6 stop (previous ceiling 12,288; Tasks 1-5 measured 12,223): **new ceiling 14,336 bytes gzip**, reason "four-element Web Components API plus lifecycle teardown". Task 6 updates `RuntimeSizeBudgetTest` (constant + comment recording previous/new/reason) and adds a CHANGELOG entry with the final measured size. If the completed runtime exceeds 14,336, STOP again — never an automatic raise. Never strip architectural comments merely to satisfy a threshold.
 - The color-mode toggle block's root class is `thallo-block-color_mode` (underscore).
 - Run PHP tests from repo root: `vendor/bin/phpunit --filter <TestClass>`. Node must be available (tests skip without it — ensure your runs actually execute, not skip).
 - Commit per task: stage exact paths (`git add <paths>`) then `git commit --only <paths>`. NEVER `git add -A`. NO attribution trailers in commit messages.
