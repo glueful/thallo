@@ -410,32 +410,56 @@ test.describe('hero-carousel preset', () => {
     assertHeroLayout(await readHeroLayout(page));
   });
 
-  test('the no-image slide falls back to the dark --ink base, keeping the white on-media text readable', async ({ page }) => {
-    await page.goto(FIXTURE);
-
-    const data = await page.evaluate(() => {
+  async function readNoImageSlide(page) {
+    return page.evaluate(() => {
       const noMedia = document.querySelector('.thallo-block-hero[data-slide="no-media"]');
       const title = noMedia.querySelector('.thallo-block-hero__title');
       return {
         hasMediaDiv: !!noMedia.querySelector('.thallo-block-hero__media'),
-        // "6: no-image fallback" in blocks.css — a media-less slide has no
-        // media/scrim to cover it, so it falls straight to `background:
-        // var(--ink)` — resolves dark (site.css :root --ink, no dark-mode
-        // override applied in this fixture) instead of the light standard
-        // hero gradient, which is what made white on-media text unreadable.
         backgroundColor: getComputedStyle(noMedia).backgroundColor,
         backgroundImage: getComputedStyle(noMedia).backgroundImage,
         titleColor: getComputedStyle(title).color
       };
     });
+  }
+
+  test('the no-image slide falls back to the theme-invariant dark base, keeping the white on-media text readable in light mode', async ({ page }) => {
+    await page.goto(FIXTURE);
+
+    const data = await readNoImageSlide(page);
     expect(data.hasMediaDiv).toBe(false);
-    // --ink resolved (site.css :root): #0f172a === rgb(15, 23, 42).
+    // "6: no-image fallback" in blocks.css — a media-less slide has no
+    // media/scrim to cover it, so it falls straight to `background:
+    // var(--hero-fallback-bg)` (site.css :root, #0f172a === rgb(15, 23, 42))
+    // instead of the light standard hero gradient, which is what made white
+    // on-media text unreadable.
     expect(data.backgroundColor).toBe('rgb(15, 23, 42)');
     // No longer the light standard-hero gradient.
     expect(data.backgroundImage).toBe('none');
     // A declared, opaque text color — not literally invisible/transparent.
     expect(data.titleColor).not.toBe('rgba(0, 0, 0, 0)');
     // White text (--accent-ink) is now on a genuinely dark base, not near-white.
+    expect(data.titleColor).toBe('rgb(255, 255, 255)');
+  });
+
+  test('the no-image slide stays on the same dark base in dark mode — --hero-fallback-bg is theme-invariant, unlike --ink', async ({ page }) => {
+    // Set data-theme before first paint (no-flash resolver's attribute,
+    // color-mode spec §3.3) so the dark-mode variable overrides are already
+    // active when the stylesheet is applied.
+    await page.addInitScript(() => {
+      document.documentElement.dataset.theme = 'dark';
+    });
+    await page.goto(FIXTURE);
+
+    const data = await readNoImageSlide(page);
+    expect(data.hasMediaDiv).toBe(false);
+    // Regression guard: --ink flips to #e2e8f0 (rgb(226, 232, 240)) in dark
+    // mode, but --hero-fallback-bg has no [data-theme="dark"] override on
+    // purpose (the overlay ink --accent-ink is #ffffff in BOTH modes), so
+    // the background must stay the same dark rgb(15, 23, 42).
+    expect(data.backgroundColor).toBe('rgb(15, 23, 42)');
+    expect(data.backgroundImage).toBe('none');
+    expect(data.titleColor).not.toBe('rgba(0, 0, 0, 0)');
     expect(data.titleColor).toBe('rgb(255, 255, 255)');
   });
 });
