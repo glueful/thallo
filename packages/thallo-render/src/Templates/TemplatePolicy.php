@@ -34,16 +34,32 @@ final class TemplatePolicy
     // bumped: font_faces_style joined the function allowlist (default-theme-font spec §3)
     // bumped: shop_wishlist_scope + shop_wishlist_url joined the allowlist (storefront-v1 spec §5)
     // bumped: shop_styles_url joined the function allowlist (head stylesheet link)
-    public const CACHE_VERSION = 16;
+    // bumped: admin-contributed-templates spec §3 — shop URL trio + json_script + the eight
+    //         render functions the shipped default theme uses (individually reviewed;
+    //         media_image gated behind normalizeWidths()), while range()/RangeBinary are denied
+    //         to prevent pre-call unbounded allocation. Every shipped template round-trips through the
+    //         editor (exception-free lint gate).
+    // NOT bumped — vocabulary alignment (admin-contributed-templates task 7, gate-audit
+    //         amendment): the exception-free lint gate's dry run (33 failures) found sanctioned
+    //         template vocabulary the v17 policy never listed — editable_text/style_hook (already
+    //         wired as filters, just missing from FILTERS), and macro/import (constrained below to
+    //         the self-import shape by TemplateLinter; every shipped macro user already conforms).
+    //         hex_color/numeric_clamp are NEW bounded PHP helpers that replace the two |matches
+    //         regex checks blocks/style.twig used directly — MatchesBinary/`matches` stays DENIED
+    //         (ReDoS posture); the patterns now live in PHP, bound to one call site each, never in
+    //         template source. This widens v17's own vocabulary to match what already shipped; it
+    //         does not loosen anything previously enforced, so compiled caches keyed on v17 are
+    //         still valid — no recompile is required.
+    public const CACHE_VERSION = 17;
 
-    public const TAGS = ['if', 'for', 'set', 'block', 'extends', 'include', 'verbatim'];
+    public const TAGS = ['if', 'for', 'set', 'block', 'extends', 'include', 'verbatim', 'macro', 'import'];
 
     public const FILTERS = [
         'abs', 'batch', 'capitalize', 'column', 'date', 'date_modify', 'default',
-        'escape', 'e', 'first', 'format', 'join', 'json_encode', 'keys', 'last',
-        'length', 'lower', 'merge', 'nl2br', 'number_format', 'replace', 'reverse',
-        'round', 'safe_html', 'safe_url', 'slice', 'sort', 'split', 'striptags', 'title', 'trim',
-        'upper', 'url_encode',
+        'editable_text', 'escape', 'e', 'first', 'format', 'hex_color', 'join', 'json_encode',
+        'keys', 'last', 'length', 'lower', 'merge', 'nl2br', 'number_format', 'numeric_clamp',
+        'replace', 'reverse', 'round', 'safe_html', 'safe_url', 'slice', 'sort', 'split',
+        'striptags', 'style_hook', 'title', 'trim', 'upper', 'url_encode',
     ];
 
     public const FUNCTIONS = [
@@ -51,11 +67,14 @@ final class TemplatePolicy
         'region_blocks', 'region_settings', 'site_favicon', 'custom_css', 'form_render',
         'runtime_script', 'seo_head', 'font_faces_style',
         'shop_wishlist_scope', 'shop_wishlist_url', 'shop_styles_url',
-        'include', 'parent', 'block', 'cycle', 'date', 'min', 'max', 'range',
+        'shop_product_url', 'shop_category_url', 'shop_index_url', 'json_script',
+        'entries', 'is_preview', 'media_image', 'claim_priority_image',
+        'color_mode_enabled', 'color_mode_script', 'theme_colors_style', 'theme_style_scope',
+        'include', 'parent', 'block', 'cycle', 'date', 'min', 'max',
     ];
 
     public const TESTS = [
-        'defined', 'empty', 'even', 'iterable', 'null', 'odd',
+        'defined', 'empty', 'even', 'iterable', 'null', 'odd', 'true',
         'same as', 'divisible by', 'sequence', 'mapping',
     ];
 
@@ -69,8 +88,15 @@ final class TemplatePolicy
      *   - Expression\Binary\HasEveryBinary/HasSomeBinary — arrow-function carriers
      *   - Expression\Binary\SetBinary + *DestructuringSetBinary — set internals beyond plain assignment
      *   - Expression\ArrowFunctionExpression      — how map/filter/reduce stay out
-     *   - Expression\MacroReferenceExpression, MethodCallExpression, InlinePrint,
-     *     VariadicExpression, ListExpression, Test\ConstantTest, Filter\RawFilter
+     *   - MethodCallExpression, InlinePrint, VariadicExpression, ListExpression,
+     *     Test\ConstantTest, Filter\RawFilter
+     *
+     * Gate-audit amendment (admin-contributed-templates task 7): ForElseNode (`{% for %}
+     * … {% else %}`), ImportNode, MacroNode and Expression\MacroReferenceExpression joined
+     * the allowlist — all pure control-flow/declaration, no code execution, no I/O, no
+     * object reach. ImportNode is further constrained by TemplateLinter to the self-import
+     * shape (`{% import _self as x %}`) only; every shipped macro user (navigation.twig,
+     * blog_posts.twig, pricing_table.twig, container.twig) already conforms.
      *
      * @var list<class-string|string>
      */
@@ -79,9 +105,9 @@ final class TemplatePolicy
         \Twig\Node\BodyNode::class,
         \Twig\Node\Node::class,
         // Twig 3.28: a childless, attributeless structural marker ("has global
-        // side effects but does not generate template code") — reviewed; the
-        // constructs it carries (e.g. macro declarations) are still denied by
-        // their own nodes/tags.
+        // side effects but does not generate template code") — reviewed. The
+        // constructs it carries are policed individually by their own nodes/tags
+        // (most remain denied; macro/import are now sanctioned — see above).
         \Twig\Node\ConfigNode::class,
         \Twig\Node\Nodes::class,
         \Twig\Node\TextNode::class,
@@ -90,11 +116,14 @@ final class TemplatePolicy
         \Twig\Node\IfNode::class,
         \Twig\Node\ForNode::class,
         \Twig\Node\ForLoopNode::class,
+        \Twig\Node\ForElseNode::class,
         \Twig\Node\BlockNode::class,
         \Twig\Node\BlockReferenceNode::class,
         \Twig\Node\IncludeNode::class,
         \Twig\Node\EmptyNode::class,
         \Twig\Node\CaptureNode::class,
+        \Twig\Node\ImportNode::class,
+        \Twig\Node\MacroNode::class,
         // Expressions (top level)
         \Twig\Node\Expression\ConstantExpression::class,
         \Twig\Node\Expression\ArrayExpression::class,
@@ -107,6 +136,9 @@ final class TemplatePolicy
         \Twig\Node\Expression\ParentExpression::class,
         \Twig\Node\Expression\BlockReferenceExpression::class,
         \Twig\Node\Expression\EmptyExpression::class,
+        // Macro call (m.foo(...) after {% import _self as m %}) — TemplateLinter pins
+        // the ONLY sanctioned import shape, so 'template' is always a self-reference.
+        \Twig\Node\Expression\MacroReferenceExpression::class,
         // Variables
         \Twig\Node\Expression\Variable\ContextVariable::class,
         \Twig\Node\Expression\Variable\AssignContextVariable::class,
@@ -143,7 +175,6 @@ final class TemplatePolicy
         \Twig\Node\Expression\Binary\NullCoalesceBinary::class,
         \Twig\Node\Expression\Binary\OrBinary::class,
         \Twig\Node\Expression\Binary\PowerBinary::class,
-        \Twig\Node\Expression\Binary\RangeBinary::class,
         \Twig\Node\Expression\Binary\SameAsBinary::class,
         \Twig\Node\Expression\Binary\SpaceshipBinary::class,
         \Twig\Node\Expression\Binary\StartsWithBinary::class,
@@ -156,6 +187,12 @@ final class TemplatePolicy
         \Twig\Node\Expression\Test\NullTest::class,
         \Twig\Node\Expression\Test\OddTest::class,
         \Twig\Node\Expression\Test\SameasTest::class,
+        // Twig core implicitly wraps any `{% if expr %}` / `expr ? a : b` condition that
+        // isn't already statically known boolean (e.g. a bare function call) in this node
+        // (admin-contributed-templates spec §3 — is_preview()/color_mode_enabled()/
+        // claim_priority_image() used as bare conditions by the shipped default theme).
+        // Pure boolean coercion (with a Markup->string cast) — no code execution, no I/O.
+        \Twig\Node\Expression\Test\TrueTest::class,
         // Filters (NO RawFilter)
         \Twig\Node\Expression\Filter\DefaultFilter::class,
         // Ternary
@@ -166,4 +203,22 @@ final class TemplatePolicy
     {
         return in_array($class, self::NODE_CLASSES, true);
     }
+
+    /**
+     * CLOSED two-template policy (gate-audit ruling, admin-contributed-templates task
+     * 7c) — NOT a general exception mechanism. Both paths use vocabulary that will
+     * never pass the compile-time lint above by design (raw output, non-constant
+     * include), so instead of advertising Save in the admin editor and 422ing on
+     * every attempt, TemplatesAdminController marks exactly these two rows read-only
+     * with the reason below. Adding another entry here requires a spec amendment —
+     * this is a pin, not a pattern to extend ad hoc. The pin is by PATH: whichever
+     * origin (pack default, app theme, package contribution) resolves at that exact
+     * path, the row stays read-only.
+     *
+     * @var array<string,string> path => human-readable reason shown in the admin
+     */
+    public const DISK_ONLY_TEMPLATES = [
+        'blocks/html.twig' => 'Raw-HTML escape hatch — |raw by design; disk-only.',
+        'blocks/shortcode.twig' => 'Dynamic shortcode dispatch — non-constant include by design; disk-only.',
+    ];
 }

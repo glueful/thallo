@@ -138,14 +138,20 @@ final class StyleBlockRenderTest extends AppTestCase
 
     public function testShadowOpacityIsClampedToTheAllowedRange(): void
     {
-        // 999 → clamp to 200 → strength 2; a bare negative never matches the numeric
-        // guard, so it is dropped rather than emitted as a negative strength.
+        // 999 → clamp to 200 → strength 2.
         $high = $this->render([['id' => 'sp5', 'type' => 'style',
             'data' => ['shadow' => 'md', 'shadow_opacity' => 999, 'content' => []]]]);
         self::assertStringContainsString('--shadow-strength: 2', $high);
 
+        // Gate-audit amendment (task 7): the |matches regex this used to run
+        // ("/^[0-9]+(\.[0-9]+)?$/") matched non-negative numbers only, so a bare
+        // negative was dropped entirely. Its replacement, the numeric_clamp filter, is
+        // gated on is_numeric() (which accepts negatives) and clamps into range — a
+        // negative opacity is now numeric input clamped to the 0 floor, not a
+        // non-numeric value to discard. See AllowlistedFunctionBoundsTest's
+        // numeric_clamp('-5', 0, 200) === 0.0 pin for the helper-level contract.
         $neg = $this->render([['id' => 'sp6', 'type' => 'style',
             'data' => ['shadow' => 'md', 'shadow_opacity' => -5, 'content' => []]]]);
-        self::assertStringNotContainsString('--shadow-strength', $neg);
+        self::assertStringContainsString('--shadow-strength: 0', $neg);
     }
 }

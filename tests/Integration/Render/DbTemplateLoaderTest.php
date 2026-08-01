@@ -113,6 +113,25 @@ final class DbTemplateLoaderTest extends AppTestCase
         $env->render('evil.twig');
     }
 
+    public function testNewlyAllowlistedStateFunctionsExecuteThroughDbOverride(): void
+    {
+        $source = <<<'TWIG'
+        {% set preview = is_preview() %}
+        {% set claimed = claim_priority_image() %}
+        {% set colorMode = color_mode_enabled() %}
+        {% set colorScript = color_mode_script() %}
+        {% set globalColors = theme_colors_style() %}
+        {% set scope = theme_style_scope('blue', 'slate') %}
+        {{ colorScript }}{{ globalColors }}{{ scope.class }}{{ scope.style }}DB-RUNTIME-OK
+        TWIG;
+
+        $this->repo()->save('default', 'policy-v17-functions.twig', $source, null);
+        self::assertStringContainsString(
+            'DB-RUNTIME-OK',
+            $this->env()->render('policy-v17-functions.twig'),
+        );
+    }
+
     public function testNoDbLoaderMeansPureFilesystemBehavior(): void
     {
         $base = $this->appContext()->getBasePath();

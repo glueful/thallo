@@ -246,6 +246,33 @@ final class RenderContributionTest extends AppTestCase
         $registry->registerTemplatePaths($this->templateContributor('late', ['/dir/b']));
     }
 
+    public function testFrozenTemplateContributionsReturnsOrderedRowsAndPathsProjectSameSnapshot(): void
+    {
+        $registry = new RenderContributionRegistry();
+        $registry->registerTemplatePaths($this->templateContributor('b-pack', ['/tmp/b'], priority: 10));
+        $registry->registerTemplatePaths($this->templateContributor('a-pack', ['/tmp/a'], priority: 10));
+        $registry->registerTemplatePaths($this->templateContributor('z-first', ['/tmp/z'], priority: 0));
+
+        // Ordered (priority, contributorId) — same ordering rule as frozenTemplatePaths().
+        self::assertSame([
+            ['contributor_id' => 'z-first', 'dir' => '/tmp/z'],
+            ['contributor_id' => 'a-pack', 'dir' => '/tmp/a'],
+            ['contributor_id' => 'b-pack', 'dir' => '/tmp/b'],
+        ], $registry->frozenTemplateContributions());
+
+        // The dirs projection is the SAME snapshot, not a second freeze.
+        self::assertSame(['/tmp/z', '/tmp/a', '/tmp/b'], $registry->frozenTemplatePaths());
+    }
+
+    public function testFrozenTemplateContributionsFreezesTheRegistry(): void
+    {
+        $registry = new RenderContributionRegistry();
+        $registry->frozenTemplateContributions();
+
+        $this->expectException(\RuntimeException::class);
+        $registry->registerTemplatePaths($this->templateContributor('late', ['/tmp/late']));
+    }
+
     public function testFrozenReservedReadAlsoFreezesTheTemplateChannel(): void
     {
         $registry = new RenderContributionRegistry();
@@ -462,6 +489,12 @@ final class RenderContributionTest extends AppTestCase
 
         $themeLocator = RenderServiceProvider::makeThemeLocator($container);
         self::assertContains($tmpDir, $themeLocator->activePaths()['templates']);
+
+        $catalog = RenderServiceProvider::makeTemplateCatalog($container);
+        self::assertSame(
+            ['source' => 'PACK-CONTRIB', 'origin' => 'package'],
+            $catalog->readFile('default', '__contribution_probe.twig'),
+        );
 
         // NOW the registry is frozen (the factory calls above triggered it) — further
         // registration is a loud boot-ordering bug, never a silently dropped contribution.

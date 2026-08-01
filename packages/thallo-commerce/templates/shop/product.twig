@@ -27,7 +27,7 @@
       priceCurrency: product.currency,
     }}) %}
   {% endif %}
-  <script type="application/ld+json">{{ structuredData|json_encode(constant('JSON_UNESCAPED_SLASHES'))|raw }}</script>
+  <script type="application/ld+json">{{ json_script(structuredData) }}</script>
 
   {# data-shop-scope (storefront-v1 spec §5): EVERY shop page root emits the opaque wishlist
      storage scope — OMITTED entirely (never empty) when the seam answers null, exactly like
@@ -98,7 +98,7 @@
     {% set rating_count = product.rating ? product.rating.count : 0 %}
     <p class="shop-product__rating{% if not product.rating %} shop-product__rating--none{% endif %}">
       <span class="shop-product__stars" aria-hidden="true">
-        {% for i in 1..5 %}
+        {% for i in [1, 2, 3, 4, 5] %}
           <svg class="shop-product__star{% if i > rating_average|round %} shop-product__star--empty{% endif %}"
                viewBox="0 0 24 24" fill="currentColor" focusable="false">
             <path d="M12 2l2.9 6.26 6.85.63-5.17 4.6 1.53 6.72L12 16.7l-6.11 3.51 1.53-6.72-5.17-4.6 6.85-.63z"/>
@@ -216,7 +216,7 @@
        resolves a route-less linked entry, unlike the old PublicRouteResolver::resolveEntry()
        lookup) — commerce data alone when unlinked/unresolvable. #}
     {% if enrichment_html is not empty %}
-      <div class="shop-product__enrichment">{{ enrichment_html|raw }}</div>
+      <div class="shop-product__enrichment">{{ enrichment_html }}</div>
     {% endif %}
 
     {# The stable, deploy-invariant asset alias (see ShopAssetController/ShopUrlGenerator's own

@@ -35,7 +35,7 @@ final class TemplateLinterTest extends AppTestCase
           {{ include("partials/footer.twig") }}
           <img src="{{ asset('img/logo.svg') }}" alt="{{ menu('main')|length }}">
           {% verbatim %}{{ not twig }}{% endverbatim %}
-          {{ min(1, 2) + max(3, 4) }} {{ range(1, 3)|join(',') }}
+          {{ min(1, 2) + max(3, 4) }} {{ [1, 2, 3]|join(',') }}
           {{ "now"|date("Y") }} {{ entry.title ?? 'x' }}
           {{ loop is defined ? 'y' : 'n' }}
         {% endblock %}
@@ -47,7 +47,10 @@ final class TemplateLinterTest extends AppTestCase
     {
         // [source, expected message fragment]
         $cases = [
-            ["{% macro x() %}{% endmacro %}", 'macro'],
+            // NOTE: a bare "{% macro %}" is no longer in this table — macro/MacroNode
+            // joined the allowlist (gate-audit amendment, task 7); it lints clean now.
+            // What stays denied is a non-self import target — see
+            // testNonSelfImportAndOtherGateAuditDenialsArePinned() below.
             ["{{ entry.title|raw }}", 'raw'],
             ["{{ constant('PHP_VERSION') }}", 'constant'],
             ["{{ attribute(entry, 'title') }}", 'attribute'],
@@ -72,6 +75,93 @@ final class TemplateLinterTest extends AppTestCase
                 "message for: {$source}",
             );
         }
+    }
+
+    public function testNewlyAllowlistedFunctionsLintClean(): void
+    {
+        $source = <<<'TWIG'
+        {{ json_script({'a': 1}) }}
+        <a href="{{ shop_product_url('slug') }}">{{ shop_category_url('c') }}{{ shop_index_url() }}</a>
+        {% set posts = entries('posts', {limit: 3}) %}
+        {% if is_preview() %}preview{% endif %}
+        {% set img = media_image('u-1', [320, 640]) %}
+        {{ claim_priority_image() ? 'first' : 'later' }}
+        {% if color_mode_enabled() %}{{ color_mode_script() }}{% endif %}
+        {{ theme_colors_style() }}
+        {% set scope = theme_style_scope('blue', 'slate') %}{{ scope.class }}{{ scope.style }}
+        TWIG;
+        self::assertSame([], $this->linter()->lint($source));
+    }
+
+    /**
+     * Gate-audit amendment (task 7): the vocabulary the dry run found missing from
+     * policy v17 — editable_text/style_hook filters, hex_color/numeric_clamp bounded
+     * helpers, {% for %}…{% else %}, and the self-import + macro-call shape every
+     * shipped macro user (navigation.twig, blog_posts.twig, pricing_table.twig,
+     * container.twig) already relies on.
+     */
+    public function testGateAuditVocabularyLintsClean(): void
+    {
+        $source = <<<'TWIG'
+        {{ entry.title|editable_text('title') }}
+        <div class="thallo-block{{ entry.class_hook|default('')|style_hook }}"></div>
+        {{ entry.color|default('')|hex_color }}
+        {{ entry.opacity|numeric_clamp(0, 200) }}
+        {% for item in entry.items|default([]) %}
+          {{ item }}
+        {% else %}
+          empty
+        {% endfor %}
+        {% import _self as m %}
+        {% macro m1(x) %}{{ x }}{% endmacro %}
+        {{ m.m1('hi') }}
+        TWIG;
+        self::assertSame([], $this->linter()->lint($source));
+    }
+
+    /**
+     * Denial pins (gate-audit amendment, task 7): |matches/MatchesBinary stays denied
+     * (ReDoS posture — the equivalent checks now live in the hex_color/numeric_clamp PHP
+     * helpers, never in template source); import is sanctioned ONLY in the self-import
+     * shape, so any other target is still denied; dynamic include targets stay denied
+     * (pre-existing rule, re-pinned here alongside the new import rule); |raw stays
+     * denied (already pinned in testDeniedConstructsEachViolateWithLineNumbers — kept
+     * here too as an explicit "assertNotSame" pin per the task 7 requirement).
+     */
+    public function testNonSelfImportAndOtherGateAuditDenialsArePinned(): void
+    {
+        self::assertNotSame(
+            [],
+            $this->linter()->lint("{{ entry.color matches '/^#[0-9A-Fa-f]{3,6}$/' }}"),
+            'matches expression must stay denied',
+        );
+        self::assertNotSame(
+            [],
+            $this->linter()->lint("{% import 'layout.twig' as x %}"),
+            'non-self import target must be denied',
+        );
+        self::assertNotSame(
+            [],
+            $this->linter()->lint("{% set name = 'card' %}{% include 'a/' ~ name ~ '.twig' %}"),
+            'dynamic include target must be denied',
+        );
+        self::assertNotSame([], $this->linter()->lint("{{ entry.title|raw }}"), '|raw must stay denied');
+    }
+
+    public function testNonSelfImportViolationMentionsSelf(): void
+    {
+        $violations = $this->linter()->lint("{% import 'layout.twig' as x %}");
+        self::assertNotSame([], $violations);
+        self::assertStringContainsString('_self', $violations[0]['message']);
+        self::assertSame(1, $violations[0]['line']);
+    }
+
+    public function testRawConstantAndRangeStayDenied(): void
+    {
+        self::assertNotSame([], $this->linter()->lint("{{ {'a':1}|json_encode|raw }}"));
+        self::assertNotSame([], $this->linter()->lint("{{ constant('JSON_HEX_TAG') }}"));
+        self::assertNotSame([], $this->linter()->lint("{{ range(1, 1000000000)|length }}"));
+        self::assertNotSame([], $this->linter()->lint("{{ (1..1000000000)|length }}"));
     }
 
     public function testSyntaxErrorReportsItsLine(): void

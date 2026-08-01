@@ -216,6 +216,7 @@ final class RenderContextExtension extends AbstractExtension
             new TwigFunction('shop_product_url', $this->shopProductUrl(...)),
             new TwigFunction('shop_category_url', $this->shopCategoryUrl(...)),
             new TwigFunction('shop_index_url', $this->shopIndexUrl(...)),
+            new TwigFunction('json_script', $this->jsonScript(...)),
             // The fingerprinted storefront stylesheet for the theme <head> — null when
             // commerce is off or the seam is unbound, so the theme emits no <link> at all.
             new TwigFunction('shop_styles_url', $this->shopStylesUrl(...)),
@@ -289,6 +290,25 @@ final class RenderContextExtension extends AbstractExtension
     public function shopWishlistUrl(): ?string
     {
         return $this->wishlist?->wishlistUrl();
+    }
+
+    /**
+     * Safe JSON-for-<script> emitter (admin-contributed-templates spec §3): the ONE
+     * sanctioned way to put structured data inside a script element. JSON_HEX_TAG makes
+     * a literal "</script>" unrepresentable in the output — breakout is impossible —
+     * and hex-encoded quotes/ampersands keep the payload inert. Fail-closed: an
+     * unencodable value throws (JsonException) into the render error ladder; this never
+     * emits partial or unsafe output. Returns Markup — safety travels in the value, so
+     * templates write {{ json_script(data) }} with no |raw.
+     */
+    public function jsonScript(mixed $value): Markup
+    {
+        $json = json_encode(
+            $value,
+            JSON_THROW_ON_ERROR | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+            | JSON_UNESCAPED_SLASHES,
+        );
+        return new Markup($json, 'UTF-8');
     }
 
     /**
@@ -373,6 +393,37 @@ final class RenderContextExtension extends AbstractExtension
     public function styleHook(mixed $value): string
     {
         return self::sanitizeStyleHook(is_string($value) ? $value : '');
+    }
+
+    /**
+     * Bounded hex-color helper (gate-audit amendment, admin-contributed-templates task 7):
+     * replaces the |matches "/^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/" check blocks/style.twig
+     * used directly — |matches/MatchesBinary stays denied by TemplatePolicy (ReDoS
+     * posture: preg_match on a template-supplied pattern). The SAME pattern now lives
+     * here, in PHP, bound to this one call site — never in template source.
+     */
+    public function hexColor(mixed $value): string
+    {
+        if (!is_string($value)) {
+            return '';
+        }
+        $trimmed = trim($value);
+        return preg_match('/^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/', $trimmed) === 1 ? $trimmed : '';
+    }
+
+    /**
+     * Bounded numeric-clamp helper (gate-audit amendment, admin-contributed-templates
+     * task 7): replaces the |matches "/^[0-9]+(\.[0-9]+)?$/" + max()/min() pair
+     * blocks/style.twig used directly for the shadow-opacity CSS variable. Null (not 0)
+     * on a non-numeric value — the caller distinguishes "no value" from "clamped to the
+     * floor" the same way the removed matches check did.
+     */
+    public function numericClamp(mixed $value, float $min, float $max): ?float
+    {
+        if (!is_numeric($value)) {
+            return null;
+        }
+        return max($min, min($max, (float) $value));
     }
 
     /**
@@ -591,11 +642,36 @@ final class RenderContextExtension extends AbstractExtension
      */
     public function mediaImage(string $uuid, array $widths): ?array
     {
+        $widths = self::normalizeWidths($widths);
         if ($this->mediaVariants === null) {
             $src = $this->media($uuid);
             return $src === null ? null : ['src' => $src, 'srcset' => null];
         }
         return $this->mediaVariants->variants($uuid, $widths);
+    }
+
+    /**
+     * Defensive width normalization (admin-contributed-templates spec §3): media_image is
+     * DB-template-callable, so the width list is attacker-shaped — positive ints only,
+     * deduplicated, at most 8 candidates BEFORE any resolver work. TemplatePolicy separately
+     * denies both range() and RangeBinary, which could allocate an unbounded array before this
+     * method is entered.
+     *
+     * @param array<mixed> $widths
+     * @return list<int>
+     */
+    public static function normalizeWidths(array $widths): array
+    {
+        $clean = [];
+        foreach ($widths as $w) {
+            if (is_int($w) && $w > 0 && !in_array($w, $clean, true)) {
+                $clean[] = $w;
+                if (count($clean) === 8) {
+                    break;
+                }
+            }
+        }
+        return $clean;
     }
 
     /** @return list<TwigFilter> */
@@ -613,6 +689,10 @@ final class RenderContextExtension extends AbstractExtension
             // No is_safe: sanitized output is autoescape-safe (a deliberate second
             // layer over the sanitizer, since the input is operator-derived).
             new TwigFilter('style_hook', $this->styleHook(...)),
+            // Bounded PHP helpers replacing the two |matches regex checks
+            // blocks/style.twig used to run directly (gate-audit amendment, task 7).
+            new TwigFilter('hex_color', $this->hexColor(...)),
+            new TwigFilter('numeric_clamp', $this->numericClamp(...)),
         ];
     }
 

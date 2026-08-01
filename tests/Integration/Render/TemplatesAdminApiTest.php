@@ -6,6 +6,7 @@ namespace App\Tests\Integration\Render;
 
 use App\Tests\Support\AppTestCase;
 use Thallo\Render\Http\Controllers\TemplatesAdminController;
+use Thallo\Render\Templates\TemplatePolicy;
 use Thallo\Render\Templates\TemplateRepository;
 use Glueful\Routing\Router;
 use Symfony\Component\HttpFoundation\Request;
@@ -15,6 +16,27 @@ final class TemplatesAdminApiTest extends AppTestCase
     private function api(): TemplatesAdminController
     {
         return $this->container()->get(TemplatesAdminController::class);
+    }
+
+    /** Controller wired exactly like production EXCEPT the catalog carries a contributed dir. */
+    private function apiWithContribution(string $contribDir): TemplatesAdminController
+    {
+        $c = $this->container();
+        return new TemplatesAdminController(
+            $c->get(TemplateRepository::class),
+            $c->get(\Thallo\Render\Templates\TemplateLinter::class),
+            new \Thallo\Render\Templates\TemplateCatalog(
+                $c->get(TemplateRepository::class),
+                sys_get_temp_dir() . '/thallo-no-app-themes-' . bin2hex(random_bytes(4)),
+                \dirname(__DIR__, 3) . '/packages/thallo-render/themes',
+                [['contributor_id' => 'test-pack', 'dir' => $contribDir]],
+            ),
+            $c->get(\Thallo\Contracts\Delivery\PreviewThemeValidator::class),
+            $c->get(\Thallo\Render\ThemeLocator::class),
+            $c->get(\Glueful\Events\EventService::class),
+            $c->get(\Glueful\Bootstrap\ApplicationContext::class),
+            $c->get(\Thallo\Render\Templates\ThemeCloner::class),
+        );
     }
 
     /** @param array<string,mixed> $query */
@@ -41,6 +63,43 @@ final class TemplatesAdminApiTest extends AppTestCase
     private function json(\Symfony\Component\HttpFoundation\Response $res): array
     {
         return (array) json_decode((string) $res->getContent(), true);
+    }
+
+    public function testContributedTemplateFullAdminRoundTrip(): void
+    {
+        $dir = sys_get_temp_dir() . '/thallo-contrib-api-' . bin2hex(random_bytes(4));
+        mkdir($dir . '/shop', 0755, true);
+        file_put_contents($dir . '/shop/checkout.twig', 'PACKAGE-BASELINE');
+        $api = $this->apiWithContribution($dir);
+
+        // Listed with origin package.
+        $list = $this->json($api->index(Request::create('/x', 'GET')))['data']['templates'];
+        $row = array_column($list, null, 'path')['shop/checkout.twig'];
+        self::assertSame(
+            ['origin' => 'package', 'overridden' => false],
+            ['origin' => $row['origin'], 'overridden' => $row['overridden']],
+        );
+
+        // GET seeds the package source, editable (not readonly).
+        $shown = $this->json($api->show(Request::create('/x', 'GET'), 'shop/checkout.twig'))['data'];
+        self::assertSame('PACKAGE-BASELINE', $shown['source']);
+        self::assertSame('package', $shown['origin']);
+
+        // PUT creates a DB override; the package file is untouched.
+        $api->save($this->putReq('OVERRIDE {{ entry.fields.title }}'), 'shop/checkout.twig');
+        self::assertSame('PACKAGE-BASELINE', file_get_contents($dir . '/shop/checkout.twig'));
+        $shown = $this->json($api->show(Request::create('/x', 'GET'), 'shop/checkout.twig'))['data'];
+        self::assertSame('db', $shown['origin']);
+
+        // DELETE reveals the package baseline again.
+        $api->delete(Request::create('/x', 'DELETE'), 'shop/checkout.twig');
+        $shown = $this->json($api->show(Request::create('/x', 'GET'), 'shop/checkout.twig'))['data'];
+        self::assertSame(['PACKAGE-BASELINE', 'package'], [$shown['source'], $shown['origin']]);
+
+        // Cleanup.
+        @unlink($dir . '/shop/checkout.twig');
+        @rmdir($dir . '/shop');
+        @rmdir($dir);
     }
 
     public function testListIncludesTheSelectableThemes(): void
@@ -155,6 +214,100 @@ final class TemplatesAdminApiTest extends AppTestCase
         self::assertSame(
             404,
             $this->api()->show(Request::create('/x', 'GET'), 'assets/../theme.json')->getStatusCode(),
+        );
+    }
+
+    public function testDiskOnlyTemplatesAreReadOnlyInTheAdmin(): void
+    {
+        // Closed two-template policy (gate-audit ruling): blocks/html.twig (|raw by
+        // design) and blocks/shortcode.twig (non-constant include by design) can never
+        // pass the compile-time lint — the admin marks exactly these two rows
+        // read-only instead of advertising Save and 422ing on every attempt.
+        $list = $this->json($this->api()->index(Request::create('/x', 'GET')))['data']['templates'];
+        $byPath = array_column($list, null, 'path');
+        self::assertTrue($byPath['blocks/html.twig']['readonly']);
+        self::assertTrue($byPath['blocks/shortcode.twig']['readonly']);
+        self::assertArrayNotHasKey('readonly', $byPath['entry.twig']); // untouched twig rows
+
+        foreach (TemplatePolicy::DISK_ONLY_TEMPLATES as $path => $reason) {
+            $shown = $this->json($this->api()->show(Request::create('/x', 'GET'), $path))['data'];
+            self::assertTrue($shown['readonly']);
+            self::assertSame($reason, $shown['readonly_reason']);
+            self::assertNull($shown['version_uuid']);
+            self::assertNotSame('', $shown['source']);
+
+            // Read-only beats lintability: a source with NO forbidden vocabulary at
+            // all is still rejected, because the row itself is pinned disk-only.
+            self::assertSame(
+                422,
+                $this->api()->save($this->putReq('plain text, nothing fancy'), $path)->getStatusCode(),
+                "expected 422 for disk-only save: {$path}",
+            );
+            self::assertSame(
+                404,
+                $this->api()->delete(Request::create('/x', 'DELETE'), $path)->getStatusCode(),
+                "expected reject for disk-only delete: {$path}",
+            );
+        }
+    }
+
+    public function testDiskOnlyPathsStayUnreachableEvenWithAPreexistingDbOverride(): void
+    {
+        // Simulate a DB override that predates this ruling (e.g. saved before the
+        // gate-audit pinned these two paths disk-only) by writing straight through
+        // the repository, bypassing the controller's save() guard entirely.
+        $repo = new TemplateRepository($this->connection());
+        $repo->save('default', 'blocks/html.twig', 'legacy override {{ x }}', null);
+        $uuid = $repo->versions('default', 'blocks/html.twig')[0]['uuid'];
+
+        // Listing/showing stay pinned read-only regardless of the DB row's existence
+        // — the pin is by PATH, not by origin. index() must NOT leak the stray
+        // override's metadata either: origin/overridden/updated_at all present the
+        // filesystem baseline, exactly as if no DB row existed.
+        $list = $this->json($this->api()->index(Request::create('/x', 'GET')))['data']['templates'];
+        $byPath = array_column($list, null, 'path');
+        self::assertSame(
+            ['readonly' => true, 'origin' => 'default', 'overridden' => false, 'updated_at' => null],
+            [
+                'readonly' => $byPath['blocks/html.twig']['readonly'],
+                'origin' => $byPath['blocks/html.twig']['origin'],
+                'overridden' => $byPath['blocks/html.twig']['overridden'],
+                'updated_at' => $byPath['blocks/html.twig']['updated_at'],
+            ],
+        );
+
+        $shown = $this->json($this->api()->show(Request::create('/x', 'GET'), 'blocks/html.twig'))['data'];
+        self::assertTrue($shown['readonly']);
+        self::assertNotSame('db', $shown['origin']); // never surfaces the stray DB row
+
+        // The pre-existing override is unreachable: no save, no delete, no restore,
+        // no reading its version history or its stored source through EITHER
+        // history endpoint (the actual regression: these two were unguarded and
+        // would return the override's real uuid/history/source).
+        self::assertSame(
+            422,
+            $this->api()->save($this->putReq('still fine'), 'blocks/html.twig')->getStatusCode(),
+        );
+        self::assertSame(
+            404,
+            $this->api()->delete(Request::create('/x', 'DELETE'), 'blocks/html.twig')->getStatusCode(),
+        );
+        self::assertSame(
+            404,
+            $this->api()->restore($this->putReq(''), 'blocks/html.twig', $uuid)->getStatusCode(),
+        );
+        self::assertSame(
+            404,
+            $this->api()->versions(Request::create('/x', 'GET'), 'blocks/html.twig')->getStatusCode(),
+        );
+        self::assertSame(
+            404,
+            $this->api()->showVersion(Request::create('/x', 'GET'), 'blocks/html.twig', $uuid)->getStatusCode(),
+        );
+        // The stray row itself is untouched by any of the above.
+        self::assertSame(
+            'legacy override {{ x }}',
+            $repo->findCurrentSource('default', 'blocks/html.twig')['source'],
         );
     }
 

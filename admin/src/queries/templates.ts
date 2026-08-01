@@ -9,7 +9,7 @@ import { runtimeConfig } from '@/runtime/config'
 
 export interface TemplateRow {
   path: string
-  origin: 'db' | 'theme' | 'default'
+  origin: 'db' | 'theme' | 'package' | 'default'
   overridden: boolean
   updated_at: string | null
   /** Browsable theme file (assets/theme.json) — viewable, never editable. */
@@ -19,10 +19,12 @@ export interface TemplateRow {
 export interface TemplateDetail {
   path: string
   theme: string
-  origin: 'db' | 'theme' | 'default'
+  origin: 'db' | 'theme' | 'package' | 'default'
   source: string
   version_uuid: string | null
   readonly?: boolean
+  /** Present only for the pinned disk-only rows (blocks/html.twig, blocks/shortcode.twig). */
+  readonly_reason?: string
 }
 
 export interface TemplateVersion {
