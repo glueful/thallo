@@ -35,4 +35,40 @@ final class AllowlistedFunctionBoundsTest extends AppTestCase
         );
         self::assertStringContainsString('max(1, min(12,', $src);
     }
+
+    /**
+     * hex_color (gate-audit amendment, task 7): the bounded PHP replacement for the
+     * |matches "/^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/" check blocks/style.twig used to
+     * run directly. Same shape: 3 or 6 hex digits after '#', nothing else.
+     */
+    public function testHexColorAcceptsValidRejectsInvalid(): void
+    {
+        $extension = $this->container()->get(RenderContextExtension::class);
+
+        self::assertSame('#abc', $extension->hexColor('#abc'));
+        self::assertSame('#A1B2C3', $extension->hexColor('#A1B2C3'));
+
+        self::assertSame('', $extension->hexColor('red'));
+        self::assertSame('', $extension->hexColor('#abcd'));
+        self::assertSame('', $extension->hexColor('#zzz'));
+        self::assertSame('', $extension->hexColor(['#abc']));
+        self::assertSame('', $extension->hexColor('#abc; injection'));
+    }
+
+    /**
+     * numeric_clamp (gate-audit amendment, task 7): the bounded PHP replacement for the
+     * |matches "/^[0-9]+(\.[0-9]+)?$/" + max()/min() pair blocks/style.twig used to run
+     * directly for --shadow-strength. Non-numeric input is null (no CSS var emitted),
+     * not 0 — the caller must be able to distinguish "no value" from "clamped to floor".
+     */
+    public function testNumericClampClampsAndNullsNonNumeric(): void
+    {
+        $extension = $this->container()->get(RenderContextExtension::class);
+
+        self::assertSame(200.0, $extension->numericClamp('250', 0, 200));
+        self::assertSame(0.0, $extension->numericClamp('-5', 0, 200));
+        self::assertSame(12.5, $extension->numericClamp('12.5', 0, 200));
+        self::assertNull($extension->numericClamp('abc', 0, 200));
+        self::assertNull($extension->numericClamp(['x'], 0, 200));
+    }
 }
