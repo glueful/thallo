@@ -887,7 +887,76 @@ If Step 3 legitimately changes another caller/test, add that exact path to both 
 
 ---
 
-### Task 7: Round-trip lint gate — every shipped template, exception-free
+### Task 7: Vocabulary alignment — sanctioned filters/tags/nodes, bounded helpers, template rewrites, denial tests
+
+> Amended after the gate's dry run (33 failures; user-ruled resolution in spec §Testing). The gate test file `tests/Integration/Render/ShippedTemplatesLintGateTest.php` already exists (commit 28acb275) and currently FAILS — Task 7b rewrites it into the ratchet form after this task lands.
+
+**Files:**
+- Modify: `packages/thallo-render/src/Templates/TemplatePolicy.php` (FILTERS, TAGS, NODE_CLASSES — still CACHE_VERSION 17, no further bump)
+- Modify: `packages/thallo-render/src/Templates/TemplateLinter.php` (self-import rule)
+- Modify: `packages/thallo-render/src/RenderContextExtension.php` (two new bounded filters)
+- Modify: `packages/thallo-render/themes/default/templates/blocks/style.twig` (drop `matches`, use helpers)
+- Modify: `packages/thallo-commerce/templates/shop/product.twig` (`1..5` → `[1, 2, 3, 4, 5]`)
+- Test: `tests/Integration/Render/TemplateLinterTest.php` (extend), `tests/Integration/Render/AllowlistedFunctionBoundsTest.php` (extend)
+
+**Requirements (exact):**
+1. `TemplatePolicy` (comment notes the gate-audit amendment; CACHE_VERSION stays 17):
+   - FILTERS += `editable_text`, `style_hook`, `hex_color`, `numeric_clamp`
+   - TAGS += `macro`, `import`
+   - NODE_CLASSES += `ForElseNode`, `ImportNode`, `MacroNode`, `MacroReferenceExpression` (exact class names from the installed Twig 3.27 — find them under `vendor/twig/twig/src/Node`)
+   - `MatchesBinary` stays DENIED. `raw`/`constant`/range forms stay denied.
+2. `TemplateLinter`: ImportNode is allowed ONLY in the self-import shape (`{% import _self as x %}`); any other import target is a line-numbered violation (message mentions `_self`). Inspect how Twig 3.27 represents `_self` in the ImportNode AST and match that exactly.
+3. `RenderContextExtension` filters (registered alongside the existing filters; patterns live in PHP, never in templates):
+   - `hex_color(mixed $value): string` — trimmed string value when it matches `/^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/`, else `''`.
+   - `numeric_clamp(mixed $value, float $min, float $max): ?float` — `max($min, min($max, (float) $value))` when `is_numeric($value)`, else `null`.
+4. `blocks/style.twig`: replace the two `matches` checks with the helpers, preserving behavior (`--shadow-color` only for valid hex; `--shadow-strength` = clamped 0..200 value / 100, only when the raw value is numeric). No other template lines change.
+5. `shop/product.twig` star loop: `{% for i in 1..5 %}` → `{% for i in [1, 2, 3, 4, 5] %}`.
+6. Tests (TDD — red first):
+   - `TemplateLinterTest`: new snippet lints clean using `|editable_text`, `|style_hook`, `|hex_color`, `|numeric_clamp(0, 200)`, `{% for %}…{% else %}`, and a `{% import _self as m %}{% macro m1() %}…{% endmacro %}` + call shape.
+   - `TemplateLinterTest` denial pins (each `assertNotSame([], lint(...))`): `matches` expression; `{% import 'layout.twig' as x %}` (non-self import); dynamic include (`{% include 'a/' ~ name ~ '.twig' %}`); `|raw` (already pinned — keep).
+   - `AllowlistedFunctionBoundsTest`: `hex_color` accepts `#abc`/`#A1B2C3`, rejects `red`, `#abcd`, `#zzz`, arrays, `'#abc; injection'`; `numeric_clamp` clamps `'250'`→200.0, `'-5'`→0.0, passes `'12.5'`→12.5, nulls `'abc'`/arrays.
+   - Style.twig behavior is re-proven by the existing blocks/rendering suites (`vendor/bin/phpunit --filter "BlocksRenderingTest|StarterTemplatesTest"`).
+7. Run: `vendor/bin/phpunit --filter "TemplateLinterTest|AllowlistedFunctionBoundsTest|BlocksRenderingTest|StarterTemplatesTest|DbTemplateLoaderTest|DbTemplatesPipelineTest"` — all green. (The shipped-gate test stays red until Task 7b — do not touch it.)
+8. Commit (exact paths, `git add` + `git commit --only`): the six modified/extended files, message `feat(render): policy v17 vocabulary alignment — sanctioned filters/macros, bounded style helpers`.
+
+---
+
+### Task 7b: Ratchet lint gate — every shipped template, two named disk-only pins
+
+**Files:**
+- Modify: `tests/Integration/Render/ShippedTemplatesLintGateTest.php` (rewrite into ratchet form)
+
+**Requirements (exact):**
+1. Main sweep (dataProvider over the same three roots): every shipped `.twig` lints clean, EXCEPT the provider skips exactly `blocks/html.twig` and `blocks/shortcode.twig` under the render default theme root (repo-relative pin, not basename matching).
+2. Pin test for `blocks/html.twig`: file exists at its exact path; `lint()` violations are NON-empty; EVERY violation message references the raw filter (the template must fail only for the denied raw boundary).
+3. Pin test for `blocks/shortcode.twig`: file exists at its exact path; violations NON-empty; EVERY violation is the non-constant include-target rule (match the linter's actual message text).
+4. Ratchet semantics documented in the class docblock: the gate fails if either pinned template becomes clean (assertion 2/3's non-empty check), gains a different-class violation (the EVERY-violation assertions), changes path (file-exists assertions), or any third template fails (main sweep). Closed two-template policy — never add entries.
+5. Run: `vendor/bin/phpunit --filter ShippedTemplatesLintGateTest` — all green.
+6. Commit (exact paths): `test(render): lint gate becomes a two-way ratchet with two named disk-only pins`.
+
+---
+
+### Task 7c: Disk-only templates are read-only in the admin
+
+**Files:**
+- Modify: `packages/thallo-render/src/Templates/TemplatePolicy.php` (add `DISK_ONLY_TEMPLATES` const — no CACHE_VERSION change; it is not part of the compile-policy surface)
+- Modify: `packages/thallo-render/src/Http/Controllers/TemplatesAdminController.php`
+- Modify: `admin/src/pages/templates/index.vue`
+- Test: `tests/Integration/Render/TemplatesAdminApiTest.php` (extend), `admin/src/__tests__/templatesPage.spec.ts` (extend)
+
+**Requirements (exact):**
+1. `TemplatePolicy::DISK_ONLY_TEMPLATES = ['blocks/html.twig' => 'Raw-HTML escape hatch — |raw by design; disk-only.', 'blocks/shortcode.twig' => 'Dynamic shortcode dispatch — non-constant include by design; disk-only.']` with a comment: closed two-template policy (gate-audit ruling), NOT a general exception mechanism; additions require a spec amendment.
+2. Controller: these two paths are read-only rows — `index()` marks them `readonly: true` like asset rows; `show()` serves the source read-only and includes the reason string (field `readonly_reason`); `save()` and `delete()` reject them the same way read-only theme files are rejected (mirror the existing read-only handling; follow the existing response shapes). DB overrides for these paths must be unreachable through the API.
+3. Admin UI: when the selected template is read-only AND has a `readonly_reason`, show the reason in the existing read-only note area (keep the existing generic read-only note for asset/theme.json rows).
+4. Tests: API — the two rows are `readonly: true` in `index()`; `show()` carries `readonly_reason`; `PUT`/`DELETE` rejected with the read-only error; a compliant-source `PUT` to `blocks/html.twig` is STILL rejected (read-only beats lintability). Admin — reason note rendered for a readonly row with `readonly_reason` in the fixture.
+5. Run: `vendor/bin/phpunit --filter TemplatesAdminApiTest` and `cd admin && npm test -- --run templatesPage` — green.
+6. Commit (exact paths): `feat(render): disk-only templates surface read-only in the admin editor`.
+
+---
+
+### Task 7-legacy reference (superseded)
+
+The original Task 7 text below is retained for history; Tasks 7/7b above replace it.
 
 **Files:**
 - Test: `tests/Integration/Render/ShippedTemplatesLintGateTest.php` (create)

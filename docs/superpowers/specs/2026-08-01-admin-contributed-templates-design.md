@@ -157,10 +157,36 @@ controller's documented origin vocabulary from `db|theme|default` to
   not inferred. A separate production-factory test proves
   `RenderServiceProvider::makeTemplateCatalog()` consumes that frozen snapshot.
   This is the invariant that the editor edits what actually renders.
-- **Round-trip lint gate (new, release gate, exception-free):** every shipped
-  `.twig` under the render default theme, `packages/thallo-account/templates`, and
-  `packages/thallo-commerce/templates` passes `TemplateLinter` — a template using
-  denied vocabulary fails CI, not an admin's save. No exception list.
+- **Round-trip lint gate (new, release gate) — amended after the gate's first run
+  (Task 7 audit, user-ruled):** the gate's dry run exposed vocabulary the
+  function-only inventory missed. Resolution:
+  - **Sanctioned vocabulary joins policy v17** (same unreleased bump): filters
+    `editable_text` (escapes its value in both modes) and `style_hook`
+    (sanitizer-backed); `ForElseNode` (`{% for %}…{% else %}`); macro machinery
+    (`macro`/`import` tags + `ImportNode`/`MacroNode`/`MacroReferenceExpression`),
+    with a linter rule constraining imports to the **self-import shape**
+    (`{% import _self %}` only — all four shipped users conform).
+  - **`matches` (`MatchesBinary`) stays denied** — deliberate regex-DoS posture.
+    `blocks/style.twig`'s two regex trust-boundary checks are replaced by **bounded
+    helper filters** whose patterns live in PHP: `hex_color` (value when it matches
+    `/^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/`, else `''`) and
+    `numeric_clamp(value, min, max)` (clamped float when `is_numeric`, else null).
+    Both join the FILTERS allowlist.
+  - **`shop/product.twig`'s `{% for i in 1..5 %}` → `[1, 2, 3, 4, 5]`** (range
+    denial holds).
+  - **Two named disk-only pins — a closed two-template policy, NOT a general
+    exception mechanism:** `blocks/html.twig` (`|raw` by design — trusted-editor
+    escape hatch) and `blocks/shortcode.twig` (guarded dynamic include by design).
+    The SAVE POLICY is unchanged — `raw` and non-constant includes stay denied for
+    every DB template. The gate becomes a **two-way ratchet**: every shipped
+    template lints clean EXCEPT exactly these two, each failing ONLY for its named
+    reason; the gate fails if either becomes clean, gains a different violation,
+    changes path, or any third template fails.
+  - **Admin UX for the two pins:** their catalog rows are marked read-only with an
+    explanatory reason (advertising Save and returning 422 would be poor UX). The
+    pin list lives in one place (`TemplatePolicy::DISK_ONLY_TEMPLATES`).
+  - **Direct denial tests** prove arbitrary DB templates still cannot use `raw`,
+    non-constant include targets, `matches`, or non-self imports.
 - **Function safety/bounds tests (amendment):** `media_image` width normalization
   (dedupe, positive-int filter, cap 8); `entries` limit clamp 1..12 at
   `EngineEntryListReader`; both `range(...)` and `1..N` remain denied; the remaining six newly
