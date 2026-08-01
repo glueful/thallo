@@ -36,6 +36,11 @@ final class RuntimeCoreTest extends AppTestCase
         $src = $this->runtimeJs();
         self::assertStringContainsString('window.ThalloRuntime', $src);
         self::assertStringContainsString('/* modules:start */', $src);
+        self::assertStringContainsString('/* boot:footer */', $src);
+        // Boot scheduling must live in the footer AFTER modules — not in the core IIFE:
+        $coreEnd = strpos($src, '/* modules:start */');
+        self::assertNotFalse($coreEnd);
+        self::assertStringNotContainsString('DOMContentLoaded', substr($src, 0, $coreEnd));
 
         $node = $this->findNode();
         if ($node === null) {
@@ -147,6 +152,23 @@ final class RuntimeCoreTest extends AppTestCase
         RT.enhance(docRoot);
         assert(skipHits === 0, 'canvas skip module ran in canvas stage');
         assert(allowHits === 3, 'canvas allow module must still run: ' + allowHits);
+        docRoot.children.pop(); // leave the canvas stage: subsequent assertions test
+                                 // the return contract standalone, not canvas interplay.
+
+        // 5. Return contract: false = structural no-op — NOT marked, retried next pass.
+        var noopCalls = 0;
+        RT.register('nooper', { enhance: function () { noopCalls++; return false; }, selector: '.widget' });
+        RT.enhance(a);
+        assert(noopCalls === 1, 'noop enhancer ran');
+        assert((a.getAttribute('data-thallo-enhanced') || '').indexOf('nooper') === -1,
+          'false return must not mark');
+        RT.enhance(a);
+        assert(noopCalls === 2, 'unmarked component is retried on the next pass');
+
+        // 6. The cleanup store remains private. Its same-component/multiple-module
+        //    behavior is exercised through registerElement adoption + disconnect in Task 2;
+        //    no destructive test hook is shipped on window.ThalloRuntime.
+        assert(RT.__takeCleanupForTest === undefined, 'private cleanup state is not exposed');
 
         console.log('ALL_PASS');
         JS;

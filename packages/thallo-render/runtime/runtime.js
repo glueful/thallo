@@ -47,6 +47,53 @@
     return found;
   }
 
+  function unmark(elm, name) {
+    var v = elm.getAttribute('data-thallo-enhanced');
+    if (v === null) { return; }
+    var parts = v.split(' ').filter(function (t) { return t && t !== name; });
+    if (parts.length) { elm.setAttribute('data-thallo-enhanced', parts.join(' ')); }
+    else { elm.removeAttribute('data-thallo-enhanced'); }
+  }
+
+  // Cleanup storage keyed by (component, module) — a per-element single slot would
+  // let one module's cleanup overwrite another's (spec §1).
+  var cleanups = typeof WeakMap === 'function' ? new WeakMap() : null;
+  function storeCleanup(comp, name, fn) {
+    if (!cleanups || typeof fn !== 'function') { return; }
+    var perModule = cleanups.get(comp);
+    if (!perModule) { perModule = new Map(); cleanups.set(comp, perModule); }
+    perModule.set(name, fn);
+  }
+  function takeCleanup(comp, name) {
+    var perModule = cleanups ? cleanups.get(comp) : null;
+    if (!perModule || !perModule.has(name)) { return null; }
+    var fn = perModule.get(name);
+    perModule.delete(name);
+    if (perModule.size === 0) { cleanups.delete(comp); }
+    return fn;
+  }
+
+  /* Private per-component pipeline (spec §1): canvas policy -> marker check ->
+     try/catch -> mark. The outcome vocabulary is internal — consumed by
+     registerElement (elements section), ignored by the scan loop. */
+  function runComponent(comp, name) {
+    var mod = modules[name];
+    if (isCanvas() && mod.canvas === 'skip') { return 'canvas-skipped'; }
+    if (markerHas(comp, name)) { return 'already-enhanced'; }
+    try {
+      var result = mod.enhance(comp);
+      if (result === false) { return 'structural-noop'; } // never marked
+      if (typeof result === 'function') { storeCleanup(comp, name, result); }
+      mark(comp, name);
+      return 'enhanced';
+    } catch (err) {
+      if (window.console && console.error) {
+        console.error('ThalloRuntime: module "' + name + '" failed', err);
+      }
+      return 'failed';
+    }
+  }
+
   window.ThalloRuntime = {
     register: function (name, def) {
       if (modules[name]) {
@@ -63,40 +110,99 @@
       var canvas = isCanvas();
       for (var i = 0; i < order.length; i++) {
         var name = order[i];
-        var mod = modules[name];
-        if (canvas && mod.canvas === 'skip') {
-          continue;
-        }
-        var comps = componentsIn(root, mod.selector);
+        if (canvas && modules[name].canvas === 'skip') { continue; }
+        var comps = componentsIn(root, modules[name].selector);
         for (var j = 0; j < comps.length; j++) {
-          if (markerHas(comps[j], name)) {
-            continue;
-          }
-          // A throwing module must not break the rest of the pass: the component stays
-          // UNMARKED (its module made no completed enhancement) and every other
-          // component and module still runs.
-          try {
-            mod.enhance(comps[j]);
-            mark(comps[j], name);
-          } catch (err) {
-            if (window.console && console.error) {
-              console.error('ThalloRuntime: module "' + name + '" failed', err);
-            }
-          }
+          runComponent(comps[j], name);
         }
       }
     }
   };
 
-  function boot() {
-    window.ThalloRuntime.enhance(document.documentElement);
+  /* Element bridge (spec §1): the ONE public path from custom elements into the
+     private pipeline. Defines only what it is told; Task 6 registers the three
+     module-backed v1 tags. Guarded: without customElements the elements are simply
+     absent and the class-based path is untouched. */
+  var elementRecords = typeof WeakMap === 'function' ? new WeakMap() : null;
+  function abandonElementRecord(host, rec) {
+    rec.pending = false;
+    if (rec.undo) {
+      try { rec.undo(); } catch (err) { /* rollback must not strand the record */ }
+    }
+    rec.undo = null;
+    rec.target = null;
+    if (elementRecords.get(host) === rec) { elementRecords.delete(host); }
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot);
-  } else {
-    // Deferred so module IIFEs appended below /* modules:start */ in this same file
-    // have registered before the boot pass runs, regardless of position.
-    Promise.resolve().then(boot);
+  function defineElement(tag, moduleName, opts) {
+    var resolveTarget = (opts && opts.resolveTarget) || function (host) { return host; };
+    var projectOptions = (opts && opts.projectOptions) || null;
+
+    class ThalloElement extends HTMLElement {
+      connectedCallback() {
+        var host = this;
+        var rec = { pending: true, undo: null, target: null };
+        elementRecords.set(host, rec);
+        // One-microtask deferral (spec §1): synchronously-constructed children are
+        // complete; asynchronously-populated elements must be built before insertion.
+        Promise.resolve().then(function () {
+          if (!rec.pending || elementRecords.get(host) !== rec) { return; }
+          rec.pending = false;
+          if (host.isConnected === false) { abandonElementRecord(host, rec); return; }
+          var mod = modules[moduleName];
+          if (!mod) { abandonElementRecord(host, rec); return; }
+          // Canvas gate FIRST — before ANY mutation, including projection.
+          if (isCanvas() && mod.canvas === 'skip') {
+            abandonElementRecord(host, rec); return;
+          }
+          var target;
+          try {
+            target = resolveTarget(host);
+            if (!target) { abandonElementRecord(host, rec); return; }
+            rec.target = target;
+            if (projectOptions) { rec.undo = projectOptions(host, target) || null; }
+          } catch (err) {
+            // resolveTarget/projectOptions are caller-supplied adapters — a throw from
+            // either must not become an unhandled rejection nor strand the record.
+            if (window.console && console.error) {
+              console.error('ThalloRuntime: element "' + tag + '" adapter failed', err);
+            }
+            abandonElementRecord(host, rec);
+            return;
+          }
+          var outcome = runComponent(target, moduleName);
+          if (outcome === 'enhanced' || outcome === 'already-enhanced') { return; }
+          // Transactional rollback: structural-noop / failed / canvas-skipped
+          // (including a canvas that appeared during projection) all leave NO record.
+          abandonElementRecord(host, rec);
+        });
+      }
+      disconnectedCallback() {
+        var rec = elementRecords.get(this);
+        if (!rec) { return; }
+        elementRecords.delete(this);
+        if (rec.pending) { // cancel pending connection work
+          abandonElementRecord(this, rec);
+          return;
+        }
+        if (rec.target) {
+          var fn = takeCleanup(rec.target, moduleName);
+          if (fn) { try { fn(); } catch (err) { /* teardown must not break disconnect */ } }
+          unmark(rec.target, moduleName); // ONLY this module's token
+        }
+        if (rec.undo) {
+          try { rec.undo(); } catch (err) { /* teardown must not break disconnect */ }
+        }
+      }
+    }
+    customElements.define(tag, ThalloElement);
+  }
+
+  // Attach conditionally so the whole feature is absent where custom elements are
+  // (Node harness without a stub, legacy browsers) — existing tests keep passing.
+  if (typeof customElements !== 'undefined' && customElements &&
+      typeof customElements.define === 'function' && typeof HTMLElement === 'function' &&
+      elementRecords) {
+    window.ThalloRuntime.registerElement = defineElement;
   }
 })();
 /* modules:start */
@@ -276,11 +382,25 @@ window.ThalloRuntime.register('forms', {
   function enhanceCarousel(root) {
     var viewport = root.querySelector('.thallo-block-carousel__viewport');
     var track = root.querySelector('.thallo-block-carousel__track');
-    if (!viewport || !track) { return; }
+    if (!viewport || !track) { return false; }
     var slides = Array.prototype.filter.call(track.children, function (el) {
       return el.nodeType === 1;
     });
-    if (slides.length < 2) { return; }
+    if (slides.length < 2) { return false; }
+
+    // Teardown accounting: every injected node / listener the module adds is
+    // captured here, undone in reverse on the returned cleanup (spec §1).
+    var undo = [];
+    function addNode(parent, node) {
+      parent.appendChild(node);
+      undo.push(function () {
+        if (node.parentNode) { node.parentNode.removeChild(node); }
+      });
+    }
+    function listen(targetEl, type, fn, opts) {
+      targetEl.addEventListener(type, fn, opts);
+      undo.push(function () { targetEl.removeEventListener(type, fn, opts); });
+    }
 
     var reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     var timer = null;
@@ -289,6 +409,7 @@ window.ThalloRuntime.register('forms', {
     var autoHidden = false; // automatic gate: tab hidden
     var live = null; // 'Slide N of M' status region
     var pauseBtn = null;
+    var io = null;
 
     function slideStart(i) {
       return slides[i] ? slides[i].offsetLeft - track.offsetLeft : 0;
@@ -358,8 +479,8 @@ window.ThalloRuntime.register('forms', {
         goTo(n);
         announce(norm(n));
       });
-      root.appendChild(prev);
-      root.appendChild(next);
+      addNode(root, prev);
+      addNode(root, next);
     }
 
     var dots = [];
@@ -376,14 +497,14 @@ window.ThalloRuntime.register('forms', {
         dots.push(dot);
         wrap.appendChild(dot);
       });
-      root.appendChild(wrap);
+      addNode(root, wrap);
       var syncDots = function () {
         var active = currentIndex();
         dots.forEach(function (d, i) {
           d.setAttribute('aria-current', i === active ? 'true' : 'false');
         });
       };
-      viewport.addEventListener('scroll', throttle(syncDots, 100), { passive: true });
+      listen(viewport, 'scroll', throttle(syncDots, 100), { passive: true });
       syncDots();
     }
 
@@ -391,7 +512,7 @@ window.ThalloRuntime.register('forms', {
       live = document.createElement('span');
       live.className = 'thallo-block-carousel__status';
       live.setAttribute('aria-live', 'off'); // silent while rotation is automatic
-      root.appendChild(live);
+      addNode(root, live);
       announce(currentIndex());
 
       pauseBtn = button('thallo-block-carousel__pause', 'Pause slides', '⏸');
@@ -401,31 +522,39 @@ window.ThalloRuntime.register('forms', {
         syncPause(); // startAuto may have declined (gates); label/state stay in sync
         politeAfterUserAction();
       });
-      root.appendChild(pauseBtn);
+      addNode(root, pauseBtn);
       syncPause();
 
       // Any direct interaction with the slides pauses rotation until explicit Play.
       ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(function (ev) {
-        viewport.addEventListener(ev, userInteracted, { passive: true });
+        listen(viewport, ev, userInteracted, { passive: true });
       });
 
       if (typeof IntersectionObserver === 'function') {
-        new IntersectionObserver(function (entries) {
+        io = new IntersectionObserver(function (entries) {
           for (var i = 0; i < entries.length; i++) {
             autoOffscreen = !entries[i].isIntersecting;
           }
           if (autoOffscreen) { stopAuto(); } else { startAuto(); }
-        }).observe(root);
+        });
+        io.observe(root);
+        undo.push(function () { if (io) { io.disconnect(); } });
       }
 
-      document.addEventListener('visibilitychange', function () {
+      var onVisibilityChange = function () {
         autoHidden = !!document.hidden;
         if (autoHidden) { stopAuto(); } else { startAuto(); }
-      });
+      };
+      listen(document, 'visibilitychange', onVisibilityChange);
 
       autoHidden = !!document.hidden;
       startAuto();
+      undo.push(function () { stopAuto(); });
     }
+
+    return function () {
+      for (var i = undo.length - 1; i >= 0; i--) { undo[i](); }
+    };
   }
 
   window.ThalloRuntime.register('carousel', {
@@ -474,11 +603,43 @@ window.ThalloRuntime.register('forms', {
       // The layout's fallback nav (site-nav__mobile) has no block root: the
       // details itself is the closest thing to one, and it has no __details
       // parents, so the submenu wiring below is a harmless no-op there.
-      var root = (mobile.closest && mobile.closest('.thallo-block-navigation')) || mobile;
-      if (root.classList) { root.classList.add('thallo-block-navigation--js'); }
-      var revealHover = !!(root.classList &&
-        root.classList.contains('thallo-block-navigation--reveal-hover'));
+      //
+      // Also match the bare `thallo-navigation` tag name: a manual same-task
+      // ThalloRuntime.enhance() can reach this drawer BEFORE the element's own
+      // connection microtask has projected `.thallo-block-navigation` onto the
+      // host (the selector `[data-thallo-enhance="navigation"]` is present on
+      // the drawer pre-projection). The tag name is a stable identifier of the
+      // host from the start, unlike the class, which arrives asynchronously —
+      // so it still resolves root to the host even before projection runs.
+      var root = (mobile.closest && mobile.closest('.thallo-block-navigation, thallo-navigation')) || mobile;
       var parents = mobile.querySelectorAll('.thallo-block-navigation__details');
+
+      // Snapshot BEFORE any mutation (spec §1 teardown): cleanup restores every
+      // managed <details> to the open state it had when enhance() started.
+      var initialOpen = [];
+      for (var i = 0; i < parents.length; i++) { initialOpen.push(!!parents[i].open); }
+      var mobileInitialOpen = !!mobile.open;
+
+      // Teardown accounting, same idiom as the carousel module: every listener
+      // added goes through listen() and is undone in reverse on cleanup; pending
+      // hover-close timeouts are collected separately so cleanup can clear them.
+      var undo = [];
+      function listen(el, type, fn) {
+        el.addEventListener(type, fn);
+        undo.push(function () { el.removeEventListener(type, fn); });
+      }
+      var timers = [];
+
+      if (root.classList) {
+        root.classList.add('thallo-block-navigation--js');
+        undo.push(function () { root.classList.remove('thallo-block-navigation--js'); });
+      }
+      // Same pre-projection race as above: the reveal-hover CLASS is projected
+      // async, but the `reveal-hover` ATTRIBUTE is present on the host from
+      // markup the whole time — honor either.
+      var revealHover = !!(root.classList &&
+        root.classList.contains('thallo-block-navigation--reveal-hover')) ||
+        !!(root.hasAttribute && root.hasAttribute('reveal-hover'));
 
       function closeOthers(except) {
         for (var i = 0; i < parents.length; i++) {
@@ -496,12 +657,12 @@ window.ThalloRuntime.register('forms', {
         );
       }
 
-      for (var i = 0; i < parents.length; i++) {
+      for (i = 0; i < parents.length; i++) {
         (function (d) {
           var summary = d.querySelector('[data-nav-toggle]');
           var closeTimer = null;
 
-          d.addEventListener('toggle', function () {
+          listen(d, 'toggle', function () {
             if (d.open) {
               closeOthers(d);
               animateOpen(d.querySelector('[data-nav-panel]'));
@@ -510,7 +671,7 @@ window.ThalloRuntime.register('forms', {
 
           // Escape (bubbling from anywhere inside the open submenu) closes it
           // and restores focus to the toggle.
-          d.addEventListener('keydown', function (e) {
+          listen(d, 'keydown', function (e) {
             if (e.key === 'Escape' && d.open) {
               d.open = false;
               if (summary && summary.focus) { summary.focus(); }
@@ -520,7 +681,7 @@ window.ThalloRuntime.register('forms', {
           if (summary) {
             // ArrowDown opens and moves focus into the panel. Enter/Space need
             // no handler: <summary> toggles natively.
-            summary.addEventListener('keydown', function (e) {
+            listen(summary, 'keydown', function (e) {
               if (e.key === 'ArrowDown') {
                 if (e.preventDefault) { e.preventDefault(); }
                 d.open = true;
@@ -536,14 +697,15 @@ window.ThalloRuntime.register('forms', {
           // the handlers so crossing the breakpoint needs no re-binding: below
           // 48rem hover is inert and the in-flow tap disclosure governs.
           if (revealHover && d.parentNode && d.parentNode.addEventListener) {
-            d.parentNode.addEventListener('mouseenter', function () {
+            listen(d.parentNode, 'mouseenter', function () {
               if (mq.matches) { return; } // hover reveal is a desktop affordance
               if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
               d.open = true;
             });
-            d.parentNode.addEventListener('mouseleave', function () {
+            listen(d.parentNode, 'mouseleave', function () {
               if (mq.matches) { return; }
               closeTimer = setTimeout(function () { closeTimer = null; d.open = false; }, 180);
+              timers.push(closeTimer);
             });
           }
         })(parents[i]);
@@ -552,7 +714,7 @@ window.ThalloRuntime.register('forms', {
       // Outside-click closes any open submenu; a click on a link inside the menu
       // closes the mobile drawer — on mobile viewports only (on desktop the outer
       // details must stay open: it is what keeps the list visible).
-      document.addEventListener('click', function (e) {
+      listen(document, 'click', function (e) {
         var t = e.target;
         if (!t || !(mobile.contains && mobile.contains(t))) {
           closeOthers(null);
@@ -565,10 +727,17 @@ window.ThalloRuntime.register('forms', {
 
       // Outer-details state machine: OPEN on desktop, closed when crossing to
       // mobile (the drawer chrome only exists below 48rem).
-      mq.addEventListener('change', function (e) {
+      listen(mq, 'change', function (e) {
         mobile.open = !e.matches;
       });
       if (!mq.matches) { mobile.open = true; }
+
+      return function () {
+        for (var u = undo.length - 1; u >= 0; u--) { undo[u](); }
+        for (var t = 0; t < timers.length; t++) { clearTimeout(timers[t]); }
+        for (var p = 0; p < parents.length; p++) { parents[p].open = initialOpen[p]; }
+        mobile.open = mobileInitialOpen;
+      };
     }
   });
 })();
@@ -617,13 +786,19 @@ window.ThalloRuntime.register('forms', {
     var panels = panelsBox ? childrenWithClass(panelsBox, 'thallo-block-tabs__panel') : [];
 
     if (radios.length === 0 && labels.length === 0 && panels.length === 0) {
-      return; // empty block: nothing to enhance, marking it is harmless
+      return false; // empty block: structural no-op, never marked
     }
     if (radios.length === 0 || labels.length !== radios.length || panels.length !== radios.length) {
       // Unpairable structure: throw so the component stays UNMARKED and the
       // enhanced-mode CSS (which trusts [hidden] we never got to set) stays off.
       throw new Error('tabs: radios/labels/panels do not pair; leaving the radio floor as-is');
     }
+
+    // Baseline snapshot BEFORE any mutation: select() (below) mutates radio.checked
+    // and panel[hidden] directly, bypassing the undo log — so on teardown the log
+    // alone can't restore the served floor after an interaction. This is that floor.
+    var baselineChecked = radios.map(function (r) { return !!r.checked; });
+    var baselineHidden = panels.map(function (p) { return p.getAttribute('hidden') !== null; });
 
     var undo = []; // every mutation in order; replayed in reverse on any throw
     function setAttr(elm, name, value) {
@@ -745,6 +920,15 @@ window.ThalloRuntime.register('forms', {
       rollback();
       throw err; // core containment leaves the component unmarked
     }
+
+    return function () {
+      rollback(); // the existing undo log, reversed: attributes + listeners
+      for (var k = 0; k < radios.length; k++) { radios[k].checked = baselineChecked[k]; }
+      for (k = 0; k < panels.length; k++) {
+        if (baselineHidden[k]) { panels[k].setAttribute('hidden', ''); }
+        else { panels[k].removeAttribute('hidden'); }
+      }
+    };
   }
 
   window.ThalloRuntime.register('tabs', {
@@ -753,3 +937,126 @@ window.ThalloRuntime.register('forms', {
   });
 })();
 /* tabs:end */
+
+/* elements:start — the three module-backed v1 elements (web-components spec §4).
+   Light-DOM adapters only: same inner skeleton as the blocks, attribute sugar
+   projected into the EXISTING option vocabulary, all through registerElement's
+   transactional pipeline. */
+(function () {
+  'use strict';
+  var RT = window.ThalloRuntime;
+  if (!RT.registerElement) { return; } // no customElements: elements absent by design
+
+  // Shared projection helper: stamp a class (undo-aware) + map bare attributes to
+  // existing data-* options WITHOUT overriding explicit data-* in the markup.
+  // ATOMIC (spec §1 projectOptions contract): the bridge treats a thrown
+  // projectOptions as nothing-captured, so on ANY throw this helper rolls back the
+  // mutations it already made, then rethrows — partial projection can never leak.
+  function project(host, rootClass, attrMap) {
+    var undos = [];
+    function rollbackAndRethrow(err) {
+      for (var i = undos.length - 1; i >= 0; i--) { try { undos[i](); } catch (e) {} }
+      throw err;
+    }
+    try {
+    if (rootClass && !host.classList.contains(rootClass)) {
+      host.classList.add(rootClass);
+      undos.push(function () { host.classList.remove(rootClass); });
+    }
+    if (attrMap) {
+      Object.keys(attrMap).forEach(function (attr) {
+        var dataAttr = attrMap[attr]; // e.g. 'data-arrows'
+        if (host.hasAttribute(attr) && host.getAttribute(dataAttr) === null) {
+          host.setAttribute(dataAttr, '1');
+          if (host.dataset) { host.dataset[dataAttr.slice(5)] = '1'; }
+          undos.push(function () {
+            host.removeAttribute(dataAttr);
+            if (host.dataset) { delete host.dataset[dataAttr.slice(5)]; }
+          });
+        }
+      });
+    }
+    } catch (err) { rollbackAndRethrow(err); }
+    return function () { for (var i = undos.length - 1; i >= 0; i--) { undos[i](); } };
+  }
+
+  RT.registerElement('thallo-carousel', 'carousel', {
+    projectOptions: function (host) {
+      return project(host, 'thallo-block-carousel',
+        { arrows: 'data-arrows', dots: 'data-dots', autoplay: 'data-autoplay' });
+    }
+  });
+
+  RT.registerElement('thallo-tabs', 'tabs', {
+    projectOptions: function (host) {
+      return project(host, 'thallo-block-tabs', null);
+    }
+  });
+
+  RT.registerElement('thallo-navigation', 'navigation', {
+    // The module enhances the inner drawer details, not the block root — marker and
+    // cleanup belong to the TARGET (spec §4).
+    resolveTarget: function (host) {
+      return host.querySelector('[data-thallo-enhance="navigation"]');
+    },
+    projectOptions: function (host) {
+      var undoBase = project(host, 'thallo-block-navigation', null);
+      var addedHover = false;
+      try {
+        if (host.hasAttribute('reveal-hover') &&
+            !host.classList.contains('thallo-block-navigation--reveal-hover')) {
+          host.classList.add('thallo-block-navigation--reveal-hover');
+          addedHover = true;
+        }
+      } catch (err) { undoBase(); throw err; } // atomicity contract (spec §1)
+      return function () {
+        if (addedHover) { host.classList.remove('thallo-block-navigation--reveal-hover'); }
+        undoBase();
+      };
+    }
+  });
+})();
+/* elements:end */
+
+/* color-mode-toggle:start — the explicit pipeline EXCEPTION (spec §4): the
+   color-mode registry entry is a no-op on <html>; the real behavior is the
+   page-level delegated service. This adapter never enters registerElement — it
+   only re-syncs late-inserted toggles' aria-checked via the service. Its light DOM
+   is the server-rendered [data-color-mode-set] controls; clicks ride the existing
+   document-level delegation. */
+(function () {
+  'use strict';
+  if (typeof customElements === 'undefined' || !customElements ||
+      typeof customElements.define !== 'function' || typeof HTMLElement !== 'function') {
+    return;
+  }
+  class ThalloColorModeToggle extends HTMLElement {
+    connectedCallback() {
+      Promise.resolve().then(function () {
+        if (window.thalloColorMode && typeof window.thalloColorMode.reflect === 'function') {
+          window.thalloColorMode.reflect();
+        }
+      });
+    }
+  }
+  customElements.define('thallo-color-mode-toggle', ThalloColorModeToggle);
+})();
+/* color-mode-toggle:end */
+
+/* boot:footer */
+/* The ONE boot scheduler (spec §1 "Boot ordering is explicit").
+   Runs after every module registration above AND after the element sections define
+   their tags: customElements.define() upgrades already-parsed hosts synchronously,
+   queuing their connection microtasks — so scheduling the whole-document scan on a
+   LATER microtask (or on DOMContentLoaded, whose dispatch flushes those microtasks
+   first) guarantees element projection wins before the legacy scan, which then
+   no-ops on the shared marker. No public start() API. */
+(function () {
+  'use strict';
+  function boot() { window.ThalloRuntime.enhance(document.documentElement); }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    Promise.resolve().then(boot);
+  }
+})();

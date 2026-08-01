@@ -12,6 +12,14 @@ use PHPUnit\Framework\TestCase;
  * decision. If this fails: either the growth is optional-module weight that now
  * materially dominates the payload (THEN revisit splitting, per the spec's receipts) or
  * it is shared-core weight (raise the budget in the same commit, with reasoning).
+ *
+ * Ceiling history: previous ceiling 12,288 bytes; raised to 14,336 bytes (reviewed
+ * increase, 2026-08-01). Reason: "four-element Web Components API plus lifecycle
+ * teardown" — Task 6 of the runtime-web-components plan landed the
+ * thallo-carousel / thallo-tabs / thallo-navigation / thallo-color-mode-toggle
+ * custom elements (the registerElement transactional projection helper plus the
+ * explicit color-mode-toggle pipeline exception). Final measured size at that
+ * increase: 13,394 bytes gzip -9 (942 bytes of headroom under the new ceiling).
  */
 final class RuntimeSizeBudgetTest extends TestCase
 {
@@ -23,9 +31,9 @@ final class RuntimeSizeBudgetTest extends TestCase
 
         $compressed = strlen((string) gzencode($source, 9));
         self::assertLessThanOrEqual(
-            12_288,
+            14_336,
             $compressed,
-            "runtime.js is {$compressed} bytes at gzip -9 against a 12KB budget. "
+            "runtime.js is {$compressed} bytes at gzip -9 against a 14KB budget. "
             . 'Growth is fine when it is shared-core weight (raise the budget here, with '
             . 'reasoning); if optional modules now dominate the payload, revisit the '
             . 'splitting decision recorded in the storefront-performance spec §2.',
