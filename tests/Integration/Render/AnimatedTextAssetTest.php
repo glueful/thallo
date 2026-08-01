@@ -235,6 +235,59 @@ final class AnimatedTextAssetTest extends AppTestCase
             assert(ctx.window.__thalloBlockAnimatedText === true, 'guard remains true after second eval');
           })();
 
+          // 1b. The RT.register duplicate-registration CATCH branch itself, exercised for
+          //     real: reset the guard while the module registry still holds 'animated-text'
+          //     (e.g. something external cleared the guard without touching the registry),
+          //     then re-eval — RT.register throws for real this time (duplicate name), the
+          //     catch must return WITHOUT setting the guard, exactly one registration must
+          //     stand, and the failed second eval must produce no additional self-enhance
+          //     side effects (enhancement count and marker unchanged).
+          (function () {
+            var ctx = makeSandbox(false);
+            runInContext(RUNTIME_SRC, ctx);
+
+            var registerAttempts = 0;
+            var registerSuccesses = 0;
+            var enhanceInvocations = 0;
+            var RT = ctx.window.ThalloRuntime;
+            var origRegister = RT.register;
+            RT.register = function (name, def) {
+              if (name !== 'animated-text') { return origRegister.call(RT, name, def); }
+              registerAttempts++;
+              var wrapped = def.enhance;
+              var countingDef = {
+                selector: def.selector,
+                enhance: function (root) { enhanceInvocations++; return wrapped(root); }
+              };
+              var result = origRegister.call(RT, name, countingDef); // throws on the 2nd attempt
+              registerSuccesses++; // only reached when the call above did NOT throw
+              return result;
+            };
+
+            var block = buildBlock(3);
+            ctx.document.documentElement.appendChild(block.root);
+
+            runInContext(ASSET_SRC, ctx); // first eval: registers + self-enhances the block
+            assert(registerAttempts === 1 && registerSuccesses === 1, 'first eval registered once');
+            assert(enhanceInvocations === 1, 'first eval self-enhanced the block once');
+            assert(ctx.window.__thalloBlockAnimatedText === true, 'guard set after first eval');
+            var markerAfterFirst = block.root.getAttribute('data-thallo-enhanced');
+            assert(markerAfterFirst && markerAfterFirst.indexOf('animated-text') !== -1, 'block marked after first eval');
+
+            // Reset the guard WITHOUT touching the registry (see the `vm` outside-delete
+            // quirk documented at scenario 2 — the delete must run via runInContext).
+            runInContext('delete window.__thalloBlockAnimatedText;', ctx);
+
+            runInContext(ASSET_SRC, ctx); // second eval: RT.register now throws for real
+
+            assert(registerAttempts === 2, 'second eval attempted to register again (guard was cleared)');
+            assert(registerSuccesses === 1, 'RT.register threw on the 2nd attempt: exactly one registration stands');
+            assert(ctx.window.__thalloBlockAnimatedText !== true, 'the catch branch returns WITHOUT setting the guard');
+            assert(enhanceInvocations === 1, 'the failed second eval produced no additional self-enhance invocation');
+            assert(block.root.getAttribute('data-thallo-enhanced') === markerAfterFirst,
+              'no additional marking/side effects from the failed second eval');
+          })();
+
           // 2. Missing runtime: guard NOT set, static untouched; re-eval after restoring
           //    the runtime works (retry path) since the guard was never burned.
           await (async function () {
