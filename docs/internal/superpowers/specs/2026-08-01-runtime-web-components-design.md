@@ -103,8 +103,10 @@ TARGET, not the host); (3) `projectOptions` — attribute sugar written onto the
 target in the existing vocabulary (e.g. `arrows` → `data-arrows="1"`) plus root-class
 stamping, all captured in an undo function; (4) run the shared pipeline for that one
 module on the target. Documented constraint: asynchronously-populated elements must
-be fully built before insertion — the microtask deferral covers parser timing, not
-arbitrary later population.
+be fully built before insertion — the microtask deferral covers parser timing ONLY
+under deferred/after-parse loading (the runtime script must carry `defer`, or
+otherwise run after parse); it does not cover arbitrary later population, and a
+synchronous head-script load connects elements before their children exist at all.
 
 **Projection is transactional (P1 pin).** `registerElement` must distinguish a
 successful/already-enhanced result from canvas-skip, missing target, structural
