@@ -26,7 +26,7 @@ use App\Tests\Support\AppTestCase;
  *
  * The full byte contract runs in BOTH delivery configurations (shopjs-on-runtime spec §3):
  * standalone (runtime-absent fallback, shop.js self-drives) and with the theme-runtime core
- * evaluated first (shop.js registers nine `shop-*` modules and the core's boot drives
+ * evaluated first (shop.js registers ten `shop-*` modules and the core's boot drives
  * enhancement) — see {@see runByteContract()}. The runtime-specific tests below cover the
  * registration surface, exactly-once re-execution, init() delegation, per-component
  * containment, and the canvas-stage guarantee.
@@ -1211,7 +1211,7 @@ final class ShopJsRuntimeTest extends AppTestCase
         JS;
     }
 
-    public function testRuntimePresentRegistersNineModulesAndCoreDrivesEnhancement(): void
+    public function testRuntimePresentRegistersTenModulesAndCoreDrivesEnhancement(): void
     {
         $src = $this->shopJs();
         self::assertStringContainsString("register('shop-form'", $src);
@@ -1228,6 +1228,22 @@ final class ShopJsRuntimeTest extends AppTestCase
             $this->runtimeRegistrationHarness($this->shopJs(), $this->runtimeJs()),
             'runtime_registration'
         );
+    }
+
+    public function testCheckoutPageQuoteFlowSubmitterActionsPatchingAndFailOpen(): void
+    {
+        // Checkout-ui plan Task 3: one submit owner, submitter-aware actions, quote patching +
+        // method rebuild with selection preserved, change-driven re-quote, and fail-open.
+        $src = $this->shopJs();
+        self::assertStringContainsString("register('shop-checkout-page'", $src);
+        self::assertStringContainsString("'form[action=\"/checkout\"]'", $src);
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate shop.js');
+        }
+
+        $this->runNodeHarness($node, $this->checkoutPageHarness($this->shopJs()), 'checkout_page');
     }
 
     public function testSecondScriptExecutionIsANoOp(): void
@@ -1317,8 +1333,149 @@ final class ShopJsRuntimeTest extends AppTestCase
         );
     }
 
+    /** The checkout page: one submit owner, submitter formaction honor, quote patch, fail-open. */
+    private function checkoutPageHarness(string $shopJsSrc): string
+    {
+        return $this->harnessPrelude($shopJsSrc) . "\n\n" . <<<'JS'
+        function fireSubmitWith(form, submitter) {
+          var evt = {
+            type: 'submit',
+            target: form,
+            submitter: submitter || null,
+            defaultPrevented: false,
+            preventDefault: function () { this.defaultPrevented = true; },
+          };
+          var listeners = form._listeners['submit'] || [];
+          for (var i = 0; i < listeners.length; i++) { listeners[i](evt); }
+          return evt;
+        }
+
+        function fireChange(form, target) {
+          var listeners = form._listeners['change'] || [];
+          for (var i = 0; i < listeners.length; i++) { listeners[i]({ type: 'change', target: target }); }
+        }
+
+        function quotePayload(shippingTotal, grandFormatted) {
+          return {
+            totals: {
+              subtotal: 1000, discount_total: 0, shipping_total: shippingTotal,
+              tax_total: 0, grand_total: 1000 + shippingTotal,
+            },
+            totals_formatted: {
+              subtotal: '10.00', discount_total: '0.00',
+              shipping_total: (shippingTotal / 100).toFixed(2),
+              tax_total: '0.00', grand_total: grandFormatted,
+            },
+            currency: 'USD',
+            shipping_options: [
+              { id: 'std', label: 'Standard', amount: 500, amount_formatted: '5.00' },
+              { id: 'express', label: 'Express', amount: 1500, amount_formatted: '15.00' },
+            ],
+          };
+        }
+
+        (async function checkoutPage() {
+          var doc = new Doc();
+          var key = el('input', { type: 'hidden', name: 'idempotency_key', value: 'harness-key-1' });
+          var email = el('input', { type: 'email', name: 'email', value: 'buyer@example.test' });
+          var country = el('input', { type: 'text', name: 'addresses[shipping][country]', value: 'US' });
+          var slot = el('div', { 'data-shop-checkout-methods-slot': '' });
+          var updateBtn = el('button', { type: 'submit', 'data-shop-checkout-update': '' });
+          var placeBtn = el('button', {
+            type: 'submit', formaction: '/_shop/checkout/place', 'data-shop-checkout-place': '',
+          });
+          var form = el('form', { action: '/checkout', 'data-shop-checkout-form': '' },
+            [key, email, country, slot, updateBtn, placeBtn]);
+          // A real browser form always has requestSubmit; bindCheckoutPage feature-detects it at
+          // enhance time, so the stub must exist BEFORE the page loads.
+          form.requestSubmit = function (btn) { fireSubmitWith(form, btn); };
+          var totalRegion = el('dd', { 'data-shop-quote-total': '' });
+          var shippingRegion = el('dd', { 'data-shop-quote-shipping': '' });
+          var page = el('section', { 'data-shop-checkout-page': '' }, [totalRegion, shippingRegion, form]);
+          doc.body.appendChild(page);
+
+          var calls = [];
+          var queue = [];
+          var win = {
+            document: doc, location: { href: '' }, fetch: makeFetch(queue, calls), FormData: FakeFormData,
+          };
+
+          await loadPage(win, doc);
+
+          // ONE submit owner: bindForm's single listener — the checkout module adds change
+          // listeners only, never a second submit binding.
+          assert((form._listeners['submit'] || []).length === 1, 'checkout: exactly one submit listener');
+
+          // Update totals: no formaction on the submitter — posts to the form action (/checkout)
+          // and the quote response patches totals + rebuilds the methods slot.
+          queue.push({ ok: true, status: 200, data: quotePayload(500, '15.00') });
+          var evt = fireSubmitWith(form, updateBtn);
+          assert(evt.defaultPrevented === true, 'checkout: interception must preventDefault');
+          assert(calls.length === 1 && calls[0].url === '/checkout', 'checkout: update posts to the form action');
+          await flush();
+          assert(totalRegion.textContent === '15.00 USD', 'checkout: grand total patched formatted');
+          assert(shippingRegion.textContent === '5.00 USD', 'checkout: shipping patched formatted');
+          var radios = slot.querySelectorAll('input[name="shipping_method_id"]');
+          assert(radios.length === 2, 'checkout: methods rebuilt into the slot');
+          assert(radios[0].checked === true && radios[1].checked !== true,
+            'checkout: first option checked by default');
+
+          // Method re-selection: a change on the express radio re-quotes immediately THROUGH the
+          // one submit owner (requestSubmit(updateBtn)), and the rebuild preserves the selection.
+          radios[1].checked = true;
+          radios[0].checked = false;
+          queue.push({ ok: true, status: 200, data: quotePayload(1500, '25.00') });
+          fireChange(form, radios[1]);
+          assert(calls.length === 2 && calls[1].url === '/checkout', 'checkout: method change re-quotes');
+          await flush();
+          assert(totalRegion.textContent === '25.00 USD', 'checkout: re-quoted total patched');
+          var rebuilt = slot.querySelectorAll('input[name="shipping_method_id"]');
+          assert(rebuilt[1].checked === true && rebuilt[0].checked !== true,
+            'checkout: the express selection survives the rebuild');
+
+          // Place order (manual outcome): a placed non-redirect result NAVIGATES to the
+          // confirmation page — the order-placed surface — never a dead-end on checkout.
+          queue.push({ ok: true, status: 200, data: {
+            action: 'manual',
+            instructions: 'Pay on delivery.',
+            order_ref: 'ORD-1',
+            confirmation_url: '/checkout/confirmation/ORD-1',
+          } });
+          fireSubmitWith(form, placeBtn);
+          assert(calls.length === 3 && calls[2].url === '/_shop/checkout/place',
+            'checkout: the Place submitter formaction is honored');
+          await flush();
+          assert(win.location.href === '/checkout/confirmation/ORD-1',
+            'checkout: a manual outcome navigates to the confirmation page');
+          win.location.href = '';
+          form.removeAttribute('data-shop-pending');
+          placeBtn.disabled = false;
+          updateBtn.disabled = false;
+
+          // Place order (redirect outcome): the gateway's hosted page navigates top-level.
+          queue.push({ ok: true, status: 200, data: { action: 'redirect', redirect_url: 'https://gw.test/pay' } });
+          fireSubmitWith(form, placeBtn);
+          assert(calls.length === 4 && calls[3].url === '/_shop/checkout/place',
+            'checkout: the second Place also targets the placement endpoint');
+          await flush();
+          assert(win.location.href === 'https://gw.test/pay', 'checkout: redirect VM navigates top-level');
+
+          // Fail-open: a rejected quote fetch leaves the server-rendered page usable (buttons
+          // re-enabled, an explicit Retry appears; nothing is wiped).
+          queue.push({ reject: true });
+          fireSubmitWith(form, updateBtn);
+          await flush();
+          assert(placeBtn.disabled === false && updateBtn.disabled === false,
+            'checkout: buttons re-enabled after an ambiguous failure');
+          assert(totalRegion.textContent === '25.00 USD', 'checkout: last good totals stand');
+
+          console.log('ALL_PASS');
+        })().catch(function (e) { fail(String(e && e.stack || e)); });
+        JS;
+    }
+
     /**
-     * Harness proving that with the runtime present, shop.js registers its nine modules on
+     * Harness proving that with the runtime present, shop.js registers its ten modules on
      * the core (probed via the duplicate-name throw), attaches NO DOMContentLoaded listener
      * of its own (a DELTA from the post-runtime-eval snapshot — the core registers its own
      * when readyState is 'loading', so an absolute zero would be wrong), and that firing
@@ -1357,7 +1514,7 @@ final class ShopJsRuntimeTest extends AppTestCase
 
           var names = ['shop-form', 'shop-gallery', 'shop-buy', 'shop-mini-cart',
             'shop-product-grid', 'shop-featured-product', 'shop-add-to-cart',
-            'shop-wishlist', 'shop-wishlist-page'];
+            'shop-wishlist', 'shop-wishlist-page', 'shop-checkout-page'];
           for (var i = 0; i < names.length; i++) {
             var threw = false;
             try {
