@@ -107,6 +107,14 @@ controller's documented origin vocabulary from `db|theme|default` to
     separately prevents unbounded array allocation before the function is entered. Each function gets a focused
     safety/bounds test. The earlier "only three functions" pin was based on an incomplete
     inventory; the lint-all-shipped gate stays **exception-free**.
+  - **Implementation amendment (Task 5, review-verified):** `TrueTest` joined
+    `NODE_CLASSES` and `'true'` joined `TESTS` in the same v17 bump. Twig 3
+    unconditionally wraps bare boolean conditions (`{% if fn() %}`, `x() ? a : b`,
+    `{% if attr %}`) in a `TrueTest` node (`IfNode`/`ConditionalTernary` both call
+    `TrueTest::wrap()`), so the shipped default theme (`layout.twig`,
+    `blocks/color_mode.twig`, `blocks/blog_posts.twig`) cannot lint without it.
+    Reviewed safe: pure boolean coercion, no execution/IO surface; the wrapped
+    child expression is still independently vetted by the linter.
 - **`json_script(value)`** — new function in `RenderContextExtension`: encodes with
   `JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT |
   JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR` and returns `Twig\Markup`
