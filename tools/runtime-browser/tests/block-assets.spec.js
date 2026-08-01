@@ -397,7 +397,7 @@ test.describe('hero-carousel preset', () => {
     assertHeroLayout(await readHeroLayout(page));
   });
 
-  test('the no-image slide keeps a non-transparent fallback background with readable text', async ({ page }) => {
+  test('the no-image slide falls back to the dark --ink base, keeping the white on-media text readable', async ({ page }) => {
     await page.goto(FIXTURE);
 
     const data = await page.evaluate(() => {
@@ -405,17 +405,25 @@ test.describe('hero-carousel preset', () => {
       const title = noMedia.querySelector('.thallo-block-hero__title');
       return {
         hasMediaDiv: !!noMedia.querySelector('.thallo-block-hero__media'),
-        // "6: no-image fallback" in blocks.css — the slide keeps the
-        // standard hero gradient background rather than going transparent.
+        // "6: no-image fallback" in blocks.css — a media-less slide has no
+        // media/scrim to cover it, so it falls straight to `background:
+        // var(--ink)` — resolves dark (site.css :root --ink, no dark-mode
+        // override applied in this fixture) instead of the light standard
+        // hero gradient, which is what made white on-media text unreadable.
+        backgroundColor: getComputedStyle(noMedia).backgroundColor,
         backgroundImage: getComputedStyle(noMedia).backgroundImage,
         titleColor: getComputedStyle(title).color
       };
     });
     expect(data.hasMediaDiv).toBe(false);
-    expect(data.backgroundImage).not.toBe('none');
-    expect(data.backgroundImage.toLowerCase()).toContain('gradient');
+    // --ink resolved (site.css :root): #0f172a === rgb(15, 23, 42).
+    expect(data.backgroundColor).toBe('rgb(15, 23, 42)');
+    // No longer the light standard-hero gradient.
+    expect(data.backgroundImage).toBe('none');
     // A declared, opaque text color — not literally invisible/transparent.
     expect(data.titleColor).not.toBe('rgba(0, 0, 0, 0)');
+    // White text (--accent-ink) is now on a genuinely dark base, not near-white.
+    expect(data.titleColor).toBe('rgb(255, 255, 255)');
   });
 });
 
