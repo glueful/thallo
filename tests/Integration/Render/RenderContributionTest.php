@@ -490,6 +490,12 @@ final class RenderContributionTest extends AppTestCase
         $themeLocator = RenderServiceProvider::makeThemeLocator($container);
         self::assertContains($tmpDir, $themeLocator->activePaths()['templates']);
 
+        $catalog = RenderServiceProvider::makeTemplateCatalog($container);
+        self::assertSame(
+            ['source' => 'PACK-CONTRIB', 'origin' => 'package'],
+            $catalog->readFile('default', '__contribution_probe.twig'),
+        );
+
         // NOW the registry is frozen (the factory calls above triggered it) — further
         // registration is a loud boot-ordering bug, never a silently dropped contribution.
         $threw = null;

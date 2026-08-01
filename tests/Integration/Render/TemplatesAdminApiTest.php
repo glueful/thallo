@@ -17,6 +17,27 @@ final class TemplatesAdminApiTest extends AppTestCase
         return $this->container()->get(TemplatesAdminController::class);
     }
 
+    /** Controller wired exactly like production EXCEPT the catalog carries a contributed dir. */
+    private function apiWithContribution(string $contribDir): TemplatesAdminController
+    {
+        $c = $this->container();
+        return new TemplatesAdminController(
+            $c->get(TemplateRepository::class),
+            $c->get(\Thallo\Render\Templates\TemplateLinter::class),
+            new \Thallo\Render\Templates\TemplateCatalog(
+                $c->get(TemplateRepository::class),
+                sys_get_temp_dir() . '/thallo-no-app-themes-' . bin2hex(random_bytes(4)),
+                \dirname(__DIR__, 3) . '/packages/thallo-render/themes',
+                [['contributor_id' => 'test-pack', 'dir' => $contribDir]],
+            ),
+            $c->get(\Thallo\Contracts\Delivery\PreviewThemeValidator::class),
+            $c->get(\Thallo\Render\ThemeLocator::class),
+            $c->get(\Glueful\Events\EventService::class),
+            $c->get(\Glueful\Bootstrap\ApplicationContext::class),
+            $c->get(\Thallo\Render\Templates\ThemeCloner::class),
+        );
+    }
+
     /** @param array<string,mixed> $query */
     private function putReq(string $source, array $query = []): Request
     {
@@ -41,6 +62,43 @@ final class TemplatesAdminApiTest extends AppTestCase
     private function json(\Symfony\Component\HttpFoundation\Response $res): array
     {
         return (array) json_decode((string) $res->getContent(), true);
+    }
+
+    public function testContributedTemplateFullAdminRoundTrip(): void
+    {
+        $dir = sys_get_temp_dir() . '/thallo-contrib-api-' . bin2hex(random_bytes(4));
+        mkdir($dir . '/shop', 0755, true);
+        file_put_contents($dir . '/shop/checkout.twig', 'PACKAGE-BASELINE');
+        $api = $this->apiWithContribution($dir);
+
+        // Listed with origin package.
+        $list = $this->json($api->index(Request::create('/x', 'GET')))['data']['templates'];
+        $row = array_column($list, null, 'path')['shop/checkout.twig'];
+        self::assertSame(
+            ['origin' => 'package', 'overridden' => false],
+            ['origin' => $row['origin'], 'overridden' => $row['overridden']],
+        );
+
+        // GET seeds the package source, editable (not readonly).
+        $shown = $this->json($api->show(Request::create('/x', 'GET'), 'shop/checkout.twig'))['data'];
+        self::assertSame('PACKAGE-BASELINE', $shown['source']);
+        self::assertSame('package', $shown['origin']);
+
+        // PUT creates a DB override; the package file is untouched.
+        $api->save($this->putReq('OVERRIDE {{ entry.fields.title }}'), 'shop/checkout.twig');
+        self::assertSame('PACKAGE-BASELINE', file_get_contents($dir . '/shop/checkout.twig'));
+        $shown = $this->json($api->show(Request::create('/x', 'GET'), 'shop/checkout.twig'))['data'];
+        self::assertSame('db', $shown['origin']);
+
+        // DELETE reveals the package baseline again.
+        $api->delete(Request::create('/x', 'DELETE'), 'shop/checkout.twig');
+        $shown = $this->json($api->show(Request::create('/x', 'GET'), 'shop/checkout.twig'))['data'];
+        self::assertSame(['PACKAGE-BASELINE', 'package'], [$shown['source'], $shown['origin']]);
+
+        // Cleanup.
+        @unlink($dir . '/shop/checkout.twig');
+        @rmdir($dir . '/shop');
+        @rmdir($dir);
     }
 
     public function testListIncludesTheSelectableThemes(): void
