@@ -79,8 +79,12 @@ controller's documented origin vocabulary from `db|theme|default` to
 
 ### 3. Policy & trusted-output contracts
 
-- **`TemplatePolicy::FUNCTIONS`** += twelve entries, one `CACHE_VERSION` bump
-  (16 → 17). `raw` and `constant` stay denied.
+- **`TemplatePolicy::FUNCTIONS`** gains twelve reviewed entries and drops the
+  pre-existing `range` entry and `RangeBinary` node in the same `CACHE_VERSION`
+  bump (16 → 17). `raw`, `constant`, `range(...)`, and `1..N` stay denied after
+  this change. No shipped template uses either range form; keeping them would let a
+  DB template allocate an arbitrarily large array before any called function can
+  normalize its input.
   - `shop_product_url`, `shop_category_url`, `shop_index_url` — already defined in
     `RenderContextExtension` via the soft-bound `StorefrontLinkResolver` seam; they
     parse in the linter's scratch env today.
@@ -98,9 +102,10 @@ controller's documented origin vocabulary from `db|theme|default` to
     output), `theme_colors_style` / `theme_style_scope` (closed-enum generated
     markup), and `media_image` (public-media authority) — the last allowlisted only
     together with **defensive width normalization**: positive ints only,
-    deduplicated, capped at 8 candidates before the resolver runs, so a DB template
-    cannot pass a huge `range()` result. Each function gets a focused safety/bounds
-    test. The earlier "only three functions" pin was based on an incomplete
+    deduplicated, capped at 8 candidates before the resolver runs. The normalizer
+    bounds resolver work; denying the `range()` function and `RangeBinary` syntax
+    separately prevents unbounded array allocation before the function is entered. Each function gets a focused
+    safety/bounds test. The earlier "only three functions" pin was based on an incomplete
     inventory; the lint-all-shipped gate stays **exception-free**.
 - **`json_script(value)`** — new function in `RenderContextExtension`: encodes with
   `JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT |
@@ -128,7 +133,8 @@ controller's documented origin vocabulary from `db|theme|default` to
 - The filesystem note (`index.vue:375`) reads, for `origin === 'package'`:
   *"Package template — saving creates a database override; the package file is never
   modified."*
-- `twigCompletions.ts` gains the four newly allowlisted functions.
+- `twigCompletions.ts` is synchronized to the complete policy-v17 function list,
+  including the twelve additions and the removal of `range`.
 
 ## Testing
 
@@ -137,15 +143,20 @@ controller's documented origin vocabulary from `db|theme|default` to
   admin `GET` returns is byte-identical to what the render side resolves for that
   name — DB rows compared against the composite DB-first loader
   (`RenderTemplateLoader`), filesystem rows against the selected theme's filesystem
-  chain. This is the invariant that the editor edits what actually renders.
+  chain. The test fixture includes at least two package contributors with a
+  colliding template name and feeds the same frozen registry snapshot to both
+  `TemplateCatalog` and `ThemeLocator`; package precedence is therefore exercised,
+  not inferred. A separate production-factory test proves
+  `RenderServiceProvider::makeTemplateCatalog()` consumes that frozen snapshot.
+  This is the invariant that the editor edits what actually renders.
 - **Round-trip lint gate (new, release gate, exception-free):** every shipped
   `.twig` under the render default theme, `packages/thallo-account/templates`, and
   `packages/thallo-commerce/templates` passes `TemplateLinter` — a template using
   denied vocabulary fails CI, not an admin's save. No exception list.
 - **Function safety/bounds tests (amendment):** `media_image` width normalization
   (dedupe, positive-int filter, cap 8); `entries` limit clamp 1..12 at
-  `EngineEntryListReader`; the remaining six newly allowlisted functions each lint
-  clean and render through a DB-override template.
+  `EngineEntryListReader`; both `range(...)` and `1..N` remain denied; the remaining six newly
+  allowlisted functions each lint clean and execute through a DB-override template.
 - **Admin API integration** (extend `tests/Integration/Render/TemplatesAdminApiTest.php`):
   contributed name listed with `origin: "package"`; `GET` seeds the package source;
   `PUT` creates an override that wins at render; `DELETE` reveals the package

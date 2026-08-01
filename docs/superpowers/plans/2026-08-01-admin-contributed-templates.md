@@ -4,7 +4,7 @@
 
 **Goal:** Contributed package templates (thallo-account `account/*`, thallo-commerce `shop/*`, both packs' `blocks/*`) get the same admin Theme-editor UX as theme templates — listed, viewable, editable via DB override, history/restore/delete — without weakening the template sandbox.
 
-**Architecture:** The admin `TemplateCatalog` consumes the same frozen `RenderContributionRegistry` snapshot the runtime `ThemeLocator` uses (one immutable snapshot, two accessors). Contributed files surface with a new generic origin `package` in the precedence `db → theme → package → default`. The template sandbox (`TemplatePolicy` + `TemplateLinter`) gains twelve reviewed functions and one new safe-JSON emitter so every shipped template round-trips through the editor, enforced by an exception-free CI lint gate.
+**Architecture:** The admin `TemplateCatalog` consumes the same frozen `RenderContributionRegistry` snapshot the runtime `ThemeLocator` uses (one immutable snapshot, two accessors). Contributed files surface with a new generic origin `package` in the precedence `db → theme → package → default`. The template sandbox (`TemplatePolicy` + `TemplateLinter`) gains twelve reviewed functions and one new safe-JSON emitter, removes both unbounded range forms, and makes every shipped template round-trip through the editor under an exception-free CI lint gate.
 
 **Tech Stack:** PHP 8.3 (Glueful framework, NOT Laravel), Twig 3, PHPUnit 10 (consumer-app tests extend `App\Tests\Support\AppTestCase`), Vue 3 + Nuxt UI admin SPA, Vitest.
 
@@ -14,12 +14,12 @@
 
 - Precedence everywhere: **DB override → active theme → ordered package contribution → render default.** Package files are immutable baselines; no code path writes them.
 - Public API origin vocabulary: `db | theme | package | default`. NO per-package field, NO contributor id in responses (internal diagnostics only).
-- `raw` and `constant` stay denied in `TemplatePolicy`.
+- `raw`, `constant`, `range(...)`, and `1..N` stay denied in `TemplatePolicy`. Task 5 removes both the `range` function and `RangeBinary` node: either form can allocate an unbounded array before a callee such as `media_image()` can normalize its input, and no shipped template uses them.
 - Exactly ONE `TemplatePolicy::CACHE_VERSION` bump for this whole feature: 16 → 17 (do it in Task 5; no other task touches it).
 - Honest capability-off behavior: with a pack disabled, its package baselines vanish from the catalog but existing active DB overrides remain listed as `origin: "db"` and resolvable; deleting one then leaves no fallback. Do NOT build provenance/dormancy.
 - The lint-all-shipped gate is **exception-free** — no allowlist-of-failures.
 - Run PHP tests with `vendor/bin/phpunit --filter <TestClass>` from the repo root; admin tests with `npm test -- --run <spec>` from `admin/`.
-- Commit after every task; commit only the files the task touched (`git commit -o <paths>`), never `git add -A` — unrelated working-tree changes exist.
+- Commit after every task. Stage each new/modified file by exact path with `git add <paths>`, then commit the same exact path set with `git commit --only <paths>`; never use `git add -A` — unrelated working-tree changes exist. (`git commit --only` cannot add an untracked test file by itself.)
 
 ---
 
@@ -34,15 +34,15 @@
 
 - [ ] **Step 1: Write the failing test**
 
-Add to `tests/Integration/Render/RenderContributionTest.php` (it already has a `templateContributor(...)`-style anonymous-class helper for `TemplatePathContributor` — reuse it; if the helper takes different arguments, adapt the calls, not the assertions):
+Add to `tests/Integration/Render/RenderContributionTest.php` using its existing `templateContributor(string $id, array $dirs, int $priority = 0)` helper:
 
 ```php
 public function testFrozenTemplateContributionsReturnsOrderedRowsAndPathsProjectSameSnapshot(): void
 {
     $registry = new RenderContributionRegistry();
-    $registry->registerTemplatePaths($this->templateContributor('b-pack', 10, ['/tmp/b']));
-    $registry->registerTemplatePaths($this->templateContributor('a-pack', 10, ['/tmp/a']));
-    $registry->registerTemplatePaths($this->templateContributor('z-first', 0, ['/tmp/z']));
+    $registry->registerTemplatePaths($this->templateContributor('b-pack', ['/tmp/b'], priority: 10));
+    $registry->registerTemplatePaths($this->templateContributor('a-pack', ['/tmp/a'], priority: 10));
+    $registry->registerTemplatePaths($this->templateContributor('z-first', ['/tmp/z'], priority: 0));
 
     // Ordered (priority, contributorId) — same ordering rule as frozenTemplatePaths().
     self::assertSame([
@@ -61,40 +61,7 @@ public function testFrozenTemplateContributionsFreezesTheRegistry(): void
     $registry->frozenTemplateContributions();
 
     $this->expectException(\RuntimeException::class);
-    $registry->registerTemplatePaths($this->templateContributor('late', 0, ['/tmp/late']));
-}
-```
-
-If no `templateContributor()` helper exists, add one:
-
-```php
-/** @param list<string> $dirs */
-private function templateContributor(string $id, int $priority, array $dirs): TemplatePathContributor
-{
-    return new class ($id, $priority, $dirs) implements TemplatePathContributor {
-        /** @param list<string> $dirs */
-        public function __construct(
-            private readonly string $id,
-            private readonly int $priority,
-            private readonly array $dirs,
-        ) {
-        }
-
-        public function contributorId(): string
-        {
-            return $this->id;
-        }
-
-        public function priority(): int
-        {
-            return $this->priority;
-        }
-
-        public function templatePaths(): array
-        {
-            return $this->dirs;
-        }
-    };
+    $registry->registerTemplatePaths($this->templateContributor('late', ['/tmp/late']));
 }
 ```
 
@@ -168,7 +135,8 @@ Expected: ALL tests PASS (the pre-existing frozen-path/freeze-semantics tests pr
 - [ ] **Step 5: Commit**
 
 ```bash
-git commit -o packages/thallo-render/src/Contribution/RenderContributionRegistry.php -o tests/Integration/Render/RenderContributionTest.php -m "feat(render): frozenTemplateContributions() — contributor rows off the one frozen snapshot"
+git add packages/thallo-render/src/Contribution/RenderContributionRegistry.php tests/Integration/Render/RenderContributionTest.php
+git commit --only packages/thallo-render/src/Contribution/RenderContributionRegistry.php tests/Integration/Render/RenderContributionTest.php -m "feat(render): frozenTemplateContributions() — contributor rows off the one frozen snapshot"
 ```
 
 ---
@@ -330,7 +298,7 @@ final class TemplateCatalogContributionsTest extends AppTestCase
 }
 ```
 
-Note: if `TemplateRepository::save()`'s real signature differs (check `packages/thallo-render/src/Templates/TemplateRepository.php` — it may take an author array or return a version uuid), adapt the call, not the assertions.
+`TemplateRepository::save(string $theme, string $path, string $source, ?string $createdBy): array` is the verified live signature used above.
 
 - [ ] **Step 2: Run tests to verify they fail**
 
@@ -385,7 +353,8 @@ Expected: ALL PASS (the existing admin API tests prove the default-constructed c
 - [ ] **Step 5: Commit**
 
 ```bash
-git commit -o packages/thallo-render/src/Templates/TemplateCatalog.php -o tests/Integration/Render/TemplateCatalogContributionsTest.php -m "feat(render): TemplateCatalog learns contributed template dirs (origin: package)"
+git add packages/thallo-render/src/Templates/TemplateCatalog.php tests/Integration/Render/TemplateCatalogContributionsTest.php
+git commit --only packages/thallo-render/src/Templates/TemplateCatalog.php tests/Integration/Render/TemplateCatalogContributionsTest.php -m "feat(render): TemplateCatalog learns contributed template dirs (origin: package)"
 ```
 
 ---
@@ -395,15 +364,27 @@ git commit -o packages/thallo-render/src/Templates/TemplateCatalog.php -o tests/
 **Files:**
 - Modify: `packages/thallo-render/src/RenderServiceProvider.php:214-222` (`makeTemplateCatalog`)
 - Modify: `packages/thallo-render/src/Http/Controllers/TemplatesAdminController.php` (docblocks only)
-- Test: `tests/Integration/Render/TemplatesAdminApiTest.php`
+- Test: `tests/Integration/Render/RenderContributionTest.php`, `tests/Integration/Render/TemplatesAdminApiTest.php`
 
 **Interfaces:**
 - Consumes: Task 1's `frozenTemplateContributions()`, Task 2's catalog constructor.
 - Produces: the live container wiring; API origin vocabulary documented as `db|theme|package|default`.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the production-factory test first, then the controller round-trip characterization**
 
-The shared app harness has zero real contributors (`RenderContributionTest` pins that), so exercise the controller with a hand-built catalog — every other dependency from the container. Add to `TemplatesAdminApiTest.php`:
+The existing `RenderContributionTest::testContributionRegisteredAfterAllProvidersHaveBootedIsHonoredUntilFirstConsumption()` already runs the real production factories against an isolated, unfrozen registry via `containerWithFreshRegistry()`. Immediately after its `makeThemeLocator()` assertion, add the catalog half:
+
+```php
+$catalog = RenderServiceProvider::makeTemplateCatalog($container);
+self::assertSame(
+    ['source' => 'PACK-CONTRIB', 'origin' => 'package'],
+    $catalog->readFile('default', '__contribution_probe.twig'),
+);
+```
+
+This is the red-first authority for Task 3: before the factory is wired, the catalog returns `null` even though `ThemeLocator` sees the same frozen contribution. It proves the live factory consumes the snapshot; a hand-built catalog cannot prove that.
+
+Then add the controller contract characterization to `TemplatesAdminApiTest.php`. The shared app harness intentionally has zero real contributors, so this part uses a hand-built catalog while every other controller dependency comes from the container:
 
 ```php
 /** Controller wired exactly like production EXCEPT the catalog carries a contributed dir. */
@@ -463,12 +444,13 @@ public function testContributedTemplateFullAdminRoundTrip(): void
 }
 ```
 
-Adapt `delete()`/`show()` call signatures to the controller's real ones (check `TemplatesAdminController.php:131-182, 251` — e.g. `delete()` may not take a Request). Adapt import lines to the test file's existing `use` style.
+The calls above use the verified controller signatures: `show(Request, string)` and `delete(Request, string)`. Follow the test file's existing import style.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run both tests and verify the production factory fails red**
 
-Run: `vendor/bin/phpunit --filter testContributedTemplateFullAdminRoundTrip`
-Expected: FAIL — `show()` 404s (production wiring passes no contributions yet is irrelevant here; the hand-built catalog makes this pass once Task 2 landed — if it passes immediately, that CONFIRMS the controller needs zero logic changes; proceed to Step 3 either way).
+Run: `vendor/bin/phpunit --filter "testContributionRegisteredAfterAllProvidersHaveBootedIsHonoredUntilFirstConsumption|testContributedTemplateFullAdminRoundTrip"`
+
+Expected: the provider/factory test FAILS because `makeTemplateCatalog()` drops the frozen contributions. The hand-built controller round-trip PASSES after Task 2, confirming that the controller needs no behavior change. Do not proceed unless the factory assertion is red for the expected reason.
 
 - [ ] **Step 3: Wire production + docblocks**
 
@@ -501,7 +483,8 @@ Expected: ALL PASS. The freeze-ordering guard in `RenderContributionTest` must s
 - [ ] **Step 5: Commit**
 
 ```bash
-git commit -o packages/thallo-render/src/RenderServiceProvider.php -o packages/thallo-render/src/Http/Controllers/TemplatesAdminController.php -o tests/Integration/Render/TemplatesAdminApiTest.php -m "feat(render): admin template catalog consumes the frozen contribution snapshot"
+git add packages/thallo-render/src/RenderServiceProvider.php packages/thallo-render/src/Http/Controllers/TemplatesAdminController.php tests/Integration/Render/RenderContributionTest.php tests/Integration/Render/TemplatesAdminApiTest.php
+git commit --only packages/thallo-render/src/RenderServiceProvider.php packages/thallo-render/src/Http/Controllers/TemplatesAdminController.php tests/Integration/Render/RenderContributionTest.php tests/Integration/Render/TemplatesAdminApiTest.php -m "feat(render): admin template catalog consumes the frozen contribution snapshot"
 ```
 
 ---
@@ -610,21 +593,22 @@ Expected: PASS.
 - [ ] **Step 5: Commit**
 
 ```bash
-git commit -o packages/thallo-render/src/RenderContextExtension.php -o tests/Integration/Render/JsonScriptFunctionTest.php -m "feat(render): json_script() — fail-closed JSON-LD emitter with HEX protections"
+git add packages/thallo-render/src/RenderContextExtension.php tests/Integration/Render/JsonScriptFunctionTest.php
+git commit --only packages/thallo-render/src/RenderContextExtension.php tests/Integration/Render/JsonScriptFunctionTest.php -m "feat(render): json_script() — fail-closed JSON-LD emitter with HEX protections"
 ```
 
 ---
 
-### Task 5: Policy expansion (twelve functions), `media_image` width cap, CACHE_VERSION 17
+### Task 5: Policy expansion (twelve functions), deny both range forms, `media_image` width cap, CACHE_VERSION 17
 
 **Files:**
-- Modify: `packages/thallo-render/src/Templates/TemplatePolicy.php:35-56`
+- Modify: `packages/thallo-render/src/Templates/TemplatePolicy.php:35-150`
 - Modify: `packages/thallo-render/src/RenderContextExtension.php:592-599` (`mediaImage`)
-- Test: `tests/Integration/Render/TemplateLinterTest.php` (extend), `tests/Integration/Render/AllowlistedFunctionBoundsTest.php` (create)
+- Test: `tests/Integration/Render/TemplateLinterTest.php` (extend), `tests/Integration/Render/AllowlistedFunctionBoundsTest.php` (create), `tests/Integration/Render/DbTemplateLoaderTest.php` (extend)
 
 **Interfaces:**
 - Consumes: Task 4's `json_script`.
-- Produces: the final `TemplatePolicy::FUNCTIONS` list and `CACHE_VERSION = 17`; `RenderContextExtension::normalizeWidths(array $widths): list<int>` (public static, so the cap is directly testable). Tasks 6 and 8 depend on the expanded policy.
+- Produces: the final `TemplatePolicy::FUNCTIONS` list (`range` removed), `NODE_CLASSES` list (`RangeBinary` removed), and `CACHE_VERSION = 17`; `RenderContextExtension::normalizeWidths(array $widths): list<int>` (public static, so the cap is directly testable). Tasks 6 and 8 depend on the expanded policy.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -642,19 +626,46 @@ public function testNewlyAllowlistedFunctionsLintClean(): void
     {{ claim_priority_image() ? 'first' : 'later' }}
     {% if color_mode_enabled() %}{{ color_mode_script() }}{% endif %}
     {{ theme_colors_style() }}
-    {{ theme_style_scope('scope-x') }}
+    {% set scope = theme_style_scope('blue', 'slate') %}{{ scope.class }}{{ scope.style }}
     TWIG;
     self::assertSame([], $this->linter()->lint($source));
 }
 
-public function testRawAndConstantStayDenied(): void
+public function testRawConstantAndRangeStayDenied(): void
 {
     self::assertNotSame([], $this->linter()->lint("{{ {'a':1}|json_encode|raw }}"));
     self::assertNotSame([], $this->linter()->lint("{{ constant('JSON_HEX_TAG') }}"));
+    self::assertNotSame([], $this->linter()->lint("{{ range(1, 1000000000)|length }}"));
+    self::assertNotSame([], $this->linter()->lint("{{ (1..1000000000)|length }}"));
 }
 ```
 
-(Adapt `lint()`'s return-shape assertions to the real API — existing tests in the file show it; `claim_priority_image`/`theme_style_scope` argument counts may differ — check their signatures in `RenderContextExtension.php` and adjust the snippet so it PARSES; the test's subject is the allowlist, not the signatures.)
+The linter proves vocabulary only; it cannot catch wrong PHP arity, missing Twig context, or a runtime return-shape error. Extend `DbTemplateLoaderTest.php` with the required execution proof for the six state/output functions (the existing private `repo()` and `env()` helpers are the exact APIs):
+
+```php
+public function testNewlyAllowlistedStateFunctionsExecuteThroughDbOverride(): void
+{
+    $source = <<<'TWIG'
+    {% set preview = is_preview() %}
+    {% set claimed = claim_priority_image() %}
+    {% set colorMode = color_mode_enabled() %}
+    {% set colorScript = color_mode_script() %}
+    {% set globalColors = theme_colors_style() %}
+    {% set scope = theme_style_scope('blue', 'slate') %}
+    {{ colorScript }}{{ globalColors }}{{ scope.class }}{{ scope.style }}DB-RUNTIME-OK
+    TWIG;
+
+    $this->repo()->save('default', 'policy-v17-functions.twig', $source, null);
+    self::assertStringContainsString(
+        'DB-RUNTIME-OK',
+        $this->env()->render('policy-v17-functions.twig'),
+    );
+}
+```
+
+This test must execute through `DatabaseTemplateLoader`; directly rendering an `ArrayLoader` template would not prove compile-time DB-policy integration.
+
+`TemplateLinter::lint()` returns the verified `list<array{line:int,message:string}>`; `claim_priority_image()` takes no template argument and `theme_style_scope()` takes the two nullable color-family arguments shown above.
 
 Create `tests/Integration/Render/AllowlistedFunctionBoundsTest.php`:
 
@@ -674,7 +685,7 @@ final class AllowlistedFunctionBoundsTest extends AppTestCase
 {
     public function testMediaImageWidthNormalizationDedupesFiltersAndCapsAtEight(): void
     {
-        // A DB template can pass any expression — e.g. range(1, 10000).
+        // Direct PHP callers can still pass a long array; resolver work remains capped.
         self::assertSame(
             [1, 2, 3, 4, 5, 6, 7, 8],
             RenderContextExtension::normalizeWidths(range(1, 10000)),
@@ -703,8 +714,8 @@ final class AllowlistedFunctionBoundsTest extends AppTestCase
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `vendor/bin/phpunit --filter "TemplateLinterTest|AllowlistedFunctionBoundsTest"`
-Expected: `testNewlyAllowlistedFunctionsLintClean` FAILS (functions denied); `normalizeWidths` FAILS (undefined method); `testRawAndConstantStayDenied` PASSES already (keep it — it pins the boundary).
+Run: `vendor/bin/phpunit --filter "TemplateLinterTest|AllowlistedFunctionBoundsTest|DbTemplateLoaderTest"`
+Expected: `testNewlyAllowlistedFunctionsLintClean` FAILS (functions denied); `normalizeWidths` FAILS (undefined method); the DB-runtime test FAILS at compile-time policy enforcement; `raw` and `constant` are already denied while both new range assertions FAIL until Task 5 removes the function and node.
 
 - [ ] **Step 3: Implement**
 
@@ -715,8 +726,9 @@ Expected: `testNewlyAllowlistedFunctionsLintClean` FAILS (functions denied); `no
     // bumped: shop_styles_url joined the function allowlist (head stylesheet link)
     // bumped: admin-contributed-templates spec §3 — shop URL trio + json_script + the eight
     //         render functions the shipped default theme uses (individually reviewed;
-    //         media_image gated behind normalizeWidths()), so every shipped template
-    //         round-trips through the editor (exception-free lint gate).
+    //         media_image gated behind normalizeWidths()), while range()/RangeBinary are denied
+    //         to prevent pre-call unbounded allocation. Every shipped template round-trips through the
+    //         editor (exception-free lint gate).
     public const CACHE_VERSION = 17;
 ```
 
@@ -729,11 +741,15 @@ Expected: `testNewlyAllowlistedFunctionsLintClean` FAILS (functions denied); `no
         'shop_product_url', 'shop_category_url', 'shop_index_url', 'json_script',
         'entries', 'is_preview', 'media_image', 'claim_priority_image',
         'color_mode_enabled', 'color_mode_script', 'theme_colors_style', 'theme_style_scope',
-        'include', 'parent', 'block', 'cycle', 'date', 'min', 'max', 'range',
+        'include', 'parent', 'block', 'cycle', 'date', 'min', 'max',
     ];
 ```
 
-2. `RenderContextExtension.php` — harden `mediaImage()` (lines 592-599) and add the static normalizer:
+2. Remove `\Twig\Node\Expression\Binary\RangeBinary::class` from `TemplatePolicy::NODE_CLASSES`. Removing only the `range` function is insufficient: Twig's `1..N` operator compiles through this separately allowlisted node and has the same pre-call allocation risk.
+
+3. Update the PRE-EXISTING representative-valid-template test (`TemplateLinterTest.php:38`) — it currently contains `{{ range(1, 3)|join(',') }}`, which is now correctly denied. Replace that expression with a still-allowlisted equivalent, e.g. `{{ [1, 2, 3]|join(',') }}`, keeping the rest of the representative template untouched.
+
+4. `RenderContextExtension.php` — harden `mediaImage()` (lines 592-599) and add the static normalizer:
 
 ```php
     /**
@@ -758,8 +774,9 @@ Expected: `testNewlyAllowlistedFunctionsLintClean` FAILS (functions denied); `no
     /**
      * Defensive width normalization (admin-contributed-templates spec §3): media_image is
      * DB-template-callable, so the width list is attacker-shaped — positive ints only,
-     * deduplicated, at most 8 candidates BEFORE any resolver work. A huge range() therefore
-     * costs nothing downstream.
+     * deduplicated, at most 8 candidates BEFORE any resolver work. TemplatePolicy separately
+     * denies both range() and RangeBinary, which could allocate an unbounded array before this
+     * method is entered.
      *
      * @param array<mixed> $widths
      * @return list<int>
@@ -787,7 +804,8 @@ Expected: ALL PASS — the Db* suites prove the CACHE_VERSION bump recompiles cl
 - [ ] **Step 5: Commit**
 
 ```bash
-git commit -o packages/thallo-render/src/Templates/TemplatePolicy.php -o packages/thallo-render/src/RenderContextExtension.php -o tests/Integration/Render/TemplateLinterTest.php -o tests/Integration/Render/AllowlistedFunctionBoundsTest.php -m "feat(render): policy v17 — twelve reviewed functions join; media_image width cap"
+git add packages/thallo-render/src/Templates/TemplatePolicy.php packages/thallo-render/src/RenderContextExtension.php tests/Integration/Render/TemplateLinterTest.php tests/Integration/Render/AllowlistedFunctionBoundsTest.php tests/Integration/Render/DbTemplateLoaderTest.php
+git commit --only packages/thallo-render/src/Templates/TemplatePolicy.php packages/thallo-render/src/RenderContextExtension.php tests/Integration/Render/TemplateLinterTest.php tests/Integration/Render/AllowlistedFunctionBoundsTest.php tests/Integration/Render/DbTemplateLoaderTest.php -m "feat(render): policy v17 — reviewed functions, range denial, media_image width cap"
 ```
 
 ---
@@ -849,9 +867,9 @@ Update `renderPublishedBlocks()`'s own docblock: "…renders as an empty string"
 
 - [ ] **Step 3: Fix the callers/tests the type change breaks**
 
-Run: `vendor/bin/phpstan analyse packages/thallo-render packages/thallo-commerce 2>/dev/null || composer phpstan 2>/dev/null; vendor/bin/phpunit --filter "PriorityClaimRenderBoundaryTest"`
+Run: `rg -n "renderPublishedBlocks" packages tests app && vendor/bin/phpunit --filter "PriorityClaimRenderBoundaryTest"`
 
-`PriorityClaimRenderBoundaryTest` asserts on `renderPublishedBlocks()` output — update string assertions to cast: `self::assertSame('…', (string) $renderer->renderPublishedBlocks(...))` and null assertions stay. Fix any other static-analysis hit that treats the return as string (search: `grep -rn "renderPublishedBlocks" packages/ tests/ app/`).
+`PriorityClaimRenderBoundaryTest` asserts on `renderPublishedBlocks()` output — update string assertions to cast: `self::assertSame('…', (string) $renderer->renderPublishedBlocks(...))` and null assertions stay. Inspect every `rg` hit and update any caller/test that declares or treats the return as `string`. This repository has no PHPStan binary/script, so do not hide a nonexistent static-analysis command behind `2>/dev/null`.
 
 - [ ] **Step 4: Run the affected suites**
 
@@ -861,10 +879,11 @@ Expected: ALL PASS — the product page renders JSON-LD via `json_script` and en
 - [ ] **Step 5: Commit**
 
 ```bash
-git commit -o packages/thallo-commerce/templates/shop/product.twig -o packages/thallo-render/src/EntryBlocksRenderer.php -o packages/thallo-commerce/src/Http/Shop/ShopCatalogController.php -o tests/Integration/Render/PriorityClaimRenderBoundaryTest.php -m "feat(commerce): product.twig round-trips the save policy — json_script + Markup enrichment"
+git add packages/thallo-commerce/templates/shop/product.twig packages/thallo-render/src/EntryBlocksRenderer.php packages/thallo-commerce/src/Http/Shop/ShopCatalogController.php tests/Integration/Render/PriorityClaimRenderBoundaryTest.php
+git commit --only packages/thallo-commerce/templates/shop/product.twig packages/thallo-render/src/EntryBlocksRenderer.php packages/thallo-commerce/src/Http/Shop/ShopCatalogController.php tests/Integration/Render/PriorityClaimRenderBoundaryTest.php -m "feat(commerce): product.twig round-trips the save policy — json_script + Markup enrichment"
 ```
 
-(Add any further test files Step 3 touched to the commit.)
+If Step 3 legitimately changes another caller/test, add that exact path to both the `git add` and `git commit --only` commands before committing; never leave a required fix unstaged or broaden staging to the whole tree.
 
 ---
 
@@ -943,7 +962,8 @@ Expected: ALL PASS. Any failure names a real gap — fix the template or (only w
 - [ ] **Step 3: Commit**
 
 ```bash
-git commit -o tests/Integration/Render/ShippedTemplatesLintGateTest.php -m "test(render): exception-free lint gate over every shipped template"
+git add tests/Integration/Render/ShippedTemplatesLintGateTest.php
+git commit --only tests/Integration/Render/ShippedTemplatesLintGateTest.php -m "test(render): exception-free lint gate over every shipped template"
 ```
 
 ---
@@ -961,6 +981,8 @@ git commit -o tests/Integration/Render/ShippedTemplatesLintGateTest.php -m "test
 
 Boundary per spec (P2): editable `.twig` rows only — skip `custom.css` and `readonly` rows. DB rows compare against the composite DB-first loader; filesystem rows against the selected theme's filesystem chain.
 
+Build the test in two explicit branches. The filesystem branch uses the real account and commerce template roots plus two synthetic contributors that collide on one name; both `TemplateCatalog` and `ThemeLocator` receive projections of the **same** frozen registry snapshot. The DB branch uses the real composite loader and the repository's actual `findCurrentSource()` API.
+
 ```php
 <?php
 
@@ -969,62 +991,151 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Render;
 
 use App\Tests\Support\AppTestCase;
+use Thallo\Render\Contribution\RenderContributionRegistry;
+use Thallo\Render\Contribution\TemplatePathContributor;
+use Thallo\Render\Templates\RenderTemplateLoader;
 use Thallo\Render\Templates\TemplateCatalog;
 use Thallo\Render\Templates\TemplateRepository;
 use Thallo\Render\ThemeLocator;
 use Thallo\Render\TwigFactory;
 use Twig\Loader\FilesystemLoader;
 
-/**
- * Parity invariant (admin-contributed-templates spec §Testing): for every editable
- * .twig row the catalog lists, the source the admin GET would seed is byte-identical
- * to what the render side resolves for that name — db rows via the composite DB-first
- * environment loader, filesystem rows via the theme's filesystem chain.
- */
+/** The editor must seed the exact bytes the runtime precedence chain resolves. */
 final class CatalogRuntimeParityTest extends AppTestCase
 {
-    public function testEveryEditableCatalogRowMatchesTheRuntimeLoader(): void
-    {
-        $c = $this->container();
-        /** @var TemplateCatalog $catalog */
-        $catalog = $c->get(TemplateCatalog::class);
-        /** @var TemplateRepository $repo */
-        $repo = $c->get(TemplateRepository::class);
-        $envLoader = $c->get(TwigFactory::class)->environment()->getLoader();
-        $fsChain = new FilesystemLoader($c->get(ThemeLocator::class)->activePaths()['templates']);
+    private string $tmp;
 
-        // Exercise the db branch too: override one contributed-or-default name first.
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->tmp = sys_get_temp_dir() . '/thallo-catalog-parity-' . bin2hex(random_bytes(4));
+        mkdir($this->tmp . '/a', 0755, true);
+        mkdir($this->tmp . '/b', 0755, true);
+        mkdir($this->tmp . '/themes/parity/templates', 0755, true);
+        file_put_contents($this->tmp . '/a/__package_collision.twig', 'PACKAGE-A');
+        file_put_contents($this->tmp . '/b/__package_collision.twig', 'PACKAGE-B');
+        file_put_contents($this->tmp . '/themes/parity/theme.json', '{"name":"parity"}');
+        file_put_contents($this->tmp . '/themes/parity/templates/__theme_only.twig', 'THEME');
+    }
+
+    protected function tearDown(): void
+    {
+        $it = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($this->tmp, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::CHILD_FIRST,
+        );
+        foreach ($it as $file) {
+            $file->isDir() ? @rmdir($file->getPathname()) : @unlink($file->getPathname());
+        }
+        @rmdir($this->tmp);
+        parent::tearDown();
+    }
+
+    /** @param list<string> $dirs */
+    private function contributor(string $id, array $dirs, int $priority): TemplatePathContributor
+    {
+        return new class ($id, $dirs, $priority) implements TemplatePathContributor {
+            /** @param list<string> $dirs */
+            public function __construct(
+                private readonly string $id,
+                private readonly array $dirs,
+                private readonly int $priority,
+            ) {
+            }
+
+            public function contributorId(): string
+            {
+                return $this->id;
+            }
+
+            public function priority(): int
+            {
+                return $this->priority;
+            }
+
+            public function templatePaths(): array
+            {
+                return $this->dirs;
+            }
+        };
+    }
+
+    public function testEveryFilesystemRowIncludingPackagesMatchesTheRuntimeChain(): void
+    {
+        $root = dirname(__DIR__, 3);
+        $registry = new RenderContributionRegistry();
+        $registry->registerTemplatePaths($this->contributor('probe-a', [$this->tmp . '/a'], 0));
+        $registry->registerTemplatePaths($this->contributor('probe-b', [$this->tmp . '/b'], 1));
+        $registry->registerTemplatePaths($this->contributor(
+            'thallo-account',
+            [$root . '/packages/thallo-account/templates'],
+            10,
+        ));
+        $registry->registerTemplatePaths($this->contributor(
+            'thallo-commerce',
+            [$root . '/packages/thallo-commerce/templates'],
+            20,
+        ));
+
+        $contributions = $registry->frozenTemplateContributions();
+        $catalog = new TemplateCatalog(
+            $this->container()->get(TemplateRepository::class),
+            $this->tmp . '/themes',
+            $root . '/packages/thallo-render/themes',
+            $contributions,
+        );
+        $locator = new ThemeLocator(
+            'parity',
+            $this->tmp . '/themes',
+            $root . '/packages/thallo-render/themes',
+            $registry->frozenTemplatePaths(),
+        );
+        $runtime = new FilesystemLoader($locator->activePaths()['templates']);
+
+        $rows = $catalog->list('parity');
+        self::assertSame('package', array_column($rows, null, 'path')['__package_collision.twig']['origin']);
+        self::assertSame('PACKAGE-A', $runtime->getSourceContext('__package_collision.twig')->getCode());
+
+        foreach ($rows as $row) {
+            if (!str_ends_with($row['path'], '.twig') || $row['origin'] === 'db') {
+                continue;
+            }
+            $admin = $catalog->readFile('parity', $row['path']);
+            self::assertNotNull($admin, "Catalog row has no readable baseline: {$row['path']}");
+            self::assertSame(
+                $runtime->getSourceContext($row['path'])->getCode(),
+                $admin['source'],
+                "Catalog/runtime divergence for {$row['path']}",
+            );
+        }
+    }
+
+    public function testDbRowMatchesTheCompositeRuntimeLoader(): void
+    {
+        /** @var TemplateRepository $repo */
+        $repo = $this->container()->get(TemplateRepository::class);
         $repo->save('default', 'entry.twig', 'PARITY-DB {{ entry.fields.title }}', 'user00000001');
 
-        $rows = $catalog->list('default');
-        self::assertNotSame([], $rows);
-        foreach ($rows as $row) {
-            if (!str_ends_with($row['path'], '.twig')) {
-                continue; // editable .twig rows only (custom.css excluded by suffix)
-            }
-            $runtime = $row['origin'] === 'db'
-                ? $envLoader->getSourceContext($row['path'])->getCode()
-                : $fsChain->getSourceContext($row['path'])->getCode();
-            $admin = $row['origin'] === 'db'
-                ? $repo->findActive('default', $row['path'])['source']
-                : $catalog->readFile('default', $row['path'])['source'];
-            self::assertSame($runtime, $admin, "Catalog/runtime divergence for {$row['path']}");
-        }
+        $loader = $this->container()->get(TwigFactory::class)->environment()->getLoader();
+        self::assertInstanceOf(RenderTemplateLoader::class, $loader);
+        $loader->resetForRender();
+        $row = $repo->findCurrentSource('default', 'entry.twig');
+        self::assertNotNull($row);
+        self::assertSame($loader->getSourceContext('entry.twig')->getCode(), $row['source']);
     }
 }
 ```
 
-Adapt `TemplateRepository::save()`/`findActive()` names to the real API (`TemplateRepository.php` — the DB branch of `TemplatesAdminController::show()` shows the exact read call). Note the DB-first env loader re-lints DB rows at `getSourceContext()` — the override source above must lint clean (it does).
-
 - [ ] **Step 2: Run it**
 
 Run: `vendor/bin/phpunit --filter CatalogRuntimeParityTest`
-Expected: PASS. In the shared harness the frozen registry has zero contributors, so this covers theme/default/db rows; package-row parity is already pinned structurally by Task 2's ladder tests (same walk roots, same order as `ThemeLocator`) — do not force contributors into the shared frozen registry for this.
+Expected: PASS. The first test must enumerate real account/commerce package rows and prove first-contributor-wins on the synthetic collision. The second must read the DB source through `RenderTemplateLoader`, not directly from an array loader.
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git commit -o tests/Integration/Render/CatalogRuntimeParityTest.php -m "test(render): catalog/runtime parity — the editor edits what renders"
+git add tests/Integration/Render/CatalogRuntimeParityTest.php
+git commit --only tests/Integration/Render/CatalogRuntimeParityTest.php -m "test(render): catalog/runtime parity — the editor edits what renders"
 ```
 
 ---
@@ -1098,7 +1209,7 @@ const FUNCTIONS = [
   'shop_product_url', 'shop_category_url', 'shop_index_url', 'json_script',
   'entries', 'is_preview', 'media_image', 'claim_priority_image',
   'color_mode_enabled', 'color_mode_script', 'theme_colors_style', 'theme_style_scope',
-  'include', 'parent', 'block', 'cycle', 'date', 'min', 'max', 'range',
+  'include', 'parent', 'block', 'cycle', 'date', 'min', 'max',
 ]
 ```
 
@@ -1106,13 +1217,14 @@ const FUNCTIONS = [
 
 - [ ] **Step 4: Run the admin suite**
 
-Run: `cd admin && npm test -- --run templatesPage && npm run typecheck 2>/dev/null || true`
+Run: `cd admin && npm test -- --run templatesPage && npm run type-check && npm run lint`
 Expected: ALL PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git commit -o admin/src/pages/templates/index.vue -o admin/src/pages/templates/components/twigCompletions.ts -o admin/src/__tests__/templatesPage.spec.ts -m "feat(admin): package-origin templates — folder listing, baseline note, completions sync"
+git add admin/src/pages/templates/index.vue admin/src/pages/templates/components/twigCompletions.ts admin/src/__tests__/templatesPage.spec.ts
+git commit --only admin/src/pages/templates/index.vue admin/src/pages/templates/components/twigCompletions.ts admin/src/__tests__/templatesPage.spec.ts -m "feat(admin): package-origin templates — folder listing, baseline note, completions sync"
 ```
 
 ---
@@ -1125,11 +1237,12 @@ git commit -o admin/src/pages/templates/index.vue -o admin/src/pages/templates/c
 - [ ] **Step 1: Run everything the feature touches**
 
 ```bash
-vendor/bin/phpunit tests/Integration/Render tests/Integration/Commerce
-cd admin && npm test -- --run && cd ..
+composer ci
+composer boundaries
+cd admin && npm test -- --run && npm run type-check && npm run lint && cd ..
 ```
 
-Expected: green. Pay attention to `DbTemplatesPipelineTest`, `PreviewSessionTest`, `StarterTemplatesTest` (policy bump ripple) and any commerce JSON-LD snapshot.
+Expected: green. `composer ci` is the repository's authoritative full PHP gate (`phpcs` + DB reset/migrate + all PHPUnit suites), not a pair of selected integration directories. Pay attention to `DbTemplatesPipelineTest`, `PreviewSessionTest`, `StarterTemplatesTest` (policy bump ripple) and any commerce JSON-LD snapshot. `composer boundaries` separately proves no package-boundary regression; the admin commands fail loudly with no stderr suppression or `|| true`.
 
 - [ ] **Step 2: README**
 
@@ -1138,13 +1251,15 @@ In `packages/thallo-render/README.md`'s "DB-edited templates" section, add two s
 - [ ] **Step 3: Commit**
 
 ```bash
-git commit -o packages/thallo-render/README.md -m "docs(render): document package-origin templates in the admin editor"
+git add packages/thallo-render/README.md
+git commit --only packages/thallo-render/README.md -m "docs(render): document package-origin templates in the admin editor"
 ```
 
 ---
 
 ## Verification (end-to-end)
 
-1. `vendor/bin/phpunit tests/Integration/Render tests/Integration/Commerce` — all green, including the new `ShippedTemplatesLintGateTest`, `CatalogRuntimeParityTest`, `TemplateCatalogContributionsTest`, `AllowlistedFunctionBoundsTest`, `JsonScriptFunctionTest`.
-2. `cd admin && npm test -- --run` — all green.
-3. Manual smoke (optional but recommended): boot the app with commerce enabled, open Admin → Theme editor — `shop/` and `account/` folders appear; open `shop/checkout.twig` (source visible, note says package baseline); save a trivial edit → badge flips to `db`; visit the storefront checkout page → the edit renders; delete the override → baseline returns.
+1. `composer ci` — PHPCS and the complete PHP test suite are green, including the new `ShippedTemplatesLintGateTest`, `CatalogRuntimeParityTest`, `TemplateCatalogContributionsTest`, `AllowlistedFunctionBoundsTest`, `JsonScriptFunctionTest` and the DB-runtime allowlist test.
+2. `composer boundaries` — package-boundary scan is green.
+3. `cd admin && npm test -- --run && npm run type-check && npm run lint` — all admin tests, Vue/TypeScript checks and lint are green.
+4. Manual smoke (optional but recommended): boot the app with commerce enabled, open Admin → Theme editor — `shop/` and `account/` folders appear; open `shop/checkout.twig` (source visible, note says package baseline); save a trivial edit → badge flips to `db`; visit the storefront checkout page → the edit renders; delete the override → baseline returns.
