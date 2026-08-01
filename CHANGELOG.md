@@ -7,6 +7,26 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
 ## [Unreleased]
 
 ### Added
+- **Theme runtime custom elements** (`packages/thallo-render/runtime/runtime.js`): four v1
+  Web Components — `thallo-carousel`, `thallo-tabs`, and `thallo-navigation` are light-DOM
+  adapters over the existing carousel/tabs/navigation runtime modules, riding the
+  transactional `ThalloRuntime.registerElement()` bridge (attribute sugar — e.g.
+  `<thallo-carousel arrows autoplay>` — is projected into the existing `data-*` option
+  vocabulary; an explicit `data-*` attribute already present in markup always wins over
+  the sugar, and projection is undo-aware: canvas-skip, missing target, a structural
+  `false`, a contained throw, or disconnect-before-microtask all roll the projection back
+  atomically via a shared `project()` helper with rollback-then-rethrow semantics).
+  `thallo-navigation` resolves its target to the inner drawer
+  (`[data-thallo-enhance="navigation"]`), not the host, so the enhancement marker and
+  cleanup live on the drawer while the root class and `--reveal-hover` modifier project
+  onto the host. `thallo-color-mode-toggle` is the deliberate pipeline exception — it
+  never enters `registerElement`; its `connectedCallback` only re-syncs
+  `window.thalloColorMode.reflect()` for late-inserted toggles. Boot ordering guarantees
+  element projection always resolves before the whole-document scan, in both document
+  ready states. This is the v1 public custom-elements API surface. The runtime's gzip
+  size-budget ceiling was raised, by reviewed decision, from 12,288 to 14,336 bytes
+  (reason: the four-element Web Components API plus their lifecycle teardown); the
+  runtime measures 13,394 bytes gzip -9 at this ceiling.
 - **Storefront customer accounts** (`packages/thallo-account`, gated by the `thallo.accounts`
   capability; requires glueful/framework ^1.74.0): a shopping visitor gets a global Glueful
   identity and **zero workspace authority** — no membership, role, or permission. The guarantee is
