@@ -69,8 +69,8 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   the page-inventory concept: **Commerce → Settings → Store** now lists the default store pages
   (Shop, Wishlist, Cart, Checkout) with paths computed from the live shop prefix.
 - **Checkout page + hosted payment initiation** (`packages/thallo-commerce` + payvia/commerce
-  seams; requires unreleased glueful/payvia > 2.2.0 and glueful/commerce > 1.8.0 — repin at
-  release): `/checkout` becomes a real checkout. A no-JS-first quote leg (a non-mutating POST
+  seams; requires glueful/payvia ^2.3.0 and glueful/commerce ^1.9.0): `/checkout` becomes a real
+  checkout. A no-JS-first quote leg (a non-mutating POST
   renders totals, shipping-method radios, and field errors directly — no PRG, nothing is
   session-backed; the submitted idempotency key is reused verbatim) shares ONE projection with
   the JSON quote endpoint, so the two can never fork; placement failures now re-render the page
