@@ -805,8 +805,16 @@ Expected: FAIL — tags undefined.
 
   // Shared projection helper: stamp a class (undo-aware) + map bare attributes to
   // existing data-* options WITHOUT overriding explicit data-* in the markup.
+  // ATOMIC (spec §1 projectOptions contract): the bridge treats a thrown
+  // projectOptions as nothing-captured, so on ANY throw this helper rolls back the
+  // mutations it already made, then rethrows — partial projection can never leak.
   function project(host, rootClass, attrMap) {
     var undos = [];
+    function rollbackAndRethrow(err) {
+      for (var i = undos.length - 1; i >= 0; i--) { try { undos[i](); } catch (e) {} }
+      throw err;
+    }
+    try {
     if (rootClass && !host.classList.contains(rootClass)) {
       host.classList.add(rootClass);
       undos.push(function () { host.classList.remove(rootClass); });
@@ -824,6 +832,7 @@ Expected: FAIL — tags undefined.
         }
       });
     }
+    } catch (err) { rollbackAndRethrow(err); }
     return function () { for (var i = undos.length - 1; i >= 0; i--) { undos[i](); } };
   }
 
@@ -849,11 +858,13 @@ Expected: FAIL — tags undefined.
     projectOptions: function (host) {
       var undoBase = project(host, 'thallo-block-navigation', null);
       var addedHover = false;
-      if (host.hasAttribute('reveal-hover') &&
-          !host.classList.contains('thallo-block-navigation--reveal-hover')) {
-        host.classList.add('thallo-block-navigation--reveal-hover');
-        addedHover = true;
-      }
+      try {
+        if (host.hasAttribute('reveal-hover') &&
+            !host.classList.contains('thallo-block-navigation--reveal-hover')) {
+          host.classList.add('thallo-block-navigation--reveal-hover');
+          addedHover = true;
+        }
+      } catch (err) { undoBase(); throw err; } // atomicity contract (spec §1)
       return function () {
         if (addedHover) { host.classList.remove('thallo-block-navigation--reveal-hover'); }
         undoBase();

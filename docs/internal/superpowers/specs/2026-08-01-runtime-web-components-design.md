@@ -72,6 +72,14 @@ ThalloRuntime.registerElement(tag, moduleName, {
 })
 ```
 
+**`projectOptions` atomicity contract (fix-round amendment):** the bridge treats a
+THROWN `projectOptions` as nothing-captured (`abandonElementRecord` has no undo to
+run), so a projector that mutates and then throws would leak its partial mutations
+permanently. Projectors must therefore be atomic: either mutate nothing before
+returning the undo, or internally track each mutation and self-rollback-then-rethrow
+on failure. The shipped `project()` helper (Task 6) implements the latter; custom
+adapters must follow the same rule.
+
 `registerElement` guards on `typeof customElements === 'undefined'` — on old
 browsers and in the Node harness the elements are simply absent and the class path
 is untouched. It defines exactly the three module-backed v1 elements:
