@@ -23,12 +23,18 @@ test.describe('animated text', () => {
     // deferral, unlike the custom-element bridge) — safe to read immediately.
     const inview = await page.evaluate(() => {
       const el = document.querySelector('[data-fixture="animated-text-inview"] .thallo-block-animated_text');
+      // The stable phrase now also lives in a visually-hidden __sr span (clip-path,
+      // NOT display:none/visibility:hidden), so el.innerText would double up the
+      // phrase — read visible text from the aria-hidden wrapper span specifically.
+      const visible = el.querySelector('span[aria-hidden="true"]');
+      const sr = el.querySelector('.thallo-block-animated_text__sr');
       return {
         // innerText inserts a forced line break around the rotate span
         // (its computed display is inline-grid, one of the display values
         // the innerText algorithm always breaks around) — collapse
         // whitespace/newlines to compare the visible WORDS, not formatting.
-        text: el.innerText.replace(/\s+/g, ' ').trim(),
+        text: visible.innerText.replace(/\s+/g, ' ').trim(),
+        srText: sr.textContent,
         prepared: el.classList.contains('thallo-block-animated_text--prepared'),
         marker: el.getAttribute('data-thallo-enhanced')
       };
@@ -37,6 +43,9 @@ test.describe('animated text', () => {
     // ("Websites", "Stores") contribute width via the same-grid-cell layout
     // but never paint, so only the prefix + the active word are rendered.
     expect(inview.text).toBe('Build fast with Thallo');
+    // The visually-hidden span carries the FULL stable phrase for assistive tech,
+    // regardless of which word is currently the visible/active one.
+    expect(inview.srText).toBe('Build fast with Thallo');
     expect(inview.prepared).toBe(true);
     expect(inview.marker).toBe('animated-text');
   });
@@ -86,6 +95,10 @@ test.describe('animated text', () => {
 
     const data = await page.evaluate(() => {
       const el = document.querySelector('[data-fixture="animated-text-inview"] .thallo-block-animated_text');
+      // Same rationale as the in-viewport test above: read visible text from the
+      // aria-hidden wrapper span, not el.innerText, since the visually-hidden __sr
+      // span (clip-path only, not display:none) would otherwise double the phrase.
+      const visible = el.querySelector('span[aria-hidden="true"]');
       return {
         prepared: el.classList.contains('thallo-block-animated_text--prepared'),
         inView: el.classList.contains('thallo-block-animated_text--in-view'),
@@ -96,7 +109,7 @@ test.describe('animated text', () => {
         // (its computed display is inline-grid, one of the display values
         // the innerText algorithm always breaks around) — collapse
         // whitespace/newlines to compare the visible WORDS, not formatting.
-        text: el.innerText.replace(/\s+/g, ' ').trim(),
+        text: visible.innerText.replace(/\s+/g, ' ').trim(),
         // enhance() returns false before ever calling RT's mark() — the
         // component is never enhanced at all under reduced motion.
         marker: el.getAttribute('data-thallo-enhanced')

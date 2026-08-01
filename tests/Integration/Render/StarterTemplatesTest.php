@@ -252,20 +252,35 @@ final class StarterTemplatesTest extends AppTestCase
 
     // ---- animated_text (modern-blocks spec §3) -----------------------------------
 
-    public function testAnimatedTextRendersRotateStackAriaLabelAndVisiblePhrase(): void
+    public function testAnimatedTextRendersRotateStackVisuallyHiddenPhraseAndVisiblePhrase(): void
     {
         $out = $this->renderList([
             ['id' => 'a1', 'type' => 'animated_text',
                 'data' => ['prefix' => 'Build', 'rotate_words' => "fast\nwell", 'suffix' => 'with Thallo']],
         ]);
 
-        // tag empty → defaults to h2; aria-label assembled from prefix + active word + suffix.
+        // tag empty → defaults to h2.
         self::assertStringContainsString('<h2 class="thallo-block thallo-block-animated_text', $out);
         self::assertStringContainsString('data-effect="fade"', $out);
-        self::assertStringContainsString('aria-label="Build fast with Thallo"', $out);
 
-        // Rotate stack: aria-hidden, BOTH words stacked, first one active.
-        self::assertStringContainsString('thallo-block-animated_text__rotate" aria-hidden="true"', $out);
+        // No aria-label anywhere — the paragraph role (and others) ignore it, so the
+        // stable phrase now rides a visually-hidden span instead (assistive-tech fix).
+        self::assertStringNotContainsString('aria-label=', $out);
+        self::assertStringContainsString(
+            '<span class="thallo-block-animated_text__sr">Build fast with Thallo</span>',
+            $out,
+        );
+
+        // The entire visual assembly (prefix, rotate stack, suffix) sits in ONE
+        // aria-hidden container, immediately after the visually-hidden phrase span.
+        self::assertStringContainsString(
+            '<span class="thallo-block-animated_text__sr">Build fast with Thallo</span><span aria-hidden="true">',
+            $out,
+        );
+
+        // Rotate stack: BOTH words stacked, first one active (no longer individually
+        // aria-hidden — the single outer wrapper above already covers it).
+        self::assertStringContainsString('<span class="thallo-block-animated_text__rotate">', $out);
         self::assertStringContainsString(
             'thallo-block-animated_text__word thallo-block-animated_text__word--active">fast</span>',
             $out,
@@ -275,13 +290,19 @@ final class StarterTemplatesTest extends AppTestCase
         // No --prepared class ever appears server-side (JS-only concern).
         self::assertStringNotContainsString('--prepared', $out);
 
-        // Visible phrase: drop the inactive rotate word span(s), strip tags, collapse
+        // Visible phrase: drop the visually-hidden sr span (its text is off-screen, not
+        // "visible") and the inactive rotate word span(s), strip tags, collapse
         // whitespace — exact concatenation of prefix + active word + suffix (no
         // whitespace-control artifacts leaking extra/missing spaces).
         $visibleOnly = preg_replace(
-            '#<span class="thallo-block-animated_text__word">.*?</span>#s',
+            '#<span class="thallo-block-animated_text__sr">.*?</span>#s',
             '',
             $out,
+        );
+        $visibleOnly = preg_replace(
+            '#<span class="thallo-block-animated_text__word">.*?</span>#s',
+            '',
+            (string) $visibleOnly,
         );
         $text = trim(preg_replace('/\s+/', ' ', strip_tags((string) $visibleOnly)));
         self::assertSame('Build fast with Thallo', $text);
