@@ -1075,5 +1075,5 @@ git commit --only packages/thallo-render/README.md -m "docs(render): copyable li
 1. `vendor/bin/phpunit tests/Integration/Render` — all green with Node available (watch for skips: the runtime tests skip silently without `node`; a skipped run proves nothing).
 2. `composer ci` — PHPCS plus the reset/migrate/full PHPUnit authority, all green.
 3. `composer boundaries` — package boundaries green.
-4. `RuntimeSizeBudgetTest` green at the UNCHANGED 12,288-byte ceiling.
+4. `RuntimeSizeBudgetTest` green at the REVIEWED 14,336-byte ceiling (raised from 12,288 by user ruling; final measured size recorded in the test comment + CHANGELOG).
 5. Manual smoke (optional): boot the app, add `<thallo-carousel arrows>` with the copyable example markup to a template, load the page — carousel arrows appear; disable JS — scroll-snap floor still styled; open the canvas editor — no element mutations in preview blocks.
