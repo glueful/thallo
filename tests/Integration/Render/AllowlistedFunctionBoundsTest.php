@@ -6,6 +6,14 @@ namespace App\Tests\Integration\Render;
 
 use App\Tests\Support\AppTestCase;
 use App\Content\Delivery\EngineEntryListReader;
+use App\Content\Repositories\ContentTypeRepository;
+use App\Content\Repositories\EntryRepository;
+use App\Content\Repositories\ReferenceProjectionRepository;
+use App\Content\Repositories\RouteRepository;
+use App\Content\Repositories\VersionRepository;
+use App\Content\Services\PublishService;
+use App\Content\Validation\FieldValidator;
+use Thallo\Contracts\Delivery\EntryListReader;
 use Thallo\Render\RenderContextExtension;
 
 /** Focused safety/bounds pins for the newly DB-template-callable functions (spec §3). */
@@ -25,15 +33,45 @@ final class AllowlistedFunctionBoundsTest extends AppTestCase
         self::assertSame([], RenderContextExtension::normalizeWidths([]));
     }
 
-    public function testEntriesLimitIsServerClampedToTwelve(): void
+    /**
+     * Behavioral pin (replaces the former source-grep): the clamp lives at the reader
+     * seam every template call crosses (EngineEntryListReader::list()) — prove it by
+     * actually publishing MORE than 12 entries and asking for far more than that, so a
+     * refactor that drops the clamp fails on real output, not on source text.
+     */
+    public function testEntriesLimitIsServerClampedToTwelveEvenWhenTheCallerAsksForThousands(): void
     {
-        // The clamp lives at the reader seam every template call crosses
-        // (EngineEntryListReader::list()) — source-pin it so a refactor that
-        // drops the clamp fails here, not in production.
-        $src = (string) file_get_contents(
-            \dirname(__DIR__, 3) . '/app/Content/Delivery/EngineEntryListReader.php',
+        $types = new ContentTypeRepository($this->connection());
+        $typeUuid = $types->create([
+            'slug' => 'clamp-post',
+            'name' => 'Clamp Post',
+            'public_delivery' => true,
+            'schema' => [['name' => 'title', 'type' => 'string', 'required' => true]],
+        ]);
+        $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
+        $publish = new PublishService(
+            $this->appContext(),
+            $entries,
+            new VersionRepository($this->connection()),
+            $types,
+            new FieldValidator(),
+            new ReferenceProjectionRepository($this->connection()),
         );
-        self::assertStringContainsString('max(1, min(12,', $src);
+        $routes = new RouteRepository($this->connection());
+
+        for ($i = 0; $i < 13; $i++) {
+            $uuid = $entries->createEntry($typeUuid, 'en', 1, 'user00000001');
+            $entries->saveDraft($uuid, 'en', ['title' => "Post {$i}"], 1, 0, 'user00000001');
+            $routes->assign($uuid, $typeUuid, 'en', "clamp-post-{$i}");
+            $publish->publish($uuid, 'en', 'user00000001');
+        }
+
+        /** @var EntryListReader $reader */
+        $reader = $this->container()->get(EntryListReader::class);
+        self::assertInstanceOf(EngineEntryListReader::class, $reader);
+        $out = $reader->list('clamp-post', ['limit' => 5000], 'en');
+
+        self::assertCount(12, $out['items']);
     }
 
     /**

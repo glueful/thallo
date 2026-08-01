@@ -132,6 +132,38 @@ final class DbTemplateLoaderTest extends AppTestCase
         );
     }
 
+    /**
+     * Disk-only pin (TemplatePolicy::DISK_ONLY_TEMPLATES) holds at RENDER, not just at
+     * the admin API layer: a stray active row for a pinned path — written straight via
+     * the repository, the same way a raw SQL insert or migration would — must stay
+     * invisible to the composite loader. A normal (non-pinned) path is unaffected.
+     */
+    public function testDiskOnlyPinIgnoresStrayDbOverrideAtRender(): void
+    {
+        $env = $this->env();
+        $fsRendered = $env->render('blocks/html.twig', ['data' => ['code' => 'fs-content']]);
+
+        $this->repo()->save('default', 'blocks/html.twig', 'DB-SHOULD-NEVER-RENDER', null);
+        // Prove the row is really active — the pin, not a missing row, is why it loses.
+        self::assertArrayHasKey('blocks/html.twig', $this->repo()->overrideMap('default'));
+
+        $loader = $env->getLoader();
+        self::assertInstanceOf(RenderTemplateLoader::class, $loader);
+        $loader->resetForRender();
+
+        $rendered = $env->render('blocks/html.twig', ['data' => ['code' => 'fs-content']]);
+        self::assertSame($fsRendered, $rendered, 'The filesystem source must win for a disk-only pinned path.');
+        self::assertStringNotContainsString('DB-SHOULD-NEVER-RENDER', $rendered);
+
+        // Regression: a normal path still resolves DB-first.
+        $this->repo()->save('default', 'entry.twig', 'DB-WINS:{{ entry.fields.title }}', null);
+        $loader->resetForRender();
+        self::assertSame(
+            'DB-WINS:T',
+            $env->render('entry.twig', ['entry' => ['fields' => ['title' => 'T']]]),
+        );
+    }
+
     public function testNoDbLoaderMeansPureFilesystemBehavior(): void
     {
         $base = $this->appContext()->getBasePath();
