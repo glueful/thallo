@@ -58,7 +58,7 @@ conventions, and late-inserted markup upgrades itself without calling
 ### 1. Core bridge: one pipeline, two discovery paths
 
 All code stays in the single fingerprinted `runtime.js`. The core's per-component
-enhancement step (marker check → canvas policy → try/catch → mark) is extracted into
+enhancement step (canvas policy → marker check → try/catch → mark) is extracted into
 a **private** pipeline function used by the scan loop, and exposed to elements only
 through one new public method that closes over it (P2 pin — separate module IIFEs
 cannot reach core privates):
@@ -74,8 +74,11 @@ ThalloRuntime.registerElement(tag, moduleName, {
 
 `registerElement` guards on `typeof customElements === 'undefined'` — on old
 browsers and in the Node harness the elements are simply absent and the class path
-is untouched. Element names are fixed v1 API: `thallo-carousel`, `thallo-tabs`,
-`thallo-navigation`, `thallo-color-mode-toggle`.
+is untouched. It defines exactly the three module-backed v1 elements:
+`thallo-carousel`, `thallo-tabs`, and `thallo-navigation`. The fourth fixed name,
+`thallo-color-mode-toggle`, is defined by the separate guarded page-service adapter
+in §4; it never enters `registerElement` or pretends the registry's `<html>` no-op is
+a component enhancer.
 
 **connectedCallback** defers one microtask (P2 pin) so synchronously-constructed
 children are complete, then: (1) canvas gate FIRST — if the module is `canvas:
@@ -89,6 +92,32 @@ stamping, all captured in an undo function; (4) run the shared pipeline for that
 module on the target. Documented constraint: asynchronously-populated elements must
 be fully built before insertion — the microtask deferral covers parser timing, not
 arbitrary later population.
+
+**Projection is transactional (P1 pin).** `registerElement` must distinguish a
+successful/already-enhanced result from canvas-skip, missing target, structural
+`false`, and contained throw. On every unsuccessful outcome it immediately runs the
+projection undo (if projection ran), stores no lifecycle record, and leaves the
+fallback DOM byte-equivalent to its pre-connection state. On success it composes the
+module cleanup followed by projection undo and stores that composed cleanup. An
+already-enhanced target keeps the projection and adopts the existing per-module
+cleanup without invoking the enhancer again; projection undo still belongs to the
+host lifecycle. A disconnect before the deferred microtask runs cancels the pending
+work and performs any projection undo already created.
+
+The private pipeline therefore returns an internal outcome rather than a bare value:
+`enhanced | already-enhanced | canvas-skipped | structural-noop | failed`, plus the
+stored cleanup when one exists. The scan loop ignores that outcome after containment;
+`registerElement` consumes it to commit or roll back projection. This result is not a
+public theme-author API.
+
+**Boot ordering is explicit (P1 pin).** The current boot scheduling moves out of the
+core IIFE into one end-of-file footer placed after every module registration and both
+element-registration sections. The footer preserves today's behavior (`DOMContentLoaded`
+when loading, one microtask otherwise) but queues it only after `customElements.define()`
+has upgraded existing hosts and queued their connection microtasks. Therefore option
+projection/element enhancement wins before the legacy whole-document scan in both
+parser and late-loaded-runtime paths; the scan then observes the shared marker and is
+a no-op. No public `start()` API is added.
 
 **disconnectedCallback** runs that (element, module)'s cleanup — module teardown,
 then the projection undo — and removes ONLY that module's token from
@@ -104,8 +133,9 @@ them in v1 — harmless, and block markup gains teardown capability for free).
 `enhance(component)` return values become meaningful:
 
 - **`false`** — structural no-op (missing/malformed required structure): the
-  component is NOT marked and nothing is stored; the fallback DOM is untouched (P2
-  pin — today's silent-return paths in carousel/tabs are updated to return `false`).
+  component is NOT marked and nothing is stored; the element adapter also rolls back
+  any option/class projection, so the fallback DOM is untouched (P2 pin — today's
+  silent-return paths in carousel/tabs are updated to return `false`).
 - **a function** — success with teardown; stored per (component, module).
 - **anything else** — success without teardown (color-mode's registry no-op keeps
   working unchanged).
@@ -145,9 +175,10 @@ them in v1 — harmless, and block markup gains teardown capability for free).
 `<thallo-color-mode-toggle>` is an **explicit exception to the pipeline** (P2 pin):
 the color-mode registry entry is a deliberate no-op on `<html>` and the real behavior
 is the page-level delegated service. The element does NOT enter the component
-pipeline; its `connectedCallback` calls `window.thalloColorMode.reflect()` (when the
-service exists) so late-inserted toggles show correct `aria-checked`, and clicks ride
-the existing document-level delegation. Its light DOM is server-rendered fallback
+pipeline or `registerElement`; a dedicated custom-elements-guarded adapter defines
+it and its `connectedCallback` calls `window.thalloColorMode.reflect()` (when the
+service exists) so late-inserted toggles show correct `aria-checked`. Clicks ride the
+existing document-level delegation. Its light DOM is server-rendered fallback
 controls (`[data-color-mode-set]` buttons) that the element only upgrades.
 
 Root-class stamping (e.g. `.thallo-block-carousel` onto the element so starter CSS
@@ -157,16 +188,21 @@ by cleanup (P1 pin).
 ### 5. CSS aliases — the no-JS floor must be styled without JS (P1 pin)
 
 Autonomous custom elements default to `display: inline`, and JS-only class stamping
-would leave the pre-JS floor unstyled. The default theme's `assets/blocks.css` gains
-tag aliases at zero extra specificity for every rule that styles a block root the
-elements can adopt:
+would leave the pre-JS floor unstyled. Aliases live with the stylesheet that already
+owns each component: carousel/tabs/color-mode rules in `assets/blocks.css`, and
+navigation rules in `assets/navigation.css`. Each gains tag aliases at zero extra
+specificity for every rule that styles a block root the elements can adopt:
 
 ```css
 :where(.thallo-block-carousel, thallo-carousel) { … }
 ```
 
-plus explicit `display: block` for the four element tags, and a feature-off rule for
-the toggle:
+plus explicit `display: block` for `thallo-carousel`, `thallo-tabs`, and
+`thallo-navigation`. `thallo-color-mode-toggle` uses an inline-compatible display
+(`inline-block`, with its existing inner segmented-control layout unchanged), not the
+page-section block default. Note the toggle block's existing root class is
+`thallo-block-color_mode` — underscore, from the block slug — so its alias is
+`:where(.thallo-block-color_mode, thallo-color-mode-toggle)`, not a hyphenated guess. `blocks.css` also owns the feature-off rule:
 
 ```css
 html:not([data-color-mode-enabled="true"]) thallo-color-mode-toggle { display: none; }
@@ -185,14 +221,25 @@ manually). Coverage per element and for the core bridge:
 - upgrade enhances; attribute sugar writes the existing vocabulary; navigation
   resolves the inner drawer target (marker/cleanup on the target, not the host).
 - double-path idempotency both orders (scan → connect, connect → scan).
+- boot ordering in both `readyState === 'loading'` and late-load paths: element
+  connection/projection precedes the one document scan; no option is locked in from
+  pre-projection state.
 - disconnect: injected DOM gone, listeners/timers/observers detached (stub-level
   accounting), projection undone, ONLY that module's marker token removed;
   reconnect re-enhances.
 - canvas: `skip` modules through the lifecycle path mutate NOTHING on canvas — not
   even classes/attributes.
-- structural no-op returns `false` → unmarked, fallback byte-identical; tabs
-  interaction-then-disconnect restores the exact served radio floor (baseline
-  snapshot test).
+- projection transaction: canvas-skip, missing target, structural `false`, contained
+  throw, and disconnect-before-microtask all run projection undo, leave no lifecycle
+  record and preserve fallback bytes; successful/already-enhanced paths retain the
+  projection until disconnect. Tabs interaction-then-disconnect restores the exact
+  served radio floor (baseline snapshot test).
+- CSS ownership: carousel/tabs/toggle aliases are asserted in `blocks.css`, navigation
+  aliases in `navigation.css`; the three structural elements compute to block while
+  the toggle remains inline-compatible, and the feature-off selector hides it.
+- registration split: `registerElement` defines exactly the three module-backed
+  names; the guarded color-mode adapter defines its fourth name once and calls only
+  `thalloColorMode.reflect()`.
 - `customElements` absent → zero throws (existing tests already execute the bytes
   bare and become the guard's regression net).
 - `RuntimeSizeBudgetTest`: existing 12,288-byte gzip ceiling unchanged (current
