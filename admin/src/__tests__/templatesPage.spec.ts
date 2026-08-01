@@ -324,6 +324,45 @@ describe('templates page', () => {
     expect(note.text()).toContain('never modified')
   })
 
+  it('a read-only package template shows the read-only note, not the package note', async () => {
+    fetchTemplatesMock.mockResolvedValue({
+      theme: 'default',
+      themes: ['default'],
+      templates: [
+        ...rows(),
+        {
+          path: 'shop/checkout.twig',
+          origin: 'package',
+          overridden: false,
+          updated_at: null,
+          readonly: true,
+        },
+      ],
+    })
+    fetchTemplateMock.mockResolvedValue({
+      path: 'shop/checkout.twig',
+      theme: 'default',
+      origin: 'package',
+      source: '{{ product.name }}',
+      version_uuid: null,
+      readonly: true,
+      readonly_reason: 'Package-pinned checkout flow — override via the database instead.',
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.find('[data-test="template-group-shop"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="template-item-shop/checkout.twig"]').trigger('click')
+    await flushPromises()
+
+    const readonlyNote = wrapper.find('[data-test="readonly-note"]')
+    expect(readonlyNote.exists()).toBe(true)
+    expect(readonlyNote.text()).toContain('Package-pinned checkout flow')
+    expect(wrapper.find('[data-test="package-origin-note"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="save-template"]').exists()).toBe(false)
+  })
+
   it('a 422 save renders the linter violations at their lines', async () => {
     saveTemplateMock.mockRejectedValue(
       new ApiError(
