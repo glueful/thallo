@@ -272,6 +272,58 @@ describe('templates page', () => {
     expect(wrapper.find('[data-test="delete-override"]').exists()).toBe(false) // fs: nothing to delete
   })
 
+  it('groups package templates into their folder and badges the origin', async () => {
+    fetchTemplatesMock.mockResolvedValue({
+      theme: 'default',
+      themes: ['default'],
+      templates: [
+        ...rows(),
+        { path: 'shop/checkout.twig', origin: 'package', overridden: false, updated_at: null },
+      ],
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('shop')
+    await wrapper.find('[data-test="template-group-shop"]').trigger('click')
+    await flushPromises()
+
+    const row = wrapper.find('[data-test="template-item-shop/checkout.twig"]')
+    expect(row.exists()).toBe(true)
+    expect(row.text()).toContain('package')
+    expect(wrapper.find('[data-test="package-origin-note"]').exists()).toBe(false) // not selected yet
+  })
+
+  it('shows the immutable-baseline note for a selected package template', async () => {
+    fetchTemplatesMock.mockResolvedValue({
+      theme: 'default',
+      themes: ['default'],
+      templates: [
+        ...rows(),
+        { path: 'shop/checkout.twig', origin: 'package', overridden: false, updated_at: null },
+      ],
+    })
+    fetchTemplateMock.mockResolvedValue({
+      path: 'shop/checkout.twig',
+      theme: 'default',
+      origin: 'package',
+      source: '{{ product.name }}',
+      version_uuid: null,
+    })
+    const wrapper = mountPage()
+    await flushPromises()
+
+    await wrapper.find('[data-test="template-group-shop"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="template-item-shop/checkout.twig"]').trigger('click')
+    await flushPromises()
+
+    const note = wrapper.find('[data-test="package-origin-note"]')
+    expect(note.exists()).toBe(true)
+    expect(note.text()).toContain('Package template')
+    expect(note.text()).toContain('never modified')
+  })
+
   it('a 422 save renders the linter violations at their lines', async () => {
     saveTemplateMock.mockRejectedValue(
       new ApiError(

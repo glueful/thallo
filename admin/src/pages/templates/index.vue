@@ -383,6 +383,14 @@ onMounted(loadList)
             <code>thallo-block-*</code> classes. Site styling for trusted operators; this is not a
             content-editing surface.
           </p>
+          <p
+            v-else-if="origin === 'package'"
+            class="text-xs text-muted"
+            data-test="package-origin-note"
+          >
+            Package template — saving creates a database override; the package file is never
+            modified.
+          </p>
           <p v-else-if="origin !== 'db'" class="text-xs text-muted" data-test="fs-origin-note">
             Filesystem template ({{ origin }}) — saving creates a database override that shadows it.
           </p>
