@@ -40,7 +40,10 @@ final class ElementCssAliasTest extends AppTestCase
             $css,
         );
         self::assertStringContainsString('thallo-carousel, thallo-tabs { display: block; }', $css);
-        self::assertStringContainsString('thallo-color-mode-toggle { display: inline-block; }', $css);
+        // A bare type-selector display rule (specificity 0,0,1) would beat the
+        // :where() alias (0,0,0) and break the segmented-control inline-flex
+        // layout; the alias already supplies the inline-compatible display.
+        self::assertStringNotContainsString('thallo-color-mode-toggle { display: inline-block;', $css);
         self::assertStringContainsString(
             'html:not([data-color-mode-enabled="true"]) thallo-color-mode-toggle { display: none; }',
             $css,
