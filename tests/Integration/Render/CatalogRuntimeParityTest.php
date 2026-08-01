@@ -107,8 +107,15 @@ final class CatalogRuntimeParityTest extends AppTestCase
         $runtime = new FilesystemLoader($locator->activePaths()['templates']);
 
         $rows = $catalog->list('parity');
-        self::assertSame('package', array_column($rows, null, 'path')['__package_collision.twig']['origin']);
+        $byPath = array_column($rows, null, 'path');
+
+        self::assertArrayHasKey('__package_collision.twig', $byPath);
+        self::assertSame('package', $byPath['__package_collision.twig']['origin']);
         self::assertSame('PACKAGE-A', $runtime->getSourceContext('__package_collision.twig')->getCode());
+
+        self::assertGreaterThanOrEqual(80, count($rows));
+        self::assertArrayHasKey('blocks/login-form.twig', $byPath);
+        self::assertArrayHasKey('shop/checkout.twig', $byPath);
 
         foreach ($rows as $row) {
             if (!str_ends_with($row['path'], '.twig') || $row['origin'] === 'db') {
