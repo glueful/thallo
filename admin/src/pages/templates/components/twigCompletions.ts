@@ -32,6 +32,7 @@ const FUNCTIONS = [
   'shop_category_url',
   'shop_index_url',
   'json_script',
+  'block_script',
   'entries',
   'is_preview',
   'media_image',
