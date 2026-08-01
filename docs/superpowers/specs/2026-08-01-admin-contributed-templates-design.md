@@ -79,11 +79,29 @@ controller's documented origin vocabulary from `db|theme|default` to
 
 ### 3. Policy & trusted-output contracts
 
-- **`TemplatePolicy::FUNCTIONS`** += `shop_product_url`, `shop_category_url`,
-  `shop_index_url` (already defined in `RenderContextExtension` via the soft-bound
-  `StorefrontLinkResolver` seam — they parse in the linter's scratch env today) and
-  the new `json_script`. `raw` and `constant` stay denied.
-  **`CACHE_VERSION` 16 → 17.**
+- **`TemplatePolicy::FUNCTIONS`** += twelve entries, one `CACHE_VERSION` bump
+  (16 → 17). `raw` and `constant` stay denied.
+  - `shop_product_url`, `shop_category_url`, `shop_index_url` — already defined in
+    `RenderContextExtension` via the soft-bound `StorefrontLinkResolver` seam; they
+    parse in the linter's scratch env today.
+  - `json_script` — new, below.
+  - **Amendment (gate audit):** eight further render-pack functions join after
+    individual review, because seven shipped default-theme templates already use them
+    (`layout.twig`, `blocks/blog_posts.twig`, `blocks/hero.twig`, `blocks/image.twig`,
+    `blocks/color_mode.twig`, `blocks/style.twig`,
+    `_listing_rows.twig`) and an exception list would permanently encode that Thallo's
+    own default templates cannot round-trip through its editor. Review outcomes:
+    `entries` (anonymous/public delivery only; server-clamped to 1..12 results —
+    `app/Content/Delivery/EngineEntryListReader.php:42`), `is_preview` (reads one
+    render flag), `claim_priority_image` (bounded one-bit render state, reset per
+    render), `color_mode_enabled` / `color_mode_script` (boolean / static trusted
+    output), `theme_colors_style` / `theme_style_scope` (closed-enum generated
+    markup), and `media_image` (public-media authority) — the last allowlisted only
+    together with **defensive width normalization**: positive ints only,
+    deduplicated, capped at 8 candidates before the resolver runs, so a DB template
+    cannot pass a huge `range()` result. Each function gets a focused safety/bounds
+    test. The earlier "only three functions" pin was based on an incomplete
+    inventory; the lint-all-shipped gate stays **exception-free**.
 - **`json_script(value)`** — new function in `RenderContextExtension`: encodes with
   `JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT |
   JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR` and returns `Twig\Markup`
@@ -120,10 +138,14 @@ controller's documented origin vocabulary from `db|theme|default` to
   name — DB rows compared against the composite DB-first loader
   (`RenderTemplateLoader`), filesystem rows against the selected theme's filesystem
   chain. This is the invariant that the editor edits what actually renders.
-- **Round-trip lint gate (new, release gate):** every shipped `.twig` under the
-  render default theme, `packages/thallo-account/templates`, and
+- **Round-trip lint gate (new, release gate, exception-free):** every shipped
+  `.twig` under the render default theme, `packages/thallo-account/templates`, and
   `packages/thallo-commerce/templates` passes `TemplateLinter` — a template using
-  denied vocabulary fails CI, not an admin's save.
+  denied vocabulary fails CI, not an admin's save. No exception list.
+- **Function safety/bounds tests (amendment):** `media_image` width normalization
+  (dedupe, positive-int filter, cap 8); `entries` limit clamp 1..12 at
+  `EngineEntryListReader`; the remaining six newly allowlisted functions each lint
+  clean and render through a DB-override template.
 - **Admin API integration** (extend `tests/Integration/Render/TemplatesAdminApiTest.php`):
   contributed name listed with `origin: "package"`; `GET` seeds the package source;
   `PUT` creates an override that wins at render; `DELETE` reveals the package
