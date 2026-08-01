@@ -42,4 +42,16 @@ final class BlockScriptTest extends AppTestCase
         $ext->resetPerRenderState();
         self::assertNotSame('', (string) $ext->blockScript('gallery'));
     }
+
+    public function testEmittedAssetsExistAndAreServedFingerprinted(): void
+    {
+        // Every catalog entry must be a real pack asset RuntimeAssetMap can serve.
+        $map = $this->container()->get(\Thallo\Render\Templates\RuntimeAssetMap::class);
+        foreach (RenderContextExtension::BLOCK_SCRIPT_ASSETS as $name) {
+            self::assertNotNull(
+                $map->fingerprintedName('block-' . $name . '.js'),
+                "block-{$name}.js missing from the runtime asset map",
+            );
+        }
+    }
 }
