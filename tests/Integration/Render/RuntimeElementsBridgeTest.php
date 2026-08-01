@@ -114,6 +114,12 @@ final class RuntimeElementsBridgeTest extends AppTestCase
         var RT = window.ThalloRuntime;
         var flush = function () { return new Promise(function (r) { setTimeout(r, 0); }); };
 
+        // Accounting for FINDING 1's fix: a throw from a caller-supplied adapter
+        // (resolveTarget/projectOptions) must be caught internally, never surface as
+        // an unhandled promise rejection.
+        var unhandledRejections = 0;
+        process.on('unhandledRejection', function () { unhandledRejections++; });
+
         // Upgrade helper: graft the element class's lifecycle onto a stub node.
         function upgrade(tag, node) {
           node.connectedCallback = defined[tag].prototype.connectedCallback;
@@ -264,6 +270,53 @@ final class RuntimeElementsBridgeTest extends AppTestCase
             'other module cleanup remained independently adoptable');
           h7.disconnectedCallback();
           assert(otherCleaned === 1, 'other module cleanup ran through its own lifecycle');
+
+          // 11. Unknown module: registerElement names a module that was never
+          //     registered — no module lookup match, so abandon before any mutation.
+          var unknownProjected = 0;
+          RT.registerElement('x-unknown', 'never-registered', {
+            projectOptions: function (elm) { unknownProjected++; return function () {}; }
+          });
+          var h8 = docRoot.appendChild(el(''));
+          upgrade('x-unknown', h8);
+          await flush();
+          assert(unknownProjected === 0, 'unknown module: projection never ran');
+          assert(h8.getAttribute('data-thallo-enhanced') === null, 'unknown module: never marked');
+          h8.disconnectedCallback(); // must be a harmless no-op — no record was ever kept
+          assert(unknownProjected === 0, 'unknown module: disconnect stayed a no-op');
+
+          // 12. Not connected: isConnected flips false before the deferred microtask
+          //     runs (e.g. inserted then immediately removed within the same tick).
+          var notConnectedProjected = 0;
+          RT.registerElement('x-disconnected', 'probe', {
+            projectOptions: function (elm) { notConnectedProjected++; return function () {}; }
+          });
+          var h9 = docRoot.appendChild(el(''));
+          upgrade('x-disconnected', h9);
+          h9.isConnected = false;
+          await flush();
+          assert(notConnectedProjected === 0, 'not connected: projection never ran');
+          assert(h9.getAttribute('data-thallo-enhanced') === null, 'not connected: never marked');
+
+          // 13. FINDING 1: a throwing resolveTarget is caught individually — logged,
+          //     abandoned cleanly, and — the load-bearing assertion — never surfaces
+          //     as an unhandled promise rejection (checked globally at the end).
+          var throwResolveCalls = 0;
+          RT.register('throwresolve', { selector: '.throwresolve-root', enhance: function () {} });
+          RT.registerElement('x-throwresolve', 'throwresolve', {
+            resolveTarget: function () { throwResolveCalls++; throw new Error('resolve boom'); },
+            projectOptions: function () {
+              assert(false, 'projection must not run when resolveTarget throws');
+            }
+          });
+          var h10 = docRoot.appendChild(el(''));
+          upgrade('x-throwresolve', h10);
+          await flush();
+          assert(throwResolveCalls === 1, 'resolveTarget was consulted');
+          assert(h10.getAttribute('data-thallo-enhanced') === null, 'throwing resolveTarget: never marked');
+
+          assert(unhandledRejections === 0,
+            'no unhandled promise rejections occurred: ' + unhandledRejections);
 
           console.log('ALL_PASS');
         })().catch(function (e) { console.error('FAIL: ' + (e && e.message)); process.exit(1); });
