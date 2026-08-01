@@ -1433,12 +1433,30 @@ final class ShopJsRuntimeTest extends AppTestCase
           assert(rebuilt[1].checked === true && rebuilt[0].checked !== true,
             'checkout: the express selection survives the rebuild');
 
-          // Place order: the submitter's formaction is honored — the SAME owner posts to the
-          // placement endpoint, and a redirect VM navigates top-level.
-          queue.push({ ok: true, status: 200, data: { action: 'redirect', redirect_url: 'https://gw.test/pay' } });
+          // Place order (manual outcome): a placed non-redirect result NAVIGATES to the
+          // confirmation page — the order-placed surface — never a dead-end on checkout.
+          queue.push({ ok: true, status: 200, data: {
+            action: 'manual',
+            instructions: 'Pay on delivery.',
+            order_ref: 'ORD-1',
+            confirmation_url: '/checkout/confirmation/ORD-1',
+          } });
           fireSubmitWith(form, placeBtn);
           assert(calls.length === 3 && calls[2].url === '/_shop/checkout/place',
             'checkout: the Place submitter formaction is honored');
+          await flush();
+          assert(win.location.href === '/checkout/confirmation/ORD-1',
+            'checkout: a manual outcome navigates to the confirmation page');
+          win.location.href = '';
+          form.removeAttribute('data-shop-pending');
+          placeBtn.disabled = false;
+          updateBtn.disabled = false;
+
+          // Place order (redirect outcome): the gateway's hosted page navigates top-level.
+          queue.push({ ok: true, status: 200, data: { action: 'redirect', redirect_url: 'https://gw.test/pay' } });
+          fireSubmitWith(form, placeBtn);
+          assert(calls.length === 4 && calls[3].url === '/_shop/checkout/place',
+            'checkout: the second Place also targets the placement endpoint');
           await flush();
           assert(win.location.href === 'https://gw.test/pay', 'checkout: redirect VM navigates top-level');
 
