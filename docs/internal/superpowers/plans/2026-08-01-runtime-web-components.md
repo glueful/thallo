@@ -35,7 +35,7 @@
 - Test: `tests/Integration/Render/RuntimeCoreTest.php` (extend)
 
 **Interfaces:**
-- Produces (internal, used by Task 2): `runComponent(comp, name) -> 'enhanced'|'already'|'canvas'|'noop'|'failed'`; `storeCleanup(comp, name, fn)`, `takeCleanup(comp, name) -> fn|null`, `unmark(comp, name)`; boot footer markers `/* boot:footer */`.
+- Produces (private, used only by Task 2's closure): `runComponent(comp, name) -> 'enhanced'|'already-enhanced'|'canvas-skipped'|'structural-noop'|'failed'`; `storeCleanup(comp, name, fn)`, `takeCleanup(comp, name) -> fn|null`, `unmark(comp, name)`; boot footer markers `/* boot:footer */`. None of these helpers is exposed on `window.ThalloRuntime`.
 - Produces (module contract, used by Tasks 3-5): `enhance()` may return `false` (structural no-op, not marked) or a cleanup function (stored per component+module).
 
 - [ ] **Step 1: Write the failing tests**
@@ -63,24 +63,11 @@ assert((a.getAttribute('data-thallo-enhanced') || '').indexOf('nooper') === -1,
 RT.enhance(a);
 assert(noopCalls === 2, 'unmarked component is retried on the next pass');
 
-// 6. Return contract: a returned function is stored as that (component, module)
-//    cleanup, and each module's cleanup is stored independently.
-var cleanedA = 0, cleanedB = 0;
-RT.register('cleanA', { enhance: function () { return function () { cleanedA++; }; },
-  selector: '.widget' });
-RT.register('cleanB', { enhance: function () { return function () { cleanedB++; }; },
-  selector: '.widget' });
-RT.enhance(a);
-var fnA = RT.__takeCleanupForTest(a, 'cleanA');
-var fnB = RT.__takeCleanupForTest(a, 'cleanB');
-assert(typeof fnA === 'function' && typeof fnB === 'function',
-  'cleanups stored per (component, module)');
-fnA(); fnB();
-assert(cleanedA === 1 && cleanedB === 1, 'stored cleanups callable');
-assert(RT.__takeCleanupForTest(a, 'cleanA') === null, 'takeCleanup removes the entry');
+// 6. The cleanup store remains private. Its same-component/multiple-module
+//    behavior is exercised through registerElement adoption + disconnect in Task 2;
+//    no destructive test hook is shipped on window.ThalloRuntime.
+assert(RT.__takeCleanupForTest === undefined, 'private cleanup state is not exposed');
 ```
-
-Note: `__takeCleanupForTest` is a deliberate, underscore-prefixed test seam on the `ThalloRuntime` object (the harness has no element lifecycle yet in this task). It exposes `takeCleanup` verbatim; document it as non-API in a comment.
 
 - [ ] **Step 2: Run to verify failure**
 
@@ -106,14 +93,15 @@ In the core IIFE, keep `modules`, `order`, `isCanvas`, `markerHas`, `mark`, `com
   function storeCleanup(comp, name, fn) {
     if (!cleanups || typeof fn !== 'function') { return; }
     var perModule = cleanups.get(comp);
-    if (!perModule) { perModule = Object.create(null); cleanups.set(comp, perModule); }
-    perModule[name] = fn;
+    if (!perModule) { perModule = new Map(); cleanups.set(comp, perModule); }
+    perModule.set(name, fn);
   }
   function takeCleanup(comp, name) {
     var perModule = cleanups ? cleanups.get(comp) : null;
-    if (!perModule || !perModule[name]) { return null; }
-    var fn = perModule[name];
-    delete perModule[name];
+    if (!perModule || !perModule.has(name)) { return null; }
+    var fn = perModule.get(name);
+    perModule.delete(name);
+    if (perModule.size === 0) { cleanups.delete(comp); }
     return fn;
   }
 
@@ -122,11 +110,11 @@ In the core IIFE, keep `modules`, `order`, `isCanvas`, `markerHas`, `mark`, `com
      registerElement (elements section), ignored by the scan loop. */
   function runComponent(comp, name) {
     var mod = modules[name];
-    if (isCanvas() && mod.canvas === 'skip') { return 'canvas'; }
-    if (markerHas(comp, name)) { return 'already'; }
+    if (isCanvas() && mod.canvas === 'skip') { return 'canvas-skipped'; }
+    if (markerHas(comp, name)) { return 'already-enhanced'; }
     try {
       var result = mod.enhance(comp);
-      if (result === false) { return 'noop'; } // structural no-op: never marked
+      if (result === false) { return 'structural-noop'; } // never marked
       if (typeof result === 'function') { storeCleanup(comp, name, result); }
       mark(comp, name);
       return 'enhanced';
@@ -152,10 +140,7 @@ Rewrite the scan loop body of `ThalloRuntime.enhance` to delegate (behavior iden
           runComponent(comps[j], name);
         }
       }
-    },
-    /* Test seam only — NOT public API (RuntimeCoreTest exercises cleanup storage
-       without an element lifecycle). */
-    __takeCleanupForTest: function (comp, name) { return takeCleanup(comp, name); }
+    }
 ```
 
 DELETE the `boot()` function and its scheduling (lines 91-100) from the core IIFE. Append at the very END of the file (after `/* tabs:end */` — later tasks insert element sections before it; the footer must remain last):
@@ -174,7 +159,7 @@ DELETE the `boot()` function and its scheduling (lines 91-100) from the core IIF
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {
-    Promise.resolve().then(function () { Promise.resolve().then(boot); });
+    Promise.resolve().then(boot);
   }
 })();
 ```
@@ -331,6 +316,13 @@ function upgrade(tag, node) {
   assert(noopUndone === 1 && !h2.classList.contains('noop-root'),
     'structural false rolled projection back');
   assert(h2.getAttribute('data-thallo-enhanced') === null, 'structural false never marks');
+  h2.disconnectedCallback();
+  assert(noopUndone === 1, 'failed connection retained no lifecycle rollback');
+  h2.connectedCallback();
+  await flush();
+  assert(noopUndone === 2, 'fresh reconnect retried the structural no-op');
+  h2.disconnectedCallback();
+  assert(noopUndone === 2, 'second failed connection also retained no record');
 
   // 6. Transaction: contained throw rolls projection back.
   global.console = { error: function () {}, log: console.log };
@@ -377,10 +369,20 @@ function upgrade(tag, node) {
     'disconnect-before-microtask cancels connection work');
 
   // 10. Already-enhanced target: projection kept, enhancer NOT re-invoked,
-  //     element adopts the existing cleanup.
+  //     element adopts the existing cleanup. A second module on the SAME target
+  //     retains its own marker and cleanup — this is the public-lifecycle proof of
+  //     WeakMap<Element, Map<moduleName, cleanup>>; no private test hook is shipped.
+  var otherEnhanced = 0, otherCleaned = 0;
+  RT.register('probe-other', {
+    selector: '.probe-root',
+    enhance: function () { otherEnhanced++; return function () { otherCleaned++; }; }
+  });
+  RT.registerElement('x-probe-other', 'probe-other', {});
   var h7 = docRoot.appendChild(el('probe-root'));
-  RT.enhance(h7); // scan path enhances + stores cleanup first
+  var otherBefore = otherEnhanced;
+  RT.enhance(h7); // scan path enhances both modules + stores both cleanups first
   assert(enhanced.length === 3, 'scan enhanced h7');
+  assert(otherEnhanced === otherBefore + 1, 'second module enhanced the same target');
   upgrade('x-probe', h7);
   await flush();
   assert(enhanced.length === 3, 'already-enhanced: enhancer not re-invoked');
@@ -388,6 +390,14 @@ function upgrade(tag, node) {
   var cleanedBefore = cleaned;
   h7.disconnectedCallback();
   assert(cleaned === cleanedBefore + 1, 'already-enhanced: adopted cleanup ran on disconnect');
+  assert((h7.getAttribute('data-thallo-enhanced') || '').indexOf('probe-other') !== -1,
+    'disconnect preserved the other module marker');
+  upgrade('x-probe-other', h7);
+  await flush();
+  assert(otherEnhanced === otherBefore + 1,
+    'other module cleanup remained independently adoptable');
+  h7.disconnectedCallback();
+  assert(otherCleaned === 1, 'other module cleanup ran through its own lifecycle');
 
   console.log('ALL_PASS');
 })().catch(function (e) { console.error('FAIL: ' + (e && e.message)); process.exit(1); });
@@ -408,6 +418,15 @@ Expected: FAIL — `registerElement` undefined.
      module-backed v1 tags. Guarded: without customElements the elements are simply
      absent and the class-based path is untouched. */
   var elementRecords = typeof WeakMap === 'function' ? new WeakMap() : null;
+  function abandonElementRecord(host, rec) {
+    rec.pending = false;
+    if (rec.undo) {
+      try { rec.undo(); } catch (err) { /* rollback must not strand the record */ }
+    }
+    rec.undo = null;
+    rec.target = null;
+    if (elementRecords.get(host) === rec) { elementRecords.delete(host); }
+  }
   function defineElement(tag, moduleName, opts) {
     var resolveTarget = (opts && opts.resolveTarget) || function (host) { return host; };
     var projectOptions = (opts && opts.projectOptions) || null;
@@ -420,22 +439,24 @@ Expected: FAIL — `registerElement` undefined.
         // One-microtask deferral (spec §1): synchronously-constructed children are
         // complete; asynchronously-populated elements must be built before insertion.
         Promise.resolve().then(function () {
-          if (!rec.pending) { return; } // disconnected before the microtask
+          if (!rec.pending || elementRecords.get(host) !== rec) { return; }
           rec.pending = false;
-          if (host.isConnected === false) { return; }
+          if (host.isConnected === false) { abandonElementRecord(host, rec); return; }
           var mod = modules[moduleName];
-          if (!mod) { return; }
+          if (!mod) { abandonElementRecord(host, rec); return; }
           // Canvas gate FIRST — before ANY mutation, including projection.
-          if (isCanvas() && mod.canvas === 'skip') { return; }
+          if (isCanvas() && mod.canvas === 'skip') {
+            abandonElementRecord(host, rec); return;
+          }
           var target = resolveTarget(host);
-          if (!target) { return; } // structural no-op: nothing projected, nothing marked
+          if (!target) { abandonElementRecord(host, rec); return; }
           rec.target = target;
           if (projectOptions) { rec.undo = projectOptions(host, target) || null; }
           var outcome = runComponent(target, moduleName);
-          if (outcome === 'enhanced' || outcome === 'already') { return; } // commit
-          // Transactional rollback: noop / failed / canvas (raced in) all revert.
-          if (rec.undo) { rec.undo(); rec.undo = null; }
-          rec.target = null;
+          if (outcome === 'enhanced' || outcome === 'already-enhanced') { return; }
+          // Transactional rollback: structural-noop / failed / canvas-skipped
+          // (including a canvas that appeared during projection) all leave NO record.
+          abandonElementRecord(host, rec);
         });
       }
       disconnectedCallback() {
@@ -443,8 +464,7 @@ Expected: FAIL — `registerElement` undefined.
         if (!rec) { return; }
         elementRecords.delete(this);
         if (rec.pending) { // cancel pending connection work
-          rec.pending = false;
-          if (rec.undo) { rec.undo(); }
+          abandonElementRecord(this, rec);
           return;
         }
         if (rec.target) {
@@ -495,7 +515,7 @@ git commit --only packages/thallo-render/runtime/runtime.js tests/Integration/Re
 
 - [ ] **Step 1: Write the failing test**
 
-Extend `CarouselRuntimeTest`'s harness (match its existing stub style — read the file first; the assertions are the contract):
+Extend `CarouselRuntimeTest`'s harness (match its existing stub style, and add Task 2's minimal `HTMLElement`/`customElements`/`upgrade()`/microtask helpers). Register a harness-only `x-carousel-lifecycle` adapter for the existing `carousel` module; teardown is exercised only through `disconnectedCallback()`, never through a production test hook:
 
 ```js
 // Structural no-op returns false (never marks).
@@ -503,15 +523,13 @@ Extend `CarouselRuntimeTest`'s harness (match its existing stub style — read t
 // root carries no 'carousel' marker token and enhance() reran the module on a second
 // pass (unmarked components are retried).
 
-// Teardown accounting: build a VALID 3-slide carousel with data-arrows="1",
-// data-dots="1", data-autoplay="1". Stub addEventListener/removeEventListener on
+// Teardown accounting: build a VALID, connected 3-slide x-carousel-lifecycle host
+// carrying .thallo-block-carousel and data-arrows="1", data-dots="1",
+// data-autoplay="1". Stub addEventListener/removeEventListener on
 // viewport + document to COUNT registrations/removals by type; stub
 // IntersectionObserver with observe/disconnect counters; stub
-// setInterval/clearInterval. Enhance via the registry, then:
-var cleanup = RT.__takeCleanupForTest(root, 'carousel');
-assert(typeof cleanup === 'function', 'carousel enhance returns a cleanup');
-cleanup();
-// Assert after cleanup():
+// setInterval/clearInterval. Connect + flush, assert the marker, then call
+// disconnectedCallback(). Assert after disconnect:
 //  - every injected node is gone: no children matching __prev/__next/__dots/
 //    __status/__pause remain under root;
 //  - removeEventListener was called for the viewport scroll handler AND each of
@@ -519,7 +537,8 @@ cleanup();
 //    addEventListener received (track handler refs in the stub);
 //  - document visibilitychange handler removed (same-ref check);
 //  - IntersectionObserver.disconnect called;
-//  - clearInterval called for any live timer.
+//  - clearInterval called for any live timer;
+//  - the carousel marker is removed; reconnect + flush enhances cleanly again.
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -571,20 +590,17 @@ git commit --only packages/thallo-render/runtime/runtime.js tests/Integration/Re
 
 - [ ] **Step 1: Write the failing test**
 
-Extend `NavigationRuntimeTest`'s harness (match its existing stub style):
+Extend `NavigationRuntimeTest`'s harness (match its existing stub style, add Task 2's minimal custom-element lifecycle helpers, and register a harness-only `x-navigation-lifecycle` adapter whose `resolveTarget(host)` returns the existing mobile `<details>` target):
 
 ```js
 // Snapshot restore: build the drawer with parent details A open=false, B open=false;
-// enhance; simulate opening A (set A.open = true as the toggle listener would);
-// then take + run the cleanup:
-var cleanup = RT.__takeCleanupForTest(mobileDetails, 'navigation');
-assert(typeof cleanup === 'function', 'navigation returns a cleanup');
-cleanup();
+// connect + flush; simulate opening A (set A.open = true as the toggle listener
+// would); then call the host's disconnectedCallback().
 // Assert: A.open restored to false (initial snapshot), root no longer has
 // thallo-block-navigation--js, the document click listener and the mq change
 // listener were removed (same-ref accounting in the stubs), and any pending
 // hover-close timeout was cleared (stub setTimeout/clearTimeout counters).
-// Reconnect-style second enhance() must succeed and re-add the --js class.
+// Reconnect + flush must re-enhance, restore the marker, and re-add the --js class.
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -628,20 +644,18 @@ git commit --only packages/thallo-render/runtime/runtime.js tests/Integration/Re
 
 - [ ] **Step 1: Write the failing test**
 
-Extend `TabsRuntimeTest`'s harness:
+Extend `TabsRuntimeTest`'s harness with Task 2's minimal custom-element lifecycle helpers and register a harness-only `x-tabs-lifecycle` adapter for the existing `tabs` module:
 
 ```js
 // THE spec §3 case: interaction-then-disconnect restores the exact served floor.
 // Build a valid 3-tab block, radio[0] checked. Enhance. Simulate select(2) via the
 // label click handler (radio[2].checked true, panel[0] hidden set by the module —
-// NOT in the undo log). Then:
-var cleanup = RT.__takeCleanupForTest(root, 'tabs');
-assert(typeof cleanup === 'function', 'tabs returns a cleanup');
-cleanup();
+// NOT in the undo log). Then call disconnectedCallback() on the lifecycle host.
 // Assert the SERVED floor exactly: radio[0].checked === true, radio[2].checked
 // === false, NO panel carries [hidden], no role/aria-*/tabindex attributes remain
-// on list/labels/panels, radios are un-hidden. (The undo log restores attributes;
-// the baseline snapshot restores checked + panel hidden that select() mutated.)
+// on list/labels/panels, radios are un-hidden, and the tabs marker is gone. (The
+// undo log restores attributes; the baseline snapshot restores checked + panel
+// hidden that select() mutated.) Reconnect + flush must enhance exactly once again.
 
 // Empty block: root with no radios/labels/panels — enhance() returns false; the
 // root is NOT marked (was previously silently marked).
@@ -740,15 +754,22 @@ assert(Object.keys(defined).length === 4, 'exactly four tags defined');
 //    .thallo-block-carousel in markup) then connect — enhancer ran once, element
 //    adopts cleanup; (b) connect first then RT.enhance(document) — still once.
 
-// 8. Boot ordering, 'loading' path (spec §6): run a SECOND eval of the runtime in a
-//    fresh stub document with readyState 'loading' and an addEventListener stub that
-//    CAPTURES the DOMContentLoaded handler (the footer's boot). Then: build a
-//    <thallo-carousel arrows> host with a valid inner skeleton, upgrade it (queues
-//    its connection microtask), await flush(), and only THEN invoke the captured
-//    DOMContentLoaded handler. Assert the carousel enhancer observed
-//    data-arrows="1" (projection won before the scan) and ran exactly once (the
-//    boot scan no-oped on the marker). The 'complete' path is covered structurally
-//    by the footer's double-microtask (Task 1) plus case 7's connect-then-scan.
+// 8. Boot ordering in BOTH ready states (spec §6), using two fresh evals rather
+//    than treating source shape as behavioral evidence. For each eval, create the
+//    valid <thallo-carousel arrows> host BEFORE evaluating runtime.js. Its
+//    customElements.define stub synchronously grafts the matching lifecycle and
+//    invokes connectedCallback, modeling browser upgrade of already-parsed hosts.
+//
+//    loading: capture DOMContentLoaded, flush the connection microtask, then invoke
+//    the captured handler. Assert data-arrows="1" was projected before the scan and
+//    enhancement ran once.
+//
+//    complete: after eval but before microtasks flush, wrap RT.enhance to append
+//    'document-scan' to a trace; the host's setAttribute appends 'projection' when
+//    data-arrows is written. Await one turn and assert projection precedes
+//    document-scan, controls were injected once, and the marker has one carousel
+//    token. This executes the footer's SINGLE Promise.resolve().then(boot) path and
+//    proves FIFO ordering after synchronous custom-element upgrade.
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -914,6 +935,14 @@ final class ElementCssAliasTest extends AppTestCase
         self::assertStringContainsString(':where(.thallo-block-carousel, thallo-carousel)', $css);
         self::assertStringContainsString(':where(.thallo-block-tabs, thallo-tabs)', $css);
         self::assertStringContainsString(
+            '.layout--full :where(.thallo-block-tabs, thallo-tabs)',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.layout--full :where(.thallo-block-carousel, thallo-carousel)',
+            $css,
+        );
+        self::assertStringContainsString(
             ':where(.thallo-block-color_mode, thallo-color-mode-toggle)',
             $css,
         );
@@ -930,6 +959,18 @@ final class ElementCssAliasTest extends AppTestCase
     {
         $css = $this->css('navigation.css');
         self::assertStringContainsString(':where(.thallo-block-navigation, thallo-navigation)', $css);
+        self::assertStringContainsString(
+            '.site-header__inner :where(.thallo-block-navigation, thallo-navigation)',
+            $css,
+        );
+        self::assertStringContainsString(
+            ':where(.thallo-block-navigation, thallo-navigation):has(',
+            $css,
+        );
+        self::assertStringContainsString(
+            '.thallo-region :where(.thallo-block-navigation, thallo-navigation)',
+            $css,
+        );
         self::assertStringContainsString('thallo-navigation { display: block; }', $css);
     }
 }
@@ -943,7 +984,7 @@ Expected: FAIL.
 - [ ] **Step 3: Implement the CSS**
 
 In `blocks.css`:
-1. For every ROOT-level rule of the three components (selector starting `.thallo-block-carousel` / `.thallo-block-tabs` / `.thallo-block-color_mode` — the bare root, not `__` children or `--` modifiers; e.g. `blocks.css:453` `.thallo-block-tabs { … }`), wrap the root selector as `:where(.thallo-block-tabs, thallo-tabs)` etc. `:where()` keeps specificity at zero-added so the cascade is unchanged for the class path. Modifier selectors like `.thallo-block-navigation--vertical` are NOT aliased (they still apply — the element stamps the block root class on connect; pre-JS they simply don't match, which only affects modifier styling that requires JS anyway).
+1. Alias every selector whose SUBJECT is one of the three adoptable roots, whether bare or contextual. That includes the bare `.thallo-block-tabs`, `.thallo-block-carousel`, and `.thallo-block-color_mode` rules AND the `.layout--full .thallo-block-tabs` / `.layout--full .thallo-block-carousel` entries near the end of the file. Use `:where(.thallo-block-tabs, thallo-tabs)` etc. Child (`__`) and modifier (`--`) selectors remain class-based because their classes exist in the light-DOM skeleton or are projected behavior state. Finish with an `rg` inventory proving no contextual occurrence of a bare adoptable root was overlooked; the test above pins every currently shipped contextual case.
 2. Add a new section at the end:
 
 ```css
@@ -955,7 +996,7 @@ thallo-color-mode-toggle { display: inline-block; }
 html:not([data-color-mode-enabled="true"]) thallo-color-mode-toggle { display: none; }
 ```
 
-In `navigation.css`: same `:where(.thallo-block-navigation, thallo-navigation)` aliasing for root-level rules (e.g. `navigation.css:20`), plus at the end:
+In `navigation.css`: alias every selector whose subject is the navigation root, not only selectors that START with the class. The required inventory is: the bare root rule; both `.site-header__inner .thallo-block-navigation` mobile-layout selectors (including the `:has(...)` form); and `.thallo-region .thallo-block-navigation`. Modifier and descendant selectors remain class-based and begin matching after the transactional class projection. Finish with the same `rg` inventory check, then add at the end:
 
 ```css
 /* Custom-element floor (web-components spec §5). */
@@ -989,10 +1030,11 @@ Add a subsection with ONE complete copyable light-DOM example per element (spec 
 
 ```bash
 vendor/bin/phpunit tests/Integration/Render
+composer ci
 composer boundaries
 ```
 
-Expected: green (Commerce suite untouched by this feature; run it too if time allows: `vendor/bin/phpunit tests/Integration/Commerce`).
+Expected: green. The targeted Render lane gives fast, local failure attribution; `composer ci` is the repository authority (PHPCS plus reset/migrate/full PHPUnit), and `composer boundaries` remains the package-layer gate. Confirm the Node-backed runtime tests RAN rather than skipped in both PHPUnit passes. Known local blocker: on this dev machine `composer ci`'s `test:reset-db` step fails with a pre-existing Postgres schema-ownership mismatch (`must be owner of schema public`) unrelated to any feature work — if hit, fall back to `vendor/bin/phpunit` (full run) + PHPCS on touched files, and report the substitution rather than treating it as a feature failure.
 
 - [ ] **Step 3: Commit**
 
@@ -1006,5 +1048,7 @@ git commit --only packages/thallo-render/README.md -m "docs(render): copyable li
 ## Verification (end-to-end)
 
 1. `vendor/bin/phpunit tests/Integration/Render` — all green with Node available (watch for skips: the runtime tests skip silently without `node`; a skipped run proves nothing).
-2. `RuntimeSizeBudgetTest` green at the UNCHANGED 12,288-byte ceiling.
-3. Manual smoke (optional): boot the app, add `<thallo-carousel arrows>` with the copyable example markup to a template, load the page — carousel arrows appear; disable JS — scroll-snap floor still styled; open the canvas editor — no element mutations in preview blocks.
+2. `composer ci` — PHPCS plus the reset/migrate/full PHPUnit authority, all green.
+3. `composer boundaries` — package boundaries green.
+4. `RuntimeSizeBudgetTest` green at the UNCHANGED 12,288-byte ceiling.
+5. Manual smoke (optional): boot the app, add `<thallo-carousel arrows>` with the copyable example markup to a template, load the page — carousel arrows appear; disable JS — scroll-snap floor still styled; open the canvas editor — no element mutations in preview blocks.
