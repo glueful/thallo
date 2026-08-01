@@ -2,3 +2,7 @@
 # (composer create-project / git archive) ships only the compiled bundle (public/admin/, baked
 # into release tags). Exclude the source toolchain from the dist tarball.
 /admin export-ignore
+
+# Internal engineering record (specs, plans, design history) — repo-only, never in the
+# distribution archive. User-facing docs stay at docs/ top level.
+/docs/internal export-ignore

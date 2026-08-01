@@ -855,7 +855,7 @@ This project is generated from `glueful/api-skeleton`. Start recording applicati
   button links-rows collapse into flex rows with context-forced sizes.
   Every user URL field renders through `safe_url`. `blocks()` now passes
   the caller's `site` context to block templates. Reference doc:
-  `docs/NUXT_UI_PAGE_COMPONENTS.md`.
+  `docs/internal/NUXT_UI_PAGE_COMPONENTS.md`.
 - **Schema-declared value constraints**: field definitions accept `pattern`
   (anchored regex for string/text, compilability checked at schema save)
   and `min`/`max` (number bounds) — enforced by FieldValidator with

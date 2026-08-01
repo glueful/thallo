@@ -13,7 +13,7 @@ webhooks, OpenAPI, auth).
 > **Status:** the **V1 headless backend is complete**, plus a post‑V1 batch (scheduled publish,
 > destructive‑schema backfill, version pruning, SEO/routing, field‑localization, per‑locale
 > RBAC) has shipped. The first‑party **admin UI** and **rendered page delivery** are the next
-> phases — see [docs/NEXT.md](docs/NEXT.md). This is pre‑release software.
+> phases — see [docs/internal/NEXT.md](docs/internal/NEXT.md). This is pre‑release software.
 
 ---
 
@@ -37,9 +37,9 @@ webhooks, OpenAPI, auth).
 - **SEO / routing** — auto‑captured + manual redirects (301/302/308, chain‑free), plus
   canonical / hreflang metadata on delivery.
 - **Permissions** — coarse Thallo RBAC over `glueful/aegis`, with optional **per‑locale** scoping
-  via Aegis resource filters (see [docs/PER_LOCALE_RBAC.md](docs/PER_LOCALE_RBAC.md)).
+  via Aegis resource filters (see [docs/internal/PER_LOCALE_RBAC.md](docs/internal/PER_LOCALE_RBAC.md)).
 - **Portability** — content‑model + entry + asset‑manifest export/import adapters over
-  `glueful/import-export` (see [docs/ADAPTER_NOTES.md](docs/ADAPTER_NOTES.md)); configurable
+  `glueful/import-export` (see [docs/internal/ADAPTER_NOTES.md](docs/internal/ADAPTER_NOTES.md)); configurable
   version pruning with the export bundle as the safety net.
 
 ## Requirements
@@ -97,13 +97,13 @@ docs/                   # design + product docs (see below)
 
 | Doc | What it is |
 |-----|-----------|
-| [docs/APPROACH.md](docs/APPROACH.md) | Product vision, positioning, and ecosystem boundaries |
-| [docs/V1_DESIGN.md](docs/V1_DESIGN.md) | V1's expensive‑to‑reverse architecture decisions |
-| [docs/POST_V1.md](docs/POST_V1.md) | The (now‑closed) post‑V1 backlog — all six features shipped |
-| [docs/NEXT.md](docs/NEXT.md) | Forward‑work index: what's next and where it's tracked |
-| [docs/PER_LOCALE_RBAC.md](docs/PER_LOCALE_RBAC.md) | Operator recipe for locale‑scoped permissions |
-| [docs/ADAPTER_NOTES.md](docs/ADAPTER_NOTES.md) | Import/export adapter notes |
-| `docs/superpowers/specs/` · `plans/` | Per‑feature design specs and implementation plans |
+| [docs/internal/APPROACH.md](docs/internal/APPROACH.md) | Product vision, positioning, and ecosystem boundaries |
+| [docs/internal/V1_DESIGN.md](docs/internal/V1_DESIGN.md) | V1's expensive‑to‑reverse architecture decisions |
+| [docs/internal/POST_V1.md](docs/internal/POST_V1.md) | The (now‑closed) post‑V1 backlog — all six features shipped |
+| [docs/internal/NEXT.md](docs/internal/NEXT.md) | Forward‑work index: what's next and where it's tracked |
+| [docs/internal/PER_LOCALE_RBAC.md](docs/internal/PER_LOCALE_RBAC.md) | Operator recipe for locale‑scoped permissions |
+| [docs/internal/ADAPTER_NOTES.md](docs/internal/ADAPTER_NOTES.md) | Import/export adapter notes |
+| `docs/internal/superpowers/specs/` · `plans/` | Per‑feature design specs and implementation plans |
 
 ## Testing
 

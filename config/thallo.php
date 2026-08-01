@@ -4,7 +4,7 @@ return [
     // Instance display name. Editable from Settings › General (writes SITE_NAME to .env).
     'site_name' => env('SITE_NAME', 'Thallo'),
 
-    // Glueful storage disk that backs media blob references (see docs/V1_DESIGN.md §8).
+    // Glueful storage disk that backs media blob references (see docs/internal/V1_DESIGN.md §8).
     // MUST match the disk uploads land on, or asset-field validation rejects every
     // library image ("must reference an active blob on the configured media disk").
     // The framework writes blobs to `uploads.disk` (env UPLOADS_DISK, default 'uploads'),
@@ -21,7 +21,7 @@ return [
         'token' => env('SETUP_TOKEN'),
     ],
 
-    // Seeded role names (see docs/V1_DESIGN.md §7).
+    // Seeded role names (see docs/internal/V1_DESIGN.md §7).
     'roles' => [
         // The first admin uses Aegis's standard `administrator` role; `editor` is Thallo-owned.
         'admin' => 'administrator',
@@ -38,7 +38,7 @@ return [
         'max_bulk' => (int) env('COLLECTIONS_MAX_BULK', 100),
     ],
 
-    // Public delivery API defaults (see docs/V1_DESIGN.md §6). Delivery is private by
+    // Public delivery API defaults (see docs/internal/V1_DESIGN.md §6). Delivery is private by
     // default: clients need read:content or read:content:{type}, unless a content type sets
     // public_delivery=true.
     'delivery' => [
@@ -60,13 +60,13 @@ return [
         'redirect_ttl' => (int) env('SEO_REDIRECT_TTL', 60),
     ],
 
-    // Preview tokens (see docs/V1_DESIGN.md). Drafts are only reachable through a
+    // Preview tokens (see docs/internal/V1_DESIGN.md). Drafts are only reachable through a
     // signed, short-lived preview token; this is its lifetime in seconds.
     'preview' => [
         'ttl_seconds' => (int) env('PREVIEW_TTL', 600),
     ],
 
-    // Downstream publishing-pipeline effects (see docs/V1_DESIGN.md §5). Each listener is
+    // Downstream publishing-pipeline effects (see docs/internal/V1_DESIGN.md §5). Each listener is
     // gated here so a deployment can opt out without unwiring the event bus.
     'pipeline' => [
         // Forward content events to the core WebhookDispatcher. Deliveries only occur for
@@ -76,7 +76,7 @@ return [
 
     // Admin SPA runtime config (served UNAUTHENTICATED at GET /admin/config so the
     // compiled bundle is not env-baked — one build works across installs). See
-    // docs/superpowers/specs/2026-06-17-admin-spa-phase-1-design.md §"Runtime config".
+    // docs/internal/superpowers/specs/2026-06-17-admin-spa-phase-1-design.md §"Runtime config".
     'admin' => [
         // The admin API base PATH the SPA calls. Thallo's admin routes are hardcoded /v1/admin.
         // The admin is served same-origin (the PHP app serves both /admin and the API), so this is

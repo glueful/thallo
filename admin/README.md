@@ -78,5 +78,5 @@ admin API. A few contracts must hold for the build to drop into a Thallo instanc
 Fresh scaffold. The app-specific layer — runtime config loader, typed API client + auth/session
 (refresh-on-401), domain composables, the schema-driven field editor (on Nuxt UI), and the page
 screens — is implemented per the Phase 1 plan
-(`../docs/superpowers/plans/2026-06-17-admin-spa-phase-1.md`, frontend task groups re-planned against
+(`../docs/internal/superpowers/plans/2026-06-17-admin-spa-phase-1.md`, frontend task groups re-planned against
 this scaffold).

@@ -20,7 +20,7 @@ import { qk, COMMERCE_PRODUCT_SECTIONS, type CommerceProductSection } from './ke
 // (`setCategories`/`setTags`/`setAttributes`/`reorderMedia`/`setChildren` below) — a silently
 // skipped or defaulted item would round-trip back to the server as a DROPPED assignment on the
 // next save, reintroducing the exact "wipe" class of bug the whole `{revision, items}` contract
-// exists to prevent (see `docs/superpowers/sdd/editor/global-constraints.md`'s "1.4.1 lesson").
+// exists to prevent (see `docs/internal/superpowers/sdd/editor/global-constraints.md`'s "1.4.1 lesson").
 
 export type SectionKey = CommerceProductSection
 
