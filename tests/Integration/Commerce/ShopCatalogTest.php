@@ -221,6 +221,17 @@ final class ShopCatalogTest extends AppTestCase
         self::assertSame(200, $response->getStatusCode());
         self::assertStringContainsString('shop-product__enrichment', $html);
         self::assertStringContainsString('ENRICHMENT-BLOCK-MARKER', $html);
+        // JSON-LD is emitted via the json_script() Twig function into a raw <script> body —
+        // pins that the structured-data script tag actually opens with real JSON, not an
+        // escaped/empty payload.
+        self::assertStringContainsString('<script type="application/ld+json">{', $html);
+        // The enrichment container's `heading` block must render as an ACTUAL <h2> tag, not
+        // HTML-escaped text — this is the regression net for the EntryBlocksRenderer
+        // enrichment boundary (renderPublishedBlocks(): ?string -> ?Twig\Markup). If that
+        // boundary regressed to double-escaping, the raw '<h2' tag would disappear and
+        // '&lt;h2' would appear instead.
+        self::assertStringContainsString('<h2', $html);
+        self::assertStringNotContainsString('&lt;h2', $html);
     }
 
     /**
