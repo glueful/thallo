@@ -261,16 +261,29 @@ final class TemplatesAdminApiTest extends AppTestCase
         $uuid = $repo->versions('default', 'blocks/html.twig')[0]['uuid'];
 
         // Listing/showing stay pinned read-only regardless of the DB row's existence
-        // — the pin is by PATH, not by origin.
+        // — the pin is by PATH, not by origin. index() must NOT leak the stray
+        // override's metadata either: origin/overridden/updated_at all present the
+        // filesystem baseline, exactly as if no DB row existed.
         $list = $this->json($this->api()->index(Request::create('/x', 'GET')))['data']['templates'];
         $byPath = array_column($list, null, 'path');
-        self::assertTrue($byPath['blocks/html.twig']['readonly']);
+        self::assertSame(
+            ['readonly' => true, 'origin' => 'default', 'overridden' => false, 'updated_at' => null],
+            [
+                'readonly' => $byPath['blocks/html.twig']['readonly'],
+                'origin' => $byPath['blocks/html.twig']['origin'],
+                'overridden' => $byPath['blocks/html.twig']['overridden'],
+                'updated_at' => $byPath['blocks/html.twig']['updated_at'],
+            ],
+        );
 
         $shown = $this->json($this->api()->show(Request::create('/x', 'GET'), 'blocks/html.twig'))['data'];
         self::assertTrue($shown['readonly']);
         self::assertNotSame('db', $shown['origin']); // never surfaces the stray DB row
 
-        // The pre-existing override is unreachable: no save, no delete, no restore.
+        // The pre-existing override is unreachable: no save, no delete, no restore,
+        // no reading its version history or its stored source through EITHER
+        // history endpoint (the actual regression: these two were unguarded and
+        // would return the override's real uuid/history/source).
         self::assertSame(
             422,
             $this->api()->save($this->putReq('still fine'), 'blocks/html.twig')->getStatusCode(),
@@ -282,6 +295,14 @@ final class TemplatesAdminApiTest extends AppTestCase
         self::assertSame(
             404,
             $this->api()->restore($this->putReq(''), 'blocks/html.twig', $uuid)->getStatusCode(),
+        );
+        self::assertSame(
+            404,
+            $this->api()->versions(Request::create('/x', 'GET'), 'blocks/html.twig')->getStatusCode(),
+        );
+        self::assertSame(
+            404,
+            $this->api()->showVersion(Request::create('/x', 'GET'), 'blocks/html.twig', $uuid)->getStatusCode(),
         );
         // The stray row itself is untouched by any of the above.
         self::assertSame(
