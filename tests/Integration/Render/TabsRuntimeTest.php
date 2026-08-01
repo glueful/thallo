@@ -341,4 +341,233 @@ final class TabsRuntimeTest extends AppTestCase
         console.log('ALL_PASS');
         JS;
     }
+
+    public function testTabsTeardownRestoresBaselineAfterInteractionAndEmptyBlockReturnsFalse(): void
+    {
+        $src = $this->runtimeJs();
+
+        $node = $this->findNode();
+        if ($node === null) {
+            self::markTestSkipped('node not available to evaluate the tabs runtime module');
+        }
+
+        $file = sys_get_temp_dir() . '/thallo_tabs_teardown_runtime_' . getmypid() . '.mjs';
+        file_put_contents($file, $this->teardownHarness($src));
+        try {
+            $out = [];
+            $code = 0;
+            exec(escapeshellarg($node) . ' ' . escapeshellarg($file) . ' 2>&1', $out, $code);
+            self::assertSame(0, $code, "tabs teardown harness failed:\n" . implode("\n", $out));
+            self::assertStringContainsString('ALL_PASS', implode("\n", $out));
+        } finally {
+            @unlink($file);
+        }
+    }
+
+    /**
+     * Two cases driven through the PUBLIC lifecycle only (no production test hook):
+     *
+     * (a) THE spec §3 case — interaction-then-disconnect restores the exact served
+     *     floor. select() mutates radio.checked and panel[hidden] directly, bypassing
+     *     the attribute/listener undo log, so the undo log alone can't restore the
+     *     served floor after an interaction; the baseline snapshot taken before Phase 1
+     *     is what closes that gap. Registers a harness-only x-tabs-lifecycle adapter
+     *     (Task 2's registerElement bridge) over the existing 'tabs' module, connects
+     *     it on a valid 3-tab root (radio 1 checked), simulates a label click selecting
+     *     tab 3, then disconnects and asserts the served floor exactly — followed by a
+     *     clean reconnect that enhances exactly once again.
+     *
+     * (b) Empty block: a root with no radios/labels/panels — enhance() returns false,
+     *     so the root is never marked (previously it was silently marked on a bare
+     *     `return;`), and a second scan pass retries the module rather than skipping it.
+     */
+    private function teardownHarness(string $src): string
+    {
+        $json = json_encode($src, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return <<<JS
+        'use strict';
+        function assert(c, m) { if (!c) { console.error('FAIL: ' + m); process.exit(1); } }
+        global.console = { error: console.error, log: console.log };
+
+        // --- inert <html> + document stubs (color-mode gate off; not canvas) ----
+        var inert = {
+          dataset: {},
+          matches: function () { return false; },
+          querySelectorAll: function () { return []; },
+          querySelector: function () { return null; },
+          getAttribute: function () { return null; },
+          setAttribute: function () {},
+          addEventListener: function () {},
+          dispatchEvent: function () { return true; }
+        };
+        global.document = {
+          readyState: 'complete',
+          addEventListener: function () {},
+          querySelector: function () { return null; }, // no .thallo-preview-block: not canvas
+          querySelectorAll: function () { return []; },
+          documentElement: inert
+        };
+        global.window = global;
+
+        // --- recording element stub (same idiom as the sibling harness) --------
+        function makeClassList(initial) {
+          var set = {};
+          initial.forEach(function (c) { set[c] = true; });
+          return {
+            add: function (c) { set[c] = true; },
+            contains: function (c) { return !!set[c]; }
+          };
+        }
+        function el(classes, opts) {
+          opts = opts || {};
+          var attrs = {};
+          var node = {
+            children: [],
+            classList: makeClassList(classes),
+            live: {},
+            getAttribute: function (n) { return attrs[n] === undefined ? null : attrs[n]; },
+            setAttribute: function (n, v) { attrs[n] = String(v); },
+            removeAttribute: function (n) { delete attrs[n]; },
+            addEventListener: function (t, fn) { (node.live[t] = node.live[t] || []).push(fn); },
+            removeEventListener: function (t, fn) {
+              var arr = node.live[t] || [];
+              var i = arr.indexOf(fn);
+              if (i !== -1) { arr.splice(i, 1); }
+            },
+            focus: function () {}
+          };
+          if (opts.attrs) {
+            Object.keys(opts.attrs).forEach(function (k) { attrs[k] = String(opts.attrs[k]); });
+          }
+          return node;
+        }
+        function fire(node, type, ev) {
+          (node.live[type] || []).slice().forEach(function (fn) { fn(ev || {}); });
+        }
+
+        // --- tabs component stub (floor markup shape from tabs.twig) ------------
+        function makeTabs(n, opts) {
+          opts = opts || {};
+          var checkedIdx = opts.checked === undefined ? 0 : opts.checked;
+          var radios = [];
+          var labels = [];
+          var panels = [];
+          for (var i = 0; i < n; i++) {
+            var radio = el(['thallo-block-tabs__radio'], { attrs: { id: 'tabs-b1-' + (i + 1) } });
+            radio.checked = i === checkedIdx;
+            radio.dispatchEvent = function () { return true; };
+            radios.push(radio);
+            labels.push(el(['thallo-block-tabs__label']));
+            panels.push(el(['thallo-block-tabs__panel']));
+          }
+          var list = el(['thallo-block-tabs__list']);
+          list.children = labels;
+          var panelsBox = el(['thallo-block-tabs__panels']);
+          panelsBox.children = panels;
+          var root = el(['thallo-block', 'thallo-block-tabs']);
+          root.children = radios.concat([list, panelsBox]);
+          root.isConnected = true;
+          root.matches = function (sel) { return sel === '.thallo-block-tabs'; };
+          root.querySelectorAll = function () { return []; };
+          return {
+            root: root, radios: radios, labels: labels, panels: panels,
+            list: list, panelsBox: panelsBox
+          };
+        }
+
+        // --- customElements bridge stub (Task 2 pattern) ------------------------
+        global.HTMLElement = function () {};
+        var defined = {};
+        global.customElements = { define: function (tag, cls) { defined[tag] = cls; } };
+        function upgrade(tag, node) {
+          node.connectedCallback = defined[tag].prototype.connectedCallback;
+          node.disconnectedCallback = defined[tag].prototype.disconnectedCallback;
+          node.connectedCallback();
+          return node;
+        }
+        function flush() { return new Promise(function (r) { setTimeout(r, 0); }); }
+
+        eval($json);
+        var RT = window.ThalloRuntime;
+
+        // --- (b) empty block: enhance() returns false, root never marked --------
+        var empty = el(['thallo-block', 'thallo-block-tabs']);
+        empty.matches = function (sel) { return sel === '.thallo-block-tabs'; };
+        empty.querySelectorAll = function () { return []; };
+        RT.enhance(empty);
+        assert(empty.getAttribute('data-thallo-enhanced') === null,
+          'empty block: structural false never marks the component');
+        RT.enhance(empty);
+        assert(empty.getAttribute('data-thallo-enhanced') === null,
+          'empty block: still unmarked and retried on a second pass');
+
+        // --- (a) interaction-then-disconnect restores the served floor ----------
+        RT.registerElement('x-tabs-lifecycle', 'tabs', {});
+
+        (async function () {
+          var t = makeTabs(3);
+
+          upgrade('x-tabs-lifecycle', t.root);
+          await flush();
+
+          assert((t.root.getAttribute('data-thallo-enhanced') || '').indexOf('tabs') !== -1,
+            'connect enhanced + marked the host');
+          assert(t.list.getAttribute('role') === 'tablist', 'connect: list got tablist role');
+
+          // Simulate the label-click select(2) path: default prevented, module drives
+          // state — radio 3 checked, panel 1 (previously visible) now [hidden].
+          fire(t.labels[2], 'click', { preventDefault: function () {} });
+          assert(t.radios[2].checked === true && t.radios[0].checked === false,
+            'select(2): radio sync happened before disconnect');
+          assert(t.panels[0].getAttribute('hidden') !== null,
+            'select(2): panel 1 hidden by the module (NOT via the undo log)');
+
+          t.root.disconnectedCallback();
+
+          // Served floor, exactly: baseline checked/hidden restored, undo log
+          // reversed (no role/aria-*/tabindex/id remnants), radios un-hidden.
+          assert(t.radios[0].checked === true, 'served floor: radio 1 checked (baseline)');
+          assert(t.radios[2].checked === false, 'served floor: radio 3 unchecked (baseline)');
+          assert(t.radios[1].checked === false, 'served floor: radio 2 unchecked (baseline)');
+          t.panels.forEach(function (p, ix) {
+            assert(p.getAttribute('hidden') === null, 'served floor: panel ' + ix + ' not [hidden]');
+            assert(p.getAttribute('role') === null, 'served floor: panel ' + ix + ' role removed');
+            assert(p.getAttribute('aria-labelledby') === null,
+              'served floor: panel ' + ix + ' aria-labelledby removed');
+            assert(p.getAttribute('tabindex') === null, 'served floor: panel ' + ix + ' tabindex removed');
+            assert(p.getAttribute('id') === null, 'served floor: panel ' + ix + ' id removed');
+          });
+          assert(t.list.getAttribute('role') === null, 'served floor: list role removed');
+          t.labels.forEach(function (l, ix) {
+            assert(l.getAttribute('role') === null, 'served floor: label ' + ix + ' role removed');
+            assert(l.getAttribute('aria-selected') === null,
+              'served floor: label ' + ix + ' aria-selected removed');
+            assert(l.getAttribute('aria-controls') === null,
+              'served floor: label ' + ix + ' aria-controls removed');
+            assert(l.getAttribute('tabindex') === null, 'served floor: label ' + ix + ' tabindex removed');
+            assert(l.getAttribute('id') === null, 'served floor: label ' + ix + ' id removed');
+          });
+          t.radios.forEach(function (r, ix) {
+            assert(r.getAttribute('hidden') === null, 'served floor: radio ' + ix + ' un-hidden');
+            assert(r.getAttribute('tabindex') === null, 'served floor: radio ' + ix + ' tabindex removed');
+            assert(r.getAttribute('aria-hidden') === null, 'served floor: radio ' + ix + ' aria-hidden removed');
+            assert(r.getAttribute('id') === 'tabs-b1-' + (ix + 1), 'served floor: radio ' + ix + ' id intact');
+          });
+          assert(t.root.getAttribute('data-thallo-enhanced') === null,
+            'served floor: tabs marker gone');
+
+          // Reconnect + flush enhances cleanly, exactly once again.
+          t.root.connectedCallback();
+          await flush();
+          assert((t.root.getAttribute('data-thallo-enhanced') || '').indexOf('tabs') !== -1,
+            'reconnect re-marked the host');
+          assert(t.list.getAttribute('role') === 'tablist', 'reconnect: list re-enhanced');
+          assert(t.radios[0].checked === true && t.radios[0].getAttribute('hidden') !== null,
+            'reconnect: enhancement re-applied from the (restored) served floor');
+
+          console.log('ALL_PASS');
+        })().catch(function (e) { console.error('FAIL: ' + (e && e.stack)); process.exit(1); });
+        JS;
+    }
 }
