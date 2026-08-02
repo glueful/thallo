@@ -610,6 +610,48 @@ test.describe('image-slider (bare image blocks as slides)', () => {
     }, undefined, { timeout: 8000 });
   });
 
+  test('the canvas block toolbar on a slide is not clipped by the carousel scroll viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+
+    const rects = await page.evaluate(async () => {
+      // Real canvas conditions: preview.css + the annotation carrier + the
+      // bridge's anchor class and toolbar, exactly as selecting a slide builds
+      // them. The carousel viewport is overflow-x: auto — which makes it CLIP
+      // vertically as well, so a toolbar poking above the track disappears.
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '/packages/thallo-render/assets/preview/preview.css';
+      const loaded = new Promise((resolve) => { link.onload = resolve; });
+      document.head.appendChild(link);
+      await loaded;
+
+      const car = document.querySelector('[data-fixture="image-slider"] .thallo-block-carousel');
+      const viewport = car.querySelector('.thallo-block-carousel__viewport');
+      const track = car.querySelector('.thallo-block-carousel__track');
+      const slide = track.firstElementChild;
+      const carrier = document.createElement('div');
+      carrier.className = 'thallo-preview-block';
+      carrier.setAttribute('data-thallo-block', 'slide-toolbar-probe');
+      track.insertBefore(carrier, slide);
+      carrier.appendChild(slide);
+
+      slide.classList.add('thallo-canvas-anchor');
+      const toolbar = document.createElement('div');
+      toolbar.className = 'thallo-canvas-toolbar';
+      toolbar.innerHTML = '<button type="button" aria-label="probe">x</button>';
+      slide.appendChild(toolbar);
+
+      const t = toolbar.getBoundingClientRect();
+      const v = viewport.getBoundingClientRect();
+      return { toolbarTop: t.top, toolbarBottom: t.bottom, viewportTop: v.top, viewportBottom: v.bottom };
+    });
+
+    // Fully inside the clipping viewport — never shaved by its top edge.
+    expect(rects.toolbarTop).toBeGreaterThanOrEqual(rects.viewportTop);
+    expect(rects.toolbarBottom).toBeLessThanOrEqual(rects.viewportBottom);
+  });
+
   test('a hero slider opening the page sits flush under the header — main padding and block rhythm are both cancelled', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/tools/runtime-browser/fixtures/hero-page.html');
