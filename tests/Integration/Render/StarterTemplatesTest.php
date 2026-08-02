@@ -452,4 +452,51 @@ final class StarterTemplatesTest extends AppTestCase
         ]);
         self::assertStringNotContainsString('thallo-block-carousel--hero', $default);
     }
+
+    /**
+     * Canvas empty-state (blog_posts precedent): an empty carousel/gallery renders
+     * as literally nothing on the live page — correct there, but invisible in the
+     * canvas editor, so authors can't see the block exists or that its region is
+     * empty. Preview annotation mode shows a placeholder; live mode never does.
+     */
+    public function testEmptyCarouselAndGalleryShowPlaceholderOnlyInPreview(): void
+    {
+        $ext = $this->container()->get(RenderContextExtension::class);
+
+        // Live render: no placeholder, roots still emitted.
+        $live = $this->renderList([
+            ['id' => 'ce1', 'type' => 'carousel', 'data' => ['style' => 'hero', 'slides' => []]],
+            ['id' => 'ge1', 'type' => 'gallery', 'data' => ['items' => []]],
+        ]);
+        self::assertStringNotContainsString('thallo-block-carousel__empty', $live);
+        self::assertStringNotContainsString('thallo-block-gallery__empty', $live);
+
+        // Preview annotation: placeholders visible.
+        $ext->setBlockAnnotations(true);
+        try {
+            $preview = $this->renderList([
+                ['id' => 'ce2', 'type' => 'carousel', 'data' => ['style' => 'hero', 'slides' => []]],
+                ['id' => 'ge2', 'type' => 'gallery', 'data' => ['items' => []]],
+            ]);
+        } finally {
+            $ext->setBlockAnnotations(false);
+        }
+        self::assertStringContainsString('thallo-block-carousel__empty', $preview);
+        self::assertStringContainsString('Empty carousel', $preview);
+        self::assertStringContainsString('thallo-block-gallery__empty', $preview);
+        self::assertStringContainsString('Empty gallery', $preview);
+
+        // A populated carousel never shows the placeholder, even in preview.
+        $ext->setBlockAnnotations(true);
+        try {
+            $populated = $this->renderList([
+                ['id' => 'ce3', 'type' => 'carousel', 'data' => ['slides' => [
+                    ['id' => 'ce3s1', 'type' => 'rich_text', 'data' => ['content' => '<p>Slide</p>']],
+                ]]],
+            ]);
+        } finally {
+            $ext->setBlockAnnotations(false);
+        }
+        self::assertStringNotContainsString('thallo-block-carousel__empty', $populated);
+    }
 }
