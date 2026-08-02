@@ -408,6 +408,11 @@ final class StarterBlockTypes
                     ['name' => 'rotate_words', 'type' => 'text'],
                     ['name' => 'suffix', 'type' => 'string'],
                     ['name' => 'effect', 'type' => 'enum', 'enum' => ['fade', 'slide-up', 'blur']],
+                    // Loop (2026-08 follow-up): OFF keeps the finite settle-after-one-cycle
+                    // default (motion calms down on its own); ON keeps rotating — still
+                    // paused offscreen/on hidden tabs, paused while hovered (so the word
+                    // can be read), and fully static under reduced motion.
+                    ['name' => 'loop', 'type' => 'boolean'],
                     ['name' => 'tag', 'type' => 'enum', 'enum' => ['h1', 'h2', 'h3', 'p']],
                 ]],
 

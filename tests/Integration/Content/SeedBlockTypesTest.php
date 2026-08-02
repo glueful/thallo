@@ -94,7 +94,7 @@ final class SeedBlockTypesTest extends AppTestCase
         self::assertSame('Content', $animatedText['category']);
         $animatedTextFields = array_column($animatedText['schema'], null, 'name');
         self::assertSame(
-            ['prefix', 'rotate_words', 'suffix', 'effect', 'tag'],
+            ['prefix', 'rotate_words', 'suffix', 'effect', 'loop', 'tag'],
             array_column($animatedText['schema'], 'name'),
         );
         self::assertSame('string', $animatedTextFields['prefix']['type']);

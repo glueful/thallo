@@ -53,6 +53,7 @@ const FUNCTIONS = [
 const FILTERS = [
   'abs',
   'batch',
+  'br_tokens',
   'capitalize',
   'column',
   'date',

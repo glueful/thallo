@@ -497,6 +497,56 @@ final class StarterTemplatesTest extends AppTestCase
     }
 
     /**
+     * Animated-text loop + break tokens (2026-08 follow-up). data-loop mirrors
+     * the boolean; the literal tokens <br>, <br/>, <br /> typed into prefix,
+     * suffix, OR a rotate word become real line breaks — everything else stays
+     * escaped (the tokens are recognized AFTER escaping; author markup never
+     * goes live). The visually-hidden stable phrase strips the tokens: AT hears
+     * the phrase, never "less-than br".
+     */
+    public function testAnimatedTextLoopAttributeAndBreakTokens(): void
+    {
+        $on = $this->renderList([
+            ['id' => 'a1', 'type' => 'animated_text',
+                'data' => ['loop' => true, 'prefix' => 'Hi', 'rotate_words' => "A\nB"]],
+        ]);
+        self::assertStringContainsString('data-loop="1"', $on);
+
+        $off = $this->renderList([
+            ['id' => 'a2', 'type' => 'animated_text', 'data' => ['prefix' => 'Hi', 'rotate_words' => "A\nB"]],
+        ]);
+        self::assertStringContainsString('data-loop="0"', $off);
+
+        $out = $this->renderList([
+            ['id' => 'a3', 'type' => 'animated_text', 'data' => [
+                'prefix' => 'Build<br/>fast',
+                'rotate_words' => "multi<br/>line\nplain",
+                'suffix' => 'now<br>go',
+            ]],
+        ]);
+        self::assertStringContainsString('Build<br>fast', $out);
+        self::assertStringContainsString('multi<br>line', $out);
+        self::assertStringContainsString('now<br>go', $out);
+        // The stable SR phrase joins with plain spaces — no tokens, no breaks.
+        self::assertStringContainsString(
+            '<span class="thallo-block-animated_text__sr">Build fast multi line now go</span>',
+            $out,
+        );
+
+        // The tokens are the ONLY markup that comes alive: everything else escapes.
+        $xss = $this->renderList([
+            ['id' => 'a4', 'type' => 'animated_text', 'data' => [
+                'prefix' => '<script>alert(1)</script>x<br/>y',
+                'rotate_words' => "<b>bold</b>\nplain",
+            ]],
+        ]);
+        self::assertStringContainsString('&lt;script&gt;', $xss);
+        self::assertStringNotContainsString('<script>', $xss);
+        self::assertStringContainsString('x<br>y', $xss);
+        self::assertStringContainsString('&lt;b&gt;bold&lt;/b&gt;', $xss);
+    }
+
+    /**
      * Configurable transition duration (slider-config follow-up): seconds, one
      * value pacing every mode — the runtime reads data-duration for the slide
      * scroll; fade/zoom consume the --carousel-duration custom property. Emitted
