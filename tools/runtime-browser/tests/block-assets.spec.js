@@ -711,6 +711,13 @@ test.describe('slider transitions and height presets', () => {
     // height=compact: max(40svh, 16rem) at 900px viewport -> 360px.
     expect(Math.abs(before.imgHeight - 360)).toBeLessThanOrEqual(1);
 
+    // Arrows are hover-revealed: hover the slider first so the click's
+    // hit-test doesn't race the reveal.
+    await page.locator(FADE).scrollIntoViewIfNeeded();
+    const fadeBox = await page.locator(FADE).boundingBox();
+    await page.mouse.move(fadeBox.x + fadeBox.width / 2, fadeBox.y + Math.min(fadeBox.height / 2, 150));
+    await page.waitForFunction((sel) =>
+      getComputedStyle(document.querySelector(`${sel} .thallo-block-carousel__next`)).opacity === '1', FADE);
     await page.locator(`${FADE} .thallo-block-carousel__next`).click();
     await page.waitForFunction((sel) => {
       const slides = [...document.querySelector(sel).querySelectorAll('.thallo-block-carousel__track > *')];
@@ -773,6 +780,12 @@ test.describe('slider transitions and height presets', () => {
     // 1.5s–4s window proves the configured pace drove the animation.
     const slider = page.locator(SLIDER);
     await slider.scrollIntoViewIfNeeded();
+    // Arrows are hover-revealed: hover the slider first (as a user would) so
+    // the click's hit-test doesn't race the reveal.
+    const sliderBox = await slider.boundingBox();
+    await page.mouse.move(sliderBox.x + sliderBox.width / 2, sliderBox.y + Math.min(sliderBox.height / 2, 200));
+    await page.waitForFunction((sel) =>
+      getComputedStyle(document.querySelector(`${sel} .thallo-block-carousel__next`)).opacity === '1', SLIDER);
     const start = Date.now();
     await page.locator(`${SLIDER} .thallo-block-carousel__next`).click();
     await page.waitForFunction((sel) => {
@@ -792,6 +805,44 @@ test.describe('slider transitions and height presets', () => {
       return getComputedStyle(car.querySelector('.thallo-block-carousel__track > *')).transitionDuration;
     });
     expect(fadeDuration).toBe('2s');
+  });
+
+  test('arrows are hover-revealed on pointer devices: hidden at rest, shown on hover and on keyboard focus', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    const SLIDER = '[data-fixture="image-slider"] .thallo-block-carousel';
+    await page.waitForFunction((sel) =>
+      !!document.querySelector(`${sel}[data-thallo-enhanced~="carousel"]`), SLIDER);
+    const slider = page.locator(SLIDER);
+    await slider.scrollIntoViewIfNeeded();
+
+    const next = `${SLIDER} .thallo-block-carousel__next`;
+    const readArrow = () => page.evaluate((sel) => {
+      const cs = getComputedStyle(document.querySelector(sel));
+      return { opacity: cs.opacity, pointerEvents: cs.pointerEvents };
+    }, next);
+
+    // At rest (cursor parked away from the slider): invisible AND inert.
+    await page.mouse.move(5, 5);
+    await page.waitForFunction((sel) =>
+      getComputedStyle(document.querySelector(sel)).opacity === '0', next);
+    expect((await readArrow()).pointerEvents).toBe('none');
+
+    // Hovering the slider reveals them.
+    const box = await slider.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + Math.min(box.height / 2, 200));
+    await page.waitForFunction((sel) =>
+      getComputedStyle(document.querySelector(sel)).opacity === '1', next);
+    expect((await readArrow()).pointerEvents).toBe('auto');
+
+    // Keyboard: focus inside the carousel reveals them too (never an invisible
+    // tab stop), even with the cursor parked away again.
+    await page.mouse.move(5, 5);
+    await page.waitForFunction((sel) =>
+      getComputedStyle(document.querySelector(sel)).opacity === '0', next);
+    await page.evaluate((sel) => document.querySelector(sel).focus(), next);
+    await page.waitForFunction((sel) =>
+      getComputedStyle(document.querySelector(sel)).opacity === '1', next);
   });
 
   test('no-JS floor: fade markup WITHOUT the enhancement marker lays out as a scroll slider', async ({ page }) => {
