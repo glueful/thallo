@@ -497,6 +497,41 @@ final class StarterTemplatesTest extends AppTestCase
     }
 
     /**
+     * Configurable transition duration (slider-config follow-up): seconds, one
+     * value pacing every mode — the runtime reads data-duration for the slide
+     * scroll; fade/zoom consume the --carousel-duration custom property. Emitted
+     * only for a NUMERIC stored value, clamped to 0.2–5; absent/garbage values
+     * emit neither (the theme defaults apply).
+     */
+    public function testCarouselConfigurableTransitionDuration(): void
+    {
+        $out = $this->renderList([
+            ['id' => 'c1', 'type' => 'carousel', 'data' => ['transition_duration' => 2.5, 'slides' => []]],
+        ]);
+        self::assertStringContainsString('data-duration="2.5"', $out);
+        self::assertStringContainsString('style="--carousel-duration: 2.5s"', $out);
+
+        // Clamped to the 0.2–5 window on both ends.
+        $high = $this->renderList([
+            ['id' => 'c2', 'type' => 'carousel', 'data' => ['transition_duration' => 99, 'slides' => []]],
+        ]);
+        self::assertStringContainsString('data-duration="5"', $high);
+        $low = $this->renderList([
+            ['id' => 'c3', 'type' => 'carousel', 'data' => ['transition_duration' => 0.01, 'slides' => []]],
+        ]);
+        self::assertStringContainsString('data-duration="0.2"', $low);
+
+        // Absent and non-numeric: no attribute, no style — theme defaults apply.
+        foreach ([[], ['transition_duration' => 'fast']] as $data) {
+            $out = $this->renderList([
+                ['id' => 'c4', 'type' => 'carousel', 'data' => $data + ['slides' => []]],
+            ]);
+            self::assertStringNotContainsString('data-duration', $out);
+            self::assertStringNotContainsString('--carousel-duration', $out);
+        }
+    }
+
+    /**
      * Canvas empty-state (blog_posts precedent): an empty carousel/gallery renders
      * as literally nothing on the live page — correct there, but invisible in the
      * canvas editor, so authors can't see the block exists or that its region is

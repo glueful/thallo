@@ -387,6 +387,11 @@ final class StarterBlockTypes
                     // the admin select displays; stored values stay the bare enum.
                     ['name' => 'transition', 'type' => 'enum', 'enum' => ['slide', 'fade', 'zoom'],
                         'enum_labels' => ['slide' => 'Slide', 'fade' => 'Fade', 'zoom' => 'Zoom (Ken Burns)']],
+                    // Seconds; ONE pace for every mode — the runtime drives the slide
+                    // scroll from it (native smooth pace is UA-fixed) and fade/zoom
+                    // consume it as --carousel-duration. Blank = theme defaults
+                    // (native scroll pace / 1.2s cross-fade).
+                    ['name' => 'transition_duration', 'type' => 'number', 'min' => 0.2, 'max' => 5],
                     // Hero height preset (same ruling): svh-based with pixel floors —
                     // compact 40svh / standard 60svh (fallback) / tall 80svh / full 100svh.
                     ['name' => 'height', 'type' => 'enum', 'enum' => ['compact', 'standard', 'tall', 'full']],

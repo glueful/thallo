@@ -761,6 +761,39 @@ test.describe('slider transitions and height presets', () => {
     expect(Math.abs(data.imgHeight - 720)).toBeLessThanOrEqual(1);
   });
 
+  test('configured duration paces the slide-mode scroll (runtime tween) and the cross-fade (CSS var)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    const SLIDER = '[data-fixture="image-slider"] .thallo-block-carousel';
+    await page.waitForFunction((sel) =>
+      !!document.querySelector(`${sel}[data-thallo-enhanced~="carousel"]`), SLIDER);
+
+    // Slide mode, data-duration="2": the arrow click tweens the scroll over ~2s.
+    // Native smooth scroll settles well under 1s, so an elapsed time in the
+    // 1.5s–4s window proves the configured pace drove the animation.
+    const slider = page.locator(SLIDER);
+    await slider.scrollIntoViewIfNeeded();
+    const start = Date.now();
+    await page.locator(`${SLIDER} .thallo-block-carousel__next`).click();
+    await page.waitForFunction((sel) => {
+      const car = document.querySelector(sel);
+      const vp = car.querySelector('.thallo-block-carousel__viewport');
+      const w = car.getBoundingClientRect().width;
+      return Math.abs(vp.scrollLeft - w) <= 1;
+    }, SLIDER, { timeout: 6000 });
+    const elapsed = Date.now() - start;
+    expect(elapsed).toBeGreaterThanOrEqual(1500);
+    expect(elapsed).toBeLessThanOrEqual(4000);
+
+    // Fade mode: the same config reaches the cross-fade via --carousel-duration.
+    const fadeDuration = await page.evaluate(() => {
+      const car = document.querySelector('[data-fixture="fade-slider"] .thallo-block-carousel');
+      car.style.setProperty('--carousel-duration', '2s');
+      return getComputedStyle(car.querySelector('.thallo-block-carousel__track > *')).transitionDuration;
+    });
+    expect(fadeDuration).toBe('2s');
+  });
+
   test('no-JS floor: fade markup WITHOUT the enhancement marker lays out as a scroll slider', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(FIXTURE);

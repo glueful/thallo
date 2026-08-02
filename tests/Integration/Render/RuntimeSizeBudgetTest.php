@@ -29,6 +29,14 @@ use PHPUnit\Framework\TestCase;
  * this increase: 14,798 bytes gzip level 9 (gzip CLI; 14,775 via this gate's
  * gzencode). Remaining headroom: 562 bytes. Any later increase requires another
  * explicit review — do not raise this ceiling automatically.
+ *
+ * Raised to 16,384 bytes (reviewed increase, 2026-08-02). Reason: configurable
+ * transition-duration support, including interruptible slide-mode tweening —
+ * the duration setting must behave consistently across slide, fade, and zoom,
+ * and native smooth-scroll pace is UA-fixed, so slide mode drives the scroll
+ * itself. Measured size at this increase: 15,453 bytes gzip level 9. Remaining
+ * headroom: 931 bytes. This approves the current implementation, not arbitrary
+ * future polish: any change exceeding 16,384 still requires a separate review.
  */
 final class RuntimeSizeBudgetTest extends TestCase
 {
@@ -40,9 +48,9 @@ final class RuntimeSizeBudgetTest extends TestCase
 
         $compressed = strlen((string) gzencode($source, 9));
         self::assertLessThanOrEqual(
-            15_360,
+            16_384,
             $compressed,
-            "runtime.js is {$compressed} bytes at gzip -9 against a 15KB budget. "
+            "runtime.js is {$compressed} bytes at gzip -9 against a 16KB budget. "
             . 'Growth is fine when it is shared-core weight (raise the budget here, with '
             . 'reasoning); if optional modules now dominate the payload, revisit the '
             . 'splitting decision recorded in the storefront-performance spec §2.',
