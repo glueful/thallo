@@ -462,6 +462,45 @@ test.describe('hero-carousel preset', () => {
     expect(data.titleColor).not.toBe('rgba(0, 0, 0, 0)');
     expect(data.titleColor).toBe('rgb(255, 255, 255)');
   });
+
+  test('slide sizing survives the canvas/preview carrier: one slide per view with .thallo-preview-block wrappers present', async ({ page }) => {
+    // Preview-session renders wrap every blocks() instance in a display:contents
+    // carrier (preview.css:5). The carrier's box does not exist, so slide-sizing
+    // rules using only `__track > *` would silently target the carrier and drop
+    // flex-basis/scroll-snap on the real slide — the regression this test pins:
+    // slides rendered side-by-side (auto width) in every preview surface.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+
+    const widths = await page.evaluate(() => {
+      // Mirror the real preview carrier rule verbatim.
+      const style = document.createElement('style');
+      style.textContent = '.thallo-preview-block { display: contents; }';
+      document.head.appendChild(style);
+
+      const car = document.querySelector('.thallo-block-carousel--hero');
+      const track = car.querySelector('.thallo-block-carousel__track');
+      for (const slide of Array.from(track.children)) {
+        const carrier = document.createElement('div');
+        carrier.className = 'thallo-preview-block';
+        carrier.setAttribute('data-thallo-block', 'test-' + Math.floor(performance.now()));
+        track.insertBefore(carrier, slide);
+        carrier.appendChild(slide);
+      }
+      const slides = Array.from(track.querySelectorAll('.thallo-preview-block > *'));
+      return {
+        carouselWidth: car.getBoundingClientRect().width,
+        slideWidths: slides.map((s) => s.getBoundingClientRect().width)
+      };
+    });
+
+    expect(widths.slideWidths.length).toBeGreaterThan(1);
+    for (const w of widths.slideWidths) {
+      // One slide per view: each carrier-wrapped slide spans the full carousel
+      // width (within one CSS pixel), never auto-shrunk side-by-side.
+      expect(Math.abs(w - widths.carouselWidth)).toBeLessThanOrEqual(1);
+    }
+  });
 });
 
 test.describe('late-registration order', () => {
