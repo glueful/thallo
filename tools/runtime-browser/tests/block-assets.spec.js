@@ -609,6 +609,20 @@ test.describe('image-slider (bare image blocks as slides)', () => {
       return vp && vp.scrollLeft > 0;
     }, undefined, { timeout: 8000 });
   });
+
+  test('a hero slider opening the page sits flush under the header — main padding and block rhythm are both cancelled', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto('/tools/runtime-browser/fixtures/hero-page.html');
+
+    const data = await page.evaluate(() => {
+      const header = document.querySelector('.site-header');
+      const car = document.querySelector('.thallo-block-carousel--hero');
+      return {
+        gap: Math.round(car.getBoundingClientRect().top - header.getBoundingClientRect().bottom)
+      };
+    });
+    expect(Math.abs(data.gap)).toBeLessThanOrEqual(1);
+  });
 });
 
 test.describe('late-registration order', () => {

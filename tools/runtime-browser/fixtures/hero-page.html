@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<!--
+  Page-shell fixture: the SAME shell layout.twig emits (header.site-header,
+  main.layout--centered > article > blocks) with a hero slider as the page's
+  FIRST block. Pins the flush-opening contract: main's top padding
+  (site.css `main { padding-block: ... }`) and the block rhythm margin
+  (blocks.css `.thallo-block { margin-block: ... }`) both apply to ordinary
+  first blocks, but a full-bleed hero slider opening the page must cancel
+  both and sit directly under the header. CSS-geometry only: no runtime.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>runtime-browser fixture: hero-page (flush hero slider opening)</title>
+  <link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/site.css">
+  <link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/blocks.css">
+</head>
+<body>
+
+<header class="site-header">
+  <p>site header stand-in</p>
+</header>
+
+<main id="main" tabindex="-1" class="layout--centered">
+  <article>
+    <div class="thallo-block thallo-block-carousel thallo-block-carousel--per-1 thallo-block-carousel--hero" data-arrows="0" data-dots="0" data-autoplay="0">
+      <div class="thallo-block-carousel__viewport">
+        <div class="thallo-block-carousel__track">
+          <figure class="thallo-block thallo-block-image thallo-block-image--normal"><img src="/tools/runtime-browser/fixtures/media/landscape-1.svg" alt="" loading="lazy" decoding="async"></figure>
+        </div>
+      </div>
+    </div>
+    <p>Ordinary content after the hero keeps the normal page rhythm.</p>
+  </article>
+</main>
+
+</body>
+</html>
