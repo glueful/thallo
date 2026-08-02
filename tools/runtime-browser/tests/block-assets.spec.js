@@ -50,6 +50,72 @@ test.describe('animated text', () => {
     expect(inview.marker).toBe('animated-text');
   });
 
+  test('each effect gives the word swap a DISTINCT animation (they were all an instant cut), disabled under reduced motion', async ({ page }) => {
+    await page.goto(FIXTURE);
+    const sel = '[data-fixture="animated-text-inview"] .thallo-block-animated_text';
+    await page.waitForFunction((s) => {
+      const el = document.querySelector(s);
+      return el && el.classList.contains('thallo-block-animated_text--prepared');
+    }, sel);
+    // The cross-fade engages at enhancement: the hidden word transitions 1 -> 0
+    // over 0.5s — wait for the settle before measuring.
+    await page.waitForFunction((s) => {
+      const hidden = document.querySelector(
+        `${s} .thallo-block-animated_text__word:not(.thallo-block-animated_text__word--active)`);
+      return getComputedStyle(hidden).opacity === '0';
+    }, sel);
+
+    const d = await page.evaluate((s) => {
+      const root = document.querySelector(s);
+      const active = root.querySelector('.thallo-block-animated_text__word--active');
+      const hidden = root.querySelector('.thallo-block-animated_text__word:not(.thallo-block-animated_text__word--active)');
+      const out = {};
+      // Fade is a true CROSS-fade: the outgoing word's visibility flip is
+      // DELAYED until its opacity fade completes (both words paint mid-swap),
+      // while the SETTLED state keeps non-active words hidden — innerText and
+      // copy-paste never pick up the stack.
+      out.fade = {
+        animation: getComputedStyle(active).animationName,
+        transition: getComputedStyle(active).transitionDuration,
+        hiddenVisibility: getComputedStyle(hidden).visibility,
+        hiddenOpacity: getComputedStyle(hidden).opacity,
+        hiddenVisibilityDelay: getComputedStyle(hidden).transitionDelay,
+        activeOpacity: getComputedStyle(active).opacity
+      };
+      root.classList.replace('thallo-block-animated_text--fade', 'thallo-block-animated_text--slide-up');
+      out.slideUp = getComputedStyle(active).animationName;
+      root.classList.replace('thallo-block-animated_text--slide-up', 'thallo-block-animated_text--blur');
+      out.blur = {
+        animation: getComputedStyle(active).animationName,
+        duration: getComputedStyle(active).animationDuration
+      };
+      root.classList.replace('thallo-block-animated_text--blur', 'thallo-block-animated_text--fade');
+      return out;
+    }, sel);
+    expect(d.fade.animation).toBe('none');
+    expect(d.fade.transition).toBe('0.5s');
+    expect(d.fade.hiddenVisibility).toBe('hidden');
+    expect(d.fade.hiddenOpacity).toBe('0');
+    expect(d.fade.hiddenVisibilityDelay).toContain('0.5s'); // the cross-fade enabler
+    expect(d.fade.activeOpacity).toBe('1');
+    expect(d.slideUp).toBe('thallo-at-word-slide-up');
+    expect(d.blur.animation).toBe('thallo-at-word-blur');
+    expect(d.blur.duration).toBe('0.7s');
+  });
+
+  test('reduced motion disables the word-swap animation AND the cross-fade transition', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(FIXTURE);
+    const d = await page.evaluate(() => {
+      const word = document.querySelector(
+        '[data-fixture="animated-text-inview"] .thallo-block-animated_text__word--active');
+      const cs = getComputedStyle(word);
+      return { animation: cs.animationName, transition: cs.transitionDuration };
+    });
+    expect(d.animation).toBe('none');
+    expect(d.transition).toBe('0s');
+  });
+
   test('the below-fold instance has no --in-view before scroll, reveals on scroll, and its rotation settles on the last word within 5s', async ({ page }) => {
     await page.goto(FIXTURE);
 
@@ -232,7 +298,8 @@ test.describe('gallery behavior', () => {
     });
     expect(data.exists).toBe(true);
     expect(data.open).toBe(true);
-    expect(data.backdropBackground).toBe('rgba(0, 0, 0, 0.8)');
+    // Near-opaque lightbox backdrop (2026-08 modernization).
+    expect(data.backdropBackground).toBe('rgba(9, 11, 17, 0.92)');
   });
 
   test('Escape closes the dialog and returns focus to the triggering thumbnail', async ({ page }) => {
@@ -316,6 +383,56 @@ test.describe('gallery behavior', () => {
     });
     expect(reopened.status).toBe('1 of 3');
     expect(reopened.imgSrc).toContain('natural-1.svg');
+  });
+
+  test('the lightbox is a modern full-viewport viewer: near-opaque backdrop, contained image, overlay chrome, click-outside closes', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    await page.locator('[data-fixture="gallery-natural"] .thallo-block-gallery__item').first().click();
+    await page.waitForSelector('dialog.thallo-block-gallery__dialog[open]');
+    await page.waitForFunction(() => {
+      const img = document.querySelector('dialog.thallo-block-gallery__dialog[open] img');
+      return img && img.complete && img.getBoundingClientRect().height > 0;
+    });
+
+    const d = await page.evaluate(() => {
+      const dialog = document.querySelector('dialog.thallo-block-gallery__dialog[open]');
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const dr = dialog.getBoundingClientRect();
+      const img = dialog.querySelector('img').getBoundingClientRect();
+      const close = dialog.querySelector('.thallo-block-gallery__close').getBoundingClientRect();
+      const prev = dialog.querySelector('.thallo-block-gallery__prev').getBoundingClientRect();
+      const next = dialog.querySelector('.thallo-block-gallery__next').getBoundingClientRect();
+      const status = dialog.querySelector('.thallo-block-gallery__status').getBoundingClientRect();
+      const backdrop = getComputedStyle(dialog, '::backdrop').backgroundColor;
+      const alpha = backdrop.startsWith('rgba') || backdrop.includes('/')
+        ? parseFloat(backdrop.replace(/^.*[,/]\s*/, '')) : 1;
+      return {
+        stageFillsViewport: dr.width >= vw - 1 && dr.height >= vh - 1,
+        imgContained: img.top >= 0 && img.bottom <= vh && img.left >= 0 && img.right <= vw,
+        backdropAlpha: alpha,
+        closeTopRight: close.top <= 80 && vw - close.right <= 80,
+        prevMidLeft: prev.left <= 80 && Math.abs((prev.top + prev.bottom) / 2 - vh / 2) <= 60,
+        nextMidRight: vw - next.right <= 80 && Math.abs((next.top + next.bottom) / 2 - vh / 2) <= 60,
+        statusBottomCenter: vh - status.bottom <= 120 && Math.abs((status.left + status.right) / 2 - vw / 2) <= 60
+      };
+    });
+
+    expect(d.stageFillsViewport).toBe(true);
+    expect(d.imgContained).toBe(true);
+    // Near-opaque: the page must not glare through the lightbox.
+    expect(d.backdropAlpha).toBeGreaterThanOrEqual(0.9);
+    expect(d.closeTopRight).toBe(true);
+    expect(d.prevMidLeft).toBe(true);
+    expect(d.nextMidRight).toBe(true);
+    expect(d.statusBottomCenter).toBe(true);
+
+    // Light dismiss: a click on the empty stage (top-center, away from every
+    // control and above the contained image) closes the lightbox.
+    await page.mouse.click(720, 20);
+    await page.waitForFunction(() =>
+      document.querySelectorAll('dialog.thallo-block-gallery__dialog[open]').length === 0);
   });
 
   test('with JavaScript disabled, thumbnails navigate to the full image URL', async ({ browser, baseURL }) => {

@@ -95,6 +95,13 @@ final class AnimatedTextAssetTest extends AppTestCase
               contains: function (c) { return classes.indexOf(c) !== -1; }
             },
             appendChild: function (c) { c.parent = node; node.children.push(c); return c; },
+            listeners: {},
+            addEventListener: function (t, fn) { (node.listeners[t] = node.listeners[t] || []).push(fn); },
+            removeEventListener: function (t, fn) {
+              var l = node.listeners[t] || [];
+              var i = l.indexOf(fn);
+              if (i !== -1) { l.splice(i, 1); }
+            },
             getAttribute: function (n) { return attrs[n] === undefined ? null : attrs[n]; },
             setAttribute: function (n, v) { attrs[n] = String(v); },
             removeAttribute: function (n) { delete attrs[n]; },
@@ -158,7 +165,9 @@ final class AnimatedTextAssetTest extends AppTestCase
 
           var intervals = {};
           var nextId = 1;
-          ctx.setInterval = function (fn) { var id = nextId++; intervals[id] = fn; return id; };
+          ctx.setInterval = function (fn, ms) {
+            var id = nextId++; intervals[id] = fn; ctx.__lastIntervalMs = ms; return id;
+          };
           ctx.clearInterval = function (id) { delete intervals[id]; };
           ctx.window.setInterval = ctx.setInterval;
           ctx.window.clearInterval = ctx.clearInterval;
@@ -596,6 +605,67 @@ final class AnimatedTextAssetTest extends AppTestCase
               'remaining cleanup ran: observer still disconnected despite the earlier throw');
             assert(findListener(ctx, 'visibilitychange') === null,
               'remaining cleanup ran: listener still removed despite the earlier throw');
+          })();
+
+          // 12. data-loop="1" (2026-08 follow-up): rotation wraps past the last word
+          //     and keeps the timer alive; hovering pauses for reading and leaving
+          //     resumes; cleanup removes the hover listeners. The finite default is
+          //     scenario 5, untouched.
+          (function () {
+            var ctx = makeSandbox(false);
+            runInContext(RUNTIME_SRC, ctx);
+            var block = buildBlock(3);
+            block.root.setAttribute('data-loop', '1');
+            var spy = captureEnhance(ctx, 'animated-text');
+            runInContext(ASSET_SRC, ctx);
+            var cleanup = spy.fn(block.root);
+            var io = ctx.__ioInstances[ctx.__ioInstances.length - 1];
+            io.trigger(true);
+
+            ctx.__tick();
+            ctx.__tick();
+            assert(activeIndexOf(block) === 2, 'loop: reached the last word');
+            assert(ctx.__activeTimerCount() === 1, 'loop: timer still alive on the last word');
+            ctx.__tick();
+            assert(activeIndexOf(block) === 0, 'loop: wrapped back to the first word');
+            assert(ctx.__activeTimerCount() === 1, 'loop: still rotating after the wrap');
+
+            var enter = (block.root.listeners.pointerenter || [])[0];
+            var leave = (block.root.listeners.pointerleave || [])[0];
+            assert(!!enter && !!leave, 'loop: hover pause/resume listeners registered');
+            enter();
+            assert(ctx.__activeTimerCount() === 0, 'hover pauses the rotation');
+            leave();
+            assert(ctx.__activeTimerCount() === 1, 'leaving resumes the rotation');
+
+            cleanup();
+            assert((block.root.listeners.pointerenter || []).length === 0,
+              'cleanup removed the pointerenter listener');
+            assert((block.root.listeners.pointerleave || []).length === 0,
+              'cleanup removed the pointerleave listener');
+            assert(ctx.__activeTimerCount() === 0, 'cleanup stopped the loop timer');
+          })();
+
+          // 13. Rotation interval (2026-08 polish): 2.5s default replaces the old
+          //     hardcoded 1s; data-interval (template-clamped seconds) overrides.
+          (function () {
+            var ctx = makeSandbox(false);
+            runInContext(RUNTIME_SRC, ctx);
+            var block = buildBlock(3);
+            runInContext(ASSET_SRC, ctx);
+            ctx.window.ThalloRuntime.enhance(block.root);
+            ctx.__ioInstances[ctx.__ioInstances.length - 1].trigger(true);
+            assert(ctx.__lastIntervalMs === 2500, 'default rotation interval is 2500ms');
+          })();
+          (function () {
+            var ctx = makeSandbox(false);
+            runInContext(RUNTIME_SRC, ctx);
+            var block = buildBlock(3);
+            block.root.setAttribute('data-interval', '1.5');
+            runInContext(ASSET_SRC, ctx);
+            ctx.window.ThalloRuntime.enhance(block.root);
+            ctx.__ioInstances[ctx.__ioInstances.length - 1].trigger(true);
+            assert(ctx.__lastIntervalMs === 1500, 'data-interval="1.5" rotates every 1500ms');
           })();
 
           console.log('ALL_PASS');

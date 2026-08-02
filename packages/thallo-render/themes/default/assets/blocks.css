@@ -1506,6 +1506,41 @@ html:not([data-color-mode-enabled="true"]) thallo-color-mode-toggle { display: n
 :where(.thallo-block-animated_text__rotate) { display: inline-grid; vertical-align: baseline; }
 .thallo-block-animated_text__word { grid-area: 1 / 1; visibility: hidden; }
 .thallo-block-animated_text__word--active { visibility: visible; }
+/* Word-swap animations (2026-08: the effect previously styled only the one-time
+   scroll-in reveal — every rotation was an instant visibility cut, so
+   fade/slide-up/blur looked identical). Scoped to --prepared so the
+   server-rendered first word never animates before the runtime takes over.
+
+   FADE is a true CROSS-fade, and needs no JS: the words already overlap in one
+   grid cell, and the outgoing word's visibility flip is DELAYED until its
+   opacity finishes fading — so both words paint during the swap, yet the
+   settled state keeps non-active words visibility: hidden (the exact-visible-
+   phrase contract: innerText/copy-paste never pick up the hidden stack).
+   Slide-up and blur animate the INCOMING word; blur settles from a deep blur
+   with a slight scale-down over a longer ease-out. */
+.thallo-block-animated_text--prepared.thallo-block-animated_text--fade .thallo-block-animated_text__word {
+  opacity: 0;
+  transition: opacity 0.5s ease, visibility 0s linear 0.5s;
+}
+.thallo-block-animated_text--prepared.thallo-block-animated_text--fade .thallo-block-animated_text__word--active {
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+.thallo-block-animated_text--prepared.thallo-block-animated_text--slide-up .thallo-block-animated_text__word--active { animation: thallo-at-word-slide-up 0.5s ease; }
+.thallo-block-animated_text--prepared.thallo-block-animated_text--blur .thallo-block-animated_text__word--active { animation: thallo-at-word-blur 0.7s ease-out; }
+@keyframes thallo-at-word-slide-up { from { opacity: 0; transform: translateY(0.5em); } }
+@keyframes thallo-at-word-blur {
+  from { opacity: 0; filter: blur(14px); transform: scale(1.05); }
+  60% { filter: blur(3px); }
+}
+/* Per-segment styling (2026-08 follow-up): one class family, applied to the
+   prefix span, the rotate stack, or the suffix span. em-based sizes track the
+   host heading scale. */
+.thallo-block-animated_text__seg--sm { font-size: 0.75em; }
+.thallo-block-animated_text__seg--lg { font-size: 1.25em; }
+.thallo-block-animated_text__seg--xl { font-size: 1.5em; }
+.thallo-block-animated_text__seg--bold { font-weight: 700; }
+.thallo-block-animated_text__seg--italic { font-style: italic; }
 .thallo-block-animated_text--prepared:not(.thallo-block-animated_text--in-view) { opacity: 0; }
 .thallo-block-animated_text--prepared.thallo-block-animated_text--in-view { animation: thallo-at-fade 500ms ease-out both; }
 .thallo-block-animated_text--prepared.thallo-block-animated_text--slide-up.thallo-block-animated_text--in-view { animation-name: thallo-at-slide-up; }
@@ -1515,6 +1550,7 @@ html:not([data-color-mode-enabled="true"]) thallo-color-mode-toggle { display: n
 @keyframes thallo-at-blur { from { opacity: 0; filter: blur(8px); } to { opacity: 1; filter: none; } }
 @media (prefers-reduced-motion: reduce) {
   .thallo-block-animated_text--prepared { opacity: 1 !important; animation: none !important; }
+  .thallo-block-animated_text__word { animation: none !important; transition: none !important; }
 }
 
 /* gallery (modern-blocks spec §4): the grid + real anchors are the no-JS floor. */
@@ -1543,9 +1579,81 @@ html:not([data-color-mode-enabled="true"]) thallo-color-mode-toggle { display: n
   position: absolute; inset: auto 0 0; margin: 0; padding: var(--space-2);
   color: var(--accent-ink); background: rgb(0 0 0 / 0.62);
 }
-.thallo-block-gallery__dialog { border: 0; padding: 0; background: transparent; max-width: min(92vw, 70rem); }
-.thallo-block-gallery__dialog::backdrop { background: rgb(0 0 0 / 0.8); }
-.thallo-block-gallery__dialog img { max-width: 100%; max-height: 85vh; display: block; margin-inline: auto; }
+/* Lightbox (2026-08 modernization): the dialog IS the full-viewport stage —
+   near-opaque blurred backdrop so the page never glares through, a contained
+   centered image, and overlay chrome (side arrows, top-right close,
+   bottom-center counter) in the translucent white-on-dark chip language.
+   The bar is display: contents so each control positions against the stage. */
+.thallo-block-gallery__dialog {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  width: 100vw;
+  height: 100svh;
+  max-width: none;
+  max-height: none;
+}
+/* [open]-scoped: an unconditional display would override the UA's
+   dialog:not([open]) { display: none } and leave a CLOSED full-viewport
+   dialog invisibly covering the page. */
+.thallo-block-gallery__dialog[open] {
+  display: grid;
+  place-items: center;
+}
+.thallo-block-gallery__dialog::backdrop {
+  background: rgb(9 11 17 / 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.thallo-block-gallery__dialog img {
+  max-width: min(94vw, 90rem);
+  max-height: 82svh;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-2xl);
+  display: block;
+  margin: 0;
+}
+.thallo-block-gallery__bar { display: contents; }
+.thallo-block-gallery__prev,
+.thallo-block-gallery__next,
+.thallo-block-gallery__close {
+  position: absolute;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.14);
+  color: #fff;
+  font-size: 1.35rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.thallo-block-gallery__prev:hover,
+.thallo-block-gallery__next:hover,
+.thallo-block-gallery__close:hover { background: rgb(255 255 255 / 0.28); }
+.thallo-block-gallery__prev:focus-visible,
+.thallo-block-gallery__next:focus-visible,
+.thallo-block-gallery__close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.thallo-block-gallery__prev { left: max(1rem, env(safe-area-inset-left)); top: 50%; transform: translateY(-50%); }
+.thallo-block-gallery__next { right: max(1rem, env(safe-area-inset-right)); top: 50%; transform: translateY(-50%); }
+.thallo-block-gallery__close { top: max(1rem, env(safe-area-inset-top)); right: max(1rem, env(safe-area-inset-right)); }
+.thallo-block-gallery__status {
+  position: absolute;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.3rem 0.85rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.5);
+  color: rgb(255 255 255 / 0.92);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
 @media (prefers-reduced-motion: no-preference) {
   .thallo-block-gallery__dialog[open] { animation: thallo-at-fade 150ms ease-out; }
 }
