@@ -537,6 +537,50 @@ test.describe('image-slider (bare image blocks as slides)', () => {
       expect(Math.abs(slide.imgWidth - data.carouselWidth)).toBeLessThanOrEqual(1);
     }
   });
+
+  test('hero slider chrome is seamless and overlaid: no scrollbar, no inter-slide gap, uniform slide height, dots and pause float over the image', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    await page.waitForFunction(() =>
+      !!document.querySelector('[data-fixture="image-slider"] .thallo-block-carousel[data-thallo-enhanced="carousel"]'));
+
+    const data = await page.evaluate(() => {
+      const car = document.querySelector('[data-fixture="image-slider"] .thallo-block-carousel');
+      const viewport = car.querySelector('.thallo-block-carousel__viewport');
+      const track = car.querySelector('.thallo-block-carousel__track');
+      const rect = car.getBoundingClientRect();
+      const imgs = Array.from(track.querySelectorAll('img'));
+      const dots = car.querySelector('.thallo-block-carousel__dots');
+      const pause = car.querySelector('.thallo-block-carousel__pause');
+      const dotsRect = dots ? dots.getBoundingClientRect() : null;
+      const pauseRect = pause ? pause.getBoundingClientRect() : null;
+      return {
+        scrollbarWidth: getComputedStyle(viewport).scrollbarWidth,
+        trackGap: getComputedStyle(track).columnGap,
+        imgHeights: imgs.map((i) => Math.round(i.getBoundingClientRect().height)),
+        hasDots: !!dots,
+        dotsOverlaid: !!dotsRect && dotsRect.bottom <= rect.bottom + 1 && dotsRect.top >= rect.top,
+        hasPause: !!pause,
+        pausePosition: pause ? getComputedStyle(pause).position : null,
+        pauseOverlaid: !!pauseRect && pauseRect.bottom <= rect.bottom + 1 && pauseRect.right <= rect.right + 1 && pauseRect.top >= rect.top
+      };
+    });
+
+    // Scroll-snap plumbing must not show: the raw viewport scrollbar is hidden.
+    expect(data.scrollbarWidth).toBe('none');
+    // Full-bleed slides sit flush — no page background stripe between them.
+    expect(data.trackGap).toBe('0px');
+    // Every image slide renders at the same height (object-fit: cover — no distortion).
+    expect(data.imgHeights.length).toBe(2);
+    expect(data.imgHeights[0]).toBeGreaterThan(0);
+    expect(Math.abs(data.imgHeights[0] - data.imgHeights[1])).toBeLessThanOrEqual(1);
+    // Dots and the pause control overlay the image instead of dangling below it.
+    expect(data.hasDots).toBe(true);
+    expect(data.dotsOverlaid).toBe(true);
+    expect(data.hasPause).toBe(true);
+    expect(data.pausePosition).toBe('absolute');
+    expect(data.pauseOverlaid).toBe(true);
+  });
 });
 
 test.describe('late-registration order', () => {
