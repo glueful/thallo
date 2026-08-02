@@ -503,6 +503,42 @@ test.describe('hero-carousel preset', () => {
   });
 });
 
+test.describe('image-slider (bare image blocks as slides)', () => {
+  async function readImageSliderLayout(page) {
+    return page.evaluate(() => {
+      const car = document.querySelector('[data-fixture="image-slider"] .thallo-block-carousel');
+      const slides = Array.from(car.querySelectorAll('.thallo-block-carousel__track > *'));
+      return {
+        carouselWidth: car.getBoundingClientRect().width,
+        slides: slides.map((s) => {
+          const img = s.querySelector('img');
+          return {
+            width: s.getBoundingClientRect().width,
+            imgWidth: img ? img.getBoundingClientRect().width : 0
+          };
+        })
+      };
+    });
+  }
+
+  test('each bare image slide spans the full carousel: the image block\'s standalone page cap (max-width: var(--container)) and side padding must not survive inside a slider', async ({ page }) => {
+    // 1440 viewport > the 72rem (1152px) --container cap, so an unneutralized
+    // image block reproduces the live bug: slide clamped to 1152 on a 1440
+    // carousel, next slide poking into view despite slides_per_view=1.
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+
+    const data = await readImageSliderLayout(page);
+    expect(data.slides.length).toBe(2);
+    for (const slide of data.slides) {
+      // flex-basis:100% must be the USED width — no intrinsic max-width clamp.
+      expect(Math.abs(slide.width - data.carouselWidth)).toBeLessThanOrEqual(1);
+      // Hero-style slides are edge-to-edge: no page gutters around the image.
+      expect(Math.abs(slide.imgWidth - data.carouselWidth)).toBeLessThanOrEqual(1);
+    }
+  });
+});
+
 test.describe('late-registration order', () => {
   test('runtime.js and both block assets load in the real deferred order; each block enhances on first load with exactly one marker token', async ({ page }) => {
     const pageErrors = [];

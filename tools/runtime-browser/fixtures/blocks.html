@@ -98,6 +98,24 @@
 </div>
 </section>
 
+<!-- image-slider — the slider a user actually builds first: BARE image blocks
+     dropped straight into a hero-style, slides_per_view=1 carousel (no hero
+     wrappers). The image block keeps its standalone page-layout CSS
+     (max-width: var(--container), auto margins, side padding) — as a slide
+     the carousel must neutralize that, or flex-basis:100% silently clamps to
+     72rem and a wider carousel shows the next slide poking in ("2 images in
+     view", the 2026-08 live bug). -->
+<section data-fixture="image-slider">
+<div class="thallo-block thallo-block-carousel thallo-block-carousel--per-1 thallo-block-carousel--hero" data-arrows="1" data-dots="0" data-autoplay="0">
+  <div class="thallo-block-carousel__viewport">
+    <div class="thallo-block-carousel__track">
+      <figure class="thallo-block thallo-block-image thallo-block-image--normal" data-slide="img-1"><img src="/tools/runtime-browser/fixtures/media/landscape-1.svg" alt="" loading="lazy" decoding="async"></figure>
+      <figure class="thallo-block thallo-block-image thallo-block-image--normal" data-slide="img-2"><img src="/tools/runtime-browser/fixtures/media/landscape-2.svg" alt="" loading="lazy" decoding="async"></figure>
+    </div>
+  </div>
+</div>
+</section>
+
 <!-- gallery #1 — aspect=natural (default), cols=3: the no-JS floor + the
      nested .thallo-block-image reset + natural-height layout spec. The
      single block_script('gallery') tag for the whole page lands here, right
