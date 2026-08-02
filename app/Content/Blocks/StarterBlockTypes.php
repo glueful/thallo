@@ -413,7 +413,29 @@ final class StarterBlockTypes
                     // paused offscreen/on hidden tabs, paused while hovered (so the word
                     // can be read), and fully static under reduced motion.
                     ['name' => 'loop', 'type' => 'boolean'],
+                    // Seconds each word stays before rotating (2026-08 polish: the old
+                    // hardcoded 1s read as too fast). Blank = 2.5s.
+                    ['name' => 'interval', 'type' => 'number', 'min' => 0.5, 'max' => 10],
                     ['name' => 'tag', 'type' => 'enum', 'enum' => ['h1', 'h2', 'h3', 'p']],
+                    // Per-segment styling (2026-08 follow-up): prefix / rotating words /
+                    // suffix each take independent color, relative size, and weight/style.
+                    // Grouped: the form folds each trio into a collapsed section.
+                    ['name' => 'prefix_color', 'type' => 'string', 'format' => 'color', 'group' => 'Prefix style'],
+                    ['name' => 'prefix_size', 'type' => 'enum', 'enum' => ['inherit', 'sm', 'lg', 'xl'],
+                        'group' => 'Prefix style'],
+                    ['name' => 'prefix_bold', 'type' => 'boolean', 'group' => 'Prefix style'],
+                    ['name' => 'prefix_italic', 'type' => 'boolean', 'group' => 'Prefix style'],
+                    ['name' => 'rotate_color', 'type' => 'string', 'format' => 'color',
+                        'group' => 'Rotating words style'],
+                    ['name' => 'rotate_size', 'type' => 'enum', 'enum' => ['inherit', 'sm', 'lg', 'xl'],
+                        'group' => 'Rotating words style'],
+                    ['name' => 'rotate_bold', 'type' => 'boolean', 'group' => 'Rotating words style'],
+                    ['name' => 'rotate_italic', 'type' => 'boolean', 'group' => 'Rotating words style'],
+                    ['name' => 'suffix_color', 'type' => 'string', 'format' => 'color', 'group' => 'Suffix style'],
+                    ['name' => 'suffix_size', 'type' => 'enum', 'enum' => ['inherit', 'sm', 'lg', 'xl'],
+                        'group' => 'Suffix style'],
+                    ['name' => 'suffix_bold', 'type' => 'boolean', 'group' => 'Suffix style'],
+                    ['name' => 'suffix_italic', 'type' => 'boolean', 'group' => 'Suffix style'],
                 ]],
 
             // ---- Media ------------------------------------------------------

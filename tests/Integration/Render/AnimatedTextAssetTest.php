@@ -165,7 +165,9 @@ final class AnimatedTextAssetTest extends AppTestCase
 
           var intervals = {};
           var nextId = 1;
-          ctx.setInterval = function (fn) { var id = nextId++; intervals[id] = fn; return id; };
+          ctx.setInterval = function (fn, ms) {
+            var id = nextId++; intervals[id] = fn; ctx.__lastIntervalMs = ms; return id;
+          };
           ctx.clearInterval = function (id) { delete intervals[id]; };
           ctx.window.setInterval = ctx.setInterval;
           ctx.window.clearInterval = ctx.clearInterval;
@@ -642,6 +644,28 @@ final class AnimatedTextAssetTest extends AppTestCase
             assert((block.root.listeners.pointerleave || []).length === 0,
               'cleanup removed the pointerleave listener');
             assert(ctx.__activeTimerCount() === 0, 'cleanup stopped the loop timer');
+          })();
+
+          // 13. Rotation interval (2026-08 polish): 2.5s default replaces the old
+          //     hardcoded 1s; data-interval (template-clamped seconds) overrides.
+          (function () {
+            var ctx = makeSandbox(false);
+            runInContext(RUNTIME_SRC, ctx);
+            var block = buildBlock(3);
+            runInContext(ASSET_SRC, ctx);
+            ctx.window.ThalloRuntime.enhance(block.root);
+            ctx.__ioInstances[ctx.__ioInstances.length - 1].trigger(true);
+            assert(ctx.__lastIntervalMs === 2500, 'default rotation interval is 2500ms');
+          })();
+          (function () {
+            var ctx = makeSandbox(false);
+            runInContext(RUNTIME_SRC, ctx);
+            var block = buildBlock(3);
+            block.root.setAttribute('data-interval', '1.5');
+            runInContext(ASSET_SRC, ctx);
+            ctx.window.ThalloRuntime.enhance(block.root);
+            ctx.__ioInstances[ctx.__ioInstances.length - 1].trigger(true);
+            assert(ctx.__lastIntervalMs === 1500, 'data-interval="1.5" rotates every 1500ms');
           })();
 
           console.log('ALL_PASS');

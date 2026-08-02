@@ -50,6 +50,42 @@ test.describe('animated text', () => {
     expect(inview.marker).toBe('animated-text');
   });
 
+  test('each effect gives the word swap a DISTINCT animation (they were all an instant cut), disabled under reduced motion', async ({ page }) => {
+    await page.goto(FIXTURE);
+    const sel = '[data-fixture="animated-text-inview"] .thallo-block-animated_text';
+    await page.waitForFunction((s) => {
+      const el = document.querySelector(s);
+      return el && el.classList.contains('thallo-block-animated_text--prepared');
+    }, sel);
+
+    const names = await page.evaluate((s) => {
+      const root = document.querySelector(s);
+      const word = root.querySelector('.thallo-block-animated_text__word--active');
+      const read = () => getComputedStyle(word).animationName;
+      const out = { fade: read() };
+      root.classList.replace('thallo-block-animated_text--fade', 'thallo-block-animated_text--slide-up');
+      out.slideUp = read();
+      root.classList.replace('thallo-block-animated_text--slide-up', 'thallo-block-animated_text--blur');
+      out.blur = read();
+      root.classList.replace('thallo-block-animated_text--blur', 'thallo-block-animated_text--fade');
+      return out;
+    }, sel);
+    expect(names.fade).toBe('thallo-at-word-fade');
+    expect(names.slideUp).toBe('thallo-at-word-slide-up');
+    expect(names.blur).toBe('thallo-at-word-blur');
+  });
+
+  test('reduced motion disables the word-swap animation entirely', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(FIXTURE);
+    const name = await page.evaluate(() => {
+      const word = document.querySelector(
+        '[data-fixture="animated-text-inview"] .thallo-block-animated_text__word--active');
+      return getComputedStyle(word).animationName;
+    });
+    expect(name).toBe('none');
+  });
+
   test('the below-fold instance has no --in-view before scroll, reveals on scroll, and its rotation settles on the last word within 5s', async ({ page }) => {
     await page.goto(FIXTURE);
 

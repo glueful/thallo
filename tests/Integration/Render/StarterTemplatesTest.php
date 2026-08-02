@@ -547,6 +547,73 @@ final class StarterTemplatesTest extends AppTestCase
     }
 
     /**
+     * Animated-text rotation interval + per-segment styling (2026-08 follow-up).
+     * interval: seconds each word stays (numeric_clamp 0.5–10; absent/garbage
+     * emits nothing — the runtime's 2.5s default applies). Segments: prefix,
+     * rotating stack, and suffix each take independent color (hex_color-guarded
+     * inline style), relative size class, and bold/italic classes.
+     */
+    public function testAnimatedTextIntervalAndSegmentStyles(): void
+    {
+        $timed = $this->renderList([
+            ['id' => 'a1', 'type' => 'animated_text',
+                'data' => ['interval' => 4, 'prefix' => 'Hi', 'rotate_words' => "A\nB"]],
+        ]);
+        self::assertStringContainsString('data-interval="4"', $timed);
+
+        $clamped = $this->renderList([
+            ['id' => 'a2', 'type' => 'animated_text',
+                'data' => ['interval' => 99, 'prefix' => 'Hi', 'rotate_words' => "A\nB"]],
+        ]);
+        self::assertStringContainsString('data-interval="10"', $clamped);
+
+        foreach ([[], ['interval' => 'warp']] as $data) {
+            $out = $this->renderList([
+                ['id' => 'a3', 'type' => 'animated_text',
+                    'data' => $data + ['prefix' => 'Hi', 'rotate_words' => "A\nB"]],
+            ]);
+            self::assertStringNotContainsString('data-interval', $out);
+        }
+
+        $styled = $this->renderList([
+            ['id' => 'a4', 'type' => 'animated_text', 'data' => [
+                'prefix' => 'Craft', 'rotate_words' => "bold\nthings", 'suffix' => 'daily',
+                'prefix_color' => '#ff0000', 'prefix_size' => 'sm', 'prefix_italic' => true,
+                'rotate_color' => '#00ff00', 'rotate_size' => 'xl', 'rotate_bold' => true,
+                'suffix_size' => 'lg', 'suffix_bold' => true, 'suffix_italic' => true,
+            ]],
+        ]);
+        // Prefix span: small + italic + red.
+        self::assertMatchesRegularExpression(
+            '#<span class="thallo-block-animated_text__prefix thallo-block-animated_text__seg--sm '
+            . 'thallo-block-animated_text__seg--italic" style="color: \#ff0000">Craft</span>#',
+            $styled,
+        );
+        // Rotating stack: xl + bold + green on the __rotate span itself.
+        self::assertMatchesRegularExpression(
+            '#<span class="thallo-block-animated_text__rotate thallo-block-animated_text__seg--xl '
+            . 'thallo-block-animated_text__seg--bold" style="color: \#00ff00">#',
+            $styled,
+        );
+        // Suffix span: lg + bold + italic, no color -> no style attribute.
+        self::assertMatchesRegularExpression(
+            '#<span class="thallo-block-animated_text__suffix thallo-block-animated_text__seg--lg '
+            . 'thallo-block-animated_text__seg--bold thallo-block-animated_text__seg--italic">daily</span>#',
+            $styled,
+        );
+
+        // A non-hex color value is DROPPED, never emitted into the style attr.
+        $bad = $this->renderList([
+            ['id' => 'a5', 'type' => 'animated_text', 'data' => [
+                'prefix' => 'Hi', 'rotate_words' => "A\nB",
+                'prefix_color' => 'red;background:url(x)',
+            ]],
+        ]);
+        self::assertStringNotContainsString('background:url', $bad);
+        self::assertStringNotContainsString('style="color: red', $bad);
+    }
+
+    /**
      * Configurable transition duration (slider-config follow-up): seconds, one
      * value pacing every mode — the runtime reads data-duration for the slide
      * scroll; fade/zoom consume the --carousel-duration custom property. Emitted
