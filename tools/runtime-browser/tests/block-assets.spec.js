@@ -581,6 +581,34 @@ test.describe('image-slider (bare image blocks as slides)', () => {
     expect(data.pausePosition).toBe('absolute');
     expect(data.pauseOverlaid).toBe(true);
   });
+
+  test('vertical page scrolling over the slider never sticky-pauses autoplay — it keeps rotating', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    const slider = page.locator('[data-fixture="image-slider"] .thallo-block-carousel');
+    await page.waitForFunction(() =>
+      !!document.querySelector('[data-fixture="image-slider"] .thallo-block-carousel[data-thallo-enhanced="carousel"]'));
+
+    // The user's exact gesture: reading the page, wheel-scrolling vertically
+    // with the cursor over the full-bleed slider. The slider owns the x axis;
+    // the page owns the y axis — this must NOT count as slide interaction.
+    await slider.scrollIntoViewIfNeeded();
+    const box = await slider.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + Math.min(box.height / 2, 200));
+    await page.mouse.wheel(0, 40);
+
+    const pausedAfterScroll = await page.evaluate(() => {
+      const pause = document.querySelector('[data-fixture="image-slider"] .thallo-block-carousel__pause');
+      return pause ? pause.getAttribute('aria-pressed') : null;
+    });
+    expect(pausedAfterScroll).toBe('false');
+
+    // And autoplay actually still ticks: the 5s rotation advances the viewport.
+    await page.waitForFunction(() => {
+      const vp = document.querySelector('[data-fixture="image-slider"] .thallo-block-carousel__viewport');
+      return vp && vp.scrollLeft > 0;
+    }, undefined, { timeout: 8000 });
+  });
 });
 
 test.describe('late-registration order', () => {

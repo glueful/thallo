@@ -20,6 +20,15 @@ use PHPUnit\Framework\TestCase;
  * custom elements (the registerElement transactional projection helper plus the
  * explicit color-mode-toggle pipeline exception). Final measured size at that
  * increase: 13,394 bytes gzip -9 (942 bytes of headroom under the new ceiling).
+ *
+ * Raised to 15,360 bytes (reviewed increase, 2026-08-02). Reason: direction-aware
+ * carousel interaction — vertical page scrolling over the slider must never
+ * permanently pause autoplay; only horizontal intent (wheel deltaX, touch swipe,
+ * mouse press, keyboard) is slide interaction. Shared carousel-core weight, so it
+ * belongs in the universal runtime rather than an optional split. Measured size at
+ * this increase: 14,798 bytes gzip level 9 (gzip CLI; 14,775 via this gate's
+ * gzencode). Remaining headroom: 562 bytes. Any later increase requires another
+ * explicit review — do not raise this ceiling automatically.
  */
 final class RuntimeSizeBudgetTest extends TestCase
 {
@@ -31,9 +40,9 @@ final class RuntimeSizeBudgetTest extends TestCase
 
         $compressed = strlen((string) gzencode($source, 9));
         self::assertLessThanOrEqual(
-            14_336,
+            15_360,
             $compressed,
-            "runtime.js is {$compressed} bytes at gzip -9 against a 14KB budget. "
+            "runtime.js is {$compressed} bytes at gzip -9 against a 15KB budget. "
             . 'Growth is fine when it is shared-core weight (raise the budget here, with '
             . 'reasoning); if optional modules now dominate the payload, revisit the '
             . 'splitting decision recorded in the storefront-performance spec §2.',
