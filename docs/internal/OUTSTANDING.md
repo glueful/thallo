@@ -36,6 +36,14 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
 - [ ] **SEO: `thallo:seo:check` + `redirects:prune` commands** — `S` — not built. **Home:** same spec as above.
 - [ ] **Multi-workspace setup: admin-settable resolution hosts** — `M` — base domain + default hosts are `config/tenancy.php`/`.env`-only today, so activating full resolution requires a hand-edited `.env` + server restart the admin UI never surfaces (the Resolution → Activate button 422s on "At least one default tenant host must be configured"). Make them persisted admin settings so the flow is UI-driven — enable → set base domain/hosts → activate — with at most one "reload to finish" prompt instead of editing `.env` and guessing when to bounce the server. Surfaced by dogfooding on thallodev.dev 2026-07-11. **Home:** _(no design yet)_ — follow-up on shipped multi-tenancy.
 
+- [ ] **Slider: caption overlay on bare image slides** — `S` — hero slides already carry
+  full text-over-image (scrim, on-media ink, buttons); this is the LIGHTWEIGHT middle
+  option — an image slide's `caption` styled as a small overlay (bottom-left over a
+  subtle gradient) inside hero-style sliders, instead of the below-image caption.
+  Deliberately kept out of the 2026-08 slider v1 (transitions/heights/duration arc) to
+  watch whether authors reach for hero slides first. **Home:** _(no design yet)_ —
+  follow-up on the modern-blocks carousel.
+
 ## C. Forms follow-ups (form block v1 deferrals)
 
 **Home for all:** [form-block spec §14](superpowers/specs/2026-07-09-form-block-design.md).
