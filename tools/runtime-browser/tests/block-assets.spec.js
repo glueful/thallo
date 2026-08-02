@@ -232,7 +232,8 @@ test.describe('gallery behavior', () => {
     });
     expect(data.exists).toBe(true);
     expect(data.open).toBe(true);
-    expect(data.backdropBackground).toBe('rgba(0, 0, 0, 0.8)');
+    // Near-opaque lightbox backdrop (2026-08 modernization).
+    expect(data.backdropBackground).toBe('rgba(9, 11, 17, 0.92)');
   });
 
   test('Escape closes the dialog and returns focus to the triggering thumbnail', async ({ page }) => {
@@ -316,6 +317,56 @@ test.describe('gallery behavior', () => {
     });
     expect(reopened.status).toBe('1 of 3');
     expect(reopened.imgSrc).toContain('natural-1.svg');
+  });
+
+  test('the lightbox is a modern full-viewport viewer: near-opaque backdrop, contained image, overlay chrome, click-outside closes', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    await page.locator('[data-fixture="gallery-natural"] .thallo-block-gallery__item').first().click();
+    await page.waitForSelector('dialog.thallo-block-gallery__dialog[open]');
+    await page.waitForFunction(() => {
+      const img = document.querySelector('dialog.thallo-block-gallery__dialog[open] img');
+      return img && img.complete && img.getBoundingClientRect().height > 0;
+    });
+
+    const d = await page.evaluate(() => {
+      const dialog = document.querySelector('dialog.thallo-block-gallery__dialog[open]');
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const dr = dialog.getBoundingClientRect();
+      const img = dialog.querySelector('img').getBoundingClientRect();
+      const close = dialog.querySelector('.thallo-block-gallery__close').getBoundingClientRect();
+      const prev = dialog.querySelector('.thallo-block-gallery__prev').getBoundingClientRect();
+      const next = dialog.querySelector('.thallo-block-gallery__next').getBoundingClientRect();
+      const status = dialog.querySelector('.thallo-block-gallery__status').getBoundingClientRect();
+      const backdrop = getComputedStyle(dialog, '::backdrop').backgroundColor;
+      const alpha = backdrop.startsWith('rgba') || backdrop.includes('/')
+        ? parseFloat(backdrop.replace(/^.*[,/]\s*/, '')) : 1;
+      return {
+        stageFillsViewport: dr.width >= vw - 1 && dr.height >= vh - 1,
+        imgContained: img.top >= 0 && img.bottom <= vh && img.left >= 0 && img.right <= vw,
+        backdropAlpha: alpha,
+        closeTopRight: close.top <= 80 && vw - close.right <= 80,
+        prevMidLeft: prev.left <= 80 && Math.abs((prev.top + prev.bottom) / 2 - vh / 2) <= 60,
+        nextMidRight: vw - next.right <= 80 && Math.abs((next.top + next.bottom) / 2 - vh / 2) <= 60,
+        statusBottomCenter: vh - status.bottom <= 120 && Math.abs((status.left + status.right) / 2 - vw / 2) <= 60
+      };
+    });
+
+    expect(d.stageFillsViewport).toBe(true);
+    expect(d.imgContained).toBe(true);
+    // Near-opaque: the page must not glare through the lightbox.
+    expect(d.backdropAlpha).toBeGreaterThanOrEqual(0.9);
+    expect(d.closeTopRight).toBe(true);
+    expect(d.prevMidLeft).toBe(true);
+    expect(d.nextMidRight).toBe(true);
+    expect(d.statusBottomCenter).toBe(true);
+
+    // Light dismiss: a click on the empty stage (top-center, away from every
+    // control and above the contained image) closes the lightbox.
+    await page.mouse.click(720, 20);
+    await page.waitForFunction(() =>
+      document.querySelectorAll('dialog.thallo-block-gallery__dialog[open]').length === 0);
   });
 
   test('with JavaScript disabled, thumbnails navigate to the full image URL', async ({ browser, baseURL }) => {
