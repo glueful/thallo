@@ -69,6 +69,14 @@ final class RenderContextExtension extends AbstractExtension
     /** Render-scoped priority-image claim (see claimPriorityImage/resetPriorityImageClaim). */
     private bool $priorityImageClaimed = false;
 
+    /** Closed block-asset catalog (modern-blocks spec §1) — block_script() is
+     *  DB-template vocabulary; only these names ever resolve to a script tag. */
+    public const BLOCK_SCRIPT_ASSETS = ['animated-text', 'gallery'];
+
+    /** @var array<string,bool> per-render emitted set (bandwidth dedupe only —
+     *  the asset's own exactly-once IIFE guard is the correctness authority). */
+    private array $emittedBlockScripts = [];
+
     /**
      * Preview-only block annotation (visual-canvas spec §2): when on, blocks()
      * wraps each rendered instance in a layout-inert `.thallo-preview-block`
@@ -202,6 +210,7 @@ final class RenderContextExtension extends AbstractExtension
             new TwigFunction('custom_css', $this->customCss(...)),
             new TwigFunction('color_mode_enabled', $this->colorModeEnabled(...)),
             new TwigFunction('runtime_script', $this->runtimeScript(...)),
+            new TwigFunction('block_script', $this->blockScript(...)),
             // is_safe html: trusted, static, theme-owned resolver (mirrors icon()).
             new TwigFunction('color_mode_script', $this->colorModeScript(...), ['is_safe' => ['html']]),
             // is_safe html: generated purely from the closed accent/neutral enums.
@@ -330,6 +339,25 @@ final class RenderContextExtension extends AbstractExtension
     public function runtimeScript(): string
     {
         return '/_thallo/runtime/runtime.js';
+    }
+
+    /**
+     * Deferred script tag for a per-block runtime asset (modern-blocks spec §1):
+     * closed catalog, once per render per name. Markup return — the tag is the
+     * value; autoescape never mangles it. Fragment renders reset independently
+     * (EntryBlocksRenderer), so a page may carry a duplicate tag — safe, because
+     * each asset self-guards.
+     */
+    public function blockScript(string $name): \Twig\Markup
+    {
+        if (!in_array($name, self::BLOCK_SCRIPT_ASSETS, true) || isset($this->emittedBlockScripts[$name])) {
+            return new \Twig\Markup('', 'UTF-8');
+        }
+        $this->emittedBlockScripts[$name] = true;
+        return new \Twig\Markup(
+            '<script defer src="/_thallo/runtime/block-' . $name . '.js"></script>',
+            'UTF-8',
+        );
     }
 
     /** The verbatim no-flash resolver (color-mode spec §3.1), or empty markup when disabled. */
@@ -726,7 +754,9 @@ final class RenderContextExtension extends AbstractExtension
      */
     public function seoHead(array $context): string
     {
-        if ($this->isPreview()) {
+        // previewContext, NOT isPreview(): the clean review surface has no
+        // annotations but is still a draft render (surface split).
+        if ($this->previewContext) {
             return '<meta name="robots" content="noindex, nofollow">';
         }
         $seo = $context['seo'] ?? null;
@@ -975,7 +1005,12 @@ final class RenderContextExtension extends AbstractExtension
         $this->resetBlockDepth();
         $this->resetBlockFrames();
         $this->resetPriorityImageClaim();
+        $this->emittedBlockScripts = [];
         $this->setAssetContext(null, null);
+        // Defaults-off here (not assignment-per-path like annotation) so render
+        // paths unaware of the surface split — e.g. pack fragment renderers —
+        // can never leak a previous preview's context into a live response.
+        $this->previewContext = false;
     }
 
     /**
@@ -1054,6 +1089,22 @@ final class RenderContextExtension extends AbstractExtension
     public function isPreview(): bool
     {
         return $this->annotateBlocks;
+    }
+
+    /**
+     * Preview-context flag (surface split): TRUE for ANY preview render — the
+     * annotated design canvas AND the clean review surface. Distinct from
+     * annotation on purpose: a review preview renders live-fidelity markup
+     * (behaviors run, no carriers, no editor hints — is_preview() stays false),
+     * but its DRAFT content must still never be canonicalized or socially
+     * scrapeable, so the SEO discipline keys off THIS flag. Cleared by
+     * resetPerRenderState(); set after reset by the preview-aware controller.
+     */
+    private bool $previewContext = false;
+
+    public function setPreviewContext(bool $on): void
+    {
+        $this->previewContext = $on;
     }
 
     /** @param list<string> $tags */

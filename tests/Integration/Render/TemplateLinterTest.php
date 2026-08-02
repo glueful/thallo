@@ -178,4 +178,9 @@ final class TemplateLinterTest extends AppTestCase
         self::assertSame(1, $violations[0]['line']);
         self::assertSame(2, $violations[1]['line']);
     }
+
+    public function testBlockScriptIsAllowlisted(): void
+    {
+        self::assertSame([], $this->linter()->lint("{{ block_script('gallery') }}"));
+    }
 }

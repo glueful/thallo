@@ -107,7 +107,11 @@ async function mintAndLoad(): Promise<void> {
     renderDisabled.value = false
     mintFailed.value = false
     previewToken.value = mint.token
-    iframeSrc.value = mint.themeUrl
+    // The stage iframe IS the design canvas: declare it (?canvas=1) so the
+    // render pack annotates blocks. Review previews (open-in-new-tab, the
+    // content form's eye button) load the plain token URL and render clean,
+    // with live-page behaviors (autoplay, arrows, lightboxes) running.
+    iframeSrc.value = mint.themeUrl + (mint.themeUrl.includes('?') ? '&' : '?') + 'canvas=1'
   } catch (e) {
     mintFailed.value = true
     notifyError(e, 'Couldn’t start the preview')

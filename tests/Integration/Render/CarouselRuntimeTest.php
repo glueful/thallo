@@ -171,6 +171,11 @@ final class CarouselRuntimeTest extends AppTestCase
             },
             addEventListener: function (t, fn) {
               (viewport.listeners[t] = viewport.listeners[t] || []).push(fn);
+            },
+            removeEventListener: function (t, fn) {
+              var list = viewport.listeners[t] || [];
+              var idx = list.indexOf(fn);
+              if (idx !== -1) { list.splice(idx, 1); }
             }
           };
           var root = makeEl('div');
@@ -207,8 +212,8 @@ final class CarouselRuntimeTest extends AppTestCase
         assert(activeCount() === 1, 'autoplay interval running');
         assert(onlyInterval().ms === 5000, 'rotation every 5000ms');
         assert(!!(car.viewport.listeners.pointerdown && car.viewport.listeners.keydown
-          && car.viewport.listeners.wheel && car.viewport.listeners.touchstart),
-          'interaction listeners on viewport');
+          && car.viewport.listeners.wheel && !car.viewport.listeners.touchstart),
+          'interaction listeners on viewport (pointer events cover touch: no touchstart)');
         onlyInterval().fn(); // one automatic tick: announces silently
         assert(live.textContent === 'Slide 2 of 3', 'tick updates status text');
         assert(live.getAttribute('aria-live') === 'off', 'automatic rotation stays aria-live=off');
@@ -262,14 +267,40 @@ final class CarouselRuntimeTest extends AppTestCase
         dispatchVisibility(false);
         assert(activeCount() === 1, 'all-clear resumes because user chose Play');
 
-        // 5. Viewport interaction pauses without auto-resume; arrows announce politely.
-        car.viewport.listeners.pointerdown[0]();
-        assert(activeCount() === 0, 'pointerdown stops autoplay');
+        // 5. Interaction gating: the slider owns the x axis, the page owns y.
+        //    Vertical wheel/touch (page scrolling that happens over the slider)
+        //    must never sticky-pause; horizontal intent and deliberate presses do.
+        car.viewport.listeners.wheel[0]({ deltaX: 0, deltaY: 120 });
+        assert(activeCount() === 1, 'vertical wheel (page scroll over the slider) never pauses');
+        assert(pauseBtn.getAttribute('aria-pressed') === 'false',
+          'vertical wheel is not user pause');
+        car.viewport.listeners.pointerdown[0]({ pointerType: 'touch', clientX: 200, clientY: 100 });
+        car.viewport.listeners.pointermove[0]({ clientX: 203, clientY: 101 });
+        assert(activeCount() === 1, 'sub-threshold jitter does not read as intent');
+        car.viewport.listeners.pointermove[0]({ clientX: 204, clientY: 180 });
+        assert(activeCount() === 1, 'vertical touch drag (page scroll) never pauses');
+        assert((car.viewport.listeners.pointermove || []).length === 0,
+          'gesture listeners cleaned up once intent resolved');
+        car.viewport.listeners.wheel[0]({ deltaX: 90, deltaY: 4 });
+        assert(activeCount() === 0, 'horizontal wheel is slide interaction: sticky pause');
         assert(pauseBtn.getAttribute('aria-pressed') === 'true',
-          'pointerdown counts as user pause');
+          'horizontal wheel counts as user pause');
+        click(pauseBtn); // Play again for the swipe case
+        assert(activeCount() === 1, 'Play restarts before the swipe case');
+        car.viewport.listeners.pointerdown[0]({ pointerType: 'touch', clientX: 200, clientY: 100 });
+        car.viewport.listeners.pointermove[0]({ clientX: 280, clientY: 108 });
+        assert(activeCount() === 0, 'horizontal touch swipe stops autoplay');
+        assert(pauseBtn.getAttribute('aria-pressed') === 'true',
+          'horizontal swipe counts as user pause');
         io.cb([{ isIntersecting: true }]);
         dispatchVisibility(false);
-        assert(activeCount() === 0, 'no auto-resume after viewport interaction');
+        assert(activeCount() === 0, 'no auto-resume after slide interaction');
+        click(pauseBtn); // Play again for the mouse case
+        assert(activeCount() === 1, 'Play restarts before the mouse case');
+        car.viewport.listeners.pointerdown[0]({ pointerType: 'mouse', clientX: 10, clientY: 10 });
+        assert(activeCount() === 0, 'mouse pointerdown on the slides is deliberate: sticky pause');
+        assert(pauseBtn.getAttribute('aria-pressed') === 'true',
+          'mouse press counts as user pause');
         var next = findChild(car.root, 'thallo-block-carousel__next');
         var prev = findChild(car.root, 'thallo-block-carousel__prev');
         assert(next !== null && prev !== null, 'arrows injected');
@@ -594,10 +625,11 @@ final class CarouselRuntimeTest extends AppTestCase
           var pointerdownRef = viewport.addedRefs.pointerdown && viewport.addedRefs.pointerdown[0];
           var keydownRef = viewport.addedRefs.keydown && viewport.addedRefs.keydown[0];
           var wheelRef = viewport.addedRefs.wheel && viewport.addedRefs.wheel[0];
-          var touchstartRef = viewport.addedRefs.touchstart && viewport.addedRefs.touchstart[0];
           var visibilityRef = doc.addedRefs.visibilitychange && doc.addedRefs.visibilitychange[0];
-          assert(scrollRef && pointerdownRef && keydownRef && wheelRef && touchstartRef && visibilityRef,
+          assert(scrollRef && pointerdownRef && keydownRef && wheelRef && visibilityRef,
             'every expected listener was registered before teardown');
+          assert(!viewport.addedRefs.touchstart,
+            'no legacy touchstart listener (pointer events cover touch)');
 
           root.disconnectedCallback();
 
@@ -616,8 +648,6 @@ final class CarouselRuntimeTest extends AppTestCase
             'keydown listener removed with the SAME ref');
           assert(viewport.removedRefs.wheel && viewport.removedRefs.wheel[0] === wheelRef,
             'wheel listener removed with the SAME ref');
-          assert(viewport.removedRefs.touchstart && viewport.removedRefs.touchstart[0] === touchstartRef,
-            'touchstart listener removed with the SAME ref');
           assert(doc.removedRefs.visibilitychange && doc.removedRefs.visibilitychange[0] === visibilityRef,
             'document visibilitychange listener removed with the SAME ref');
 

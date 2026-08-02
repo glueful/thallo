@@ -160,6 +160,7 @@ final class SeoHeadRenderTest extends AppTestCase
     {
         $extension = $this->container()->get(RenderContextExtension::class);
         $extension->setBlockAnnotations(false); // live posture — the preview gate must not trip
+        $extension->setPreviewContext(false); // surface split: the SEO noindex gate keys off THIS flag
 
         $out = $extension->seoHead([
             'site' => ['name' => 'Thallo'],

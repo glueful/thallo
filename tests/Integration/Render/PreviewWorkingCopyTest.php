@@ -78,7 +78,7 @@ final class PreviewWorkingCopyTest extends AppTestCase
     private function renderPreview(string $token): string
     {
         $response = $this->container()->get(RenderController::class)->preview(
-            Request::create("/_preview/{$token}", 'GET'),
+            Request::create("/_preview/{$token}?canvas=1", "GET"),
             $token,
         );
         return (string) $response->getContent();

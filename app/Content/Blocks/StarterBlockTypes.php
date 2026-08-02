@@ -229,6 +229,9 @@ final class StarterBlockTypes
                     ['name' => 'image', 'type' => 'asset'],
                     ['name' => 'orientation', 'type' => 'enum', 'enum' => ['vertical', 'horizontal']],
                     ['name' => 'reverse', 'type' => 'boolean'],
+                    // Heading level (modern-blocks spec §4): lets a hero render as h1
+                    // when it's the page's primary heading, or step down when it isn't.
+                    ['name' => 'heading_level', 'type' => 'enum', 'enum' => ['h1', 'h2', 'h3']],
                 ]],
             ['slug' => 'rich_text', 'label' => 'Rich text', 'icon' => 'i-lucide-text',
                 'category' => 'Content', 'description' => 'Free-form formatted text.',
@@ -374,6 +377,23 @@ final class StarterBlockTypes
                     ['name' => 'arrows', 'type' => 'boolean'],
                     ['name' => 'dots', 'type' => 'boolean'],
                     ['name' => 'autoplay', 'type' => 'boolean'],
+                    // Style variant (modern-blocks spec §4): 'hero' renders a full-bleed,
+                    // larger-scale slide treatment; 'default' keeps the current look.
+                    ['name' => 'style', 'type' => 'enum', 'enum' => ['default', 'hero']],
+                ]],
+            // Reveal heading with an optional rotating word/phrase list (modern-blocks
+            // spec §3). rotate_words is newline-delimited (one alternative per line);
+            // FieldValidator caps it at 5 alternatives at save time (Task 2).
+            ['slug' => 'animated_text', 'label' => 'Animated text', 'icon' => 'i-lucide-type',
+                'category' => 'Content',
+                'description' => 'A heading with a reveal effect and an optional rotating word.',
+                'schema' => [
+                    ['name' => 'prefix', 'type' => 'string'],
+                    // One alternative per line (phrases allowed) — at most 5 (FieldValidator cap).
+                    ['name' => 'rotate_words', 'type' => 'text'],
+                    ['name' => 'suffix', 'type' => 'string'],
+                    ['name' => 'effect', 'type' => 'enum', 'enum' => ['fade', 'slide-up', 'blur']],
+                    ['name' => 'tag', 'type' => 'enum', 'enum' => ['h1', 'h2', 'h3', 'p']],
                 ]],
 
             // ---- Media ------------------------------------------------------
@@ -389,6 +409,19 @@ final class StarterBlockTypes
                     // Set either or both: one alone preserves aspect ratio, both are exact.
                     ['name' => 'width', 'type' => 'number', 'min' => 1],
                     ['name' => 'height', 'type' => 'number', 'min' => 1],
+                ]],
+            // Responsive image grid (modern-blocks spec §2): items is hard-enforced
+            // (enforce_block_types) to only accept `image` child blocks — unlike the
+            // picker-only allowlists elsewhere, a gallery of non-images makes no sense.
+            ['slug' => 'gallery', 'label' => 'Gallery', 'icon' => 'i-lucide-images',
+                'category' => 'Media',
+                'description' => 'A responsive image grid with an optional lightbox.',
+                'schema' => [
+                    ['name' => 'items', 'type' => 'blocks',
+                     'block_types' => ['image'], 'enforce_block_types' => true],
+                    ['name' => 'columns', 'type' => 'enum', 'enum' => ['2', '3', '4']],
+                    ['name' => 'aspect', 'type' => 'enum', 'enum' => ['natural', 'square', 'landscape']],
+                    ['name' => 'lightbox', 'type' => 'boolean'],
                 ]],
             ['slug' => 'logo', 'label' => 'Logo', 'icon' => 'i-lucide-badge-check',
                 'category' => 'Media',

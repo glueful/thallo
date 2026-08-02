@@ -69,6 +69,46 @@ final class SyncBlockTypesTest extends AppTestCase
         );
     }
 
+    public function testSyncBackfillsCarouselStyleAndHeroHeadingLevelOnPreChangeInstalls(): void
+    {
+        $this->seed();
+        $repo = new BlockTypeRepository($this->connection());
+
+        // Simulate an install seeded from the PRE-change definitions (modern-blocks
+        // spec §2): existing rows created before `style`/`heading_level` were added
+        // to the carousel/hero starters, via the guard-exempt migrated-schema path.
+        $carousel = $repo->findBySlug('carousel');
+        $preCarouselSchema = array_values(array_filter(
+            $carousel['schema'],
+            fn (array $f): bool => $f['name'] !== 'style',
+        ));
+        $repo->applyMigratedSchema((string) $carousel['uuid'], $preCarouselSchema);
+        self::assertNotContains('style', array_column($repo->findBySlug('carousel')['schema'], 'name'));
+
+        $hero = $repo->findBySlug('hero');
+        $preHeroSchema = array_values(array_filter(
+            $hero['schema'],
+            fn (array $f): bool => $f['name'] !== 'heading_level',
+        ));
+        $repo->applyMigratedSchema((string) $hero['uuid'], $preHeroSchema);
+        self::assertNotContains('heading_level', array_column($repo->findBySlug('hero')['schema'], 'name'));
+
+        $tester = new CommandTester($this->container()->get(SyncBlockTypesCommand::class));
+        $tester->execute([]);
+
+        self::assertSame(0, $tester->getStatusCode());
+        self::assertStringContainsString('synced carousel', $tester->getDisplay());
+        self::assertStringContainsString('synced hero', $tester->getDisplay());
+        self::assertContains('style', array_column($repo->findBySlug('carousel')['schema'], 'name'));
+        self::assertContains('heading_level', array_column($repo->findBySlug('hero')['schema'], 'name'));
+
+        // Idempotent (brief requirement): a second run makes no further changes.
+        $tester2 = new CommandTester($this->container()->get(SyncBlockTypesCommand::class));
+        $tester2->execute([]);
+        self::assertSame(0, $tester2->getStatusCode());
+        self::assertStringContainsString('Synced 0', $tester2->getDisplay());
+    }
+
     public function testDryRunReportsWithoutWriting(): void
     {
         $this->seed();

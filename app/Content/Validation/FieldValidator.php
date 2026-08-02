@@ -275,6 +275,26 @@ final class FieldValidator
     }
 
     /**
+     * THE rotate_words interpretation contract (modern-blocks spec §3): CRLF/CR → LF,
+     * split on LF, trim, drop blanks. The validator (cap) and the template (render)
+     * MUST both consume this exact semantics — a parity test pins it.
+     *
+     * @return list<string>
+     */
+    public static function normalizeRotateWords(string $raw): array
+    {
+        $lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $raw));
+        $out = [];
+        foreach ($lines as $line) {
+            $line = trim($line);
+            if ($line !== '') {
+                $out[] = $line;
+            }
+        }
+        return $out;
+    }
+
+    /**
      * Schema-declared value constraints (block-library spec §5): `pattern`
      * fully matches string/text values; `min`/`max` bound numbers. Runs only
      * after checkType() passed, so the value shape is already right.
@@ -423,6 +443,17 @@ final class FieldValidator
                 $items = $block['data']['items'] ?? null;
                 if (is_array($items) && array_is_list($items) && count($items) > 12) {
                     $errors["{$path}.items"] = 'tabs supports at most 12 items';
+                    continue;
+                }
+            }
+            // Animated-text authoring cap (modern-blocks spec §3): one finite rotation
+            // cycle must complete within 5s at 1000ms per step, so at most 5 normalized
+            // alternatives may exist. Rejected, never truncated — the template renders
+            // the complete accepted list.
+            if ($type === 'animated_text') {
+                $raw = $block['data']['rotate_words'] ?? null;
+                if (is_string($raw) && count(self::normalizeRotateWords($raw)) > 5) {
+                    $errors["{$path}.rotate_words"] = 'animated text supports at most 5 alternatives';
                     continue;
                 }
             }

@@ -44,6 +44,12 @@ final class BlocksValidationTest extends AppTestCase
                 ['name' => 'label', 'type' => 'string', 'required' => true],
                 ['name' => 'content', 'type' => 'blocks'],
             ]]);
+        // Animated-text (modern-blocks spec §3): registered here only so the
+        // validator's save-time cap can reach it — Task 3 seeds the real starter type.
+        $this->blocks->create(['slug' => 'animated_text', 'label' => 'Animated Text', 'category' => 'Content',
+            'schema' => [
+                ['name' => 'rotate_words', 'type' => 'text'],
+            ]]);
         $this->validator = new FieldValidator($this->connection(), $this->appContext(), $this->blocks);
         // The field allowlists ONLY hero — proving the picker-only rule below.
         $this->schema = ContentTypeSchema::fromArray([
@@ -283,6 +289,48 @@ final class BlocksValidationTest extends AppTestCase
                 $e->errors()['body.0.content.0.items'] ?? null,
             );
         }
+    }
+
+    public function testAnimatedTextRotateWordsCapAndNormalization(): void
+    {
+        // 6 alternatives → rejected with a field-level error (never truncated).
+        try {
+            $this->clean(['body' => [
+                ['type' => 'animated_text', 'data' => ['rotate_words' => "a\nb\nc\nd\ne\nf"]],
+            ]]);
+            self::fail('expected ValidationException');
+        } catch (ValidationException $e) {
+            self::assertSame(
+                'animated text supports at most 5 alternatives',
+                $e->errors()['body.0.rotate_words'] ?? null,
+            );
+        }
+
+        // CRLF + blanks normalize identically: 5 clean values → VALID.
+        $clean = $this->clean(['body' => [
+            ['type' => 'animated_text', 'data' => ['rotate_words' => "a\r\nb\r\rc\n\n  \nd\ne"]],
+        ]]);
+        self::assertSame('animated_text', $clean['body'][0]['type']);
+
+        // Exactly 5 → valid.
+        $this->clean(['body' => [
+            ['type' => 'animated_text', 'data' => ['rotate_words' => "a\nb\nc\nd\ne"]],
+        ]]);
+        $this->addToAssertionCount(1);
+
+        // Empty rotate_words → valid (rotation absent).
+        $this->clean(['body' => [
+            ['type' => 'animated_text', 'data' => ['rotate_words' => '']],
+        ]]);
+        $this->addToAssertionCount(1);
+    }
+
+    public function testNormalizeRotateWordsContract(): void
+    {
+        self::assertSame(['a', 'b'], FieldValidator::normalizeRotateWords("a\r\nb"));
+        self::assertSame(['a', 'b'], FieldValidator::normalizeRotateWords("a\rb"));
+        self::assertSame(['a phrase', 'b'], FieldValidator::normalizeRotateWords("  a phrase  \n\n b \n   "));
+        self::assertSame([], FieldValidator::normalizeRotateWords("  \n \r\n "));
     }
 
     public function testBlockIdsMustBeUniqueAcrossTheWholeEntry(): void

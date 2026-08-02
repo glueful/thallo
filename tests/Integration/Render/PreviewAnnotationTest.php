@@ -18,10 +18,14 @@ use Thallo\Render\Http\Controllers\RenderController;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Visual-canvas spec §2/§3: blocks() annotation + bridge injection fire in EVERY
- * preview render (INCLUDING the direct /_preview/{token} entry point, which does
- * NOT pass PreviewSessionMiddleware) and NEVER in live renders — with no leak
- * from a preview render into the next live one on the shared singletons.
+ * Visual-canvas spec §2/§3 + the preview surface split: blocks() annotation fires
+ * ONLY for the design canvas (the stage iframe declares itself with ?canvas=1 on
+ * the direct /_preview/{token} entry point — which does NOT pass
+ * PreviewSessionMiddleware — and carries the thallo_preview_canvas cookie across
+ * in-session navigation). The plain token URL is the REVIEW surface: rendered
+ * clean, so the theme runtime behaves exactly as live (autoplay, arrows,
+ * lightboxes). Live renders never annotate, and nothing leaks between renders on
+ * the shared singletons. Bridge/css injection still fires on every preview render.
  */
 final class PreviewAnnotationTest extends AppTestCase
 {
@@ -74,7 +78,7 @@ final class PreviewAnnotationTest extends AppTestCase
         return $entry;
     }
 
-    public function testPreviewRendersAnnotateBlocksAndLiveRendersDoNot(): void
+    public function testOnlyCanvasPreviewsAnnotateBlocks(): void
     {
         $entry = $this->seedBlockPage('source');
 
@@ -85,20 +89,85 @@ final class PreviewAnnotationTest extends AppTestCase
         self::assertStringContainsString('Hello card', $liveHtml);
         self::assertStringNotContainsString('data-thallo-block', $liveHtml);
 
-        // DIRECT token render (spec §2 P1: preview() does NOT pass the session
-        // middleware — annotation must still fire).
         $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
-        $direct = $this->container()->get(RenderController::class)->preview(
+
+        // REVIEW surface: the plain token URL renders WITHOUT carriers so the
+        // theme runtime enhances it like a live page.
+        $review = $this->container()->get(RenderController::class)->preview(
             Request::create("/_preview/{$token}", 'GET'),
             $token,
         );
-        $html = (string) $direct->getContent();
+        $reviewHtml = (string) $review->getContent();
+        self::assertStringContainsString('Hello card', $reviewHtml);
+        self::assertStringNotContainsString('data-thallo-block', $reviewHtml);
+        self::assertStringNotContainsString('class="thallo-preview-block"', $reviewHtml);
+
+        // CANVAS surface (spec §2 P1: preview() does NOT pass the session
+        // middleware — annotation keys off the stage's own ?canvas=1).
+        $canvas = $this->container()->get(RenderController::class)->preview(
+            Request::create("/_preview/{$token}?canvas=1", 'GET'),
+            $token,
+        );
+        $html = (string) $canvas->getContent();
         self::assertStringContainsString('class="thallo-preview-block"', $html);
         self::assertStringContainsString('data-thallo-block="blockone0001"', $html);
 
         // And the flag does not leak: the NEXT live render is clean again.
         $liveAgain = $this->handle(Request::create('/page/source', 'GET'));
         self::assertStringNotContainsString('data-thallo-block', (string) $liveAgain->getContent());
+    }
+
+    public function testCanvasCookieCarriesAnnotationAcrossInSessionNavigation(): void
+    {
+        $entry = $this->seedBlockPage('walk');
+        $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
+        $controller = $this->container()->get(RenderController::class);
+
+        // The canvas load starts the session AND sets the companion canvas cookie.
+        $canvas = $controller->preview(Request::create("/_preview/{$token}?canvas=1", 'GET'), $token);
+        $set = [];
+        foreach ($canvas->headers->getCookies() as $cookie) {
+            $set[$cookie->getName()] = $cookie;
+        }
+        self::assertSame($token, $set['thallo_preview']->getValue());
+        self::assertSame('1', ($set['thallo_preview_canvas'] ?? null)?->getValue());
+
+        // A review load does NOT — and actively expires a stale canvas cookie, so
+        // switching Design -> review in the same browser drops the annotations.
+        $review = $controller->preview(Request::create("/_preview/{$token}", 'GET'), $token);
+        $reviewCanvasCookie = null;
+        foreach ($review->headers->getCookies() as $cookie) {
+            if ($cookie->getName() === 'thallo_preview_canvas') {
+                $reviewCanvasCookie = $cookie;
+            }
+        }
+        self::assertNotNull($reviewCanvasCookie);
+        self::assertLessThan(time(), $reviewCanvasCookie->getExpiresTime());
+
+        // Cookie-backed in-session navigation annotates ONLY under the canvas cookie.
+        $inCanvas = $this->handle(Request::create(
+            '/page/walk',
+            'GET',
+            [],
+            ['thallo_preview' => $token, 'thallo_preview_canvas' => '1'],
+        ));
+        self::assertStringContainsString('data-thallo-block', (string) $inCanvas->getContent());
+
+        $inReview = $this->handle(Request::create('/page/walk', 'GET', [], ['thallo_preview' => $token]));
+        $inReviewHtml = (string) $inReview->getContent();
+        self::assertStringContainsString('Hello card', $inReviewHtml);
+        self::assertStringNotContainsString('data-thallo-block', $inReviewHtml);
+
+        // Exit clears BOTH cookies.
+        $exit = $this->handle(Request::create('/_preview/exit', 'GET', [], ['thallo_preview' => $token]));
+        $clearedNames = [];
+        foreach ($exit->headers->getCookies() as $cookie) {
+            if ($cookie->getExpiresTime() < time()) {
+                $clearedNames[] = $cookie->getName();
+            }
+        }
+        self::assertContains('thallo_preview', $clearedNames);
+        self::assertContains('thallo_preview_canvas', $clearedNames);
     }
 
     public function testBridgeInjectionOnPreviewHtmlOnly(): void

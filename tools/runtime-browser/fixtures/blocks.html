@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<!--
+  Task 7 fixture: the modern-blocks additions (animated_text, gallery, and the
+  hero-carousel preset) hand-rendered from the SHIPPED templates' class
+  contract — packages/thallo-render/themes/default/templates/blocks/
+  animated_text.twig, gallery.twig, carousel.twig, hero.twig — the same way
+  elements.html hand-renders the README's runtime-element examples. Nothing
+  here is copied from a build output; every class/attribute below is typed by
+  hand to match what those .twig files emit for the given field values.
+
+  Loads the REAL theme assets and the REAL runtime.js by path (server.js
+  serves the repo root). The two block assets (block-animated-text.js,
+  block-gallery.js) are also the REAL files, referenced by their real
+  packages/thallo-render/runtime/ path — block_script() serves them at the
+  virtual /_thallo/runtime/block-*.js URL in production, but this static
+  gate has no such router, so (exactly like runtime.js above) the fixture
+  points straight at the real file.
+
+  block_script() dedupes PER RENDER (RenderContextExtension::$emittedBlockScripts):
+  calling it twice for the same name emits the tag only after the FIRST
+  instance of that block type and empty markup after every later one. This
+  fixture has two animated_text blocks and three gallery blocks, so exactly
+  ONE <script> tag appears for each asset, placed right after the first
+  instance of its block type — never after the others.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>runtime-browser fixture: blocks (animated_text + gallery + hero-carousel)</title>
+  <link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/site.css">
+  <link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/blocks.css">
+  <link rel="stylesheet" href="/packages/thallo-render/themes/default/assets/navigation.css">
+  <!-- Mirrors layout.twig: defer, in <head>, before every block it enhances. -->
+  <script defer src="/packages/thallo-render/runtime/runtime.js"></script>
+</head>
+<body>
+
+<!-- animated_text #1 — ABOVE the fold: tag=h2 (default), effect=fade (default),
+     prefix="Build fast with", rotate_words=[Thallo, Websites, Stores], no suffix.
+     Rendered phrase per the template's `inner` block: prefix + " " + the rotate
+     stack (only the --active word paints; the others are visibility:hidden but
+     reserve width via the same-grid-cell rule) => "Build fast with Thallo".
+     No aria-label (ignored by several roles, e.g. `tag: 'p'`): the stable phrase
+     instead rides a visually-hidden __sr span as the FIRST child, and the whole
+     visual assembly is wrapped in ONE aria-hidden="true" span. -->
+<section data-fixture="animated-text-inview">
+<h2 class="thallo-block thallo-block-animated_text thallo-block-animated_text--fade" data-effect="fade"><span class="thallo-block-animated_text__sr">Build fast with Thallo</span><span aria-hidden="true">Build fast with <span class="thallo-block-animated_text__rotate"><span class="thallo-block-animated_text__word thallo-block-animated_text__word--active">Thallo</span><span class="thallo-block-animated_text__word">Websites</span><span class="thallo-block-animated_text__word">Stores</span></span></span></h2>
+<script defer src="/packages/thallo-render/runtime/block-animated-text.js"></script>
+</section>
+
+<!-- 1200px spacer so the second animated_text instance below starts out of
+     the viewport at any of this suite's tested heights (the default Desktop
+     Chrome project viewport and the 844/900px screenshot viewports) — the
+     below-fold half of the reveal-on-scroll spec. -->
+<div data-fixture="spacer" style="height:1200px"></div>
+
+<!-- animated_text #2 — BELOW the fold, same shape, different words so the two
+     instances are trivially distinguishable in assertions. No second
+     block_script('animated-text') tag here: the first call above already
+     satisfied the per-render dedupe. -->
+<section data-fixture="animated-text-below-fold">
+<h2 class="thallo-block thallo-block-animated_text thallo-block-animated_text--fade" data-effect="fade"><span class="thallo-block-animated_text__sr">Now scrolled into view Watch</span><span aria-hidden="true">Now scrolled into view <span class="thallo-block-animated_text__rotate"><span class="thallo-block-animated_text__word thallo-block-animated_text__word--active">Watch</span><span class="thallo-block-animated_text__word">This</span><span class="thallo-block-animated_text__word">Reveal</span></span></span></h2>
+</section>
+
+<!-- hero-carousel preset (carousel.twig + hero.twig, modern-blocks spec §2):
+     data.style='hero' -> the --hero modifier; data.slides_per_view='3' is
+     ALSO present (--per-3) to prove the hero override wins regardless.
+     Slide 1 has a resolved image (hero.twig's `{% if img %}` branch); slide 2
+     has none (the branch is skipped entirely — no __media div at all, exactly
+     as a slide with no image resolves in production). -->
+<section data-fixture="hero-carousel">
+<div class="thallo-block thallo-block-carousel thallo-block-carousel--per-3 thallo-block-carousel--hero" data-arrows="1" data-dots="1" data-autoplay="0">
+  <div class="thallo-block-carousel__viewport">
+    <div class="thallo-block-carousel__track">
+      <header class="thallo-block thallo-block-hero thallo-block-hero--vertical" data-slide="with-media">
+        <div class="thallo-block-hero__inner">
+          <div class="thallo-block-hero__wrapper">
+            <p class="thallo-block-hero__headline">New season</p>
+            <h1 class="thallo-block-hero__title">Bright ideas, brighter results</h1>
+            <p class="thallo-block-hero__description">A hero slide with a media image behind the scrim.</p>
+          </div>
+          <div class="thallo-block-hero__media">
+            <img src="/tools/runtime-browser/fixtures/media/hero-slide.svg" alt="" loading="eager" fetchpriority="high">
+          </div>
+        </div>
+      </header>
+      <header class="thallo-block thallo-block-hero thallo-block-hero--vertical" data-slide="no-media">
+        <div class="thallo-block-hero__inner">
+          <div class="thallo-block-hero__wrapper">
+            <p class="thallo-block-hero__headline">No image</p>
+            <h1 class="thallo-block-hero__title">Fallback background keeps this readable</h1>
+            <p class="thallo-block-hero__description">This slide has no media block at all.</p>
+          </div>
+        </div>
+      </header>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- image-slider — the slider a user actually builds first: BARE image blocks
+     dropped straight into a hero-style, slides_per_view=1 carousel (no hero
+     wrappers). The image block keeps its standalone page-layout CSS
+     (max-width: var(--container), auto margins, side padding) — as a slide
+     the carousel must neutralize that, or flex-basis:100% silently clamps to
+     72rem and a wider carousel shows the next slide poking in ("2 images in
+     view", the 2026-08 live bug). -->
+<section data-fixture="image-slider">
+<div class="thallo-block thallo-block-carousel thallo-block-carousel--per-1 thallo-block-carousel--hero" data-arrows="1" data-dots="1" data-autoplay="1">
+  <div class="thallo-block-carousel__viewport">
+    <div class="thallo-block-carousel__track">
+      <figure class="thallo-block thallo-block-image thallo-block-image--normal" data-slide="img-1"><img src="/tools/runtime-browser/fixtures/media/landscape-1.svg" alt="" loading="lazy" decoding="async"></figure>
+      <figure class="thallo-block thallo-block-image thallo-block-image--normal" data-slide="img-2"><img src="/tools/runtime-browser/fixtures/media/landscape-2.svg" alt="" loading="lazy" decoding="async"></figure>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- gallery #1 — aspect=natural (default), cols=3: the no-JS floor + the
+     nested .thallo-block-image reset + natural-height layout spec. The
+     single block_script('gallery') tag for the whole page lands here, right
+     after the first gallery instance. -->
+<section data-fixture="gallery-natural">
+<div class="thallo-block thallo-block-gallery thallo-block-gallery--cols-3 thallo-block-gallery--natural" data-lightbox="1">
+  <a class="thallo-block-gallery__item" href="/tools/runtime-browser/fixtures/media/natural-1.svg" aria-label="Image 1 of 3">
+    <figure class="thallo-block thallo-block-image thallo-block-image--normal"><img src="/tools/runtime-browser/fixtures/media/natural-1.svg" alt="" loading="lazy" decoding="async"></figure>
+  </a>
+  <a class="thallo-block-gallery__item" href="/tools/runtime-browser/fixtures/media/natural-2.svg" aria-label="Image 2 of 3">
+    <figure class="thallo-block thallo-block-image thallo-block-image--normal"><img src="/tools/runtime-browser/fixtures/media/natural-2.svg" alt="" loading="lazy" decoding="async"></figure>
+  </a>
+  <a class="thallo-block-gallery__item" href="/tools/runtime-browser/fixtures/media/natural-3.svg" aria-label="Image 3 of 3">
+    <figure class="thallo-block thallo-block-image thallo-block-image--normal"><img src="/tools/runtime-browser/fixtures/media/natural-3.svg" alt="" loading="lazy" decoding="async"></figure>
+  </a>
+</div>
+<script defer src="/packages/thallo-render/runtime/block-gallery.js"></script>
+</section>
+
+<!-- gallery #2 — aspect=square, cols=3: the second of the "two gallery
+     instances" for the independent-dialog-state behavior spec, and also
+     carries the square aspect-ratio-box + fixed-crop caption-overlay layout
+     assertions (middle item has a caption). No script tag: dedupe. -->
+<section data-fixture="gallery-square">
+<div class="thallo-block thallo-block-gallery thallo-block-gallery--cols-3 thallo-block-gallery--square" data-lightbox="1">
+  <a class="thallo-block-gallery__item" href="/tools/runtime-browser/fixtures/media/square-1.svg" aria-label="Image 1 of 3">
+    <figure class="thallo-block thallo-block-image thallo-block-image--normal"><img src="/tools/runtime-browser/fixtures/media/square-1.svg" alt="" loading="lazy" decoding="async"></figure>
+  </a>
+  <a class="thallo-block-gallery__item" href="/tools/runtime-browser/fixtures/media/square-2.svg" aria-label="Fixed-crop caption item">
+    <figure class="thallo-block thallo-block-image thallo-block-image--normal"><img src="/tools/runtime-browser/fixtures/media/square-2.svg" alt="" loading="lazy" decoding="async"><figcaption>A fixed-crop caption</figcaption></figure>
+  </a>
+  <a class="thallo-block-gallery__item" href="/tools/runtime-browser/fixtures/media/square-3.svg" aria-label="Image 3 of 3">
+    <figure class="thallo-block thallo-block-image thallo-block-image--normal"><img src="/tools/runtime-browser/fixtures/media/square-3.svg" alt="" loading="lazy" decoding="async"></figure>
+  </a>
+</div>
+</section>
+
+<!-- gallery #3 — aspect=landscape, cols=2: supplementary instance (beyond the
+     required "two") solely so the binding landscape aspect-ratio-box
+     assertion has a real landscape gallery to measure — aspect is a
+     block-level modifier, so it cannot share a block with the square
+     instance above. Not part of the behavior (dialog-independence) spec. -->
+<section data-fixture="gallery-landscape">
+<div class="thallo-block thallo-block-gallery thallo-block-gallery--cols-2 thallo-block-gallery--landscape" data-lightbox="1">
+  <a class="thallo-block-gallery__item" href="/tools/runtime-browser/fixtures/media/landscape-1.svg" aria-label="Image 1 of 2">
+    <figure class="thallo-block thallo-block-image thallo-block-image--normal"><img src="/tools/runtime-browser/fixtures/media/landscape-1.svg" alt="" loading="lazy" decoding="async"></figure>
+  </a>
+  <a class="thallo-block-gallery__item" href="/tools/runtime-browser/fixtures/media/landscape-2.svg" aria-label="Image 2 of 2">
+    <figure class="thallo-block thallo-block-image thallo-block-image--normal"><img src="/tools/runtime-browser/fixtures/media/landscape-2.svg" alt="" loading="lazy" decoding="async"></figure>
+  </a>
+</div>
+</section>
+
+</body>
+</html>
