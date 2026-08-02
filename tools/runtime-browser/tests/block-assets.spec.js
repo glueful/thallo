@@ -57,33 +57,63 @@ test.describe('animated text', () => {
       const el = document.querySelector(s);
       return el && el.classList.contains('thallo-block-animated_text--prepared');
     }, sel);
+    // The cross-fade engages at enhancement: the hidden word transitions 1 -> 0
+    // over 0.5s — wait for the settle before measuring.
+    await page.waitForFunction((s) => {
+      const hidden = document.querySelector(
+        `${s} .thallo-block-animated_text__word:not(.thallo-block-animated_text__word--active)`);
+      return getComputedStyle(hidden).opacity === '0';
+    }, sel);
 
-    const names = await page.evaluate((s) => {
+    const d = await page.evaluate((s) => {
       const root = document.querySelector(s);
-      const word = root.querySelector('.thallo-block-animated_text__word--active');
-      const read = () => getComputedStyle(word).animationName;
-      const out = { fade: read() };
+      const active = root.querySelector('.thallo-block-animated_text__word--active');
+      const hidden = root.querySelector('.thallo-block-animated_text__word:not(.thallo-block-animated_text__word--active)');
+      const out = {};
+      // Fade is a true CROSS-fade: the outgoing word's visibility flip is
+      // DELAYED until its opacity fade completes (both words paint mid-swap),
+      // while the SETTLED state keeps non-active words hidden — innerText and
+      // copy-paste never pick up the stack.
+      out.fade = {
+        animation: getComputedStyle(active).animationName,
+        transition: getComputedStyle(active).transitionDuration,
+        hiddenVisibility: getComputedStyle(hidden).visibility,
+        hiddenOpacity: getComputedStyle(hidden).opacity,
+        hiddenVisibilityDelay: getComputedStyle(hidden).transitionDelay,
+        activeOpacity: getComputedStyle(active).opacity
+      };
       root.classList.replace('thallo-block-animated_text--fade', 'thallo-block-animated_text--slide-up');
-      out.slideUp = read();
+      out.slideUp = getComputedStyle(active).animationName;
       root.classList.replace('thallo-block-animated_text--slide-up', 'thallo-block-animated_text--blur');
-      out.blur = read();
+      out.blur = {
+        animation: getComputedStyle(active).animationName,
+        duration: getComputedStyle(active).animationDuration
+      };
       root.classList.replace('thallo-block-animated_text--blur', 'thallo-block-animated_text--fade');
       return out;
     }, sel);
-    expect(names.fade).toBe('thallo-at-word-fade');
-    expect(names.slideUp).toBe('thallo-at-word-slide-up');
-    expect(names.blur).toBe('thallo-at-word-blur');
+    expect(d.fade.animation).toBe('none');
+    expect(d.fade.transition).toBe('0.5s');
+    expect(d.fade.hiddenVisibility).toBe('hidden');
+    expect(d.fade.hiddenOpacity).toBe('0');
+    expect(d.fade.hiddenVisibilityDelay).toContain('0.5s'); // the cross-fade enabler
+    expect(d.fade.activeOpacity).toBe('1');
+    expect(d.slideUp).toBe('thallo-at-word-slide-up');
+    expect(d.blur.animation).toBe('thallo-at-word-blur');
+    expect(d.blur.duration).toBe('0.7s');
   });
 
-  test('reduced motion disables the word-swap animation entirely', async ({ page }) => {
+  test('reduced motion disables the word-swap animation AND the cross-fade transition', async ({ page }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(FIXTURE);
-    const name = await page.evaluate(() => {
+    const d = await page.evaluate(() => {
       const word = document.querySelector(
         '[data-fixture="animated-text-inview"] .thallo-block-animated_text__word--active');
-      return getComputedStyle(word).animationName;
+      const cs = getComputedStyle(word);
+      return { animation: cs.animationName, transition: cs.transitionDuration };
     });
-    expect(name).toBe('none');
+    expect(d.animation).toBe('none');
+    expect(d.transition).toBe('0s');
   });
 
   test('the below-fold instance has no --in-view before scroll, reveals on scroll, and its rotation settles on the last word within 5s', async ({ page }) => {
