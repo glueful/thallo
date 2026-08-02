@@ -566,7 +566,8 @@ final class GalleryAssetTest extends AppTestCase
 
             var evt2 = click(gallery.root, gallery.anchors[0]);
             assert(evt2.defaultPrevented === true, 'a later click rebuilds and succeeds (dialog was nulled)');
-            assert(ctx.__dialogCreateCount === 2, 'the later click built a genuinely NEW dialog (dialog was nulled, not reused)');
+            assert(ctx.__dialogCreateCount === 2,
+              'the later click built a genuinely NEW dialog (dialog was nulled, not reused)');
           })();
 
           // 11. Two galleries on the same page: ONE registration total, but independent
@@ -583,8 +584,10 @@ final class GalleryAssetTest extends AppTestCase
             runInContext(ASSET_SRC, ctx); // registers once, self-enhances both galleries
 
             assert(spy.calls === 1, 'exactly one registration for two galleries on the page');
-            assert((g1.root.getAttribute('data-thallo-enhanced') || '').indexOf('gallery') !== -1, 'gallery 1 enhanced');
-            assert((g2.root.getAttribute('data-thallo-enhanced') || '').indexOf('gallery') !== -1, 'gallery 2 enhanced');
+            assert((g1.root.getAttribute('data-thallo-enhanced') || '').indexOf('gallery') !== -1,
+              'gallery 1 enhanced');
+            assert((g2.root.getAttribute('data-thallo-enhanced') || '').indexOf('gallery') !== -1,
+              'gallery 2 enhanced');
 
             var evt1 = click(g1.root, g1.anchors[0]);
             var dialog1 = ctx.document.body.children[ctx.document.body.children.length - 1];

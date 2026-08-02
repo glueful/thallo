@@ -151,7 +151,8 @@ final class AnimatedTextAssetTest extends AppTestCase
           ctx.console = { error: function () {}, log: function () {} };
 
           ctx.matchMedia = function (q) {
-            return { matches: !!reduced, media: q, addEventListener: function () {}, removeEventListener: function () {} };
+            return { matches: !!reduced, media: q,
+              addEventListener: function () {}, removeEventListener: function () {} };
           };
           ctx.window.matchMedia = ctx.matchMedia;
 
@@ -272,7 +273,8 @@ final class AnimatedTextAssetTest extends AppTestCase
             assert(enhanceInvocations === 1, 'first eval self-enhanced the block once');
             assert(ctx.window.__thalloBlockAnimatedText === true, 'guard set after first eval');
             var markerAfterFirst = block.root.getAttribute('data-thallo-enhanced');
-            assert(markerAfterFirst && markerAfterFirst.indexOf('animated-text') !== -1, 'block marked after first eval');
+            assert(markerAfterFirst && markerAfterFirst.indexOf('animated-text') !== -1,
+              'block marked after first eval');
 
             // Reset the guard WITHOUT touching the registry (see the `vm` outside-delete
             // quirk documented at scenario 2 — the delete must run via runInContext).
@@ -348,16 +350,19 @@ final class AnimatedTextAssetTest extends AppTestCase
               return originalAdd.call(block.root.classList, c);
             };
 
-            assert(!block.root.classList.contains('thallo-block-animated_text--in-view'), 'not in view before intersection');
+            assert(!block.root.classList.contains('thallo-block-animated_text--in-view'),
+              'not in view before intersection');
             var io = ctx.__ioInstances[ctx.__ioInstances.length - 1];
             io.trigger(true);
-            assert(block.root.classList.contains('thallo-block-animated_text--in-view'), 'in-view added on first intersection');
+            assert(block.root.classList.contains('thallo-block-animated_text--in-view'),
+              'in-view added on first intersection');
             assert(addCalls === 1, 'in-view class added exactly once');
             io.trigger(true);
             io.trigger(false); // leaving view afterward must not un-reveal
             io.trigger(true);
             assert(addCalls === 1, 'reveal-once: repeated/re-intersections never re-add the class');
-            assert(block.root.classList.contains('thallo-block-animated_text--in-view'), 'still in-view after leaving and re-entering');
+            assert(block.root.classList.contains('thallo-block-animated_text--in-view'),
+              'still in-view after leaving and re-entering');
           })();
 
           // 5. Rotation completes exactly words.length - 1 steps then settles on the
@@ -408,7 +413,8 @@ final class AnimatedTextAssetTest extends AppTestCase
             io.trigger(true);
             assert(ctx.__activeTimerCount() === 1, 'resumed after re-entering view');
             ctx.__tick();
-            assert(activeIndexOf(block) === idxBeforeResume + 1, 'resumed rotation continues from where it paused, not from 0');
+            assert(activeIndexOf(block) === idxBeforeResume + 1,
+              'resumed rotation continues from where it paused, not from 0');
 
             var vis = findListener(ctx, 'visibilitychange');
             assert(typeof vis === 'function', 'visibilitychange listener registered');
@@ -431,10 +437,13 @@ final class AnimatedTextAssetTest extends AppTestCase
             var result = spy.fn(block.root);
             assert(result === false, 'reduced motion: enhance() returns false');
             assert(ctx.__ioInstances.length === 0, 'reduced motion: no IntersectionObserver constructed');
-            assert(!block.root.classList.contains('thallo-block-animated_text--prepared'), 'reduced motion: no prepared class');
-            assert(!block.root.classList.contains('thallo-block-animated_text--in-view'), 'reduced motion: no in-view class');
+            assert(!block.root.classList.contains('thallo-block-animated_text--prepared'),
+              'reduced motion: no prepared class');
+            assert(!block.root.classList.contains('thallo-block-animated_text--in-view'),
+              'reduced motion: no in-view class');
             ctx.window.ThalloRuntime.enhance(block.root); // through the real pipeline too
-            assert(block.root.getAttribute('data-thallo-enhanced') === null, 'reduced motion: never marked by the pipeline');
+            assert(block.root.getAttribute('data-thallo-enhanced') === null,
+              'reduced motion: never marked by the pipeline');
           })();
 
           // 8. Cleanup restores the first word active and removes classes/IO/listener.
@@ -457,8 +466,10 @@ final class AnimatedTextAssetTest extends AppTestCase
             assert(activeIndexOf(block) === 0, 'cleanup restores the first word active');
             assert(io._disconnected === true, 'cleanup disconnected the IntersectionObserver');
             assert(findListener(ctx, 'visibilitychange') === null, 'cleanup removed the visibilitychange listener');
-            assert(!block.root.classList.contains('thallo-block-animated_text--prepared'), 'cleanup removed the prepared class');
-            assert(!block.root.classList.contains('thallo-block-animated_text--in-view'), 'cleanup removed the in-view class');
+            assert(!block.root.classList.contains('thallo-block-animated_text--prepared'),
+              'cleanup removed the prepared class');
+            assert(!block.root.classList.contains('thallo-block-animated_text--in-view'),
+              'cleanup removed the in-view class');
             assert(ctx.__activeTimerCount() === 0, 'cleanup stopped the rotation timer');
           })();
 
@@ -486,8 +497,10 @@ final class AnimatedTextAssetTest extends AppTestCase
             var io = ctx.__ioInstances[ctx.__ioInstances.length - 1];
             assert(io._disconnected === true, 'rollback disconnected the observer despite the partial observe');
             assert(findListener(ctx, 'visibilitychange') === null, 'no listener survives an observe failure');
-            assert(!block.root.classList.contains('thallo-block-animated_text--prepared'), 'no prepared class after observe failure');
-            assert(!block.root.classList.contains('thallo-block-animated_text--in-view'), 'no in-view class after observe failure');
+            assert(!block.root.classList.contains('thallo-block-animated_text--prepared'),
+              'no prepared class after observe failure');
+            assert(!block.root.classList.contains('thallo-block-animated_text--in-view'),
+              'no in-view class after observe failure');
             assert(ctx.__activeTimerCount() === 0, 'no timer after observe failure');
             assert(block.root.getAttribute('data-thallo-enhanced') === null, 'no runtime marker after observe failure');
           })();
@@ -513,11 +526,15 @@ final class AnimatedTextAssetTest extends AppTestCase
 
             var io = ctx.__ioInstances[ctx.__ioInstances.length - 1];
             assert(io._disconnected === true, 'rollback disconnected the observer after a listener failure');
-            assert(findListener(ctx, 'visibilitychange') === null, 'listener removed despite the partial add before the throw');
-            assert(!block.root.classList.contains('thallo-block-animated_text--prepared'), 'no prepared class after listener failure');
-            assert(!block.root.classList.contains('thallo-block-animated_text--in-view'), 'no in-view class after listener failure');
+            assert(findListener(ctx, 'visibilitychange') === null,
+              'listener removed despite the partial add before the throw');
+            assert(!block.root.classList.contains('thallo-block-animated_text--prepared'),
+              'no prepared class after listener failure');
+            assert(!block.root.classList.contains('thallo-block-animated_text--in-view'),
+              'no in-view class after listener failure');
             assert(ctx.__activeTimerCount() === 0, 'no timer after listener failure');
-            assert(block.root.getAttribute('data-thallo-enhanced') === null, 'no runtime marker after listener failure');
+            assert(block.root.getAttribute('data-thallo-enhanced') === null,
+              'no runtime marker after listener failure');
           })();
 
           // 11. Failure injection: throw after PARTIALLY mutating classList.add — the
@@ -542,10 +559,13 @@ final class AnimatedTextAssetTest extends AppTestCase
             var io = ctx.__ioInstances[ctx.__ioInstances.length - 1];
             assert(io._disconnected === true, 'rollback disconnected the observer after a class-add failure');
             assert(findListener(ctx, 'visibilitychange') === null, 'listener removed after a class-add failure');
-            assert(!block.root.classList.contains('thallo-block-animated_text--prepared'), 'prepared class removed despite the partial add');
-            assert(!block.root.classList.contains('thallo-block-animated_text--in-view'), 'no in-view class after a class-add failure');
+            assert(!block.root.classList.contains('thallo-block-animated_text--prepared'),
+              'prepared class removed despite the partial add');
+            assert(!block.root.classList.contains('thallo-block-animated_text--in-view'),
+              'no in-view class after a class-add failure');
             assert(ctx.__activeTimerCount() === 0, 'no timer after a class-add failure');
-            assert(block.root.getAttribute('data-thallo-enhanced') === null, 'no runtime marker after a class-add failure');
+            assert(block.root.getAttribute('data-thallo-enhanced') === null,
+              'no runtime marker after a class-add failure');
           })();
 
           // 12. A throwing cleanup action must not stop the remaining cleanup actions.
@@ -572,8 +592,10 @@ final class AnimatedTextAssetTest extends AppTestCase
             var threw = false;
             try { cleanup(); } catch (e) { threw = true; }
             assert(threw === false, 'cleanup itself must not throw even when one undo action throws');
-            assert(io._disconnected === true, 'remaining cleanup ran: observer still disconnected despite the earlier throw');
-            assert(findListener(ctx, 'visibilitychange') === null, 'remaining cleanup ran: listener still removed despite the earlier throw');
+            assert(io._disconnected === true,
+              'remaining cleanup ran: observer still disconnected despite the earlier throw');
+            assert(findListener(ctx, 'visibilitychange') === null,
+              'remaining cleanup ran: listener still removed despite the earlier throw');
           })();
 
           console.log('ALL_PASS');
