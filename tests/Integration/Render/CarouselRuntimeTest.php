@@ -447,6 +447,195 @@ final class CarouselRuntimeTest extends AppTestCase
         $this->runHarness($this->teardownHarness($this->runtimeJs()), 'teardown');
     }
 
+    public function testCarouselFadeModeActiveStateNavigationInertAndTeardown(): void
+    {
+        $this->runHarness($this->fadeHarness($this->runtimeJs()), 'fade');
+    }
+
+    /**
+     * Fade/zoom transition state machine (slider-config ruling): one active-slide
+     * state (data-thallo-active + inert bookkeeping) replaces scrollLeft — the
+     * autoplay tick, arrows, dots, keyboard, and swipe all drive it and never
+     * scroll; a full teardown restores every slide and the viewport tabindex.
+     */
+    private function fadeHarness(string $src): string
+    {
+        $json = json_encode($src, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return <<<JS
+        'use strict';
+        function assert(c, m) { if (!c) { console.error('FAIL: ' + m); process.exit(1); } }
+
+        var intervalSeq = 0;
+        var activeIntervals = {};
+        global.setInterval = function (fn, ms) {
+          intervalSeq++;
+          activeIntervals[intervalSeq] = { fn: fn, ms: ms };
+          return intervalSeq;
+        };
+        global.clearInterval = function (id) { delete activeIntervals[id]; };
+        function onlyInterval() {
+          var keys = Object.keys(activeIntervals);
+          return keys.length === 1 ? activeIntervals[keys[0]] : null;
+        }
+
+        global.matchMedia = function () {
+          return { matches: false, addEventListener: function () {} };
+        };
+        global.IntersectionObserver = function (cb) {
+          var inst = { cb: cb, observed: [], disconnect: function () {} };
+          inst.observe = function (t) { inst.observed.push(t); };
+          return inst;
+        };
+
+        function makeEl(tag) {
+          var attrs = {};
+          var node = {
+            tagName: String(tag || 'div').toUpperCase(),
+            nodeType: 1,
+            className: '',
+            textContent: '',
+            dataset: {},
+            children: [],
+            parentNode: null,
+            listeners: {},
+            appendChild: function (c) { c.parentNode = node; node.children.push(c); return c; },
+            removeChild: function (c) {
+              var i = node.children.indexOf(c);
+              if (i !== -1) { node.children.splice(i, 1); c.parentNode = null; }
+              return c;
+            },
+            getAttribute: function (n) { return attrs[n] === undefined ? null : attrs[n]; },
+            setAttribute: function (n, v) { attrs[n] = String(v); },
+            removeAttribute: function (n) { delete attrs[n]; },
+            addEventListener: function (t, fn) {
+              (node.listeners[t] = node.listeners[t] || []).push(fn);
+            },
+            removeEventListener: function (t, fn) {
+              var list = node.listeners[t] || [];
+              var idx = list.indexOf(fn);
+              if (idx !== -1) { list.splice(idx, 1); }
+            },
+            matches: function () { return false; },
+            querySelectorAll: function () { return []; },
+            querySelector: function () { return null; }
+          };
+          return node;
+        }
+
+        var inert = {
+          dataset: {},
+          matches: function () { return false; },
+          querySelectorAll: function () { return []; },
+          querySelector: function () { return null; },
+          getAttribute: function () { return null; },
+          setAttribute: function () {},
+          addEventListener: function () {},
+          dispatchEvent: function () { return true; }
+        };
+        global.document = {
+          readyState: 'complete',
+          hidden: false,
+          addEventListener: function () {},
+          removeEventListener: function () {},
+          querySelector: function () { return null; },
+          querySelectorAll: function () { return []; },
+          createElement: makeEl,
+          documentElement: inert
+        };
+        global.window = global;
+
+        global.HTMLElement = function () {};
+        var defined = {};
+        global.customElements = { define: function (tag, cls) { defined[tag] = cls; } };
+        function upgrade(tag, node) {
+          node.connectedCallback = defined[tag].prototype.connectedCallback;
+          node.disconnectedCallback = defined[tag].prototype.disconnectedCallback;
+          node.connectedCallback();
+          return node;
+        }
+        function flush() { return new Promise(function (r) { setTimeout(r, 0); }); }
+
+        eval($json);
+        window.ThalloRuntime.registerElement('x-fade-lifecycle', 'carousel', {});
+
+        (async function () {
+          var slides = [0, 400, 800].map(function (x) {
+            var s = makeEl('div');
+            s.offsetLeft = x;
+            return s;
+          });
+          var track = makeEl('div');
+          track.offsetLeft = 0;
+          slides.forEach(function (s) { track.appendChild(s); });
+          var scrollToCalls = [];
+          var viewport = makeEl('div');
+          viewport.scrollLeft = 0;
+          viewport.scrollTo = function (opts) { scrollToCalls.push(opts.left); };
+
+          var root = makeEl('div');
+          root.className = 'thallo-block-carousel thallo-block-carousel--fade';
+          root.dataset = { arrows: '1', dots: '1', autoplay: '1', transition: 'fade' };
+          root.querySelector = function (sel) {
+            if (sel === '.thallo-block-carousel__viewport') { return viewport; }
+            if (sel === '.thallo-block-carousel__track') { return track; }
+            return null;
+          };
+
+          upgrade('x-fade-lifecycle', root);
+          await flush();
+
+          function activeFlags() {
+            return slides.map(function (s) { return s.getAttribute('data-thallo-active') !== null; });
+          }
+          function inertFlags() {
+            return slides.map(function (s) { return !!s.inert; });
+          }
+          function findByClass(cls) {
+            for (var i = 0; i < root.children.length; i++) {
+              if (root.children[i].className === cls) { return root.children[i]; }
+            }
+            return null;
+          }
+
+          // 1. Initial state: slide 0 active, others inert; keyboard surface restored.
+          assert(String(activeFlags()) === 'true,false,false', 'slide 0 active on enhance');
+          assert(String(inertFlags()) === 'false,true,true', 'hidden slides inert, active not');
+          assert(viewport.getAttribute('tabindex') === '0', 'viewport focusable in fade mode');
+
+          // 2. Autoplay tick drives the active state — never a scroll.
+          onlyInterval().fn();
+          assert(String(activeFlags()) === 'false,true,false', 'tick moves active to slide 2');
+          assert(String(inertFlags()) === 'true,false,true', 'inert follows the active slide');
+          assert(scrollToCalls.length === 0, 'fade mode never scrolls');
+          var dots = findByClass('thallo-block-carousel__dots');
+          assert(dots.children[1].getAttribute('aria-current') === 'true',
+            'dots sync from setActive (no scroll event in fade mode)');
+
+          // 3. Keyboard navigation on the viewport.
+          viewport.listeners.keydown[0]({ key: 'ArrowRight' });
+          assert(String(activeFlags()) === 'false,false,true', 'ArrowRight advances');
+          viewport.listeners.keydown[0]({ key: 'ArrowLeft' });
+          assert(String(activeFlags()) === 'false,true,false', 'ArrowLeft goes back');
+
+          // 4. Horizontal touch swipe navigates (leftward swipe -> next slide).
+          viewport.listeners.pointerdown[0]({ pointerType: 'touch', clientX: 200, clientY: 100 });
+          viewport.listeners.pointermove[0]({ clientX: 120, clientY: 104 });
+          assert(String(activeFlags()) === 'false,false,true', 'left swipe advances to slide 3');
+          var pauseBtn = findByClass('thallo-block-carousel__pause');
+          assert(pauseBtn.getAttribute('aria-pressed') === 'true', 'manual navigation sticky-pauses');
+
+          // 5. Teardown restores every slide and the viewport.
+          root.disconnectedCallback();
+          assert(String(activeFlags()) === 'false,false,false', 'teardown removes data-thallo-active');
+          assert(String(inertFlags()) === 'false,false,false', 'teardown clears inert');
+          assert(viewport.getAttribute('tabindex') === null, 'teardown removes the tabindex');
+
+          console.log('ALL_PASS');
+        })().catch(function (e) { console.error('FAIL: ' + (e && e.stack)); process.exit(1); });
+        JS;
+    }
+
     /**
      * Teardown accounting, driven through the PUBLIC element lifecycle only (no
      * production test hook): register a harness-only x-carousel-lifecycle adapter

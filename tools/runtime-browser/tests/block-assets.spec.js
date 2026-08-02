@@ -667,6 +667,135 @@ test.describe('image-slider (bare image blocks as slides)', () => {
   });
 });
 
+test.describe('slider transitions and height presets', () => {
+  const FADE = '[data-fixture="fade-slider"] .thallo-block-carousel';
+
+  test('fade mode stacks slides, drives one active state with inert parity, and navigates by arrows', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    await page.waitForFunction((sel) =>
+      !!document.querySelector(`${sel}[data-thallo-enhanced~="carousel"]`), FADE);
+    // Enhancement gracefully cross-fades the initial state in (the hidden slide
+    // transitions 1 -> 0 over .6s) — wait for the settle before measuring.
+    await page.waitForFunction((sel) => {
+      const slides = [...document.querySelector(sel).querySelectorAll('.thallo-block-carousel__track > *')];
+      return getComputedStyle(slides[1]).opacity === '0';
+    }, FADE);
+
+    const before = await page.evaluate((sel) => {
+      const car = document.querySelector(sel);
+      const track = car.querySelector('.thallo-block-carousel__track');
+      const slides = [...track.children];
+      const rects = slides.map((s) => s.getBoundingClientRect());
+      return {
+        trackDisplay: getComputedStyle(track).display,
+        sameCell: Math.abs(rects[0].left - rects[1].left) <= 1 && Math.abs(rects[0].top - rects[1].top) <= 1,
+        active: slides.map((s) => s.hasAttribute('data-thallo-active')),
+        inert: slides.map((s) => s.inert),
+        opacities: slides.map((s) => getComputedStyle(s).opacity),
+        viewportTabindex: car.querySelector('.thallo-block-carousel__viewport').getAttribute('tabindex'),
+        imgHeight: Math.round(slides[0].querySelector('img').getBoundingClientRect().height)
+      };
+    }, FADE);
+
+    expect(before.trackDisplay).toBe('grid');
+    expect(before.sameCell).toBe(true); // overlapped, not side by side
+    expect(before.active).toEqual([true, false]);
+    expect(before.inert).toEqual([false, true]);
+    expect(before.opacities[0]).toBe('1');
+    expect(before.opacities[1]).toBe('0');
+    expect(before.viewportTabindex).toBe('0');
+    // height=compact: max(40svh, 16rem) at 900px viewport -> 360px.
+    expect(Math.abs(before.imgHeight - 360)).toBeLessThanOrEqual(1);
+
+    await page.locator(`${FADE} .thallo-block-carousel__next`).click();
+    await page.waitForFunction((sel) => {
+      const slides = [...document.querySelector(sel).querySelectorAll('.thallo-block-carousel__track > *')];
+      return slides[1].hasAttribute('data-thallo-active') && getComputedStyle(slides[1]).opacity === '1';
+    }, FADE);
+    const after = await page.evaluate((sel) => {
+      const car = document.querySelector(sel);
+      const slides = [...car.querySelectorAll('.thallo-block-carousel__track > *')];
+      const dots = [...car.querySelectorAll('.thallo-block-carousel__dot')];
+      return {
+        active: slides.map((s) => s.hasAttribute('data-thallo-active')),
+        inert: slides.map((s) => s.inert),
+        scrollLeft: car.querySelector('.thallo-block-carousel__viewport').scrollLeft,
+        dotCurrent: dots.map((d) => d.getAttribute('aria-current'))
+      };
+    }, FADE);
+    expect(after.active).toEqual([false, true]);
+    expect(after.inert).toEqual([true, false]);
+    expect(after.scrollLeft).toBe(0); // fade never scrolls
+    expect(after.dotCurrent).toEqual(['false', 'true']);
+  });
+
+  test('zoom mode scales ONLY the active image, and height=tall applies', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    const ZOOM = '[data-fixture="zoom-slider"] .thallo-block-carousel';
+    await page.waitForFunction((sel) =>
+      !!document.querySelector(`${sel}[data-thallo-enhanced~="carousel"]`), ZOOM);
+
+    const data = await page.evaluate((sel) => {
+      const car = document.querySelector(sel);
+      const slides = [...car.querySelectorAll('.thallo-block-carousel__track > *')];
+      const activeImg = slides[0].querySelector('img');
+      return {
+        activeImgAnimation: getComputedStyle(activeImg).animationName,
+        activeFigureAnimation: getComputedStyle(slides[0]).animationName,
+        hiddenImgAnimation: getComputedStyle(slides[1].querySelector('img')).animationName,
+        slideOverflow: getComputedStyle(slides[0]).overflow,
+        imgHeight: Math.round(activeImg.getBoundingClientRect().height)
+      };
+    }, ZOOM);
+
+    expect(data.activeImgAnimation).toBe('thallo-carousel-zoom');
+    expect(data.activeFigureAnimation).toBe('none'); // image-only: the slide box never transforms
+    expect(data.hiddenImgAnimation).toBe('none');
+    expect(data.slideOverflow).toBe('hidden'); // the scale never bleeds outside the slide
+    // height=tall: max(80svh, 28rem) at 900px viewport -> 720px.
+    expect(Math.abs(data.imgHeight - 720)).toBeLessThanOrEqual(1);
+  });
+
+  test('no-JS floor: fade markup WITHOUT the enhancement marker lays out as a scroll slider', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+
+    const display = await page.evaluate(() => {
+      // A late-added fade carousel the boot pass never saw: exactly what a
+      // no-JS visitor's markup looks like (no data-thallo-enhanced).
+      const src = document.querySelector('[data-fixture="fade-slider"] .thallo-block-carousel');
+      const clone = src.cloneNode(true);
+      clone.removeAttribute('data-thallo-enhanced');
+      document.body.appendChild(clone);
+      const d = getComputedStyle(clone.querySelector('.thallo-block-carousel__track')).display;
+      clone.remove();
+      return d;
+    });
+    expect(display).toBe('flex');
+  });
+
+  test('reduced motion: fade switches instantly — no cross-fade transition, no zoom animation', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    await page.waitForFunction((sel) =>
+      !!document.querySelector(`${sel}[data-thallo-enhanced~="carousel"]`), FADE);
+
+    const data = await page.evaluate(() => {
+      const fadeSlide = document.querySelector('[data-fixture="fade-slider"] .thallo-block-carousel__track > *');
+      const zoomImg = document.querySelector('[data-fixture="zoom-slider"] .thallo-block-carousel__track > [data-thallo-active] img');
+      return {
+        fadeTransition: getComputedStyle(fadeSlide).transitionDuration,
+        zoomAnimation: zoomImg ? getComputedStyle(zoomImg).animationName : null
+      };
+    });
+    expect(data.fadeTransition).toBe('0s');
+    expect(data.zoomAnimation).toBe('none');
+  });
+});
+
 test.describe('late-registration order', () => {
   test('runtime.js and both block assets load in the real deferred order; each block enhances on first load with exactly one marker token', async ({ page }) => {
     const pageErrors = [];

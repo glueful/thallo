@@ -454,6 +454,49 @@ final class StarterTemplatesTest extends AppTestCase
     }
 
     /**
+     * Transition + height configs (slider-config ruling, 2026-08-02). Both are
+     * closed enums with template-side fallbacks: absent or unknown stored values
+     * render the defaults (slide / standard) — never an arbitrary class.
+     */
+    public function testCarouselTransitionAndHeightModifiers(): void
+    {
+        $fade = $this->renderList([
+            ['id' => 'c1', 'type' => 'carousel', 'data' => ['transition' => 'fade', 'slides' => []]],
+        ]);
+        self::assertStringContainsString('thallo-block-carousel--fade', $fade);
+        self::assertStringContainsString('data-transition="fade"', $fade);
+
+        $zoom = $this->renderList([
+            ['id' => 'c2', 'type' => 'carousel', 'data' => ['transition' => 'zoom', 'slides' => []]],
+        ]);
+        self::assertStringContainsString('thallo-block-carousel--zoom', $zoom);
+        self::assertStringContainsString('data-transition="zoom"', $zoom);
+
+        // Absent AND unknown transitions both fall back to slide: no modifier.
+        foreach ([[], ['transition' => 'sparkle']] as $data) {
+            $out = $this->renderList([
+                ['id' => 'c3', 'type' => 'carousel', 'data' => $data + ['slides' => []]],
+            ]);
+            self::assertStringContainsString('data-transition="slide"', $out);
+            self::assertStringNotContainsString('thallo-block-carousel--fade', $out);
+            self::assertStringNotContainsString('thallo-block-carousel--zoom', $out);
+        }
+
+        $tall = $this->renderList([
+            ['id' => 'c4', 'type' => 'carousel', 'data' => ['height' => 'tall', 'slides' => []]],
+        ]);
+        self::assertStringContainsString('thallo-block-carousel--h-tall', $tall);
+
+        // Absent AND unknown heights both fall back to the standard preset.
+        foreach ([[], ['height' => 'gigantic']] as $data) {
+            $out = $this->renderList([
+                ['id' => 'c5', 'type' => 'carousel', 'data' => $data + ['slides' => []]],
+            ]);
+            self::assertStringContainsString('thallo-block-carousel--h-standard', $out);
+        }
+    }
+
+    /**
      * Canvas empty-state (blog_posts precedent): an empty carousel/gallery renders
      * as literally nothing on the live page — correct there, but invisible in the
      * canvas editor, so authors can't see the block exists or that its region is
