@@ -87,7 +87,7 @@ final class EditInPlaceMarkingTest extends AppTestCase
         // ANNOTATED (direct token) render: region wrapper with BOTH attributes.
         $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
         $preview = (string) $this->container()->get(RenderController::class)->preview(
-            Request::create("/_preview/{$token}", 'GET'),
+            Request::create("/_preview/{$token}?canvas=1", "GET"),
             $token,
         )->getContent();
         self::assertStringContainsString('Hello prose', $preview);
@@ -160,7 +160,7 @@ final class EditInPlaceMarkingTest extends AppTestCase
 
         $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
         $html = (string) $this->container()->get(RenderController::class)->preview(
-            Request::create("/_preview/{$token}", 'GET'),
+            Request::create("/_preview/{$token}?canvas=1", "GET"),
             $token,
         )->getContent();
         self::assertStringContainsString('data-thallo-edit-block="nestedpr0001"', $html);
@@ -228,7 +228,7 @@ final class EditInPlaceMarkingTest extends AppTestCase
         ]);
         $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
         $html = (string) $this->container()->get(RenderController::class)->preview(
-            Request::create("/_preview/{$token}", 'GET'),
+            Request::create("/_preview/{$token}?canvas=1", "GET"),
             $token,
         )->getContent();
 
@@ -277,7 +277,7 @@ final class EditInPlaceMarkingTest extends AppTestCase
         $entry = $this->seedHeroPage('et-empty', ['title' => '']);
         $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
         $html = (string) $this->container()->get(RenderController::class)->preview(
-            Request::create("/_preview/{$token}", 'GET'),
+            Request::create("/_preview/{$token}?canvas=1", "GET"),
             $token,
         )->getContent();
         self::assertStringContainsString('data-thallo-edit-field="title"></span>', $html);

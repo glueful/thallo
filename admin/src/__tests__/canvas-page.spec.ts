@@ -220,7 +220,7 @@ describe('canvas page', () => {
     const wrapper = mountPage()
     await flushPromises()
     const iframe = wrapper.find('[data-test="canvas-iframe"]')
-    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1')
+    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1?canvas=1')
 
     await wrapper.find('[data-test="canvas-viewport-mobile"]').trigger('click')
     const stageInner = wrapper.find('[data-test="canvas-stage"] > div')
@@ -255,7 +255,7 @@ describe('canvas page', () => {
     expect(openSpy).toHaveBeenCalledWith('https://site.test/_preview/tok2', '_blank', 'noopener')
     // The stage itself is untouched: same iframe src, no remount.
     expect(wrapper.find('[data-test="canvas-iframe"]').attributes('src')).toBe(
-      'https://site.test/_preview/tok1',
+      'https://site.test/_preview/tok1?canvas=1',
     )
     openSpy.mockRestore()
     wrapper.unmount()
@@ -369,7 +369,7 @@ describe('canvas page', () => {
     // means the iframe is NOT remounted (identity kept, scroll untouched).
     expect(bridge.instance.stageRefresh).toHaveBeenCalledTimes(1)
     const iframe = wrapper.find('[data-test="canvas-iframe"]')
-    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1') // SAME URL
+    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1?canvas=1') // SAME URL
     expect(iframe.element).toBe(before) // NOT remounted -> patched in place
     expect(mintMock).toHaveBeenCalledTimes(1)
     wrapper.unmount()
@@ -387,7 +387,7 @@ describe('canvas page', () => {
     await flushPromises()
     await flushPromises()
     const iframe = wrapper.find('[data-test="canvas-iframe"]')
-    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1') // SAME URL
+    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1?canvas=1') // SAME URL
     expect(iframe.element).not.toBe(before) // remounted -> reloaded (today's path)
     wrapper.unmount()
   })
@@ -453,7 +453,7 @@ describe('canvas page', () => {
     await flushPromises()
 
     const iframe = wrapper.find('[data-test="canvas-iframe"]')
-    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1') // SAME URL
+    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1?canvas=1') // SAME URL
     expect(iframe.element).not.toBe(before) // remounted -> mirror DOM discarded
     expect(bridge.instance.stageRefresh).not.toHaveBeenCalled() // failure = direct reload
     expect(mintMock).toHaveBeenCalledTimes(1) // no re-mint on failure
@@ -938,7 +938,7 @@ describe('canvas page', () => {
     await flushPromises()
 
     const iframe = wrapper.find('[data-test="canvas-iframe"]')
-    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1') // SAME URL
+    expect(iframe.attributes('src')).toBe('https://site.test/_preview/tok1?canvas=1') // SAME URL
     expect(iframe.element).not.toBe(before) // remounted -> reloaded
     expect(mintMock).toHaveBeenCalledTimes(1) // NO re-mint on failure
     expect(notify.warning).toHaveBeenCalled() // banner still shows
