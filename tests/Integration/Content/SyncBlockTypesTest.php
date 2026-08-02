@@ -37,6 +37,56 @@ final class SyncBlockTypesTest extends AppTestCase
         self::assertContains('shadow', array_column($repo->findBySlug('style')['schema'], 'name'));
     }
 
+    /**
+     * Presentation-metadata attach (slider-config follow-up): a same-name field
+     * the starter now labels (enum_labels) gets the labels ADDED when the row has
+     * none — additive-only, so an operator's own labels are never overwritten.
+     */
+    public function testSyncAttachesMissingEnumLabelsToExistingFields(): void
+    {
+        $this->seed();
+        $repo = new BlockTypeRepository($this->connection());
+        $carousel = $repo->findBySlug('carousel');
+        // Simulate the pre-labels install: same fields, transition WITHOUT labels.
+        $stripped = array_values(array_map(static function (array $f): array {
+            unset($f['enum_labels']);
+            return $f;
+        }, $carousel['schema']));
+        $repo->applyMigratedSchema((string) $carousel['uuid'], $stripped);
+
+        $tester = new CommandTester($this->container()->get(SyncBlockTypesCommand::class));
+        $tester->execute([]);
+        self::assertStringContainsString('synced carousel', $tester->getDisplay());
+
+        $transition = null;
+        foreach ($repo->findBySlug('carousel')['schema'] as $f) {
+            if (($f['name'] ?? '') === 'transition') {
+                $transition = $f;
+            }
+        }
+        self::assertSame('Zoom (Ken Burns)', $transition['enum_labels']['zoom'] ?? null);
+
+        // Idempotent once labelled.
+        $tester2 = new CommandTester($this->container()->get(SyncBlockTypesCommand::class));
+        $tester2->execute([]);
+        self::assertStringContainsString('Synced 0', $tester2->getDisplay());
+
+        // An operator's customized labels survive a later sync untouched.
+        $custom = array_values(array_map(static function (array $f): array {
+            if (($f['name'] ?? '') === 'transition') {
+                $f['enum_labels'] = ['zoom' => 'My zoom'];
+            }
+            return $f;
+        }, $repo->findBySlug('carousel')['schema']));
+        $repo->applyMigratedSchema((string) $carousel['uuid'], $custom);
+        (new CommandTester($this->container()->get(SyncBlockTypesCommand::class)))->execute([]);
+        foreach ($repo->findBySlug('carousel')['schema'] as $f) {
+            if (($f['name'] ?? '') === 'transition') {
+                self::assertSame(['zoom' => 'My zoom'], $f['enum_labels']);
+            }
+        }
+    }
+
     public function testSyncIsIdempotentWhenUpToDate(): void
     {
         $this->seed();

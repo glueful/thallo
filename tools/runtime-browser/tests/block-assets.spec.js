@@ -693,6 +693,7 @@ test.describe('slider transitions and height presets', () => {
         active: slides.map((s) => s.hasAttribute('data-thallo-active')),
         inert: slides.map((s) => s.inert),
         opacities: slides.map((s) => getComputedStyle(s).opacity),
+        fadeDuration: getComputedStyle(slides[0]).transitionDuration,
         viewportTabindex: car.querySelector('.thallo-block-carousel__viewport').getAttribute('tabindex'),
         imgHeight: Math.round(slides[0].querySelector('img').getBoundingClientRect().height)
       };
@@ -704,6 +705,8 @@ test.describe('slider transitions and height presets', () => {
     expect(before.inert).toEqual([false, true]);
     expect(before.opacities[0]).toBe('1');
     expect(before.opacities[1]).toBe('0');
+    // Slow enough to read as a cross-fade, not a cut (2026-08 polish ruling).
+    expect(before.fadeDuration).toBe('1.2s');
     expect(before.viewportTabindex).toBe('0');
     // height=compact: max(40svh, 16rem) at 900px viewport -> 360px.
     expect(Math.abs(before.imgHeight - 360)).toBeLessThanOrEqual(1);

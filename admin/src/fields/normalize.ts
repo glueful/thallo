@@ -14,6 +14,7 @@ export function toFieldDef(f: ContentTypeField): FieldDef {
     type: (f.type ?? 'string') as FieldDef['type'],
     required: f.required ?? undefined,
     enum: f.enum ?? undefined,
+    enumLabels: f.enum_labels ?? undefined,
     format: (f.format ?? undefined) as FieldDef['format'],
     referenceType: f.reference_type ?? undefined,
     multiple: f.multiple ?? undefined,

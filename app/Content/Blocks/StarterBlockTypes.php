@@ -382,8 +382,11 @@ final class StarterBlockTypes
                     ['name' => 'style', 'type' => 'enum', 'enum' => ['default', 'hero']],
                     // Transition set (slider-config ruling, 2026-08-02): slide is the
                     // scroll-snap default and the universal no-JS floor; fade cross-fades
-                    // overlapped slides; zoom is fade plus a restrained image-only scale.
-                    ['name' => 'transition', 'type' => 'enum', 'enum' => ['slide', 'fade', 'zoom']],
+                    // overlapped slides; zoom is the Ken Burns treatment — fade plus a
+                    // restrained image-only scale. enum_labels is presentation metadata
+                    // the admin select displays; stored values stay the bare enum.
+                    ['name' => 'transition', 'type' => 'enum', 'enum' => ['slide', 'fade', 'zoom'],
+                        'enum_labels' => ['slide' => 'Slide', 'fade' => 'Fade', 'zoom' => 'Zoom (Ken Burns)']],
                     // Hero height preset (same ruling): svh-based with pixel floors —
                     // compact 40svh / standard 60svh (fallback) / tall 80svh / full 100svh.
                     ['name' => 'height', 'type' => 'enum', 'enum' => ['compact', 'standard', 'tall', 'full']],

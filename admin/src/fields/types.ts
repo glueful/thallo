@@ -18,6 +18,8 @@ export interface FieldDef {
     | 'box'
   required?: boolean
   enum?: string[]
+  /** Display labels per enum value (presentation only — stored values stay bare). */
+  enumLabels?: Record<string, string>
   /** Presentation widget for `text` fields: 'plain' (textarea) or 'rich' (editor). */
   format?: 'plain' | 'rich' | 'icon' | 'brand-icon' | 'color'
   /** Target content-type slug for a `reference` field — drives the searchable entry picker. */

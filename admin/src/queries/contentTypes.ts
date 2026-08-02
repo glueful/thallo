@@ -29,6 +29,8 @@ export interface ContentTypeField {
   filter_type?: string | null
   /** Allowed values when `type === 'enum'`. */
   enum?: string[]
+  /** Display labels per enum value (presentation only — stored values stay bare). */
+  enum_labels?: Record<string, string>
   /** Editing widget for `text` fields: 'plain' (textarea) or 'rich' (editor). Undefined otherwise. */
   format?: 'plain' | 'rich'
   /** Target content-type slug for a `reference` field; undefined for every other type. */
