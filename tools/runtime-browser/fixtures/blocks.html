@@ -106,11 +106,42 @@
      72rem and a wider carousel shows the next slide poking in ("2 images in
      view", the 2026-08 live bug). -->
 <section data-fixture="image-slider">
-<div class="thallo-block thallo-block-carousel thallo-block-carousel--per-1 thallo-block-carousel--hero" data-arrows="1" data-dots="1" data-autoplay="1">
+<!-- data-duration + --carousel-duration mirror carousel.twig's output for
+     transition_duration=2: in slide mode the runtime tweens the scroll at this
+     pace (native smooth pace is UA-fixed). -->
+<div class="thallo-block thallo-block-carousel thallo-block-carousel--per-1 thallo-block-carousel--hero" data-arrows="1" data-dots="1" data-autoplay="1" data-duration="2" style="--carousel-duration: 2s">
   <div class="thallo-block-carousel__viewport">
     <div class="thallo-block-carousel__track">
       <figure class="thallo-block thallo-block-image thallo-block-image--normal" data-slide="img-1"><img src="/tools/runtime-browser/fixtures/media/landscape-1.svg" alt="" loading="lazy" decoding="async"></figure>
       <figure class="thallo-block thallo-block-image thallo-block-image--normal" data-slide="img-2"><img src="/tools/runtime-browser/fixtures/media/landscape-2.svg" alt="" loading="lazy" decoding="async"></figure>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- fade-slider — transition=fade + height=compact (slider-config ruling),
+     hand-rendered from carousel.twig's exact class/attribute output. Fade
+     stacking is ENHANCED-ONLY CSS (keyed on data-thallo-enhanced), so this
+     markup alone still lays out as a scroll slider — the no-JS floor. -->
+<section data-fixture="fade-slider">
+<div class="thallo-block thallo-block-carousel thallo-block-carousel--per-1 thallo-block-carousel--h-compact thallo-block-carousel--hero thallo-block-carousel--fade" data-arrows="1" data-dots="1" data-autoplay="0" data-transition="fade">
+  <div class="thallo-block-carousel__viewport">
+    <div class="thallo-block-carousel__track">
+      <figure class="thallo-block thallo-block-image thallo-block-image--normal" data-slide="fade-1"><img src="/tools/runtime-browser/fixtures/media/landscape-1.svg" alt="" loading="lazy" decoding="async"></figure>
+      <figure class="thallo-block thallo-block-image thallo-block-image--normal" data-slide="fade-2"><img src="/tools/runtime-browser/fixtures/media/landscape-2.svg" alt="" loading="lazy" decoding="async"></figure>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- zoom-slider — transition=zoom + height=tall: fade behavior plus the
+     restrained image-only scale (text/controls never transform). -->
+<section data-fixture="zoom-slider">
+<div class="thallo-block thallo-block-carousel thallo-block-carousel--per-1 thallo-block-carousel--h-tall thallo-block-carousel--hero thallo-block-carousel--zoom" data-arrows="1" data-dots="0" data-autoplay="0" data-transition="zoom">
+  <div class="thallo-block-carousel__viewport">
+    <div class="thallo-block-carousel__track">
+      <figure class="thallo-block thallo-block-image thallo-block-image--normal" data-slide="zoom-1"><img src="/tools/runtime-browser/fixtures/media/natural-1.svg" alt="" loading="lazy" decoding="async"></figure>
+      <figure class="thallo-block thallo-block-image thallo-block-image--normal" data-slide="zoom-2"><img src="/tools/runtime-browser/fixtures/media/natural-2.svg" alt="" loading="lazy" decoding="async"></figure>
     </div>
   </div>
 </div>

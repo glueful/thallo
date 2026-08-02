@@ -610,6 +610,48 @@ test.describe('image-slider (bare image blocks as slides)', () => {
     }, undefined, { timeout: 8000 });
   });
 
+  test('the canvas block toolbar on a slide is not clipped by the carousel scroll viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+
+    const rects = await page.evaluate(async () => {
+      // Real canvas conditions: preview.css + the annotation carrier + the
+      // bridge's anchor class and toolbar, exactly as selecting a slide builds
+      // them. The carousel viewport is overflow-x: auto — which makes it CLIP
+      // vertically as well, so a toolbar poking above the track disappears.
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = '/packages/thallo-render/assets/preview/preview.css';
+      const loaded = new Promise((resolve) => { link.onload = resolve; });
+      document.head.appendChild(link);
+      await loaded;
+
+      const car = document.querySelector('[data-fixture="image-slider"] .thallo-block-carousel');
+      const viewport = car.querySelector('.thallo-block-carousel__viewport');
+      const track = car.querySelector('.thallo-block-carousel__track');
+      const slide = track.firstElementChild;
+      const carrier = document.createElement('div');
+      carrier.className = 'thallo-preview-block';
+      carrier.setAttribute('data-thallo-block', 'slide-toolbar-probe');
+      track.insertBefore(carrier, slide);
+      carrier.appendChild(slide);
+
+      slide.classList.add('thallo-canvas-anchor');
+      const toolbar = document.createElement('div');
+      toolbar.className = 'thallo-canvas-toolbar';
+      toolbar.innerHTML = '<button type="button" aria-label="probe">x</button>';
+      slide.appendChild(toolbar);
+
+      const t = toolbar.getBoundingClientRect();
+      const v = viewport.getBoundingClientRect();
+      return { toolbarTop: t.top, toolbarBottom: t.bottom, viewportTop: v.top, viewportBottom: v.bottom };
+    });
+
+    // Fully inside the clipping viewport — never shaved by its top edge.
+    expect(rects.toolbarTop).toBeGreaterThanOrEqual(rects.viewportTop);
+    expect(rects.toolbarBottom).toBeLessThanOrEqual(rects.viewportBottom);
+  });
+
   test('a hero slider opening the page sits flush under the header — main padding and block rhythm are both cancelled', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto('/tools/runtime-browser/fixtures/hero-page.html');
@@ -622,6 +664,222 @@ test.describe('image-slider (bare image blocks as slides)', () => {
       };
     });
     expect(Math.abs(data.gap)).toBeLessThanOrEqual(1);
+  });
+});
+
+test.describe('slider transitions and height presets', () => {
+  const FADE = '[data-fixture="fade-slider"] .thallo-block-carousel';
+
+  test('fade mode stacks slides, drives one active state with inert parity, and navigates by arrows', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    await page.waitForFunction((sel) =>
+      !!document.querySelector(`${sel}[data-thallo-enhanced~="carousel"]`), FADE);
+    // Enhancement gracefully cross-fades the initial state in (the hidden slide
+    // transitions 1 -> 0 over .6s) — wait for the settle before measuring.
+    await page.waitForFunction((sel) => {
+      const slides = [...document.querySelector(sel).querySelectorAll('.thallo-block-carousel__track > *')];
+      return getComputedStyle(slides[1]).opacity === '0';
+    }, FADE);
+
+    const before = await page.evaluate((sel) => {
+      const car = document.querySelector(sel);
+      const track = car.querySelector('.thallo-block-carousel__track');
+      const slides = [...track.children];
+      const rects = slides.map((s) => s.getBoundingClientRect());
+      return {
+        trackDisplay: getComputedStyle(track).display,
+        sameCell: Math.abs(rects[0].left - rects[1].left) <= 1 && Math.abs(rects[0].top - rects[1].top) <= 1,
+        active: slides.map((s) => s.hasAttribute('data-thallo-active')),
+        inert: slides.map((s) => s.inert),
+        opacities: slides.map((s) => getComputedStyle(s).opacity),
+        fadeDuration: getComputedStyle(slides[0]).transitionDuration,
+        viewportTabindex: car.querySelector('.thallo-block-carousel__viewport').getAttribute('tabindex'),
+        imgHeight: Math.round(slides[0].querySelector('img').getBoundingClientRect().height)
+      };
+    }, FADE);
+
+    expect(before.trackDisplay).toBe('grid');
+    expect(before.sameCell).toBe(true); // overlapped, not side by side
+    expect(before.active).toEqual([true, false]);
+    expect(before.inert).toEqual([false, true]);
+    expect(before.opacities[0]).toBe('1');
+    expect(before.opacities[1]).toBe('0');
+    // Slow enough to read as a cross-fade, not a cut (2026-08 polish ruling).
+    expect(before.fadeDuration).toBe('1.2s');
+    expect(before.viewportTabindex).toBe('0');
+    // height=compact: max(40svh, 16rem) at 900px viewport -> 360px.
+    expect(Math.abs(before.imgHeight - 360)).toBeLessThanOrEqual(1);
+
+    // Arrows are hover-revealed: hover the slider first so the click's
+    // hit-test doesn't race the reveal.
+    await page.locator(FADE).scrollIntoViewIfNeeded();
+    const fadeBox = await page.locator(FADE).boundingBox();
+    await page.mouse.move(fadeBox.x + fadeBox.width / 2, fadeBox.y + Math.min(fadeBox.height / 2, 150));
+    await page.waitForFunction((sel) =>
+      getComputedStyle(document.querySelector(`${sel} .thallo-block-carousel__next`)).opacity === '1', FADE);
+    await page.locator(`${FADE} .thallo-block-carousel__next`).click();
+    await page.waitForFunction((sel) => {
+      const slides = [...document.querySelector(sel).querySelectorAll('.thallo-block-carousel__track > *')];
+      return slides[1].hasAttribute('data-thallo-active') && getComputedStyle(slides[1]).opacity === '1';
+    }, FADE);
+    const after = await page.evaluate((sel) => {
+      const car = document.querySelector(sel);
+      const slides = [...car.querySelectorAll('.thallo-block-carousel__track > *')];
+      const dots = [...car.querySelectorAll('.thallo-block-carousel__dot')];
+      return {
+        active: slides.map((s) => s.hasAttribute('data-thallo-active')),
+        inert: slides.map((s) => s.inert),
+        scrollLeft: car.querySelector('.thallo-block-carousel__viewport').scrollLeft,
+        dotCurrent: dots.map((d) => d.getAttribute('aria-current'))
+      };
+    }, FADE);
+    expect(after.active).toEqual([false, true]);
+    expect(after.inert).toEqual([true, false]);
+    expect(after.scrollLeft).toBe(0); // fade never scrolls
+    expect(after.dotCurrent).toEqual(['false', 'true']);
+  });
+
+  test('zoom mode scales ONLY the active image, and height=tall applies', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    const ZOOM = '[data-fixture="zoom-slider"] .thallo-block-carousel';
+    await page.waitForFunction((sel) =>
+      !!document.querySelector(`${sel}[data-thallo-enhanced~="carousel"]`), ZOOM);
+
+    const data = await page.evaluate((sel) => {
+      const car = document.querySelector(sel);
+      const slides = [...car.querySelectorAll('.thallo-block-carousel__track > *')];
+      const activeImg = slides[0].querySelector('img');
+      return {
+        activeImgAnimation: getComputedStyle(activeImg).animationName,
+        activeFigureAnimation: getComputedStyle(slides[0]).animationName,
+        hiddenImgAnimation: getComputedStyle(slides[1].querySelector('img')).animationName,
+        slideOverflow: getComputedStyle(slides[0]).overflow,
+        imgHeight: Math.round(activeImg.getBoundingClientRect().height)
+      };
+    }, ZOOM);
+
+    expect(data.activeImgAnimation).toBe('thallo-carousel-zoom');
+    expect(data.activeFigureAnimation).toBe('none'); // image-only: the slide box never transforms
+    expect(data.hiddenImgAnimation).toBe('none');
+    expect(data.slideOverflow).toBe('hidden'); // the scale never bleeds outside the slide
+    // height=tall: max(80svh, 28rem) at 900px viewport -> 720px.
+    expect(Math.abs(data.imgHeight - 720)).toBeLessThanOrEqual(1);
+  });
+
+  test('configured duration paces the slide-mode scroll (runtime tween) and the cross-fade (CSS var)', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    const SLIDER = '[data-fixture="image-slider"] .thallo-block-carousel';
+    await page.waitForFunction((sel) =>
+      !!document.querySelector(`${sel}[data-thallo-enhanced~="carousel"]`), SLIDER);
+
+    // Slide mode, data-duration="2": the arrow click tweens the scroll over ~2s.
+    // Native smooth scroll settles well under 1s, so an elapsed time in the
+    // 1.5s–4s window proves the configured pace drove the animation.
+    const slider = page.locator(SLIDER);
+    await slider.scrollIntoViewIfNeeded();
+    // Arrows are hover-revealed: hover the slider first (as a user would) so
+    // the click's hit-test doesn't race the reveal.
+    const sliderBox = await slider.boundingBox();
+    await page.mouse.move(sliderBox.x + sliderBox.width / 2, sliderBox.y + Math.min(sliderBox.height / 2, 200));
+    await page.waitForFunction((sel) =>
+      getComputedStyle(document.querySelector(`${sel} .thallo-block-carousel__next`)).opacity === '1', SLIDER);
+    const start = Date.now();
+    await page.locator(`${SLIDER} .thallo-block-carousel__next`).click();
+    await page.waitForFunction((sel) => {
+      const car = document.querySelector(sel);
+      const vp = car.querySelector('.thallo-block-carousel__viewport');
+      const w = car.getBoundingClientRect().width;
+      return Math.abs(vp.scrollLeft - w) <= 1;
+    }, SLIDER, { timeout: 6000 });
+    const elapsed = Date.now() - start;
+    expect(elapsed).toBeGreaterThanOrEqual(1500);
+    expect(elapsed).toBeLessThanOrEqual(4000);
+
+    // Fade mode: the same config reaches the cross-fade via --carousel-duration.
+    const fadeDuration = await page.evaluate(() => {
+      const car = document.querySelector('[data-fixture="fade-slider"] .thallo-block-carousel');
+      car.style.setProperty('--carousel-duration', '2s');
+      return getComputedStyle(car.querySelector('.thallo-block-carousel__track > *')).transitionDuration;
+    });
+    expect(fadeDuration).toBe('2s');
+  });
+
+  test('arrows are hover-revealed on pointer devices: hidden at rest, shown on hover and on keyboard focus', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    const SLIDER = '[data-fixture="image-slider"] .thallo-block-carousel';
+    await page.waitForFunction((sel) =>
+      !!document.querySelector(`${sel}[data-thallo-enhanced~="carousel"]`), SLIDER);
+    const slider = page.locator(SLIDER);
+    await slider.scrollIntoViewIfNeeded();
+
+    const next = `${SLIDER} .thallo-block-carousel__next`;
+    const readArrow = () => page.evaluate((sel) => {
+      const cs = getComputedStyle(document.querySelector(sel));
+      return { opacity: cs.opacity, pointerEvents: cs.pointerEvents };
+    }, next);
+
+    // At rest (cursor parked away from the slider): invisible AND inert.
+    await page.mouse.move(5, 5);
+    await page.waitForFunction((sel) =>
+      getComputedStyle(document.querySelector(sel)).opacity === '0', next);
+    expect((await readArrow()).pointerEvents).toBe('none');
+
+    // Hovering the slider reveals them.
+    const box = await slider.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + Math.min(box.height / 2, 200));
+    await page.waitForFunction((sel) =>
+      getComputedStyle(document.querySelector(sel)).opacity === '1', next);
+    expect((await readArrow()).pointerEvents).toBe('auto');
+
+    // Keyboard: focus inside the carousel reveals them too (never an invisible
+    // tab stop), even with the cursor parked away again.
+    await page.mouse.move(5, 5);
+    await page.waitForFunction((sel) =>
+      getComputedStyle(document.querySelector(sel)).opacity === '0', next);
+    await page.evaluate((sel) => document.querySelector(sel).focus(), next);
+    await page.waitForFunction((sel) =>
+      getComputedStyle(document.querySelector(sel)).opacity === '1', next);
+  });
+
+  test('no-JS floor: fade markup WITHOUT the enhancement marker lays out as a scroll slider', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+
+    const display = await page.evaluate(() => {
+      // A late-added fade carousel the boot pass never saw: exactly what a
+      // no-JS visitor's markup looks like (no data-thallo-enhanced).
+      const src = document.querySelector('[data-fixture="fade-slider"] .thallo-block-carousel');
+      const clone = src.cloneNode(true);
+      clone.removeAttribute('data-thallo-enhanced');
+      document.body.appendChild(clone);
+      const d = getComputedStyle(clone.querySelector('.thallo-block-carousel__track')).display;
+      clone.remove();
+      return d;
+    });
+    expect(display).toBe('flex');
+  });
+
+  test('reduced motion: fade switches instantly — no cross-fade transition, no zoom animation', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(FIXTURE);
+    await page.waitForFunction((sel) =>
+      !!document.querySelector(`${sel}[data-thallo-enhanced~="carousel"]`), FADE);
+
+    const data = await page.evaluate(() => {
+      const fadeSlide = document.querySelector('[data-fixture="fade-slider"] .thallo-block-carousel__track > *');
+      const zoomImg = document.querySelector('[data-fixture="zoom-slider"] .thallo-block-carousel__track > [data-thallo-active] img');
+      return {
+        fadeTransition: getComputedStyle(fadeSlide).transitionDuration,
+        zoomAnimation: zoomImg ? getComputedStyle(zoomImg).animationName : null
+      };
+    });
+    expect(data.fadeTransition).toBe('0s');
+    expect(data.zoomAnimation).toBe('none');
   });
 });
 

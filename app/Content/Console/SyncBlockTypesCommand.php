@@ -82,22 +82,45 @@ final class SyncBlockTypesCommand extends BaseCommand
                 $definition['schema'],
                 static fn (array $f): bool => !in_array($f['name'], $existing, true),
             ));
-            if ($toAdd === []) {
+            // Presentation-metadata attach: a same-name field the starter now
+            // labels (enum_labels) gets the labels ADDED when the row has none.
+            // Additive-only, like everything here: an operator's own labels are
+            // never overwritten, and no other key of an existing field changes.
+            $patched = $row['schema'];
+            $labelled = [];
+            foreach ($definition['schema'] as $starterField) {
+                if (!isset($starterField['enum_labels'])) {
+                    continue;
+                }
+                foreach ($patched as $i => $rowField) {
+                    if (($rowField['name'] ?? null) === $starterField['name'] && !isset($rowField['enum_labels'])) {
+                        $patched[$i]['enum_labels'] = $starterField['enum_labels'];
+                        $labelled[] = (string) $starterField['name'];
+                    }
+                }
+            }
+            if ($toAdd === [] && $labelled === []) {
                 $unchanged++;
                 continue;
             }
             if (!$dryRun) {
                 $repo->updateSchema(
                     (string) $row['uuid'],
-                    array_merge($row['schema'], $toAdd),
+                    array_merge($patched, $toAdd),
                     (string) $row['label'],
                     $row['icon'] !== null ? (string) $row['icon'] : null,
                     $row['description'] !== null ? (string) $row['description'] : null,
                     $row['category'] !== null ? (string) $row['category'] : null,
                 );
             }
-            $names = implode(', ', array_column($toAdd, 'name'));
-            $this->line("synced {$definition['slug']} (+" . count($toAdd) . ": {$names})");
+            $parts = [];
+            if ($toAdd !== []) {
+                $parts[] = '+' . count($toAdd) . ': ' . implode(', ', array_column($toAdd, 'name'));
+            }
+            if ($labelled !== []) {
+                $parts[] = 'labels: ' . implode(', ', $labelled);
+            }
+            $this->line("synced {$definition['slug']} (" . implode('; ', $parts) . ')');
             $synced++;
         }
         $summary = "Synced {$synced}, unchanged {$unchanged}, missing {$missing}.";
