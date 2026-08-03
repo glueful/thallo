@@ -722,6 +722,262 @@ final class WorkspaceBillingApiTest extends AppTestCase
     }
 
     // ==================================================================
+    // Final-wave fix B: ONE readiness probe per ACTION, not one per accessor
+    // ==================================================================
+
+    /**
+     * `SubscriptionSchemaReadiness::isReady()` is 5 `hasTable()` + 27 `hasColumn()` uncached
+     * introspection queries, and {@see EngineGateway} (rightly) never caches its verdict across
+     * calls. Before this fix EVERY accessor re-probed, so `show()` -- which needs
+     * `subscriptions()` + `overrides()` + `plans()` -- paid it THREE times (~96 introspection
+     * queries for one request) and `index()` twice. The probe is counted directly, at the seam
+     * that performs it, rather than inferred from a total query count.
+     */
+    public function testEachControllerActionProbesSchemaReadinessExactlyOnce(): void
+    {
+        $this->enableTenancy();
+        $planKey = $this->seedPlan('probe-plan');
+        $tenant = $this->seedTenant('probe');
+        $this->startSubscription($tenant, $planKey);
+
+        $expectations = [
+            // action => probes; show() resolves THREE engine services, index() two, the rest one.
+            'show' => fn (WorkspaceBillingController $c) => $c->show(Request::create('/', 'GET'), $tenant),
+            'index' => fn (WorkspaceBillingController $c) => $c->index(Request::create('/', 'GET')),
+            'setPlan' => fn (WorkspaceBillingController $c) => $c->setPlan(
+                Request::create('/', 'PUT', [], [], [], [], (string) json_encode(['plan_key' => $planKey])),
+                $tenant,
+            ),
+            'cancel' => fn (WorkspaceBillingController $c) => $c->cancel(
+                Request::create('/', 'POST', [], [], [], [], (string) json_encode(['at_period_end' => true])),
+                $tenant,
+            ),
+            'upsertOverride' => fn (WorkspaceBillingController $c) => $c->upsertOverride(
+                Request::create('/', 'PUT', [], [], [], [], (string) json_encode(['value' => 5])),
+                $tenant,
+                'widgets.limit',
+            ),
+            'deleteOverride' => fn (WorkspaceBillingController $c) => $c->deleteOverride(
+                Request::create('/', 'DELETE'),
+                $tenant,
+                'widgets.limit',
+            ),
+        ];
+
+        foreach ($expectations as $action => $call) {
+            $counter = $this->countingReadinessProbe();
+            $response = $call($this->workspaceControllerWithReadinessProbe($counter));
+
+            self::assertLessThan(400, $response->getStatusCode(), "{$action}: " . (string) $response->getContent());
+            self::assertSame(
+                1,
+                $counter->calls,
+                "{$action}() must resolve the engine state exactly ONCE per action "
+                . "(saw {$counter->calls} full schema-readiness probes)",
+            );
+        }
+    }
+
+    // ==================================================================
+    // Final-wave fix C: directory visibility vs detail, and non-active writes
+    // ==================================================================
+
+    /**
+     * `listTenants()` is raw SQL with NO soft-delete filter while `getTenant()` goes through the
+     * ORM's soft-delete scope: a soft-deleted workspace used to be LISTED in the directory and then
+     * 404 the moment an operator clicked it. Live-but-not-`active` workspaces stay listed (with
+     * their status, which the SPA renders) -- billing WRITES against them are refused separately.
+     */
+    public function testDirectoryExcludesSoftDeletedWorkspacesButKeepsSuspendedOnesVisible(): void
+    {
+        $this->enableTenancy();
+        $active = $this->seedTenant('vis-active');
+        $suspended = $this->seedTenant('vis-suspended', 'suspended');
+        $provisioning = $this->seedTenant('vis-provisioning', 'provisioning');
+        $deleted = $this->seedTenant('vis-deleted', 'deleted', softDeleted: true);
+
+        $key = $this->seedApiKeyUser(['tenancy.manage'], ['tenancy.manage']);
+        $response = $this->handle($this->apiKeyRequest('GET', self::BASE . '/workspaces?per_page=100', $key));
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+
+        $body = $this->fullBody($response);
+        $listed = array_column(array_column($body['data'], 'tenant'), 'uuid');
+        sort($listed);
+        $expected = [$active, $suspended, $provisioning];
+        sort($expected);
+        self::assertSame($expected, $listed, 'the directory must list exactly the non-soft-deleted workspaces');
+        self::assertSame(3, $body['total'], 'total must count the FILTERED directory, not the raw table');
+
+        // Every listed row carries its own lifecycle status (the SPA renders it).
+        $statusByUuid = [];
+        foreach ($body['data'] as $row) {
+            $statusByUuid[(string) $row['tenant']['uuid']] = (string) $row['tenant']['status'];
+        }
+        self::assertSame('suspended', $statusByUuid[$suspended]);
+        self::assertSame('provisioning', $statusByUuid[$provisioning]);
+
+        // Consistency with the detail route: what the index shows, `getTenant()` also resolves...
+        $suspendedDetail = $this->handle($this->apiKeyRequest('GET', self::BASE . '/workspaces/' . $suspended, $key));
+        self::assertSame(200, $suspendedDetail->getStatusCode(), (string) $suspendedDetail->getContent());
+        // ...and what it hides, the detail route 404s -- no more list-then-404-on-click.
+        self::assertSame(
+            404,
+            $this->handle($this->apiKeyRequest('GET', self::BASE . '/workspaces/' . $deleted, $key))
+                ->getStatusCode(),
+        );
+    }
+
+    public function testBillingWritesAreRefusedOnNonActiveWorkspacesButReadsStillWork(): void
+    {
+        $this->enableTenancy();
+        $planKey = $this->seedPlan('inactive-plan');
+        $active = $this->seedTenant('write-active');
+        // Seeded ACTIVE, subscribed, THEN suspended -- so the read assertions below prove the detail
+        // route still projects real subscription/override state for a non-active workspace, not just
+        // that it happens to answer 200 for an empty one.
+        $suspended = $this->seedTenant('write-suspended');
+        $this->startSubscription($suspended, $planKey);
+        $this->connection()->table('tenants')->where('uuid', $suspended)->update(['status' => 'suspended']);
+        $key = $this->seedApiKeyUser(['tenancy.manage'], ['tenancy.manage']);
+
+        $writes = [
+            ['PUT', "/workspaces/{$suspended}/plan", ['plan_key' => $planKey]],
+            ['POST', "/workspaces/{$suspended}/cancel", []],
+            ['PUT', "/workspaces/{$suspended}/overrides/widgets.limit", ['value' => 5]],
+            ['DELETE', "/workspaces/{$suspended}/overrides/widgets.limit", null],
+        ];
+
+        foreach ($writes as [$method, $path, $body]) {
+            $response = $this->handle($this->apiKeyRequest($method, self::BASE . $path, $key, $body));
+            self::assertSame(409, $response->getStatusCode(), "{$method} {$path}: " . (string) $response->getContent());
+            self::assertSame('workspace_not_active', $this->errorCode($response), "{$method} {$path}");
+        }
+
+        // Reads on the same suspended workspace are untouched -- detail still projects the real
+        // subscription (a non-active workspace cannot be ENTERED, so this read goes through the
+        // engine's trusted administrative lane instead; see readSubscription()/readOverrides()).
+        $read = $this->handle($this->apiKeyRequest('GET', self::BASE . '/workspaces/' . $suspended, $key));
+        self::assertSame(200, $read->getStatusCode(), (string) $read->getContent());
+        $detail = $this->data($read);
+        self::assertSame('suspended', $detail['tenant']['status']);
+        self::assertSame($planKey, $detail['subscription']['plan_key'] ?? null);
+        self::assertIsArray($detail['overrides']);
+
+        // ...and so is the index projection for it.
+        $listed = $this->fullBody(
+            $this->handle($this->apiKeyRequest('GET', self::BASE . '/workspaces?per_page=100', $key)),
+        );
+        $listedUuids = array_column(array_column($listed['data'], 'tenant'), 'uuid');
+        self::assertContains($suspended, $listedUuids);
+
+        // ...and an ACTIVE workspace is completely unaffected by the guard.
+        $ok = $this->handle($this->apiKeyRequest(
+            'PUT',
+            self::BASE . "/workspaces/{$active}/plan",
+            $key,
+            ['plan_key' => $planKey],
+        ));
+        self::assertSame(200, $ok->getStatusCode(), (string) $ok->getContent());
+    }
+
+    // ==================================================================
+    // Final-wave fix D: override write validation + exception mapping
+    // ==================================================================
+
+    /**
+     * Every one of these used to reach the engine's writer unvalidated: an unparseable/over-length
+     * value became a driver-level 500 on the column, and a non-scalar `value` reached every
+     * downstream entitlement consumer as an array.
+     */
+    public function testOverrideUpsertValidatesValueExpiryReasonAndEntitlementLength(): void
+    {
+        $this->enableTenancy();
+        $tenant = $this->seedTenant('override-validation');
+        $key = $this->seedApiKeyUser(['tenancy.manage'], ['tenancy.manage']);
+        $path = static fn (string $entitlement): string
+            => self::BASE . "/workspaces/{$tenant}/overrides/" . rawurlencode($entitlement);
+
+        $cases = [
+            'missing value' => ['widgets.limit', []],
+            'array value' => ['widgets.limit', ['value' => ['nested' => true]]],
+            'float value' => ['widgets.limit', ['value' => 1.5]],
+            'string value' => ['widgets.limit', ['value' => 'yes']],
+            'unparseable expires_at' => ['widgets.limit', ['value' => 5, 'expires_at' => 'not-a-date']],
+            'empty expires_at' => ['widgets.limit', ['value' => 5, 'expires_at' => '  ']],
+            'non-string expires_at' => ['widgets.limit', ['value' => 5, 'expires_at' => 12345]],
+            'non-string reason' => ['widgets.limit', ['value' => 5, 'reason' => ['why']]],
+            'over-length reason' => ['widgets.limit', ['value' => 5, 'reason' => str_repeat('r', 256)]],
+            'over-length entitlement' => [str_repeat('e', 129), ['value' => 5]],
+        ];
+
+        foreach ($cases as $label => [$entitlement, $body]) {
+            $response = $this->handle($this->apiKeyRequest('PUT', $path($entitlement), $key, $body));
+            self::assertSame(422, $response->getStatusCode(), "{$label}: " . (string) $response->getContent());
+        }
+
+        // The accepted shapes still round-trip: bool, int, null, a parseable expiry, a bounded reason.
+        foreach ([true, 42, null] as $i => $value) {
+            $accepted = $this->handle($this->apiKeyRequest('PUT', $path("ok.{$i}"), $key, [
+                'value' => $value,
+                'expires_at' => '2099-01-01 00:00:00',
+                'reason' => str_repeat('r', 255),
+            ]));
+            self::assertSame(200, $accepted->getStatusCode(), (string) $accepted->getContent());
+            self::assertSame($value, $this->data($accepted)['value']);
+        }
+
+        // `expires_at` may be omitted entirely or explicitly null -- neither is a validation error.
+        self::assertSame(
+            200,
+            $this->handle($this->apiKeyRequest('PUT', $path('ok.null-expiry'), $key, [
+                'value' => 1,
+                'expires_at' => null,
+                'reason' => null,
+            ]))->getStatusCode(),
+        );
+    }
+
+    /**
+     * The `catch (\InvalidArgumentException)` → 422 mapping every sibling action already carried.
+     * Driven through the SAME recording-runner seam the cross-workspace override test uses, with a
+     * runner that raises the upstream exception shape instead.
+     */
+    public function testOverrideWritesMapInvalidArgumentExceptionTo422(): void
+    {
+        $tenant = $this->seedTenant('override-mapping');
+        $this->container()->get(SystemFlags::class)->put('tenancy.default_tenant_uuid', $tenant);
+
+        $controller = $this->workspaceControllerWithRunner(new class implements TenantContextRunner {
+            public function runAsTenant(string $tenantUuid, callable $fn): mixed
+            {
+                throw new \InvalidArgumentException('upstream rejected this override');
+            }
+
+            public function runAsSystem(callable $fn): mixed
+            {
+                return $fn();
+            }
+
+            public function forEachTenant(callable $fn): void
+            {
+                throw new \RuntimeException('not exercised');
+            }
+        });
+
+        $upsert = $controller->upsertOverride(
+            Request::create('/', 'PUT', [], [], [], [], (string) json_encode(['value' => 5])),
+            $tenant,
+            'widgets.limit',
+        );
+        self::assertSame(422, $upsert->getStatusCode(), (string) $upsert->getContent());
+        self::assertStringContainsString('upstream rejected this override', (string) $upsert->getContent());
+
+        $delete = $controller->deleteOverride(Request::create('/', 'DELETE'), $tenant, 'widgets.limit');
+        self::assertSame(422, $delete->getStatusCode(), (string) $delete->getContent());
+        self::assertStringContainsString('upstream rejected this override', (string) $delete->getContent());
+    }
+
+    // ==================================================================
     // helpers
     // ==================================================================
 
@@ -730,17 +986,86 @@ final class WorkspaceBillingApiTest extends AppTestCase
         $this->container()->get(SystemFlags::class)->put('tenancy.enabled', '1');
     }
 
-    private function seedTenant(string $slugSuffix): string
+    /**
+     * `$status`/`$softDeleted` (final-wave fix C): the directory-visibility and non-active-write
+     * tests need the lifecycle states `ContractTenantAdministration` produces -- `provisioning`,
+     * `suspended`, and the soft-deleted (`deleted_at` set) shape `deleteTenant()` leaves behind.
+     */
+    private function seedTenant(string $slugSuffix, string $status = 'active', bool $softDeleted = false): string
     {
         $uuid = Utils::generateNanoID();
         $this->connection()->table('tenants')->insert([
             'uuid' => $uuid,
             'slug' => 'wba-' . $slugSuffix . '-' . substr($uuid, 0, 6),
             'name' => 'WBA ' . $slugSuffix,
-            'status' => 'active',
+            'status' => $status,
         ]);
 
+        if ($softDeleted) {
+            $this->connection()->table('tenants')->where('uuid', $uuid)->update([
+                'deleted_at' => gmdate('Y-m-d H:i:s'),
+                'deleted_from_status' => 'active',
+                'purge_after' => gmdate('Y-m-d H:i:s', time() + 86400),
+            ]);
+        }
+
         return $uuid;
+    }
+
+    /** A mutable counter the readiness stub below increments on every full probe. */
+    private function countingReadinessProbe(): object
+    {
+        return new class {
+            public int $calls = 0;
+
+            public function isReady(): bool
+            {
+                $this->calls++;
+
+                return true;
+            }
+        };
+    }
+
+    /**
+     * The real shared container with ONLY `SubscriptionSchemaReadiness::class` swapped for a probe
+     * counter -- the same wrap-the-real-container idiom as
+     * {@see self::contextWithStubbedReadiness()}, just counting instead of answering false.
+     */
+    private function workspaceControllerWithReadinessProbe(object $counter): WorkspaceBillingController
+    {
+        $real = $this->appContext();
+        $context = new ApplicationContext($real->getBasePath(), $real->getEnvironment());
+        $context->setContainer(new class ($real->getContainer(), $counter) implements ContainerInterface {
+            public function __construct(
+                private readonly ContainerInterface $real,
+                private readonly object $counter,
+            ) {
+            }
+
+            public function get(string $id): mixed
+            {
+                if ($id === \Glueful\Extensions\Subscriptions\Schema\SubscriptionSchemaReadiness::class) {
+                    return $this->counter;
+                }
+
+                return $this->real->get($id);
+            }
+
+            public function has(string $id): bool
+            {
+                return $id === \Glueful\Extensions\Subscriptions\Schema\SubscriptionSchemaReadiness::class
+                    || $this->real->has($id);
+            }
+        });
+
+        return new WorkspaceBillingController(
+            $context,
+            new EngineGateway($context),
+            $this->container()->get(TenantAdministration::class),
+            $this->container()->get(SingleStoreTenant::class),
+            $this->container()->get(SystemFlags::class),
+        );
     }
 
     private function seedPlan(string $keySuffix): string
