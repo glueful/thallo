@@ -30,6 +30,7 @@ return [
         'Thallo\\Render\\RenderServiceProvider',
         'Thallo\\Search\\SearchServiceProvider',
         'Thallo\\Seo\\SeoServiceProvider',
+        'Thallo\\Subscriptions\\SubscriptionsIntegrationServiceProvider',
         'Thallo\\Tenancy\\TenancyServiceProvider',
         'Thallo\\Workflow\\WorkflowServiceProvider',
     ],

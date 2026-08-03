@@ -22,6 +22,7 @@
     { "type": "path", "url": "packages/thallo-render" },
     { "type": "path", "url": "packages/thallo-search" },
     { "type": "path", "url": "packages/thallo-seo" },
+    { "type": "path", "url": "packages/thallo-subscriptions" },
     { "type": "path", "url": "packages/thallo-tenancy" },
     { "type": "path", "url": "packages/thallo-workflow" }
   ],
@@ -37,6 +38,7 @@
     "glueful/media": "^1.1.0",
     "glueful/meilisearch": "^1.6",
     "glueful/payvia": "^2.4",
+    "glueful/subscriptions": "^2.1",
     "glueful/tenancy": "^2.0.0",
     "glueful/thallo-account": "*",
     "glueful/thallo-analytics": "*",
@@ -48,6 +50,7 @@
     "glueful/thallo-render": "*",
     "glueful/thallo-search": "*",
     "glueful/thallo-seo": "*",
+    "glueful/thallo-subscriptions": "*",
     "glueful/thallo-tenancy": "*",
     "glueful/thallo-workflow": "*",
     "glueful/users": "^2.3.2",

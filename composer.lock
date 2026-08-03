@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "0c2c6cdf32b6e25398648600b6d6e82d",
+    "content-hash": "b9b14abb8e84cc4fa6e48648c4e473e0",
     "packages": [
         {
             "name": "composer/semver",
@@ -1302,6 +1302,88 @@
             "time": "2026-08-03T03:31:03+00:00"
         },
         {
+            "name": "glueful/subscriptions",
+            "version": "v2.1.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/glueful/subscriptions.git",
+                "reference": "fcf8504aeccf5a2f5899cdb5e01e7ff9c56c65ff"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/glueful/subscriptions/zipball/fcf8504aeccf5a2f5899cdb5e01e7ff9c56c65ff",
+                "reference": "fcf8504aeccf5a2f5899cdb5e01e7ff9c56c65ff",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.3"
+            },
+            "require-dev": {
+                "glueful/extension-contracts": "^1.5.0",
+                "glueful/framework": "^1.57.0",
+                "glueful/payvia": "^2.4",
+                "phpstan/phpstan": "^1.0",
+                "phpunit/phpunit": "^10.5",
+                "squizlabs/php_codesniffer": "^3.6"
+            },
+            "suggest": {
+                "glueful/payvia": "Link priced plans and project payment provider subscription events onto subscription state.",
+                "glueful/tenancy": "Resolve the current tenant for RequireEntitlement and the rate-limit tier bridge."
+            },
+            "type": "glueful-extension",
+            "extra": {
+                "glueful": {
+                    "name": "Subscriptions",
+                    "version": "2.1.0",
+                    "provider": "Glueful\\Extensions\\Subscriptions\\SubscriptionsServiceProvider",
+                    "requires": {
+                        "glueful": ">=1.57.0",
+                        "extensions": []
+                    },
+                    "publisher": "glueful-team",
+                    "categories": [
+                        "billing",
+                        "subscriptions"
+                    ],
+                    "description": "Tenant subscriptions, plan entitlements, overrides, trials, and lifecycle sync for Glueful SaaS apps.",
+                    "displayName": "Subscriptions"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Glueful\\Extensions\\Subscriptions\\": "src/"
+                },
+                "classmap": [
+                    "migrations/"
+                ]
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Tenant subscriptions, plans, entitlements, overrides, trials, and lifecycle sync for Glueful SaaS apps.",
+            "homepage": "https://github.com/glueful/subscriptions",
+            "keywords": [
+                "billing",
+                "entitlements",
+                "glueful",
+                "plans",
+                "saas",
+                "subscriptions"
+            ],
+            "support": {
+                "issues": "https://github.com/glueful/subscriptions/issues",
+                "source": "https://github.com/glueful/subscriptions/tree/v2.1.0"
+            },
+            "time": "2026-08-03T05:37:40+00:00"
+        },
+        {
             "name": "glueful/tenancy",
             "version": "v2.0.0",
             "source": {
@@ -1765,6 +1847,47 @@
                 }
             ],
             "description": "SEO for Thallo: sitemaps, per-entry meta, and robots.txt as a removable capability pack.",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "glueful/thallo-subscriptions",
+            "version": "0.1.0",
+            "dist": {
+                "type": "path",
+                "url": "packages/thallo-subscriptions",
+                "reference": "0b3ae94735c7722cc0219565aa9fee6ed811f4f5"
+            },
+            "require": {
+                "glueful/extension-contracts": "*",
+                "glueful/framework": "^1.74.0",
+                "glueful/subscriptions": "^2.1",
+                "glueful/thallo-contracts": "*",
+                "glueful/thallo-tenancy": "*",
+                "php": "^8.3"
+            },
+            "type": "library",
+            "extra": {
+                "glueful": {
+                    "provider": "Thallo\\Subscriptions\\SubscriptionsIntegrationServiceProvider"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Thallo\\Subscriptions\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Michael Tawiah Sowah",
+                    "email": "michael@glueful.dev"
+                }
+            ],
+            "description": "Workspace SaaS billing for Thallo — platform plans and per-workspace subscriptions, as a removable capability pack.",
             "transport-options": {
                 "relative": true
             }

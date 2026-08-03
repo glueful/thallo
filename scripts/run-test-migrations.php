@@ -165,6 +165,16 @@ $manager->addMigrationPath(
     MigrationPriority::DEPENDENT,
     'glueful/payvia'
 );
+// glueful/subscriptions extension (subscriptions/subscription_overrides/subscription_events/
+// subscription_plans) — adopted by thallo-subscriptions (packages/thallo-subscriptions), the
+// same "engine extension + thallo pack" pairing as glueful/commerce above. The pack itself has
+// no migrations of its own yet (scaffold task only), so unlike thallo-commerce below there is no
+// matching packages/thallo-subscriptions/migrations line to add.
+$manager->addMigrationPath(
+    $root . '/vendor/glueful/subscriptions/migrations',
+    MigrationPriority::DEPENDENT,
+    'glueful/subscriptions'
+);
 // glueful/tenancy extension (creates `tenants`/`tenant_memberships`) — LOCAL dev-link only:
 // present when the extension is symlinked into vendor/ for the two-tenant oracle harness. The
 // same tier the extension itself uses (after IDENTITY, before app DEFAULT). Absent in a plain
