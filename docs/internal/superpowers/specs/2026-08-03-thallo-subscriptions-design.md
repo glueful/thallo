@@ -5,7 +5,7 @@
 glueful/subscriptions 2.0's preserved tenant facade. Phase 3 (memberships,
 paywalls, workspace-owned member catalogs, any checkout) is explicitly out.
 **Companion:** a small additive glueful/subscriptions **2.1.0** release (§6) —
-2.0.0 is published, so the two new upstream seams and one spec-wording
+2.0.0 is published, so the three new upstream seams and one spec-wording
 amendment ride a minor, not an amendment.
 
 ## 1. Package & layering
@@ -16,7 +16,7 @@ New `packages/thallo-subscriptions` (`type: library`, PSR-4
 commerce:
 
 - Path repository + `"glueful/thallo-subscriptions": "*"` in root
-  composer.json; root also gains `"glueful/subscriptions": "^2.0"`.
+  composer.json; root also gains `"glueful/subscriptions": "^2.1"`.
 - Provider listed in `config/serviceproviders.php`; post-extension tier
   (`loadPriority()`), `loadAfter([Glueful\Extensions\Subscriptions\
   SubscriptionsServiceProvider::class])`.
@@ -29,7 +29,11 @@ commerce:
   install would show an enabled Subscriptions module backed by a disabled
   engine. The three-layer separation stands: composer = availability;
   extensions.php = engine on/off; `thallo.subscriptions` = Thallo surfaces
-  on/off. Disabling either layer hides surfaces without deleting data.
+  on/off. Disabling the capability hides the Thallo surfaces without deleting
+  data. Disabling only the engine deliberately leaves the capability-gated
+  admin shell visible in its `engine_disabled` state so an operator can reach
+  the Extensions-page recovery action; every engine-backed operation is
+  unavailable.
 
 ## 2. The host subject resolver (ruling — tenant-only in Phase 2)
 
@@ -74,7 +78,12 @@ logic):
 - **Workspaces index** — the tenant directory joined with subscription state
   via the NEW bulk read `currentForTenants()` (§6), returning status /
   plan (key + display name) / trial / grace per workspace, keyed by tenant
-  UUID. No N+1: one directory page ⇒ one subscription query.
+  UUID. No N+1: one directory page ⇒ one subscription query. The UUID list is
+  derived exclusively from `TenantAdministration::listTenants()` after the
+  route's platform-authority gate; the endpoint accepts no caller-supplied
+  UUID filter. This is the trusted-host-inventory precondition of the upstream
+  administrative batch seam, not a bypass available to ordinary
+  subject-scoped callers.
 - **Workspace detail / actions** — `current()` detail; set-plan
   (`start`/`changePlan`); cancel; overrides via the 2.0 writer
   (`upsertForSubject` / `deleteForSubject`) — never raw table writes.
@@ -115,16 +124,20 @@ NOT constructor-inject engine services — that would fatal before the intended
 `Thallo\Subscriptions\Engine\EngineGateway` probes the container **inside
 each operation**: `engineState()` returns `engine_disabled` (provider absent
 ⇒ `SubscriptionService` unbound), `schema_not_ready` (services bound but the
-`subscriptions` table absent — pre-migration), or `ready`; accessors return
-the engine services or throw a typed exception the controllers map to the
-structured 409. Meta stays 200 in every state.
+upstream `SubscriptionSchemaReadiness` authority reports that the complete
+minimum 2.x runtime shape is absent), or `ready`; accessors return the engine
+services or throw a typed exception the controllers map to the structured
+409. A lone legacy `subscriptions` table, or a partially-applied subject-model
+migration, is never reported ready. Meta stays 200 in every state.
 
 **Purge integration (concrete, fail-closed — commerce's actual mechanism):**
 
 - The pack exposes container alias `thallo.subscriptions.purge_handler`
-  OUTSIDE the capability gate, resolving to an adapter over
-  `SubscriptionSubjectDataPurger` (soft-resolved: alias registered only when
-  the engine classes are bindable).
+  OUTSIDE the capability gate. The alias and adapter are ALWAYS registered;
+  the adapter factory soft-resolves a nullable
+  `SubscriptionSubjectDataPurger` with `container->has()`. The composer class
+  being autoloadable is not evidence that the upstream provider bound its
+  service.
 - `TenancyServiceProvider::makePurgeResourceRegistry()` adds that alias to
   its handler list (one-line change in `packages/thallo-tenancy`).
 - **Fail-closed rule:** if the subscriptions SCHEMA exists but the purger is
@@ -135,11 +148,13 @@ structured 409. Meta stays 200 in every state.
   `countSubjectRows()` seam (§6) so Thallo never duplicates the extension's
   table inventory.
 
-Outside the capability gate additionally: command discovery. Inside the gate:
-routes and the admin module contribution. No blocks, no public routes, no
-storefront surfaces in Phase 2 (payments ruling: manual assignment only;
-provider-driven billing continues via payvia metadata + the strict lane;
-Phase 2 never originates purchases).
+Outside the capability gate: the always-present purge adapter and capability
+registration. The module discovers no commands; upstream subscription commands
+remain owned by `SubscriptionsServiceProvider`. Inside the gate: routes and
+the admin module contribution. No blocks, no public routes, no storefront
+surfaces in Phase 2 (payments ruling: manual assignment only; provider-driven
+billing continues via payvia metadata + the strict lane; Phase 2 never
+originates purchases).
 
 ## 6. Upstream companion — glueful/subscriptions 2.1.0 (additive minor)
 
@@ -148,19 +163,35 @@ Phase 2 never originates purchases).
    (absent key = no subscription), tenant subjects only, one query
    (`WHERE subject_type='tenant' AND tenant_uuid IN (...)`). Test pins a
    CONSTANT query count across page sizes (a recording connection/query
-   counter), plus empty-list and mixed-hit/miss cases.
+   counter), plus empty-list and mixed-hit/miss cases. This is explicitly a
+   trusted administrative projection seam: unlike `currentFor()`, it does not
+   call `SubjectResolverInterface::validate()` once per UUID, because that
+   would recreate the N+1 through host existence checks. Its contract requires
+   a normalized, deduplicated list obtained from the host's authoritative
+   tenant directory after platform authorization; it is not mounted directly
+   as an HTTP batch-by-UUID endpoint. Thallo proves the precondition by deriving
+   the list from `TenantAdministration::listTenants()` and accepting no UUID
+   input on the workspace-index route.
 2. **Purge count seam:** `SubscriptionSubjectDataPurger::countSubjectRows(
    Subject $subject): array` — non-mutating, returns per-table counts using
    the SAME matching predicates as `purgeSubject()` (resolved-or-candidate
    for receipts), enabling host prepare/verify without duplicating table
    inventory. Test: counts match what purge then deletes; zero after purge;
    idempotent.
-3. **Spec wording amendment** (design spec §4, the "binding the resolver is
+3. **Schema-readiness authority:** a bound
+   `SubscriptionSchemaReadiness::isReady(): bool` owned by the extension. It
+   checks the complete minimum 2.x runtime shape used by the services — base
+   tables, subject/plan identity columns, scoped-plan columns, and the provider
+   receipt table — rather than treating `subscriptions` table existence as
+   readiness. Tests cover a fresh 2.x schema, no schema, a legacy 1.x schema,
+   and representative partially-applied migration shapes. Hosts consume this
+   authority instead of duplicating the extension's schema inventory.
+4. **Spec wording amendment** (design spec §4, the "binding the resolver is
    enabling memberships" sentence): memberships are enabled only when the
    host resolver positively resolves AND validates user subjects; a
    tenant-only host resolver (Thallo Phase 2) binds without enabling them.
 
-Released and published as 2.1.0 before the Thallo work that consumes the two
+Released and published as 2.1.0 before the Thallo work that consumes the
 seams lands; Thallo's root constraint moves to `^2.1`.
 
 ## 7. Testing
@@ -170,13 +201,16 @@ seams lands; Thallo's root constraint moves to `^2.1`.
   sentinel rejection, nonexistent-tenant rejection, user subjects false,
   currentUser null); every admin endpoint against a real engine harness
   (seeded plans/subscriptions; the workspace index against a multi-tenant
-  fixture asserting bulk-read wiring); the provider-managed 409 on a linked
+  fixture asserting bulk-read wiring, no caller-supplied UUID input, and a
+  constant total query count); the provider-managed 409 on a linked
   subscription and success on a manual one; permission posture (a
   non-tenancy.manage actor gets 403 on every route); EngineGateway state
-  matrix (disabled / schema-not-ready / ready) with the provider absent from
-  the harness container; purge adapter — fail-closed throw when schema
-  exists without purger, zero-pass when schema absent, counts-then-purge
-  parity via the new seam.
+  matrix (disabled / legacy schema / partial schema / ready) with the provider
+  absent from the disabled harness container; purge adapter — alias remains
+  registered with the engine disabled, fail-closed throw when schema exists
+  without purger, zero-pass when schema is absent, counts-then-purge parity via
+  the new seam. A capability/engine truth table pins capability-off as hidden,
+  engine-off as the visible degraded shell, and both enabled as operational.
 - **Admin SPA (vitest):** module/nav gating on the capability; Plans and
   Billing page states (tenancy on/off, all three engine states); drawer
   actions incl. the provider-managed refusal rendering. Existing
