@@ -36,7 +36,7 @@
     "glueful/import-export": "^1.1.1",
     "glueful/media": "^1.1.0",
     "glueful/meilisearch": "^1.6",
-    "glueful/payvia": "^2.3",
+    "glueful/payvia": "^2.4",
     "glueful/tenancy": "^2.0.0",
     "glueful/thallo-account": "*",
     "glueful/thallo-analytics": "*",
