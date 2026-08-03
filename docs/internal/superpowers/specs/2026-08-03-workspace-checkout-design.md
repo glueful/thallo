@@ -87,8 +87,10 @@ made that displayed prices match provider amounts — authored copy stays author
 
 Release order is A → B → C. The subscriptions domain remains Payvia-optional, but its Payvia
 bridge consumes 2.5's additive projection-acknowledgement contract when that integration is
-present; Thallo requires that strict path. No path repositories — each gate requires clean
-resolution from the published registry.
+present; Thallo requires that strict path. Each publication gate requires the next phase to
+remove any temporary sibling-repository override for the dependency being released and prove
+clean resolution from the published registry. Existing unrelated development repositories do
+not satisfy or invalidate that proof by themselves.
 
 ## §3 Payvia 2.5.0
 
@@ -109,7 +111,19 @@ interface SubscriptionCheckoutLifecycleCapableGateway
     /** @return 'confirmed_dead'|'still_live'|'unsupported'|'unknown' */
     public function abandonSubscriptionCheckout(string $reference): string;
 }
+
+interface SubscriptionCancellationModeProvider
+{
+    /** @return list<'stop_renewal'|'immediate'> */
+    public function cancellationModes(): array;
+}
 ```
+
+`SubscriptionCheckoutRequest` includes the caller's `idempotencyKey`. Payvia derives the
+provider idempotency reference from `originationUuid`, but the caller key remains part of the
+public request and durable local attempt identity. Cancellation-mode discovery is an additive
+interface; `SubscriptionCapableGateway` is unchanged so existing third-party subscription
+drivers remain source-compatible with Payvia 2.5.
 
 - **Stripe**: `POST /v1/checkout/sessions` with `mode=subscription`,
   `line_items[0][price] = <provider identifier>`, `client_reference_id = origination_uuid`,
@@ -147,7 +161,15 @@ shape and a deterministic join before its implementation is locked:
 - If neither exact path is proven, Paystack subscription initiation remains unavailable and
   Phase A cannot pass its release gate. An unresolved paid event is not accepted as a normal
   fail-closed outcome without an executable reconciliation path.
-The captured fixtures become permanent test fixtures. No assumption ships.
+The captured fixtures become permanent test fixtures through a closed allowlist projector,
+not a denylist scrubber. Committed JSON may contain only the event type, transaction/reference,
+`metadata.origination_uuid`, the proven `subscription_code`/`plan_code` locations, status, and
+the minimum amount shape needed by the driver test. Customer objects, names, emails, phone
+numbers, addresses, authorization/access/signature values, headers, and unrelated raw fields
+are forbidden. A hostile-payload test proves those fields cannot survive projection. The proof
+command also verifies the configured public Paystack webhook endpoint, signature secret, and
+worker/ingestion prerequisites before polling only events created after its recorded start
+time and matching its exact reference. No assumption or secret-bearing fixture ships.
 
 ### §3.2 SubscriptionCheckoutService
 
@@ -185,8 +207,11 @@ host-configured-origin URLs rather than Host-derived input.
 Order of operations (each step idempotent):
 1. Validate: gateway enabled + implements `SubscriptionInitiationCapableGateway`; provider
    identifier non-empty. Fail `unavailable` before any write.
-2. Inside `prepare()`, claim the ledger row as `preparing`, with the caller's idempotency key unique
-   per tenant. It performs NO provider I/O. Same-key replay is accepted only when the stored
+2. Inside `prepare()`, claim or re-read the ledger row as `preparing`, with the caller's
+   idempotency key unique per tenant. This lookup happens BEFORE the subject guard is claimed:
+   a matching same-key replay returns the committed row without being rejected by its own live
+   guard. The insert runs in a savepoint; a unique-key race re-reads the winner and applies the
+   same fingerprint decision. It performs NO provider I/O. Same-key replay is accepted only when the stored
    request fingerprint (subject, gateway, provider identifier, normalized consumer metadata,
    customer email, return/cancel destinations, required consumer) matches byte-for-byte;
    mismatch is `idempotency_conflict`. A different
@@ -195,13 +220,23 @@ Order of operations (each step idempotent):
    without invoking the reservation continuation again; a persisted `preparing` row outside
    the owning transaction is an invariant violation, not a resumable state. A terminal
    same-key replay returns the stored terminal result and never restarts that origination.
-3. The continuation binds its local reservation to the returned origination inside that SAME
+3. Only a genuinely new claim locks/claims the subject guard. The continuation binds its local reservation to the returned origination inside that SAME
    database transaction (§5.2). `markPrepared()` changes `preparing → initializing` only after
    the continuation succeeds; rollback removes the claim and reservation together.
-4. `initializeClaim()`: call the gateway with the provider idempotency key derived from the
+4. `initializeClaim()` first acquires a durable per-origination execution lease using a random
+   claim token plus `initialization_claimed_at`. Only the lease owner may call the provider or
+   persist its result. A concurrent loser returns `{status: initializing, checkout_url: null}`
+   (or the already-stored terminal/pending result) and performs zero provider I/O. A lease older
+   than 120 seconds is stale and may be reclaimed; every attempt still uses the same provider idempotency reference derived from the
    origination UUID. On success persist `checkout_reference`, `checkout_url`,
-   `provider_expires_at`, transition `initializing → pending`.
-5. Return `{origination_uuid, checkout_url, status}`.
+   `provider_expires_at`, transition `initializing → pending`, and clear the lease atomically.
+   Gateways throw `DefinitiveSubscriptionCheckoutRejection` only for a validated, definitive
+   provider rejection; that path transitions to `failed`, clears the lease/email, and opens the
+   matching guard. Every other exception is an unknown outcome: release only the execution
+   lease, retain `initializing`, the email, idempotency key, and live subject guard, then rethrow
+   so a later replay resumes safely.
+5. Return `{origination_uuid, checkout_url: ?string, status}`. An `initializing` response is
+   explicitly in progress, never presented as a checkout URL.
 
 The database-enforced live guard is a separate one-row-per-subject parent
 `subscription_checkout_subject_guards`, unique on `(tenant_uuid, subject_key)`, carrying
@@ -223,8 +258,9 @@ manufactures a fresh key while retrying an ambiguous request.
 free the idempotency key and does NOT free the live-guard. Replay with the same caller key
 resumes initialization with the SAME provider idempotency reference, so the provider deduplicates.
 The `checkout_url` cannot be reconstructed — it is stored, and re-serving it is the recovery
-path. `initializing` rows past a recovery threshold are surfaced (diagnostics/console), never
-auto-expired.
+path. The execution lease may become stale and be reclaimed; the origination and subject guard
+never auto-expire. `initializing` rows past a recovery threshold are surfaced
+(diagnostics/console), never auto-failed or freed.
 
 ### §3.3 Origination ledger
 
@@ -238,6 +274,7 @@ New table `subscription_checkout_originations`:
 | `gateway` (50), `provider_plan_identifier` (191) | |
 | `idempotency_key` (191) | unique `(tenant_uuid, idempotency_key)` |
 | `request_fingerprint` (64) | SHA-256 over the canonical request shape |
+| `initialization_claim_token` (12, nullable), `initialization_claimed_at` (nullable) | exclusive, recoverable provider-I/O lease; not ownership |
 | `customer_email` (254, nullable) | initialization recovery only; cleared on definitive outcome |
 | `return_url` / `cancel_url` (2048) | validated canonical destinations used for replay |
 | `checkout_reference` (191, nullable) | Stripe session id / Paystack reference |
@@ -318,8 +355,11 @@ A late webhook for a confirmed-dead historical origination still correlates. If 
 subscription/reservation now owns the subject, the event does NOT enter an endless relink
 retry and does NOT overwrite the newer row: Payvia marks the old origination
 `late_settlement_conflict`, keeps the guard blocked, and surfaces it for operator cancellation/
-refund reconciliation. Automatic supersession or refund is out of scope; silently accepting
-the second subscription is forbidden.
+refund reconciliation. The subscriptions projector deterministically rejects the mismatched
+reservation as `origination_mismatch`; §3.6 records that rejected acknowledgement and lets the
+signed provider event finish exactly once without treating the conflict as successful
+projection. Automatic supersession or refund is out of scope; silently accepting the second
+subscription is forbidden.
 
 ### §3.4 Ownership correlation (applier stage)
 
@@ -403,7 +443,10 @@ acknowledges `accepted` or deterministic `rejected`. Duplicate delivery re-reads
 receipt and returns its original outcome, so a crash after projection but before acknowledgement
 recovers. Unmapped/transient projection throws and writes no acknowledgement. The writer is a
 CAS over `provider_observed` + exact required consumer + logical key: a wrong consumer/state is
-refused, repeating the same outcome is a no-op, and a conflicting second outcome throws.
+refused, repeating the same outcome is a no-op, and a conflicting second outcome throws. The
+sole state exception is `late_settlement_conflict`: it accepts only a matching `rejected`
+acknowledgement, records the outcome/reason without changing status or opening the guard, and
+rejects an `accepted` acknowledgement loudly.
 
 After ordinary bus → strict lane → chargeback completes, the finalizer resolves the
 origination. For the activation-bearing `subscription.created` event:
@@ -415,6 +458,9 @@ origination. For the activation-bearing `subscription.created` event:
 - required consumer + no acknowledgement → throw
   `RequiredProjectionAcknowledgementMissing`, release the logical dispatch lease, and retry;
 - no required consumer → `dispatched` means only generic local dispatch completion.
+- `late_settlement_conflict` + matching rejected acknowledgement for this event → finalizer
+  completes as a no-op, preserving the conflict status and blocked guard; missing, accepted,
+  or conflicting acknowledgement throws and keeps the event retryable.
 
 Correlation-only events such as Paystack's preliminary `charge.success` may move the row to
 `provider_observed`, but NEVER finalize it; the origination awaits `subscription.created`.
@@ -423,14 +469,16 @@ today and leaves the origination retryable without creating a second ownership r
 
 ### §3.7 Cancellation semantics (gateway-truthful)
 
-`SubscriptionCapableGateway::cancelSubscription($id, $atPeriodEnd)` stays, but Payvia 2.5
+`SubscriptionCapableGateway::cancelSubscription($id, $atPeriodEnd)` stays unchanged, but Payvia 2.5
 documents and exposes per-gateway truth instead of promising uniform semantics:
 - Stripe: `at_period_end=true` → `cancel_at_period_end`; `false` → immediate DELETE.
 - Paystack: the disable operation stops future charges; the already-paid period runs to its
   `next_payment_date`. The `atPeriodEnd` argument is ignored today — Payvia 2.5 makes this
   explicit: the driver reports capability `cancel_modes: ['stop_renewal']` (Stripe:
-  `['stop_renewal','immediate']`) via a small `cancellationModes(): array` addition to the
-  interface, and callers may only offer modes the driver declares.
+  `['stop_renewal','immediate']`) via the additive
+  `SubscriptionCancellationModeProvider::cancellationModes()` capability, and callers may only
+  offer modes the driver declares. A driver that does not implement the capability exposes no
+  self-serve cancellation modes; Payvia does not modify the existing public gateway interface.
 Paystack's normalized disable event additionally carries `cancellation_mode=stop_renewal` and
 its provider period end. Subscriptions 2.2 projects that as `non_renewing`, not immediately
 `canceled`; its entitlement resolvers grant the current plan only until
@@ -535,7 +583,9 @@ changing the 2.0 tenant facade.
 - The projector gains an additive outcome-returning entry point used by the strict bridge.
   Existing callers may keep the void facade. Outcomes are `accepted` or deterministic
   `rejected(code)`; unmapped/transient failures still throw. A duplicate logical key returns
-  the already-stored receipt outcome rather than an ambiguous no-op.
+  the already-stored receipt outcome rather than an ambiguous no-op. The receipt repository
+  therefore gains an exact logical-key read returning only settled outcome/reason/key data;
+  both the early duplicate path and a unique-insert race re-read through that method.
 - `origination_uuid` joins `ProviderEventData`'s safe opaque allowlist so accepted/rejected
   receipts and operator diagnostics can tie the outcome to the checkout without retaining
   customer/provider payload fields.
@@ -552,14 +602,23 @@ changing the 2.0 tenant facade.
 
 ### §5.1 Authority & switch
 
+- Both Thallo's root manifest and `packages/thallo-subscriptions/composer.json` directly
+  constrain `glueful/payvia:^2.5` and `glueful/subscriptions:^2.2`; the pack also declares its
+  direct `glueful/users` dependency for authoritative verified-email lookup. Root-only
+  availability is not accepted as a package dependency.
 - `billing.manage` in `CapabilityCatalog` (grantable), role matrix grants it to `owner`;
   boundaries of §1 stated as code comments + tests (workspace UUID always from
-  `AdminTenantBindingMiddleware`-bound context).
-- `self_serve_checkout_enabled`: platform-scoped system-flags row (SystemKeys addition),
-  default false; editable only by platform authority (existing platform Billing surface +
-  settings endpoint); enable-time validation requires an active gateway implementing
-  subscription initiation; disable always allowed. `POST /checkout` rechecks it at request
-  time.
+  `AdminTenantBindingMiddleware`-bound context). The access endpoint/store defaults it false;
+  owner or a delegated workspace role may receive it. A platform-only operator with
+  `tenancy.manage`/`tenancy.access_any` but no workspace grant remains false.
+- `self_serve_checkout_enabled`: pack-owned system-flags key
+  `subscriptions.self_serve_checkout_enabled`, default false, read/written through a small
+  `SelfServeCheckoutSetting` wrapper over the existing `SystemFlags` store. A concrete
+  `PUT /v1/admin/subscriptions/self-serve` route lives in the existing platform subscriptions
+  middleware group (`auth`, `tenant_system`, `content_permission:tenancy.manage`) and the
+  platform Billing page owns its control. Enable-time validation requires the active gateway
+  to implement subscription initiation; disable is always allowed. `POST /checkout` rechecks
+  it at request time.
 
 ### §5.2 Workspace billing API
 
@@ -577,17 +636,25 @@ Group `/v1/admin/billing`, middleware `['auth', 'tenant_profile:admin', 'tenant_
   permission, while a caller without it receives the route's uniform 403.
 - `POST /checkout {plan_key}`, requiring an `Idempotency-Key` header matching a bounded opaque
   token contract → recheck switch + capability; refuse `subscription_already_active`
-  (active/trialing/past_due, or non_renewing before its period end), `checkout_pending` (live
-  origination — response includes the stored URL for resume), `plan_not_purchasable` (not in
+  (active/trialing/past_due, or non_renewing before its period end), `checkout_pending` only
+  for a DIFFERENT attempt key (live origination — response includes the stored URL when one
+  exists), `plan_not_purchasable` (not in
   `PlanPurchasability::forGateway`
-  for the active gateway). A `WorkspaceCheckoutCoordinator` then calls Payvia `prepare()`;
+  for the active gateway). A matching same-key request always reaches Payvia `prepare()` so it
+  can replay/resume; changing the plan under that key becomes `idempotency_conflict`. A
+  `WorkspaceCheckoutCoordinator` then calls Payvia `prepare()`;
   its local-only continuation invokes `reserveCheckoutFor(subject, plan, originationUuid)` in
   the SAME transaction. After commit it calls `initializeClaim()`. The Payvia request uses
   server-derived tenant uuid, `subject_key = tenant:<uuid>`, consumer metadata
   `{tenant_uuid, subject_type, subject_uuid, plan_uuid, glueful_consumer, actor_user_uuid}`,
   `required_projection_consumer = subscriptions`, the caller's per-attempt idempotency token,
-  and return/cancel URLs from the canonical admin origin → 200 `{checkout_url}`.
-  `customer_email` is the acting user's verified email — receipt recipient only; payment
+  and return/cancel URLs from the canonical admin origin. A pending result returns 200
+  `{status, checkout_url}`; a concurrent initialization owner returns 202
+  `{status: initializing, checkout_url: null}` and the SPA retains the same attempt key while
+  polling/retrying. It never manufactures a second attempt.
+  `customer_email` is loaded server-side from the authenticated user's authoritative account
+  row and must be verified; request/JWT email claims are never accepted. A missing account or
+  unverified email fails before preparation. It is the receipt recipient only; payment
   identity remains the workspace, and the email is initialization-recovery state under §3.2's
   redaction rule, never an ownership signal.
 - `POST /cancel {mode}` → only when the projected local row carries
@@ -611,10 +678,14 @@ Group `/v1/admin/billing`, middleware `['auth', 'tenant_profile:admin', 'tenant_
 Workspace Billing page (nav under the Subscriptions group, gated by an effective-permission
 flag for `billing.manage`: the tenancy access endpoint gains `manage_billing`, evaluated
 against the resolved workspace exactly like `manage_members`; distinct from the platform
-Billing directory).
+Billing directory). The registry declares all three children, while the existing tenancy-nav
+shaper filters platform Plans/Billing by `manage_platform` and Workspace billing by
+`manage_billing`, dropping an empty group. A static module capability cannot substitute for
+the loaded per-workspace access store.
 Meta-first states:
 engine unavailable, switch off ("self-serve billing is not enabled on this platform"),
-no subscription + plan picker, live origination (resume/abandon), active subscription
+no subscription + plan picker, initializing origination (waiting/retry with same key, no link),
+pending origination (resume/abandon), active subscription
 (plan, period end, cancel with per-mode confirm), non-renewing (access-until date),
 projection-rejected/late-settlement (blocked + contact operator), provider-managed-elsewhere,
 canceled. The SPA generates one idempotency token per checkout click, reuses it for retries,
@@ -654,7 +725,7 @@ Vitest specs per state; meta-error branch from day one (learned in Task 11).
 | No `billing.manage` | 403 | 403 | 403 | deep link (page 403s) |
 | Gateway lacks capability/identifier | 409 `plan_not_purchasable` / `unavailable` | n/a | plans omitted | deep link |
 | Active subscription | 409 `subscription_already_active` | works | shown | deep link |
-| Live origination | 409 `checkout_pending` + stored URL | works | shown | deep link |
+| Live origination | same-key initializing: 202/no URL; pending or different key: 409 `checkout_pending` (+ URL when stored) | works | shown | deep link |
 | Projection rejected / late settlement | blocked pending operator resolution | operator only | blocked state | deep link |
 | Paystack abandonment requested | 409 `checkout_abandonment_unsupported` | — | resume/contact operator | deep link |
 | Provider webhook fails mid-lane | ledger stays `provider_observed`; event retryable | — | — | — |
@@ -675,8 +746,9 @@ Structured error vocabulary extends the existing `error.details.code` convention
   adopt-and-enrich (ledger tenant wins; actor never enriched); first delivery sees the
   replacement event and persisted enrichment; a payload-update failure after the provider
   projection row was written still re-enriches on retry; accepted/rejected/missing acknowledgement
-  finalizer matrix; strict-lane throw leaves `provider_observed` retryable; Stripe expiry
-  closes the correct guard; Paystack abandonment is unsupported; `cancellationModes()` and
+  finalizer matrix, including late-settlement rejected acknowledgement completing without
+  changing its blocked state; strict-lane throw leaves `provider_observed` retryable; Stripe expiry
+  closes the correct guard; Paystack abandonment is unsupported; additive cancellation-mode discovery and
   checkout-lifecycle capability per driver; both origination tables participate in tenant
   purge/adoption; operator resolutions require their stated evidence and atomically release
   the matching guard/continuation.
