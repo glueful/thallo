@@ -40,6 +40,7 @@ priority tier, with thallo-commerce explicitly `loadAfter` the commerce extensio
 | Thallo\Importers | Admin operations surface |
 | Thallo\Commerce | Inert without glueful/commerce — activation is the extension's |
 | Thallo\Search | Inert until the `thallo.search` capability is switched on |
+| Thallo\Subscriptions | Active by default — the `thallo.subscriptions` capability is enabled unless explicitly set to `false` in `config/thallo.php` (absent key ⇒ enabled, same `DefaultCapabilityRegistry` default every capability gets). Its engine (`glueful/subscriptions`) ships enabled in `config/extensions.php` unlike Commerce's tier-2 posture — the "bundled engine enabled by default" consistency rule (design spec §1) |
 | Thallo\Tenancy | App-side tenancy integration, inert until enforcement |
 | Tenancy **control plane** (`TenancyControlPlaneProvider`) + `App\Providers\ThalloServiceProvider` | Same list, registered first — must pre-exist so workspaces can be enabled later |
 
