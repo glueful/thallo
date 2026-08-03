@@ -86,8 +86,8 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
      * enumerated verbatim. Final-wave fix A: `glueful/subscriptions`' provider loads these
      * unconditionally from its `boot()` behind nothing but `['auth', 'subscriptions_plans_manage']`
      * -- outside the `thallo.subscriptions` capability gate, outside `tenant_system` +
-     * `content_permission:tenancy.manage`, and outside {@see EngineGateway}. Without the pack
-     * provider's `denyEngineNativePlanRoutes()` pre-emption, Row 1's "capability off ⇒ 404" claim
+     * `content_permission:tenancy.manage`, and outside {@see EngineGateway}. Without
+     * `EnginePreemptionServiceProvider::denyEngineNativePlanRoutes()`, Row 1's "capability off ⇒ 404" claim
      * covered only THIS pack's routes while a whole second plan-administration API stayed live, and
      * any actor holding `subscriptions.plans.manage` could edit the global catalog -- exactly what
      * spec §3 rejects. Every row below pins their posture: unreachable in all three -- guarded-404 in
@@ -195,7 +195,8 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
             }
 
             // ...and so is the ENGINE's own native plan API -- unconditionally, since this pack's
-            // pre-emption lives in register(), outside the capability gate entirely.
+            // pre-emption lives on a separate pre-extension-tier provider's boot()
+            // (EnginePreemptionServiceProvider), outside the capability gate entirely.
             $this->assertEngineNativePlanRoutesAreAbsent($hit, 'while the capability is off');
         } finally {
             self::resetSharedRepositoryConnection();
@@ -260,7 +261,7 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
             // The engine's native plan API is absent here for the simplest possible reason: with its
             // provider off, its own boot() never loads routes.php, and this pack deliberately does
             // not pre-empt a file nobody is going to load (see
-            // SubscriptionsIntegrationServiceProvider::denyEngineNativePlanRoutes()). So they are
+            // EnginePreemptionServiceProvider::denyEngineNativePlanRoutes()). So they are
             // genuinely unregistered -- the SAME Render-catch-all signature Row 1 documents for this
             // pack's own routes: GET falls through the catch-all to a 404, a non-GET verb never
             // matches its single GET registration so the router answers 405.

@@ -5,12 +5,12 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Subscriptions;
 
 use App\Tests\Support\AppTestCase;
+use App\Tests\Support\BootsFromExtensionProviderCache;
 use Glueful\Application;
-use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\ExtensionManager;
 use Glueful\Routing\Router;
 use Symfony\Component\HttpFoundation\Request;
-use Thallo\Subscriptions\EngineRouteGuardServiceProvider;
+use Thallo\Subscriptions\EnginePreemptionServiceProvider;
 use Thallo\Subscriptions\Http\EngineNativeRoutesDenied;
 use Thallo\Subscriptions\SubscriptionsIntegrationServiceProvider;
 
@@ -29,7 +29,7 @@ use Thallo\Subscriptions\SubscriptionsIntegrationServiceProvider;
  * `PHP_INT_MAX`), which is exactly why the engine-native route denial may not live in any
  * `register()`: it would be dead code precisely where it matters most, while the engine's own
  * `boot()` still mounted `/subscriptions/plans*` behind bare `['auth', 'subscriptions_plans_manage']`.
- * {@see EngineRouteGuardServiceProvider} does the pre-emption from `boot()` instead, ordered ahead of
+ * {@see EnginePreemptionServiceProvider} does the pre-emption from `boot()` instead, ordered ahead of
  * the engine by a negative `loadPriority()`.
  *
  * The branch is environment-INDEPENDENT: `isProduction()` only picks the cache TTL and decides
@@ -39,6 +39,8 @@ use Thallo\Subscriptions\SubscriptionsIntegrationServiceProvider;
  */
 final class EngineNativeRoutesCachedBootTest extends AppTestCase
 {
+    use BootsFromExtensionProviderCache;
+
     /** @var list<array{0:string,1:string}> the engine's own native mounts (vendor routes.php) */
     private const ENGINE_NATIVE_ROUTES = [
         ['GET', '/subscriptions/plans'],
@@ -51,24 +53,22 @@ final class EngineNativeRoutesCachedBootTest extends AppTestCase
 
     public function testCachedProviderBootStillDeniesTheEngineNativePlanRoutes(): void
     {
-        $cachedApp = $this->bootFromExtensionProviderCache();
+        $cachedApp = $this->bootFromExtensionProviderCache([
+            EnginePreemptionServiceProvider::class,
+            \Glueful\Extensions\Subscriptions\SubscriptionsServiceProvider::class,
+        ]);
 
         try {
             $container = $cachedApp->getContainer();
-            $manager = $container->get(ExtensionManager::class);
-            self::assertInstanceOf(ExtensionManager::class, $manager);
 
             // The whole point: this boot took `discover()`'s cache-hit early return, so
             // `registerProviders()` never ran and NO provider's register() executed.
-            self::assertTrue(
-                $manager->getCacheUsed(),
-                'this boot must take the cached-provider path (the one production is required to use)',
-            );
+            $manager = $this->assertBootUsedTheProviderCache($cachedApp);
 
             // Both providers really are live on this boot -- otherwise "the routes are absent"
             // would prove nothing at all.
             $providers = $manager->getProviders();
-            self::assertArrayHasKey(EngineRouteGuardServiceProvider::class, $providers);
+            self::assertArrayHasKey(EnginePreemptionServiceProvider::class, $providers);
             self::assertArrayHasKey(\Glueful\Extensions\Subscriptions\SubscriptionsServiceProvider::class, $providers);
 
             // The guard provider must BOOT BEFORE the engine: ExtensionManager::boot() walks
@@ -77,7 +77,7 @@ final class EngineNativeRoutesCachedBootTest extends AppTestCase
             $order = array_keys($providers);
             self::assertLessThan(
                 array_search(\Glueful\Extensions\Subscriptions\SubscriptionsServiceProvider::class, $order, true),
-                array_search(EngineRouteGuardServiceProvider::class, $order, true),
+                array_search(EnginePreemptionServiceProvider::class, $order, true),
                 'the route guard must boot before glueful/subscriptions on the cached boot too',
             );
             // ...and the pack's MAIN provider necessarily boots after it (loadAfter + priority 100),
@@ -124,66 +124,6 @@ final class EngineNativeRoutesCachedBootTest extends AppTestCase
         } finally {
             self::resetSharedRepositoryConnection();
             self::restoreSharedPermissionProvider();
-        }
-    }
-
-    /**
-     * Boots a second app whose `ExtensionManager` takes the cache-hit branch.
-     *
-     * The cache file is written from the REAL resolver output
-     * ({@see ExtensionManager::resolveProviderClasses()}, which is
-     * `ProviderClassResolver::resolve()` -- app providers + enabled extensions, already run through
-     * `ProviderOrderer::order()`), i.e. byte-for-byte what `php glueful extensions:cache` would
-     * write. `EXTENSIONS_CACHE_TTL_DEV` is pinned for the duration so the hit is a property of the
-     * file, not of how long the boot took. Both the env var and any pre-existing cache file are
-     * restored in a finally.
-     */
-    private function bootFromExtensionProviderCache(): ApplicationContext
-    {
-        $root = dirname(__DIR__, 3);
-        $cacheFile = $root . '/bootstrap/cache/extensions.php';
-        $cacheDir = dirname($cacheFile);
-
-        $manager = $this->container()->get(ExtensionManager::class);
-        self::assertInstanceOf(ExtensionManager::class, $manager);
-        $classes = $manager->resolveProviderClasses();
-        self::assertContains(EngineRouteGuardServiceProvider::class, $classes, 'sanity: the guard resolves');
-        self::assertContains(
-            \Glueful\Extensions\Subscriptions\SubscriptionsServiceProvider::class,
-            $classes,
-            'sanity: the engine resolves',
-        );
-
-        if (!is_dir($cacheDir)) {
-            mkdir($cacheDir, 0755, true);
-        }
-        $previousCache = is_file($cacheFile) ? (string) file_get_contents($cacheFile) : null;
-        $previousTtl = $_ENV['EXTENSIONS_CACHE_TTL_DEV'] ?? null;
-
-        file_put_contents(
-            $cacheFile,
-            "<?php\n\n// Written by " . self::class . "\n\nreturn " . var_export($classes, true) . ";\n",
-        );
-        $_ENV['EXTENSIONS_CACHE_TTL_DEV'] = (string) PHP_INT_MAX;
-
-        try {
-            // Any config override works here -- this helper is only used for the boot machinery it
-            // wraps (RouteManifest/loaded-route/route-cache resets). The extensions list is written
-            // back UNCHANGED so this boot is the ordinary, fully-enabled one.
-            $base = (array) require $root . '/config/extensions.php';
-
-            return self::bootAppWithConfigOverride('extensions', ['enabled' => (array) $base['enabled']]);
-        } finally {
-            if ($previousTtl === null) {
-                unset($_ENV['EXTENSIONS_CACHE_TTL_DEV']);
-            } else {
-                $_ENV['EXTENSIONS_CACHE_TTL_DEV'] = $previousTtl;
-            }
-            if ($previousCache !== null) {
-                file_put_contents($cacheFile, $previousCache);
-            } else {
-                @unlink($cacheFile);
-            }
         }
     }
 }
