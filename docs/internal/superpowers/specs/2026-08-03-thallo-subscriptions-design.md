@@ -5,7 +5,7 @@
 glueful/subscriptions 2.0's preserved tenant facade. Phase 3 (memberships,
 paywalls, workspace-owned member catalogs, any checkout) is explicitly out.
 **Companion:** a small additive glueful/subscriptions **2.1.0** release (§6) —
-2.0.0 is published, so the three new upstream seams and one spec-wording
+2.0.0 is published, so the four new upstream seams and one spec-wording
 amendment ride a minor, not an amendment.
 
 ## 1. Package & layering
@@ -16,7 +16,11 @@ New `packages/thallo-subscriptions` (`type: library`, PSR-4
 commerce:
 
 - Path repository + `"glueful/thallo-subscriptions": "*"` in root
-  composer.json; root also gains `"glueful/subscriptions": "^2.1"`.
+  composer.json; root also gains `"glueful/subscriptions": "^2.1"`. The pack
+  directly requires `glueful/extension-contracts` because it imports the
+  tenancy administration authority. The in-repo path applies only to the
+  Thallo pack: subscriptions 2.1.0 must resolve from its published repository,
+  never from a temporary sibling path override.
 - Provider listed in `config/serviceproviders.php`; post-extension tier
   (`loadPriority()`), `loadAfter([Glueful\Extensions\Subscriptions\
   SubscriptionsServiceProvider::class])`.
@@ -41,12 +45,15 @@ commerce:
 `SubjectResolverInterface`, replacing the compatibility default with the
 strict host authority the 2.0 spec assigns to hosts:
 
-- `currentTenant()` — the real workspace via tenancy context when enforcement
-  is on; otherwise `SingleStoreTenant::resolve()` (the persisted
-  default-workspace UUID). Never a sentinel.
+- `currentTenant()` — delegates solely to `SingleStoreTenant::resolve()`, which
+  already resolves the current tenancy context when enforcement is on and the
+  persisted default-workspace UUID when it is off. Never a second resolution
+  path and never a sentinel.
 - `validate()` — tenant subjects require `subject_uuid === tenant_uuid` AND
   existence proven via `TenantAdministration::getTenant()` (the existence
-  authority); host sentinels rejected. **User subjects always return false.**
+  authority); `TenantAdministration` is a required dependency with no
+  shape-only fallback; host sentinels rejected. **User subjects always return
+  false.**
 - `currentUser()` — returns null.
 
 Binding this resolver does NOT enable memberships. Memberships are enabled
@@ -83,10 +90,20 @@ logic):
   route's platform-authority gate; the endpoint accepts no caller-supplied
   UUID filter. This is the trusted-host-inventory precondition of the upstream
   administrative batch seam, not a bypass available to ordinary
-  subject-scoped callers.
+  subject-scoped callers. The endpoint paginates that authoritative directory
+  in memory at a maximum 100 rows before invoking the batch seam; the seam
+  rejects larger batches and performs its cross-workspace query through
+  `TenantIntegration::runAsSystemOr()` so an active tenant context cannot
+  silently narrow the result. Plan display names come from one platform
+  `PlanManagementService::list()` call per page and an in-memory key map, never
+  a per-row or per-distinct-plan catalog lookup.
 - **Workspace detail / actions** — `current()` detail; set-plan
   (`start`/`changePlan`); cancel; overrides via the 2.0 writer
-  (`upsertForSubject` / `deleteForSubject`) — never raw table writes.
+  (`upsertForSubject` / `deleteForSubject`) plus 2.1's detailed
+  `listForSubject()` read — never raw table access. Every override operation
+  runs through `TenantIntegration::runAsTenantOr()` for the target workspace;
+  `tenant_system` is only a route-classification marker, not a database-scope
+  bypass.
 - **Provider-managed guard (cancel/change honesty):**
   `SubscriptionService::cancelFor()` changes LOCAL state only — it does not
   call Stripe/Paystack. Therefore: manually managed subscriptions
@@ -97,7 +114,11 @@ logic):
   the strict lane). The SPA renders the guidance, not a dead button.
 - **Meta** — always 200; reports `engine: engine_disabled | schema_not_ready
   | ready`, plus tenancy on/off and the default-workspace UUID when off. The
-  SPA drives its empty/degraded states from this.
+  SPA drives its empty/degraded states from this. It reads
+  `SingleStoreTenant::defaultUuidOrNull()` rather than `resolve()`, so a fresh
+  install with no established default still returns 200 with null; an attempted
+  single-store billing operation then returns structured 409
+  `default_workspace_missing`.
 
 ## 4. Admin SPA
 
@@ -143,7 +164,10 @@ migration, is never reported ready. Meta stays 200 in every state.
 - **Fail-closed rule:** if the subscriptions SCHEMA exists but the purger is
   unavailable (engine disabled after data was written), prepare, purge, and
   verify must THROW — a tenant purge must never silently skip billing data.
-  If the schema does not exist, the handler reports zero rows and passes.
+  The handler decides “schema absent” only by directly checking for the
+  `subscriptions` table. If that marker table exists, a legacy or partial
+  schema remains data-bearing and fail-closed even though readiness is false.
+  Only an actually absent marker reports zero rows and passes.
 - Resumable prepare/verify uses the NEW non-mutating
   `countSubjectRows()` seam (§6) so Thallo never duplicates the extension's
   table inventory.
@@ -159,7 +183,8 @@ originates purchases).
 ## 6. Upstream companion — glueful/subscriptions 2.1.0 (additive minor)
 
 1. **Bulk subscription read:** `SubscriptionService::currentForTenants(array
-   $tenantUuids): array` — bounded list in, results keyed by tenant UUID
+   $tenantUuids): array` — at most 100 inputs (larger input throws before any
+   query), results keyed by tenant UUID
    (absent key = no subscription), tenant subjects only, one query
    (`WHERE subject_type='tenant' AND tenant_uuid IN (...)`). Test pins a
    CONSTANT query count across page sizes (a recording connection/query
@@ -171,22 +196,37 @@ originates purchases).
    tenant directory after platform authorization; it is not mounted directly
    as an HTTP batch-by-UUID endpoint. Thallo proves the precondition by deriving
    the list from `TenantAdministration::listTenants()` and accepting no UUID
-   input on the workspace-index route.
+   input on the workspace-index route. The repository call runs inside
+   `TenantIntegration::runAsSystemOr()`; a test with a foreign active tenant
+   proves tenancy interception cannot narrow the administrative projection.
 2. **Purge count seam:** `SubscriptionSubjectDataPurger::countSubjectRows(
    Subject $subject): array` — non-mutating, returns per-table counts using
    the SAME matching predicates as `purgeSubject()` (resolved-or-candidate
    for receipts), enabling host prepare/verify without duplicating table
    inventory. Test: counts match what purge then deletes; zero after purge;
    idempotent.
-3. **Schema-readiness authority:** a bound
+3. **Detailed override read:** `OverrideRepository::listForSubject(
+   ApplicationContext $context, Subject $subject): array` returns every
+   subject-scoped override (including expired rows) as allowlisted projections
+   carrying entitlement, decoded value, expires_at, reason, and timestamps,
+   ordered by entitlement and without storage identity fields.
+   This is the read companion to the existing supported writers, so an admin
+   editor never has to use raw tables or erase expiry/reason metadata it could
+   not read. The host remains responsible for entering the target tenant
+   context around cross-workspace calls.
+4. **Schema-readiness authority:** a bound
    `SubscriptionSchemaReadiness::isReady(): bool` owned by the extension. It
    checks the complete minimum 2.x runtime shape used by the services — base
-   tables, subject/plan identity columns, scoped-plan columns, and the provider
-   receipt table — rather than treating `subscriptions` table existence as
-   readiness. Tests cover a fresh 2.x schema, no schema, a legacy 1.x schema,
-   and representative partially-applied migration shapes. Hosts consume this
-   authority instead of duplicating the extension's schema inventory.
-4. **Spec wording amendment** (design spec §4, the "binding the resolver is
+   tables; subject_type/subject_uuid on subscriptions, overrides, and events;
+   subscriptions.plan_uuid; plan audience/owner columns; and the receipt
+   columns consumed by projection and purge (`uuid`, provider gateway/logical
+   key/type, candidate and resolved identity fields, outcome/rejection,
+   sanitized data, created_at) — rather than treating
+   `subscriptions` table existence as readiness. Tests cover a fresh 2.x
+   schema, no schema, a legacy 1.x schema, and representative partially-applied
+   migration shapes. Hosts consume this authority instead of duplicating the
+   extension's schema inventory.
+5. **Spec wording amendment** (design spec §4, the "binding the resolver is
    enabling memberships" sentence): memberships are enabled only when the
    host resolver positively resolves AND validates user subjects; a
    tenant-only host resolver (Thallo Phase 2) binds without enabling them.
@@ -201,16 +241,20 @@ seams lands; Thallo's root constraint moves to `^2.1`.
   sentinel rejection, nonexistent-tenant rejection, user subjects false,
   currentUser null); every admin endpoint against a real engine harness
   (seeded plans/subscriptions; the workspace index against a multi-tenant
-  fixture asserting bulk-read wiring, no caller-supplied UUID input, and a
-  constant total query count); the provider-managed 409 on a linked
+  fixture asserting system-context bulk-read wiring, the 100-row bound,
+  pagination, no caller-supplied UUID input, and a constant total query count);
+  override detail round-trips expiry/reason and remains correctly scoped while
+  another tenant is active; the provider-managed 409 on a linked
   subscription and success on a manual one; permission posture (a
   non-tenancy.manage actor gets 403 on every route); EngineGateway state
   matrix (disabled / legacy schema / partial schema / ready) with the provider
   absent from the disabled harness container; purge adapter — alias remains
   registered with the engine disabled, fail-closed throw when schema exists
   without purger, zero-pass when schema is absent, counts-then-purge parity via
-  the new seam. A capability/engine truth table pins capability-off as hidden,
-  engine-off as the visible degraded shell, and both enabled as operational.
+  the new seam. Meta returns 200 with a null default-workspace pointer and
+  billing returns `default_workspace_missing` until one is established. A
+  capability/engine truth table pins capability-off as hidden, engine-off as
+  the visible degraded shell, and both enabled as operational.
 - **Admin SPA (vitest):** module/nav gating on the capability; Plans and
   Billing page states (tenancy on/off, all three engine states); drawer
   actions incl. the provider-managed refusal rendering. Existing
