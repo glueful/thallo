@@ -19,13 +19,32 @@ definePage({ meta: { requiresAuth: true, requiresCapability: 'thallo.subscriptio
 
 const { success, error: notifyError } = useNotify()
 
-const { data: meta, status: metaStatus } = useSubscriptionsMeta()
+// `metaStatus === 'error'` is its OWN branch (final-wave fix E): the meta probe failing is not the
+// same thing as the engine being disabled, and rendering the pending skeleton for it left this page
+// in a perpetual "loading" state that never resolved. Retry via the query's own refetch.
+const { data: meta, status: metaStatus, refetch: refetchMeta } = useSubscriptionsMeta()
 const engineReady = computed(() => meta.value?.engine === 'ready')
 
 const { data: plans, status: plansStatus } = usePlans(engineReady)
 const rows = computed<SubscriptionPlan[]>(() => plans.value ?? [])
 
-const { archive } = usePlanMutations()
+const { archive, importConfig } = usePlanMutations()
+
+// Spec §4 lists an import-config action on this page: seeds the platform catalog from the
+// `subscriptions.plans` config block (`PlansController::importConfig()`). Non-forcing by default --
+// existing plans are left alone unless the operator opts into overwriting them.
+const importForce = ref(false)
+const importOpen = ref(false)
+async function confirmImport() {
+  try {
+    const imported = await importConfig.mutateAsync({ force: importForce.value })
+    const count = Array.isArray(imported) ? imported.length : 0
+    success('Plans imported', `${count} plan${count === 1 ? '' : 's'} imported from config.`)
+    importOpen.value = false
+  } catch (e) {
+    notifyError(e, 'Couldn’t import plans')
+  }
+}
 
 const formOpen = ref(false)
 const editingPlan = ref<SubscriptionPlan | null>(null)
@@ -61,6 +80,16 @@ async function confirmArchive() {
         <template #right>
           <UButton
             v-if="engineReady"
+            icon="i-lucide-download"
+            color="neutral"
+            variant="ghost"
+            data-test="import-plans"
+            @click="importOpen = true"
+          >
+            Import from config
+          </UButton>
+          <UButton
+            v-if="engineReady"
             icon="i-lucide-plus"
             data-test="new-plan"
             @click="openCreate"
@@ -74,6 +103,24 @@ async function confirmArchive() {
     <template #body>
       <div v-if="metaStatus === 'pending'" class="p-6" data-test="plans-meta-loading">
         <USkeleton class="h-24 w-full" />
+      </div>
+      <div v-else-if="metaStatus === 'error'" class="p-6" data-test="plans-meta-error">
+        <UAlert
+          color="error"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          title="Couldn't load subscriptions status"
+          description="The subscriptions status check failed, so the plan catalog can't be shown. Check your connection and try again."
+        />
+        <UButton
+          class="mt-4"
+          color="neutral"
+          variant="subtle"
+          icon="i-lucide-refresh-cw"
+          label="Retry"
+          data-test="plans-meta-retry"
+          @click="refetchMeta()"
+        />
       </div>
       <EngineStateNotice
         v-else-if="meta && meta.engine !== 'ready'"
@@ -126,6 +173,42 @@ async function confirmArchive() {
   </UDashboardPanel>
 
   <PlanEditor v-model:open="formOpen" :plan="editingPlan" />
+
+  <UModal
+    :open="importOpen"
+    title="Import plans from config"
+    @update:open="(v: boolean) => { if (!v) importOpen = false }"
+  >
+    <template #body>
+      <p class="text-sm text-muted">
+        Seeds the platform catalog from this site's <span class="text-default">subscriptions.plans</span>
+        config block. Plans that already exist are skipped unless you overwrite them.
+      </p>
+      <UCheckbox
+        v-model="importForce"
+        class="mt-4"
+        label="Overwrite plans that already exist"
+        data-test="import-plans-force"
+      />
+    </template>
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          label="Cancel"
+          :disabled="importConfig.isLoading.value"
+          @click="() => { importOpen = false }"
+        />
+        <UButton
+          label="Import"
+          data-test="import-plans-confirm"
+          :loading="importConfig.isLoading.value"
+          @click="confirmImport"
+        />
+      </div>
+    </template>
+  </UModal>
 
   <UModal
     :open="pendingArchive !== null"

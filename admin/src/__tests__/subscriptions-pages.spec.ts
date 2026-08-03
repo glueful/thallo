@@ -49,6 +49,8 @@ const workspaceDetailData = ref<WorkspaceDetail | undefined>(undefined)
 const workspaceDetailStatus = ref<'pending' | 'error' | 'success'>('success')
 const useWorkspaceCalls: string[] = []
 
+const refetchMetaMock = vi.hoisted(() => vi.fn())
+const importConfigMock = vi.hoisted(() => vi.fn())
 const createPlanMock = vi.hoisted(() => vi.fn())
 const updatePlanMock = vi.hoisted(() => vi.fn())
 const archivePlanMock = vi.hoisted(() => vi.fn())
@@ -61,7 +63,7 @@ vi.mock('@/queries/subscriptionsBilling', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/subscriptionsBilling')>()
   return {
     ...actual,
-    useSubscriptionsMeta: () => ({ data: metaData, status: metaStatus }),
+    useSubscriptionsMeta: () => ({ data: metaData, status: metaStatus, refetch: refetchMetaMock }),
     usePlans: (enabled?: unknown) => {
       usePlansEnabledSeen.value.push(!!toValue(enabled as never))
       return { data: plansData, status: plansStatus }
@@ -70,7 +72,7 @@ vi.mock('@/queries/subscriptionsBilling', async (importOriginal) => {
       create: { mutateAsync: createPlanMock, isLoading: ref(false) },
       update: { mutateAsync: updatePlanMock, isLoading: ref(false) },
       archive: { mutateAsync: archivePlanMock, isLoading: ref(false) },
-      importConfig: { mutateAsync: vi.fn(), isLoading: ref(false) },
+      importConfig: { mutateAsync: importConfigMock, isLoading: ref(false) },
     }),
     useWorkspaces: () => ({ data: workspacesData, status: workspacesStatus }),
     useWorkspace: (uuid: unknown) => {
@@ -153,6 +155,8 @@ beforeEach(() => {
   workspaceDetailData.value = undefined
   workspaceDetailStatus.value = 'success'
   useWorkspaceCalls.length = 0
+  refetchMetaMock.mockReset()
+  importConfigMock.mockReset().mockResolvedValue([plan()])
   createPlanMock.mockReset().mockResolvedValue(plan())
   updatePlanMock.mockReset().mockResolvedValue(plan())
   archivePlanMock.mockReset().mockResolvedValue(plan({ status: 'archived' }))
@@ -246,6 +250,44 @@ describe('subscriptions/plans page', () => {
     expect(editor.props('plan')?.plan_key).toBe('pro')
     const keyInput = editor.find('[data-test="plan-key-input"]').element as HTMLInputElement
     expect(keyInput.disabled).toBe(true)
+  })
+
+  // Final-wave fix E: a FAILED meta probe is its own state -- not "still loading".
+  it('renders a load-failure notice with a retry when the meta probe errors, never the skeleton', async () => {
+    metaStatus.value = 'error'
+    metaData.value = undefined
+    const wrapper = mountPage(PlansIndex)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="plans-meta-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="plans-meta-loading"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="plans-table"]').exists()).toBe(false)
+    expect(wrapper.findComponent(EngineStateNotice).exists()).toBe(false)
+
+    await wrapper.find('[data-test="plans-meta-retry"]').trigger('click')
+    expect(refetchMetaMock).toHaveBeenCalled()
+  })
+
+  // Final-wave fix F: spec §4's import-config action, wired to the existing mutation.
+  it('imports plans from config after confirmation, forwarding the force flag', async () => {
+    const wrapper = mountPage(PlansIndex)
+    await flushPromises()
+
+    await wrapper.find('[data-test="import-plans"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-test="import-plans-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(importConfigMock).toHaveBeenCalledWith({ force: false })
+    expect(notify.success).toHaveBeenCalled()
+  })
+
+  it('hides the import action while the engine is not ready', async () => {
+    metaData.value = meta({ engine: 'engine_disabled' })
+    const wrapper = mountPage(PlansIndex)
+    await flushPromises()
+    expect(wrapper.find('[data-test="import-plans"]').exists()).toBe(false)
   })
 
   it('archives a plan after confirmation', async () => {
@@ -345,6 +387,47 @@ describe('subscriptions/billing page', () => {
     expect(useWorkspaceCalls).toContain('t_default')
   })
 
+  // Final-wave fix E: without a dedicated error branch a failed meta probe fell through to the
+  // tenancy-off path (undefined meta ⇒ tenancy false ⇒ default uuid null) and showed the
+  // "no default workspace" repair notice -- a wrong diagnosis of a transport failure.
+  it('renders a load-failure notice with a retry when the meta probe errors, never the repair notice', async () => {
+    metaStatus.value = 'error'
+    metaData.value = undefined
+    const wrapper = mountPage(BillingIndex)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="billing-meta-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="billing-default-missing"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="billing-meta-loading"]').exists()).toBe(false)
+    expect(wrapper.findComponent(EngineStateNotice).exists()).toBe(false)
+    expect(useWorkspaceCalls).toEqual([])
+
+    await wrapper.find('[data-test="billing-meta-retry"]').trigger('click')
+    expect(refetchMetaMock).toHaveBeenCalled()
+  })
+
+  // Final-wave fix C: the directory now shows each workspace's OWN lifecycle status, because a
+  // non-active workspace is listed but refuses billing writes with 409 `workspace_not_active`.
+  it('renders each workspace lifecycle status in the directory', async () => {
+    workspacesData.value = {
+      rows: [
+        { tenant: tenant({ uuid: 't1', name: 'Acme Co', status: 'active' }), subscription: subscriptionSummary() },
+        { tenant: tenant({ uuid: 't2', name: 'Paused Ltd', status: 'suspended' }), subscription: null },
+      ],
+      total: 2,
+      current_page: 1,
+      per_page: 20,
+      total_pages: 1,
+      has_next_page: false,
+      has_previous_page: false,
+    }
+    const wrapper = mountPage(BillingIndex)
+    await flushPromises()
+
+    const statuses = wrapper.findAll('[data-test="workspace-row-tenant-status"]').map((n) => n.text())
+    expect(statuses).toEqual(['active', 'suspended'])
+  })
+
   it('tenancy OFF with a null default: renders the repair state and issues NO workspace request', async () => {
     metaData.value = meta({ engine: 'ready', tenancy_enabled: false, default_tenant_uuid: null })
     const wrapper = mountPage(BillingIndex)
@@ -400,6 +483,26 @@ describe('WorkspaceDetailPanel', () => {
     expect(wrapper.text()).toContain(
       'this subscription is managed by a payment provider and cannot be changed locally',
     )
+  })
+
+  // Final-wave fix C: the new structured 409 goes through the SAME verbatim rendering the
+  // provider-managed refusal already proved -- no per-code special-casing needed.
+  it('renders the server 409 workspace_not_active message verbatim on a refused set-plan', async () => {
+    workspaceDetailData.value = {
+      tenant: tenant({ status: 'suspended' }),
+      subscription: subscriptionSummary({ provider_managed: false }),
+      overrides: [],
+    }
+    setPlanMock.mockRejectedValue(
+      new ApiError('this workspace is suspended and its billing cannot be changed', 409, {}, {}),
+    )
+    const wrapper = mount(WorkspaceDetailPanel, { props: { uuid: 't1' } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="workspace-set-plan"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('this workspace is suspended and its billing cannot be changed')
   })
 
   it('shows BOTH active and expired overrides, with expiry and reason intact', async () => {

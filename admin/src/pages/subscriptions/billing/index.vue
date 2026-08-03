@@ -14,7 +14,11 @@ import WorkspaceDrawer from '../components/WorkspaceDrawer.vue'
 
 definePage({ meta: { requiresAuth: true, requiresCapability: 'thallo.subscriptions' } })
 
-const { data: meta, status: metaStatus } = useSubscriptionsMeta()
+// `metaStatus === 'error'` is its OWN branch (final-wave fix E): without it a failed meta probe fell
+// through to the `!tenancyEnabled` branch (meta is undefined ⇒ tenancy reads as off ⇒ default uuid
+// reads as null) and rendered the "no default workspace is established yet" repair notice — a
+// actively misleading diagnosis of a transport failure. Retry via the query's own refetch.
+const { data: meta, status: metaStatus, refetch: refetchMeta } = useSubscriptionsMeta()
 const engineReady = computed(() => meta.value?.engine === 'ready')
 const tenancyEnabled = computed(() => meta.value?.tenancy_enabled ?? false)
 const defaultUuid = computed(() => meta.value?.default_tenant_uuid ?? null)
@@ -44,6 +48,24 @@ function openWorkspace(row: WorkspaceRow) {
     <template #body>
       <div v-if="metaStatus === 'pending'" class="p-6" data-test="billing-meta-loading">
         <USkeleton class="h-24 w-full" />
+      </div>
+      <div v-else-if="metaStatus === 'error'" class="p-6" data-test="billing-meta-error">
+        <UAlert
+          color="error"
+          variant="subtle"
+          icon="i-lucide-triangle-alert"
+          title="Couldn't load subscriptions status"
+          description="The subscriptions status check failed, so workspace billing can't be shown. Check your connection and try again."
+        />
+        <UButton
+          class="mt-4"
+          color="neutral"
+          variant="subtle"
+          icon="i-lucide-refresh-cw"
+          label="Retry"
+          data-test="billing-meta-retry"
+          @click="refetchMeta()"
+        />
       </div>
       <EngineStateNotice
         v-else-if="meta && meta.engine !== 'ready'"
@@ -78,8 +100,9 @@ function openWorkspace(row: WorkspaceRow) {
           <thead>
             <tr class="border-b border-default text-muted">
               <th class="py-2">Workspace</th>
+              <th class="py-2">Workspace status</th>
               <th class="py-2">Plan</th>
-              <th class="py-2">Status</th>
+              <th class="py-2">Subscription</th>
             </tr>
           </thead>
           <tbody>
@@ -93,6 +116,18 @@ function openWorkspace(row: WorkspaceRow) {
               <td class="py-2">
                 <p class="font-medium" data-test="workspace-row-name">{{ row.tenant.name }}</p>
                 <p class="text-xs text-muted">{{ row.tenant.slug }}</p>
+              </td>
+              <!-- The tenant's OWN lifecycle status (final-wave fix C): the directory lists every
+                   live workspace, including `provisioning`/`suspended` ones whose billing writes the
+                   API refuses with 409 `workspace_not_active`, so the operator must be able to see
+                   that state here rather than discovering it on a failed save. -->
+              <td class="py-2" data-test="workspace-row-tenant-status">
+                <UBadge
+                  size="sm"
+                  variant="subtle"
+                  :color="row.tenant.status === 'active' ? 'neutral' : 'warning'"
+                  :label="row.tenant.status"
+                />
               </td>
               <td class="py-2" data-test="workspace-row-plan">
                 {{ row.subscription?.plan_display_name ?? '—' }}
