@@ -39,6 +39,7 @@ final class TenancyAccessController
             'manage_members' => $this->effective($request, $uuid, 'tenant.members.manage', $context),
             'manage_domains' => $this->effective($request, $uuid, 'tenant.domains.manage', $context),
             'manage_roles' => $this->effective($request, $uuid, 'tenant.roles.manage', $context),
+            'manage_billing' => $this->effective($request, $uuid, 'billing.manage', $context),
         ]]);
     }
 
@@ -62,7 +63,12 @@ final class TenancyAccessController
             )->granted;
     }
 
-    /** @return array{manage_platform:false,access_any:false,manage_members:false,manage_domains:false,manage_roles:false} */
+    /**
+     * @return array{
+     *     manage_platform:false,access_any:false,manage_members:false,manage_domains:false,
+     *     manage_roles:false,manage_billing:false,
+     * }
+     */
     private function denyAll(): array
     {
         return [
@@ -71,6 +77,7 @@ final class TenancyAccessController
             'manage_members' => false,
             'manage_domains' => false,
             'manage_roles' => false,
+            'manage_billing' => false,
         ];
     }
 }

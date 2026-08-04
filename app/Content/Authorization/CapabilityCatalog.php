@@ -39,6 +39,7 @@ final class CapabilityCatalog implements PermissionImplicationSource
             'label' => 'Manage commerce', 'group' => 'Commerce', 'platform_only' => false,
             'implies' => ['commerce.view'],
         ],
+        'billing.manage' => ['label' => 'Manage billing', 'group' => 'Workspace', 'platform_only' => false],
     ];
 
     /** @return array<string, array{label:string,group:string,platform_only:bool,implies?:list<string>}> */

@@ -11,6 +11,7 @@ const granted = {
   access_any: true,
   manage_members: true,
   manage_domains: true,
+  manage_billing: true,
 }
 
 describe('tenancy access store', () => {
@@ -33,6 +34,7 @@ describe('tenancy access store', () => {
       manage_members: false,
       manage_domains: false,
       manage_roles: false,
+      manage_billing: false,
     })
   })
 
@@ -51,6 +53,7 @@ describe('tenancy access store', () => {
       access_any: false,
       manage_members: false,
       manage_domains: false,
+      manage_billing: false,
     })
     await old
 

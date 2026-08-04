@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b9b14abb8e84cc4fa6e48648c4e473e0",
+    "content-hash": "ceb8af7473f9c84497d6c41f81e711db",
     "packages": [
         {
             "name": "composer/semver",
@@ -1224,16 +1224,16 @@
         },
         {
             "name": "glueful/payvia",
-            "version": "2.4.0",
+            "version": "2.5.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/payvia.git",
-                "reference": "394dcfdf6d2521183c3ba36e46fd251fd97a108b"
+                "reference": "ee1dd7bce089dce35597e9b41f357318b13adf4a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/payvia/zipball/394dcfdf6d2521183c3ba36e46fd251fd97a108b",
-                "reference": "394dcfdf6d2521183c3ba36e46fd251fd97a108b",
+                "url": "https://api.github.com/repos/glueful/payvia/zipball/ee1dd7bce089dce35597e9b41f357318b13adf4a",
+                "reference": "ee1dd7bce089dce35597e9b41f357318b13adf4a",
                 "shasum": ""
             },
             "require": {
@@ -1252,7 +1252,7 @@
                 "glueful": {
                     "icon": "assets/icon.png",
                     "name": "Payvia",
-                    "version": "2.4.0",
+                    "version": "2.5.0",
                     "provider": "Glueful\\Extensions\\Payvia\\PayviaServiceProvider",
                     "requires": {
                         "glueful": ">=1.71.0",
@@ -1297,22 +1297,22 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/payvia/issues",
-                "source": "https://github.com/glueful/payvia/tree/v2.4.0"
+                "source": "https://github.com/glueful/payvia/tree/v2.5.0"
             },
-            "time": "2026-08-03T03:31:03+00:00"
+            "time": "2026-08-04T07:49:33+00:00"
         },
         {
             "name": "glueful/subscriptions",
-            "version": "v2.1.0",
+            "version": "v2.2.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/subscriptions.git",
-                "reference": "fcf8504aeccf5a2f5899cdb5e01e7ff9c56c65ff"
+                "reference": "9ac6e9b9abf65fefa3622b684074cb891692810c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/subscriptions/zipball/fcf8504aeccf5a2f5899cdb5e01e7ff9c56c65ff",
-                "reference": "fcf8504aeccf5a2f5899cdb5e01e7ff9c56c65ff",
+                "url": "https://api.github.com/repos/glueful/subscriptions/zipball/9ac6e9b9abf65fefa3622b684074cb891692810c",
+                "reference": "9ac6e9b9abf65fefa3622b684074cb891692810c",
                 "shasum": ""
             },
             "require": {
@@ -1321,7 +1321,7 @@
             "require-dev": {
                 "glueful/extension-contracts": "^1.5.0",
                 "glueful/framework": "^1.57.0",
-                "glueful/payvia": "^2.4",
+                "glueful/payvia": "^2.5",
                 "phpstan/phpstan": "^1.0",
                 "phpunit/phpunit": "^10.5",
                 "squizlabs/php_codesniffer": "^3.6"
@@ -1334,7 +1334,7 @@
             "extra": {
                 "glueful": {
                     "name": "Subscriptions",
-                    "version": "2.1.0",
+                    "version": "2.2.0",
                     "provider": "Glueful\\Extensions\\Subscriptions\\SubscriptionsServiceProvider",
                     "requires": {
                         "glueful": ">=1.57.0",
@@ -1379,9 +1379,9 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/subscriptions/issues",
-                "source": "https://github.com/glueful/subscriptions/tree/v2.1.0"
+                "source": "https://github.com/glueful/subscriptions/tree/v2.2.0"
             },
-            "time": "2026-08-03T05:37:40+00:00"
+            "time": "2026-08-04T17:55:07+00:00"
         },
         {
             "name": "glueful/tenancy",
@@ -1857,14 +1857,16 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-subscriptions",
-                "reference": "0b3ae94735c7722cc0219565aa9fee6ed811f4f5"
+                "reference": "dfc2cfd9ce8b3390cf67f155bf72a2b25baffd73"
             },
             "require": {
                 "glueful/extension-contracts": "*",
                 "glueful/framework": "^1.74.0",
-                "glueful/subscriptions": "^2.1",
+                "glueful/payvia": "^2.5",
+                "glueful/subscriptions": "^2.2",
                 "glueful/thallo-contracts": "*",
                 "glueful/thallo-tenancy": "*",
+                "glueful/users": "^2.3.2",
                 "php": "^8.3"
             },
             "type": "library",

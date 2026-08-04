@@ -38,6 +38,7 @@ final class TenancyAccessEndpointTest extends AppTestCase
             'manage_members' => false,
             'manage_domains' => false,
             'manage_roles' => false,
+            'manage_billing' => false,
         ], $body['data']['access']);
     }
 
