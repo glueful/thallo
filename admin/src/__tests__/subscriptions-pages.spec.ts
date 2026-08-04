@@ -58,6 +58,7 @@ const setPlanMock = vi.hoisted(() => vi.fn())
 const cancelMock = vi.hoisted(() => vi.fn())
 const upsertOverrideMock = vi.hoisted(() => vi.fn())
 const deleteOverrideMock = vi.hoisted(() => vi.fn())
+const selfServeMutateMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/queries/subscriptionsBilling', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/subscriptionsBilling')>()
@@ -85,6 +86,7 @@ vi.mock('@/queries/subscriptionsBilling', async (importOriginal) => {
       upsertOverride: { mutateAsync: upsertOverrideMock, isLoading: ref(false) },
       deleteOverride: { mutateAsync: deleteOverrideMock, isLoading: ref(false) },
     }),
+    useSelfServeCheckoutMutation: () => ({ mutateAsync: selfServeMutateMock, isLoading: ref(false) }),
   }
 })
 
@@ -99,7 +101,16 @@ import WorkspaceDrawer from '@/pages/subscriptions/components/WorkspaceDrawer.vu
 import WorkspaceDetailPanel from '@/pages/subscriptions/components/WorkspaceDetailPanel.vue'
 
 function meta(overrides: Partial<SubscriptionsMeta> = {}): SubscriptionsMeta {
-  return { engine: 'ready', tenancy_enabled: true, default_tenant_uuid: null, ...overrides }
+  return {
+    engine: 'ready',
+    tenancy_enabled: true,
+    default_tenant_uuid: null,
+    self_serve_checkout_enabled: false,
+    self_serve_gateway: 'paystack',
+    self_serve_gateway_capable: false,
+    self_serve_gateway_capable_reason: 'gateway_not_capable',
+    ...overrides,
+  }
 }
 
 function plan(overrides: Partial<SubscriptionPlan> = {}): SubscriptionPlan {
@@ -164,6 +175,7 @@ beforeEach(() => {
   cancelMock.mockReset().mockResolvedValue({})
   upsertOverrideMock.mockReset().mockResolvedValue({})
   deleteOverrideMock.mockReset().mockResolvedValue(undefined)
+  selfServeMutateMock.mockReset().mockResolvedValue(true)
   notify.success.mockReset()
   notify.warning.mockReset()
   notify.error.mockReset()
@@ -436,6 +448,169 @@ describe('subscriptions/billing page', () => {
     expect(wrapper.find('[data-test="billing-default-missing"]').exists()).toBe(true)
     expect(wrapper.findComponent(WorkspaceDrawer).exists()).toBe(false)
     expect(useWorkspaceCalls).toEqual([])
+  })
+})
+
+// ── Billing page: self-serve checkout switch (Task 15, spec §5.1) ──────────────
+
+describe('subscriptions/billing page: self-serve checkout switch', () => {
+  function selfServeSwitch(wrapper: ReturnType<typeof mountPage>) {
+    return wrapper.findComponent<{ $emit: (e: string, v: boolean) => void; modelValue: boolean }>(
+      '[data-test="self-serve-switch"]',
+    )
+  }
+
+  // `findComponent` resolves reka-ui's inner `SwitchRoot`, which does not declare `disabled` as
+  // one of its OWN props (USwitch forwards it as a plain fallthrough attribute) -- so the real
+  // DOM `disabled` attribute on the rendered `<button role="switch">` is the reliable signal,
+  // not `.props('disabled')`.
+  function isSwitchDisabled(wrapper: ReturnType<typeof mountPage>): boolean {
+    return selfServeSwitch(wrapper).attributes('disabled') !== undefined
+  }
+
+  it('renders OFF with the gateway_not_capable explanation, naming the configured gateway concretely, and a disabled switch', async () => {
+    metaData.value = meta({
+      self_serve_checkout_enabled: false,
+      self_serve_gateway: 'paystack',
+      self_serve_gateway_capable: false,
+      self_serve_gateway_capable_reason: 'gateway_not_capable',
+    })
+    const wrapper = mountPage(BillingIndex)
+    await flushPromises()
+
+    const toggle = selfServeSwitch(wrapper)
+    expect(toggle.exists()).toBe(true)
+    expect((toggle.props() as { modelValue?: boolean }).modelValue).toBe(false)
+    expect(isSwitchDisabled(wrapper)).toBe(true)
+    expect(wrapper.find('[data-test="self-serve-unavailable-reason"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('The configured default gateway (paystack) does not support subscription checkout')
+    expect(wrapper.text()).toContain('configure a capable gateway such as Stripe')
+  })
+
+  it('names whichever gateway the server reports, not a hardcoded one', async () => {
+    metaData.value = meta({
+      self_serve_checkout_enabled: false,
+      self_serve_gateway: 'some-other-gateway',
+      self_serve_gateway_capable: false,
+      self_serve_gateway_capable_reason: 'gateway_not_capable',
+    })
+    const wrapper = mountPage(BillingIndex)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('The configured default gateway (some-other-gateway) does not support subscription checkout')
+  })
+
+  it('renders the payvia_unavailable explanation distinctly from gateway_not_capable', async () => {
+    metaData.value = meta({
+      self_serve_checkout_enabled: false,
+      self_serve_gateway: null,
+      self_serve_gateway_capable: false,
+      self_serve_gateway_capable_reason: 'payvia_unavailable',
+    })
+    const wrapper = mountPage(BillingIndex)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No payment gateway is configured')
+  })
+
+  it('renders ON with an enabled switch and no unavailable reason, even without engine-ready or a workspace directory', async () => {
+    metaData.value = meta({
+      engine: 'engine_disabled',
+      self_serve_checkout_enabled: true,
+      self_serve_gateway_capable: true,
+      self_serve_gateway_capable_reason: null,
+    })
+    const wrapper = mountPage(BillingIndex)
+    await flushPromises()
+
+    const toggle = selfServeSwitch(wrapper)
+    expect((toggle.props() as { modelValue?: boolean }).modelValue).toBe(true)
+    expect(isSwitchDisabled(wrapper)).toBe(false)
+    expect(wrapper.find('[data-test="self-serve-unavailable-reason"]').exists()).toBe(false)
+    // Independent of engine readiness -- the notice still shows, but the switch panel is present too.
+    expect(wrapper.findComponent(EngineStateNotice).exists()).toBe(true)
+  })
+
+  it('leaves the switch enabled while ON even if the gateway is no longer capable (kill switch stays available)', async () => {
+    metaData.value = meta({ self_serve_checkout_enabled: true, self_serve_gateway_capable: false })
+    const wrapper = mountPage(BillingIndex)
+    await flushPromises()
+
+    expect(isSwitchDisabled(wrapper)).toBe(false)
+  })
+
+  it('toggling ON calls the mutation with true and shows a success notification', async () => {
+    metaData.value = meta({ self_serve_checkout_enabled: false, self_serve_gateway_capable: true })
+    const wrapper = mountPage(BillingIndex)
+    await flushPromises()
+
+    selfServeSwitch(wrapper).vm.$emit('update:modelValue', true)
+    await flushPromises()
+
+    expect(selfServeMutateMock).toHaveBeenCalledWith(true)
+    expect(notify.success).toHaveBeenCalled()
+    expect(wrapper.find('[data-test="self-serve-switch-error"]').exists()).toBe(false)
+  })
+
+  it('toggling OFF calls the mutation with false', async () => {
+    metaData.value = meta({ self_serve_checkout_enabled: true, self_serve_gateway_capable: true })
+    const wrapper = mountPage(BillingIndex)
+    await flushPromises()
+
+    selfServeSwitch(wrapper).vm.$emit('update:modelValue', false)
+    await flushPromises()
+
+    expect(selfServeMutateMock).toHaveBeenCalledWith(false)
+  })
+
+  // The 409's `error.details` carries the SAME `{code, reason, gateway}` shape
+  // `SelfServeGatewayCapability::evaluate()` produces -- the toggle handler reads THAT (via
+  // `apiErrorCode`/`apiErrorDetails`) rather than the generic top-level message, so the rendered
+  // explanation names the specific gateway even when the write itself (not just the standing meta
+  // read) is what surfaced the refusal.
+  function noCapableGatewayError(reason: string, gateway: string | null): ApiError {
+    return new ApiError('no gateway capable of subscription checkout is configured', 409, {}, {
+      error: { details: { code: 'no_capable_gateway', reason, gateway } },
+    })
+  }
+
+  it('renders the specific gateway name from the 409 details on a refused enable, without flipping the displayed state', async () => {
+    metaData.value = meta({ self_serve_checkout_enabled: false, self_serve_gateway_capable: true })
+    selfServeMutateMock.mockRejectedValue(noCapableGatewayError('gateway_not_capable', 'paystack'))
+    const wrapper = mountPage(BillingIndex)
+    await flushPromises()
+
+    selfServeSwitch(wrapper).vm.$emit('update:modelValue', true)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('The configured default gateway (paystack) does not support subscription checkout')
+    expect(notify.error).toHaveBeenCalled()
+    // The mocked meta ref never changes on failure -- still reflects the pre-toggle server state.
+    expect((selfServeSwitch(wrapper).props() as { modelValue?: boolean }).modelValue).toBe(false)
+  })
+
+  it('renders the payvia_unavailable explanation from the 409 details when payvia itself is absent', async () => {
+    metaData.value = meta({ self_serve_checkout_enabled: false, self_serve_gateway_capable: true })
+    selfServeMutateMock.mockRejectedValue(noCapableGatewayError('payvia_unavailable', null))
+    const wrapper = mountPage(BillingIndex)
+    await flushPromises()
+
+    selfServeSwitch(wrapper).vm.$emit('update:modelValue', true)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No payment gateway is configured')
+  })
+
+  it('falls back to the generic server message for a non-gateway error code', async () => {
+    metaData.value = meta({ self_serve_checkout_enabled: false, self_serve_gateway_capable: true })
+    selfServeMutateMock.mockRejectedValue(new ApiError('something else went wrong', 500, {}, {}))
+    const wrapper = mountPage(BillingIndex)
+    await flushPromises()
+
+    selfServeSwitch(wrapper).vm.$emit('update:modelValue', true)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('something else went wrong')
   })
 })
 

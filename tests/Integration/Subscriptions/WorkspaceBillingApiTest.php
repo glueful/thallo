@@ -23,6 +23,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Thallo\Subscriptions\Engine\EngineGateway;
 use Thallo\Subscriptions\Http\MetaController;
 use Thallo\Subscriptions\Http\WorkspaceBillingController;
+use Thallo\Subscriptions\Settings\SelfServeCheckoutSetting;
+use Thallo\Subscriptions\Settings\SelfServeGatewayCapability;
 use Thallo\Tenancy\System\SystemFlags;
 use Thallo\Tenancy\Tenant\SingleStoreTenant;
 
@@ -149,6 +151,8 @@ final class WorkspaceBillingApiTest extends AppTestCase
                 $this->container()->get(EngineGateway::class),
                 $this->container()->get(SystemFlags::class),
                 $this->container()->get(SingleStoreTenant::class),
+                $this->container()->get(SelfServeCheckoutSetting::class),
+                $this->container()->get(SelfServeGatewayCapability::class),
             );
             $response = $ready->show(Request::create('/', 'GET'));
             self::assertSame(200, $response->getStatusCode());
@@ -161,6 +165,8 @@ final class WorkspaceBillingApiTest extends AppTestCase
                 $this->disabledGateway(),
                 $this->container()->get(SystemFlags::class),
                 $this->container()->get(SingleStoreTenant::class),
+                $this->container()->get(SelfServeCheckoutSetting::class),
+                $this->container()->get(SelfServeGatewayCapability::class),
             );
             $response = $disabled->show(Request::create('/', 'GET'));
             self::assertSame(200, $response->getStatusCode());
@@ -171,6 +177,8 @@ final class WorkspaceBillingApiTest extends AppTestCase
                 new EngineGateway($this->contextWithStubbedReadiness(false)),
                 $this->container()->get(SystemFlags::class),
                 $this->container()->get(SingleStoreTenant::class),
+                $this->container()->get(SelfServeCheckoutSetting::class),
+                $this->container()->get(SelfServeGatewayCapability::class),
             );
             $response = $schemaNotReady->show(Request::create('/', 'GET'));
             self::assertSame(200, $response->getStatusCode());

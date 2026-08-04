@@ -45,12 +45,28 @@ describe('subscriptions billing query layer', () => {
         jsonResponse({
           success: true,
           message: 'Subscriptions status retrieved',
-          data: { engine: 'ready', tenancy_enabled: true, default_tenant_uuid: null },
+          data: {
+            engine: 'ready',
+            tenancy_enabled: true,
+            default_tenant_uuid: null,
+            self_serve_checkout_enabled: false,
+            self_serve_gateway: 'paystack',
+            self_serve_gateway_capable: false,
+            self_serve_gateway_capable_reason: 'gateway_not_capable',
+          },
         }),
       )
       const { fetchSubscriptionsMeta } = await import('@/queries/subscriptionsBilling')
       const meta = await fetchSubscriptionsMeta()
-      expect(meta).toEqual({ engine: 'ready', tenancy_enabled: true, default_tenant_uuid: null })
+      expect(meta).toEqual({
+        engine: 'ready',
+        tenancy_enabled: true,
+        default_tenant_uuid: null,
+        self_serve_checkout_enabled: false,
+        self_serve_gateway: 'paystack',
+        self_serve_gateway_capable: false,
+        self_serve_gateway_capable_reason: 'gateway_not_capable',
+      })
     })
 
     it('parses engine_disabled with tenancy off and a null default (fresh install, no default established)', async () => {
@@ -63,12 +79,25 @@ describe('subscriptions billing query layer', () => {
       const meta = await fetchSubscriptionsMeta()
       expect(meta.engine).toBe('engine_disabled')
       expect(meta.default_tenant_uuid).toBeNull()
+      // Fields omitted entirely (older/mismatched server shape) normalize to closed defaults.
+      expect(meta.self_serve_checkout_enabled).toBe(false)
+      expect(meta.self_serve_gateway).toBeNull()
+      expect(meta.self_serve_gateway_capable).toBe(false)
+      expect(meta.self_serve_gateway_capable_reason).toBeNull()
     })
 
-    it('parses schema_not_ready with tenancy off and a real default uuid', async () => {
+    it('parses schema_not_ready with tenancy off, a real default uuid, and the self-serve switch ON with a capable gateway', async () => {
       ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
         jsonResponse({
-          data: { engine: 'schema_not_ready', tenancy_enabled: false, default_tenant_uuid: 't_default' },
+          data: {
+            engine: 'schema_not_ready',
+            tenancy_enabled: false,
+            default_tenant_uuid: 't_default',
+            self_serve_checkout_enabled: true,
+            self_serve_gateway: 'stripe',
+            self_serve_gateway_capable: true,
+            self_serve_gateway_capable_reason: null,
+          },
         }),
       )
       const { fetchSubscriptionsMeta } = await import('@/queries/subscriptionsBilling')
@@ -77,7 +106,29 @@ describe('subscriptions billing query layer', () => {
         engine: 'schema_not_ready',
         tenancy_enabled: false,
         default_tenant_uuid: 't_default',
+        self_serve_checkout_enabled: true,
+        self_serve_gateway: 'stripe',
+        self_serve_gateway_capable: true,
+        self_serve_gateway_capable_reason: null,
       })
+    })
+
+    it('normalizes an unrecognized self_serve_gateway_capable_reason to null, and a non-string self_serve_gateway to null', async () => {
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        jsonResponse({
+          data: {
+            engine: 'ready',
+            tenancy_enabled: false,
+            default_tenant_uuid: 't1',
+            self_serve_gateway: 123,
+            self_serve_gateway_capable_reason: 'something_new',
+          },
+        }),
+      )
+      const { fetchSubscriptionsMeta } = await import('@/queries/subscriptionsBilling')
+      const meta = await fetchSubscriptionsMeta()
+      expect(meta.self_serve_gateway_capable_reason).toBeNull()
+      expect(meta.self_serve_gateway).toBeNull()
     })
 
     it('GETs the exact /meta endpoint', async () => {
@@ -89,6 +140,69 @@ describe('subscriptions billing query layer', () => {
       await fetchSubscriptionsMeta()
       const { url } = lastCall(fetchMock)
       expect(new URL(url, 'http://localhost').pathname).toBe('/v1/admin/subscriptions/meta')
+    })
+  })
+
+  // ── Self-serve checkout switch (Task 15) ──────────────────────────────────────
+
+  describe('setSelfServeCheckoutEnabled', () => {
+    it('PUTs the exact {enabled} body and returns the new switch state', async () => {
+      const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+      fetchMock.mockResolvedValue(
+        jsonResponse({
+          success: true,
+          message: 'Self-serve checkout switch updated',
+          data: { self_serve_checkout_enabled: true },
+        }),
+      )
+      const { setSelfServeCheckoutEnabled } = await import('@/queries/subscriptionsBilling')
+      const enabled = await setSelfServeCheckoutEnabled(true)
+
+      const { url, init } = lastCall(fetchMock)
+      expect(init.method).toBe('PUT')
+      expect(new URL(url, 'http://localhost').pathname).toBe('/v1/admin/subscriptions/self-serve')
+      expect(bodyOf(init)).toEqual({ enabled: true })
+      expect(enabled).toBe(true)
+    })
+
+    it('surfaces the 409 no_capable_gateway structured code and verbatim message on a refused enable', async () => {
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        jsonResponse(
+          {
+            success: false,
+            message: 'no gateway capable of subscription checkout is configured',
+            error: {
+              code: 409,
+              timestamp: '2026-01-01T00:00:00Z',
+              request_id: 'req_1',
+              details: { code: 'no_capable_gateway', reason: 'gateway_not_capable', gateway: 'paystack' },
+            },
+          },
+          409,
+        ),
+      )
+      const { setSelfServeCheckoutEnabled } = await import('@/queries/subscriptionsBilling')
+      const { apiErrorCode, ApiError } = await import('@/api/errors')
+      let caught: unknown
+      try {
+        await setSelfServeCheckoutEnabled(true)
+      } catch (e) {
+        caught = e
+      }
+      expect(apiErrorCode(caught)).toBe('no_capable_gateway')
+      expect((caught as InstanceType<typeof ApiError>).message).toBe(
+        'no gateway capable of subscription checkout is configured',
+      )
+    })
+
+    it('disabling PUTs {enabled: false} and returns false', async () => {
+      const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+      fetchMock.mockResolvedValue(jsonResponse({ data: { self_serve_checkout_enabled: false } }))
+      const { setSelfServeCheckoutEnabled } = await import('@/queries/subscriptionsBilling')
+      const enabled = await setSelfServeCheckoutEnabled(false)
+      const { init } = lastCall(fetchMock)
+      expect(bodyOf(init)).toEqual({ enabled: false })
+      expect(enabled).toBe(false)
     })
   })
 

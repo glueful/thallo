@@ -22,14 +22,31 @@ const base = () => `${runtimeConfig.apiBase}/subscriptions`
 
 export type SubscriptionsEngineState = 'engine_disabled' | 'schema_not_ready' | 'ready'
 
+// Task 15 (Phase C, workspace self-serve checkout plan, spec §5.1): the platform-only kill switch
+// for self-serve subscription checkout, plus the SAME gateway-capability verdict the write
+// endpoint enforces before allowing an enable -- exposed here purely for the Billing page to
+// explain an unavailable switch (no capable Payvia gateway configured) without ever attempting,
+// and being refused, the write itself.
+export type SelfServeGatewayCapableReason = 'payvia_unavailable' | 'gateway_not_capable' | null
+
 export interface SubscriptionsMeta {
   engine: SubscriptionsEngineState
   tenancy_enabled: boolean
   default_tenant_uuid: string | null
+  self_serve_checkout_enabled: boolean
+  /** The configured default Payvia gateway's name (e.g. `paystack`), null only when payvia
+   * itself isn't available -- present even when NOT capable, so the UI can name it concretely. */
+  self_serve_gateway: string | null
+  self_serve_gateway_capable: boolean
+  self_serve_gateway_capable_reason: SelfServeGatewayCapableReason
 }
 
 function normalizeEngineState(value: unknown): SubscriptionsEngineState {
   return value === 'schema_not_ready' || value === 'ready' ? value : 'engine_disabled'
+}
+
+function normalizeSelfServeGatewayCapableReason(value: unknown): SelfServeGatewayCapableReason {
+  return value === 'payvia_unavailable' || value === 'gateway_not_capable' ? value : null
 }
 
 export async function fetchSubscriptionsMeta(): Promise<SubscriptionsMeta> {
@@ -39,6 +56,10 @@ export async function fetchSubscriptionsMeta(): Promise<SubscriptionsMeta> {
     engine: normalizeEngineState(raw.engine),
     tenancy_enabled: raw.tenancy_enabled === true,
     default_tenant_uuid: typeof raw.default_tenant_uuid === 'string' ? raw.default_tenant_uuid : null,
+    self_serve_checkout_enabled: raw.self_serve_checkout_enabled === true,
+    self_serve_gateway: typeof raw.self_serve_gateway === 'string' ? raw.self_serve_gateway : null,
+    self_serve_gateway_capable: raw.self_serve_gateway_capable === true,
+    self_serve_gateway_capable_reason: normalizeSelfServeGatewayCapableReason(raw.self_serve_gateway_capable_reason),
   }
 }
 
@@ -46,6 +67,28 @@ export const qkSubscriptionsMeta = () => ['subscriptions', 'meta'] as const
 
 export function useSubscriptionsMeta() {
   return useQuery({ key: qkSubscriptionsMeta(), query: fetchSubscriptionsMeta })
+}
+
+// `PUT /self-serve` ({@see \Thallo\Subscriptions\Http\SelfServeSettingsController}) -- body
+// strictly `{enabled: bool}`. Refused 409 `no_capable_gateway` when enabling without a capable
+// default gateway configured; disabling always succeeds. Returns only the new switch state (not
+// full meta), so the mutation invalidates the meta query rather than trying to reconstruct it.
+
+export async function setSelfServeCheckoutEnabled(enabled: boolean): Promise<boolean> {
+  const json = await authFetch(`${base()}/self-serve`, {
+    method: 'PUT',
+    body: JSON.stringify({ enabled }),
+  })
+  const raw = (json.data ?? json) as Record<string, unknown>
+  return raw.self_serve_checkout_enabled === true
+}
+
+export function useSelfServeCheckoutMutation() {
+  const cache = useQueryCache()
+  return useMutation({
+    mutation: (enabled: boolean) => setSelfServeCheckoutEnabled(enabled),
+    onSettled: () => cache.invalidateQueries({ key: qkSubscriptionsMeta() }),
+  })
 }
 
 // ── Plans (Task 8) ───────────────────────────────────────────────────────────
