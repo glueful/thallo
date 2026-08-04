@@ -86,16 +86,15 @@ interface SubscriptionCancellationModeProvider
 - [ ] Implement + gates; commit `feat: paystack checkout sandbox proof harness`.
 - [ ] **HARD STOP — maintainer action:** run the command against a Paystack sandbox, complete one hosted checkout, commit the captured fixtures. Task 3 is blocked until fixtures exist in `tests/Fixtures/paystack-checkout/` and state which §3.1 mode (and amount shape) they prove.
 
-### Task 3: Paystack subscription checkout driver (fixture-locked)
+### Task 3: Paystack negative proof — unavailability pinned (SUPERSEDED SCOPE per the 2026-08-04 sandbox ruling, spec §3.1)
 
 **Files:**
-- Modify: `src/Gateways/PaystackGateway.php`
-- Test: `tests/Unit/Gateways/PaystackSubscriptionCheckoutTest.php` (drives the committed fixtures)
+- Create: `tests/Fixtures/paystack-checkout/*.json` (projected through FixtureProjector ONLY — raw captures at `/tmp/paystack-sandbox-proof-2026-08-04/` contain test customer/authorization data and must never be committed), `tests/Unit/Gateways/PaystackSubscriptionCheckoutUnavailableTest.php`
+- Modify: `tests/Fixtures/paystack-checkout/README.md` (record the proven outcome + the concrete backlog trigger), `src/Gateways/PaystackGateway.php` ONLY if a docblock note is needed — NO interface additions.
 
-**Interfaces:**
-- Produces: `PaystackGateway implements SubscriptionInitiationCapableGateway` (+ lifecycle: `subscriptionCheckoutStatus` via `GET /transaction/verify/{reference}` mapping, `abandonSubscriptionCheckout` returns `'unsupported'` — pinned by §3.3). `initializeSubscription()`: `POST /transaction/initialize` with `plan`, required `email`, `callback_url`, stringified `metadata[origination_uuid]`, reference derived from origination UUID; amount handling EXACTLY as the fixtures prove (omit if omission accepted; else fetch `GET /plan/{code}` and submit the provider-returned amount — never a host amount). Normalizer additions per the proven mode: extract `origination_uuid` (direct mode) and/or nested `subscription_code` on `charge.success` (two-event mode) into normalized payloads.
-- [ ] **Step 1: Failing tests from fixtures:** request-shape pin (per proven amount shape); fixture-driven normalizer assertions for the proven correlation fields; `'unsupported'` abandonment; one-time `charge.success` fixtures (existing tests) byte-identical — no behavior change for non-checkout events.
-- [ ] RED → implement → GREEN + gates → commit `feat: paystack subscription checkout driver per sandbox proof`.
+**Interfaces:** none new. Paystack does NOT implement `SubscriptionInitiationCapableGateway` (pinned by test, not just omission).
+- [ ] **Step 1: Failing/pinning tests:** (a) run the four raw payloads through the real `FixtureProjector`, commit the projected outputs, and assert the projected fixtures prove the negative: `charge.success` fixture has reference + `metadata.origination_uuid` and NO subscription identifier at any allowlisted location; `subscription.create` fixture has `subscription_code`/`plan_code` and NO `origination_uuid`; the without-amount initialize fixture records the `invalid_amount` rejection; (b) `GatewayManager::supports('paystack','subscription_checkout')` === false; (c) `SubscriptionCheckoutService::prepare()` targeting paystack throws `CheckoutUnavailableException` BEFORE any ledger/guard/provider write (row-count assertions); (d) existing Paystack webhook projection tests byte-identical (no behavior change); (e) hostile-payload re-run over the REAL raw captures proving no customer/authorization field survives projection.
+- [ ] GREEN + gates → commit `test: pin paystack subscription checkout unavailability with negative-proof fixtures`.
 
 ### Task 4: Origination ledger + subject guard (migration 010 + repositories)
 

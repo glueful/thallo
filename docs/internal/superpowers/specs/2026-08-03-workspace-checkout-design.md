@@ -161,6 +161,27 @@ shape and a deterministic join before its implementation is locked:
 - If neither exact path is proven, Paystack subscription initiation remains unavailable and
   Phase A cannot pass its release gate. An unresolved paid event is not accepted as a normal
   fail-closed outcome without an executable reconciliation path.
+
+**SANDBOX PROOF OUTCOME (2026-08-04, maintainer ruling — supersedes the both-gateways pin
+above for 2.5.0).** The captured sandbox proof (reference `thallo-card-1785826131`) established
+a PROVIDER limitation, not an implementation gap: `initialize` without `amount` is rejected
+(`invalid_amount`); `charge.success` carries the reference and `metadata.origination_uuid` but
+NO subscription identifier; `subscription.create` carries `subscription_code`/`customer_code`/
+`plan_code` but NO metadata and NO transaction reference. Neither exact path exists, and every
+remaining bridge is the forbidden ambiguous join. Pinned outcomes:
+- Paystack does NOT implement `SubscriptionInitiationCapableGateway`; 2.5.0 ships Stripe-only.
+- Requests targeting Paystack fail explicitly BEFORE creating an origination or provider
+  transaction. No fallback to one-time payment or `(customer_code, plan_code)` matching.
+- Only sanitized negative-proof fixtures are committed (through the FixtureProjector
+  allowlist), including the required-amount result and both webhook shapes, with regression
+  tests proving Paystack remains unavailable for subscription checkout.
+- Paystack's existing webhook projection and operator-created subscription support are
+  unchanged.
+- Thallo shows Paystack as unavailable for self-serve checkout; enabling the operator switch
+  requires a capable configured gateway (currently Stripe).
+- Backlog trigger (concrete provider contract change, not "investigate later"): revisit ONLY
+  when Paystack either propagates transaction `metadata` to `subscription.create` or includes
+  the `subscription_code` in `charge.success`.
 The captured fixtures become permanent test fixtures through a closed allowlist projector,
 not a denylist scrubber. Committed JSON may contain only the event type, transaction/reference,
 `metadata.origination_uuid`, the proven `subscription_code`/`plan_code` locations, status, and
