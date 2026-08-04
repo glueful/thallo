@@ -8,6 +8,7 @@ use App\Http\Controllers\CapabilityAdminController;
 use App\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Auth\ApiKey\ApiKeyService;
+use Glueful\Auth\UserIdentity;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;
@@ -21,6 +22,9 @@ use Thallo\Subscriptions\Engine\EngineGateway;
 use Thallo\Subscriptions\Http\EngineNativeRoutesDenied;
 use Thallo\Subscriptions\Http\MetaController;
 use Thallo\Subscriptions\Http\PlansController;
+use Thallo\Subscriptions\Http\SelfBillingController;
+use Thallo\Subscriptions\Settings\SelfServeCheckoutSetting;
+use Thallo\Tenancy\System\SystemFlags;
 
 /**
  * Task 12 (Phase B, final task): the capability/engine truth table (spec §7), composed
@@ -79,7 +83,15 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
         ['POST', self::BASE . '/workspaces/{uuid}/cancel'],
         ['PUT', self::BASE . '/workspaces/{uuid}/overrides/{entitlement}'],
         ['DELETE', self::BASE . '/workspaces/{uuid}/overrides/{entitlement}'],
+        // Task 16 (Phase C, workspace self-serve checkout plan, spec §5.2): the workspace billing
+        // API. Different prefix/middleware chain (`/v1/admin/billing`, `admin_tenant_binding`) but
+        // the SAME `thallo.subscriptions` capability gate -- loaded from the SAME boot() call as
+        // every route above, so it belongs in this same route-registration truth table.
+        ['GET', self::BILLING_BASE . '/meta'],
+        ['POST', self::BILLING_BASE . '/checkout'],
     ];
+
+    private const BILLING_BASE = '/v1/admin/billing';
 
     /**
      * The engine's OWN native plan-management mounts (vendor/glueful/subscriptions/routes.php),
@@ -110,6 +122,8 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
     private array $userUuids = [];
     /** @var list<string> */
     private array $roleUuids = [];
+    /** @var list<string> */
+    private array $tenantUuids = [];
 
     protected function tearDown(): void
     {
@@ -123,8 +137,12 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
             $db->table('role_permissions')->whereIn('role_uuid', $this->roleUuids)->forceDelete();
             $db->table('roles')->whereIn('uuid', $this->roleUuids)->forceDelete();
         }
+        if ($this->tenantUuids !== []) {
+            $db->table('tenants')->whereIn('uuid', $this->tenantUuids)->forceDelete();
+        }
         $this->userUuids = [];
         $this->roleUuids = [];
+        $this->tenantUuids = [];
         $this->provider()->invalidateAllCache();
         parent::tearDown();
     }
@@ -210,6 +228,25 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
 
     public function testCapabilityOnEngineDisabledMeansRoutesRespondWithMetaEngineDisabledAndActions409(): void
     {
+        // Seeded through THIS process's connection (the same physical database the second boot
+        // below will read through its own, independent container) so SelfBillingController's
+        // `SingleStoreTenant::resolve()` has a real default workspace to resolve either way --
+        // fix round C1's own truth-table extension needs a workspace to exist for its `/meta`
+        // call to reach the engine-state branch at all, rather than 409ing on
+        // `default_workspace_missing` first.
+        $workspaceUuid = Utils::generateNanoID(12);
+        $this->tenantUuids[] = $workspaceUuid;
+        $this->connection()->table('tenants')->insert([
+            'uuid' => $workspaceUuid,
+            'slug' => 'truthtable-billing-' . strtolower(substr($workspaceUuid, 0, 6)),
+            'name' => 'Truth Table Billing Workspace',
+            'status' => 'active',
+        ]);
+        $this->container()->get(SystemFlags::class)->put('tenancy.default_tenant_uuid', $workspaceUuid);
+        // Enabled so checkout() reaches the engine-readiness check (the thing under test) rather
+        // than refusing earlier with `self_serve_disabled`.
+        $this->container()->get(SelfServeCheckoutSetting::class)->enable();
+
         $disabledEngineApp = $this->bootWithEngineProviderDisabled();
 
         try {
@@ -246,6 +283,43 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
             $metaBody = json_decode((string) $metaResponse->getContent(), true);
             self::assertIsArray($metaBody);
             self::assertSame(EngineGateway::DISABLED, $metaBody['data']['engine']);
+
+            // Task 16 fix round (code review, Critical C1): the workspace billing API's OWN
+            // `/meta` must be equally 200-always -- it used to constructor-inject Payvia's
+            // ledger repositories and glueful/users' UserRepository directly, which would have
+            // made `container->get(SelfBillingController::class)` itself throw on THIS boot
+            // (glueful/subscriptions disabled means SubscriptionService, which
+            // WorkspaceCheckoutCoordinator depended on, is absent) before this line even ran.
+            $billing = $container->get(SelfBillingController::class);
+            self::assertInstanceOf(SelfBillingController::class, $billing);
+            $billingMetaResponse = $billing->meta(Request::create('/', 'GET'));
+            self::assertSame(200, $billingMetaResponse->getStatusCode(), (string) $billingMetaResponse->getContent());
+            $billingMetaBody = json_decode((string) $billingMetaResponse->getContent(), true);
+            self::assertIsArray($billingMetaBody);
+            self::assertSame(EngineGateway::DISABLED, $billingMetaBody['data']['engine']);
+            self::assertSame($workspaceUuid, $billingMetaBody['data']['workspace_uuid']);
+            self::assertNull($billingMetaBody['data']['subscription']);
+            self::assertSame([], $billingMetaBody['data']['purchasable_plans']);
+
+            // The checkout action: structured 409, code engine_disabled -- same posture as the
+            // platform PlansController check above, proving the workspace billing API degrades
+            // through the SAME EngineGateway seam.
+            $checkoutRequest = Request::create(
+                '/',
+                'POST',
+                [],
+                [],
+                [],
+                ['CONTENT_TYPE' => 'application/json'],
+                (string) json_encode(['plan_key' => 'irrelevant']),
+            );
+            $checkoutRequest->headers->set('Idempotency-Key', str_repeat('a', 20));
+            $checkoutRequest->attributes->set('auth.user', new UserIdentity(uuid: Utils::generateNanoID(12)));
+            $billingCheckoutResponse = $billing->checkout($checkoutRequest);
+            self::assertSame(409, $billingCheckoutResponse->getStatusCode());
+            $billingCheckoutBody = json_decode((string) $billingCheckoutResponse->getContent(), true);
+            self::assertIsArray($billingCheckoutBody);
+            self::assertSame('engine_disabled', $billingCheckoutBody['error']['details']['code'] ?? null);
 
             // An engine-backed action: structured 409, code engine_disabled. PlansController's
             // index() resolves the gateway as its very first step (no tenancy/workspace
