@@ -89,6 +89,9 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
         // every route above, so it belongs in this same route-registration truth table.
         ['GET', self::BILLING_BASE . '/meta'],
         ['POST', self::BILLING_BASE . '/checkout'],
+        // Task 17: the destructive billing routes, same group/gate as the two above.
+        ['POST', self::BILLING_BASE . '/cancel'],
+        ['POST', self::BILLING_BASE . '/checkout/abandon'],
     ];
 
     private const BILLING_BASE = '/v1/admin/billing';
