@@ -16,6 +16,7 @@ import {
   type EntitlementValue,
   type PlanEntitlements,
   type PlanStatus,
+  type ProviderIdentifiers,
   type SubscriptionPlan,
   type UpdatePlanInput,
 } from '@/queries/subscriptionsBilling'
@@ -102,6 +103,54 @@ function stateFromPlan(p: SubscriptionPlan): FormState {
 const state = reactive(blankState())
 const entitlementRows = ref<EntitlementRow[]>([])
 
+// Task 19 (spec §4.2/§5.3): `provider_identifiers` -- gateway key -> identifier string rows,
+// mirrors the entitlements editor's row-array-over-a-map pattern immediately above. PATCH/POST
+// both send the FULL built map (2.2.0's replacement semantics, `subscriptionsBilling.ts`'s own
+// docblock) -- there is no separate add/remove endpoint, so a row removed here and submitted is
+// gone from the plan, not merely unset.
+interface IdentifierRow {
+  gateway: string
+  identifier: string
+}
+
+function rowsFromIdentifiers(map: ProviderIdentifiers): IdentifierRow[] {
+  return Object.entries(map).map(([gateway, identifier]) => ({ gateway, identifier }))
+}
+
+const identifierRows = ref<IdentifierRow[]>([])
+
+function addIdentifierRow() {
+  identifierRows.value.push({ gateway: '', identifier: '' })
+}
+function removeIdentifierRow(index: number) {
+  identifierRows.value.splice(index, 1)
+}
+
+const GATEWAY_KEY_PATTERN = /^[a-z0-9_-]{1,50}$/
+
+/** Builds the validated `provider_identifiers` map, or `null` (with an inline row error) on the
+ * first bad row -- mirrors {@link buildEntitlements}'s same skip-blank-rows/fail-fast shape. A
+ * row with BOTH fields blank is an in-progress row the operator hasn't finished (skipped); a row
+ * with only one filled is a genuine validation error, never silently dropped. */
+function buildProviderIdentifiers(): ProviderIdentifiers | null {
+  const out: ProviderIdentifiers = {}
+  for (const row of identifierRows.value) {
+    const gateway = row.gateway.trim()
+    const identifier = row.identifier.trim()
+    if (gateway === '' && identifier === '') continue
+    if (!GATEWAY_KEY_PATTERN.test(gateway)) {
+      submitError.value = `Gateway key "${row.gateway}" must be 1-50 characters of lowercase letters, digits, underscore, or hyphen.`
+      return null
+    }
+    if (identifier === '' || identifier.length > 191) {
+      submitError.value = `Identifier for "${gateway}" must be 1-191 characters.`
+      return null
+    }
+    out[gateway] = identifier
+  }
+  return out
+}
+
 const planKeyError = ref<string | null>(null)
 const displayNameError = ref<string | null>(null)
 const sortOrderError = ref<string | null>(null)
@@ -120,6 +169,7 @@ watch(
     if (!isOpen) return
     Object.assign(state, editing.value ? stateFromPlan(editing.value) : blankState())
     entitlementRows.value = editing.value ? rowsFromEntitlements(editing.value.entitlements) : []
+    identifierRows.value = editing.value ? rowsFromIdentifiers(editing.value.provider_identifiers) : []
     resetErrors()
   },
 )
@@ -174,12 +224,14 @@ async function submit() {
   }
 
   const entitlements = buildEntitlements()
+  const providerIdentifiers = entitlements === null ? null : buildProviderIdentifiers()
 
   if (
     planKeyError.value !== null ||
     displayNameError.value !== null ||
     sortOrderError.value !== null ||
-    entitlements === null
+    entitlements === null ||
+    providerIdentifiers === null
   ) {
     return
   }
@@ -191,6 +243,7 @@ async function submit() {
         description: state.description.trim() === '' ? null : state.description.trim(),
         entitlements,
         provider_price_id: state.providerPriceId.trim() === '' ? null : state.providerPriceId.trim(),
+        provider_identifiers: providerIdentifiers,
         status: state.status,
         sort_order: sortOrder,
       }
@@ -203,6 +256,7 @@ async function submit() {
         description: state.description.trim() === '' ? null : state.description.trim(),
         entitlements,
         provider_price_id: state.providerPriceId.trim() === '' ? null : state.providerPriceId.trim(),
+        provider_identifiers: providerIdentifiers,
         status: state.status,
         sort_order: sortOrder,
       }
@@ -306,6 +360,50 @@ async function submit() {
           </div>
           <p v-if="entitlementRows.length === 0" class="text-sm text-muted" data-test="plan-entitlement-empty">
             No entitlements yet.
+          </p>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-medium">Provider identifiers</span>
+            <UButton
+              size="xs"
+              variant="ghost"
+              icon="i-lucide-plus"
+              label="Add"
+              data-test="plan-identifier-add"
+              @click="addIdentifierRow"
+            />
+          </div>
+          <div
+            v-for="(row, index) in identifierRows"
+            :key="index"
+            class="flex items-center gap-2"
+            data-test="plan-identifier-row"
+          >
+            <UInput
+              v-model="row.gateway"
+              placeholder="gateway (e.g. stripe)"
+              class="w-32"
+              data-test="plan-identifier-gateway-input"
+            />
+            <UInput
+              v-model="row.identifier"
+              placeholder="identifier (e.g. price_123)"
+              class="flex-1"
+              data-test="plan-identifier-value-input"
+            />
+            <UButton
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              icon="i-lucide-x"
+              data-test="plan-identifier-remove"
+              @click="removeIdentifierRow(index)"
+            />
+          </div>
+          <p v-if="identifierRows.length === 0" class="text-sm text-muted" data-test="plan-identifier-empty">
+            No provider identifiers yet — this plan isn't purchasable through any gateway.
           </p>
         </div>
 

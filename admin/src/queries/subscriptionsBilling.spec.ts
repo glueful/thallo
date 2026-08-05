@@ -363,6 +363,87 @@ describe('subscriptions billing query layer', () => {
     expect(apiErrorCode(caught)).toBe('engine_disabled')
   })
 
+  // ── provider_identifiers (Task 19, spec §4.2/§5.3) ────────────────────────────
+  // `subscription_plans.provider_identifiers` -- a gateway-key -> identifier-string map
+  // (`PlanPayloadValidator::validateProviderIdentifiers()`). PATCH replaces the WHOLE map
+  // (2.2.0's replacement semantics, mirrors `entitlements`), never merges.
+
+  it('fetchPlans normalizes provider_identifiers as a plain string map', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        data: { plans: [planRow({ provider_identifiers: { stripe: 'price_123', paystack: 'PLN_abc' } })] },
+      }),
+    )
+    const { fetchPlans } = await import('@/queries/subscriptionsBilling')
+    const plans = await fetchPlans()
+    expect(plans[0]!.provider_identifiers).toEqual({ stripe: 'price_123', paystack: 'PLN_abc' })
+  })
+
+  it('fetchPlans normalizes an absent/null provider_identifiers to an empty map, never dropping the field', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({ data: { plans: [planRow({ provider_identifiers: null })] } }),
+    )
+    const { fetchPlans } = await import('@/queries/subscriptionsBilling')
+    const plans = await fetchPlans()
+    expect(plans[0]!.provider_identifiers).toEqual({})
+  })
+
+  it('fetchPlans drops non-string values from a malformed provider_identifiers map', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse({
+        data: { plans: [planRow({ provider_identifiers: { stripe: 'price_123', bad: 42, worse: null } })] },
+      }),
+    )
+    const { fetchPlans } = await import('@/queries/subscriptionsBilling')
+    const plans = await fetchPlans()
+    expect(plans[0]!.provider_identifiers).toEqual({ stripe: 'price_123' })
+  })
+
+  it('createPlan sends provider_identifiers verbatim in the POST body', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: planRow({ provider_identifiers: { stripe: 'price_1' } }) }, 201))
+
+    const { createPlan } = await import('@/queries/subscriptionsBilling')
+    await createPlan({
+      plan_key: 'pro',
+      display_name: 'Pro',
+      entitlements: {},
+      status: 'active',
+      provider_identifiers: { stripe: 'price_1' },
+    })
+
+    const { init } = lastCall(fetchMock)
+    expect(bodyOf(init)).toEqual(
+      expect.objectContaining({ provider_identifiers: { stripe: 'price_1' } }),
+    )
+  })
+
+  it('updatePlan PATCH sends the FULL replacement map, not a partial merge', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(
+      jsonResponse({ data: planRow({ provider_identifiers: { stripe: 'price_2' } }) }),
+    )
+
+    const { updatePlan } = await import('@/queries/subscriptionsBilling')
+    await updatePlan('pro', { provider_identifiers: { stripe: 'price_2' } })
+
+    const { init } = lastCall(fetchMock)
+    // The WHOLE map is the body -- no separate add/remove endpoint, no partial-key payload.
+    expect(bodyOf(init)).toEqual({ provider_identifiers: { stripe: 'price_2' } })
+  })
+
+  it('updatePlan can clear the map entirely by sending {}', async () => {
+    const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
+    fetchMock.mockResolvedValue(jsonResponse({ data: planRow({ provider_identifiers: {} }) }))
+
+    const { updatePlan } = await import('@/queries/subscriptionsBilling')
+    const plan = await updatePlan('pro', { provider_identifiers: {} })
+
+    const { init } = lastCall(fetchMock)
+    expect(bodyOf(init)).toEqual({ provider_identifiers: {} })
+    expect(plan.provider_identifiers).toEqual({})
+  })
+
   // ── Workspace directory ──────────────────────────────────────────────────────
 
   function tenantRow(overrides: Record<string, unknown> = {}) {

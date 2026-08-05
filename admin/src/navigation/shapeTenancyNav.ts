@@ -55,6 +55,29 @@ export function shapeTenancyNav(
       continue
     }
 
+    // Task 19 (spec §5.3): the Subscriptions group's three children answer to TWO disjoint
+    // authorities -- platform Plans/Billing gated by `manage_platform` (the same platform
+    // authority the Workspaces group above uses), Workspace billing gated by `manage_billing`
+    // (Task 14's per-workspace delegable flag). A static module capability
+    // (`thallo.subscriptions`, checked upstream by `visibleNav`) only proves the PACK is
+    // installed -- it cannot substitute for either loaded access flag, so an install with the
+    // pack enabled but neither authority held drops the whole group, exactly like Workspaces
+    // above.
+    if (item.label === 'Subscriptions') {
+      const children = (item.children ?? []).flatMap((child) => {
+        if (child.to === '/subscriptions/plans' || child.to === '/subscriptions/billing') {
+          return access.manage_platform ? [child] : []
+        }
+        if (child.to === '/billing') {
+          return access.manage_billing ? [child] : []
+        }
+        return []
+      })
+      if (children.length === 0) continue
+      shaped.push({ ...item, children })
+      continue
+    }
+
     if (item.label === 'Settings') {
       shaped.push({
         ...item,

@@ -102,6 +102,12 @@ export type PlanStatus = 'draft' | 'active' | 'archived'
 export type EntitlementValue = boolean | number | null
 export type PlanEntitlements = Record<string, EntitlementValue>
 
+/** Gateway key (e.g. `stripe`, `paystack`) -> provider-side identifier (Stripe price id,
+ * Paystack plan code) -- `subscription_plans.provider_identifiers`, Task 19 (spec §4.2/§5.3).
+ * `PlanPurchasability` is the sole checkout-purchasability authority read from this map;
+ * `provider_price_id` below is compat-only and never consulted for purchasability. */
+export type ProviderIdentifiers = Record<string, string>
+
 export interface SubscriptionPlan {
   uuid: string
   plan_key: string
@@ -109,6 +115,7 @@ export interface SubscriptionPlan {
   description: string | null
   entitlements: PlanEntitlements
   provider_price_id: string | null
+  provider_identifiers: ProviderIdentifiers
   status: PlanStatus
   sort_order: number
   created_at: string | null
@@ -121,6 +128,8 @@ export interface CreatePlanInput {
   description?: string | null
   entitlements: PlanEntitlements
   provider_price_id?: string | null
+  /** PATCH/POST both send the FULL map -- replacement semantics (2.2.0 contract), never a merge. */
+  provider_identifiers?: ProviderIdentifiers
   status: PlanStatus
   sort_order?: number
 }
@@ -130,6 +139,8 @@ export interface UpdatePlanInput {
   description?: string | null
   entitlements?: PlanEntitlements
   provider_price_id?: string | null
+  /** Sending `{}` clears the map entirely -- there is no separate add/remove endpoint. */
+  provider_identifiers?: ProviderIdentifiers
   status?: PlanStatus
   sort_order?: number
 }
@@ -149,6 +160,17 @@ function normalizePlanStatus(value: unknown): PlanStatus {
   return value === 'draft' || value === 'archived' ? value : 'active'
 }
 
+/** Absent/null normalizes to `{}` (never dropped -- the editor always has a map to render), and
+ * any entry whose value isn't a string is dropped rather than surfaced malformed. */
+function normalizeProviderIdentifiers(raw: unknown): ProviderIdentifiers {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
+  const out: ProviderIdentifiers = {}
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === 'string') out[key] = value
+  }
+  return out
+}
+
 function normalizePlan(raw: Record<string, unknown>): SubscriptionPlan {
   return {
     uuid: String(raw.uuid ?? ''),
@@ -157,6 +179,7 @@ function normalizePlan(raw: Record<string, unknown>): SubscriptionPlan {
     description: typeof raw.description === 'string' ? raw.description : null,
     entitlements: normalizeEntitlements(raw.entitlements),
     provider_price_id: typeof raw.provider_price_id === 'string' ? raw.provider_price_id : null,
+    provider_identifiers: normalizeProviderIdentifiers(raw.provider_identifiers),
     status: normalizePlanStatus(raw.status),
     sort_order: typeof raw.sort_order === 'number' ? raw.sort_order : 0,
     created_at: typeof raw.created_at === 'string' ? raw.created_at : null,

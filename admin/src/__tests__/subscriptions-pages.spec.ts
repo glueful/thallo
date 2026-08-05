@@ -121,6 +121,7 @@ function plan(overrides: Partial<SubscriptionPlan> = {}): SubscriptionPlan {
     description: null,
     entitlements: {},
     provider_price_id: null,
+    provider_identifiers: {},
     status: 'active',
     sort_order: 0,
     created_at: null,
@@ -262,6 +263,98 @@ describe('subscriptions/plans page', () => {
     expect(editor.props('plan')?.plan_key).toBe('pro')
     const keyInput = editor.find('[data-test="plan-key-input"]').element as HTMLInputElement
     expect(keyInput.disabled).toBe(true)
+  })
+
+  // Task 19 (spec §4.2/§5.3): provider_identifiers map editor -- gateway key -> identifier
+  // string rows, add/remove, PATCH sends the FULL map (replacement semantics), 422s render
+  // verbatim.
+  describe('plan editor: provider_identifiers', () => {
+    it('adds a row and submits the built map on create', async () => {
+      const wrapper = mountPage(PlansIndex)
+      await flushPromises()
+
+      await wrapper.find('[data-test="new-plan"]').trigger('click')
+      await flushPromises()
+      const editor = wrapper.findComponent(PlanEditor)
+
+      await editor.find('[data-test="plan-key-input"]').setValue('growth')
+      await editor.find('[data-test="plan-display-name-input"]').setValue('Growth')
+      await editor.find('[data-test="plan-identifier-add"]').trigger('click')
+      await editor.find('[data-test="plan-identifier-gateway-input"]').setValue('stripe')
+      await editor.find('[data-test="plan-identifier-value-input"]').setValue('price_123')
+      await editor.find('#plan-form').trigger('submit')
+      await flushPromises()
+
+      expect(createPlanMock).toHaveBeenCalledWith(
+        expect.objectContaining({ provider_identifiers: { stripe: 'price_123' } }),
+      )
+    })
+
+    it('pre-fills existing provider_identifiers rows in edit mode and PATCHes the full replacement map', async () => {
+      plansData.value = [plan({ plan_key: 'pro', provider_identifiers: { stripe: 'price_1', paystack: 'PLN_1' } })]
+      const wrapper = mountPage(PlansIndex)
+      await flushPromises()
+
+      await wrapper.find('[data-test="plan-edit"]').trigger('click')
+      await flushPromises()
+      const editor = wrapper.findComponent(PlanEditor)
+
+      const rows = editor.findAll('[data-test="plan-identifier-row"]')
+      expect(rows).toHaveLength(2)
+
+      await editor.find('#plan-form').trigger('submit')
+      await flushPromises()
+
+      expect(updatePlanMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          planKey: 'pro',
+          input: expect.objectContaining({ provider_identifiers: { stripe: 'price_1', paystack: 'PLN_1' } }),
+        }),
+      )
+    })
+
+    it('removing every row PATCHes an empty map (clears it, never a partial merge)', async () => {
+      plansData.value = [plan({ plan_key: 'pro', provider_identifiers: { stripe: 'price_1' } })]
+      const wrapper = mountPage(PlansIndex)
+      await flushPromises()
+
+      await wrapper.find('[data-test="plan-edit"]').trigger('click')
+      await flushPromises()
+      const editor = wrapper.findComponent(PlanEditor)
+
+      await editor.find('[data-test="plan-identifier-remove"]').trigger('click')
+      await editor.find('#plan-form').trigger('submit')
+      await flushPromises()
+
+      expect(updatePlanMock).toHaveBeenCalledWith(
+        expect.objectContaining({ input: expect.objectContaining({ provider_identifiers: {} }) }),
+      )
+    })
+
+    it('renders a server 422 on provider_identifiers verbatim, without closing the editor', async () => {
+      updatePlanMock.mockRejectedValue(
+        new ApiError('provider_identifiers.stripe must be at most 191 characters.', 422, {}, {}),
+      )
+      plansData.value = [plan({ plan_key: 'pro' })]
+      const wrapper = mountPage(PlansIndex)
+      await flushPromises()
+
+      await wrapper.find('[data-test="plan-edit"]').trigger('click')
+      await flushPromises()
+      const editor = wrapper.findComponent(PlanEditor)
+
+      // Passes CLIENT-side validation (a plausible-looking price id) so the request actually
+      // reaches the (mocked) server -- this asserts the server's verbatim message rendering, not
+      // the client's own pre-flight validation message.
+      await editor.find('[data-test="plan-identifier-add"]').trigger('click')
+      await editor.find('[data-test="plan-identifier-gateway-input"]').setValue('stripe')
+      await editor.find('[data-test="plan-identifier-value-input"]').setValue('price_123')
+      await editor.find('#plan-form').trigger('submit')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('provider_identifiers.stripe must be at most 191 characters.')
+      expect(editor.props('open')).toBe(true)
+    })
   })
 
   // Final-wave fix E: a FAILED meta probe is its own state -- not "still loading".

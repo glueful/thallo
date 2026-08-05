@@ -123,4 +123,17 @@ describe('install + auth guard', () => {
     session.isAuthenticated = true
     expect(installAndAuthGuard(to('/', { requiresAuth: true }))).toBe(true)
   })
+
+  // Task 19 (spec §5.4): the pricing bridge's `/billing?plan=<key>` deep link must survive a
+  // login round-trip. The guard's `redirect` query carries `to.fullPath` VERBATIM (never just
+  // `to.path`), so a query string on the original request is preserved through to /login --
+  // `pages/login.vue` then `router.push(route.query.redirect)` unchanged, landing back on the
+  // exact deep-linked URL. This pins the guard's half of that contract.
+  it('preserves a deep-link query string (e.g. /billing?plan=pro) in the login redirect target', () => {
+    cfg.installed = true
+    expect(installAndAuthGuard(to('/billing?plan=pro', { requiresAuth: true }))).toEqual({
+      path: '/login',
+      query: { redirect: '/billing?plan=pro' },
+    })
+  })
 })

@@ -20,6 +20,16 @@ const base: NavigationMenuItem[] = [
       { label: 'Workspaces', to: '/settings/workspaces' },
     ],
   },
+  {
+    label: 'Subscriptions',
+    icon: 'i-lucide-credit-card',
+    defaultOpen: false,
+    children: [
+      { label: 'Plans', to: '/subscriptions/plans' },
+      { label: 'Billing', to: '/subscriptions/billing' },
+      { label: 'Workspace billing', to: '/billing' },
+    ],
+  },
 ]
 
 const none = {
@@ -107,5 +117,43 @@ describe('tenancy navigation shaping', () => {
     // Even for a platform operator the parent is expand-only; the list lives on "All workspaces".
     expect(shaped.find((item) => item.label === 'Workspaces')?.to).toBeUndefined()
     expect(shaped.find((item) => item.label === 'Settings')?.children).toHaveLength(2)
+  })
+
+  // Task 19 (spec §5.3): the Subscriptions group's three children are gated by TWO distinct
+  // authorities -- platform Plans/Billing by `manage_platform`, workspace Billing by
+  // `manage_billing` -- and the group itself disappears entirely when neither authority is held.
+  describe('Subscriptions group authority matrix', () => {
+    it('owner/delegate (manage_billing only) sees ONLY workspace billing', () => {
+      const shaped = shapeTenancyNav(base, { ...none, manage_billing: true }, null, true, true)
+      const group = shaped.find((item) => item.label === 'Subscriptions')
+      expect(group?.children?.map((c) => c.to)).toEqual(['/billing'])
+    })
+
+    it('platform-only operator (manage_platform only) sees ONLY the platform Plans/Billing pages', () => {
+      const shaped = shapeTenancyNav(base, { ...none, manage_platform: true }, null, true, true)
+      const group = shaped.find((item) => item.label === 'Subscriptions')
+      expect(group?.children?.map((c) => c.to)).toEqual(['/subscriptions/plans', '/subscriptions/billing'])
+    })
+
+    it('neither authority: the Subscriptions group is dropped entirely', () => {
+      const shaped = shapeTenancyNav(base, none, null, true, true)
+      expect(shaped.find((item) => item.label === 'Subscriptions')).toBeUndefined()
+    })
+
+    it('dual authority (both manage_platform and manage_billing) sees all three children', () => {
+      const shaped = shapeTenancyNav(
+        base,
+        { ...none, manage_platform: true, manage_billing: true },
+        null,
+        true,
+        true,
+      )
+      const group = shaped.find((item) => item.label === 'Subscriptions')
+      expect(group?.children?.map((c) => c.to)).toEqual([
+        '/subscriptions/plans',
+        '/subscriptions/billing',
+        '/billing',
+      ])
+    })
   })
 })

@@ -3,7 +3,16 @@
 // Billing pages render whenever `GET /meta`'s `engine` field isn't `'ready'` -- shared so the
 // two "engine unavailable" messages never independently drift (mirrors `EngineGateway`'s own
 // two-state vocabulary, `'engine_disabled' | 'schema_not_ready'`; `'ready'` never reaches here).
-withDefaults(defineProps<{ state: 'engine_disabled' | 'schema_not_ready' }>(), {})
+//
+// `showAction` (Task 19, code review fix): the "Go to Extensions" CTA navigates to a PLATFORM
+// surface (`tenancy.manage`-gated) -- correct for the two platform Plans/Billing pages this
+// component was originally built for, but wrong on the workspace-scoped `/billing` page, whose
+// audience is a `billing.manage` delegate who may hold no platform authority at all and would
+// hit that route's own capability boundary. Defaults to `true` (unchanged behavior for existing
+// callers); the workspace Billing page passes `false`.
+withDefaults(defineProps<{ state: 'engine_disabled' | 'schema_not_ready'; showAction?: boolean }>(), {
+  showAction: true,
+})
 </script>
 
 <template>
@@ -30,7 +39,7 @@ withDefaults(defineProps<{ state: 'engine_disabled' | 'schema_not_ready' }>(), {
       }}
     </p>
     <UButton
-      v-if="state === 'engine_disabled'"
+      v-if="state === 'engine_disabled' && showAction"
       to="/extensions"
       icon="i-lucide-puzzle"
       label="Go to Extensions"
