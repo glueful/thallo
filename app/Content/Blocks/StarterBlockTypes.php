@@ -601,6 +601,10 @@ final class StarterBlockTypes
                     ['name' => 'terms', 'type' => 'text'],
                     ['name' => 'button_label', 'type' => 'string'],
                     ['name' => 'button_url', 'type' => 'string'],
+                    // Pricing-bridge spec §5.4: optional deep-link key to the admin billing
+                    // checkout page. Render re-validates the SAME pattern independently
+                    // (defense in depth) before ever consulting the soft-bound resolver.
+                    ['name' => 'plan_key', 'type' => 'string', 'pattern' => '[a-z0-9._-]{1,100}'],
                     ['name' => 'button_variant', 'type' => 'enum', 'enum' => ['solid', 'outline']],
                     ['name' => 'variant', 'type' => 'enum', 'enum' => ['outline', 'solid', 'soft', 'subtle']],
                     ['name' => 'highlight', 'type' => 'boolean'],
