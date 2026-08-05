@@ -47,6 +47,13 @@ workspace self-serve checkout.
    the connection BEFORE selecting and verifying its secret) is a separate upstream program and
    must not be undone by this work. Recorded in OUTSTANDING; nothing here presumes its shape
    beyond not blocking it.
+6. **Deployment-safe cutover.** Installing this release must not make a valid stored credential
+   disappear between deployment and an operator-run migration. Until a persisted migration marker
+   says the platform cutover is complete, a missing platform key may fall back to ONE explicitly
+   unscoped legacy source: the pre-retrofit settings row or the persisted default workspace's row.
+   The compatibility reader never consults ambient tenant context and never selects another
+   workspace. All new writes go to the platform channel. Once marked complete, legacy fallback is
+   permanently disabled and ordinary Payvia config/env fallback resumes for genuinely absent keys.
 
 ## §2 Components (all app-level, per the maintainer's placement)
 
@@ -61,40 +68,80 @@ Null-never-throw on read (undecryptable/tampered ⇒ null, env fallback stays au
 replacement seam implementation: same structural whitelist as today (`payvia.default_gateway`
 plus `payvia.gateways.{id}.{enabled|secret_key|webhook_secret}` for ids present in the
 `payvia.gateways` CONFIG map; ops knobs never editable), same null-never-throw contract, ZERO
-capability gates, reads `PlatformPaymentSettingsStore` only — the `SystemChannel` is unscoped,
-so tenant context cannot alter resolution BY CONSTRUCTION, not by containment.
+capability gates, and uses `PlatformPaymentSettingsStore` as its only writable and permanent
+source. The marker-gated legacy reader below is read-only transition machinery. Both sources are
+selected without ambient tenant context, so tenant context cannot alter resolution BY
+CONSTRUCTION, not by containment.
 
 **`SystemKeys` prefix support** — `isSystem()` matches the exact `KEYS` list OR a new
-`PREFIXES` list containing `payvia.`; `SettingsStore` routing is otherwise unchanged. Side
-effect (intended): any legacy tenant-stamped `payvia.*` row in `settings` becomes unreachable
-through `SettingsStore` — which is why the migration runs in the same program.
+`PREFIXES` list containing `payvia.`. `SettingsStore::get()`, `putMany()`, and `forget()` route
+matching keys to the system channel, while `SettingsStore::all()` FILTERS every exact- or
+prefix-classified system key out of its returned tenant-owned map. This closes the otherwise
+remaining raw-read path: legacy tenant-stamped `payvia.*` rows become unreachable through every
+public `SettingsStore` method. The migration therefore reads the physical table through its own
+explicit legacy repository, never through `SettingsStore`.
 
 **Binding** — the app binds `PayviaSettingsOverride::class` ⇒ `PlatformPayviaSettingsOverride`;
 the Commerce binding and `SettingsStorePayviaOverride` are REMOVED in the same change (no
 first-wins ambiguity may survive; a test proves resolution is identical with commerce enabled,
 disabled, and absent). The binding mechanism must be effective on cached production boots
 (the established rule: extension-provider `register()` never runs there; app-level wiring must
-use a path proven to run in both boot modes).
+use a path proven to run in both boot modes). The override resolves each key in this order:
+
+1. `PlatformPaymentSettingsStore`;
+2. only while `payments.platform_credentials_migrated` is absent, the
+   `LegacyPlatformPaymentSettingsReader` described below;
+3. `null`, allowing Payvia's static config/env fallback.
+
+The migration marker is read directly from `SystemChannel`. Platform writes never dual-write to
+legacy storage, and a marked installation can never regress to a legacy value even if old rows
+remain awaiting an explicit prune.
+
+**`App\Settings\LegacyPlatformPaymentSettingsReader`** — a TEMPORARY, read-only compatibility
+boundary over the physical `settings` table. It introspects the live schema rather than assuming a
+tenancy state:
+
+- PRE-RETROFIT (`tenant_uuid` absent): the one unscoped row is the candidate.
+- POST-RETROFIT (`tenant_uuid` present): only the row whose tenant UUID equals the persisted
+  `tenancy.default_tenant_uuid` is the candidate.
+- Any other workspace row is diagnostic conflict data, never a credential source.
+
+It uses direct repository queries and the persisted default-workspace pointer; it never calls
+`SettingsStore`, `runAsTenant()`, the request tenant resolver, or a current-tenant helper. Secret
+reads retain the current encrypted-value checks and AAD-bound decryption. The class remains only
+for the migration window and is removed in a later cleanup after deployed installations carry the
+completion marker.
 
 **Migration** — console command `thallo:payments:migrate-platform-credentials` (platform
 authority, non-destructive by default):
 - Sources considered, in order: (a) existing platform values in the system channel (always
-  preserved — never overwritten); (b) `payvia.*` rows in the `settings` table belonging to the
-  DEFAULT workspace (single-store's effective global scope, possibly default-stamped by the
-  tenancy retrofit) — adopted only where (a) has no value; (c) `payvia.*` rows under any OTHER
-  workspace — never adopted: reported as conflicts requiring the operator's explicit
-  resolution (`--adopt-from=<tenant_uuid>` per key group, or manual cleanup).
+  preserved — never overwritten); (b) on a pre-retrofit schema, unscoped `payvia.*` rows; on a
+  post-retrofit schema, rows belonging to the persisted DEFAULT workspace — adopted only where
+  (a) has no value; (c) `payvia.*` rows under any OTHER workspace — NEVER adopted and reported as
+  conflicts. The command refuses completion by default when conflicts exist. An operator may
+  first set the intended platform values through the neutral page and then explicitly acknowledge
+  that the workspace rows are obsolete with `--acknowledge-workspace-conflicts`; there is no
+  `--adopt-from` shortcut that silently turns a workspace merchant into the platform merchant.
 - Ciphertext copied verbatim (AAD unchanged); post-copy VERIFICATION decrypts every migrated
   secret through the new store and compares against the legacy read path BEFORE any legacy row
-  is deleted; `--prune-legacy` is a separate, explicit second step that re-verifies first.
-- Idempotent: re-running with nothing to do reports cleanly and changes nothing.
+  is deleted. A missing or undecryptable source/copy is a failed verification, never equality of
+  two nullable reads. `--prune-legacy` is a separate, explicit second step that re-verifies every
+  affected key first; discarding non-default workspace rows additionally requires an explicit
+  `--acknowledge-workspace-conflicts` flag.
+- The command writes `payments.platform_credentials_migrated=1` to `SystemChannel` only after
+  every candidate key is accounted for and every conflict is either absent or explicitly
+  acknowledged. The marker write is the final step; a partial run leaves compatibility reads
+  enabled. Re-running after a partial or completed migration is idempotent, while prune mode still
+  reports and handles verified legacy rows left behind.
 
 **Neutral controller** — `GET|PUT /v1/admin/settings/payments`, platform chain
 `['auth', 'tenant_system', 'content_permission:tenancy.manage']`, names
 `thallo.settings.payments.*`, registered from app-level routes (no pack capability gate).
-GET returns per key `{value|masked, default, overridden}` — secret values are WRITE-ONLY
-(masked on read: presence + last-4 only). PUT accepts the whitelisted keys, validates gateway
-ids against the config map, encrypts secrets, 422s unknown/invalid keys. The
+GET returns ordinary non-secret values plus the existing boolean-only secret state
+`{set: bool, source: 'settings'|'env'|null}`. Secret values are WRITE-ONLY: no plaintext,
+prefix, suffix, hash, or other secret-derived material crosses the response boundary. PUT accepts
+the whitelisted keys, validates gateway ids against the config map, encrypts secrets, 422s
+unknown/invalid keys. The
 gateway-capability probe surface from the self-serve switch (`SelfServeGatewayCapability`)
 stays where it is; this page links to it, not vice versa.
 
@@ -122,13 +169,22 @@ is annotated as satisfied by this program. Commerce InertnessTest/spec pins upda
   returns the platform values for keys AND webhook secrets; the self-serve checkout path and
   the webhook verification path both covered.
 - **Migration matrix:** platform-value-preserved; default-workspace-adopted-when-absent;
-  cross-workspace conflict refused with diagnostics; verify-before-prune (a corrupted copy
-  aborts pruning); idempotent re-run; ciphertext round-trips without re-encryption.
+  pre-retrofit unscoped row adopted; post-retrofit default-workspace row adopted; both schema
+  shapes detected from the database rather than tenancy mode; cross-workspace conflict refused
+  with diagnostics and never adopted; verify-before-prune (a corrupted source OR copy aborts
+  pruning); completion marker written last; partial and completed reruns idempotent; ciphertext
+  round-trips without re-encryption.
+- **Cutover compatibility:** before the marker, a missing platform key reads only the unscoped or
+  persisted-default legacy value; another workspace's hostile row never wins; platform values win
+  per key during a partial migration; after the marker, all legacy rows are ignored and an absent
+  key falls through to config/env. New controller writes never touch legacy rows.
 - **Prefix routing:** `payvia.*` reads/writes route to the system channel; legacy tenant rows
-  unreachable through `SettingsStore` after the switch; non-payvia keys unaffected.
+  unreachable through `get()` AND absent from `all()` after the switch; exact system keys retain
+  the same behavior; non-payvia keys unaffected.
 - **Controller:** platform-authority matrix (workspace `billing.manage`-only actor ⇒ 403);
-  secret masking on GET; write-only round-trip; 422 matrix.
-- **SPA:** page states, masked secrets, the limitation notice present, nav gating.
+  boolean-only `{set, source}` secret state on GET with no secret substring present; write-only
+  round-trip; 422 matrix.
+- **SPA:** page states, boolean-only secret presence, the limitation notice present, nav gating.
 - **Regression:** commerce storefront checkout and subscriptions self-serve checkout both
   originate against the platform credentials under ambient workspace context (end-to-end with
   recording gateway doubles).
