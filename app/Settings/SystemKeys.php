@@ -26,8 +26,30 @@ final class SystemKeys
         'admin_url',
     ];
 
+    /**
+     * Key prefixes whose ENTIRE namespace is system-scoped. `payvia.` covers every Payvia
+     * gateway-credentials key (default_gateway, gateways.{id}.secret_key, …): platform
+     * payments settings are shared across every tenant, so they must live in the unscoped
+     * system channel rather than the (soon tenant-scoped) `settings` table.
+     *
+     * @var list<string>
+     */
+    public const PREFIXES = [
+        'payvia.',
+    ];
+
     public static function isSystem(string $key): bool
     {
-        return in_array($key, self::KEYS, true);
+        if (in_array($key, self::KEYS, true)) {
+            return true;
+        }
+
+        foreach (self::PREFIXES as $prefix) {
+            if (str_starts_with($key, $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

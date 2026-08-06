@@ -13,6 +13,7 @@ use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Commerce\Http\PaymentsSettingsController;
 use Thallo\Commerce\Settings\SettingsStorePayviaOverride;
+use Thallo\Tenancy\System\SystemFlags;
 
 /**
  * Store-settings spec §3.6 (Payments tab): GET/PUT /v1/admin/commerce/payments. The behaviours
@@ -50,10 +51,14 @@ final class CommercePaymentsEndpointTest extends AppTestCase
 
     private function cleanup(): void
     {
+        // Task 1 (platform-payments-settings): every payvia.* key is now system-classified
+        // (SystemKeys::PREFIXES), so SettingsStore routes it to the unscoped SystemChannel —
+        // physically the `thallo_system_flags` table, not `settings`.
         foreach (self::KEYS as $key) {
-            $this->connection()->table('settings')->where(['key' => $key])->delete();
+            $this->connection()->table('thallo_system_flags')->where(['key' => $key])->delete();
         }
         $this->container()->get(SettingsStore::class)->clearCache();
+        $this->container()->get(SystemFlags::class)->clearCache();
     }
 
     public function testGetReportsGatewayModeWithBooleanSecretStateOnly(): void
@@ -89,8 +94,10 @@ final class CommercePaymentsEndpointTest extends AppTestCase
         self::assertSame(['set' => true, 'source' => 'settings'], $byId['paystack']['secret_key']);
         self::assertStringNotContainsString($plaintext, (string) $response->getContent());
 
-        // At rest: a ciphertext row, not the plaintext.
-        $row = $this->connection()->table('settings')
+        // At rest: a ciphertext row, not the plaintext. Payvia keys are system-classified
+        // (Task 1), so the row lives in the unscoped `thallo_system_flags` table, not
+        // the tenant-scoped `settings` table.
+        $row = $this->connection()->table('thallo_system_flags')
             ->where(['key' => 'payvia.gateways.paystack.secret_key'])->first();
         self::assertIsArray($row);
         self::assertNotSame($plaintext, $row['value']);
@@ -145,7 +152,7 @@ final class CommercePaymentsEndpointTest extends AppTestCase
         // No env key in this install, so clearing lands on honestly-unset.
         self::assertSame(['set' => false, 'source' => null], $byId['paystack']['secret_key']);
         self::assertNull(
-            $this->connection()->table('settings')
+            $this->connection()->table('thallo_system_flags')
                 ->where(['key' => 'payvia.gateways.paystack.secret_key'])->first()
         );
     }
