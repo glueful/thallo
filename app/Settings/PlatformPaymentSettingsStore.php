@@ -1,0 +1,135 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Settings;
+
+use Glueful\Encryption\EncryptionService;
+use Thallo\Contracts\Settings\SystemChannel;
+
+/**
+ * Platform-payments-settings spec (Task 2): the app-owned write/read surface over the unscoped
+ * {@see SystemChannel} for Payvia gateway credentials — the `payvia.`-prefixed keys Task 1 made
+ * system keys (see {@see SystemKeys::PREFIXES}). This class is the ONLY place that encrypts or
+ * decrypts those rows; callers (e.g. a future PaymentsSettingsController rewrite) get and set
+ * plain strings and never touch {@see EncryptionService} themselves.
+ *
+ * SECRET subkeys (`secret_key`, `webhook_secret` — the terminal dot-segment of the key, e.g.
+ * `payvia.gateways.stripe.secret_key`) are encrypted at rest with AAD = the full settings key
+ * string. This is the EXACT convention {@see \Thallo\Commerce\Settings\SettingsStorePayviaOverride}
+ * already uses for the same rows (ported here, not reinvented), so ciphertext written by that
+ * legacy path keeps decrypting once storage moves behind this store, and vice versa. Non-secret
+ * subkeys (`default_gateway`, `enabled`, …) are stored as plain strings.
+ *
+ * Reads are null-never-throw: an undecryptable/tampered row or ANY {@see SystemChannel} throwable
+ * resolves to null — a settings problem can never surface as an exception to a caller that just
+ * wants "is there a value for this key".
+ *
+ * `importEncryptedForMigration()` is the deliberately narrow migration door (cutover from the
+ * legacy commerce-settings path): it accepts ONLY a recognized secret key, requires the given
+ * bytes already look like a ciphertext, PROVES they decrypt under this key's AAD, and only then
+ * writes those exact bytes verbatim — never re-encrypting. Invalid input throws before anything
+ * is written.
+ */
+final class PlatformPaymentSettingsStore
+{
+    private const SECRET_SUBKEYS = ['secret_key', 'webhook_secret'];
+
+    public function __construct(
+        private readonly SystemChannel $system,
+        private readonly EncryptionService $encryption,
+    ) {
+    }
+
+    /**
+     * The stored value for a key, decrypted when it's a secret subkey — or null when no row
+     * exists, the row won't decrypt (tampered value, rotated key), or the channel throws.
+     */
+    public function get(string $key): ?string
+    {
+        try {
+            $stored = $this->system->get($key);
+            if ($stored === null) {
+                return null;
+            }
+
+            if (!$this->isSecretKey($key)) {
+                return $stored;
+            }
+
+            if (!$this->encryption->isEncrypted($stored)) {
+                return null;
+            }
+
+            return $this->encryption->decrypt($stored, aad: $key);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Upsert each pair through the system channel. Secret subkeys are encrypted (AAD = the full
+     * key string) before the write; every other key is written as-is.
+     *
+     * @param array<string,string> $pairs
+     */
+    public function putMany(array $pairs): void
+    {
+        foreach ($pairs as $key => $value) {
+            $toStore = $this->isSecretKey($key)
+                ? $this->encryption->encrypt($value, aad: $key)
+                : $value;
+            $this->system->put($key, $toStore);
+        }
+    }
+
+    public function forget(string $key): void
+    {
+        $this->system->forget($key);
+    }
+
+    /**
+     * Migration-only door: import a ciphertext produced ELSEWHERE (the legacy commerce-settings
+     * path) verbatim, without re-encrypting it. Validates first, writes second — never the
+     * reverse:
+     *  1. $key must be a recognized secret subkey (otherwise there is nothing to decrypt/verify).
+     *  2. $ciphertext must already look like an encrypted payload.
+     *  3. $ciphertext must actually decrypt under $key's AAD — proving it is a real, intact
+     *     ciphertext for THIS key, not garbage or one bound to a different key.
+     * Only once all three hold does the exact ciphertext byte string get written.
+     */
+    public function importEncryptedForMigration(string $key, string $ciphertext): void
+    {
+        if (!$this->isSecretKey($key)) {
+            throw new \InvalidArgumentException(
+                "Cannot import a ciphertext for [{$key}]: not a recognized secret key."
+            );
+        }
+
+        if (!$this->encryption->isEncrypted($ciphertext)) {
+            throw new \InvalidArgumentException(
+                "Cannot import for [{$key}]: value is not a recognized ciphertext."
+            );
+        }
+
+        // Proof of validity — decrypt() throws (DecryptionException/KeyNotFoundException) when
+        // the payload is malformed, tampered, or bound to a different key's AAD. Nothing is
+        // written unless this line returns normally, and the decrypted plaintext itself is
+        // discarded — only the original ciphertext bytes are ever persisted.
+        $this->encryption->decrypt($ciphertext, aad: $key);
+
+        $this->system->put($key, $ciphertext);
+    }
+
+    /**
+     * Same recognition as {@see \Thallo\Commerce\Settings\SettingsStorePayviaOverride}: the
+     * terminal dot-segment of the key must be one of the SECRET_SUBKEYS.
+     */
+    private function isSecretKey(string $key): bool
+    {
+        $lastDot = strrpos($key, '.');
+        $subkey = $lastDot === false ? $key : substr($key, $lastDot + 1);
+
+        return in_array($subkey, self::SECRET_SUBKEYS, true);
+    }
+}

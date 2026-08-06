@@ -1704,6 +1704,15 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            // Platform-payments-settings spec Task 2: the encrypted write/read surface over the
+            // unscoped SystemChannel for payvia.* gateway credentials — SystemChannel and
+            // EncryptionService both autowire (constructor injection only, no container lookups
+            // inside the class itself).
+            \App\Settings\PlatformPaymentSettingsStore::class => [
+                'class' => \App\Settings\PlatformPaymentSettingsStore::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             // Store-settings spec §3.3: thallo-commerce's pack-owned storage contract, satisfied
             // by SettingsStore rows (pack-defines/app-provides — the EngineMediaUrlResolver shape).
             \Thallo\Commerce\Settings\CommerceSettingsStore::class => [
