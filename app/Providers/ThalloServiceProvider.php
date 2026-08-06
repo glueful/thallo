@@ -1713,6 +1713,22 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            // Platform-payments-settings spec Task 3: the TEMPORARY read-only compatibility path
+            // over the OLD tenant `settings` table — Task 4's override falls back to it until a
+            // migration marker is written, Task 5's migration command drives it for
+            // enumeration/verification/pruning. $table is left at its 'settings' default here
+            // (autowiring never supplies a scalar); tests that need an isolated temporary table
+            // construct the repository directly instead of resolving it from the container.
+            \App\Settings\LegacyPlatformPaymentSettingsRepository::class => [
+                'class' => \App\Settings\LegacyPlatformPaymentSettingsRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \App\Settings\LegacyPlatformPaymentSettingsReader::class => [
+                'class' => \App\Settings\LegacyPlatformPaymentSettingsReader::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             // Store-settings spec §3.3: thallo-commerce's pack-owned storage contract, satisfied
             // by SettingsStore rows (pack-defines/app-provides — the EngineMediaUrlResolver shape).
             \Thallo\Commerce\Settings\CommerceSettingsStore::class => [
