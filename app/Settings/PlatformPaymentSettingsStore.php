@@ -10,16 +10,23 @@ use Thallo\Contracts\Settings\SystemChannel;
 /**
  * Platform-payments-settings spec (Task 2): the app-owned write/read surface over the unscoped
  * {@see SystemChannel} for Payvia gateway credentials — the `payvia.`-prefixed keys Task 1 made
- * system keys (see {@see SystemKeys::PREFIXES}). This class is the ONLY place that encrypts or
- * decrypts those rows; callers (e.g. a future PaymentsSettingsController rewrite) get and set
- * plain strings and never touch {@see EncryptionService} themselves.
+ * system keys (see {@see SystemKeys::PREFIXES}). Once a later task routes the payments settings
+ * path through it, this becomes the place that encrypts/decrypts those rows on this store's
+ * behalf; callers get and set plain strings and never touch {@see EncryptionService} themselves.
+ * Until then, the legacy {@see \Thallo\Commerce\Settings\SettingsStorePayviaOverride} read path
+ * still encrypts/decrypts independently — the two are compatible (see below), not yet unified.
  *
  * SECRET subkeys (`secret_key`, `webhook_secret` — the terminal dot-segment of the key, e.g.
  * `payvia.gateways.stripe.secret_key`) are encrypted at rest with AAD = the full settings key
- * string. This is the EXACT convention {@see \Thallo\Commerce\Settings\SettingsStorePayviaOverride}
- * already uses for the same rows (ported here, not reinvented), so ciphertext written by that
- * legacy path keeps decrypting once storage moves behind this store, and vice versa. Non-secret
- * subkeys (`default_gateway`, `enabled`, …) are stored as plain strings.
+ * string. This class recognizes secrets by that SAME subkey-NAME set as
+ * {@see \Thallo\Commerce\Settings\SettingsStorePayviaOverride} and uses the identical AAD
+ * convention, so ciphertext produced by either side decrypts through the other. It does NOT
+ * reproduce that override's namespace/config whitelist (`payvia.gateways.{id}.…` for an `$id`
+ * present in the `payvia.gateways` config) — this is a generic key/value store and that
+ * structural gate is deliberately left to the override (Task 4) and the settings controller
+ * (Task 6): this class alone would encrypt/decrypt a `secret_key`/`webhook_secret` subkey under
+ * any namespace, not only `payvia.gateways.*`. Non-secret subkeys (`default_gateway`, `enabled`,
+ * …) are stored as plain strings.
  *
  * Reads are null-never-throw: an undecryptable/tampered row or ANY {@see SystemChannel} throwable
  * resolves to null — a settings problem can never surface as an exception to a caller that just
@@ -122,8 +129,12 @@ final class PlatformPaymentSettingsStore
     }
 
     /**
-     * Same recognition as {@see \Thallo\Commerce\Settings\SettingsStorePayviaOverride}: the
-     * terminal dot-segment of the key must be one of the SECRET_SUBKEYS.
+     * Same secret SUBKEY-NAME set as
+     * {@see \Thallo\Commerce\Settings\SettingsStorePayviaOverride::whitelistedSubkey()}: the
+     * terminal dot-segment of the key must be one of the SECRET_SUBKEYS. Unlike that override,
+     * this check is NOT namespace/config-gated — it does not verify the key sits under
+     * `payvia.gateways.{configured-id}.…`. That structural whitelist is enforced by the caller
+     * layers (the override, the settings controller), not here.
      */
     private function isSecretKey(string $key): bool
     {
