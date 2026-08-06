@@ -60,7 +60,10 @@ final class LegacyPlatformPaymentSettingsRepository
         }
 
         if (!$schema->hasColumn($this->table, 'tenant_uuid')) {
-            $row = db($this->context)->table($this->table)->where(['key' => $key])->first();
+            $row = db($this->context)->table($this->table)
+                ->select(['key', 'value'])
+                ->where(['key' => $key])
+                ->first();
             if ($row === null) {
                 return null;
             }
@@ -74,6 +77,7 @@ final class LegacyPlatformPaymentSettingsRepository
         }
 
         $row = db($this->context)->table($this->table)
+            ->select(['tenant_uuid', 'key', 'value'])
             ->where(['key' => $key, 'tenant_uuid' => $default])
             ->first();
         if ($row === null) {
@@ -100,46 +104,61 @@ final class LegacyPlatformPaymentSettingsRepository
         }
 
         $default = $this->flags->defaultTenantUuid();
+        $rows = db($this->context)->table($this->table)
+            ->select(['tenant_uuid', 'key', 'value'])
+            ->where(['key' => $key])
+            ->get();
+
+        return $this->excludeCandidateRows($rows, $default);
+    }
+
+    /**
+     * Every OTHER-than-candidate row for every key whose name starts with $prefix — ONE SQL query
+     * (a `LIKE '$prefix%'` predicate, projecting only tenant_uuid/key/value) rather than an
+     * unbounded per-key scan. Used by {@see LegacyPlatformPaymentSettingsReader::conflicts()} to
+     * scope its sanitized diagnostic to the keys it actually owns (`payvia.*`) instead of
+     * surfacing every unrelated multi-tenant setting (theme, notification prefs, ...) in the
+     * table as a false "conflict". Always [] on a pre-retrofit table (no tenant scoping there).
+     *
+     * @return list<array{tenant_uuid:string,key:string,stored_value:string}>
+     */
+    public function conflictRowsForPrefix(string $prefix): array
+    {
+        $schema = db($this->context)->getSchemaBuilder();
+        if (!$schema->hasTable($this->table) || !$schema->hasColumn($this->table, 'tenant_uuid')) {
+            return [];
+        }
+
+        $default = $this->flags->defaultTenantUuid();
+        $rows = db($this->context)->table($this->table)
+            ->select(['tenant_uuid', 'key', 'value'])
+            ->whereLike('key', $prefix . '%')
+            ->get();
+
+        return $this->excludeCandidateRows($rows, $default);
+    }
+
+    /**
+     * @param list<array<string,mixed>> $rows
+     * @return list<array{tenant_uuid:string,key:string,stored_value:string}>
+     */
+    private function excludeCandidateRows(array $rows, ?string $default): array
+    {
         $out = [];
-        foreach (db($this->context)->table($this->table)->where(['key' => $key])->get() as $row) {
+        foreach ($rows as $row) {
             $tenantUuid = (string) ($row['tenant_uuid'] ?? '');
             if ($default !== null && $tenantUuid === $default) {
-                continue; // the resolved candidate — not a conflict
+                continue; // the resolved candidate for its key — not a conflict
             }
 
             $out[] = [
                 'tenant_uuid' => $tenantUuid,
-                'key' => $key,
+                'key' => (string) ($row['key'] ?? ''),
                 'stored_value' => (string) ($row['value'] ?? ''),
             ];
         }
 
         return $out;
-    }
-
-    /**
-     * Every distinct key currently physically present in the table — lets a caller (namely
-     * {@see LegacyPlatformPaymentSettingsReader::conflicts()}) enumerate conflicts across the
-     * whole table without already knowing which keys exist.
-     *
-     * @return list<string>
-     */
-    public function distinctKeys(): array
-    {
-        $schema = db($this->context)->getSchemaBuilder();
-        if (!$schema->hasTable($this->table)) {
-            return [];
-        }
-
-        $keys = [];
-        foreach (db($this->context)->table($this->table)->get() as $row) {
-            $key = (string) ($row['key'] ?? '');
-            if ($key !== '' && !in_array($key, $keys, true)) {
-                $keys[] = $key;
-            }
-        }
-
-        return $keys;
     }
 
     /**

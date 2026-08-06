@@ -10,6 +10,8 @@ use App\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Encryption\EncryptionService;
 use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;
+use Glueful\Extensions\Tenancy\Models\Tenant;
+use Glueful\Helpers\Utils;
 use Thallo\Tenancy\System\SystemFlags;
 
 /**
@@ -108,24 +110,30 @@ final class LegacyPlatformPaymentReaderTest extends AppTestCase
         ]);
     }
 
-    /** A tolerant fake TenantContextRunner: just invokes $fn, ambient-context free. */
-    private function tenantContextRunner(): TenantContextRunner
+    /**
+     * Seed a REAL row in the central `tenants` registry and return its uuid. Used ONLY to give the
+     * REAL, container-bound {@see TenantContextRunner} (glueful/tenancy's always-on control-plane
+     * provider — see config/serviceproviders.php) a tenant it can actually resolve and activate as
+     * genuine ambient state via {@see \Glueful\Extensions\Tenancy\Bypass\Tenancy::runAsTenant()}.
+     * `tenants` is a central table the base test harness does not truncate, so the caller must
+     * clean up via {@see forgetRealTenant()}.
+     */
+    private function seedRealTenant(string $slug): string
     {
-        return new class implements TenantContextRunner {
-            public function runAsTenant(string $tenantUuid, callable $fn): mixed
-            {
-                return $fn();
-            }
+        $uuid = Utils::generateNanoID(12);
+        Tenant::create($this->appContext(), [
+            'uuid' => $uuid,
+            'slug' => $slug,
+            'name' => $slug,
+            'status' => 'active',
+        ]);
 
-            public function runAsSystem(callable $fn): mixed
-            {
-                return $fn();
-            }
+        return $uuid;
+    }
 
-            public function forEachTenant(callable $fn): void
-            {
-            }
-        };
+    private function forgetRealTenant(string $slug): void
+    {
+        $this->connection()->table('tenants')->where(['slug' => $slug])->forceDelete();
     }
 
     // ---- schema-shape candidate selection --------------------------------------------------
@@ -165,6 +173,11 @@ final class LegacyPlatformPaymentReaderTest extends AppTestCase
         $this->flags()->put('tenancy.default_tenant_uuid', 'tenant-a');
         $this->insertPost('tenant-a', 'payvia.default_gateway', 'stripe');
         $this->insertPost('tenant-b', 'payvia.default_gateway', 'paystack');
+        // A non-payvia key with its OWN cross-tenant conflict — conflicts() must be scoped to
+        // `payvia.*` (spec §2's diagnostic is payments-only), so this must never surface here even
+        // though, mechanically, it is exactly the same "other tenant's row" shape as the payvia one.
+        $this->insertPost('tenant-a', 'theme.mode', 'dark');
+        $this->insertPost('tenant-b', 'theme.mode', 'light');
 
         $reader = $this->reader($this->postTable);
 
@@ -178,6 +191,9 @@ final class LegacyPlatformPaymentReaderTest extends AppTestCase
         self::assertSame('payvia.default_gateway', $rows[0]['key']);
         // Sanitized: no value/stored_value/decrypted_value key ever leaves conflicts().
         self::assertSame(['tenant_uuid', 'key'], array_keys($rows[0]));
+
+        // The non-payvia key's cross-tenant conflict must NOT appear at all.
+        self::assertArrayNotHasKey('theme.mode', $conflicts);
 
         // The candidate's own (default-workspace) row must never show up as a conflict.
         foreach ($conflicts as $keyRows) {
@@ -200,6 +216,23 @@ final class LegacyPlatformPaymentReaderTest extends AppTestCase
 
     // ---- ambient tenant-context independence -----------------------------------------------
 
+    /**
+     * Proves the property for REAL, not by construction: {@see TenantContextRunner} is resolved
+     * from the booted app container — glueful/tenancy's `TenancyControlPlaneProvider` is an
+     * always-on entry in config/serviceproviders.php (no dev-link/opt-in gate needed), and it
+     * binds the contract to `ContractTenantRunner`, which delegates to the real
+     * `Bypass\Tenancy::runAsTenant()`. That call genuinely mutates ambient request state — it
+     * stores the resolved {@see Tenant} on the SAME `ApplicationContext` instance
+     * ({@see ApplicationContext::setRequestState()}, key `tenancy.tenant`) for the duration of the
+     * callback — so if the reader/repository ever started consulting an ambient current-tenant
+     * source instead of `SystemFlags::defaultTenantUuid()`, this test would observe it change.
+     * `runAsTenant()` requires an ACTIVE tenant it can resolve by uuid/slug, so a real row is
+     * seeded into the (untruncated) central `tenants` table for the duration of the test.
+     *
+     * Only the tenancy CONTROL PLANE is enabled here — not the full scoping/enforcement extension
+     * (dev-link-gated elsewhere in this suite) — so no query-guard/insert-stamper hooks are armed;
+     * the temp-table queries this test also makes are unaffected by the ambient tenant being set.
+     */
     public function testResultIsIndependentOfAmbientTenantContext(): void
     {
         $this->flags()->put('tenancy.default_tenant_uuid', 'tenant-a');
@@ -209,13 +242,24 @@ final class LegacyPlatformPaymentReaderTest extends AppTestCase
         $reader = $this->reader($this->postTable);
         $direct = $reader->value('payvia.default_gateway');
 
-        $wrapped = $this->tenantContextRunner()->runAsTenant(
-            'tenant-b',
-            static fn (): ?string => $reader->value('payvia.default_gateway'),
-        );
+        $slug = 'legacy-reader-ambient-' . substr(bin2hex(random_bytes(4)), 0, 8);
+        $ambientTenantUuid = $this->seedRealTenant($slug);
+        try {
+            $runner = $this->container()->get(TenantContextRunner::class);
+            $wrapped = $runner->runAsTenant(
+                $ambientTenantUuid,
+                static fn (): ?string => $reader->value('payvia.default_gateway'),
+            );
+        } finally {
+            $this->forgetRealTenant($slug);
+        }
 
         self::assertSame('stripe', $direct);
-        self::assertSame($direct, $wrapped, 'reading inside runAsTenant(otherWorkspace) must not change the result');
+        self::assertSame(
+            $direct,
+            $wrapped,
+            'reading inside a REAL runAsTenant(otherWorkspace) must not change the result',
+        );
     }
 
     // ---- undecryptable secrets --------------------------------------------------------------

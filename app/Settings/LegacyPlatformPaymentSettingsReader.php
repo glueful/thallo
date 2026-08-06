@@ -25,10 +25,17 @@ use Glueful\Encryption\EncryptionService;
  *
  * `conflicts()` is a sanitized diagnostic surface ONLY — it reports which key/tenant pairs have a
  * row outside the resolved default-workspace candidate, but NEVER a value (stored or decrypted).
+ * It is scoped to `payvia.`-prefixed keys: this reader is a platform-PAYMENT compatibility path,
+ * not a general settings-table auditor, so an unrelated multi-tenant row (theme, notification
+ * prefs, ...) must never appear in this diagnostic and be mistaken by Task 5 for a payments
+ * migration conflict.
  */
 final class LegacyPlatformPaymentSettingsReader
 {
     private const SECRET_SUBKEYS = ['secret_key', 'webhook_secret'];
+
+    /** The only key namespace {@see conflicts()} reports on — see the class docblock. */
+    private const PAYVIA_PREFIX = 'payvia.';
 
     public function __construct(
         private readonly LegacyPlatformPaymentSettingsRepository $repository,
@@ -94,26 +101,19 @@ final class LegacyPlatformPaymentSettingsReader
     }
 
     /**
-     * Sanitized cross-key diagnostic: for every distinct key physically present in the underlying
-     * table, every row that is NOT the resolved candidate (an other-tenant row, or — with no
+     * Sanitized diagnostic, scoped to `payvia.`-prefixed keys ONLY (see class docblock): every
+     * row that is NOT the resolved candidate for its key (an other-tenant row, or — with no
      * default pointer set — any row at all, since none is claimed). Only {tenant_uuid, key} ever
-     * leaves this surface; stored/decrypted values never do.
+     * leaves this surface; stored/decrypted values never do. One repository query (a SQL prefix
+     * predicate), not a per-key scan.
      *
      * @return array<string,list<array{tenant_uuid:string,key:string}>>
      */
     public function conflicts(): array
     {
         $out = [];
-        foreach ($this->repository->distinctKeys() as $key) {
-            $rows = $this->repository->conflictRows($key);
-            if ($rows === []) {
-                continue;
-            }
-
-            $out[$key] = array_map(
-                static fn (array $row): array => ['tenant_uuid' => $row['tenant_uuid'], 'key' => $row['key']],
-                $rows,
-            );
+        foreach ($this->repository->conflictRowsForPrefix(self::PAYVIA_PREFIX) as $row) {
+            $out[$row['key']][] = ['tenant_uuid' => $row['tenant_uuid'], 'key' => $row['key']];
         }
 
         return $out;
