@@ -534,6 +534,51 @@ final class PlatformPaymentMigrationTest extends AppTestCase
         self::assertTrue($command->getDefinition()->hasOption('acknowledge-workspace-conflicts'));
     }
 
+    // ---- a marked install never re-adopts ------------------------------------------------------
+
+    /**
+     * The cleanup run that resurrects a deliberately cleared credential. Sequence: the migration
+     * completes normally (marker set, legacy rows left in place — the default); the operator then
+     * CLEARS that credential through Settings → Payments; later they run the cleanup prune. With no
+     * marker check in pass 1 the command would see "platform absent + decryptable legacy row",
+     * RE-ADOPT the old value, and then prune the legacy row — a command the operator believed was
+     * cleanup-only silently puts the retired credential back into service, and destroys the
+     * evidence.
+     *
+     * A marked install has BY DEFINITION already completed its accounting, so adoption is never
+     * needed there: pass 1 may preserve and report, never adopt. The legacy row is then simply
+     * unverifiable against a platform copy, so the prune keeps it with a diagnostic.
+     */
+    public function testAMarkedInstallNeverReAdoptsALegacyRowForAClearedCredential(): void
+    {
+        $this->flags()->put('tenancy.default_tenant_uuid', 'tenant-a');
+        $legacyCipher = $this->cipher(self::SECRET_KEY, 'sk_live_deliberately_cleared');
+        $this->insertPost('tenant-a', self::SECRET_KEY, $legacyCipher);
+        $channel = new ScriptedSystemChannel();
+
+        [$first, $firstOut] = $this->runCommand($this->postTable, $channel);
+        self::assertSame(Command::SUCCESS, $first, $firstOut);
+        self::assertSame('1', $channel->get(self::MARKER));
+        self::assertSame($legacyCipher, $channel->get(self::SECRET_KEY));
+
+        // The operator retires the credential through the settings surface.
+        (new PlatformPaymentSettingsStore($channel, $this->encryption()))->forget(self::SECRET_KEY);
+        self::assertNull($channel->get(self::SECRET_KEY));
+
+        [$second, $secondOut] = $this->runCommand($this->postTable, $channel, ['--prune-legacy' => true]);
+
+        self::assertSame(Command::SUCCESS, $second, $secondOut);
+        self::assertNull(
+            $channel->get(self::SECRET_KEY),
+            'a marked install must never re-adopt a legacy row for a cleared credential',
+        );
+        self::assertNotNull(
+            $this->postRow('tenant-a', self::SECRET_KEY),
+            'with no platform copy to verify against, the legacy row is kept — not deleted',
+        );
+        self::assertStringContainsString(self::SECRET_KEY, $secondOut);
+    }
+
     // ---- matrix: the output must never carry secret material ----------------------------------
 
     public function testOutputNeverContainsSecretMaterial(): void

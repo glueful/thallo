@@ -137,12 +137,23 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
             return $this->refuseWithoutDefaultWorkspace();
         }
 
+        // Read ONCE, up front: whether this installation has already cut over. A marked install has
+        // by definition already completed its accounting, so pass 1 may preserve and report but must
+        // never ADOPT — see reconcile().
+        $alreadyMarked = $this->markerPresent();
+
         $keys = $this->candidateKeys();
         $this->line('Platform payment credentials — candidate keys: ' . count($keys));
+        if ($alreadyMarked) {
+            $this->line('  state      already marked complete — reporting only, nothing will be adopted');
+        }
 
         $failures = 0;
+        /** @var list<string> $adopted keys copied in THIS run — the only ones prune may hold to the
+         *  post-copy verification standard */
+        $adopted = [];
         foreach ($keys as $key) {
-            if (!$this->reconcile($key)) {
+            if (!$this->reconcile($key, $alreadyMarked, $adopted)) {
                 $failures++;
             }
         }
@@ -152,9 +163,9 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
         if ($failures > 0) {
             $this->line('');
             $this->error(sprintf(
-                '%d key(s) could not be accounted for. Marker NOT written; legacy compatibility '
-                . 'reads stay enabled and nothing was pruned.',
+                '%d key(s) could not be accounted for. %s Nothing was pruned.',
                 $failures,
+                $this->markerStateNote($alreadyMarked),
             ));
 
             return self::FAILURE;
@@ -164,9 +175,9 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
             $this->line('');
             $this->error(sprintf(
                 '%d payvia.* row(s) belong to another workspace and were NOT adopted. Set the '
-                . 'intended platform values first, then re-run with --acknowledge-workspace-conflicts. '
-                . 'Marker NOT written.',
+                . 'intended platform values first, then re-run with --acknowledge-workspace-conflicts. %s',
                 $conflicts,
+                $this->markerStateNote($alreadyMarked),
             ));
 
             return self::FAILURE;
@@ -186,22 +197,67 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
             return self::SUCCESS;
         }
 
-        $pruneFailures = $this->prunePass($acknowledge);
-        if ($pruneFailures > 0) {
+        $pruneResult = $this->prunePass($acknowledge, $adopted);
+        if ($pruneResult['failures'] > 0) {
             $this->line('');
             $this->error(sprintf(
                 '%d legacy row(s) could not be pruned safely and were left in place. The platform '
                 . 'values themselves are migrated and marked; re-run --prune-legacy once the reported '
                 . 'keys are resolved.',
-                $pruneFailures,
+                $pruneResult['failures'],
             ));
 
             return self::FAILURE;
         }
 
-        $this->success('Migration complete and legacy rows pruned.');
+        $this->success($this->pruneSummary($pruneResult['pruned'], $pruneResult['kept']));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * The closing line for a successful prune. Rows KEPT (a differing platform value, an unreadable
+     * legacy row, no platform copy to verify against) are not failures — but "legacy rows pruned"
+     * full stop would tell an operator the table is clean when it is not, and they would never look
+     * at the `kept` lines above.
+     */
+    private function pruneSummary(int $pruned, int $kept): string
+    {
+        if ($kept > 0) {
+            return sprintf(
+                'Migration complete. %d legacy row(s) pruned; %d left in place — listed as "kept" '
+                . 'above, each because it could not be verified against the platform value. Resolve '
+                . 'those keys and re-run --prune-legacy to finish clearing the table.',
+                $pruned,
+                $kept,
+            );
+        }
+
+        return $pruned > 0
+            ? 'Migration complete and all verified legacy rows pruned.'
+            : 'Migration complete. No legacy rows remained to prune.';
+    }
+
+    /** Whether this installation has already cut over. Any non-null marker counts (as in Task 4). */
+    private function markerPresent(): bool
+    {
+        try {
+            return $this->system->get(PlatformPayviaSettingsOverride::MIGRATION_MARKER_KEY) !== null;
+        } catch (\Throwable) {
+            // Unknown marker state. "Already marked" is the conservative reading: it withholds
+            // adoption, which is the only side of this decision that can put a retired credential
+            // back into service.
+            return true;
+        }
+    }
+
+    /** Marker-state-aware tail for a refusal message — on a marked install it was NOT "not written". */
+    private function markerStateNote(bool $alreadyMarked): string
+    {
+        return $alreadyMarked
+            ? 'The completion marker was already set by an earlier run and is unchanged; legacy '
+                . 'compatibility reads remain disabled.'
+            : 'Marker NOT written; legacy compatibility reads stay enabled.';
     }
 
     /**
@@ -235,9 +291,13 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
 
     /**
      * Account for ONE candidate key. Returns false only when the key genuinely cannot be resolved
-     * — which is what withholds the completion marker from the whole run.
+     * — which is what withholds the completion marker from the whole run. Keys copied here are
+     * appended to $adopted: prune holds THOSE, and only those, to the post-copy verification
+     * standard, because they are the only ones whose platform bytes this run put there.
+     *
+     * @param list<string> $adopted
      */
-    private function reconcile(string $key): bool
+    private function reconcile(string $key, bool $alreadyMarked, array &$adopted): bool
     {
         $legacyRow = $this->legacy->raw($key);
         $platformValue = $this->platform->get($key);
@@ -260,6 +320,18 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
 
         if ($legacyRow === null) {
             $this->line('  absent     ' . $key);
+
+            return true;
+        }
+
+        // ADOPTION IS FOR THE CUTOVER ONLY. Once the marker is set, this installation has already
+        // completed its accounting, so "no platform value" is not an unmigrated key — it is a
+        // credential the operator RETIRED through the settings surface, with the old legacy row
+        // still lying around because a default migration never deletes. Re-adopting it would put
+        // the retired credential back into service from a command run as cleanup, and a following
+        // --prune-legacy would then delete the evidence. Report and move on.
+        if ($alreadyMarked) {
+            $this->line('  skipped    ' . $key . ' (already marked complete; the legacy row is left in place)');
 
             return true;
         }
@@ -289,6 +361,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
             return false;
         }
 
+        $adopted[] = $key;
         $this->line('  adopted    ' . $key . $this->tenantSuffix($legacyRow['tenant_uuid']));
 
         return true;
@@ -353,11 +426,14 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
      * row is deleted only through compare-and-delete with the exact bytes just read, so a value
      * that changed in that window loses the race loudly instead of being destroyed.
      *
-     * @return int number of rows that could not be pruned safely
+     * @param list<string> $adopted keys this run copied — see the missing-platform-value branch
+     * @return array{failures:int,pruned:int,kept:int}
      */
-    private function prunePass(bool $acknowledge): int
+    private function prunePass(bool $acknowledge, array $adopted): array
     {
         $failures = 0;
+        $pruned = 0;
+        $kept = 0;
 
         foreach ($this->candidateKeys() as $key) {
             $row = $this->legacy->raw($key);
@@ -367,14 +443,27 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
 
             if ($row['decryptable'] !== true || $row['decrypted_value'] === null) {
                 $this->line('  kept       ' . $key . ' (legacy row is unreadable — never deleted unverified)');
+                $kept++;
                 continue;
             }
 
             $platformValue = $this->platform->get($key);
             $platformStored = $this->rawPlatformBytes($key);
             if ($platformValue === null || $platformStored === null) {
-                $this->line('  FAILED     ' . $key . ' (platform value missing or unreadable at prune time)');
-                $failures++;
+                // Only a FAILURE for a key THIS run copied: its bytes were verified minutes ago, so
+                // their disappearance means the copy was lost or corrupted in between. For any other
+                // key an absent platform value is an ordinary, legitimate state — most importantly a
+                // credential the operator retired on an already-marked install. There is simply
+                // nothing to verify the legacy row against, so it is kept, not deleted, and not
+                // treated as an error.
+                if (in_array($key, $adopted, true)) {
+                    $this->line('  FAILED     ' . $key . ' (the value copied by this run is missing or unreadable)');
+                    $failures++;
+                    continue;
+                }
+
+                $this->line('  kept       ' . $key . ' (no platform value to verify against — left in place)');
+                $kept++;
                 continue;
             }
 
@@ -382,6 +471,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
                 $this->line(
                     '  kept       ' . $key . ' (platform value differs — the legacy row is not assumed obsolete)'
                 );
+                $kept++;
                 continue;
             }
 
@@ -389,33 +479,41 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
                 $this->line(
                     '  kept       ' . $key . ' (ciphertext is not byte-identical — not the row that was adopted)'
                 );
+                $kept++;
                 continue;
             }
 
-            $failures += $this->deleteRow($key, $row['tenant_uuid'], $row['stored_value'], 'pruned    ');
+            $failed = $this->deleteRow($key, $row['tenant_uuid'], $row['stored_value'], 'pruned    ');
+            $failures += $failed;
+            $pruned += $failed === 0 ? 1 : 0;
         }
 
         if ($acknowledge) {
-            $failures += $this->discardConflictRows();
+            $discard = $this->discardConflictRows();
+            $failures += $discard['failures'];
+            $pruned += $discard['discarded'];
         }
 
-        return $failures;
+        return ['failures' => $failures, 'pruned' => $pruned, 'kept' => $kept];
     }
 
     /**
      * Acknowledged other-workspace rows. Their stored bytes are used ONLY as the compare-and-delete
      * token — never decrypted, never compared to a platform value, never adopted.
      *
-     * @return int number of rows that could not be discarded safely
+     * @return array{failures:int,discarded:int}
      */
-    private function discardConflictRows(): int
+    private function discardConflictRows(): array
     {
         $failures = 0;
+        $discarded = 0;
         foreach ($this->repository->conflictRowsForPrefix(self::PAYVIA_PREFIX) as $row) {
-            $failures += $this->deleteRow($row['key'], $row['tenant_uuid'], $row['stored_value'], 'discarded ');
+            $failed = $this->deleteRow($row['key'], $row['tenant_uuid'], $row['stored_value'], 'discarded ');
+            $failures += $failed;
+            $discarded += $failed === 0 ? 1 : 0;
         }
 
-        return $failures;
+        return ['failures' => $failures, 'discarded' => $discarded];
     }
 
     /** @return int 0 when the row was deleted, 1 when the compare-and-delete refused */
