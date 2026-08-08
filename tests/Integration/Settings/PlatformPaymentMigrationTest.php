@@ -298,6 +298,48 @@ final class PlatformPaymentMigrationTest extends AppTestCase
         self::assertNotNull($this->postRow('tenant-b', self::GATEWAY_KEY));
     }
 
+    /**
+     * The dangerous LOOK-ALIKE of a cross-workspace conflict: a tenant-scoped table with NO
+     * persisted default-workspace pointer. Task 3's repository can claim no candidate there, so
+     * EVERY row — including this installation's own — enumerates as "some other workspace's". Left
+     * to the ordinary conflict path the command would report every candidate key `absent`, print
+     * the install's own credentials as conflicts, and its own advice ("re-run with
+     * --acknowledge-workspace-conflicts") would write the marker over an EMPTY platform store —
+     * switching off Task 4's legacy fallback with nothing behind it, and `--prune-legacy` would
+     * then delete the only copies.
+     *
+     * The state is real, not theoretical: `SingleStoreTenant::resolve()` throws "No single-store
+     * tenant is established. Run thallo:tenancy:single-store:repair." for exactly it. So the
+     * migration must REFUSE OUTRIGHT — before any adoption, reporting or deletion, and regardless
+     * of which flags are passed — and say the one thing that actually fixes it.
+     */
+    public function testRefusesOutrightWhenNoDefaultWorkspacePointerIsEstablished(): void
+    {
+        // Deliberately NO tenancy.default_tenant_uuid: nothing claims these rows.
+        $legacyCipher = $this->cipher(self::SECRET_KEY, 'sk_live_unclaimed');
+        $this->insertPost('tenant-a', self::SECRET_KEY, $legacyCipher);
+        $this->insertPost('tenant-a', self::GATEWAY_KEY, 'paystack');
+        $channel = new ScriptedSystemChannel();
+
+        $modes = [[], ['--acknowledge-workspace-conflicts' => true, '--prune-legacy' => true]];
+        foreach ($modes as $options) {
+            [$status, $output] = $this->runCommand($this->postTable, $channel, $options);
+
+            self::assertSame(Command::FAILURE, $status);
+            self::assertNull($channel->get(self::MARKER), 'the marker must stay absent');
+            self::assertSame([], $channel->putOrder, 'a refused run must write nothing at all');
+            // The diagnostic must name the fix and must NOT read as a workspace conflict.
+            self::assertStringContainsString('thallo:tenancy:single-store:repair', $output);
+            self::assertStringNotContainsString('CONFLICT', $output);
+            self::assertStringNotContainsString('absent', $output);
+            // Nothing read, nothing adopted, nothing deleted.
+            self::assertNull($channel->get(self::SECRET_KEY));
+            self::assertNull($channel->get(self::GATEWAY_KEY));
+            self::assertNotNull($this->postRow('tenant-a', self::SECRET_KEY));
+            self::assertNotNull($this->postRow('tenant-a', self::GATEWAY_KEY));
+        }
+    }
+
     public function testAcknowledgedConflictsCompleteWithoutAdoptionAndPruneRemovesTheExactRows(): void
     {
         $this->flags()->put('tenancy.default_tenant_uuid', 'tenant-a');

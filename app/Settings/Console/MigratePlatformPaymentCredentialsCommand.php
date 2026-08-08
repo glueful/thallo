@@ -124,6 +124,19 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
         $prune = (bool) $input->getOption('prune-legacy');
         $acknowledge = (bool) $input->getOption('acknowledge-workspace-conflicts');
 
+        // FIRST, before anything is read, adopted, reported or deleted, and regardless of which
+        // flags were passed. On a tenant-scoped legacy table with no persisted default-workspace
+        // pointer, nothing claims any row: every candidate would resolve to "absent" and every row
+        // — this installation's OWN credentials included — would enumerate as another workspace's.
+        // Reported as an ordinary conflict, that reads as "these are obsolete workspace rows", and
+        // the fix this command would then advise (--acknowledge-workspace-conflicts) writes the
+        // marker over an EMPTY platform store: Task 4's legacy fallback switches off with nothing
+        // behind it, and --prune-legacy deletes the only copies. Refuse instead, and name the one
+        // thing that fixes it.
+        if ($this->repository->awaitsDefaultWorkspacePointer()) {
+            return $this->refuseWithoutDefaultWorkspace();
+        }
+
         $keys = $this->candidateKeys();
         $this->line('Platform payment credentials — candidate keys: ' . count($keys));
 
@@ -189,6 +202,33 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
         $this->success('Migration complete and legacy rows pruned.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * The pre-flight refusal. Deliberately worded so it can NEVER be mistaken for the
+     * cross-workspace conflict path — different label, no key list, no acknowledgement offered —
+     * because the two look identical in the table and want opposite responses. The remedy command
+     * goes through line() (writeln, unwrapped) so it survives verbatim into a terminal or CI log,
+     * where an operator will copy it.
+     */
+    private function refuseWithoutDefaultWorkspace(): int
+    {
+        $this->line('Platform payment credentials — BLOCKED before reading anything.');
+        $this->line('  reason     the legacy settings table is workspace-scoped but no default');
+        $this->line('             workspace pointer (tenancy.default_tenant_uuid) is established,');
+        $this->line('             so no row can be claimed as this installation\'s own.');
+        $this->line('  fix        run: thallo:tenancy:single-store:repair');
+        $this->line('  then       re-run: ' . ($this->getName() ?? ''));
+        $this->error(
+            'No default workspace is established. This is NOT a cross-workspace disagreement and '
+            . '--acknowledge-workspace-conflicts is NOT the answer: acknowledging here would mark '
+            . 'the cutover complete over an EMPTY platform store and disable the legacy '
+            . 'compatibility reads that are currently the only thing serving these credentials. '
+            . 'Nothing was read, adopted, reported or deleted, and the marker was NOT written. '
+            . 'Establish the default workspace first (see above), then re-run this migration.'
+        );
+
+        return self::FAILURE;
     }
 
     // ---- pass 1: adopt / preserve -------------------------------------------------------------

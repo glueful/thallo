@@ -88,6 +88,31 @@ final class LegacyPlatformPaymentSettingsRepository
     }
 
     /**
+     * TRUE when this table is POST-RETROFIT (tenant-scoped) but NO default workspace pointer has
+     * been persisted — the state in which {@see candidateRaw()} can claim nothing and, precisely
+     * because nothing is claimed, {@see conflictRowsForPrefix()} reports EVERY row (this
+     * installation's own included) as "some other workspace's".
+     *
+     * Both of those behaviours are correct in isolation and are deliberately UNCHANGED by this
+     * accessor: it adds no candidate, hides no conflict, and reads nothing but the schema shape and
+     * the pointer. It exists because the COMBINATION is indistinguishable, at the row level, from a
+     * genuine cross-workspace conflict — and the two want opposite responses. Task 5's migration
+     * command uses it to refuse outright rather than let an operator read "every one of my own rows
+     * belongs to another workspace" and acknowledge them away onto an empty platform store. The
+     * real remedy is establishing the default workspace (`thallo:tenancy:single-store:repair`),
+     * which is also what {@see \Thallo\Tenancy\SingleStoreTenant} demands in this same state.
+     */
+    public function awaitsDefaultWorkspacePointer(): bool
+    {
+        $schema = db($this->context)->getSchemaBuilder();
+        if (!$schema->hasTable($this->table) || !$schema->hasColumn($this->table, 'tenant_uuid')) {
+            return false;
+        }
+
+        return $this->flags->defaultTenantUuid() === null;
+    }
+
+    /**
      * Every row for $key belonging to a tenant OTHER than the resolved candidate (or, with no
      * default pointer resolved, every row at all — none of them is claimed). Raw shape only;
      * {@see LegacyPlatformPaymentSettingsReader::conflicts()} strips `stored_value` before this
