@@ -909,129 +909,28 @@ export function useSaveStoreSettings() {
   })
 }
 
-// ── Payments settings (store-settings spec §3.6) ────────────────────────────────────────────────
-// `GET/PUT /commerce/payments` — gateway configuration through payvia's settings seam. Secrets
-// are WRITE-ONLY: the server stores them encrypted and only ever reports `{set, source}`
-// booleans back; the PUT body carries a new value, `null` to clear (row deleted — env fallback
-// shows through), or omits the field to leave the stored value untouched.
-
-/** A secret field's reportable state — the server never sends key material. */
-export interface SecretFieldState {
-  set: boolean
-  source: 'settings' | 'env' | null
-}
-
-export interface PaymentsSettingEntry {
-  value: boolean
-  default: boolean
-  overridden: boolean
-}
-
-export interface PaymentsGatewayRow {
-  id: string
-  enabled: PaymentsSettingEntry
-  secret_key: SecretFieldState
-  webhook_secret: SecretFieldState
-  default: boolean
-  /** Absolute URL for the gateway dashboard's webhook field; null when no origin is resolvable. */
-  webhook_url: string | null
-}
-
-export interface PaymentsSettings {
-  /** `manual` = no gateway extension configures gateways (operator mark-paid is the flow). */
-  mode: 'gateway' | 'manual'
-  default_gateway: { value: string | null; default: string; overridden: boolean }
-  gateways: PaymentsGatewayRow[]
-}
-
-/** PUT body — every field optional; secrets: value = replace, null = clear, absent = keep. */
-export interface PaymentsSettingsSave {
-  default_gateway?: string | null
-  gateways?: Record<
-    string,
-    { enabled?: boolean; secret_key?: string | null; webhook_secret?: string | null }
-  >
-}
-
-function normalizeSecretState(raw: unknown): SecretFieldState {
-  const data = (raw ?? {}) as { set?: unknown; source?: unknown }
-  return {
-    set: data.set === true,
-    source: data.source === 'settings' || data.source === 'env' ? data.source : null,
-  }
-}
-
-function normalizePaymentsSettings(raw: unknown): PaymentsSettings {
-  const data = (raw ?? {}) as {
-    mode?: unknown
-    default_gateway?: unknown
-    gateways?: unknown
-  }
-  const dg = (data.default_gateway ?? {}) as { value?: unknown; default?: unknown; overridden?: unknown }
-  const gateways = Array.isArray(data.gateways) ? data.gateways : []
-  return {
-    mode: data.mode === 'gateway' ? 'gateway' : 'manual',
-    default_gateway: {
-      value: typeof dg.value === 'string' ? dg.value : null,
-      default: typeof dg.default === 'string' ? dg.default : '',
-      overridden: dg.overridden === true,
-    },
-    gateways: gateways.map((g) => {
-      const row = (g ?? {}) as Record<string, unknown>
-      const enabled = (row.enabled ?? {}) as { value?: unknown; default?: unknown; overridden?: unknown }
-      return {
-        id: String(row.id ?? ''),
-        enabled: {
-          value: enabled.value === true,
-          default: enabled.default === true,
-          overridden: enabled.overridden === true,
-        },
-        secret_key: normalizeSecretState(row.secret_key),
-        webhook_secret: normalizeSecretState(row.webhook_secret),
-        default: row.default === true,
-        webhook_url: typeof row.webhook_url === 'string' ? row.webhook_url : null,
-      }
-    }),
-  }
-}
-
-export async function fetchPaymentsSettings(): Promise<PaymentsSettings> {
-  const { data, error, response } = await client.GET('/commerce/payments')
-  if (error) throw toApiError(error, response)
-  return normalizePaymentsSettings((data as { data?: unknown } | undefined)?.data)
-}
-
-export async function savePaymentsSettings(body: PaymentsSettingsSave): Promise<PaymentsSettings> {
-  const { data, error, response } = await client.PUT('/commerce/payments', { body: body as never })
-  if (error) throw toApiError(error, response)
-  return normalizePaymentsSettings((data as { data?: unknown } | undefined)?.data)
-}
-
-export function usePaymentsSettings() {
-  return useQuery({ key: qk.commercePaymentsSettings(), query: fetchPaymentsSettings })
-}
-
-export function useSavePaymentsSettings() {
-  const cache = useQueryCache()
-  return useMutation({
-    mutation: (body: PaymentsSettingsSave) => savePaymentsSettings(body),
-    onSettled: async () => {
-      await cache.invalidateQueries({ key: qk.commercePaymentsSettings() })
-    },
-  })
-}
-
 // ── Order-email switches (store-settings spec §4.2 follow-up) ───────────────────────────────────
 // `GET/PUT /commerce/emails` — whether each of the four buyer order emails sends at all.
 // Template CONTENT (subject/body/test/reset) stays with the email-notification extension's
 // /email/templates API; the Emails tab reuses it filtered to this pack's owner.
+
+/** A generic tri-state settings flag: the effective value, the fallback default, and whether the
+ * effective value has been explicitly overridden away from that default. Formerly named
+ * `PaymentsSettingEntry` — payments settings ownership moved to `@/queries/platformPayments`
+ * (platform-payments-settings spec, Task 7), but this shape stayed here since the order-email
+ * switches below never had anything to do with payments; it was only ever a structural reuse. */
+export interface TriStateFlag {
+  value: boolean
+  default: boolean
+  overridden: boolean
+}
 
 export interface EmailTemplateSwitch {
   /** Short name — the PUT vocabulary: order_confirmation | order_paid | order_fulfilled | order_canceled. */
   template: string
   /** The registry key (`commerce.{template}`) — joins to /email/templates rows. */
   key: string
-  enabled: PaymentsSettingEntry
+  enabled: TriStateFlag
 }
 
 export interface CommerceEmailSettings {

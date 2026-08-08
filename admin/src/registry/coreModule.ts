@@ -129,6 +129,11 @@ const main: (NavigationMenuItem | SettingsAnchor)[] = [
         icon: 'i-lucide-briefcase-business',
         to: '/settings/workspaces',
       },
+      {
+        label: 'Payments',
+        icon: 'i-lucide-credit-card',
+        to: '/settings/payments',
+      },
     ],
   },
   {

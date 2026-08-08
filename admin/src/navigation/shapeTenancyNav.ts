@@ -85,6 +85,14 @@ export function shapeTenancyNav(
           if (child.to === '/settings/workspaces') {
             return tenancyInstalled && access.manage_platform
           }
+          // Platform Payments settings (platform-payments-settings spec, Task 7): gated on the
+          // SAME authority flag as Workspaces (`manage_platform` = holding `tenancy.manage`),
+          // but — unlike Workspaces — independent of `tenancyInstalled`: payment settlement is
+          // an app-owned platform concern, not a multi-workspace tenancy feature, so it stays
+          // reachable even on an install that never turns tenancy on.
+          if (child.to === '/settings/payments') {
+            return access.manage_platform
+          }
           if (child.to === '/settings/signup') {
             return !tenancyEnabled
           }

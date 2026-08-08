@@ -18,6 +18,7 @@ const base: NavigationMenuItem[] = [
       { label: 'General', to: '/settings/general' },
       { label: 'Signup', to: '/settings/signup' },
       { label: 'Workspaces', to: '/settings/workspaces' },
+      { label: 'Payments', to: '/settings/payments' },
     ],
   },
   {
@@ -88,6 +89,30 @@ describe('tenancy navigation shaping', () => {
     expect(settings?.children?.map((child) => child.to)).not.toContain('/settings/workspaces')
   })
 
+  // Platform Payments settings (platform-payments-settings spec, Task 7): gated on the SAME
+  // authority flag as Workspaces (`manage_platform`) — matrix: a platform operator sees it, a
+  // workspace-only admin does not.
+  describe('Settings -> Payments authority matrix', () => {
+    it('a platform operator sees Settings -> Payments', () => {
+      const shaped = shapeTenancyNav(base, { ...none, manage_platform: true }, null, true, true)
+      const settings = shaped.find((item) => item.label === 'Settings')
+      expect(settings?.children?.map((child) => child.to)).toContain('/settings/payments')
+    })
+
+    it('a workspace-only admin (manage_members only) does not see Settings -> Payments', () => {
+      const shaped = shapeTenancyNav(base, { ...none, manage_members: true }, 'tenant000001', true, true)
+      const settings = shaped.find((item) => item.label === 'Settings')
+      expect(settings?.children?.map((child) => child.to)).not.toContain('/settings/payments')
+    })
+
+    it('unlike Workspaces, stays reachable even when the tenancy feature is not installed', () => {
+      const shaped = shapeTenancyNav(base, { ...none, manage_platform: true }, null, false, false)
+      const settings = shaped.find((item) => item.label === 'Settings')
+      expect(settings?.children?.map((child) => child.to)).not.toContain('/settings/workspaces')
+      expect(settings?.children?.map((child) => child.to)).toContain('/settings/payments')
+    })
+  })
+
   it('gives owners concrete selected-tenant links without all-tenants', () => {
     const shaped = shapeTenancyNav(
       base,
@@ -116,7 +141,8 @@ describe('tenancy navigation shaping', () => {
     expect(JSON.stringify(shaped)).not.toContain('_selected')
     // Even for a platform operator the parent is expand-only; the list lives on "All workspaces".
     expect(shaped.find((item) => item.label === 'Workspaces')?.to).toBeUndefined()
-    expect(shaped.find((item) => item.label === 'Settings')?.children).toHaveLength(2)
+    // General, Workspaces, Payments — Signup is hidden once tenancy is enabled.
+    expect(shaped.find((item) => item.label === 'Settings')?.children).toHaveLength(3)
   })
 
   // Task 19 (spec §5.3): the Subscriptions group's three children are gated by TWO distinct

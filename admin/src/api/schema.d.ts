@@ -120,17 +120,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/commerce/payments": {
+    "/settings/payments": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get payment gateway settings (booleans for secrets — key material never returned) */
-        get: operations["thalloCommerceAdminPaymentsShow"];
-        /** Update payment gateway settings (secrets are write-only: blank clears, absent keeps) */
-        put: operations["thalloCommerceAdminPaymentsUpdate"];
+        /**
+         * Get platform payment gateway settings (booleans for secrets — key material never returned)
+         * @description Effective platform payment gateway configuration during the platform-payments-settings migration cutover: a stored platform value, else (only before the migration marker is written) an unmarked legacy value, else the config/.env default. Secret fields are reported as booleans only. Requires `tenancy.manage`.
+         */
+        get: operations["thalloSettingsPaymentsShow"];
+        /**
+         * Update platform payment gateway settings (secrets are write-only: blank clears, absent keeps)
+         * @description Field ABSENT leaves the stored value unchanged; `null` or a blank string clears it (forget — the config/env fallback then shows through); a non-blank string is validated and stored (secrets encrypted at rest). Every write lands in the unscoped platform system channel via PlatformPaymentSettingsStore only. Requires `tenancy.manage`.
+         */
+        put: operations["thalloSettingsPaymentsUpdate"];
         post?: never;
         delete?: never;
         options?: never;
@@ -4364,7 +4370,7 @@ export interface operations {
             };
         };
     };
-    thalloCommerceAdminPaymentsShow: {
+    thalloSettingsPaymentsShow: {
         parameters: {
             query?: never;
             header?: never;
@@ -4433,7 +4439,7 @@ export interface operations {
             };
         };
     };
-    thalloCommerceAdminPaymentsUpdate: {
+    thalloSettingsPaymentsUpdate: {
         parameters: {
             query?: never;
             header?: never;

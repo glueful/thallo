@@ -47,7 +47,6 @@ export const qk = {
   formSubmissionsUnread: () => ['form-submissions', 'unread'] as const,
   commerceMeta: () => ['commerce-meta'] as const,
   commerceStoreSettings: () => ['commerce-store-settings'] as const,
-  commercePaymentsSettings: () => ['commerce-payments-settings'] as const,
   commerceEmailSettings: () => ['commerce-email-settings'] as const,
   commerceMarketplaceSettings: () => ['commerce-marketplace-settings'] as const,
   commerceProducts: () => ['commerce-products'] as const,

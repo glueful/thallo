@@ -58,11 +58,6 @@ const storeSettingsData = ref<import('@/queries/commerceSettings').StoreSettings
 const storeSettingsStatus = ref<'pending' | 'error' | 'success'>('success')
 const saveStoreSettingsMock = vi.hoisted(() => vi.fn())
 
-// Payments settings (store-settings spec §3.6): query/mutation mocks for PaymentsPanel.
-const paymentsData = ref<import('@/queries/commerceSettings').PaymentsSettings | undefined>(undefined)
-const paymentsStatus = ref<'pending' | 'error' | 'success'>('success')
-const savePaymentsMock = vi.hoisted(() => vi.fn())
-
 // Order-email switches (store-settings spec §4.2 follow-up): mocks for EmailsPanel. Template
 // CONTENT comes from @/queries/email (mocked below); the switches from /commerce/emails.
 const emailSettingsData = ref<import('@/queries/commerceSettings').CommerceEmailSettings | undefined>(undefined)
@@ -110,8 +105,6 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
     }),
     useStoreSettings: () => ({ data: storeSettingsData, status: storeSettingsStatus }),
     useSaveStoreSettings: () => ({ mutateAsync: saveStoreSettingsMock, isLoading: ref(false) }),
-    usePaymentsSettings: () => ({ data: paymentsData, status: paymentsStatus }),
-    useSavePaymentsSettings: () => ({ mutateAsync: savePaymentsMock, isLoading: ref(false) }),
     useCommerceEmailSettings: () => ({ data: emailSettingsData, status: emailSettingsStatus }),
     useSaveCommerceEmailSettings: () => ({ mutateAsync: saveEmailSettingsMock, isLoading: ref(false) }),
     useMarketplaceSettings: () => ({ data: marketplaceData, status: marketplaceStatus }),
@@ -135,10 +128,10 @@ import StorePagesCard from '@/pages/commerce/settings/components/StorePagesCard.
 import ZonesPanel from '@/pages/commerce/settings/components/ZonesPanel.vue'
 import ClassesPanel from '@/pages/commerce/settings/components/ClassesPanel.vue'
 import TaxRatesPanel from '@/pages/commerce/settings/components/TaxRatesPanel.vue'
-import PaymentsPanel from '@/pages/commerce/settings/components/PaymentsPanel.vue'
 import EmailsPanel from '@/pages/commerce/settings/components/EmailsPanel.vue'
 import MarketplacePanel from '@/pages/commerce/settings/components/MarketplacePanel.vue'
 import SettingsIndex from '@/pages/commerce/settings/index.vue'
+import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 
 function location(overrides: Partial<CommerceShippingLocation> = {}): CommerceShippingLocation {
   return { kind: 'country', value: 'US', ...overrides }
@@ -1397,6 +1390,44 @@ describe('Settings page tab shell', () => {
   })
 })
 
+// ── Payments moved to the platform Settings page (platform-payments-settings spec, Task 7) ────
+// Gateway configuration is no longer a commerce-owned concern: the Payments tab is gone, and the
+// only trace left here is a pointer to `/settings/payments` — visible ONLY to an operator who
+// actually holds the platform authority (`manage_platform`) that destination page requires,
+// exactly like `/settings/workspaces` gates its own nav entry.
+
+describe('commerce settings — Payments moved to Settings → Payments', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+  })
+
+  it('no longer renders a Payments tab', async () => {
+    const wrapper = mount(SettingsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    expect(tabs.map((t) => t.text())).not.toContain('Payments')
+    expect(wrapper.find('[data-test="settings-tabs"]').text()).not.toContain('Payments')
+  })
+
+  it('hides the platform-authority link without manage_platform', async () => {
+    const wrapper = mount(SettingsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="commerce-payments-moved-link"]').exists()).toBe(false)
+  })
+
+  it('shows the platform-authority link to Settings › Payments for a platform operator', async () => {
+    useTenancyAccessStore().access.manage_platform = true
+    const wrapper = mount(SettingsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    const link = wrapper.find('[data-test="commerce-payments-moved-link"]')
+    expect(link.exists()).toBe(true)
+    expect(link.text()).toContain('Settings › Payments')
+  })
+})
+
 // ── StorePanel: runtime store settings (store-settings spec §3.5) ─────────────────────────────
 
 function storeSettings(
@@ -1571,135 +1602,6 @@ describe('commerce settings route gating', () => {
     const src = readFileSync(join(process.cwd(), 'src/pages/commerce/settings/index.vue'), 'utf8')
     expect(src).toMatch(/requiresAuth:\s*true/)
     expect(src).toMatch(/requiresCapability:\s*thallo\.commerce/)
-  })
-})
-
-// ── PaymentsPanel: gateway configuration (store-settings spec §3.6) ───────────────────────────
-
-function paymentsSettings(
-  overrides: Partial<import('@/queries/commerceSettings').PaymentsSettings> = {},
-): import('@/queries/commerceSettings').PaymentsSettings {
-  return {
-    mode: overrides.mode ?? 'gateway',
-    default_gateway: overrides.default_gateway ?? { value: 'paystack', default: 'paystack', overridden: false },
-    gateways: overrides.gateways ?? [
-      {
-        id: 'paystack',
-        enabled: { value: true, default: true, overridden: false },
-        secret_key: { set: false, source: null },
-        webhook_secret: { set: false, source: null },
-        default: true,
-        webhook_url: 'https://shop.example/webhooks/paystack',
-      },
-      {
-        id: 'stripe',
-        enabled: { value: false, default: false, overridden: false },
-        secret_key: { set: false, source: null },
-        webhook_secret: { set: false, source: null },
-        default: false,
-        webhook_url: 'https://shop.example/webhooks/stripe',
-      },
-    ],
-  }
-}
-
-describe('PaymentsPanel', () => {
-  beforeEach(() => {
-    setActivePinia(createPinia())
-    paymentsData.value = paymentsSettings()
-    paymentsStatus.value = 'success'
-    savePaymentsMock.mockReset()
-    savePaymentsMock.mockResolvedValue(paymentsSettings())
-  })
-
-  function mountPayments(canManage = true) {
-    return mount(PaymentsPanel, { props: { canManage }, global: { stubs: pageStubs } })
-  }
-
-  it('shows the manual-collection note when no gateway extension is installed', async () => {
-    paymentsData.value = paymentsSettings({ mode: 'manual', gateways: [] })
-    const wrapper = mountPayments()
-    await flushPromises()
-
-    expect(wrapper.find('[data-test="payments-manual"]').text()).toContain('Manual collection')
-    expect(wrapper.findAll('[data-test="payments-gateway-card"]')).toHaveLength(0)
-  })
-
-  it('renders a card per gateway with write-only secret inputs (never a stored value)', async () => {
-    paymentsData.value = paymentsSettings({
-      gateways: [
-        {
-          id: 'paystack',
-          enabled: { value: true, default: true, overridden: false },
-          secret_key: { set: true, source: 'settings' },
-          webhook_secret: { set: true, source: 'env' },
-          default: true,
-          webhook_url: 'https://shop.example/webhooks/paystack',
-        },
-      ],
-    })
-    const wrapper = mountPayments()
-    await flushPromises()
-
-    const input = wrapper.find('[data-test="payments-secret-paystack-secret_key"]')
-    // Write-only: the input NEVER carries a stored value — only the set-state placeholder.
-    expect((input.element as HTMLInputElement).value).toBe('')
-    expect(input.attributes('placeholder')).toContain('stored')
-    expect(wrapper.text()).toContain('A key is stored (encrypted). Leave blank to keep it.')
-    expect(wrapper.text()).toContain('Using the key from .env.')
-    // The copy-able dashboard URL renders per card.
-    const urlRow = wrapper.find('[data-test="payments-webhook-url-paystack"]')
-    expect(urlRow.text()).toContain('https://shop.example/webhooks/paystack')
-    expect(wrapper.find('[data-test="payments-webhook-copy-paystack"]').exists()).toBe(true)
-  })
-
-  it('sends only changed fields: typed secrets ride the payload, untouched ones are absent', async () => {
-    const wrapper = mountPayments()
-    await flushPromises()
-
-    await wrapper.find('[data-test="payments-secret-paystack-secret_key"]').setValue('sk_live_new123')
-    await wrapper.find('[data-test="payments-save"]').trigger('click')
-    await flushPromises()
-
-    const body = savePaymentsMock.mock.calls[0]![0]
-    expect(body.gateways.paystack.secret_key).toBe('sk_live_new123')
-    expect(body.gateways.paystack).not.toHaveProperty('webhook_secret')
-    expect(body.gateways.paystack).not.toHaveProperty('enabled')
-    expect(body).not.toHaveProperty('default_gateway')
-  })
-
-  it('Clear sends an explicit null for a settings-stored secret', async () => {
-    paymentsData.value = paymentsSettings({
-      gateways: [
-        {
-          id: 'paystack',
-          enabled: { value: true, default: true, overridden: false },
-          secret_key: { set: true, source: 'settings' },
-          webhook_secret: { set: false, source: null },
-          default: true,
-          webhook_url: 'https://shop.example/webhooks/paystack',
-        },
-      ],
-    })
-    const wrapper = mountPayments()
-    await flushPromises()
-
-    await wrapper.find('[data-test="payments-clear-paystack-secret_key"]').trigger('click')
-    await wrapper.find('[data-test="payments-save"]').trigger('click')
-    await flushPromises()
-
-    const body = savePaymentsMock.mock.calls[0]![0]
-    expect(body.gateways.paystack.secret_key).toBeNull()
-  })
-
-  it('hides Save and disables inputs without manage rights', async () => {
-    const wrapper = mountPayments(false)
-    await flushPromises()
-
-    expect(wrapper.find('[data-test="payments-save"]').exists()).toBe(false)
-    expect(
-      wrapper.find('[data-test="payments-secret-paystack-secret_key"]').attributes('disabled'),
-    ).toBeDefined()
   })
 })
 
