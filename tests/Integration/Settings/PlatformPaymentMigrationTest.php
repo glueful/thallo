@@ -579,6 +579,35 @@ final class PlatformPaymentMigrationTest extends AppTestCase
         self::assertStringContainsString(self::SECRET_KEY, $secondOut);
     }
 
+    /**
+     * The other half of the marker gate: "I could not READ the marker" is not "the marker is set".
+     * Withholding adoption on an unknown marker state is correct — but if the run then goes on to
+     * complete, it writes the marker FRESH over an empty platform store and permanently disables
+     * the legacy fallback with nothing copied. A single transient channel fault (deadlock, timeout)
+     * on one up-front read would be enough, and the fault need not recur for the damage to land.
+     *
+     * So an unconfirmed marker aborts the run outright: no adoption, no marker write, no "complete".
+     */
+    public function testAnUnreadableMarkerAbortsInsteadOfFalselyCompletingTheMigration(): void
+    {
+        $legacyCipher = $this->cipher(self::SECRET_KEY, 'sk_live_marker_unreadable');
+        $this->insertPre(self::SECRET_KEY, $legacyCipher);
+        $this->insertPre(self::GATEWAY_KEY, 'paystack');
+        $channel = new ScriptedSystemChannel();
+        // Transient: exactly one failed read of the marker, everything afterwards healthy.
+        $channel->throwOnGetOf(self::MARKER, 1);
+
+        [$status, $output] = $this->runCommand($this->preTable, $channel, ['--prune-legacy' => true]);
+
+        self::assertSame(Command::FAILURE, $status);
+        self::assertSame([], $channel->putOrder, 'nothing may be written while the marker state is unknown');
+        self::assertNull($channel->get(self::MARKER), 'a fresh marker must never be written over an empty store');
+        self::assertNull($channel->get(self::SECRET_KEY), 'nothing may be adopted');
+        self::assertNotNull($this->preRow(self::SECRET_KEY), 'nothing may be pruned');
+        self::assertStringContainsString('could not be read', $output);
+        self::assertStringNotContainsString('absent', $output);
+    }
+
     // ---- matrix: the output must never carry secret material ----------------------------------
 
     public function testOutputNeverContainsSecretMaterial(): void

@@ -137,10 +137,16 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
             return $this->refuseWithoutDefaultWorkspace();
         }
 
-        // Read ONCE, up front: whether this installation has already cut over. A marked install has
-        // by definition already completed its accounting, so pass 1 may preserve and report but must
-        // never ADOPT — see reconcile().
-        $alreadyMarked = $this->markerPresent();
+        // Read ONCE, up front: whether this installation has already cut over. A CONFIRMED marker
+        // means the accounting is already complete, so pass 1 may preserve and report but must never
+        // ADOPT (see reconcile()). An UNREADABLE marker is a different thing entirely and must not
+        // be conflated with it: skipping adoption and then completing anyway would write the marker
+        // FRESH over an empty platform store and permanently disable the legacy fallback with
+        // nothing copied — from one transient channel fault that need never recur. Abort instead.
+        $alreadyMarked = $this->markerState();
+        if ($alreadyMarked === null) {
+            return $this->refuseUnreadableMarker();
+        }
 
         $keys = $this->candidateKeys();
         $this->line('Platform payment credentials — candidate keys: ' . count($keys));
@@ -149,11 +155,11 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
         }
 
         $failures = 0;
-        /** @var list<string> $adopted keys copied in THIS run — the only ones prune may hold to the
-         *  post-copy verification standard */
-        $adopted = [];
+        /** @var list<string> $withPlatformValue keys that ended pass 1 holding a usable platform
+         *  value (adopted or already present) — the ones prune may hold to the verification standard */
+        $withPlatformValue = [];
         foreach ($keys as $key) {
-            if (!$this->reconcile($key, $alreadyMarked, $adopted)) {
+            if (!$this->reconcile($key, $alreadyMarked, $withPlatformValue)) {
                 $failures++;
             }
         }
@@ -197,7 +203,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
             return self::SUCCESS;
         }
 
-        $pruneResult = $this->prunePass($acknowledge, $adopted);
+        $pruneResult = $this->prunePass($acknowledge, $withPlatformValue);
         if ($pruneResult['failures'] > 0) {
             $this->line('');
             $this->error(sprintf(
@@ -238,17 +244,44 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
             : 'Migration complete. No legacy rows remained to prune.';
     }
 
-    /** Whether this installation has already cut over. Any non-null marker counts (as in Task 4). */
-    private function markerPresent(): bool
+    /**
+     * Tri-state, and the three states are genuinely different:
+     *  - TRUE  — confirmed marked (any non-null value counts, as in Task 4): accounting is done.
+     *  - FALSE — confirmed unmarked: this is the cutover run.
+     *  - NULL  — the marker could NOT be read. Not "unmarked" (that would adopt over an unknown
+     *    state) and emphatically not "marked" (that would skip adoption and then complete, writing
+     *    a fresh marker over an empty store). The caller aborts.
+     */
+    private function markerState(): ?bool
     {
         try {
             return $this->system->get(PlatformPayviaSettingsOverride::MIGRATION_MARKER_KEY) !== null;
         } catch (\Throwable) {
-            // Unknown marker state. "Already marked" is the conservative reading: it withholds
-            // adoption, which is the only side of this decision that can put a retired credential
-            // back into service.
-            return true;
+            return null;
         }
+    }
+
+    /**
+     * The second pre-flight refusal. Nothing has been read, adopted, reported or deleted, and — the
+     * point of this branch — no marker has been written: an installation whose marker state is
+     * unknown must never be told it is complete.
+     */
+    private function refuseUnreadableMarker(): int
+    {
+        $this->line('Platform payment credentials — BLOCKED before reading anything.');
+        $this->line('  reason     the migration marker could not be read from the system channel,');
+        $this->line('             so whether this installation has already cut over is unknown.');
+        $this->line('  fix        restore the system channel (check the database/connection)');
+        $this->line('  then       re-run: ' . ($this->getName() ?? ''));
+        $this->error(
+            'The migration marker could not be read. Continuing would mean guessing: treating the '
+            . 'state as migrated would skip every adoption and then write the marker over a store '
+            . 'that may be EMPTY, permanently disabling the legacy compatibility reads with nothing '
+            . 'copied. Nothing was read, adopted, reported or deleted, and no marker was written. '
+            . 'Fix the system channel (see above), then re-run this migration.'
+        );
+
+        return self::FAILURE;
     }
 
     /** Marker-state-aware tail for a refusal message — on a marked install it was NOT "not written". */
@@ -291,13 +324,17 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
 
     /**
      * Account for ONE candidate key. Returns false only when the key genuinely cannot be resolved
-     * — which is what withholds the completion marker from the whole run. Keys copied here are
-     * appended to $adopted: prune holds THOSE, and only those, to the post-copy verification
-     * standard, because they are the only ones whose platform bytes this run put there.
+     * — which is what withholds the completion marker from the whole run.
      *
-     * @param list<string> $adopted
+     * Every key that ends this pass holding a usable platform value — whether adopted here or
+     * already present — is appended to $withPlatformValue. Prune holds THOSE, and only those, to
+     * the verification standard: for them a platform value that has since vanished is a real fault
+     * worth aborting over, whereas for a key that never had one there is simply nothing to verify
+     * against.
+     *
+     * @param list<string> $withPlatformValue
      */
-    private function reconcile(string $key, bool $alreadyMarked, array &$adopted): bool
+    private function reconcile(string $key, bool $alreadyMarked, array &$withPlatformValue): bool
     {
         $legacyRow = $this->legacy->raw($key);
         $platformValue = $this->platform->get($key);
@@ -313,6 +350,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
         }
 
         if ($platformValue !== null && trim($platformValue) !== '') {
+            $withPlatformValue[] = $key;
             $this->reportPreserved($key, $legacyRow, $platformValue);
 
             return true;
@@ -361,7 +399,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
             return false;
         }
 
-        $adopted[] = $key;
+        $withPlatformValue[] = $key;
         $this->line('  adopted    ' . $key . $this->tenantSuffix($legacyRow['tenant_uuid']));
 
         return true;
@@ -426,10 +464,11 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
      * row is deleted only through compare-and-delete with the exact bytes just read, so a value
      * that changed in that window loses the race loudly instead of being destroyed.
      *
-     * @param list<string> $adopted keys this run copied — see the missing-platform-value branch
+     * @param list<string> $withPlatformValue keys that held a platform value at the end of pass 1 —
+     *     see the missing-platform-value branch
      * @return array{failures:int,pruned:int,kept:int}
      */
-    private function prunePass(bool $acknowledge, array $adopted): array
+    private function prunePass(bool $acknowledge, array $withPlatformValue): array
     {
         $failures = 0;
         $pruned = 0;
@@ -450,14 +489,15 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
             $platformValue = $this->platform->get($key);
             $platformStored = $this->rawPlatformBytes($key);
             if ($platformValue === null || $platformStored === null) {
-                // Only a FAILURE for a key THIS run copied: its bytes were verified minutes ago, so
-                // their disappearance means the copy was lost or corrupted in between. For any other
-                // key an absent platform value is an ordinary, legitimate state — most importantly a
-                // credential the operator retired on an already-marked install. There is simply
-                // nothing to verify the legacy row against, so it is kept, not deleted, and not
-                // treated as an error.
-                if (in_array($key, $adopted, true)) {
-                    $this->line('  FAILED     ' . $key . ' (the value copied by this run is missing or unreadable)');
+                // Only a FAILURE for a key that HELD a platform value moments ago in pass 1 —
+                // adopted here, or already present. Its disappearance between the passes is a real
+                // fault (a lost or corrupted copy, a concurrent clear) and pruning against it would
+                // be pruning against nothing. For a key that never had a platform value this is an
+                // ordinary, legitimate state — most importantly a credential the operator retired on
+                // an already-marked install — so there is simply nothing to verify the legacy row
+                // against and it is kept, not deleted, and not treated as an error.
+                if (in_array($key, $withPlatformValue, true)) {
+                    $this->line('  FAILED     ' . $key . ' (platform value was present in pass 1 and is now gone)');
                     $failures++;
                     continue;
                 }

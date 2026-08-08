@@ -43,6 +43,9 @@ final class ScriptedSystemChannel implements SystemChannel
     /** @var array<string,\Closure(string):string> key => rewrite applied to the stored bytes */
     private array $tampering = [];
 
+    /** @var array<string,int> key => remaining get() calls that must throw */
+    private array $throwingGets = [];
+
     private ?string $armKey = null;
     private ?string $hookKey = null;
     private ?\Closure $hook = null;
@@ -63,6 +66,16 @@ final class ScriptedSystemChannel implements SystemChannel
         $this->hook = $hook;
     }
 
+    /**
+     * Make the next $times get($key) calls THROW — a transient channel fault (deadlock, timeout)
+     * rather than a permanent outage: after the budget is spent the key reads normally again, which
+     * is what makes "I could not read it once" different from "it is not there".
+     */
+    public function throwOnGetOf(string $key, int $times = 1): void
+    {
+        $this->throwingGets[$key] = $times;
+    }
+
     /** Seed a value without recording it as a caller-issued put(). */
     public function seed(string $key, string $value): void
     {
@@ -72,6 +85,11 @@ final class ScriptedSystemChannel implements SystemChannel
     public function get(string $key): ?string
     {
         $this->getOrder[] = $key;
+
+        if (($this->throwingGets[$key] ?? 0) > 0) {
+            $this->throwingGets[$key]--;
+            throw new \RuntimeException('scripted transient system-channel fault');
+        }
 
         if ($this->armed && !$this->fired && $this->hook !== null && $key === $this->hookKey) {
             $this->fired = true;
