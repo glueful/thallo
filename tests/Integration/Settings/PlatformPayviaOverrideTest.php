@@ -258,6 +258,35 @@ final class PlatformPayviaOverrideTest extends AppTestCase
         );
     }
 
+    public function testAbsentKeyOnAMarkedInstallAlsoResolvesToNullSoConfigAndEnvApply(): void
+    {
+        // The marked half of the "absent key ⇒ null" case: with the cutover done and NO platform
+        // row for these keys, the answer is still "no override" — payvia falls back to
+        // config/env exactly as on an unmarked, empty install. (A legacy row exists for one of
+        // them, to prove the marker — not the absence of data — is what silences that path.)
+        $this->seedLegacyCandidate('payvia.gateways.paystack.secret_key', 'sk_legacy_invisible');
+        $this->markMigrated();
+
+        $override = $this->override();
+
+        foreach (
+            [
+                'payvia.default_gateway',
+                'payvia.gateways.paystack.enabled',
+                'payvia.gateways.paystack.secret_key',
+                'payvia.gateways.stripe.webhook_secret',
+            ] as $key
+        ) {
+            self::assertNull($override->value($this->appContext(), $key), $key);
+        }
+
+        self::assertSame('paystack', PayviaSettings::defaultGateway($this->appContext()));
+        self::assertSame(
+            'https://api.paystack.co',
+            PayviaSettings::gatewayConfig($this->appContext(), 'paystack')['base_url'],
+        );
+    }
+
     public function testBlankStoredValuesAreTreatedAsNoOverride(): void
     {
         // Byte-identical to the retired commerce override: a blank row is "no value", not "".
