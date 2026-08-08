@@ -11,8 +11,8 @@ use Glueful\Extensions\Payvia\Support\PayviaSettings;
 use Glueful\Http\Response;
 use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;
+use Glueful\Extensions\Payvia\Support\PayviaSettingsOverride;
 use Thallo\Commerce\Http\PaymentsSettingsController;
-use Thallo\Commerce\Settings\SettingsStorePayviaOverride;
 use Thallo\Tenancy\System\SystemFlags;
 
 /**
@@ -114,8 +114,9 @@ final class CommercePaymentsEndpointTest extends AppTestCase
             'enabled' => true,
         ]]]);
 
-        // The full chain: settings row (encrypted) → SettingsStorePayviaOverride (decrypts)
-        // → PayviaSettings::gatewayConfig — what GatewayManager and the drivers actually read.
+        // The full chain: system-channel row (encrypted) → PlatformPayviaSettingsOverride
+        // (decrypts) → PayviaSettings::gatewayConfig — what GatewayManager and the drivers
+        // actually read.
         $config = PayviaSettings::gatewayConfig($this->appContext(), 'paystack');
         self::assertSame($plaintext, $config['secret_key']);
         self::assertTrue($config['enabled']);
@@ -196,8 +197,13 @@ final class CommercePaymentsEndpointTest extends AppTestCase
             'payvia.gateways.paystack.base_url' => 'https://evil.example',
         ]);
 
+        // Task 4 (platform-payments-settings): the seam is now satisfied by the APP-owned
+        // App\Settings\PlatformPayviaSettingsOverride, resolved from the container rather than
+        // constructed from the (deleted) commerce-pack class. The whitelist it enforces is the
+        // same one, ported verbatim.
         self::assertNull(
-            (new SettingsStorePayviaOverride())->value($this->appContext(), 'payvia.gateways.paystack.base_url')
+            $this->container()->get(PayviaSettingsOverride::class)
+                ->value($this->appContext(), 'payvia.gateways.paystack.base_url')
         );
         self::assertSame(
             'https://api.paystack.co',

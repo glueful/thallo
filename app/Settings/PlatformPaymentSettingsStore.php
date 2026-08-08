@@ -13,14 +13,15 @@ use Thallo\Contracts\Settings\SystemChannel;
  * system keys (see {@see SystemKeys::PREFIXES}). Once a later task routes the payments settings
  * path through it, this becomes the place that encrypts/decrypts those rows on this store's
  * behalf; callers get and set plain strings and never touch {@see EncryptionService} themselves.
- * Until then, the legacy {@see \Thallo\Commerce\Settings\SettingsStorePayviaOverride} read path
- * still encrypts/decrypts independently — the two are compatible (see below), not yet unified.
+ * Task 4 has since retired that legacy class in favour of {@see PlatformPayviaSettingsOverride},
+ * which reads THROUGH this store; the AAD/secret-subkey conventions below are what made that
+ * cutover a pure rebinding rather than a re-encryption.
  *
  * SECRET subkeys (`secret_key`, `webhook_secret` — the terminal dot-segment of the key, e.g.
  * `payvia.gateways.stripe.secret_key`) are encrypted at rest with AAD = the full settings key
- * string. This class recognizes secrets by that SAME subkey-NAME set as
- * {@see \Thallo\Commerce\Settings\SettingsStorePayviaOverride} and uses the identical AAD
- * convention, so ciphertext produced by either side decrypts through the other. It does NOT
+ * string. This class recognizes secrets by the SAME subkey-NAME set as the retired
+ * `Thallo\Commerce\Settings\SettingsStorePayviaOverride` used, with the identical AAD
+ * convention, so ciphertext produced by that legacy write path still decrypts here. It does NOT
  * reproduce that override's namespace/config whitelist (`payvia.gateways.{id}.…` for an `$id`
  * present in the `payvia.gateways` config) — this is a generic key/value store and that
  * structural gate is deliberately left to the override (Task 4) and the settings controller
@@ -129,12 +130,13 @@ final class PlatformPaymentSettingsStore
     }
 
     /**
-     * Same secret SUBKEY-NAME set as
-     * {@see \Thallo\Commerce\Settings\SettingsStorePayviaOverride::whitelistedSubkey()}: the
-     * terminal dot-segment of the key must be one of the SECRET_SUBKEYS. Unlike that override,
-     * this check is NOT namespace/config-gated — it does not verify the key sits under
+     * Same secret SUBKEY-NAME set the retired
+     * `Thallo\Commerce\Settings\SettingsStorePayviaOverride::whitelistedSubkey()` used: the
+     * terminal dot-segment of the key must be one of the SECRET_SUBKEYS. Unlike that override
+     * (and unlike {@see PlatformPayviaSettingsOverride}), this check is NOT namespace/config-gated
+     * — it does not verify the key sits under
      * `payvia.gateways.{configured-id}.…`. That structural whitelist is enforced by the caller
-     * layers (the override, the settings controller), not here.
+     * layers ({@see PlatformPayviaSettingsOverride}, the settings controller), not here.
      */
     private function isSecretKey(string $key): bool
     {

@@ -8,14 +8,15 @@ use Glueful\Encryption\EncryptionService;
 
 /**
  * Platform-payments-settings spec (Task 3): a TEMPORARY, read-only facade over the OLD tenant
- * `settings` table via {@see LegacyPlatformPaymentSettingsRepository}. Used (a) as Task 4's
- * override's fallback for `payvia.*` reads until a migration marker is written, and (b) by
+ * `settings` table via {@see LegacyPlatformPaymentSettingsRepository}. Used (a) as
+ * {@see PlatformPayviaSettingsOverride}'s fallback for `payvia.*` reads until a migration marker
+ * is written, and (b) by
  * Task 5's migration command for enumeration/verification alongside the repository's
  * `deleteExact()` pruning.
  *
  * Recognizes the SAME secret subkey set (`secret_key`, `webhook_secret`) and the SAME
- * AAD convention (= the full settings key string) as
- * {@see \Thallo\Commerce\Settings\SettingsStorePayviaOverride} and
+ * AAD convention (= the full settings key string) as the retired
+ * `Thallo\Commerce\Settings\SettingsStorePayviaOverride` and as
  * {@see PlatformPaymentSettingsStore} — ciphertext written by either of those decrypts through
  * this reader unchanged.
  *

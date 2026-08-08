@@ -1729,6 +1729,32 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            // Platform-payments-settings spec §2 (Task 4): payvia's host settings seam, now
+            // APP-owned — this replaces thallo-commerce's retired SettingsStorePayviaOverride
+            // (deleted in the same change, so no first-wins ambiguity ever existed). Gateway
+            // credentials are installation-level infrastructure: the override reads the unscoped
+            // system channel first, the temporary legacy compatibility path only while the
+            // `payments.platform_credentials_migrated` marker is absent, and has ZERO capability
+            // gates.
+            //
+            // WHY services() AND NOT register(): ExtensionManager::discover() returns early on an
+            // extensions-cache hit, so registerProviders() — the only caller of any provider's
+            // register() — never runs on the boot mode production is REQUIRED to use, app-level
+            // providers included (ProviderClassResolver folds this class into the same list).
+            // ContainerFactory::loadExtensionDefinitions() instead re-resolves that list itself
+            // while building the container and reads each provider's STATIC services(), which runs
+            // identically in both boot modes. Pinned by
+            // tests/Integration/Settings/PlatformPayviaOverrideCachedBootTest.
+            //
+            // Unconditional (unlike the pack's old interface_exists() guard): glueful/payvia is a
+            // hard composer requirement of this app, so its interface always autoloads. Disabling
+            // the payvia EXTENSION only stops payvia's code from running — it never consults an
+            // override it isn't there to read.
+            \Glueful\Extensions\Payvia\Support\PayviaSettingsOverride::class => [
+                'class' => \App\Settings\PlatformPayviaSettingsOverride::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             // Store-settings spec §3.3: thallo-commerce's pack-owned storage contract, satisfied
             // by SettingsStore rows (pack-defines/app-provides — the EngineMediaUrlResolver shape).
             \Thallo\Commerce\Settings\CommerceSettingsStore::class => [

@@ -56,6 +56,13 @@ trait BootsFromExtensionProviderCache
             mkdir($cacheDir, 0755, true);
         }
         $previousCache = is_file($cacheFile) ? (string) file_get_contents($cacheFile) : null;
+        // Restored alongside the CONTENT below. `loadFromCache()` decides cache hit/miss from
+        // filemtime vs EXTENSIONS_CACHE_TTL_DEV (5s by default), so rewriting the file with a
+        // fresh mtime would silently turn EVERY secondary boot in the next few seconds of this
+        // process into a cached-provider boot — where no provider's register() runs and every
+        // extension's mergeConfig() defaults are therefore absent. That leaked into unrelated
+        // config-dependent tests as order-dependent failures; put the timestamp back too.
+        $previousMtime = $previousCache !== null ? (int) filemtime($cacheFile) : null;
         $previousTtl = $_ENV['EXTENSIONS_CACHE_TTL_DEV'] ?? null;
 
         file_put_contents(
@@ -79,6 +86,9 @@ trait BootsFromExtensionProviderCache
             }
             if ($previousCache !== null) {
                 file_put_contents($cacheFile, $previousCache);
+                if ($previousMtime !== null) {
+                    @touch($cacheFile, $previousMtime);
+                }
             } else {
                 @unlink($cacheFile);
             }
