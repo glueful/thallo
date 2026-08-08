@@ -76,6 +76,7 @@ use App\Setup\Console\DoctorCommand;
 use App\Setup\Console\ProvisionCommand;
 use App\Setup\Console\SuperuserGrantCommand;
 use App\Setup\Console\SuperuserTransferCommand;
+use App\Settings\Console\MigratePlatformPaymentCredentialsCommand;
 use App\Content\Backfill\BackfillRunner;
 use App\Content\Indexing\FilterIndexJobDispatcher;
 use App\Http\Controllers\AdminConfigController;
@@ -1909,6 +1910,17 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            // Platform-payments-settings spec §2 "Migration" (Task 5): the conservative cutover of
+            // payvia.* credentials from the legacy tenant `settings` table to the unscoped platform
+            // system channel. Unlike its neighbours this command declares an EXPLICIT constructor
+            // (the platform store, the legacy reader + its repository, and the SystemChannel) so
+            // the migration's collaborators are injected rather than looked up — autowiring fills
+            // all six parameters, and tests point the legacy repository at an isolated table.
+            MigratePlatformPaymentCredentialsCommand::class => [
+                'class' => MigratePlatformPaymentCredentialsCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
         ];
     }
 
@@ -2071,6 +2083,7 @@ final class ThalloServiceProvider extends ServiceProvider
             CreateAdminCommand::class,
             SuperuserGrantCommand::class,
             SuperuserTransferCommand::class,
+            MigratePlatformPaymentCredentialsCommand::class,
         ]);
     }
 
