@@ -78,8 +78,18 @@ extensions-browser-managed, never statically listed.
 2. **The extensions browser is the merchant's install path** for tier 2 — the detached
    composer-install service + auto-enable exists and Lemma's browse UI drives it. With code
    already required, "install" reduces to enable + container recompile + `migrate:run`.
-3. **Payments credentials are runtime-editable, encrypted, write-only** (Payments tab);
-   `.env` keys remain the ops-managed fallback. No distribution work needed here.
+3. **Payments credentials are runtime-editable, encrypted, write-only** (`Settings → Payments`);
+   `.env` keys remain the ops-managed fallback. No distribution work needed here. **Ownership
+   update (platform-payments-settings, 2026-08-08):** this surface moved OUT of Commerce and is
+   now APP-OWNED, platform-scoped over the unscoped system channel — it was never really a
+   Commerce-only concern (the SAME single gateway account also settles every workspace SaaS
+   subscription), and per-pack ownership let disabling `thallo.commerce` silently revert live
+   webhook verification to `.env`. It is therefore INSTALLATION-global infrastructure, not a
+   tier-2 "Commerce" setting: trimming `glueful/commerce` from `config/extensions.php` per the
+   checklist below must never be read as trimming payments configuration too — `glueful/payvia`
+   and its Settings → Payments page stay relevant to a payments-only (no storefront) install, e.g.
+   one selling only workspace subscriptions. See
+   [platform-payments-settings spec](superpowers/specs/2026-08-05-platform-payments-settings-design.md).
 4. **Gateway-less and keyless installs sell nothing but break nothing** — manual collection
    is the floor the whole payments stack degrades to. This is what makes trimming commerce
    and payvia from defaults safe.
