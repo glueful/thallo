@@ -48,9 +48,9 @@ final class AdminOpenApiGateTest extends AppTestCase
         // Store settings (store-settings spec §3.4).
         ['GET', '/v1/admin/commerce/settings'],
         ['PUT', '/v1/admin/commerce/settings'],
-        // Payments settings (store-settings spec §3.6).
-        ['GET', '/v1/admin/commerce/payments'],
-        ['PUT', '/v1/admin/commerce/payments'],
+        // Payments settings RETIRED (platform-payments-settings spec, Task 6): moved to the
+        // neutral `/v1/admin/settings/payments` (routes/admin.php) — see
+        // tests/Integration/Settings/PlatformPaymentsSettingsApiTest.php.
         // Order-email switches (store-settings spec §4.2 follow-up).
         ['GET', '/v1/admin/commerce/emails'],
         ['PUT', '/v1/admin/commerce/emails'],

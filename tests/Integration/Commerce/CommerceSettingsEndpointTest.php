@@ -238,8 +238,9 @@ final class CommerceSettingsEndpointTest extends AppTestCase
 
     public function testPaymentsMovedToItsOwnEndpoint(): void
     {
-        // Spec §3.6 (Payments tab): the payments block left this payload for
-        // GET /v1/admin/commerce/payments — CommercePaymentsEndpointTest owns it now.
+        // Spec §3.6 (Payments tab): the payments block left this payload for its own endpoint —
+        // now GET /v1/admin/settings/payments (platform-payments-settings spec, Task 6);
+        // PlatformPaymentsSettingsApiTest owns it.
         $data = $this->data($this->controller()->show(Request::create('/x')));
 
         self::assertArrayNotHasKey('payments', $data);

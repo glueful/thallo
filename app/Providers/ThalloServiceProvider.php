@@ -92,6 +92,7 @@ use App\Http\Controllers\HealthAdminController;
 use App\Http\Controllers\IconInventoryController;
 use App\Http\Controllers\ImportExportController;
 use App\Http\Controllers\MediaAdminController;
+use App\Http\Controllers\PlatformPaymentsSettingsController;
 use App\Http\Controllers\RegionAdminController;
 use App\Http\Controllers\ScheduledTasksController;
 use App\Http\Controllers\TenancyAccessController;
@@ -1753,6 +1754,16 @@ final class ThalloServiceProvider extends ServiceProvider
             // override it isn't there to read.
             \Glueful\Extensions\Payvia\Support\PayviaSettingsOverride::class => [
                 'class' => \App\Settings\PlatformPayviaSettingsOverride::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            // Platform-payments-settings spec §2 (Task 6): the neutral Settings -> Payments API
+            // (GET/PUT /v1/admin/settings/payments — see routes/admin.php), replacing
+            // thallo-commerce's retired PaymentsSettingsController. Autowired — the constructor's
+            // PayviaSettingsOverride param resolves to the SAME shared override bound above, and
+            // PlatformPaymentSettingsStore/CanonicalPublicOriginResolver are both already bound.
+            PlatformPaymentsSettingsController::class => [
+                'class' => PlatformPaymentsSettingsController::class,
                 'shared' => true,
                 'autowire' => true,
             ],

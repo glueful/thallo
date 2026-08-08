@@ -13374,18 +13374,19 @@
                 }
             }
         },
-        "\/v1\/admin\/commerce\/payments": {
+        "\/v1\/admin\/settings\/payments": {
             "get": {
-                "operationId": "thalloCommerceAdminPaymentsShow",
-                "summary": "Get payment gateway settings (booleans for secrets \u2014 key material never returned)",
+                "operationId": "thalloSettingsPaymentsShow",
+                "summary": "Get platform payment gateway settings (booleans for secrets \u2014 key material never returned)",
                 "tags": [
-                    "Thallo Commerce"
+                    "Thallo Settings"
                 ],
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
+                "description": "Effective platform payment gateway configuration during the platform-payments-settings migration cutover: a stored platform value, else (only before the migration marker is written) an unmarked legacy value, else the config\/.env default. Secret fields are reported as booleans only. Requires `tenancy.manage`.",
                 "responses": {
                     "200": {
                         "description": "Successful response"
@@ -13489,16 +13490,17 @@
                 }
             },
             "put": {
-                "operationId": "thalloCommerceAdminPaymentsUpdate",
-                "summary": "Update payment gateway settings (secrets are write-only: blank clears, absent keeps)",
+                "operationId": "thalloSettingsPaymentsUpdate",
+                "summary": "Update platform payment gateway settings (secrets are write-only: blank clears, absent keeps)",
                 "tags": [
-                    "Thallo Commerce"
+                    "Thallo Settings"
                 ],
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
+                "description": "Field ABSENT leaves the stored value unchanged; `null` or a blank string clears it (forget \u2014 the config\/env fallback then shows through); a non-blank string is validated and stored (secrets encrypted at rest). Every write lands in the unscoped platform system channel via PlatformPaymentSettingsStore only. Requires `tenancy.manage`.",
                 "responses": {
                     "200": {
                         "description": "Successful response"
