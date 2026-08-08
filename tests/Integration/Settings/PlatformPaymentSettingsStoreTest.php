@@ -97,9 +97,14 @@ final class PlatformPaymentSettingsStoreTest extends AppTestCase
 
         $stored = $this->row($key);
         self::assertIsString($stored);
-        // Flip the trailing byte: still parses as an encrypted-looking value (same shape/prefix)
-        // but the auth tag no longer matches, so decryption must fail closed.
-        $tampered = substr($stored, 0, -1) . (str_ends_with($stored, 'A') ? 'B' : 'A');
+        // Flip a byte in the MIDDLE of the envelope (never the tail): still parses as an
+        // encrypted-looking value (same shape/prefix) but the auth tag no longer matches, so
+        // decryption must fail closed. A trailing-byte flip is unreliable — base64's last character
+        // carries unused padding bits, so two different characters can decode to the identical byte
+        // and leave the real ciphertext untouched, making the "tamper" a no-op and this assertion
+        // fail intermittently. Same reasoning as LegacyPlatformPaymentReaderTest's tamper helper.
+        $mid = intdiv(strlen($stored), 2);
+        $tampered = substr($stored, 0, $mid) . ($stored[$mid] === 'A' ? 'B' : 'A') . substr($stored, $mid + 1);
         $this->channel()->put($key, $tampered);
 
         self::assertNull($this->store()->get($key));
