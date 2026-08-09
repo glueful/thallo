@@ -105,19 +105,6 @@ export interface CommerceOrder {
   events: CommerceOrderEvent[]
 }
 
-export interface OrderListFilters {
-  status?: string
-  page?: number
-  perPage?: number
-}
-
-export interface OrderListPage {
-  orders: CommerceOrder[]
-  total: number
-  current_page: number
-  per_page: number
-}
-
 // The admin envelopes are doc-only in the OpenAPI schema (see commerceCatalog.ts's identical
 // note), so normalize the raw JSON into the stricter hand-written shapes above at the boundary.
 
@@ -214,31 +201,6 @@ function normalizeOrder(raw: Record<string, unknown>): CommerceOrder {
 
 // ── Fetchers ─────────────────────────────────────────────────────────────────
 
-/** `GET /commerce/orders` — OrderListQuery's exact param set is `{status, page, per_page}`; there
- * is no `type`/`q` filter on orders (unlike products). */
-export async function fetchOrders(filters: OrderListFilters = {}): Promise<OrderListPage> {
-  const { data, error, response } = await client.GET('/commerce/orders', {
-    params: {
-      query: {
-        status: filters.status || undefined,
-        page: filters.page,
-        per_page: filters.perPage,
-      },
-    },
-  })
-  if (error) throw toApiError(error, response)
-  const body = data as
-    | { data?: unknown[]; current_page?: number; per_page?: number; total?: number }
-    | undefined
-  const rows = Array.isArray(body?.data) ? body.data : []
-  return {
-    orders: rows.map((o) => normalizeOrder(o as Record<string, unknown>)),
-    total: body?.total ?? 0,
-    current_page: body?.current_page ?? filters.page ?? 1,
-    per_page: body?.per_page ?? filters.perPage ?? 24,
-  }
-}
-
 export async function fetchOrder(uuid: string): Promise<CommerceOrder> {
   const { data, error, response } = await client.GET('/commerce/orders/{uuid}', {
     params: { path: { uuid } },
@@ -250,16 +212,6 @@ export async function fetchOrder(uuid: string): Promise<CommerceOrder> {
 }
 
 // ── Query wrappers ───────────────────────────────────────────────────────────
-
-export function useCommerceOrders(filters: MaybeRefOrGetter<OrderListFilters>) {
-  return useQuery({
-    key: () => {
-      const f = toValue(filters)
-      return [...qk.commerceOrders(), f.status ?? '', f.page ?? 1, f.perPage ?? 24]
-    },
-    query: () => fetchOrders(toValue(filters)),
-  })
-}
 
 export function useCommerceOrder(uuid: MaybeRefOrGetter<string>) {
   return useQuery({
