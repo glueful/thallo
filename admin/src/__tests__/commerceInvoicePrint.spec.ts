@@ -75,10 +75,48 @@ describe('InvoiceDocument', () => {
       })
       const doc = wrapper.find('[data-test="invoice-document"]')
       expect(doc.attributes('data-preset')).toBe(preset)
-      expect(doc.classes()).toContain(`invoice-${preset}`)
+      // The emitted class hyphenates the preset ('thermal_80' -> 'invoice-thermal-80') to match
+      // print.css's selectors — see the joined test below for why this can't just re-derive the
+      // same string the component computes.
+      expect(doc.classes()).toContain(`invoice-${preset.replace(/_/g, '-')}`)
       expect(wrapper.text()).toContain('ORD-2002')
     },
   )
+
+  // Regression guard for the underscore/hyphen mismatch (component emitted `invoice-thermal_80`
+  // while print.css only ever defined `.invoice-thermal-80`, silently leaving every thermal
+  // preset entirely unstyled — no named page, no 80/58mm content box, no monochrome/dashed
+  // rules). Re-deriving the expected class via the SAME template-string logic the component uses
+  // (as the test above still does, for readability) would recreate exactly that bug and pass
+  // regardless of which side broke — so THIS test instead reads the class the mounted component
+  // ACTUALLY renders and looks that exact string up as a real selector in print.css itself,
+  // joining the two sides the way a browser would.
+  it('the class each preset actually renders has a matching real selector in print.css', async () => {
+    const { default: InvoiceDocument } = await import(
+      '@/pages/commerce/orders/components/InvoiceDocument.vue'
+    )
+    const { INVOICE_PAPER_PRESETS } = await import('@/queries/commerceSettings')
+    const cssRaw = readFileSync(join(ROOT, 'src/assets/print.css'), 'utf8')
+    const css = cssRaw.replace(/\/\*[\s\S]*?\*\//g, '')
+
+    for (const preset of INVOICE_PAPER_PRESETS) {
+      const wrapper = mount(InvoiceDocument, {
+        props: { invoice: invoice(), preset, ...baseDocumentProps },
+      })
+      const presetClass = wrapper
+        .find('[data-test="invoice-document"]')
+        .classes()
+        .find((c) => c.startsWith('invoice-') && c !== 'invoice-document')
+      expect(presetClass, `no invoice-* preset class rendered for preset "${preset}"`).toBeDefined()
+
+      const escaped = presetClass!.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')
+      const selector = new RegExp(`\\.${escaped}\\b`)
+      expect(
+        css,
+        `print.css has no selector for "${presetClass}" (rendered for preset "${preset}")`,
+      ).toMatch(selector)
+    }
+  })
 
   describe('untoggleable core (spec Ruling 3) — every SKU/addresses/tax-id toggle combination', () => {
     const bools = [true, false]
@@ -536,5 +574,36 @@ describe('layout print hooks (default.vue)', () => {
     const sidebarEnd = src.indexOf(sidebarBlock) + sidebarBlock.length
     const shellStart = src.indexOf('data-print-shell')
     expect(shellStart).toBeGreaterThan(sidebarEnd)
+  })
+
+  // Regression guard for the multi-page truncation bug: `UDashboardGroup`'s theme base is
+  // `fixed inset-0 flex overflow-hidden` — a viewport-clipped ancestor of `[data-print-shell]`
+  // that silently drops every physical page after the first when printing (an A4 invoice with
+  // ~15+ lines, or ANY thermal receipt, loses its totals/footer). A real multi-page print
+  // render isn't practically assertable in jsdom (there is no pagination/print engine to run),
+  // so this is a structural assertion on the fix's two required pieces instead: the stable hook
+  // exists on the actual clipping ancestor, and print.css resets exactly the properties that
+  // clip it.
+  it('marks UDashboardGroup (the fixed/overflow-hidden shell root) as the print-flow reset hook', () => {
+    expect(extract('UDashboardGroup')).toMatch(/data-print-root/)
+  })
+
+  it('data-print-root sits OUTSIDE (an ancestor of) the print-shell div, never the reverse', () => {
+    const groupBlock = extract('UDashboardGroup')
+    const rootAttrIndex = groupBlock.indexOf('data-print-root')
+    const shellIndex = groupBlock.indexOf('data-print-shell')
+    expect(rootAttrIndex).toBeGreaterThanOrEqual(0)
+    expect(shellIndex).toBeGreaterThan(rootAttrIndex)
+  })
+
+  it('print.css resets the print-root ancestor out of fixed/overflow-hidden/viewport-height so multi-page content can flow', () => {
+    const cssRaw = readFileSync(join(ROOT, 'src/assets/print.css'), 'utf8')
+    const css = cssRaw.replace(/\/\*[\s\S]*?\*\//g, '')
+    const rule = css.match(/\[data-print-root\]\s*\{([^}]*)\}/)
+    expect(rule, 'print.css has no [data-print-root] rule at all').not.toBeNull()
+    const body = rule![1]!
+    expect(body).toMatch(/position:\s*static/)
+    expect(body).toMatch(/overflow:\s*visible/)
+    expect(body).toMatch(/height:\s*auto/)
   })
 })

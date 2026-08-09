@@ -113,7 +113,7 @@ const utilityItems = computed(() => nav.value[1])
 </script>
 
 <template>
-  <UDashboardGroup unit="rem" storage="local">
+  <UDashboardGroup unit="rem" storage="local" data-print-root>
     <UDashboardSidebar
       id="default"
       v-model:open="open"

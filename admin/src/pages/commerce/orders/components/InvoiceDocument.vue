@@ -22,7 +22,11 @@ const props = defineProps<{
   showTaxId: boolean
 }>()
 
-const presetClass = computed(() => `invoice-${props.preset}`)
+// `preset` values use underscores ('thermal_80'/'thermal_58', matching the settings enum), but
+// print.css's selectors use hyphens ('.invoice-thermal-80'/'.invoice-thermal-58') — translate
+// here so the emitted class always matches an actual stylesheet rule. `data-preset` below keeps
+// the raw (underscore) value for anything that needs the literal enum member.
+const presetClass = computed(() => `invoice-${props.preset.replace(/_/g, '-')}`)
 
 const moneyMeta = computed(() => ({
   currency: props.invoice.order.currency ?? 'USD',

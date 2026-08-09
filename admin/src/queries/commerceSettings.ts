@@ -960,9 +960,14 @@ export function useInvoiceSettings() {
       logoBlobUuid: String(rows['commerce.invoice.logo_blob_uuid']?.value ?? ''),
       logoUrl: settings.invoice_logo_url,
       footerText: String(rows['commerce.invoice.footer_text']?.value ?? ''),
-      showSku: rows['commerce.invoice.show_sku']?.value === true,
-      showAddresses: rows['commerce.invoice.show_addresses']?.value === true,
-      showTaxId: rows['commerce.invoice.show_tax_id']?.value === true,
+      // Task 6's documented default for all three toggles is `true` — an ABSENT entry (older
+      // backend, malformed/partial payload) normalizes its `.value` to `''` (never `false`), so
+      // `!== false` is the correct "unless explicitly turned off" test. A strict `=== true` would
+      // silently invert a missing key to OFF, hiding SKU/addresses/tax-id from every invoice the
+      // moment the server omits the key rather than sending the real boolean.
+      showSku: rows['commerce.invoice.show_sku']?.value !== false,
+      showAddresses: rows['commerce.invoice.show_addresses']?.value !== false,
+      showTaxId: rows['commerce.invoice.show_tax_id']?.value !== false,
       paperPreset: isInvoicePaperPreset(rawPreset) ? rawPreset : 'a4',
     }
   })

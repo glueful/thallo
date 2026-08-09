@@ -93,6 +93,22 @@
  * (but inert) on every other page. */
 
 @media print {
+  /* The dashboard shell's own root (Nuxt UI's `UDashboardGroup`, theme base `fixed inset-0 flex
+   * overflow-hidden`) clips its content to the viewport — fine on screen (the shell scrolls
+   * internally), fatal for print: a `position: fixed` + `overflow: hidden` ancestor truncates
+   * EVERY page after the first, silently dropping the rest of an A4 invoice or any thermal
+   * receipt (totals/footer included). Reset it to a normal flow container so the printable
+   * content can span as many physical pages as it needs. `!important` because Tailwind's
+   * `fixed`/`inset-0`/`overflow-hidden` utilities carry the SAME specificity as this attribute
+   * selector — without it, cascade order (not intent) would decide the winner. */
+  [data-print-root] {
+    position: static !important;
+    inset: auto !important;
+    overflow: visible !important;
+    height: auto !important;
+    display: block !important;
+  }
+
   /* Dashboard sidebar + the on-page preset/print toolbar never print. A `[data-print-chrome]`
    * element must never be an ancestor of the printable RouterView (enforced structurally in
    * `layouts/default.vue`, never by this stylesheet). */
