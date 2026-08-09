@@ -8,7 +8,7 @@
 
 ## §1 Rulings
 
-1. **Two print documents, one data source.** An A4/Letter invoice and purpose-built 58/80mm thermal receipt layouts, both fed by the engine's `invoiceData` endpoint. Browser print dialog does paper/PDF; no server-side PDF, no new data access.
+1. **Two print documents, one data source.** An A4 invoice and purpose-built 58/80mm thermal receipt layouts, both fed by the engine's `invoiceData` endpoint. Browser print dialog does paper/PDF; no server-side PDF, no new data access.
 2. **Settings-driven customization only.** Merchants customize presentation: logo, business identity (reused from Store settings), footer text, optional sections, paper preset. Order number, dates, customer, currency, line items, totals, refunds, and statuses are authoritative — never hideable or editable. All customization text is plain text, never HTML. Template editing is a separate future project (sandboxing, versioning, preview, recovery).
 3. **Untoggleable receipt core:** order identity/date/status, customer identity, line names, quantities, monetary values, currency, totals, refunds always print. Only SKU, addresses, tax ID, logo, and footer are optional.
 4. **Historical receipts use current branding settings with immutable order data.** True branding snapshots are a later compliance feature (recorded in OUTSTANDING).
