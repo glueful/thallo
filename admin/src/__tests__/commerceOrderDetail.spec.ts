@@ -492,6 +492,12 @@ describe('order detail header band', () => {
 })
 
 // ── Overflow menu: destructive cancel + "Invoice data", exactly one lifecycle owner ─────────
+//
+// A real `UDropdownMenu` (Reka UI underneath), not a hand-rolled toggle — so it comes with
+// `role="menu"`/`role="menuitem"`, `aria-haspopup`/`aria-expanded` on the trigger, Escape-to-close,
+// and outside-click dismissal for free. `:portal="false"` on the component (see index.vue) keeps
+// its content inline in the DOM instead of teleported to `document.body`, so it's directly
+// queryable here without a document-level lookup.
 
 describe('order detail overflow menu', () => {
   it('holds cancel and "Invoice data" — nothing else', async () => {
@@ -500,8 +506,9 @@ describe('order detail overflow menu', () => {
     await flushPromises()
     await openOverflow(wrapper)
 
-    const menu = wrapper.find('[data-test="order-overflow-menu"]')
+    const menu = wrapper.find('[role="menu"]')
     expect(menu.exists()).toBe(true)
+    expect(menu.findAll('[role="menuitem"]')).toHaveLength(2)
     expect(menu.find('[data-test="order-cancel"]').exists()).toBe(true)
     expect(menu.find('[data-test="order-invoice"]').text()).toBe('Invoice data')
   })
@@ -514,6 +521,64 @@ describe('order detail overflow menu', () => {
 
     expect(wrapper.find('[data-test="order-cancel"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="order-invoice"]').exists()).toBe(true)
+    expect(wrapper.findAll('[role="menuitem"]')).toHaveLength(1)
+  })
+
+  it('marks the trigger with aria-haspopup and toggles aria-expanded when opened', async () => {
+    singleOrder.value = order({ status: 'paid' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    const trigger = wrapper.find('[data-test="order-overflow-trigger"]')
+    expect(trigger.attributes('aria-haspopup')).toBe('menu')
+    expect(trigger.attributes('aria-expanded')).toBe('false')
+
+    await openOverflow(wrapper)
+    expect(wrapper.find('[data-test="order-overflow-trigger"]').attributes('aria-expanded')).toBe('true')
+  })
+
+  it('closes on Escape', async () => {
+    // Reka's escape-key handling listens on the element's owner document — a wrapper that was
+    // never attached to `document.body` is a detached tree the dispatched keydown never actually
+    // bubbles into, so this (like the outside-click test below) needs `attachTo`.
+    singleOrder.value = order({ status: 'paid' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs }, attachTo: document.body })
+    await flushPromises()
+    await openOverflow(wrapper)
+    expect(wrapper.find('[role="menu"]').exists()).toBe(true)
+
+    await wrapper.find('[role="menu"]').trigger('keydown', { key: 'Escape' })
+    await flushPromises()
+
+    expect(wrapper.find('[role="menu"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="order-overflow-trigger"]').attributes('aria-expanded')).toBe('false')
+    wrapper.unmount()
+  })
+
+  it('closes on an outside click', async () => {
+    singleOrder.value = order({ status: 'paid' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs }, attachTo: document.body })
+    await flushPromises()
+    await openOverflow(wrapper)
+    expect(wrapper.find('[role="menu"]').exists()).toBe(true)
+
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    document.body.click()
+    await flushPromises()
+
+    expect(wrapper.find('[role="menu"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('selecting cancel opens exactly one OrderCancelDialog; selecting invoice data opens the invoice modal', async () => {
+    singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    await openOverflow(wrapper)
+
+    await wrapper.find('[data-test="order-cancel"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="order-cancel-confirm"]').exists()).toBe(true)
   })
 
   it('instantiates exactly one OrderActions and one OrderCancelDialog on the whole page', async () => {

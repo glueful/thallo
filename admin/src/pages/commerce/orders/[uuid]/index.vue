@@ -7,7 +7,7 @@
 // into this SAME structure rather than re-rendering any of it.
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import type { TableColumn } from '@nuxt/ui'
+import type { TableColumn, DropdownMenuItem } from '@nuxt/ui'
 import {
   useCommerceOrder,
   useOrderRefunds,
@@ -44,21 +44,41 @@ const invoiceOpen = ref(false)
 const { data: invoice, status: invoiceStatus } = useOrderInvoiceData(uuid, invoiceOpen)
 
 // Overflow menu (Task 9): destructive cancel + the existing (view-graded) invoice-data trigger.
-// A plain toggled `<div>` rather than `UDropdownMenu` — its items must stay directly, reliably
-// clickable, including in tests, without depending on a teleported popper's own open state.
-const overflowOpen = ref(false)
+// `UDropdownMenu` (the codebase's established menu primitive — see UserMenu.vue/TenantSwitcher.vue)
+// rather than a hand-rolled toggle: Reka UI's DropdownMenu gives Escape-to-close, outside-click
+// dismissal, `role="menu"`/`role="menuitem"`, and `aria-haspopup`/`aria-expanded` on the trigger for
+// free — a hand-rolled `<div>` would have to reimplement all of that itself. `:portal="false"` keeps
+// the menu content in-place in the DOM (never teleported to `document.body`), which is both simpler
+// to reason about here (no fixed-position popper escaping the page's own layout/scroll container)
+// and directly queryable/clickable in tests without a document-level lookup. Each item's own
+// `'data-test'` key rides straight through to its rendered element — Nuxt UI's `pickLinkProps()`
+// forwards any `data-*`/`aria-*` key present on the item object verbatim.
 const cancelDialogOpen = ref(false)
 const canCancel = computed(() => canManage.value && !!order.value && canCancelOrder(order.value.status))
 
-function openInvoiceFromOverflow() {
-  overflowOpen.value = false
-  invoiceOpen.value = true
-}
-
-function openCancelFromOverflow() {
-  overflowOpen.value = false
-  cancelDialogOpen.value = true
-}
+const overflowItems = computed<DropdownMenuItem[]>(() => {
+  const items: DropdownMenuItem[] = []
+  if (canCancel.value) {
+    items.push({
+      label: 'Cancel order',
+      icon: 'i-lucide-ban',
+      color: 'error',
+      'data-test': 'order-cancel',
+      onSelect: () => {
+        cancelDialogOpen.value = true
+      },
+    })
+  }
+  items.push({
+    label: 'Invoice data',
+    icon: 'i-lucide-receipt',
+    'data-test': 'order-invoice',
+    onSelect: () => {
+      invoiceOpen.value = true
+    },
+  })
+  return items
+})
 
 // useMoney().format() throws until /commerce/meta resolves — guard so an unsettled meta query
 // (still pending on first paint) never crashes the render (mirrors ProductForm.vue).
@@ -287,40 +307,15 @@ const billingDisplay = computed(() => {
                    when can_manage is false or the current status has no legal action. -->
               <OrderActions :order="order" :can-manage="canManage" />
 
-              <div class="relative">
+              <UDropdownMenu :items="overflowItems" :portal="false" :content="{ align: 'end' }">
                 <UButton
                   icon="i-lucide-ellipsis-vertical"
                   variant="ghost"
                   color="neutral"
-                  aria-haspopup="menu"
-                  :aria-expanded="overflowOpen"
+                  aria-label="More actions"
                   data-test="order-overflow-trigger"
-                  @click="overflowOpen = !overflowOpen"
                 />
-                <div
-                  v-if="overflowOpen"
-                  class="absolute right-0 z-10 mt-1 flex w-44 flex-col rounded-md border border-default bg-default p-1 text-sm shadow-lg"
-                  data-test="order-overflow-menu"
-                >
-                  <button
-                    v-if="canCancel"
-                    type="button"
-                    class="rounded px-2 py-1.5 text-left text-error hover:bg-elevated"
-                    data-test="order-cancel"
-                    @click="openCancelFromOverflow"
-                  >
-                    Cancel order
-                  </button>
-                  <button
-                    type="button"
-                    class="rounded px-2 py-1.5 text-left hover:bg-elevated"
-                    data-test="order-invoice"
-                    @click="openInvoiceFromOverflow"
-                  >
-                    Invoice data
-                  </button>
-                </div>
-              </div>
+              </UDropdownMenu>
             </div>
           </div>
 
