@@ -22,9 +22,7 @@ use Glueful\Extensions\Commerce\Orders\CheckoutAttemptAuthority;
 use Glueful\Extensions\Commerce\Tenancy\CommerceTenantPurge;
 use Glueful\Extensions\Commerce\Tenancy\CommerceTenantResolution;
 use Glueful\Extensions\Commerce\Support\CommerceSettingsOverride;
-use Glueful\Extensions\Payvia\Support\PayviaSettingsOverride;
 use Thallo\Commerce\Settings\SettingsStoreCommerceOverride;
-use Thallo\Commerce\Settings\SettingsStorePayviaOverride;
 use Glueful\Extensions\Commerce\Tenancy\TenantAdopter;
 use Glueful\Extensions\Contracts\Tenancy\TenantTableRegistry;
 use Glueful\Extensions\ServiceProvider;
@@ -36,7 +34,6 @@ use Thallo\Commerce\Email\SendOrderEmails;
 use Thallo\Commerce\Events\ProductLinkChanged;
 use Thallo\Commerce\Http\CommerceMetaController;
 use Thallo\Commerce\Http\CommerceSettingsController;
-use Thallo\Commerce\Http\PaymentsSettingsController;
 use Thallo\Commerce\Http\EmailSettingsController;
 use Thallo\Commerce\Http\MarketplaceSettingsController;
 use Thallo\Commerce\Http\ProductLinkController;
@@ -197,15 +194,9 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
                 'shared'   => true,
                 'autowire' => true,
             ],
-            // Store-settings spec §3.6 (Payments tab): GET/PUT /payments. Autowired — the store
-            // contract and the framework EncryptionService both resolve from the container; the
-            // controller reads the payvia namespace via config keys only, so it loads (and
-            // honestly reports mode `manual`) without the extension installed.
-            PaymentsSettingsController::class => [
-                'class'    => PaymentsSettingsController::class,
-                'shared'   => true,
-                'autowire' => true,
-            ],
+            // Payments settings RETIRED (platform-payments-settings spec, Task 6): moved to an
+            // app-owned controller at `/v1/admin/settings/payments`. This pack no longer binds a
+            // payments controller.
             // Spec §4.2 follow-up: GET/PUT /emails — the per-template order-email switches.
             EmailSettingsController::class => [
                 'class'    => EmailSettingsController::class,
@@ -442,17 +433,12 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
             // discoverCommands() in boot() below, matching the thallo-tenancy pack's convention.
         ];
 
-        // Store-settings spec §3.6 (Payments tab): Payvia's runtime-settings seam, bound only
-        // when the extension is installed (its interface must exist for the container to compile
-        // a reference to it — the same soft-dependency shape as the CommerceTenantResolution
-        // guard above). Enabling/installing payvia recompiles the container, so the binding
-        // appears without any config step.
-        if (interface_exists(PayviaSettingsOverride::class)) {
-            $services[PayviaSettingsOverride::class] = [
-                'factory' => [self::class, 'makePayviaSettingsOverride'],
-                'shared'  => true,
-            ];
-        }
+        // NOTE: Payvia's runtime-settings seam is deliberately NOT bound here any more.
+        // Platform-payments-settings spec §2 (Task 4) moved gateway-credential ownership to the
+        // HOST APP, which binds that seam from its own provider's services(): credentials are
+        // installation-level infrastructure that webhook signature verification reads before any
+        // tenant context exists, so they must not sit behind this pack's `thallo.commerce`
+        // capability gate.
 
         return $services;
     }
@@ -617,12 +603,6 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
     public static function makeCommerceSettingsOverride(ContainerInterface $container): CommerceSettingsOverride
     {
         return new SettingsStoreCommerceOverride();
-    }
-
-    /** Spec §3.6: same store-backed shape as the commerce seam, plus at-rest secret decryption. */
-    public static function makePayviaSettingsOverride(ContainerInterface $container): PayviaSettingsOverride
-    {
-        return new SettingsStorePayviaOverride();
     }
 
     public static function makeShopFrameEmbedding(ContainerInterface $container): ShopFrameEmbedding

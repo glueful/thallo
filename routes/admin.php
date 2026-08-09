@@ -23,6 +23,7 @@ use App\Http\Controllers\HealthAdminController;
 use App\Http\Controllers\IconInventoryController;
 use App\Http\Controllers\ImportExportController;
 use App\Http\Controllers\MediaAdminController;
+use App\Http\Controllers\PlatformPaymentsSettingsController;
 use App\Http\Controllers\RegionAdminController;
 use App\Http\Controllers\ScheduledTasksController;
 use App\Http\Controllers\TenancyAccessController;
@@ -476,4 +477,21 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
         ->middleware('auth')
         ->middleware('tenant_system')
         ->middleware('content_permission:tenancy.manage');
+
+    // Platform-payments-settings spec §2 (Task 6): the neutral Settings -> Payments API,
+    // replacing thallo-commerce's retired `/v1/admin/commerce/payments` (commerce-owned
+    // SettingsStore -> app-owned PlatformPaymentSettingsStore, commerce.manage ->
+    // tenancy.manage). Gateway credentials are platform/installation-level infrastructure
+    // (see App\Settings\PlatformPaymentSettingsStore's own docblock), so this sits at the
+    // platform-operator authority tier — the same `['auth', 'tenant_system',
+    // 'content_permission:tenancy.manage']` group thallo-subscriptions' admin surface uses —
+    // never gated by any pack capability.
+    $router->group([
+        'middleware' => ['auth', 'tenant_system', 'content_permission:tenancy.manage'],
+    ], function (Router $router): void {
+        $router->get('/settings/payments', [PlatformPaymentsSettingsController::class, 'show'])
+            ->name('thallo.settings.payments.show');
+        $router->put('/settings/payments', [PlatformPaymentsSettingsController::class, 'update'])
+            ->name('thallo.settings.payments.update');
+    });
 });

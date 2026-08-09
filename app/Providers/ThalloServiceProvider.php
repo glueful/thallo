@@ -76,6 +76,7 @@ use App\Setup\Console\DoctorCommand;
 use App\Setup\Console\ProvisionCommand;
 use App\Setup\Console\SuperuserGrantCommand;
 use App\Setup\Console\SuperuserTransferCommand;
+use App\Settings\Console\MigratePlatformPaymentCredentialsCommand;
 use App\Content\Backfill\BackfillRunner;
 use App\Content\Indexing\FilterIndexJobDispatcher;
 use App\Http\Controllers\AdminConfigController;
@@ -91,6 +92,7 @@ use App\Http\Controllers\HealthAdminController;
 use App\Http\Controllers\IconInventoryController;
 use App\Http\Controllers\ImportExportController;
 use App\Http\Controllers\MediaAdminController;
+use App\Http\Controllers\PlatformPaymentsSettingsController;
 use App\Http\Controllers\RegionAdminController;
 use App\Http\Controllers\ScheduledTasksController;
 use App\Http\Controllers\TenancyAccessController;
@@ -1704,6 +1706,67 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            // Platform-payments-settings spec Task 2: the encrypted write/read surface over the
+            // unscoped SystemChannel for payvia.* gateway credentials — SystemChannel and
+            // EncryptionService both autowire (constructor injection only, no container lookups
+            // inside the class itself).
+            \App\Settings\PlatformPaymentSettingsStore::class => [
+                'class' => \App\Settings\PlatformPaymentSettingsStore::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            // Platform-payments-settings spec Task 3: the TEMPORARY read-only compatibility path
+            // over the OLD tenant `settings` table — Task 4's override falls back to it until a
+            // migration marker is written, Task 5's migration command drives it for
+            // enumeration/verification/pruning. $table is left at its 'settings' default here
+            // (autowiring never supplies a scalar); tests that need an isolated temporary table
+            // construct the repository directly instead of resolving it from the container.
+            \App\Settings\LegacyPlatformPaymentSettingsRepository::class => [
+                'class' => \App\Settings\LegacyPlatformPaymentSettingsRepository::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \App\Settings\LegacyPlatformPaymentSettingsReader::class => [
+                'class' => \App\Settings\LegacyPlatformPaymentSettingsReader::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            // Platform-payments-settings spec §2 (Task 4): payvia's host settings seam, now
+            // APP-owned — this replaces thallo-commerce's retired SettingsStorePayviaOverride
+            // (deleted in the same change, so no first-wins ambiguity ever existed). Gateway
+            // credentials are installation-level infrastructure: the override reads the unscoped
+            // system channel first, the temporary legacy compatibility path only while the
+            // `payments.platform_credentials_migrated` marker is absent, and has ZERO capability
+            // gates.
+            //
+            // WHY services() AND NOT register(): ExtensionManager::discover() returns early on an
+            // extensions-cache hit, so registerProviders() — the only caller of any provider's
+            // register() — never runs on the boot mode production is REQUIRED to use, app-level
+            // providers included (ProviderClassResolver folds this class into the same list).
+            // ContainerFactory::loadExtensionDefinitions() instead re-resolves that list itself
+            // while building the container and reads each provider's STATIC services(), which runs
+            // identically in both boot modes. Pinned by
+            // tests/Integration/Settings/PlatformPayviaOverrideCachedBootTest.
+            //
+            // Unconditional (unlike the pack's old interface_exists() guard): glueful/payvia is a
+            // hard composer requirement of this app, so its interface always autoloads. Disabling
+            // the payvia EXTENSION only stops payvia's code from running — it never consults an
+            // override it isn't there to read.
+            \Glueful\Extensions\Payvia\Support\PayviaSettingsOverride::class => [
+                'class' => \App\Settings\PlatformPayviaSettingsOverride::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            // Platform-payments-settings spec §2 (Task 6): the neutral Settings -> Payments API
+            // (GET/PUT /v1/admin/settings/payments — see routes/admin.php), replacing
+            // thallo-commerce's retired PaymentsSettingsController. Autowired — the constructor's
+            // PayviaSettingsOverride param resolves to the SAME shared override bound above, and
+            // PlatformPaymentSettingsStore/CanonicalPublicOriginResolver are both already bound.
+            PlatformPaymentsSettingsController::class => [
+                'class' => PlatformPaymentsSettingsController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             // Store-settings spec §3.3: thallo-commerce's pack-owned storage contract, satisfied
             // by SettingsStore rows (pack-defines/app-provides — the EngineMediaUrlResolver shape).
             \Thallo\Commerce\Settings\CommerceSettingsStore::class => [
@@ -1855,6 +1918,17 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             SuperuserTransferCommand::class => [
                 'class' => SuperuserTransferCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            // Platform-payments-settings spec §2 "Migration" (Task 5): the conservative cutover of
+            // payvia.* credentials from the legacy tenant `settings` table to the unscoped platform
+            // system channel. Unlike its neighbours this command declares an EXPLICIT constructor
+            // (the platform store, the legacy reader + its repository, and the SystemChannel) so
+            // the migration's collaborators are injected rather than looked up — autowiring fills
+            // all six parameters, and tests point the legacy repository at an isolated table.
+            MigratePlatformPaymentCredentialsCommand::class => [
+                'class' => MigratePlatformPaymentCredentialsCommand::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -2020,6 +2094,7 @@ final class ThalloServiceProvider extends ServiceProvider
             CreateAdminCommand::class,
             SuperuserGrantCommand::class,
             SuperuserTransferCommand::class,
+            MigratePlatformPaymentCredentialsCommand::class,
         ]);
     }
 

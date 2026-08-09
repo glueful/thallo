@@ -18,6 +18,17 @@ const base: NavigationMenuItem[] = [
       { label: 'General', to: '/settings/general' },
       { label: 'Signup', to: '/settings/signup' },
       { label: 'Workspaces', to: '/settings/workspaces' },
+      { label: 'Payments', to: '/settings/payments' },
+    ],
+  },
+  {
+    label: 'Subscriptions',
+    icon: 'i-lucide-credit-card',
+    defaultOpen: false,
+    children: [
+      { label: 'Plans', to: '/subscriptions/plans' },
+      { label: 'Billing', to: '/subscriptions/billing' },
+      { label: 'Workspace billing', to: '/billing' },
     ],
   },
 ]
@@ -27,6 +38,7 @@ const none = {
   access_any: false,
   manage_members: false,
   manage_domains: false,
+  manage_billing: false,
 }
 
 describe('tenancy navigation shaping', () => {
@@ -77,6 +89,30 @@ describe('tenancy navigation shaping', () => {
     expect(settings?.children?.map((child) => child.to)).not.toContain('/settings/workspaces')
   })
 
+  // Platform Payments settings (platform-payments-settings spec, Task 7): gated on the SAME
+  // authority flag as Workspaces (`manage_platform`) — matrix: a platform operator sees it, a
+  // workspace-only admin does not.
+  describe('Settings -> Payments authority matrix', () => {
+    it('a platform operator sees Settings -> Payments', () => {
+      const shaped = shapeTenancyNav(base, { ...none, manage_platform: true }, null, true, true)
+      const settings = shaped.find((item) => item.label === 'Settings')
+      expect(settings?.children?.map((child) => child.to)).toContain('/settings/payments')
+    })
+
+    it('a workspace-only admin (manage_members only) does not see Settings -> Payments', () => {
+      const shaped = shapeTenancyNav(base, { ...none, manage_members: true }, 'tenant000001', true, true)
+      const settings = shaped.find((item) => item.label === 'Settings')
+      expect(settings?.children?.map((child) => child.to)).not.toContain('/settings/payments')
+    })
+
+    it('unlike Workspaces, stays reachable even when the tenancy feature is not installed', () => {
+      const shaped = shapeTenancyNav(base, { ...none, manage_platform: true }, null, false, false)
+      const settings = shaped.find((item) => item.label === 'Settings')
+      expect(settings?.children?.map((child) => child.to)).not.toContain('/settings/workspaces')
+      expect(settings?.children?.map((child) => child.to)).toContain('/settings/payments')
+    })
+  })
+
   it('gives owners concrete selected-tenant links without all-tenants', () => {
     const shaped = shapeTenancyNav(
       base,
@@ -105,6 +141,45 @@ describe('tenancy navigation shaping', () => {
     expect(JSON.stringify(shaped)).not.toContain('_selected')
     // Even for a platform operator the parent is expand-only; the list lives on "All workspaces".
     expect(shaped.find((item) => item.label === 'Workspaces')?.to).toBeUndefined()
-    expect(shaped.find((item) => item.label === 'Settings')?.children).toHaveLength(2)
+    // General, Workspaces, Payments — Signup is hidden once tenancy is enabled.
+    expect(shaped.find((item) => item.label === 'Settings')?.children).toHaveLength(3)
+  })
+
+  // Task 19 (spec §5.3): the Subscriptions group's three children are gated by TWO distinct
+  // authorities -- platform Plans/Billing by `manage_platform`, workspace Billing by
+  // `manage_billing` -- and the group itself disappears entirely when neither authority is held.
+  describe('Subscriptions group authority matrix', () => {
+    it('owner/delegate (manage_billing only) sees ONLY workspace billing', () => {
+      const shaped = shapeTenancyNav(base, { ...none, manage_billing: true }, null, true, true)
+      const group = shaped.find((item) => item.label === 'Subscriptions')
+      expect(group?.children?.map((c) => c.to)).toEqual(['/billing'])
+    })
+
+    it('platform-only operator (manage_platform only) sees ONLY the platform Plans/Billing pages', () => {
+      const shaped = shapeTenancyNav(base, { ...none, manage_platform: true }, null, true, true)
+      const group = shaped.find((item) => item.label === 'Subscriptions')
+      expect(group?.children?.map((c) => c.to)).toEqual(['/subscriptions/plans', '/subscriptions/billing'])
+    })
+
+    it('neither authority: the Subscriptions group is dropped entirely', () => {
+      const shaped = shapeTenancyNav(base, none, null, true, true)
+      expect(shaped.find((item) => item.label === 'Subscriptions')).toBeUndefined()
+    })
+
+    it('dual authority (both manage_platform and manage_billing) sees all three children', () => {
+      const shaped = shapeTenancyNav(
+        base,
+        { ...none, manage_platform: true, manage_billing: true },
+        null,
+        true,
+        true,
+      )
+      const group = shaped.find((item) => item.label === 'Subscriptions')
+      expect(group?.children?.map((c) => c.to)).toEqual([
+        '/subscriptions/plans',
+        '/subscriptions/billing',
+        '/billing',
+      ])
+    })
   })
 })

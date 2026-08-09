@@ -19,7 +19,7 @@ return [
             'seo.manage', 'templates.manage', 'analytics.read', 'workflow.review',
             'tenant.members.manage', 'tenant.domains.manage', 'tenant.roles.manage',
             'collections.manage', 'collections.schema.manage', 'collections.data.manage',
-            'commerce.view', 'commerce.manage',
+            'commerce.view', 'commerce.manage', 'billing.manage',
         ],
         'admin' => [
             'content.view', 'content.create', 'content.edit', 'content.publish',

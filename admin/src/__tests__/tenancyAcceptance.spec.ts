@@ -26,6 +26,7 @@ const noAccess = {
   access_any: false,
   manage_members: false,
   manage_domains: false,
+  manage_billing: false,
 }
 
 describe('tenancy administration acceptance', () => {

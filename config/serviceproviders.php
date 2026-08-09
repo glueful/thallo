@@ -17,6 +17,13 @@
 
 return [
     'enabled' => [
+        // Pre-extension tier (loadPriority -100), NOT a module: thallo-subscriptions' pre-engine
+        // seam must boot BEFORE glueful/subscriptions so it can pre-empt that engine's own ungated
+        // /subscriptions/plans* mounts and re-pin SubjectResolverInterface to Thallo's resolver.
+        // Listed first as documentation; the ordering itself is declared on the class (see its
+        // docblock for why neither job can live on the pack's main provider, which must loadAfter()
+        // the engine, nor in any register(), which never runs on cached production boots).
+        'Thallo\\Subscriptions\\EnginePreemptionServiceProvider',
         'Glueful\\Extensions\\Tenancy\\TenancyControlPlaneProvider',
         'App\\Providers\\ThalloServiceProvider',
         // Thallo modules — pre-conversion relative order preserved (Search, previously
@@ -30,6 +37,7 @@ return [
         'Thallo\\Render\\RenderServiceProvider',
         'Thallo\\Search\\SearchServiceProvider',
         'Thallo\\Seo\\SeoServiceProvider',
+        'Thallo\\Subscriptions\\SubscriptionsIntegrationServiceProvider',
         'Thallo\\Tenancy\\TenancyServiceProvider',
         'Thallo\\Workflow\\WorkflowServiceProvider',
     ],

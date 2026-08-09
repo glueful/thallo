@@ -168,7 +168,8 @@ final class BlocksRenderingTest extends AppTestCase
         // 17 = admin-contributed-templates spec §3 policy expansion (twelve reviewed functions,
         // range()/RangeBinary denied, TrueTest allowed for bare boolean function conditions)
         // 18 = modern-blocks spec §1 — block_script() joined the allowlist
-        self::assertSame(18, TemplatePolicy::CACHE_VERSION);
+        // 19 = pricing-bridge spec §5.4 — plan_checkout_url() joined the allowlist
+        self::assertSame(19, TemplatePolicy::CACHE_VERSION);
 
         // DB templates calling the allowlisted functions lint clean.
         $linter = $this->container()->get(TemplateLinter::class);

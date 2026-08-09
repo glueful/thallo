@@ -8,6 +8,7 @@ const emptyAccess = (): TenancyAccess => ({
   manage_members: false,
   manage_domains: false,
   manage_roles: false,
+  manage_billing: false,
 })
 
 export const useTenancyAccessStore = defineStore('tenancyAccess', () => {

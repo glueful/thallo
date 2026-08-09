@@ -55,12 +55,43 @@ export function shapeTenancyNav(
       continue
     }
 
+    // Task 19 (spec §5.3): the Subscriptions group's three children answer to TWO disjoint
+    // authorities -- platform Plans/Billing gated by `manage_platform` (the same platform
+    // authority the Workspaces group above uses), Workspace billing gated by `manage_billing`
+    // (Task 14's per-workspace delegable flag). A static module capability
+    // (`thallo.subscriptions`, checked upstream by `visibleNav`) only proves the PACK is
+    // installed -- it cannot substitute for either loaded access flag, so an install with the
+    // pack enabled but neither authority held drops the whole group, exactly like Workspaces
+    // above.
+    if (item.label === 'Subscriptions') {
+      const children = (item.children ?? []).flatMap((child) => {
+        if (child.to === '/subscriptions/plans' || child.to === '/subscriptions/billing') {
+          return access.manage_platform ? [child] : []
+        }
+        if (child.to === '/billing') {
+          return access.manage_billing ? [child] : []
+        }
+        return []
+      })
+      if (children.length === 0) continue
+      shaped.push({ ...item, children })
+      continue
+    }
+
     if (item.label === 'Settings') {
       shaped.push({
         ...item,
         children: (item.children ?? []).filter((child) => {
           if (child.to === '/settings/workspaces') {
             return tenancyInstalled && access.manage_platform
+          }
+          // Platform Payments settings (platform-payments-settings spec, Task 7): gated on the
+          // SAME authority flag as Workspaces (`manage_platform` = holding `tenancy.manage`),
+          // but — unlike Workspaces — independent of `tenancyInstalled`: payment settlement is
+          // an app-owned platform concern, not a multi-workspace tenancy feature, so it stays
+          // reachable even on an install that never turns tenancy on.
+          if (child.to === '/settings/payments') {
+            return access.manage_platform
           }
           if (child.to === '/settings/signup') {
             return !tenancyEnabled

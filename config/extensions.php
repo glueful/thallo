@@ -32,6 +32,7 @@ return [
         'Glueful\Extensions\Meilisearch\MeilisearchProvider',
         'Glueful\Extensions\Commerce\CommerceServiceProvider',
         'Glueful\Extensions\Payvia\PayviaServiceProvider',
+        'Glueful\Extensions\Subscriptions\SubscriptionsServiceProvider',
         'Glueful\Extensions\Users\UsersServiceProvider',
     ],
 

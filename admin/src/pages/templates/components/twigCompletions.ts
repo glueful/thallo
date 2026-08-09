@@ -48,6 +48,7 @@ const FUNCTIONS = [
   'date',
   'min',
   'max',
+  'plan_checkout_url',
 ]
 
 const FILTERS = [

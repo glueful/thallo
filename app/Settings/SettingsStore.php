@@ -39,7 +39,10 @@ final class SettingsStore
         $out = [];
         foreach (db($this->context)->table('settings')->get() as $row) {
             $key = (string) ($row['key'] ?? '');
-            if ($key !== '') {
+            // Defensive filter: a system-classified key should never physically be in
+            // `settings` (writes never land here — see putMany()/forget()), but a stray or
+            // legacy row must still never leak into the tenant map (spec §2).
+            if ($key !== '' && !SystemKeys::isSystem($key)) {
                 $out[$key] = (string) ($row['value'] ?? '');
             }
         }
