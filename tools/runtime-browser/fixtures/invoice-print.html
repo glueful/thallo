@@ -10,11 +10,29 @@
   Contract this fixture mirrors, cited by source line so drift is detectable at a glance:
 
   - `admin/src/layouts/default.vue`:
-      L116 `<UDashboardGroup ... data-print-root>`               -> below: `<div data-print-root>`
-      L124 `<UDashboardSidebar ... data-print-chrome ...>`       -> below: `<aside data-print-chrome>`
-      L170 `<div data-print-shell ...>`                          -> below: `<div data-print-shell>`
+      L116 `<UDashboardGroup unit="rem" storage="local" data-print-root>` — Nuxt UI's dashboard
+             shell base class is `fixed inset-0 flex overflow-hidden` -> below: `<div
+             data-print-root>` carries that SAME hostile base (position:fixed; inset:0;
+             display:flex; overflow:hidden) in this fixture's own <style>, not just the attribute.
+      L117-130 `<UDashboardSidebar ... data-print-chrome ...>`    -> below: `<aside
+             data-print-chrome>` (the sidebar; a fixed-width flex child, never an ancestor of the
+             printable content).
+      L169-172 `<div data-print-shell class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden
+             bg-white rounded-2xl m-3 ring ring-default dark:bg-default">` -> below: `<div
+             data-print-shell>` carries the SAME hostile base (flex:1; min-height:0; overflow:
+             hidden; margin; border-radius; a ring-style box-shadow) — the exact properties
+             print.css's `[data-print-shell]` block (L122-130) resets. Without this baseline, that
+             reset block could be deleted entirely and every assertion below would stay green,
+             which is exactly the gap this fixture must not have.
       (sidebar is a SIBLING of the shell, both children of the print-root — never an ancestor of
       the printable content; reproduced structurally below, not just by attribute presence.)
+
+  - `admin/src/pages/commerce/orders/[uuid]/invoice.vue`:
+      L59-62 `<div data-print-chrome data-test="invoice-toolbar" class="flex ... border-b ...">`
+             — a SECOND, independent `[data-print-chrome]` placement: the in-content paper-preset
+             toolbar rendered INSIDE `data-print-shell`, next to the document (not the sidebar).
+             Reproduced below as the toolbar sibling of `.invoice-document`, so the print gate
+             proves chrome-hiding works for both real placements, not only the sidebar one.
 
   - `admin/src/pages/commerce/orders/components/InvoiceDocument.vue`:
       L26-29 `presetClass = 'invoice-' + preset.replace(/_/g, '-')`  -> reproduced verbatim in the
@@ -69,25 +87,63 @@
     }
   </style>
 
+  <!--
+    Hostile screen-mode baseline — NOT a copy of print.css, a reproduction of the OTHER half of the
+    contract: the dashboard-shell classes print.css's `[data-print-root]`/`[data-print-shell]`
+    blocks (L104-130) exist to undo. `default.vue` L116 puts `UDashboardGroup`'s own base
+    (`fixed inset-0 flex overflow-hidden`) on `data-print-root`, and L169-172 puts `flex-1 flex
+    flex-col min-w-0 min-h-0 overflow-hidden bg-white rounded-2xl m-3 ring ring-default` on
+    `data-print-shell`. Reproduced here as plain CSS (no Tailwind in this static fixture) so that,
+    absent the print.css reset, the shell clips its content to ONE viewport height exactly like
+    production would — making "the full multi-row document survives print" a real, falsifiable
+    question instead of one that passes no matter what the reset does.
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; }
+    [data-print-root] {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      overflow: hidden;
+    }
+    [data-print-shell] {
+      flex: 1 1 0%;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background: #fff;
+      border-radius: 16px;
+      margin: 12px;
+      box-shadow: 0 0 0 2px #999;
+    }
+  </style>
+
   <!-- The REAL production stylesheet, loaded by real repo path (server.js serves the repo root). -->
   <link rel="stylesheet" href="/admin/src/assets/print.css">
 
-  <!-- Minimal screen chrome so [data-print-chrome] visibly occupies space pre-print (not required
-       by the contract, just makes a screen-mode screenshot legible during local debugging). -->
+  <!-- Cosmetic-only screen styling (not part of any tested contract) so the two DIFFERENT
+       [data-print-chrome] placements — the sidebar and the in-content toolbar — are visually
+       distinguishable during local/manual debugging. -->
   <style>
-    body { margin: 0; font-family: sans-serif; }
-    [data-print-chrome] { background: #222; color: #fff; padding: 12px; }
-    [data-print-shell] { padding: 12px; }
+    body { font-family: sans-serif; }
+    .fixture-sidebar { background: #222; color: #fff; padding: 12px; width: 220px; flex-shrink: 0; }
+    .fixture-toolbar { border-bottom: 1px solid #ccc; padding: 8px 12px; }
   </style>
 </head>
 <body>
 
 <div data-print-root>
-  <aside data-print-chrome>
+  <aside data-print-chrome class="fixture-sidebar">
     <nav>Sidebar navigation (must never print)</nav>
   </aside>
 
   <div data-print-shell>
+    <div data-print-chrome data-test="invoice-toolbar" class="fixture-toolbar">
+      Paper size: A4 / 80mm / 58mm — Print / Save as PDF (must never print)
+    </div>
+
     <div class="invoice-document" data-test="invoice-document">
       <header class="invoice-header">
         <div data-test="invoice-seller">

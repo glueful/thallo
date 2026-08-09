@@ -32,7 +32,14 @@ for (const { preset, className, expectedWidthPx } of PRESETS) {
       const doc = page.locator('[data-test="invoice-document"]');
       await expect(doc).toHaveClass(new RegExp(`(^|\\s)${className}(\\s|$)`));
 
-      await expect(page.locator('[data-print-chrome]')).toBeHidden();
+      // Two REAL, independent [data-print-chrome] placements exist in production: the dashboard
+      // sidebar (default.vue) and the in-content paper-preset toolbar rendered inside the shell,
+      // next to the document (orders/[uuid]/invoice.vue). Both must hide under print.
+      const chromeCount = await page.locator('[data-print-chrome]').count();
+      expect(chromeCount).toBe(2);
+      await expect(page.locator('[data-print-chrome]').first()).toBeHidden();
+      await expect(page.locator('[data-print-chrome]').nth(1)).toBeHidden();
+      await expect(page.locator('[data-test="invoice-toolbar"]')).toBeHidden();
       await expect(page.locator('[data-print-shell]')).toBeVisible();
       await expect(doc).toBeVisible();
 
@@ -44,6 +51,53 @@ for (const { preset, className, expectedWidthPx } of PRESETS) {
       await expect(page.locator('[data-test="invoice-line-name"]').first()).toBeVisible();
       await expect(page.locator('[data-test="invoice-total-grand"]')).toBeVisible();
       await expect(page.locator('[data-test="invoice-total-grand"]')).toContainText('512.88');
+    });
+
+    test(`the dashboard-shell fixed/overflow-hidden reset actually applies, not just the chrome hide (${preset})`, async ({ page }) => {
+      await page.goto(`/tools/runtime-browser/fixtures/invoice-print.html?preset=${preset}`);
+
+      // Confirm the premise BEFORE print: the fixture's hostile baseline (mirroring
+      // default.vue L116/L169-172 — see the fixture's header comment) genuinely clips the
+      // document to one viewport, exactly like production's dashboard shell does on screen.
+      // If this precondition ever stopped holding, the print-mode assertions below would pass
+      // vacuously (nothing to un-clip), so it is checked and enforced here, not assumed.
+      const viewport = page.viewportSize();
+      const preRootStyle = await page
+        .locator('[data-print-root]')
+        .evaluate((el) => ({ position: getComputedStyle(el).position, overflow: getComputedStyle(el).overflowY }));
+      expect(preRootStyle).toEqual({ position: 'fixed', overflow: 'hidden' });
+      const preScrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+      expect(preScrollHeight).toBeLessThanOrEqual(viewport.height + 1);
+
+      await page.emulateMedia({ media: 'print' });
+
+      // print.css L104-110/L122-130: `[data-print-root]` un-fixes to `position: static; overflow:
+      // visible; height: auto`, and `[data-print-shell]` drops its own `overflow: hidden`. Assert
+      // both directly (not just "chrome is hidden", which the fixture-only baseline change above
+      // cannot fail on its own).
+      const postRootStyle = await page
+        .locator('[data-print-root]')
+        .evaluate((el) => ({ position: getComputedStyle(el).position, overflow: getComputedStyle(el).overflowY }));
+      expect(postRootStyle).toEqual({ position: 'static', overflow: 'visible' });
+
+      const shellOverflow = await page
+        .locator('[data-print-shell]')
+        .evaluate((el) => getComputedStyle(el).overflowY);
+      expect(shellOverflow).toBe('visible');
+
+      // The real, falsifiable proof: with the reset applied, the document's full content — 15
+      // rows plus one long multi-line description — now lays out FAR beyond one viewport height,
+      // and the last seeded row is genuinely reachable (its bottom edge exceeds the viewport).
+      // Comment out print.css's [data-print-root]/[data-print-shell] blocks locally and this
+      // assertion fails (content stays clipped to `viewport.height`) — that RED run is the proof
+      // this isn't vacuous.
+      const postScrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+      expect(postScrollHeight).toBeGreaterThan(viewport.height + 100);
+
+      const lastRowBottom = await page
+        .locator('[data-test="invoice-line"][data-row="15"]')
+        .evaluate((el) => el.getBoundingClientRect().bottom);
+      expect(lastRowBottom).toBeGreaterThan(viewport.height);
     });
 
     test(`thead repeats as a header group (${preset})`, async ({ page }) => {

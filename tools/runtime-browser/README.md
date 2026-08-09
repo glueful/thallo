@@ -155,9 +155,12 @@ npm test
 
 `.github/workflows/runtime-browser.yml` is a separate gate from the main PHP
 CI workflow, triggered on changes under `packages/thallo-render/**` or
-`tools/runtime-browser/**`, plus the three admin files the print-media gate
-covers (`admin/src/assets/print.css`,
+`tools/runtime-browser/**`, plus the admin paths the print-media gate covers
+(`admin/src/assets/print.css`,
 `admin/src/pages/commerce/orders/components/InvoiceDocument.vue`,
+`admin/src/pages/commerce/orders/**/invoice.vue` — the standalone print
+route, matched via `**` rather than the literal `[uuid]` segment because
+GitHub Actions path filters treat `[...]` as a character class, and
 `admin/src/layouts/default.vue`) — so a print-affecting change can't land
 without this gate running. It caches `~/.cache/ms-playwright` keyed on the
 installed Playwright version.
