@@ -253,6 +253,59 @@ final class InvoiceSettingsTest extends AppTestCase
     }
 
     // -----------------------------------------------------------------
+    // Logo: a genuine DB/policy fault — GET degrades to null, PUT refuses loudly (never silently
+    // accepts). Code-review finding: InvoiceLogoResolver::resolve() must never throw for GET, but
+    // the save-time path (resolveOrFail()) must NOT swallow a real fault into an ordinary 422.
+    // -----------------------------------------------------------------
+
+    public function testGetDegradesToNullUrlWhenTheResolverFaultsWithoutThrowing(): void
+    {
+        // Saved earlier through the normal, working, container-bound resolver (tenancy off) —
+        // the blob was fine at save time.
+        $uuid = 'logoFault001';
+        $this->seedBlob($uuid);
+        $this->put(['commerce.invoice.logo_blob_uuid' => $uuid]);
+
+        // Now read it back through a resolver whose policy is unwell RIGHT NOW.
+        $faulted = $this->controllerWithResolver(new InvoiceLogoResolver(
+            $this->connection(),
+            $this->throwingPolicy(),
+            $this->fakeMediaUrlResolver('https://cdn.test/logo.png'),
+        ));
+
+        $data = $this->data($faulted->show(Request::create('/x')));
+
+        self::assertNull($data['invoice_logo_url']);
+        // The stored uuid and every OTHER setting stay intact — a read-time fault must not
+        // corrupt or blank out unrelated settings in the same payload.
+        self::assertSame($uuid, $data['settings']['commerce.invoice.logo_blob_uuid']['value']);
+        self::assertTrue($data['settings']['commerce.invoice.show_sku']['value']);
+        self::assertSame('a4', $data['settings']['commerce.invoice.paper_preset']['value']);
+    }
+
+    public function testSaveTimeValidationRefusesLoudlyOnAFaultRatherThanSilentlyAccepting(): void
+    {
+        $uuid = 'logoFault002';
+        $this->seedBlob($uuid);
+
+        $faulted = $this->controllerWithResolver(new InvoiceLogoResolver(
+            $this->connection(),
+            $this->throwingPolicy(),
+            $this->fakeMediaUrlResolver('https://cdn.test/logo.png'),
+        ));
+
+        try {
+            $this->expectException(\RuntimeException::class);
+            $faulted->update($this->putRequest(['commerce.invoice.logo_blob_uuid' => $uuid]));
+        } finally {
+            self::assertNull(
+                $this->storedRaw('commerce.invoice.logo_blob_uuid'),
+                'A DB/policy fault during save must never result in a silently accepted logo.',
+            );
+        }
+    }
+
+    // -----------------------------------------------------------------
     // Logo: tenancy-on ownership (the real TenantBlobPolicy, tenant-scoped by a fake resolver)
     // -----------------------------------------------------------------
 
@@ -344,6 +397,17 @@ final class InvoiceSettingsTest extends AppTestCase
             public function authorizeAccess(array $blob, BlobAccessContext $context): bool
             {
                 return true;
+            }
+        };
+    }
+
+    /** Simulates a genuine DB/policy fault (e.g. a connection outage) — never a normal refusal. */
+    private function throwingPolicy(): BlobAccessPolicy
+    {
+        return new class implements BlobAccessPolicy {
+            public function authorizeAccess(array $blob, BlobAccessContext $context): bool
+            {
+                throw new \RuntimeException('simulated policy/database fault');
             }
         };
     }
