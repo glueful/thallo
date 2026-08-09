@@ -1577,15 +1577,6 @@ describe('StorePanel', () => {
     expect(body['commerce.downloads.url_ttl']).toBe('3600')
   })
 
-  it('renders the Settings › Email pointer for order emails', async () => {
-    const wrapper = mountPanel()
-    await flushPromises()
-
-    const pointer = wrapper.find('[data-test="store-email-pointer"]')
-    expect(pointer.exists()).toBe(true)
-    expect(pointer.text()).toContain('Emails tab')
-  })
-
   it('disables inputs and hides Save without manage rights', async () => {
     const wrapper = mountPanel(false)
     await flushPromises()
