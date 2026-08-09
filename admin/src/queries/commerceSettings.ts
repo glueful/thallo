@@ -876,8 +876,22 @@ function isInvoicePaperPreset(value: unknown): value is InvoicePaperPreset {
   )
 }
 
+/** The three invoice toggle keys carry a genuine `boolean` on the SAVE side too (Task 6's
+ * `BOOLEAN_KEYS`) — every other key stays `string | number`, unlike the read side's uniform
+ * `StoreSettingEntry.value` union. Named so `StoreSettingsSave` can widen ONLY these three rather
+ * than making every key's save type a boolean union it can never actually take (Task 8 review
+ * carry-over: the original blanket `string | number | null` made a toggle's `true`/`false`
+ * unrepresentable here — InvoicesPanel is the first save-side consumer of these three keys). */
+export type InvoiceToggleSettingKey =
+  | 'commerce.invoice.show_sku'
+  | 'commerce.invoice.show_addresses'
+  | 'commerce.invoice.show_tax_id'
+
 /** PUT body: value = set (validated server-side), null = clear back to default, absent = untouched. */
-export type StoreSettingsSave = Partial<Record<StoreSettingKey, string | number | null>>
+export type StoreSettingsSave = Partial<
+  Record<Exclude<StoreSettingKey, InvoiceToggleSettingKey>, string | number | null>
+> &
+  Partial<Record<InvoiceToggleSettingKey, boolean | null>>
 
 function normalizeStoreEntry(raw: unknown): StoreSettingEntry {
   const entry = (raw ?? {}) as Partial<StoreSettingEntry>
