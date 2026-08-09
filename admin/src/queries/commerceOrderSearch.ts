@@ -4,6 +4,7 @@ import { authFetch } from '@/api/authFetch'
 import { responseError } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 import { runtimeConfig } from '@/runtime/config'
+import { qk } from './keys'
 import {
   ORDER_STATUSES,
   FULFILLMENT_STATUSES,
@@ -105,24 +106,18 @@ export async function fetchOrderSearch(filters: OrderSearchFilters): Promise<Ord
   }
 }
 
-/** Query key: normalized scalars only, never the filters object's own identity — a brand-new
- * object carrying the SAME scalar values must not be treated as a different cache entry. */
+/** Query key: `qk.commerceOrderSearch()` (`['commerce','orders','search']`) plus normalized
+ * scalars only — never the filters object's own identity, so a brand-new object carrying the SAME
+ * scalar values must not be treated as a different cache entry. This SAME prefix is what
+ * `useCommerceOrderMutations()`'s `invalidate()` (commerceOrders.ts) targets via
+ * `cache.invalidateQueries({ key: qk.commerceOrderSearch() })` — pinia-colada's `isSubsetOf` match
+ * is element-wise from index 0, so both sides MUST share this exact prefix array or a lifecycle
+ * mutation silently never invalidates the list. */
 export function useOrderSearch(filters: Ref<OrderSearchFilters>) {
   return useQuery({
     key: () => {
       const f = toValue(filters)
-      return [
-        'commerce',
-        'orders',
-        'search',
-        f.status,
-        f.fulfillment,
-        f.placedFrom,
-        f.placedTo,
-        f.q,
-        f.page,
-        f.perPage,
-      ] as const
+      return [...qk.commerceOrderSearch(), f.status, f.fulfillment, f.placedFrom, f.placedTo, f.q, f.page, f.perPage]
     },
     query: () => fetchOrderSearch(toValue(filters)),
   })

@@ -61,7 +61,14 @@ export const qk = {
   commerceLink: (productUuid: string) => ['commerce-link', productUuid] as const,
   commerceLinkByEntry: (entryUuid: string) => ['commerce-link-by-entry', entryUuid] as const,
   commerceEntrySearch: (q: string) => ['commerce-entry-search', q] as const,
-  commerceOrders: () => ['commerce-orders'] as const,
+  // Task 7 retired the old `useCommerceOrders()`/`fetchOrders()` list query (superseded by
+  // `useOrderSearch()` in commerceOrderSearch.ts, whose key starts with this SAME prefix array) —
+  // `commerceOrderSearch()` is the shared prefix both that query's key builder AND
+  // `useCommerceOrderMutations()`'s list invalidation must use, so a lifecycle mutation's
+  // `invalidateQueries({ key: qk.commerceOrderSearch() })` actually matches the live list query's
+  // key via pinia-colada's element-wise `isSubsetOf` (a stale/different prefix silently never
+  // matches anything — see the fix-round-2 note in commerceOrders.ts).
+  commerceOrderSearch: () => ['commerce', 'orders', 'search'] as const,
   commerceOrder: (uuid: string) => ['commerce-order', uuid] as const,
   commerceOrderRefunds: (orderUuid: string) => ['commerce-order-refunds', orderUuid] as const,
   commerceRefunds: () => ['commerce-refunds'] as const,

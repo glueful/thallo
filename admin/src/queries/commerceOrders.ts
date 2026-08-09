@@ -509,7 +509,13 @@ export function useCommerceOrderMutations() {
   const cache = useQueryCache()
   const invalidate = (uuid: string) => {
     cache.invalidateQueries({ key: qk.commerceOrder(uuid) })
-    cache.invalidateQueries({ key: qk.commerceOrders() })
+    // The list view's live query is `useOrderSearch()` (commerceOrderSearch.ts), keyed off THIS
+    // same prefix — pinia-colada's `isSubsetOf` match is element-wise from index 0, so this MUST
+    // be the exact prefix the list query's own key starts with, or a lifecycle mutation silently
+    // never invalidates it (the retired `useCommerceOrders()`/`qk.commerceOrders()` pair had a
+    // DIFFERENT prefix — `['commerce-orders']` vs `['commerce','orders','search',...]` — which
+    // never matched anything after Task 7's migration; caught in review, fixed here).
+    cache.invalidateQueries({ key: qk.commerceOrderSearch() })
   }
   const invalidateRefund = (uuid: string) => {
     invalidate(uuid)
