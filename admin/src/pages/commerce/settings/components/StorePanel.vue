@@ -195,7 +195,7 @@ function resetField(field: keyof typeof form): void {
     data-test="store-settings-error"
   />
 
-  <div v-else class="max-w-2xl space-y-6" data-test="store-settings-panel">
+  <div v-else class="max-w-2xl space-y-6 pb-5" data-test="store-settings-panel">
     <div class="grid gap-4 sm:grid-cols-2">
       <UFormField
         label="Currency"
@@ -375,18 +375,6 @@ function resetField(field: keyof typeof form): void {
         data-test="store-tax-reset"
         @click="resetField('taxPercent')"
       />
-    </div>
-
-    <!-- Discoverability for the order emails (spec §3.5): editing lives on the EXISTING page. -->
-    <div
-      class="flex items-center gap-2 rounded-md border border-default px-3 py-2 text-sm text-muted"
-      data-test="store-email-pointer"
-    >
-      <UIcon name="i-lucide-mail" class="size-4" />
-      <span>
-        Order emails (confirmation, payment, fulfillment, cancellation) are managed in the
-        <span class="font-medium text-default">Emails</span> tab of these settings.
-      </span>
     </div>
   </div>
 </template>
