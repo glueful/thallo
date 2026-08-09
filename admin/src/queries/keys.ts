@@ -70,6 +70,7 @@ export const qk = {
   // matches anything — see the fix-round-2 note in commerceOrders.ts).
   commerceOrderSearch: () => ['commerce', 'orders', 'search'] as const,
   commerceOrder: (uuid: string) => ['commerce-order', uuid] as const,
+  commerceOrderPayments: (orderUuid: string) => ['commerce-order-payments', orderUuid] as const,
   commerceOrderRefunds: (orderUuid: string) => ['commerce-order-refunds', orderUuid] as const,
   commerceRefunds: () => ['commerce-refunds'] as const,
   commerceOrderNotes: (orderUuid: string) => ['commerce-order-notes', orderUuid] as const,

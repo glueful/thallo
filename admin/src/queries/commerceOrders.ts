@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { client } from '@/api/client'
 import { ApiError, toApiError } from '@/api/errors'
+import { authFetch } from '@/api/authFetch'
+import { runtimeConfig } from '@/runtime/config'
 import { qk } from './keys'
 
 // Closed vocabularies mirrored from the backend (Glueful\Extensions\Commerce\Orders\
@@ -221,6 +223,115 @@ export function useCommerceOrder(uuid: MaybeRefOrGetter<string>) {
   return useQuery({
     key: () => qk.commerceOrder(toValue(uuid)),
     query: () => fetchOrder(toValue(uuid)),
+    enabled: () => !!toValue(uuid),
+  })
+}
+
+// ── Payment summary (Task 5 / Task 9) ─────────────────────────────────────────
+//
+// `GET /commerce/orders/{uuid}/payments` (AdminOrderPaymentsController::payments()) is NOT yet in
+// the generated OpenAPI schema (no regen happened for it — same recorded follow-up as
+// commerceOrderSearch.ts's `/search`/`/export`), so this rides on `authFetch`/raw fetch exactly
+// like that file's established idiom rather than the typed `client`.
+//
+// The envelope is INVARIANT on every 200 — `{available, payments, intents, refund}` — regardless
+// of whether Payvia's own tables are migrated: `available` reports whether they physically exist,
+// `payments`/`intents` are empty arrays (never omitted) when they don't, and `refund` is always
+// the order's OWN `refunded_total`/`refund_revision` pair, echoed from the already-validated order
+// row rather than re-derived from Payvia. `OrderPaymentCard.vue` renders this as an order-level
+// aggregate ALONGSIDE (never instead of) the gateway rows, since Payvia has no concept of a
+// commerce refund.
+
+/** A `payments` row, closed to `OrderPaymentSummaryRepository::PAYMENT_FIELDS` — never the raw
+ * `metadata`/`raw_payload`/`message` columns the backend deliberately excludes (its own docblock
+ * calls those out as secret/PII-bearing). */
+export interface CommerceOrderPaymentRecord {
+  gateway: string
+  status: string
+  reference: string
+  gateway_transaction_id: string | null
+  /** Minor-unit integer amount — format with `formatMoney`, never `Number()`. */
+  amount: number
+  currency: string
+  created_at: string | null
+  updated_at: string | null
+}
+
+/** A `payment_intents` row, closed to `OrderPaymentSummaryRepository::INTENT_FIELDS` — a full
+ * attempt history (both `open` and `closed`), never just in-flight ones. */
+export interface CommerceOrderPaymentIntent {
+  gateway: string
+  status: string
+  reference: string
+  /** Minor-unit integer amount — format with `formatMoney`, never `Number()`. */
+  amount: number
+  currency: string
+  created_at: string | null
+}
+
+export interface CommerceOrderPaymentsEnvelope {
+  /** Both Payvia tables physically present. `false` means every list below is (correctly) empty
+   * — never itself an error condition. */
+  available: boolean
+  payments: CommerceOrderPaymentRecord[]
+  intents: CommerceOrderPaymentIntent[]
+  /** Echoed straight from the order row — an ORDER-LEVEL aggregate, not a Payvia concept. */
+  refund: { refunded_total: number; refund_revision: number }
+}
+
+function normalizeOrderPaymentRecord(raw: Record<string, unknown>): CommerceOrderPaymentRecord {
+  return {
+    gateway: String(raw.gateway ?? ''),
+    status: String(raw.status ?? ''),
+    reference: String(raw.reference ?? ''),
+    gateway_transaction_id:
+      typeof raw.gateway_transaction_id === 'string' ? raw.gateway_transaction_id : null,
+    amount: typeof raw.amount === 'number' ? raw.amount : 0,
+    currency: String(raw.currency ?? ''),
+    created_at: typeof raw.created_at === 'string' ? raw.created_at : null,
+    updated_at: typeof raw.updated_at === 'string' ? raw.updated_at : null,
+  }
+}
+
+function normalizeOrderPaymentIntent(raw: Record<string, unknown>): CommerceOrderPaymentIntent {
+  return {
+    gateway: String(raw.gateway ?? ''),
+    status: String(raw.status ?? ''),
+    reference: String(raw.reference ?? ''),
+    amount: typeof raw.amount === 'number' ? raw.amount : 0,
+    currency: String(raw.currency ?? ''),
+    created_at: typeof raw.created_at === 'string' ? raw.created_at : null,
+  }
+}
+
+function normalizeOrderPayments(raw: Record<string, unknown>): CommerceOrderPaymentsEnvelope {
+  const payments = Array.isArray(raw.payments) ? raw.payments : []
+  const intents = Array.isArray(raw.intents) ? raw.intents : []
+  const refund =
+    typeof raw.refund === 'object' && raw.refund !== null
+      ? (raw.refund as Record<string, unknown>)
+      : {}
+  return {
+    available: raw.available === true,
+    payments: payments.map((p) => normalizeOrderPaymentRecord(p as Record<string, unknown>)),
+    intents: intents.map((i) => normalizeOrderPaymentIntent(i as Record<string, unknown>)),
+    refund: {
+      refunded_total: typeof refund.refunded_total === 'number' ? refund.refunded_total : 0,
+      refund_revision: typeof refund.refund_revision === 'number' ? refund.refund_revision : 0,
+    },
+  }
+}
+
+export async function fetchOrderPayments(uuid: string): Promise<CommerceOrderPaymentsEnvelope> {
+  const json = await authFetch(`${runtimeConfig.apiBase}/commerce/orders/${uuid}/payments`)
+  const raw = (json as { data?: unknown }).data
+  return normalizeOrderPayments((raw ?? {}) as Record<string, unknown>)
+}
+
+export function useOrderPayments(uuid: MaybeRefOrGetter<string>) {
+  return useQuery({
+    key: () => qk.commerceOrderPayments(toValue(uuid)),
+    query: () => fetchOrderPayments(toValue(uuid)),
     enabled: () => !!toValue(uuid),
   })
 }
