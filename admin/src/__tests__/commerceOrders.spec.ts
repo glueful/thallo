@@ -4,12 +4,8 @@ import { join } from 'node:path'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref, toValue } from 'vue'
-import type {
-  CommerceOrder,
-  CommerceRefund,
-  CommerceOrderNote,
-  CommerceInvoiceData,
-} from '@/queries/commerceOrders'
+import type { CommerceOrder, CommerceRefund, CommerceOrderNote } from '@/queries/commerceOrders'
+import type { CommerceInvoiceData } from '@/queries/commerceInvoice'
 import { ORDER_SEARCH_DEFAULTS, type OrderSearchFilters, type OrderSearchPage } from '@/queries/commerceOrderSearch'
 
 const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
@@ -101,7 +97,6 @@ vi.mock('@/queries/commerceOrders', async (importOriginal) => {
     useCommerceOrder: () => ({ data: singleOrder, status: singleStatus }),
     useOrderRefunds: () => ({ data: orderRefunds, status: orderRefundsStatus }),
     useOrderNotes: () => ({ data: orderNotes, status: orderNotesStatus }),
-    useOrderInvoiceData: () => ({ data: invoiceData, status: invoiceDataStatus }),
     useCommerceOrderMutations: () => ({
       cancel: { mutateAsync: cancelMock, isLoading: ref(false) },
       markPaid: { mutateAsync: markPaidMock, isLoading: ref(false) },
@@ -109,6 +104,16 @@ vi.mock('@/queries/commerceOrders', async (importOriginal) => {
       refund: { mutateAsync: refundMock, isLoading: ref(false) },
       addNote: { mutateAsync: addNoteMock, isLoading: ref(false) },
     }),
+  }
+})
+
+// Task 8: invoice-data moved to its own module — the order-detail page's formatted "Invoice
+// data" modal now imports `useOrderInvoiceData` from here instead of `@/queries/commerceOrders`.
+vi.mock('@/queries/commerceInvoice', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/queries/commerceInvoice')>()
+  return {
+    ...actual,
+    useOrderInvoiceData: () => ({ data: invoiceData, status: invoiceDataStatus }),
   }
 })
 
@@ -178,13 +183,14 @@ function note(overrides: Partial<CommerceOrderNote> = {}): CommerceOrderNote {
 
 function invoiceDataFixture(overrides: Partial<CommerceInvoiceData> = {}): CommerceInvoiceData {
   return {
-    schema_version: 1,
+    schema_version: 2,
     seller: { name: 'Acme Supply Co.', address: '1 Market St', tax_id: 'TAX-1' },
     buyer: { email: 'buyer@example.com', addresses: null },
     order: {
       number: 'ORD-2002',
       dates: { placed_at: '2026-01-01 00:00:00', created_at: '2026-01-01 00:00:00', updated_at: null },
       currency: 'USD',
+      currency_exponent: 2,
       status: 'paid',
     },
     lines: [

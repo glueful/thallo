@@ -5,10 +5,10 @@ import type { TableColumn } from '@nuxt/ui'
 import {
   useCommerceOrder,
   useOrderRefunds,
-  useOrderInvoiceData,
   type CommerceOrderAddress,
   type CommerceOrderLine,
 } from '@/queries/commerceOrders'
+import { useOrderInvoiceData } from '@/queries/commerceInvoice'
 import { useCommerceMeta } from '@/queries/commerceMeta'
 import { useMoney } from '@/composables/useMoney'
 import OrderActions from '../components/OrderActions.vue'

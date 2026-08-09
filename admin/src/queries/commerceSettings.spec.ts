@@ -1327,3 +1327,98 @@ describe('commerce settings (tax rates) query layer', () => {
     await expect(deleteTaxRate('missing')).rejects.toBeInstanceOf(ApiError)
   })
 })
+
+// ── Store settings: invoice & receipt branding keys + derived invoice_logo_url (Task 8) ────────
+// `CommerceSettingsController::show()` returns real JSON booleans for the three toggle keys and
+// a derived, non-editable `invoice_logo_url` sibling to `settings` — never inside it.
+
+describe('commerce store settings (invoice & receipt branding) query layer', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    vi.stubGlobal('fetch', vi.fn())
+  })
+
+  function storeSettingsBody(overrides: Record<string, unknown> = {}) {
+    return {
+      success: true,
+      message: 'Store settings retrieved',
+      data: {
+        settings: {
+          'commerce.currency': { value: 'USD', default: 'USD', overridden: false },
+          'commerce.tax.flat_rate_bps': { value: 0, default: 0, overridden: false },
+          'commerce.orders.number_format': { value: 'ORD-{seq}', default: 'ORD-{seq}', overridden: false },
+          'commerce.orders.expiry_minutes': { value: 60, default: 60, overridden: false },
+          'commerce.cart.ttl_days': { value: 30, default: 30, overridden: false },
+          'commerce.reports.low_stock_threshold': { value: 2, default: 2, overridden: false },
+          'commerce.downloads.url_ttl': { value: 300, default: 300, overridden: false },
+          'commerce.seller.name': { value: 'Acme Supply Co.', default: '', overridden: true },
+          'commerce.seller.address': { value: '', default: '', overridden: false },
+          'commerce.seller.tax_id': { value: '', default: '', overridden: false },
+          'commerce.invoice.logo_blob_uuid': { value: 'blob-uuid-1', default: '', overridden: true },
+          'commerce.invoice.footer_text': { value: 'Thanks for shopping!', default: '', overridden: true },
+          'commerce.invoice.show_sku': { value: true, default: true, overridden: false },
+          'commerce.invoice.show_addresses': { value: true, default: true, overridden: false },
+          'commerce.invoice.show_tax_id': { value: false, default: true, overridden: true },
+          'commerce.invoice.paper_preset': { value: 'thermal_80', default: 'a4', overridden: true },
+        },
+        invoice_logo_url: 'https://cdn.example.test/media/signed-token-abc123.png',
+        currency_locked: false,
+        has_priced_products: false,
+        pages: [],
+        ...overrides,
+      },
+    }
+  }
+
+  it('normalizes the six invoice/receipt branding keys, including real booleans', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse(storeSettingsBody()))
+
+    const { fetchStoreSettings } = await import('@/queries/commerceSettings')
+    const settings = await fetchStoreSettings()
+
+    expect(settings.settings['commerce.invoice.logo_blob_uuid']).toEqual({
+      value: 'blob-uuid-1',
+      default: '',
+      overridden: true,
+    })
+    expect(settings.settings['commerce.invoice.footer_text']?.value).toBe('Thanks for shopping!')
+    expect(settings.settings['commerce.invoice.show_sku']?.value).toBe(true)
+    expect(settings.settings['commerce.invoice.show_addresses']?.value).toBe(true)
+    expect(settings.settings['commerce.invoice.show_tax_id']?.value).toBe(false)
+    expect(settings.settings['commerce.invoice.paper_preset']?.value).toBe('thermal_80')
+  })
+
+  it('carries the derived invoice_logo_url alongside — never synthesized from the stored uuid', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse(storeSettingsBody()))
+
+    const { fetchStoreSettings } = await import('@/queries/commerceSettings')
+    const settings = await fetchStoreSettings()
+
+    expect(settings.invoice_logo_url).toBe('https://cdn.example.test/media/signed-token-abc123.png')
+    // The stored uuid is a completely different string from the derived URL — proof the URL
+    // isn't string-built from the uuid, it's an independent server-computed field.
+    expect(settings.invoice_logo_url).not.toContain('blob-uuid-1')
+  })
+
+  it('a stored logo uuid that no longer resolves yields a null invoice_logo_url WITHOUT erasing the uuid', async () => {
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(storeSettingsBody({ invoice_logo_url: null })),
+    )
+
+    const { fetchStoreSettings } = await import('@/queries/commerceSettings')
+    const settings = await fetchStoreSettings()
+
+    expect(settings.invoice_logo_url).toBeNull()
+    expect(settings.settings['commerce.invoice.logo_blob_uuid']?.value).toBe('blob-uuid-1')
+  })
+
+  it('defaults invoice_logo_url to null when the server omits it entirely', async () => {
+    const body = storeSettingsBody()
+    delete (body.data as Record<string, unknown>).invoice_logo_url
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse(body))
+
+    const { fetchStoreSettings } = await import('@/queries/commerceSettings')
+    const settings = await fetchStoreSettings()
+    expect(settings.invoice_logo_url).toBeNull()
+  })
+})
