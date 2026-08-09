@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-09
 **Scope:** App-side cycle 1 of the orders program: printable invoices/receipts with settings-driven customization, an app-owned filtered orders list + CSV export, a payment-summary surface, and the order-detail hierarchy rework. **Admin order creation is cycle 2** (engine-level, separately specced).
-**Posture:** No publication dependency, but deliberate schema coupling to Commerce (`commerce_orders`, `commerce_order_lines`) and Payvia (`payments`, `payment_intents`) tables. Two small, deliberate upstream `glueful/commerce` extensions are in scope (§2.6). The vendor `orders.index` endpoint stays mounted untouched; the app list endpoint is **temporary ownership** — retire when equivalent upstream filtering exists.
+**Posture:** ONE named publication dependency: the two §2.6 upstream `glueful/commerce` extensions ship as **v1.9.1** (repo: github.com/glueful/commerce, local checkout `/Users/michaeltawiahsowah/Sites/glueful/extensions/commerce`); Thallo repins to `^1.9.1` behind an explicit publication gate — Thallo implementation continues only after installation resolves from the published artifact. Beyond that, deliberate schema coupling to Commerce (`commerce_orders`, `commerce_order_lines`) and Payvia (`payments`, `payment_intents`) tables. The vendor `orders.index` endpoint stays mounted untouched; the app list endpoint is **temporary ownership** — retire when equivalent upstream filtering exists.
 
 ---
 
@@ -101,10 +101,13 @@
   - `commerce.invoice.show_sku` / `show_addresses` / `show_tax_id` — one canonical storage representation; API returns real booleans.
   - `commerce.invoice.paper_preset` — closed enum `a4|thermal_80|thermal_58`.
 
-### 2.6 Deliberate upstream `glueful/commerce` extensions (small, this cycle)
+### 2.6 Deliberate upstream `glueful/commerce` extensions (v1.9.1, behind the publication gate)
 
-1. **`currency_exponent` added to `InvoiceData`**, derived from the order's own currency — historically correct receipts never borrow today's store exponent.
-2. **Shared payable-type constant** for `commerce_order` extracted where checkout writes it (if no constant exists today); Thallo consumes the constant.
+Both belong upstream — they benefit every Commerce host; app-side equivalents would create temporary authorities needing later removal.
+
+1. **`currency_exponent` added to `InvoiceData`** (part of the invoice-data contract), derived from the order's own currency — historically correct receipts never borrow today's store exponent. With compatibility tests.
+2. **Shared payable-type constant** for `commerce_order` (Commerce's payable identity, owned by Commerce): today the literal is written at `CheckoutService.php:901` and repeated in `OrderPaymentConfirmationHandler`, `Mail/OrderNotifiable`, `Refunds/RefundService`, and `ChargebackService::SUPPORTED_PAYABLE_TYPE` — extract one constant, migrate those sites, Thallo consumes it. With compatibility tests.
+3. **Release + gate:** tag v1.9.1, repin Thallo `^1.9.1`, update the lock. If the package is not yet available, STOP at the publication gate; Thallo work resumes only after installation resolves from the published artifact.
 3. *(Recorded as follow-up, NOT this cycle:)* immutable product-identity snapshot (`product_uuid`/`variant_uuid`/thumbnail) on admin line projection + InvoiceData; variant `option_values` in InvoiceData.
 
 ## §3 Test matrix
