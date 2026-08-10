@@ -154,12 +154,18 @@ async function confirmCancel() {
                   {{ d.customer_name ?? d.email ?? 'Walk-in customer' }}
                 </span>
               </div>
-              <!-- Advisory only (task brief, binding): pre-finalization figures that can still
-                   change (recalculate, further line edits) — never treated as the order's final
-                   truth the way the finalized-order detail's totals are. -->
+              <!-- Advisory total only (task brief, binding): a pre-finalization figure that can
+                   still change (recalculate, further line edits) — never treated as the order's
+                   final truth the way the finalized-order detail's totals are.
+                   Deliberately NO line-count cell: `AdminOrderDraftController::index()` (vendored
+                   engine, out of this task's scope) calls `DraftOrderProjection::forAdmin($row)`
+                   WITHOUT the `$lines` argument, so every listed draft's `lines` array is always
+                   `[]` on this endpoint regardless of its real contents — `d.lines.length` here
+                   would be a confidently WRONG "0 item(s)" for every real draft, not merely an
+                   approximate one. Restore a count cell once the engine's list endpoint hydrates
+                   `lines` (or exposes a line count some other way) — the wire genuinely doesn't
+                   carry the information yet. -->
               <div class="flex items-center gap-2 text-sm text-muted">
-                <span data-test="draft-line-count">{{ d.lines.length }} item(s)</span>
-                <span class="text-dimmed">·</span>
                 <span data-test="draft-total">{{ money(d.grand_total) }} (advisory)</span>
               </div>
             </div>

@@ -901,6 +901,9 @@ describe('complete sale gating', () => {
     ['in_store', 'paid'],
     ['in_store', 'fulfilled'],
     ['in_store', 'canceled'],
+    // 'draft' is unreachable here in production (this page only ever loads a FINALIZED order via
+    // `useCommerceOrder` — a draft lives on the separate workspace route) — kept as a defensive
+    // case anyway, since `CommerceOrder.status` is typed as a bare `string`, not the closed enum.
     ['in_store', 'draft'],
     ['delivery', 'paid'],
   ])('hides the button for fulfillment_mode=%s status=%s', async (mode, status) => {
@@ -980,6 +983,38 @@ describe('complete sale invocation', () => {
     expect(steps).toHaveLength(2)
     expect(steps[0]!.text()).toContain('mark_paid')
     expect(steps[0]!.text()).toContain('failed')
+    expect(steps[1]!.text()).toContain('skipped')
+    expect(wrapper.find('[data-test="complete-sale-fulfill-hint"]').exists()).toBe(false)
+    expect(notify.success).not.toHaveBeenCalled()
+  })
+
+  // Pre-gate refusal (409, a race between this page's own gating check and the request landing —
+  // e.g. another operator/tab paid or canceled the order in the gap): the coordinator's
+  // `refused()` path reports BOTH steps `skipped`, zero transitions attempted, distinct from
+  // outcome 2 above (where `mark_paid` itself was attempted and failed).
+  it('pre-gate race (409, both steps skipped): renders zero-transitions-attempted, never a fulfill hint', async () => {
+    completeSaleMock.mockResolvedValue(
+      completeSaleResult({
+        message: 'Order is not awaiting payment.',
+        steps: [
+          { step: 'mark_paid', status: 'skipped' },
+          { step: 'fulfill', status: 'skipped' },
+        ],
+      }),
+    )
+    singleOrder.value = eligibleOrder()
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-complete-sale"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="complete-sale-message"]').text()).toContain(
+      'Order is not awaiting payment.',
+    )
+    const steps = wrapper.findAll('[data-test="complete-sale-step"]')
+    expect(steps).toHaveLength(2)
+    expect(steps[0]!.text()).toContain('skipped')
     expect(steps[1]!.text()).toContain('skipped')
     expect(wrapper.find('[data-test="complete-sale-fulfill-hint"]').exists()).toBe(false)
     expect(notify.success).not.toHaveBeenCalled()

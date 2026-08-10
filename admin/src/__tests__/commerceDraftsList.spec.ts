@@ -171,23 +171,25 @@ describe('drafts list page', () => {
     expect(wrapper.find('[data-test="draft-updated"]').text()).toContain('Updated')
   })
 
-  it('shows an advisory line count and total', async () => {
+  it('shows an advisory total, and NO line-count cell (the list endpoint never hydrates lines)', async () => {
     draftsPage.value = page({
       drafts: [
         draft({
           uuid: 'd1',
           grand_total: 12345,
-          lines: [
-            { uuid: 'l1', variant_uuid: 'v1', product_name: 'Widget', sku: 'SKU-1', quantity: 1, unit_price: 12345, line_total: 12345, option_values: {}, addons: [] },
-          ],
+          // Mirrors production: `AdminOrderDraftController::index()` never hydrates `lines` for
+          // the list endpoint, so this stays `[]` even for a real draft with actual line items.
+          lines: [],
         }),
       ],
     })
     const wrapper = mount(DraftsList, { global: { stubs: pageStubs } })
     await flushPromises()
 
-    expect(wrapper.find('[data-test="draft-line-count"]').text()).toContain('1')
     expect(wrapper.find('[data-test="draft-total"]').text()).toContain('$123.45')
+    // No count cell at all — rendering `lines.length` here would be a confidently WRONG "0
+    // item(s)" for every real draft, not merely an approximate figure (review fix).
+    expect(wrapper.find('[data-test="draft-line-count"]').exists()).toBe(false)
   })
 
   // ── Resume: exact uuid, never creates ───────────────────────────────────────────────────────
