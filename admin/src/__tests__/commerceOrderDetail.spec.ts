@@ -97,6 +97,19 @@ vi.mock('@/queries/commerceInvoice', async (importOriginal) => {
   }
 })
 
+// Task 15 (admin-order-creation cycle 2): Complete sale — `completeSaleMock` stands in for
+// `useCompleteSaleMutation().mutateAsync`, driven per-test to resolve with each of the
+// coordinator's outcome shapes (the function itself never throws for a well-formed 200/409/500
+// envelope — see commerceDrafts.ts) or to reject (a genuinely unexpected failure).
+const completeSaleMock = vi.hoisted(() => vi.fn())
+vi.mock('@/queries/commerceDrafts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/queries/commerceDrafts')>()
+  return {
+    ...actual,
+    useCompleteSaleMutation: () => ({ mutateAsync: completeSaleMock, isLoading: ref(false) }),
+  }
+})
+
 import OrderDetail from '@/pages/commerce/orders/[uuid]/index.vue'
 import OrderActions from '@/pages/commerce/orders/components/OrderActions.vue'
 import OrderCancelDialog from '@/pages/commerce/orders/components/OrderCancelDialog.vue'
@@ -263,6 +276,7 @@ beforeEach(() => {
   markPaidMock.mockReset()
   fulfillMock.mockReset()
   refundMock.mockReset()
+  completeSaleMock.mockReset()
   orderRefunds.value = []
   orderRefundsStatus.value = 'success'
   addNoteMock.mockReset()
@@ -851,6 +865,217 @@ describe('order lifecycle actions', () => {
     // itself is no longer offered.
     expect(wrapper.find('[data-test="order-fulfill"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="order-refund"]').exists()).toBe(true)
+  })
+})
+
+// ── Complete sale (Task 15, admin-order-creation cycle 2, design spec §2.8): the one-click
+// finish for a finalized in-store order still awaiting payment. Gating matrix, the closed body
+// shape, and rendering for all five coordinator outcomes. ─────────────────────────────────────
+
+function completeSaleResult(overrides: {
+  message?: string
+  steps?: { step: string; status: string; error?: string }[]
+  order?: Record<string, unknown> | null
+} = {}) {
+  return {
+    message: overrides.message ?? 'Sale completed',
+    steps: overrides.steps ?? [
+      { step: 'mark_paid', status: 'done' },
+      { step: 'fulfill', status: 'done' },
+    ],
+    order: overrides.order === undefined ? {} : overrides.order,
+  }
+}
+
+describe('complete sale gating', () => {
+  it('shows the button only when fulfillment_mode is in_store AND status is pending_payment', async () => {
+    singleOrder.value = order({ uuid: 'o1', fulfillment_mode: 'in_store', status: 'pending_payment' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-complete-sale"]').exists()).toBe(true)
+  })
+
+  it.each([
+    ['delivery', 'pending_payment'],
+    ['in_store', 'paid'],
+    ['in_store', 'fulfilled'],
+    ['in_store', 'canceled'],
+    ['in_store', 'draft'],
+    ['delivery', 'paid'],
+  ])('hides the button for fulfillment_mode=%s status=%s', async (mode, status) => {
+    singleOrder.value = order({ uuid: 'o1', fulfillment_mode: mode, status })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-complete-sale"]').exists()).toBe(false)
+  })
+
+  it('hides the button when can_manage is false even for an eligible order', async () => {
+    metaData.value = { ...metaData.value, can_manage: false }
+    singleOrder.value = order({ uuid: 'o1', fulfillment_mode: 'in_store', status: 'pending_payment' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-complete-sale"]').exists()).toBe(false)
+  })
+})
+
+describe('complete sale invocation', () => {
+  function eligibleOrder(overrides: Partial<CommerceOrder> = {}) {
+    return order({ uuid: 'o1', fulfillment_mode: 'in_store', status: 'pending_payment', ...overrides })
+  }
+
+  it('calls the mutation with the closed body shape — tracking_ref only, no confirm step', async () => {
+    completeSaleMock.mockResolvedValue(completeSaleResult())
+    singleOrder.value = eligibleOrder()
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-complete-sale"]').trigger('click')
+    await flushPromises()
+
+    expect(completeSaleMock).toHaveBeenCalledTimes(1)
+    expect(completeSaleMock).toHaveBeenCalledWith({ uuid: 'o1', trackingRef: null })
+  })
+
+  // Outcome 1: both done ⇒ success toast, no persistent panel (the refreshed order IS the render).
+  it('outcome 1 (both done): toasts success and renders no persistent panel', async () => {
+    completeSaleMock.mockResolvedValue(completeSaleResult())
+    singleOrder.value = eligibleOrder()
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-complete-sale"]').trigger('click')
+    await flushPromises()
+
+    expect(notify.success).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-test="complete-sale-result"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="complete-sale-error"]').exists()).toBe(false)
+  })
+
+  // Outcome 2: mark_paid failed (409 conflict, zero transitions or a lost CAS) ⇒ conflict message.
+  it('outcome 2 (mark_paid failed): renders the conflict message and both step results', async () => {
+    completeSaleMock.mockResolvedValue(
+      completeSaleResult({
+        message: 'The order changed before the sale could be completed.',
+        steps: [
+          { step: 'mark_paid', status: 'failed', error: 'The order changed before this step could complete.' },
+          { step: 'fulfill', status: 'skipped' },
+        ],
+      }),
+    )
+    singleOrder.value = eligibleOrder()
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-complete-sale"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="complete-sale-result"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="complete-sale-message"]').text()).toContain(
+      'The order changed before the sale could be completed.',
+    )
+    const steps = wrapper.findAll('[data-test="complete-sale-step"]')
+    expect(steps).toHaveLength(2)
+    expect(steps[0]!.text()).toContain('mark_paid')
+    expect(steps[0]!.text()).toContain('failed')
+    expect(steps[1]!.text()).toContain('skipped')
+    expect(wrapper.find('[data-test="complete-sale-fulfill-hint"]').exists()).toBe(false)
+    expect(notify.success).not.toHaveBeenCalled()
+  })
+
+  // Outcome 3: paid but fulfill failed (409) ⇒ show paid state, point at the standard Fulfill
+  // action as the recovery — Complete sale is never auto-retried.
+  it('outcome 3 (paid, fulfill failed): points at the standard Fulfill action as next step', async () => {
+    completeSaleMock.mockResolvedValue(
+      completeSaleResult({
+        message: 'The order changed before the sale could be completed.',
+        steps: [
+          { step: 'mark_paid', status: 'done' },
+          { step: 'fulfill', status: 'failed', error: 'The order changed before this step could complete.' },
+        ],
+      }),
+    )
+    singleOrder.value = eligibleOrder()
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-complete-sale"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="complete-sale-fulfill-hint"]').exists()).toBe(true)
+    expect(completeSaleMock).toHaveBeenCalledTimes(1)
+
+    // Never auto-retried: dismissing the panel and re-rendering issues no second call on its own.
+    await wrapper.find('[data-test="complete-sale-dismiss"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="complete-sale-result"]').exists()).toBe(false)
+    expect(completeSaleMock).toHaveBeenCalledTimes(1)
+  })
+
+  // Outcome 4: sanitized 500s ⇒ generic error text + current step state, never exception detail.
+  it('outcome 4 (sanitized 500): renders the sanitized message and step state', async () => {
+    completeSaleMock.mockResolvedValue(
+      completeSaleResult({
+        message: 'The sale could not be completed.',
+        steps: [
+          { step: 'mark_paid', status: 'done' },
+          { step: 'fulfill', status: 'failed', error: 'An unexpected error prevented this step from completing.' },
+        ],
+      }),
+    )
+    singleOrder.value = eligibleOrder()
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-complete-sale"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="complete-sale-message"]').text()).toContain(
+      'The sale could not be completed.',
+    )
+    expect(wrapper.text()).not.toContain('Exception')
+    expect(wrapper.text()).not.toContain('SQLSTATE')
+  })
+
+  // Outcome 5: `order: null` tolerated throughout — never crashes the page.
+  it('outcome 5: tolerates order: null in the response without crashing', async () => {
+    completeSaleMock.mockResolvedValue(
+      completeSaleResult({
+        message: 'The order changed before the sale could be completed.',
+        steps: [
+          { step: 'mark_paid', status: 'done' },
+          { step: 'fulfill', status: 'failed', error: 'The order changed before this step could complete.' },
+        ],
+        order: null,
+      }),
+    )
+    singleOrder.value = eligibleOrder()
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-complete-sale"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="complete-sale-result"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="order-detail-error"]').exists()).toBe(false)
+  })
+
+  // Genuinely unexpected failure (network error) — the ordinary catch-all, never a fabricated
+  // per-step panel for a shape the mutation never actually returned.
+  it('surfaces a genuinely unexpected failure via the generic error alert', async () => {
+    const { ApiError } = await import('@/api/errors')
+    completeSaleMock.mockRejectedValue(new ApiError('Network error.', 0, {}, null))
+    singleOrder.value = eligibleOrder()
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="order-complete-sale"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="complete-sale-error"]').text()).toContain('Network error.')
+    expect(wrapper.find('[data-test="complete-sale-result"]').exists()).toBe(false)
   })
 })
 

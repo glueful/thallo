@@ -201,6 +201,50 @@ export function useCommerceDraft(
   })
 }
 
+// ── Drafts list (Task 15, admin-order-creation cycle 2) ─────────────────────────────────────
+//
+// `GET /commerce/orders/drafts` (AdminOrderDraftController::index(), 'view'-graded server-side —
+// unlike every mutation on this resource, which is 'manage') — this is the ONE draft-inclusive
+// listing anywhere in the admin SPA (design spec's binding ruling); the ordinary orders list
+// (`commerceOrderSearch.ts`) stays draft-blind by construction. Paginated exactly like
+// `commerceOrderSearch.ts`'s own `{data, current_page, per_page, total}` envelope
+// (`Response::paginated()`), so the fetcher mirrors that file's parsing idiom rather than
+// inventing a new one.
+
+export interface DraftsListFilters {
+  page: number
+  perPage: number
+}
+
+export interface CommerceDraftListPage {
+  drafts: CommerceDraft[]
+  total: number
+  current_page: number
+  per_page: number
+}
+
+export async function fetchDraftsList(filters: DraftsListFilters): Promise<CommerceDraftListPage> {
+  const qs = new URLSearchParams()
+  qs.set('page', String(filters.page))
+  qs.set('per_page', String(filters.perPage))
+  const json = await authFetch(`${base()}?${qs.toString()}`)
+  const body = json as { data?: unknown[]; current_page?: number; per_page?: number; total?: number }
+  const rows = Array.isArray(body.data) ? body.data : []
+  return {
+    drafts: rows.map((r) => normalizeDraft(r as Record<string, unknown>)),
+    total: typeof body.total === 'number' ? body.total : 0,
+    current_page: typeof body.current_page === 'number' ? body.current_page : filters.page,
+    per_page: typeof body.per_page === 'number' ? body.per_page : filters.perPage,
+  }
+}
+
+export function useDraftsList(filters: MaybeRefOrGetter<DraftsListFilters>) {
+  return useQuery({
+    key: () => qk.commerceDraftsList(toValue(filters).page, toValue(filters).perPage),
+    query: () => fetchDraftsList(toValue(filters)),
+  })
+}
+
 export interface CreateDraftInput {
   fulfillment_mode?: DraftFulfillmentMode
   customer_name?: string
@@ -335,13 +379,19 @@ export async function finalizeDraft(
 }
 
 /**
- * Every ordinary draft mutation invalidates ONLY its own draft's query — unlike
- * `useCommerceOrderMutations()`, no list view reads through this cache key (the drafts list, if
- * any, is Task 14's own concern, not built here), so there is no second key to cascade to.
+ * Every ordinary draft mutation invalidates ONLY its own draft's query — no list view read
+ * through this cache key until Task 15's drafts list. `cancel` additionally invalidates the
+ * drafts list's own prefix (mirrors `useCommerceOrderMutations()`'s identical
+ * `qk.commerceOrderSearch()` prefix-only invalidation): a canceled draft must disappear from
+ * the list too, and pinia-colada's `invalidateQueries` matches by prefix (element-wise from
+ * index 0), so the bare `['commerce-drafts-list']` array — never the full
+ * `qk.commerceDraftsList(page, perPage)` key, whose page/per_page this call site doesn't know —
+ * matches every page/per_page variant the list view might currently be querying.
  */
 export function useCommerceDraftMutations() {
   const cache = useQueryCache()
   const invalidate = (uuid: string) => cache.invalidateQueries({ key: qk.commerceDraft(uuid) })
+  const invalidateDraftsList = () => cache.invalidateQueries({ key: ['commerce-drafts-list'] })
 
   return {
     update: useMutation({
@@ -369,9 +419,106 @@ export function useCommerceDraftMutations() {
     }),
     cancel: useMutation({
       mutation: (uuid: string) => cancelDraft(uuid),
-      onSettled: (_d, _e, uuid) => invalidate(uuid),
+      onSettled: (_d, _e, uuid) => {
+        invalidate(uuid)
+        invalidateDraftsList()
+      },
     }),
   }
+}
+
+// ── Complete sale (Task 15, admin-order-creation cycle 2, design spec §2.8) ──────────────────
+//
+// `POST /commerce/orders/{uuid}/complete-sale` — the walk-in counter's one-click finish for a
+// FINALIZED order (never a draft), chaining mark-paid + fulfill server-side
+// (`CompleteSaleCoordinator`). The wire is CLOSED and tiny — `{tracking_ref?: string|null}` ONLY,
+// any other key is a 422 — and every outcome (200 both done, 409 conflicts, sanitized 500s) rides
+// the SAME envelope shape: `{steps: [{step, status, error?}], order: <admin order row>|null}`.
+//
+// Deliberately NOT thrown-on-non-2xx the way every other call in this file is: a 409/500 here is
+// still a fully-informative, well-formed RESULT the caller renders (spec §2.8's five outcomes),
+// not a blank failure — `authFetch` throws on any non-2xx response, so this function catches that
+// throw and, whenever the parsed body is genuinely a complete-sale envelope (it always is, for
+// every status this endpoint itself returns), resolves with it instead of re-throwing. Only a
+// truly unexpected failure — a network error, or a body this endpoint could never actually
+// produce — still throws, for the caller's ordinary catch-all.
+//
+// `order` is `OrderProjection::forAdmin()` — the ordinary finalized-order row, but WITHOUT
+// `lines`/`events` (that projection carries neither) — so it is never a substitute for the
+// order-detail page's own `useCommerceOrder` read. Callers use it only for the immediate step
+// outcome, then let the page's own invalidation-triggered refetch bring the full order (and its
+// updated `lines`/`events`) back into view.
+
+export type CompleteSaleStepName = 'mark_paid' | 'fulfill'
+export type CompleteSaleStepStatus = 'done' | 'failed' | 'skipped'
+
+export interface CompleteSaleStep {
+  step: CompleteSaleStepName
+  status: CompleteSaleStepStatus
+  error?: string
+}
+
+export interface CompleteSaleResult {
+  message: string
+  steps: CompleteSaleStep[]
+  /** `OrderProjection::forAdmin()` row, or `null` when the order stopped resolving mid-flight
+   * (e.g. a `fulfill()` precheck NotFoundException) — ALWAYS tolerated, never dereferenced without
+   * a null check. */
+  order: Record<string, unknown> | null
+}
+
+function isCompleteSaleBody(body: unknown): body is { message?: unknown; data?: { steps?: unknown; order?: unknown } } {
+  return (
+    typeof body === 'object' &&
+    body !== null &&
+    typeof (body as { data?: unknown }).data === 'object' &&
+    (body as { data?: unknown }).data !== null &&
+    Array.isArray(((body as { data?: { steps?: unknown } }).data as { steps?: unknown }).steps)
+  )
+}
+
+function normalizeCompleteSaleResult(body: {
+  message?: unknown
+  data?: { steps?: unknown; order?: unknown }
+}): CompleteSaleResult {
+  const steps = Array.isArray(body.data?.steps) ? (body.data!.steps as CompleteSaleStep[]) : []
+  const order = body.data?.order
+  return {
+    message: typeof body.message === 'string' ? body.message : '',
+    steps,
+    order: typeof order === 'object' && order !== null ? (order as Record<string, unknown>) : null,
+  }
+}
+
+export async function completeSale(uuid: string, trackingRef: string | null = null): Promise<CompleteSaleResult> {
+  const url = `${runtimeConfig.apiBase}/commerce/orders/${encodeURIComponent(uuid)}/complete-sale`
+  try {
+    const json = await authFetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ tracking_ref: trackingRef }),
+    })
+    return normalizeCompleteSaleResult(json)
+  } catch (e) {
+    if (e instanceof ApiError && isCompleteSaleBody(e.body)) {
+      return normalizeCompleteSaleResult(e.body)
+    }
+    throw e
+  }
+}
+
+/**
+ * The ONE mutation wrapper for `completeSale()` — invalidates the order detail query on settle
+ * (mirrors `useCommerceOrderMutations()`'s identical lifecycle-action invalidation) so the
+ * page's own `useCommerceOrder` read brings back the full, current row (lines/events included)
+ * regardless of which of the five outcomes just happened.
+ */
+export function useCompleteSaleMutation() {
+  const cache = useQueryCache()
+  return useMutation({
+    mutation: (vars: { uuid: string; trackingRef?: string | null }) =>
+      completeSale(vars.uuid, vars.trackingRef ?? null),
+    onSettled: (_d, _e, vars) => cache.invalidateQueries({ key: qk.commerceOrder(vars.uuid) }),
+  })
 }
 
 // ── Finalize idempotency-key custody (task brief, binding) ──────────────────────────────────

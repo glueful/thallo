@@ -15,9 +15,12 @@ import {
   type CommerceOrderAddress,
   type CommerceOrderLine,
 } from '@/queries/commerceOrders'
+import { useCompleteSaleMutation, type CompleteSaleResult } from '@/queries/commerceDrafts'
 import { useOrderInvoiceData } from '@/queries/commerceInvoice'
 import { useCommerceMeta } from '@/queries/commerceMeta'
 import { useMoney } from '@/composables/useMoney'
+import { useNotify } from '@/composables/useNotify'
+import { toApiError } from '@/api/errors'
 import OrderActions from '../components/OrderActions.vue'
 import OrderCancelDialog from '../components/OrderCancelDialog.vue'
 import OrderPaymentCard from '../components/OrderPaymentCard.vue'
@@ -33,6 +36,7 @@ const { data: refunds, status: refundsStatus } = useOrderRefunds(uuid)
 const { data: meta } = useCommerceMeta()
 const canManage = computed(() => meta.value?.can_manage ?? false)
 const { format } = useMoney()
+const { success: notifySuccess } = useNotify()
 
 const invoiceHref = computed(() => `/commerce/orders/${uuid.value}/invoice`)
 
@@ -79,6 +83,58 @@ const overflowItems = computed<DropdownMenuItem[]>(() => {
   })
   return items
 })
+
+// ── Complete sale (Task 15, design spec §2.8): the one-click finish for a finalized WALK-IN
+// order still awaiting payment. Gated on the server-projected `fulfillment_mode`/`status` pair —
+// the matrix the task brief pins as binding: delivery, paid, fulfilled, canceled, and (were it
+// ever reachable here) draft all hide it, since none satisfies BOTH conditions. No confirm step
+// (unlike cancel/mark-paid/fulfill above) — "one-click" is the point; the server's own pre-gates
+// stay authoritative regardless.
+const canCompleteSale = computed(
+  () =>
+    canManage.value &&
+    !!order.value &&
+    order.value.fulfillment_mode === 'in_store' &&
+    order.value.status === 'pending_payment',
+)
+
+const { mutateAsync: completeSaleMutate, isLoading: completeSaleLoading } = useCompleteSaleMutation()
+const completeSaleResult = ref<CompleteSaleResult | null>(null)
+const completeSaleError = ref<string | null>(null)
+
+/** True once `mark_paid` succeeded but `fulfill` did not — the partial-success outcome (spec
+ * §2.8, task brief binding): payment is real and MUST NOT be re-attempted, so recovery is the
+ * ordinary guarded Fulfill action already rendered below, never a retry of this one-click call. */
+const completeSalePaidButUnfulfilled = computed(() => {
+  const steps = completeSaleResult.value?.steps ?? []
+  const markPaidStep = steps.find((s) => s.step === 'mark_paid')
+  const fulfillStep = steps.find((s) => s.step === 'fulfill')
+  return markPaidStep?.status === 'done' && fulfillStep?.status !== 'done'
+})
+
+async function onCompleteSale() {
+  if (!order.value) return
+  completeSaleResult.value = null
+  completeSaleError.value = null
+  try {
+    const result = await completeSaleMutate({ uuid: order.value.uuid, trackingRef: null })
+    const steps = result.steps
+    const bothDone = steps.every((s) => s.status === 'done')
+    if (bothDone) {
+      // Outcome 1 (both done): a toast + the invalidation-triggered refetch above is the render —
+      // no persistent panel needed, and never auto-retried regardless.
+      notifySuccess('Sale completed')
+    } else {
+      // Outcomes 2–4 (mark_paid failed / paid-but-fulfill-failed / sanitized 500s): rendered
+      // inline via the panel below, `order: null` tolerated throughout (never dereferenced).
+      completeSaleResult.value = result
+    }
+  } catch (e) {
+    // Genuinely unexpected (network failure, or a shape this endpoint could never actually
+    // produce) — every well-formed 200/409/500 response resolves normally above instead.
+    completeSaleError.value = toApiError(e).message
+  }
+}
 
 // useMoney().format() throws until /commerce/meta resolves — guard so an unsettled meta query
 // (still pending on first paint) never crashes the render (mirrors ProductForm.vue).
@@ -323,6 +379,21 @@ const billingDisplay = computed(() => {
                 Print
               </RouterLink>
 
+              <!-- Complete sale (Task 15, design spec §2.8): the walk-in counter's one-click
+                   finish — visible ONLY for a finalized in-store order still awaiting payment.
+                   No confirm step; the server's own pre-gates stay authoritative. -->
+              <UButton
+                v-if="canCompleteSale"
+                color="primary"
+                size="sm"
+                icon="i-lucide-check-check"
+                data-test="order-complete-sale"
+                :loading="completeSaleLoading"
+                @click="onCompleteSale"
+              >
+                Complete sale
+              </UButton>
+
               <!-- Lifecycle actions (Task 13b): mark-paid / fulfill / refund — renders nothing
                    when can_manage is false or the current status has no legal action. -->
               <OrderActions :order="order" :can-manage="canManage" />
@@ -337,6 +408,48 @@ const billingDisplay = computed(() => {
                 />
               </UDropdownMenu>
             </div>
+
+            <!-- Complete-sale outcome (Task 15): renders per-step results for every outcome the
+                 coordinator can return except "both done" (a toast + the invalidation-triggered
+                 refetch above IS that render) — mark_paid failure, the paid-but-unfulfilled
+                 partial success (pointing at the ordinary Fulfill action as the recovery), and
+                 sanitized 500s alike. `result.order` is tolerated as `null` throughout: nothing
+                 here ever dereferences it. -->
+            <div
+              v-if="completeSaleResult"
+              class="rounded-md border border-default p-3 text-sm"
+              data-test="complete-sale-result"
+            >
+              <p data-test="complete-sale-message">{{ completeSaleResult.message }}</p>
+              <ul class="mt-1 flex flex-col gap-0.5">
+                <li v-for="s in completeSaleResult.steps" :key="s.step" data-test="complete-sale-step">
+                  {{ s.step }}: {{ s.status }}<span v-if="s.error"> — {{ s.error }}</span>
+                </li>
+              </ul>
+              <p v-if="completeSalePaidButUnfulfilled" class="mt-2" data-test="complete-sale-fulfill-hint">
+                Payment was recorded. Use Fulfill below to finish this order — Complete sale is not
+                retried automatically.
+              </p>
+              <UButton
+                size="xs"
+                variant="ghost"
+                color="neutral"
+                class="mt-2"
+                data-test="complete-sale-dismiss"
+                @click="completeSaleResult = null"
+              >
+                Dismiss
+              </UButton>
+            </div>
+
+            <UAlert
+              v-if="completeSaleError"
+              color="error"
+              variant="subtle"
+              icon="i-lucide-triangle-alert"
+              :title="completeSaleError"
+              data-test="complete-sale-error"
+            />
           </div>
 
           <!-- Line items -->

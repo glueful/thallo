@@ -76,6 +76,10 @@ export const qk = {
   // a draft mutation's own invalidation never collides with (or accidentally invalidates) an
   // ordinary order's cache entry.
   commerceDraft: (uuid: string) => ['commerce-draft', uuid] as const,
+  // Task 15 (admin-order-creation cycle 2): the drafts LIST view (`GET /orders/drafts`, 'view'-
+  // graded server-side) — its own prefix, distinct from `commerceDraft()` above (a single draft)
+  // and from `commerceOrderSearch()` (the finalized-order list, which stays draft-blind).
+  commerceDraftsList: (page: number, perPage: number) => ['commerce-drafts-list', page, perPage] as const,
   commerceOrderPayments: (orderUuid: string) => ['commerce-order-payments', orderUuid] as const,
   commerceOrderRefunds: (orderUuid: string) => ['commerce-order-refunds', orderUuid] as const,
   commerceRefunds: () => ['commerce-refunds'] as const,

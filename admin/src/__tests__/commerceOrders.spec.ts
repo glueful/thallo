@@ -457,6 +457,24 @@ describe('commerce orders list page', () => {
     expect(wrapper.find('[data-test="orders-create"]').exists()).toBe(false)
   })
 
+  // ── "Drafts" nav entry (Task 15: admin-order-creation cycle 2) — manage-graded, same as
+  // "Create order" ─────────────────────────────────────────────────────────────────────────────
+
+  it('shows a "Drafts" tab linking to the drafts view when can_manage is true', async () => {
+    const wrapper = mount(OrdersIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+    const tab = wrapper.find('[data-test="orders-drafts-tab"]')
+    expect(tab.exists()).toBe(true)
+    expect(tab.attributes('href')).toBe('/commerce/orders/drafts')
+  })
+
+  it('hides the "Drafts" tab when can_manage is false', async () => {
+    metaData.value = { ...metaData.value, can_manage: false }
+    const wrapper = mount(OrdersIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="orders-drafts-tab"]').exists()).toBe(false)
+  })
+
   it('surfaces a 422 export-too-large rejection as a warning toast with the exact server message', async () => {
     const { ExportTooLargeError } = await import('@/queries/commerceOrderSearch')
     downloadOrdersCsvMock.mockRejectedValue(

@@ -193,6 +193,21 @@ async function exportCsv(): Promise<void> {
             <UIcon name="i-lucide-plus" class="size-4" />
             Create order
           </RouterLink>
+          <!-- Drafts (Task 15, admin-order-creation cycle 2): the ONE entry point into the
+               drafts list — gated can_manage, mirroring "Create order" above (drafts are a
+               manage-only concept: every mutation on the resource, including Resume's own
+               destination workspace, requires it). The finalized-order list above stays
+               draft-blind (server-enforced); this link — the drafts view itself — is the ONLY
+               draft-inclusive surface anywhere in the admin SPA. -->
+          <RouterLink
+            v-if="canManage"
+            to="/commerce/orders/drafts"
+            data-test="orders-drafts-tab"
+            class="inline-flex items-center gap-1.5 rounded-md border border-default px-3 py-1.5 text-sm font-medium text-default hover:bg-elevated"
+          >
+            <UIcon name="i-lucide-file-clock" class="size-4" />
+            Drafts
+          </RouterLink>
           <UInput
             v-model="rawQuery"
             icon="i-lucide-search"
