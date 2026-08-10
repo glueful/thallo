@@ -5,11 +5,16 @@ import { createPinia } from 'pinia'
 import { PiniaColada } from '@pinia/colada'
 
 // Mirrors analyticsEnabledGate.spec.ts's established pattern for testing a pinia-colada query
-// directly: mock authFetch + runtimeConfig, install a real Pinia + PiniaColada plugin, and drive
-// the composable through a tiny host component.
+// directly: install a real Pinia + PiniaColada plugin and drive the composable through a tiny
+// host component. `fetchOrderSearch`/`useOrderSearch` now ride the typed `client` (Task 16
+// regeneration) — the api client captures `globalThis.fetch` at creation, so `fetchOrderSearch`/
+// `useOrderSearch` themselves are dynamic-imported PER TEST, after stubbing fetch and resetting the
+// module graph, mirroring commerceOrders.spec.ts's established stub-then-dynamic-import pattern.
+// `downloadOrdersCsv`/`parseOrderSearchQuery`/`serializeOrderSearchQuery`/`ExportTooLargeError`
+// stay statically imported below — none of them touch the typed client (the first makes its own
+// raw `fetch()` call at call time; the rest are pure functions), so they're unaffected by the
+// client's create-time fetch capture.
 
-const authFetch = vi.fn()
-vi.mock('@/api/authFetch', () => ({ authFetch: (...a: unknown[]) => authFetch(...a) }))
 vi.mock('@/runtime/config', () => ({ runtimeConfig: { apiBase: '/v1/admin' } }))
 
 const sessionState = vi.hoisted(() => ({ accessToken: 'test-token' as string | null }))
@@ -19,47 +24,72 @@ import {
   ORDER_SEARCH_DEFAULTS,
   parseOrderSearchQuery,
   serializeOrderSearchQuery,
-  fetchOrderSearch,
-  useOrderSearch,
   downloadOrdersCsv,
   ExportTooLargeError,
   type OrderSearchFilters,
 } from '@/queries/commerceOrderSearch'
 
-function mountQuery(state: Ref<OrderSearchFilters>) {
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+}
+
+function mountQuery(
+  useOrderSearchFn: (typeof import('@/queries/commerceOrderSearch'))['useOrderSearch'],
+  state: Ref<OrderSearchFilters>,
+) {
   const Host = defineComponent({
     setup() {
-      useOrderSearch(state)
+      useOrderSearchFn(state)
       return () => h('div')
     },
   })
   return mount(Host, { global: { plugins: [createPinia(), PiniaColada] } })
 }
 
+// The typed `client`'s auth middleware does `await import('@/stores/session')` (and, tenant-
+// scoped, `@/stores/tenant`) on every request — genuine dynamic imports that, combined with this
+// describe's per-test `vi.resetModules()`, outlast a single `flushPromises()` tick (mirrors
+// commerceDraftFieldErrors.spec.ts's identical note). `vi.waitFor` polls with real timers until
+// the assertion holds, instead of guessing how many `flushPromises()` calls are enough.
+async function waitFor(assertion: () => void): Promise<void> {
+  await vi.waitFor(assertion, { timeout: 2000, interval: 20 })
+}
+
 describe('fetchOrderSearch', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
-    authFetch.mockReset().mockResolvedValue({
-      data: [
-        {
-          uuid: 'o1',
-          order_number: 'ORD-1001',
-          status: 'paid',
-          fulfillment_status: 'unfulfilled',
-          email: 'a@example.com',
-          currency: 'USD',
-          grand_total: 5900,
-          placed_at: '2026-01-01 00:00:00',
-        },
-      ],
-      current_page: 1,
-      per_page: 24,
-      total: 1,
-    })
+    vi.resetModules()
+    fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({
+        data: [
+          {
+            uuid: 'o1',
+            order_number: 'ORD-1001',
+            status: 'paid',
+            fulfillment_status: 'unfulfilled',
+            email: 'a@example.com',
+            currency: 'USD',
+            grand_total: 5900,
+            placed_at: '2026-01-01 00:00:00',
+          },
+        ],
+        current_page: 1,
+        per_page: 24,
+        total: 1,
+      }),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('calls the search endpoint with status/fulfillment/date/q/page/per_page params', async () => {
+    const { fetchOrderSearch, ORDER_SEARCH_DEFAULTS: DEFAULTS } = await import('@/queries/commerceOrderSearch')
     await fetchOrderSearch({
-      ...ORDER_SEARCH_DEFAULTS,
+      ...DEFAULTS,
       status: 'paid',
       fulfillment: 'fulfilled',
       placedFrom: '2026-01-01',
@@ -69,8 +99,8 @@ describe('fetchOrderSearch', () => {
       perPage: 50,
     })
 
-    expect(authFetch).toHaveBeenCalledTimes(1)
-    const url = authFetch.mock.calls[0]![0] as string
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const url = (fetchMock.mock.calls[0]![0] as Request).url
     expect(url).toContain('/v1/admin/commerce/orders/search')
     expect(url).toContain('status=paid')
     expect(url).toContain('fulfillment_status=fulfilled')
@@ -82,8 +112,9 @@ describe('fetchOrderSearch', () => {
   })
 
   it('omits status/fulfillment/dates/q from the request when unset (defaults)', async () => {
-    await fetchOrderSearch(ORDER_SEARCH_DEFAULTS)
-    const url = authFetch.mock.calls[0]![0] as string
+    const { fetchOrderSearch, ORDER_SEARCH_DEFAULTS: DEFAULTS } = await import('@/queries/commerceOrderSearch')
+    await fetchOrderSearch(DEFAULTS)
+    const url = (fetchMock.mock.calls[0]![0] as Request).url
     expect(url).not.toContain('status=')
     expect(url).not.toContain('fulfillment_status=')
     expect(url).not.toContain('placed_from=')
@@ -92,7 +123,8 @@ describe('fetchOrderSearch', () => {
   })
 
   it('normalizes rows into the CommerceOrder shape the table expects', async () => {
-    const page = await fetchOrderSearch(ORDER_SEARCH_DEFAULTS)
+    const { fetchOrderSearch, ORDER_SEARCH_DEFAULTS: DEFAULTS } = await import('@/queries/commerceOrderSearch')
+    const page = await fetchOrderSearch(DEFAULTS)
     expect(page.orders).toHaveLength(1)
     expect(page.orders[0]).toMatchObject({
       uuid: 'o1',
@@ -109,26 +141,35 @@ describe('fetchOrderSearch', () => {
 })
 
 describe('useOrderSearch query key', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
-    authFetch.mockReset().mockResolvedValue({ data: [], current_page: 1, per_page: 24, total: 0 })
+    vi.resetModules()
+    fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: [], current_page: 1, per_page: 24, total: 0 }))
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('refetches when a scalar filter value changes, but not for an equal-value new object', async () => {
-    const state = ref<OrderSearchFilters>({ ...ORDER_SEARCH_DEFAULTS })
-    mountQuery(state)
+    const { useOrderSearch, ORDER_SEARCH_DEFAULTS: DEFAULTS } = await import('@/queries/commerceOrderSearch')
+    const state = ref<OrderSearchFilters>({ ...DEFAULTS })
+    mountQuery(useOrderSearch, state)
     await flushPromises()
-    expect(authFetch).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
 
     // A brand-new object with the SAME scalar values must not be treated as a cache miss —
     // the key is built from normalized scalars, never object identity.
-    state.value = { ...ORDER_SEARCH_DEFAULTS }
+    state.value = { ...DEFAULTS }
     await flushPromises()
-    expect(authFetch).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
 
     // Changing an actual scalar value does refetch.
-    state.value = { ...ORDER_SEARCH_DEFAULTS, status: 'paid' }
+    state.value = { ...DEFAULTS, status: 'paid' }
     await flushPromises()
-    expect(authFetch).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
   })
 })
 

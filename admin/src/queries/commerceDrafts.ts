@@ -1,8 +1,7 @@
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { toValue, type MaybeRefOrGetter } from 'vue'
-import { authFetch } from '@/api/authFetch'
-import { ApiError } from '@/api/errors'
-import { runtimeConfig } from '@/runtime/config'
+import { client } from '@/api/client'
+import { ApiError, toApiError } from '@/api/errors'
 import { qk } from './keys'
 import {
   normalizeAddresses,
@@ -13,19 +12,24 @@ import {
 
 // ── Admin walk-in order drafts (admin-order-creation cycle 2, Task 14) ─────────────────────────
 //
-// `/commerce/orders/drafts*` (AdminOrderDraftController, commerce v1.10.0) is NOT yet in the
-// generated OpenAPI schema (Task 16 regenerates it), so this rides on `authFetch`/raw fetch
-// exactly like `commerceOrderSearch.ts`'s established idiom rather than the typed `client`.
+// `/commerce/orders/drafts*` (AdminOrderDraftController, commerce v1.10.0) is now in the generated
+// OpenAPI schema (Task 16 regeneration) and rides the typed `client` below — every route here
+// carries a documented `path`/`requestBody` shape (no `#[QueryParam]`-less gap like
+// `commerceOrderSearch.ts`'s `/search`), so no `as never` query cast is needed; request bodies are
+// still cast (`as never`) where the schema's own nullability doesn't line up field-for-field with
+// the input types below, mirroring every other typed mutation in this codebase. `finalize`'s
+// `X-Idempotency-Key` header rides the client's plain top-level `headers` option, which is NOT
+// constrained by the schema's (undocumented) `header` parameter type — the same mechanism
+// `commerceOrders.ts`'s `createRefund()` already uses for its own `Idempotency-Key` header.
 //
 // EVERY mutation here sends `expected_revision` — the client-level staleness guard the task brief
 // pins as binding: a draft's `draft_revision` is CAS-incremented by exactly 1 on every successful
 // mutation (customer/mode/address/shipping/discount update, line add/update/delete, recalculate),
 // and a losing CAS comes back as a typed 409 `{conflict: 'stale_revision'}` — surfaced by the
 // workspace page, never silently retried. PATCH-style bodies here are presence-sensitive
-// (explicit `null` clears a field; an ABSENT key leaves it untouched) — `JSON.stringify` already
-// drops `undefined` keys, so a caller only needs to omit a field it doesn't want to touch.
-
-const base = () => `${runtimeConfig.apiBase}/commerce/orders/drafts`
+// (explicit `null` clears a field; an ABSENT key leaves it untouched) — `JSON.stringify` (the typed
+// client's own default body serializer, same as raw `fetch`) already drops `undefined` keys, so a
+// caller only needs to omit a field it doesn't want to touch.
 
 export type DraftFulfillmentMode = 'in_store' | 'delivery'
 
@@ -184,9 +188,12 @@ function normalizeFinalizedOrder(raw: Record<string, unknown>): CommerceFinalize
 // ── Fetchers ─────────────────────────────────────────────────────────────────
 
 export async function fetchDraft(uuid: string): Promise<CommerceDraft> {
-  const json = await authFetch(`${base()}/${encodeURIComponent(uuid)}`)
-  const raw = (json as { data?: unknown }).data
-  if (!raw) throw new ApiError('Draft not found.', 404, {}, json)
+  const { data, error, response } = await client.GET('/commerce/orders/drafts/{uuid}', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  if (!raw) throw new ApiError('Draft not found.', response?.status ?? 404, {}, data)
   return normalizeDraft(raw as Record<string, unknown>)
 }
 
@@ -224,17 +231,19 @@ export interface CommerceDraftListPage {
 }
 
 export async function fetchDraftsList(filters: DraftsListFilters): Promise<CommerceDraftListPage> {
-  const qs = new URLSearchParams()
-  qs.set('page', String(filters.page))
-  qs.set('per_page', String(filters.perPage))
-  const json = await authFetch(`${base()}?${qs.toString()}`)
-  const body = json as { data?: unknown[]; current_page?: number; per_page?: number; total?: number }
-  const rows = Array.isArray(body.data) ? body.data : []
+  const { data, error, response } = await client.GET('/commerce/orders/drafts', {
+    params: { query: { page: filters.page, per_page: filters.perPage } },
+  })
+  if (error) throw toApiError(error, response)
+  const body = data as
+    | { data?: unknown[]; current_page?: number; per_page?: number; total?: number }
+    | undefined
+  const rows = Array.isArray(body?.data) ? body.data : []
   return {
     drafts: rows.map((r) => normalizeDraft(r as Record<string, unknown>)),
-    total: typeof body.total === 'number' ? body.total : 0,
-    current_page: typeof body.current_page === 'number' ? body.current_page : filters.page,
-    per_page: typeof body.per_page === 'number' ? body.per_page : filters.perPage,
+    total: typeof body?.total === 'number' ? body.total : 0,
+    current_page: typeof body?.current_page === 'number' ? body.current_page : filters.page,
+    per_page: typeof body?.per_page === 'number' ? body.per_page : filters.perPage,
   }
 }
 
@@ -256,8 +265,11 @@ export interface CreateDraftInput {
 /** `POST /commerce/orders/drafts` — route custody's ONE creation call site (the workspace page
  * calls this exactly once, only when its URL carries no `?draft=` uuid). */
 export async function createDraft(input: CreateDraftInput = {}): Promise<CommerceDraft> {
-  const json = await authFetch(base(), { method: 'POST', body: JSON.stringify(input) })
-  const raw = (json as { data?: unknown }).data
+  const { data, error, response } = await client.POST('/commerce/orders/drafts', {
+    body: input as never,
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeDraft((raw ?? {}) as Record<string, unknown>)
 }
 
@@ -279,11 +291,12 @@ export interface UpdateDraftInput {
 }
 
 export async function updateDraft(uuid: string, input: UpdateDraftInput): Promise<CommerceDraft> {
-  const json = await authFetch(`${base()}/${encodeURIComponent(uuid)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(input),
+  const { data, error, response } = await client.PATCH('/commerce/orders/drafts/{uuid}', {
+    params: { path: { uuid } },
+    body: input as never,
   })
-  const raw = (json as { data?: unknown }).data
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeDraft((raw ?? {}) as Record<string, unknown>)
 }
 
@@ -301,11 +314,12 @@ export interface AddDraftLineInput {
 }
 
 export async function addDraftLine(uuid: string, input: AddDraftLineInput): Promise<CommerceDraft> {
-  const json = await authFetch(`${base()}/${encodeURIComponent(uuid)}/lines`, {
-    method: 'POST',
-    body: JSON.stringify(input),
+  const { data, error, response } = await client.POST('/commerce/orders/drafts/{uuid}/lines', {
+    params: { path: { uuid } },
+    body: input as never,
   })
-  const raw = (json as { data?: unknown }).data
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeDraft((raw ?? {}) as Record<string, unknown>)
 }
 
@@ -320,11 +334,12 @@ export async function updateDraftLine(
   lineUuid: string,
   input: UpdateDraftLineInput,
 ): Promise<CommerceDraft> {
-  const json = await authFetch(`${base()}/${encodeURIComponent(uuid)}/lines/${encodeURIComponent(lineUuid)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(input),
+  const { data, error, response } = await client.PATCH('/commerce/orders/drafts/{uuid}/lines/{lineUuid}', {
+    params: { path: { uuid, lineUuid } },
+    body: input as never,
   })
-  const raw = (json as { data?: unknown }).data
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeDraft((raw ?? {}) as Record<string, unknown>)
 }
 
@@ -333,26 +348,31 @@ export async function deleteDraftLine(
   lineUuid: string,
   expectedRevision?: number,
 ): Promise<CommerceDraft> {
-  const json = await authFetch(`${base()}/${encodeURIComponent(uuid)}/lines/${encodeURIComponent(lineUuid)}`, {
-    method: 'DELETE',
-    body: JSON.stringify({ expected_revision: expectedRevision }),
+  const { data, error, response } = await client.DELETE('/commerce/orders/drafts/{uuid}/lines/{lineUuid}', {
+    params: { path: { uuid, lineUuid } },
+    body: { expected_revision: expectedRevision } as never,
   })
-  const raw = (json as { data?: unknown }).data
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeDraft((raw ?? {}) as Record<string, unknown>)
 }
 
 export async function recalculateDraft(uuid: string, expectedRevision?: number): Promise<CommerceDraft> {
-  const json = await authFetch(`${base()}/${encodeURIComponent(uuid)}/recalculate`, {
-    method: 'POST',
-    body: JSON.stringify({ expected_revision: expectedRevision }),
+  const { data, error, response } = await client.POST('/commerce/orders/drafts/{uuid}/recalculate', {
+    params: { path: { uuid } },
+    body: { expected_revision: expectedRevision } as never,
   })
-  const raw = (json as { data?: unknown }).data
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeDraft((raw ?? {}) as Record<string, unknown>)
 }
 
 export async function cancelDraft(uuid: string): Promise<CommerceDraft> {
-  const json = await authFetch(`${base()}/${encodeURIComponent(uuid)}/cancel`, { method: 'POST' })
-  const raw = (json as { data?: unknown }).data
+  const { data, error, response } = await client.POST('/commerce/orders/drafts/{uuid}/cancel', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeDraft((raw ?? {}) as Record<string, unknown>)
 }
 
@@ -369,12 +389,13 @@ export async function finalizeDraft(
   expectedRevision: number,
   idempotencyKey: string,
 ): Promise<CommerceFinalizedOrder> {
-  const json = await authFetch(`${base()}/${encodeURIComponent(uuid)}/finalize`, {
-    method: 'POST',
+  const { data, error, response } = await client.POST('/commerce/orders/drafts/{uuid}/finalize', {
+    params: { path: { uuid } },
     headers: { 'X-Idempotency-Key': idempotencyKey },
-    body: JSON.stringify({ expected_revision: expectedRevision }),
+    body: { expected_revision: expectedRevision } as never,
   })
-  const raw = (json as { data?: unknown }).data
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeFinalizedOrder((raw ?? {}) as Record<string, unknown>)
 }
 
@@ -437,11 +458,14 @@ export function useCommerceDraftMutations() {
 //
 // Deliberately NOT thrown-on-non-2xx the way every other call in this file is: a 409/500 here is
 // still a fully-informative, well-formed RESULT the caller renders (spec §2.8's five outcomes),
-// not a blank failure — `authFetch` throws on any non-2xx response, so this function catches that
-// throw and, whenever the parsed body is genuinely a complete-sale envelope (it always is, for
-// every status this endpoint itself returns), resolves with it instead of re-throwing. Only a
-// truly unexpected failure — a network error, or a body this endpoint could never actually
-// produce — still throws, for the caller's ordinary catch-all.
+// not a blank failure. Now on the typed `client` (Task 16 regeneration): the typed client hands a
+// non-ok response back as `error` (the parsed JSON body) rather than throwing, so this function
+// checks `error` for a genuine complete-sale envelope FIRST (it always is one, for every status
+// this endpoint itself returns) and resolves with it instead of raising — the same outcome the
+// previous authFetch-based try/catch produced, just without needing to catch a thrown ApiError to
+// get there. Only a truly unexpected failure — a network error (still thrown by `fetch` itself,
+// same as before) or a body this endpoint could never actually produce — surfaces as a thrown
+// `ApiError`, for the caller's ordinary catch-all.
 //
 // `order` is `OrderProjection::forAdmin()` — the ordinary finalized-order row, but WITHOUT
 // `lines`/`events` (that projection carries neither) — so it is never a substitute for the
@@ -491,19 +515,13 @@ function normalizeCompleteSaleResult(body: {
 }
 
 export async function completeSale(uuid: string, trackingRef: string | null = null): Promise<CompleteSaleResult> {
-  const url = `${runtimeConfig.apiBase}/commerce/orders/${encodeURIComponent(uuid)}/complete-sale`
-  try {
-    const json = await authFetch(url, {
-      method: 'POST',
-      body: JSON.stringify({ tracking_ref: trackingRef }),
-    })
-    return normalizeCompleteSaleResult(json)
-  } catch (e) {
-    if (e instanceof ApiError && isCompleteSaleBody(e.body)) {
-      return normalizeCompleteSaleResult(e.body)
-    }
-    throw e
-  }
+  const { data, error, response } = await client.POST('/commerce/orders/{uuid}/complete-sale', {
+    params: { path: { uuid } },
+    body: { tracking_ref: trackingRef } as never,
+  })
+  if (!error) return normalizeCompleteSaleResult(data as never)
+  if (isCompleteSaleBody(error)) return normalizeCompleteSaleResult(error)
+  throw toApiError(error, response)
 }
 
 /**

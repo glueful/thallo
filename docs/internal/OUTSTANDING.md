@@ -4,7 +4,7 @@
 > pointer page), this file is meant to be edited as work lands — tick items off, link the
 > spec/plan/commit, and move them to **Recently shipped**.
 
-**Last reconciled:** 2026-07-12 (against the working tree, not just `NEXT.md`).
+**Last reconciled:** 2026-08-10 (against the working tree, not just `NEXT.md`).
 
 ## How to use this file
 
@@ -38,12 +38,20 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
 - [ ] **Subscriptions: Stripe Billing Portal / provider-native plan changes** — `M` — self-serve plan upgrades/downgrades and payment-method management via the provider's own hosted portal (Stripe Billing Portal and equivalents), instead of the shipped checkout-origination-only flow (new subscription + cancel). Deliberately deferred as a separate capability with its own review cycle — the shipped self-serve checkout work is subscribe/cancel only, per design spec §8. **Home:** [workspace-checkout spec §8](superpowers/specs/2026-08-03-workspace-checkout-design.md) — follow-up on shipped workspace self-serve checkout.
 - [ ] **Subscriptions: public signup-to-checkout funnel** — `S` — a public (pre-authenticated-admin) signup flow that lands directly in checkout, reusing `SubscriptionCheckoutService` with a verified workspace subject + actor resolved through the public signup flow. No Payvia redesign needed — the shipped `WorkspaceCheckoutCoordinator`/engine stack already assumes an authenticated admin-panel actor; this wires a public entry point onto the same seam. Deliberately out of scope for the admin-panel self-serve checkout work, per design spec §8. **Home:** [workspace-checkout spec §8](superpowers/specs/2026-08-03-workspace-checkout-design.md) — follow-up on shipped workspace self-serve checkout.
 - [ ] **Workspace merchant connections** — `M` — the later merchant-connection model the platform-payments-settings program deliberately did NOT build, so its structures (the app-owned platform payment store, the marker-gated cutover, the neutral Settings → Payments surface) are not undone by it: workspace-owned gateway connections; Payvia's explicit `platform | workspace:{workspace_uuid}` merchant scopes; per-connection webhook routing that identifies the connection BEFORE selecting and verifying its secret (a single tenantless secret per gateway cannot serve N workspace merchant accounts); and paid-membership revenue surfaces. Until this ships, every Thallo storefront order and workspace SaaS subscription settles through the ONE platform gateway account — stated prominently in the Settings → Payments UI, not workspace payment isolation. **Home:** [platform-payments-settings spec §4](superpowers/specs/2026-08-05-platform-payments-settings-design.md) — follow-up on shipped platform payments settings.
-- [ ] **Cycle 2: admin order creation** — `M` — engine-level draft/manual order surface (state-machine entry, totals, payment linkage), deliberately out of scope for cycle 1 (app-side invoices/receipts, the app orders list/export, the payment-summary surface, and the order-detail hierarchy rework). **Home:** [orders-invoices-receipts spec §4](superpowers/specs/commerce/2026-08-09-orders-invoices-receipts-design.md) — follow-up on the orders invoices & receipts program (cycle 1).
 - [ ] **Orders/invoices: upstream immutable product-identity snapshot** — `M` — `product_uuid`/`variant_uuid`/thumbnail on the admin order-line projection + `InvoiceData`, plus variant `option_values` in `InvoiceData`; deliberately omitted this cycle (Ruling 13) so the admin line projection and invoice data never open a per-line product lookup loop. Belongs in upstream `glueful/commerce`, like the two extensions this program already shipped there. **Home:** [orders-invoices-receipts spec §2.6.4/§4](superpowers/specs/commerce/2026-08-09-orders-invoices-receipts-design.md) — follow-up on the orders invoices & receipts program (cycle 1).
 - [ ] **Orders/invoices: branding snapshots for historical receipts** — `M` — historical receipts render with CURRENT branding settings (logo/footer/toggles) against immutable order data (Ruling 4); a true point-in-time snapshot of branding as it was when the order was placed is a later compliance feature. **Home:** [orders-invoices-receipts spec §4](superpowers/specs/commerce/2026-08-09-orders-invoices-receipts-design.md) — follow-up on the orders invoices & receipts program (cycle 1).
 - [ ] **Orders/invoices: template editor** — `L` — a separate future project (sandboxing, versioning, preview, recovery) for admin-authored invoice/receipt templates, distinct from the shipped settings-driven customization (logo, footer text, SKU/address/tax-id toggles, paper preset). **Home:** [orders-invoices-receipts spec §4](superpowers/specs/commerce/2026-08-09-orders-invoices-receipts-design.md) — follow-up on the orders invoices & receipts program (cycle 1).
 - [ ] **Orders/invoices: retire the app orders list endpoint at upstream filter parity** — `S` — `GET /v1/admin/commerce/orders/search` and `GET /v1/admin/commerce/orders/export` are TEMPORARY app ownership (both carry a temporary-ownership docblock) standing in for filtering the vendor `orders.index` endpoint doesn't yet offer; the vendor endpoint stays mounted untouched in the meantime. Retire both once `glueful/commerce` ships equivalent filtering. **Home:** [orders-invoices-receipts spec, Posture](superpowers/specs/commerce/2026-08-09-orders-invoices-receipts-design.md) — follow-up on the orders invoices & receipts program (cycle 1).
-- [ ] **`docs/openapi.json`: three admin orders endpoints undocumented** — `S` — `GET /v1/admin/commerce/orders/search`, `GET /v1/admin/commerce/orders/export`, and `GET /v1/admin/commerce/orders/{uuid}/payments` (orders-invoices-receipts Tasks 3/4/5) are not yet reflected in `docs/openapi.json`. Fold into the next `composer docs:openapi` regeneration. **Home:** [orders-invoices-receipts plan](superpowers/plans/2026-08-09-orders-invoices-receipts.md) — follow-up on the orders invoices & receipts program (cycle 1).
+- [ ] **Admin order creation: Payvia payment links + customer emailing** — `M` — one flow covering link custody, expiry, guest access, and delivery for admin-born orders. **Home:** [admin-order-creation spec §4](superpowers/specs/commerce/2026-08-09-admin-order-creation-design.md) — follow-up on shipped admin order creation (cycle 2).
+- [ ] **Admin order creation: guest self-service access custody** — `S` — guest self-service access custody for admin-born orders. **Home:** [admin-order-creation spec §4](superpowers/specs/commerce/2026-08-09-admin-order-creation-design.md) — follow-up on shipped admin order creation (cycle 2).
+- [ ] **Admin order creation: account-attached digital orders** — `M` — download delivery for admin-born digital orders defined by account custody. **Home:** [admin-order-creation spec §4](superpowers/specs/commerce/2026-08-09-admin-order-creation-design.md) — follow-up on shipped admin order creation (cycle 2).
+- [ ] **Admin order creation: marketplace-partitioned admin orders** — `M` — seller-order split + ledger at finalize. **Home:** [admin-order-creation spec §4](superpowers/specs/commerce/2026-08-09-admin-order-creation-design.md) — follow-up on shipped admin order creation (cycle 2).
+- [ ] **Admin order creation: audited per-line price override** — `S` — comps/B2B price override capability, audited. **Home:** [admin-order-creation spec §4](superpowers/specs/commerce/2026-08-09-admin-order-creation-design.md) — follow-up on shipped admin order creation (cycle 2).
+- [ ] **Admin order creation: in-store counter-sale tax** — `S` — in-store admin sales compute zero tax today; a real answer needs a store-address decision still pending. **Home:** _(no design yet)_ — follow-up on shipped admin order creation (cycle 2).
+- [ ] **`glueful/commerce` engine: `AdminOrderDraftController::index()` line-count hydration** — `S` — the drafts list index never hydrates `$lines`, so the admin drafts list renders an honest-but-empty item count per row instead of the real line count; fix upstream and the SPA's non-committal render resolves itself. **Home:** _(no design yet)_ — follow-up on shipped admin order creation (cycle 2).
+- [ ] **`glueful/commerce` engine: typed not-found exception from `OrderRepository::transition()`** — `S` — a vanished order during `transition()` currently surfaces as a bare `RuntimeException` (logged 500, message-only distinguishable); a typed not-found exception would let callers classify it correctly. **Home:** _(no design yet)_ — follow-up on shipped admin order creation (cycle 2).
+- [ ] **`glueful/framework` engine: `OpenApiGenerator::obtainRouter()` stale-cache re-registration bug** — `S` — when `storage/cache/routes_dev.php` exists, generation re-registers routes onto a cache-populated router, producing named-route collisions; workaround today is deleting the gitignored cache before regenerating. **Home:** _(no design yet)_ — framework bug, follow-up on shipped admin order creation (cycle 2).
+- [ ] **Admin SPA: `DraftFulfillmentCard` `USelect` empty-string placeholder** — `S` — a reka-ui crash when the empty-string placeholder option is actually mounted (pre-existing, latent, disclosed at discovery). **Home:** _(no design yet)_ — follow-up on shipped admin order creation (cycle 2).
 
 - [ ] **Slider: caption overlay on bare image slides** — `S` — hero slides already carry
   full text-over-image (scrim, on-media ink, buttons); this is the LIGHTWEIGHT middle
@@ -87,6 +95,45 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
 > Move ticked items here (newest first) with their ship date + spec link, so the sections
 > above stay focused on what's left.
 
+- [x] **Admin order creation (cycle 2: walk-in draft orders + one-click complete sale)** — shipped
+  2026-08-10 — a manual order-creation surface for admin-side (walk-in/counter) sales, built on
+  a dedicated engine-level draft state machine so an in-progress sale is never a half-written
+  live order: `glueful/commerce` v1.10.0 ships the `draft` order status with a single-authority
+  `transition()`/`DraftCleanupService` boundary (drafts refuse every ordinary lifecycle
+  transition; only `finalize`/`cancel` touch them), a tenant-safe
+  `DraftFinalizationService::finalize()` preflight-then-one-transaction path (CAS on
+  `draft_revision`, per-line variant-currency drift guard, shared purchasable-line resolver reused
+  from checkout so admin and storefront can never diverge on what counts as sellable), and the
+  `AdminOrderDraftController` REST surface (create/read/list, customer/mode/address/shipping/
+  discount updates, line add/update/delete, recalculate, cancel, finalize) mounted through
+  `AdminRouteCatalog`. Thallo adds `POST /v1/admin/commerce/orders/{uuid}/complete-sale`
+  (app-owned, same posture as the cycle-1 orders search/export/payments routes) — a single
+  one-click action that finalizes a draft AND marks it paid/fulfilled in one call, returning one
+  of five typed outcomes (spec §2.8) the SPA renders as a RESULT rather than a blank failure. The
+  admin SPA's walk-in order workspace (`admin/src/pages/commerce/orders/`) drives the whole draft
+  lifecycle against real wire-envelope error normalization (idempotency-key rotation on retry,
+  resilient finalize custody, a drafts list view). **Task 16 artifact regeneration:** the
+  complete-sale route pair moved out of `AdminOpenApiGateTest`'s
+  `AWAITING_SPEC_REGENERATION` carve-out into `PACK_OWNED_ROUTES` and `docs/openapi.json` was
+  regenerated (two-run byte-identity verified) to document it, the walk-in draft endpoints, and
+  the three cycle-1 orders endpoints (`search`/`export`/`{uuid}/payments`) that had been
+  awaiting regeneration since that program; `admin/src/api/schema.d.ts` +
+  `admin/src/api/core-schema.d.ts` were regenerated from the new spec, and
+  `commerceOrderSearch.ts`'s `search` call, `commerceOrders.ts`'s payments call, and
+  `commerceDrafts.ts`'s draft CRUD/lifecycle + `complete-sale` calls all migrated from raw
+  `authFetch` to the typed `client`, behavior-preserving (the Task 14 error-envelope handling via
+  `responseError()`/`toApiError()` verified equivalent on the typed path). `downloadOrdersCsv()`
+  deliberately stays on raw `fetch()` — it inspects a 422 JSON body before ever calling
+  `res.blob()`, a shape the typed client's single `parseAs` per call can't express without
+  duplicating that dance. **Follow-ups** (recorded below, out of scope for this cycle): Payvia
+  payment links + customer emailing for admin orders, guest self-service access custody,
+  account-attached digital admin orders, marketplace-partitioned admin orders, audited per-line
+  price override, the in-store counter-sale zero-tax question, plus four smaller engine/SPA
+  defects surfaced along the way (drafts-list line-count hydration, a typed not-found exception
+  for `OrderRepository::transition()`, a framework `OpenApiGenerator::obtainRouter()` stale-cache
+  bug, and a latent `DraftFulfillmentCard` `USelect` crash).
+  [spec](superpowers/specs/commerce/2026-08-09-admin-order-creation-design.md) ·
+  [plan](superpowers/plans/2026-08-09-admin-order-creation.md).
 - [x] **Platform payments settings (Payvia credential ownership moved to the platform)** —
   shipped 2026-08-08 — Payvia gateway credentials (default gateway, per-gateway enable +
   secret/webhook keys) are now APP-OWNED and platform-scoped over the unscoped system channel

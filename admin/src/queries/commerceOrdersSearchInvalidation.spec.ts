@@ -25,11 +25,34 @@ vi.mock('@/stores/session', () => ({
   useSessionStore: () => ({ accessToken: 'test-token', refresh: vi.fn(), clear: vi.fn() }),
 }))
 
-const authFetch = vi.fn()
-vi.mock('@/api/authFetch', () => ({ authFetch: (...a: unknown[]) => authFetch(...a) }))
-
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+}
+
+function emptySearchBody() {
+  return { success: true, message: 'Orders retrieved', data: [], current_page: 1, per_page: 24, total: 0 }
+}
+
+/** `fetch` is shared by BOTH `useOrderSearch()`'s list query and `cancelOrder()`'s mutation now
+ * that `fetchOrderSearch` also rides the typed `client` (Task 16 regeneration) — count only the
+ * `/orders/search` calls so the assertions still isolate "did the list actually refetch",
+ * regardless of the cancel POST sharing the same stubbed `fetch`. */
+function requestUrl(input: unknown): string {
+  if (typeof input === 'string') return input
+  if (input instanceof URL) return input.toString()
+  return (input as Request).url
+}
+function searchCallCount(mock: ReturnType<typeof vi.fn>): number {
+  return mock.mock.calls.filter(([req]) => requestUrl(req).includes('/orders/search')).length
+}
+
+// The typed `client`'s auth middleware does `await import('@/stores/session')` (and,
+// tenant-scoped, `@/stores/tenant`) on every request — genuine dynamic imports that, combined with
+// this file's own per-test `vi.resetModules()`, outlast a single `flushPromises()` tick (mirrors
+// commerceDraftFieldErrors.spec.ts's identical note). `vi.waitFor` polls with real timers until the
+// assertion holds, instead of guessing how many `flushPromises()` calls are enough.
+async function waitFor(assertion: () => void): Promise<void> {
+  await vi.waitFor(assertion, { timeout: 2000, interval: 20 })
 }
 
 function canceledOrderBody() {
@@ -61,13 +84,22 @@ function canceledOrderBody() {
 }
 
 describe('orders list cache is actually invalidated by lifecycle mutations (real cache, not mocked)', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
   beforeEach(() => {
     vi.resetModules()
-    authFetch.mockReset().mockResolvedValue({ data: [], current_page: 1, per_page: 24, total: 0 })
-    // The real `cancelOrder()` goes through the typed openapi-fetch `client`, which calls global
-    // `fetch` directly (mirrors commerceOrders.spec.ts's established stub-then-dynamic-import
-    // pattern for exercising the real client against a stubbed network).
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(canceledOrderBody())))
+    // Both `useOrderSearch()`'s list query and `cancelOrder()`'s mutation go through the typed
+    // openapi-fetch `client`, which calls global `fetch` directly (mirrors commerceOrders.spec.ts's
+    // established stub-then-dynamic-import pattern for exercising the real client against a
+    // stubbed network) — route by URL so each gets its own well-formed envelope.
+    fetchMock = vi.fn((input: unknown) =>
+      Promise.resolve(
+        requestUrl(input).includes('/cancel')
+          ? jsonResponse(canceledOrderBody())
+          : jsonResponse(emptySearchBody()),
+      ),
+    )
+    vi.stubGlobal('fetch', fetchMock)
   })
 
   it('a cancel mutation refetches the ACTIVE orders-search list query', async () => {
@@ -87,13 +119,13 @@ describe('orders list cache is actually invalidated by lifecycle mutations (real
     await flushPromises()
 
     // The list's initial fetch, while the query is freshly mounted and active.
-    expect(authFetch).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(searchCallCount(fetchMock)).toBe(1))
 
     await mutations!.cancel.mutateAsync('o1')
     await flushPromises()
 
     // If `invalidate()` still targeted the retired, mismatched key prefix, this would stay at 1 —
     // the exact silent failure mode the review caught.
-    expect(authFetch).toHaveBeenCalledTimes(2)
+    await waitFor(() => expect(searchCallCount(fetchMock)).toBe(2))
   })
 })

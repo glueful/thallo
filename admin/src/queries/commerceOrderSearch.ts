@@ -1,7 +1,7 @@
 import { useQuery } from '@pinia/colada'
 import { toValue, type Ref } from 'vue'
-import { authFetch } from '@/api/authFetch'
-import { responseError } from '@/api/errors'
+import { client } from '@/api/client'
+import { responseError, toApiError } from '@/api/errors'
 import { useSessionStore } from '@/stores/session'
 import { runtimeConfig } from '@/runtime/config'
 import { qk } from './keys'
@@ -14,9 +14,15 @@ import {
 } from './commerceOrders'
 
 // `GET /v1/admin/commerce/orders/search` (Task 3) + `GET /v1/admin/commerce/orders/export`
-// (Task 4) — both merged on the backend but NOT yet in the generated OpenAPI schema (no regen
-// happened for them; recorded follow-up), so both ride on authFetch/raw fetch like
-// formSubmissions.ts rather than the typed `client`, mirroring that file's exact idiom.
+// (Task 4) — both merged on the backend and now in the generated OpenAPI schema (Task 16
+// regeneration). `search` rides the typed `client` below: its query params carry no `#[QueryParam]`
+// attributes server-side (AdminOrderSearchController never declared them, unlike e.g. the refunds
+// list), so the schema's `query` type is `never` and the filter object is cast `as never` at the
+// call site — the SAME established idiom `collections.ts`'s `fetchRows()` already uses for an
+// identically untyped query. `export` stays on raw `fetch()` (see `downloadOrdersCsv` below): it
+// downloads a CSV blob and inspects a 422 JSON body BEFORE ever calling `res.blob()`, a shape the
+// typed client's single `parseAs` per call can't express without duplicating that same dance —
+// moving it would risk changing exactly the error-vs-blob distinction the brief asks to preserve.
 
 export interface OrderSearchFilters {
   q: string
@@ -51,7 +57,8 @@ const base = () => `${runtimeConfig.apiBase}/commerce/orders`
 
 /** Request params sent to the backend — unlike `serializeOrderSearchQuery()` (the URL bar's
  * canonical form), `page`/`per_page` are always included here since the endpoint's own defaults
- * are a server-side concern, not something to rely on silently matching the client's. */
+ * are a server-side concern, not something to rely on silently matching the client's. Used by
+ * `downloadOrdersCsv()` (raw `fetch()`, see its own note). */
 function searchParams(filters: OrderSearchFilters): URLSearchParams {
   const qs = new URLSearchParams()
   if (filters.status) qs.set('status', filters.status)
@@ -62,6 +69,21 @@ function searchParams(filters: OrderSearchFilters): URLSearchParams {
   qs.set('page', String(filters.page))
   qs.set('per_page', String(filters.perPage))
   return qs
+}
+
+/** Same field set as `searchParams()` above, as a plain object for the typed `client`'s query
+ * serializer (which drops `undefined`/`null` entries itself — see openapi-fetch's
+ * `createQuerySerializer` — so omission here works identically to `searchParams()`'s `if` guards). */
+function searchQuery(filters: OrderSearchFilters) {
+  return {
+    status: filters.status || undefined,
+    fulfillment_status: filters.fulfillment || undefined,
+    placed_from: filters.placedFrom || undefined,
+    placed_to: filters.placedTo || undefined,
+    q: filters.q || undefined,
+    page: filters.page,
+    per_page: filters.perPage,
+  }
 }
 
 // The admin envelope is doc-only (no schema for this route yet), so normalize the raw JSON into
@@ -100,14 +122,19 @@ function normalizeSearchOrder(raw: Record<string, unknown>): CommerceOrder {
 }
 
 export async function fetchOrderSearch(filters: OrderSearchFilters): Promise<OrderSearchPage> {
-  const json = await authFetch(`${base()}/search?${searchParams(filters).toString()}`)
-  const body = json as { data?: unknown[]; current_page?: number; per_page?: number; total?: number }
-  const rows = Array.isArray(body.data) ? body.data : []
+  const { data, error, response } = await client.GET('/commerce/orders/search', {
+    params: { query: searchQuery(filters) as never },
+  })
+  if (error) throw toApiError(error, response)
+  const body = data as
+    | { data?: unknown[]; current_page?: number; per_page?: number; total?: number }
+    | undefined
+  const rows = Array.isArray(body?.data) ? body.data : []
   return {
     orders: rows.map((o) => normalizeSearchOrder(o as Record<string, unknown>)),
-    total: body.total ?? 0,
-    current_page: body.current_page ?? filters.page,
-    per_page: body.per_page ?? filters.perPage,
+    total: body?.total ?? 0,
+    current_page: body?.current_page ?? filters.page,
+    per_page: body?.per_page ?? filters.perPage,
   }
 }
 

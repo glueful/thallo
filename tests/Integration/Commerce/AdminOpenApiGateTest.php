@@ -66,6 +66,11 @@ final class AdminOpenApiGateTest extends AppTestCase
         ['GET', '/v1/admin/commerce/orders/search'],
         ['GET', '/v1/admin/commerce/orders/export'],
         ['GET', '/v1/admin/commerce/orders/{uuid}/payments'],
+        // Complete-sale (admin-order-creation cycle 2, Task 13/15): app-owned, registered
+        // directly in packages/thallo-commerce/routes/admin-routes.php ahead of
+        // AdminRouteCatalog::mount(), same posture as the three orders routes above. Regenerated
+        // into docs/openapi.json and moved out of AWAITING_SPEC_REGENERATION at Task 16.
+        ['POST', '/v1/admin/commerce/orders/{uuid}/complete-sale'],
     ];
 
     /**
@@ -76,16 +81,13 @@ final class AdminOpenApiGateTest extends AppTestCase
      * immediately) nor go stale silently (once the spec is regenerated and the route is added to
      * {@see self::PACK_OWNED_ROUTES}, leaving the entry here fails too, forcing its removal).
      *
-     * Current debt:
-     *  - `POST /v1/admin/commerce/orders/{uuid}/complete-sale` (admin-order-creation cycle 2,
-     *    Task 13). **Task 16 must, in ONE commit:** run `composer docs:openapi`, add the pair to
-     *    `PACK_OWNED_ROUTES` above, and EMPTY this list.
+     * Empty as of Task 16: the ONE outstanding debt this list ever carried — `POST
+     * /v1/admin/commerce/orders/{uuid}/complete-sale` — was paid by regenerating
+     * `docs/openapi.json` and moving the pair up into {@see self::PACK_OWNED_ROUTES}.
      *
-     * @var list<array{0:string,1:string}> [method, path] pairs awaiting the Task 16 regeneration.
+     * @var list<array{0:string,1:string}> [method, path] pairs awaiting a future regeneration.
      */
-    private const AWAITING_SPEC_REGENERATION = [
-        ['POST', '/v1/admin/commerce/orders/{uuid}/complete-sale'],
-    ];
+    private const AWAITING_SPEC_REGENERATION = [];
 
     // ------------------------------------------------------------------
     // Input gate — live router

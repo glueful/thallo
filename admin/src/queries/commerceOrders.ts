@@ -2,8 +2,6 @@ import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { client } from '@/api/client'
 import { ApiError, toApiError } from '@/api/errors'
-import { authFetch } from '@/api/authFetch'
-import { runtimeConfig } from '@/runtime/config'
 import { qk } from './keys'
 
 // Closed vocabularies mirrored from the backend (Glueful\Extensions\Commerce\Orders\
@@ -255,10 +253,10 @@ export function useCommerceOrder(uuid: MaybeRefOrGetter<string>) {
 
 // ── Payment summary (Task 5 / Task 9) ─────────────────────────────────────────
 //
-// `GET /commerce/orders/{uuid}/payments` (AdminOrderPaymentsController::payments()) is NOT yet in
-// the generated OpenAPI schema (no regen happened for it — same recorded follow-up as
-// commerceOrderSearch.ts's `/search`/`/export`), so this rides on `authFetch`/raw fetch exactly
-// like that file's established idiom rather than the typed `client`.
+// `GET /commerce/orders/{uuid}/payments` (AdminOrderPaymentsController::payments()) is now in the
+// generated OpenAPI schema (Task 16 regeneration) and rides the typed `client` — the response body
+// itself carries no documented schema (no `#[ApiResponse]` on the handler), so `data` is cast the
+// same way every other untyped-response fetcher in this file already does (see `fetchOrder()`).
 //
 // The envelope is INVARIANT on every 200 — `{available, payments, intents, refund}` — regardless
 // of whether Payvia's own tables are migrated: `available` reports whether they physically exist,
@@ -349,8 +347,11 @@ function normalizeOrderPayments(raw: Record<string, unknown>): CommerceOrderPaym
 }
 
 export async function fetchOrderPayments(uuid: string): Promise<CommerceOrderPaymentsEnvelope> {
-  const json = await authFetch(`${runtimeConfig.apiBase}/commerce/orders/${uuid}/payments`)
-  const raw = (json as { data?: unknown }).data
+  const { data, error, response } = await client.GET('/commerce/orders/{uuid}/payments', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeOrderPayments((raw ?? {}) as Record<string, unknown>)
 }
 
