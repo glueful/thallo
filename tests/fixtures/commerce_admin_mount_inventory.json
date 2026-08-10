@@ -120,6 +120,46 @@
         "mode": "manage"
     },
     {
+        "key": "orders.drafts.cancel",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.drafts.finalize",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.drafts.index",
+        "mode": "view"
+    },
+    {
+        "key": "orders.drafts.lines.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.drafts.lines.store",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.drafts.lines.update",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.drafts.recalculate",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.drafts.show",
+        "mode": "view"
+    },
+    {
+        "key": "orders.drafts.store",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.drafts.update",
+        "mode": "manage"
+    },
+    {
         "key": "orders.fulfill",
         "mode": "manage"
     },
