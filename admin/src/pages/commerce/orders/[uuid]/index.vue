@@ -270,13 +270,33 @@ const billingDisplay = computed(() => {
                   <UBadge color="neutral" variant="subtle" data-test="order-detail-fulfillment">
                     {{ order.fulfillment_status }}
                   </UBadge>
+                  <!-- Task 14: walk-in orders carry their own fulfillment MODE (distinct from
+                       fulfillment STATUS above) — Task 15's Complete-sale gating consumes this
+                       same field, so it's surfaced here rather than left invisible. -->
+                  <UBadge color="neutral" variant="subtle" data-test="order-detail-fulfillment-mode">
+                    {{ order.fulfillment_mode }}
+                  </UBadge>
                   <span class="text-sm text-muted" data-test="order-header-placed">
                     Placed {{ fmtDateTime(order.placed_at) }}
                   </span>
                 </div>
                 <div class="flex flex-wrap items-center gap-2 text-sm">
-                  <span data-test="order-customer-email">{{ order.email }}</span>
-                  <CopyButton :value="order.email" label="Copy customer email" data-test="order-email-copy" />
+                  <!-- Nullable email (Task 14, admin-order-creation): a walk-in order may have no
+                       email at all (Ruling 4 — never a fabricated placeholder). "Walk-in customer"
+                       renders instead, and the copy control is omitted entirely rather than
+                       offering to copy nothing. -->
+                  <span
+                    data-test="order-customer-email"
+                    :class="{ 'italic text-muted': !order.email }"
+                  >
+                    {{ order.email ?? 'Walk-in customer' }}
+                  </span>
+                  <CopyButton
+                    v-if="order.email"
+                    :value="order.email"
+                    label="Copy customer email"
+                    data-test="order-email-copy"
+                  />
                   <UBadge color="neutral" variant="subtle" size="sm" data-test="order-customer-type">
                     {{ order.user_uuid ? 'Registered customer' : 'Guest checkout' }}
                   </UBadge>

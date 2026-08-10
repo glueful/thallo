@@ -102,7 +102,9 @@ function fmtDate(v: string | null): string {
     </template>
 
     <template #email-cell="{ row }">
-      <span class="text-sm">{{ row.original.email }}</span>
+      <span class="text-sm" :class="{ 'text-muted italic': !row.original.email }">
+        {{ row.original.email ?? 'Walk-in customer' }}
+      </span>
     </template>
 
     <template #status-cell="{ row }">

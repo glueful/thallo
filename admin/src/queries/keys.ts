@@ -70,6 +70,12 @@ export const qk = {
   // matches anything — see the fix-round-2 note in commerceOrders.ts).
   commerceOrderSearch: () => ['commerce', 'orders', 'search'] as const,
   commerceOrder: (uuid: string) => ['commerce-order', uuid] as const,
+  // Task 14 (admin-order-creation): the walk-in draft workspace — DELIBERATELY a different prefix
+  // from `commerceOrder()` (drafts live on `/orders/drafts/{uuid}`, a distinct resource from
+  // `/orders/{uuid}`, and `AdminOrderController::findByUuid()` is draft-blind by construction), so
+  // a draft mutation's own invalidation never collides with (or accidentally invalidates) an
+  // ordinary order's cache entry.
+  commerceDraft: (uuid: string) => ['commerce-draft', uuid] as const,
   commerceOrderPayments: (orderUuid: string) => ['commerce-order-payments', orderUuid] as const,
   commerceOrderRefunds: (orderUuid: string) => ['commerce-order-refunds', orderUuid] as const,
   commerceRefunds: () => ['commerce-refunds'] as const,

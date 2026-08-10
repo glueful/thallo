@@ -29,6 +29,9 @@ const { warning, error: notifyError } = useNotify()
 
 const { data: meta } = useCommerceMeta()
 const canView = computed(() => meta.value?.can_view ?? false)
+// Task 14 (admin-order-creation): the walk-in draft workspace entry point — manage-graded (the
+// same gate every draft mutation endpoint requires server-side), never view-only.
+const canManage = computed(() => meta.value?.can_manage ?? false)
 
 // USelect/reka-ui reserve the empty string as "no selection" and reject a SelectItem with an
 // empty `value` — so the "All" option uses a non-empty sentinel, translated to `null` (no filter)
@@ -178,6 +181,18 @@ async function exportCsv(): Promise<void> {
     <template #header>
       <UDashboardNavbar title="Orders">
         <template #right>
+          <!-- A plain RouterLink (not UButton's own `to` resolution) mirrors the order detail
+               page's identical "Print" link precedent — directly testable against the stubbed
+               RouterLink without depending on Nuxt UI's own router integration in jsdom. -->
+          <RouterLink
+            v-if="canManage"
+            to="/commerce/orders/create"
+            data-test="orders-create"
+            class="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-inverted hover:opacity-90"
+          >
+            <UIcon name="i-lucide-plus" class="size-4" />
+            Create order
+          </RouterLink>
           <UInput
             v-model="rawQuery"
             icon="i-lucide-search"

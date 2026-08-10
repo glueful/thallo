@@ -59,6 +59,15 @@ export interface CommerceProduct {
    * responses (which carry real `variants` instead) and on an older commerce, so every consumer
    * must degrade to "—" rather than assume a number. */
   summary?: ProductListSummary
+  /** Admin-order-creation cycle 2 (commerce v1.10.0): whether this product may be added as a
+   * draft-order line, computed server-side by `DraftLineEligibility` — NEVER client-inferred from
+   * `type`/a seller uuid. Defaults `true` when the backend omits the key (an older commerce that
+   * predates this enrichment), matching every other list-summary field's degrade-gracefully rule
+   * in this file. */
+  admin_draft_eligible: boolean
+  /** The closed reason `admin_draft_eligible` is `false`, mirroring `DraftLineEligibility::REASONS`
+   * exactly — always `null` when eligible. */
+  admin_draft_ineligible_reason: 'digital' | 'marketplace' | 'unavailable' | null
 }
 
 /** `stock_quantity` is null both when nothing is tracked AND when the total is UNKNOWN (a variant
@@ -708,6 +717,13 @@ function normalizeProduct(raw: Record<string, unknown>): CommerceProduct {
       raw.metadata !== null && typeof raw.metadata === 'object' && !Array.isArray(raw.metadata)
         ? { ...(raw.metadata as Record<string, unknown>) }
         : {},
+    admin_draft_eligible: raw.admin_draft_eligible !== false,
+    admin_draft_ineligible_reason:
+      raw.admin_draft_ineligible_reason === 'digital' ||
+      raw.admin_draft_ineligible_reason === 'marketplace' ||
+      raw.admin_draft_ineligible_reason === 'unavailable'
+        ? raw.admin_draft_ineligible_reason
+        : null,
     ...normalizeListSummary(raw),
   }
 }

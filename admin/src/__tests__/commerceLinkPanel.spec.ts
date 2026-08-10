@@ -80,6 +80,8 @@ function product(overrides: Partial<CommerceProduct> = {}): CommerceProduct {
     variants: [],
     options: {},
     metadata: {},
+    admin_draft_eligible: true,
+    admin_draft_ineligible_reason: null,
     ...overrides,
   }
 }

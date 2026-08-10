@@ -85,6 +85,11 @@ function order(overrides: Partial<CommerceOrder> = {}): CommerceOrder {
     fulfillment_status: 'unfulfilled',
     email: 'buyer@example.com',
     user_uuid: null,
+    customer_name: null,
+    phone_normalized: null,
+    phone_display: null,
+    fulfillment_mode: 'delivery',
+    origin: 'storefront',
     currency: 'USD',
     subtotal: 5000,
     discount_total: 0,
@@ -229,6 +234,14 @@ describe('OrdersTable', () => {
   it('shows the error state', () => {
     const wrapper = mount(OrdersTable, { props: { rows: [], status: 'error' } })
     expect(wrapper.find('[data-test="orders-error"]').exists()).toBe(true)
+  })
+
+  it('renders "Walk-in customer" (never a blank cell) when email is null', () => {
+    const wrapper = mount(OrdersTable, {
+      props: { rows: [order({ uuid: 'o3', email: null })], status: 'success' },
+      global: { stubs: pageStubs },
+    })
+    expect(wrapper.text()).toContain('Walk-in customer')
   })
 
   it('links each row to its order detail page', () => {
@@ -425,6 +438,23 @@ describe('commerce orders list page', () => {
     const wrapper = mount(OrdersIndex, { global: { stubs: pageStubs } })
     await flushPromises()
     expect(wrapper.find('[data-test="orders-export"]').exists()).toBe(false)
+  })
+
+  // ── "Create order" (Task 14: admin-order-creation) — manage-graded ─────────────────────────
+
+  it('shows the "Create order" action when can_manage is true, linking to the draft workspace', async () => {
+    const wrapper = mount(OrdersIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+    const button = wrapper.find('[data-test="orders-create"]')
+    expect(button.exists()).toBe(true)
+    expect(button.attributes('href')).toBe('/commerce/orders/create')
+  })
+
+  it('hides "Create order" when can_manage is false', async () => {
+    metaData.value = { ...metaData.value, can_manage: false }
+    const wrapper = mount(OrdersIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+    expect(wrapper.find('[data-test="orders-create"]').exists()).toBe(false)
   })
 
   it('surfaces a 422 export-too-large rejection as a warning toast with the exact server message', async () => {

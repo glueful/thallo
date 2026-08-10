@@ -110,6 +110,11 @@ function order(overrides: Partial<CommerceOrder> = {}): CommerceOrder {
     fulfillment_status: 'unfulfilled',
     email: 'buyer@example.com',
     user_uuid: null,
+    customer_name: null,
+    phone_normalized: null,
+    phone_display: null,
+    fulfillment_mode: 'delivery',
+    origin: 'storefront',
     currency: 'USD',
     subtotal: 5000,
     discount_total: 0,
@@ -356,6 +361,34 @@ describe('commerce order detail page', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="order-customer-type"]').text()).toContain('Registered')
+  })
+
+  // ── Nullable email (Task 14: admin-order-creation walk-in orders) ─────────────────────────
+
+  it('renders "Walk-in customer" and omits the copy control when email is null', async () => {
+    singleOrder.value = order({ email: null })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-customer-email"]').text()).toBe('Walk-in customer')
+    expect(wrapper.find('[data-test="order-email-copy"]').exists()).toBe(false)
+  })
+
+  it('still shows the email and its copy control when email is present', async () => {
+    singleOrder.value = order({ email: 'ada@example.com' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-customer-email"]').text()).toBe('ada@example.com')
+    expect(wrapper.find('[data-test="order-email-copy"]').exists()).toBe(true)
+  })
+
+  it('exposes fulfillment_mode as its own badge, distinct from fulfillment_status', async () => {
+    singleOrder.value = order({ fulfillment_mode: 'in_store', fulfillment_status: 'unfulfilled' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-detail-fulfillment-mode"]').text()).toBe('in_store')
   })
 
   it('shows the "no address on file" state when addresses is null', async () => {

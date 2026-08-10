@@ -114,7 +114,10 @@ function addressLines(address: Record<string, unknown>): string[] {
       <div data-test="invoice-order-number">Order {{ invoice.order.number ?? '—' }}</div>
       <div data-test="invoice-order-date">{{ fmtDate(orderDate) }}</div>
       <div data-test="invoice-order-status">Order status: {{ invoice.order.status ?? '—' }}</div>
-      <div data-test="invoice-buyer-email">{{ invoice.buyer.email ?? '—' }}</div>
+      <!-- Task 14 (admin-order-creation): a walk-in order's buyer email is genuinely null (never
+           an invented placeholder) — the printed document reads "Walk-in customer" instead of a
+           bare em-dash so it never looks like missing/broken data. -->
+      <div data-test="invoice-buyer-email">{{ invoice.buyer.email ?? 'Walk-in customer' }}</div>
     </section>
 
     <!-- Buyer addresses — optional (commerce.invoice.show_addresses). -->

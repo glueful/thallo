@@ -87,8 +87,27 @@ export interface CommerceOrder {
   order_number: string
   status: string
   fulfillment_status: string
-  email: string
+  /** Nullable since commerce v1.10.0 (admin-order-creation cycle 2): an admin-created "walk-in"
+   * order may be fully anonymous (migration 022 relaxes `commerce_orders.email` to nullable;
+   * Ruling 4 — no placeholder email is ever invented). Every render site (list/detail/invoice)
+   * must show "Walk-in customer" and omit any email-copy control when this is null, never an
+   * empty-string placeholder. */
+  email: string | null
   user_uuid: string | null
+  /** Free-text walk-in customer name (migration 022) — null for every storefront-checkout order. */
+  customer_name: string | null
+  /** Canonical E.164 form (`DraftPhone::parse()`) — null when no phone was ever recorded. */
+  phone_normalized: string | null
+  /** The operator's own trimmed-but-unstripped phone input, preserved verbatim for display —
+   * never re-derived from `phone_normalized`, since that would silently drop the operator's own
+   * formatting choice. Null when no phone was ever recorded. */
+  phone_display: string | null
+  /** `'in_store' | 'delivery'` (migration 022, backfilled `'delivery'` for every pre-existing
+   * row) — Task 15's Complete-sale gating consumes this field directly. */
+  fulfillment_mode: string
+  /** `'storefront' | 'admin'` (migration 022, backfilled `'storefront'` for every pre-existing
+   * row) — every row genuinely has one; never a fabricated distinction for older data. */
+  origin: string
   currency: string
   /** Minor-unit integer amounts — format with `useMoney`, never `Number()`. */
   subtotal: number
@@ -181,8 +200,15 @@ function normalizeOrder(raw: Record<string, unknown>): CommerceOrder {
     order_number: String(raw.order_number ?? ''),
     status: String(raw.status ?? 'pending_payment'),
     fulfillment_status: String(raw.fulfillment_status ?? 'unfulfilled'),
-    email: String(raw.email ?? ''),
+    email: typeof raw.email === 'string' ? raw.email : null,
     user_uuid: typeof raw.user_uuid === 'string' ? raw.user_uuid : null,
+    customer_name: typeof raw.customer_name === 'string' ? raw.customer_name : null,
+    phone_normalized: typeof raw.phone_normalized === 'string' ? raw.phone_normalized : null,
+    phone_display: typeof raw.phone_display === 'string' ? raw.phone_display : null,
+    // Backfill defaults mirror migration 022's own column defaults exactly — a row genuinely
+    // predating this migration (or any wire response that omits the key) means precisely this.
+    fulfillment_mode: typeof raw.fulfillment_mode === 'string' ? raw.fulfillment_mode : 'delivery',
+    origin: typeof raw.origin === 'string' ? raw.origin : 'storefront',
     currency: String(raw.currency ?? ''),
     // Amounts are JSON numbers from the API; anything else is malformed and becomes the neutral
     // fallback rather than a silently Number()-coerced guess (mirrors commerceCatalog.ts's

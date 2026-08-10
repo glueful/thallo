@@ -154,6 +154,21 @@ describe('InvoiceDocument', () => {
     }
   })
 
+  // ── Nullable buyer email (Task 14: admin-order-creation walk-in orders) ────────────────────
+  it('renders "Walk-in customer" instead of a bare placeholder when buyer.email is null', async () => {
+    const { default: InvoiceDocument } = await import(
+      '@/pages/commerce/orders/components/InvoiceDocument.vue'
+    )
+    const wrapper = mount(InvoiceDocument, {
+      props: {
+        invoice: invoice({ buyer: { email: null, addresses: null } }),
+        preset: 'a4',
+        ...baseDocumentProps,
+      },
+    })
+    expect(wrapper.find('[data-test="invoice-buyer-email"]').text()).toBe('Walk-in customer')
+  })
+
   describe('optional sections respond to their own toggle', () => {
     it('shows the SKU column only when showSku is true', async () => {
       const { default: InvoiceDocument } = await import(
