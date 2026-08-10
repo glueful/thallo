@@ -118,21 +118,27 @@ final class CommerceMetaTest extends AppTestCase
     }
 
     // ------------------------------------------------------------------
-    // can_attach_user matrix (admin-order-creation cycle 2, Task 12, design spec §2.3): a CLOSED
-    // conjunction of `users.user_lookup.list.enabled` config AND effective `users.view`
-    // permission — true ONLY when both gates are open, all four cells proven below.
+    // can_attach_user matrix (admin-order-creation cycle 2, Task 12, design spec §2.3; hardened
+    // by review): a CLOSED conjunction of THREE gates — `users.user_lookup.enabled` (the parent
+    // master switch), `users.user_lookup.list.enabled` (the `GET /users` COLLECTION switch), and
+    // effective `users.view` — true ONLY when all three are open. `list.enabled` alone is NOT
+    // sufficient: `glueful/users`' own `UsersServiceProvider::boot()` only consults `list.enabled`
+    // INSIDE the parent's `if (user_lookup.enabled)` branch (`UsersServiceProvider.php` lines
+    // 95-99), so `list.enabled=true` with the parent off still leaves `GET /users` a 404 — a flag
+    // that ignored the parent would report `true` for a capability that 404s.
     //
-    // `list.enabled` is `true` by default in this suite's real `.env` (`USERS_USER_LIST_ENABLED
-    // =true`), so the (true, *) cells run against the process-shared boot directly. The (false, *)
-    // cells need `list.enabled` forced OFF — and unlike `commerce.currency` (see this class's own
-    // docblock for why THAT key defeats `bootAppWithConfigOverride()`), this key is read EAGERLY
-    // during boot by `glueful/users`' own `UsersServiceProvider::boot()` (deciding whether to
-    // register `GET /users`), so the override IS already baked into the booted context's config
-    // cache before the helper's `finally` deletes the temporary override file — the secondary
-    // boot genuinely observes it.
+    // Both `user_lookup.enabled` and `user_lookup.list.enabled` default to `true` in this suite's
+    // real `.env` (`USERS_USER_LOOKUP_ENABLED=true`, `USERS_USER_LIST_ENABLED=true`), so the
+    // (true, true, *) cells run against the process-shared boot directly. The cells needing either
+    // switch OFF need a secondary boot — and unlike `commerce.currency` (see this class's own
+    // docblock for why THAT key defeats `bootAppWithConfigOverride()`), BOTH switches are read
+    // EAGERLY during boot by `UsersServiceProvider::boot()` while deciding whether to register
+    // `GET /users`/`GET /users/{uuid}` at all, so an override to either IS baked into the booted
+    // context's config cache before the helper's `finally` deletes the temporary override file —
+    // the secondary boot genuinely observes both.
     // ------------------------------------------------------------------
 
-    public function testCanAttachUserIsTrueWhenListEnabledAndUsersViewAreBothGranted(): void
+    public function testCanAttachUserIsTrueWhenBothLookupSwitchesAndUsersViewAreAllGranted(): void
     {
         $user = $this->userGranted(['users.view']);
 
@@ -141,7 +147,7 @@ final class CommerceMetaTest extends AppTestCase
         self::assertTrue($data['can_attach_user']);
     }
 
-    public function testCanAttachUserIsFalseWhenListEnabledButUsersViewIsNotGranted(): void
+    public function testCanAttachUserIsFalseWhenBothSwitchesAreOnButUsersViewIsNotGranted(): void
     {
         $user = $this->userGranted([]);
 
@@ -152,14 +158,27 @@ final class CommerceMetaTest extends AppTestCase
 
     public function testCanAttachUserIsFalseWhenUsersViewIsGrantedButListIsDisabled(): void
     {
-        $data = $this->metaUnderUserListDisabled(['users.view']);
+        $data = $this->metaUnderUserLookupOverride(['enabled' => true, 'list' => ['enabled' => false]], ['users.view']);
 
         self::assertFalse($data['can_attach_user']);
     }
 
-    public function testCanAttachUserIsFalseWhenNeitherListEnabledNorUsersViewIsGranted(): void
+    public function testCanAttachUserIsFalseWhenNeitherSwitchIsOnNorUsersViewIsGranted(): void
     {
-        $data = $this->metaUnderUserListDisabled([]);
+        $data = $this->metaUnderUserLookupOverride(['enabled' => false, 'list' => ['enabled' => false]], []);
+
+        self::assertFalse($data['can_attach_user']);
+    }
+
+    /**
+     * The review-hardened cell: `list.enabled=true` alone must NOT be enough when the PARENT
+     * `user_lookup.enabled` switch is off — the route itself would still 404
+     * ({@see UsersServiceProvider::boot()}'s nested `if`), so this flag must not claim otherwise
+     * even with a granted `users.view` permission.
+     */
+    public function testCanAttachUserIsFalseWhenListIsEnabledButParentLookupIsDisabledEvenWithPermission(): void
+    {
+        $data = $this->metaUnderUserLookupOverride(['enabled' => false, 'list' => ['enabled' => true]], ['users.view']);
 
         self::assertFalse($data['can_attach_user']);
     }
@@ -365,28 +384,31 @@ final class CommerceMetaTest extends AppTestCase
     }
 
     /**
-     * The two (false, *) matrix cells (see the section docblock above for why this override
-     * genuinely takes effect for THIS key): boots a second app with `user_lookup.list.enabled`
-     * forced off, grants $grantedPermissionSlugs on a fresh user via the SAME physical database
-     * (both boots share one DB — the role/grant rows this writes through the SHARED app's own
-     * `AegisPermissionProvider` are immediately visible to the secondary boot's reads, no
-     * transaction boundary separates them), and resolves `CommerceMetaController` from the
-     * secondary app's OWN container so its `PermissionRequirementAuthority` observes the SAME
-     * grant. Restores the process-shared RBAC provider/repository connection in a `finally` —
-     * mirrors {@see self::bootAppWithConfigOverride()}'s own established idiom
+     * The matrix cells needing either `user_lookup` switch forced off (see the section docblock
+     * above for why this override genuinely takes effect for BOTH keys): boots a second app with
+     * `users.user_lookup` overridden to $userLookupOverride (deep-merged over the real
+     * `config/users.php`, so an omitted nested key keeps its `.env`-derived default), grants
+     * $grantedPermissionSlugs on a fresh user via the SAME physical database (both boots share one
+     * DB — the role/grant rows this writes through the SHARED app's own `AegisPermissionProvider`
+     * are immediately visible to the secondary boot's reads, no transaction boundary separates
+     * them), and resolves `CommerceMetaController` from the secondary app's OWN container so its
+     * `PermissionRequirementAuthority` observes the SAME grant. Restores the process-shared RBAC
+     * provider/repository connection in a `finally` — mirrors
+     * {@see self::bootAppWithConfigOverride()}'s own established idiom
      * ({@see \Thallo\Commerce\...CommerceMetaTest::testRouteIsAbsentWhenCapabilityDisabled()}
      * two methods up) — so later tests in this class/process never see the throwaway boot.
      *
+     * @param array<string,mixed> $userLookupOverride e.g. ['enabled' => false, 'list' => ['enabled' => true]]
      * @param list<string> $grantedPermissionSlugs
      * @return array<string,mixed>
      */
-    private function metaUnderUserListDisabled(array $grantedPermissionSlugs): array
+    private function metaUnderUserLookupOverride(array $userLookupOverride, array $grantedPermissionSlugs): array
     {
         $this->flags()->forget('tenancy.schema_state');
         $this->flags()->forget('tenancy.default_tenant_uuid');
 
-        $disabledListApp = self::bootAppWithConfigOverride('users', [
-            'user_lookup' => ['list' => ['enabled' => false]],
+        $overriddenApp = self::bootAppWithConfigOverride('users', [
+            'user_lookup' => $userLookupOverride,
         ]);
 
         try {
@@ -397,10 +419,10 @@ final class CommerceMetaTest extends AppTestCase
             }
             $this->provider()->invalidateAllCache();
 
-            $secondaryProvider = $disabledListApp->getContainer()->get(AegisPermissionProvider::class);
+            $secondaryProvider = $overriddenApp->getContainer()->get(AegisPermissionProvider::class);
             $secondaryProvider->invalidateAllCache();
 
-            $controller = $disabledListApp->getContainer()->get(CommerceMetaController::class);
+            $controller = $overriddenApp->getContainer()->get(CommerceMetaController::class);
             $request = Request::create('/v1/admin/commerce/meta', 'GET');
             $request->attributes->set(
                 'user',

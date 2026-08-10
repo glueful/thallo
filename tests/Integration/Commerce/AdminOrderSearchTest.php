@@ -141,6 +141,30 @@ final class AdminOrderSearchTest extends AppTestCase
         self::assertNotContains($draft, array_column($rows, 'uuid'));
     }
 
+    /**
+     * The genuinely discriminating sub-case (review hardening): three of the six
+     * `filterCombinationsProvider()` cases (`status filter`, `q filter`, `combined filters`) share
+     * a `status='paid'` finalized companion, which trivially excludes a `status='draft'` row via
+     * ITS OWN `WHERE status = 'paid'` — those cases would still pass with `builder()`'s
+     * `OrderScope::excludeDrafts()` call deleted, so they don't actually prove the choke point.
+     * `order_number` can never close that gap either — the migration's own docblock is explicit
+     * that a draft has none until finalize, full stop. `email`, however, CAN be set on a draft
+     * before finalize (a non-anonymous walk-in customer), so pairing a draft and a real order that
+     * share one gives `q` something to (wrongly) match if `excludeDrafts()` were ever removed —
+     * this is the sub-case that would actually catch that regression.
+     */
+    public function testDraftSharingASearchableEmailWithARealOrderIsStillExcluded(): void
+    {
+        $tenant = Utils::generateNanoID();
+        $draft = $this->seedDraftOrder($tenant, ['email' => 'shared@example.com']);
+        $finalized = $this->seedOrder($tenant, ['status' => 'paid', 'email' => 'shared@example.com']);
+
+        $rows = $this->applyDirect($tenant, ['q' => 'shared@ex'])->get();
+
+        self::assertSame([$finalized], array_column($rows, 'uuid'));
+        self::assertNotContains($draft, array_column($rows, 'uuid'));
+    }
+
     public function testFilteringByDraftStatusIs422NotABypass(): void
     {
         $tenant = Utils::generateNanoID();
@@ -526,12 +550,18 @@ final class AdminOrderSearchTest extends AppTestCase
      * `guest_token_hash`, `origin='admin'`, `fulfillment_mode='in_store'`, `draft_revision=0` —
      * mirrors `glueful/commerce`'s own `DraftIsolationTest::seedOrder()` draft branch.
      *
+     * `email` defaults to null (the fully-anonymous walk-in case), but $overrides may set it —
+     * the migration's own docblock notes email CAN be assigned on a draft before finalize (a
+     * non-anonymous customer); {@see self::testDraftSharingASearchableEmailWithARealOrderIsStillExcluded()}
+     * relies on that to build a `q`-filter case the choke point genuinely discriminates.
+     *
+     * @param array<string,mixed> $overrides
      * @return string the seeded draft's uuid
      */
-    private function seedDraftOrder(string $tenant): string
+    private function seedDraftOrder(string $tenant, array $overrides = []): string
     {
         $uuid = Utils::generateNanoID();
-        $this->connection()->table('commerce_orders')->insert([
+        $defaults = [
             'uuid' => $uuid,
             'tenant_uuid' => $tenant,
             'order_number' => null,
@@ -551,7 +581,8 @@ final class AdminOrderSearchTest extends AppTestCase
             'draft_revision' => 0,
             'placed_at' => null,
             'created_at' => '2026-01-15 12:00:00',
-        ]);
+        ];
+        $this->connection()->table('commerce_orders')->insert(array_merge($defaults, $overrides, ['uuid' => $uuid]));
 
         return $uuid;
     }
