@@ -116,6 +116,36 @@ final class AdminOrderPaymentsTest extends AppTestCase
         self::assertSame(404, $response->getStatusCode(), (string) $response->getContent());
     }
 
+    /**
+     * Draft-blindness (admin-order-creation cycle 2, Task 12): a draft's uuid cannot RESOLVE
+     * through this endpoint at all -- not merely absent from a list, an outright 404 -- because
+     * {@see OrderRepository::findByUuid()} defaults `includeDrafts: false` and this controller
+     * never passes `true`. This pins that existing fail-closed default against regression (e.g. a
+     * future call site accidentally passing `includeDrafts: true` here) rather than asserting new
+     * behavior; zero Payvia queries follow for free from the SAME short-circuit the two tests
+     * above already prove.
+     */
+    public function testDraftOrderUuidIs404WithZeroPayviaQueries(): void
+    {
+        $draftUuid = $this->seedDraftOrder('');
+        $controller = $this->controllerWith(new OrderPaymentSummaryRepository($this->explodingConnection()));
+
+        $response = $controller->payments(Request::create('/x', 'GET'), $draftUuid);
+
+        self::assertSame(404, $response->getStatusCode(), (string) $response->getContent());
+    }
+
+    /** Same proof through the real kernel/route, not just the directly-constructed controller. */
+    public function testKernelDrivenRequestForADraftOrderUuidIs404(): void
+    {
+        $draftUuid = $this->seedDraftOrder('');
+        $key = $this->seedApiKeyUser(['commerce.view'], ['commerce.view']);
+
+        $response = $this->handle($this->apiKeyRequest('GET', $this->routeFor($draftUuid), $key));
+
+        self::assertSame(404, $response->getStatusCode(), (string) $response->getContent());
+    }
+
     // ==================================================================
     // Closed projection: hostile secret-bearing columns never reach the wire
     // ==================================================================
@@ -530,6 +560,41 @@ final class AdminOrderPaymentsTest extends AppTestCase
             'created_at' => '2026-01-15 12:00:00',
         ];
         $this->connection()->table('commerce_orders')->insert(array_merge($defaults, $overrides, ['uuid' => $uuid]));
+
+        return $uuid;
+    }
+
+    /**
+     * A draft order per the engine's walk-in-order schema — mirrors
+     * {@see AdminOrderSearchTest::seedDraftOrder()}.
+     *
+     * @return string the seeded draft's uuid
+     */
+    private function seedDraftOrder(string $tenant): string
+    {
+        $uuid = Utils::generateNanoID();
+        $this->connection()->table('commerce_orders')->insert([
+            'uuid' => $uuid,
+            'tenant_uuid' => $tenant,
+            'order_number' => null,
+            'status' => 'draft',
+            'fulfillment_status' => 'unfulfilled',
+            'marketplace_partitioned' => false,
+            'fulfillment_revision' => 0,
+            'refund_revision' => 0,
+            'refunded_total' => 0,
+            'email' => null,
+            'user_uuid' => null,
+            'guest_token_hash' => null,
+            'currency' => 'USD',
+            'subtotal' => 1000,
+            'grand_total' => 1000,
+            'origin' => 'admin',
+            'fulfillment_mode' => 'in_store',
+            'draft_revision' => 0,
+            'placed_at' => null,
+            'created_at' => '2026-01-15 12:00:00',
+        ]);
 
         return $uuid;
     }

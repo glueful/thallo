@@ -89,6 +89,83 @@ final class AdminOrderSearchTest extends AppTestCase
     }
 
     // ==================================================================
+    // Draft-blindness (admin-order-creation cycle 2, Task 12, hardened from Task 8's engine
+    // review): `AdminOrderSearchQuery::builder()` applies the engine's ONE finalized-order
+    // predicate, `OrderScope::excludeDrafts()` — proven here at the choke point itself (the bare
+    // builder, no filter applied at all) and again under representative filter combinations, so a
+    // draft can never surface through this endpoint by construction, not merely by omission from
+    // today's filter set.
+    // ==================================================================
+
+    public function testBareBuilderExcludesADraftOrder(): void
+    {
+        $tenant = Utils::generateNanoID();
+        $draft = $this->seedDraftOrder($tenant);
+        $finalized = $this->seedOrder($tenant, ['status' => 'paid']);
+
+        $rows = (new AdminOrderSearchQuery($this->appContext()))->builder($tenant)->get();
+
+        self::assertSame([$finalized], array_column($rows, 'uuid'));
+        self::assertNotContains($draft, array_column($rows, 'uuid'));
+    }
+
+    /** @return iterable<string, array{0: array<string, mixed>}> */
+    public static function filterCombinationsProvider(): iterable
+    {
+        yield 'no filter' => [[]];
+        yield 'status filter' => [['status' => 'paid']];
+        yield 'fulfillment_status filter' => [['fulfillment_status' => 'unfulfilled']];
+        yield 'date range filter' => [['placed_from' => '2020-01-01', 'placed_to' => '2030-01-01']];
+        yield 'q filter' => [['q' => 'ORD']];
+        yield 'combined filters' => [[
+            'status' => 'paid',
+            'fulfillment_status' => 'unfulfilled',
+            'placed_from' => '2020-01-01',
+            'placed_to' => '2030-01-01',
+            'q' => 'ORD',
+        ]];
+    }
+
+    /**
+     * @dataProvider filterCombinationsProvider
+     * @param array<string, mixed> $params
+     */
+    public function testDraftOrderIsNeverReturnedUnderAnyFilterCombination(array $params): void
+    {
+        $tenant = Utils::generateNanoID();
+        $draft = $this->seedDraftOrder($tenant);
+        $this->seedOrder($tenant, ['status' => 'paid']);
+
+        $rows = $this->applyDirect($tenant, $params)->get();
+
+        self::assertNotContains($draft, array_column($rows, 'uuid'));
+    }
+
+    public function testFilteringByDraftStatusIs422NotABypass(): void
+    {
+        $tenant = Utils::generateNanoID();
+        $this->seedDraftOrder($tenant);
+
+        $this->expectValidationException(fn () => $this->applyDirect($tenant, ['status' => 'draft']));
+    }
+
+    public function testRouteResponseNeverIncludesASeededDraftOrder(): void
+    {
+        $this->seedDraftOrder('');
+        $finalized = $this->seedOrder('', ['status' => 'paid']);
+        $key = $this->seedApiKeyUser(['commerce.view'], ['commerce.view']);
+
+        $response = $this->handle($this->apiKeyRequest('GET', self::ROUTE, $key));
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+
+        $decoded = json_decode((string) $response->getContent(), true);
+        self::assertIsArray($decoded);
+        self::assertSame(1, $decoded['total'] ?? null, 'the draft must not be counted');
+        self::assertCount(1, $decoded['data']);
+        self::assertSame($finalized, $decoded['data'][0]['uuid'] ?? null);
+    }
+
+    // ==================================================================
     // status / fulfillment_status enum filters
     // ==================================================================
 
@@ -439,6 +516,42 @@ final class AdminOrderSearchTest extends AppTestCase
             'created_at' => '2026-01-15 12:00:00',
         ];
         $this->connection()->table('commerce_orders')->insert(array_merge($defaults, $overrides, ['uuid' => $uuid]));
+
+        return $uuid;
+    }
+
+    /**
+     * A draft order per the engine's walk-in-order schema (migration
+     * `AddWalkInOrderFieldsAndDraftAttemptLedger`): nullable `order_number`/`email`/
+     * `guest_token_hash`, `origin='admin'`, `fulfillment_mode='in_store'`, `draft_revision=0` —
+     * mirrors `glueful/commerce`'s own `DraftIsolationTest::seedOrder()` draft branch.
+     *
+     * @return string the seeded draft's uuid
+     */
+    private function seedDraftOrder(string $tenant): string
+    {
+        $uuid = Utils::generateNanoID();
+        $this->connection()->table('commerce_orders')->insert([
+            'uuid' => $uuid,
+            'tenant_uuid' => $tenant,
+            'order_number' => null,
+            'status' => 'draft',
+            'fulfillment_status' => 'unfulfilled',
+            'marketplace_partitioned' => false,
+            'fulfillment_revision' => 0,
+            'refund_revision' => 0,
+            'email' => null,
+            'user_uuid' => null,
+            'guest_token_hash' => null,
+            'currency' => 'USD',
+            'subtotal' => 1000,
+            'grand_total' => 1000,
+            'origin' => 'admin',
+            'fulfillment_mode' => 'in_store',
+            'draft_revision' => 0,
+            'placed_at' => null,
+            'created_at' => '2026-01-15 12:00:00',
+        ]);
 
         return $uuid;
     }

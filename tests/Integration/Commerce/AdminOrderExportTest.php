@@ -54,6 +54,41 @@ final class AdminOrderExportTest extends AppTestCase
     }
 
     // ==================================================================
+    // Draft-blindness (admin-order-creation cycle 2, Task 12): the CSV export composes the SAME
+    // `AdminOrderSearchQuery::builder()` choke point search does, so a seeded draft must never
+    // appear in the exported rows — proven with no filter at all AND under a representative
+    // filter, so exclusion is structural, not an artifact of today's filter set.
+    // ==================================================================
+
+    public function testExportedCsvExcludesASeededDraftOrder(): void
+    {
+        $tenant = '';
+        $draft = $this->seedDraftOrder($tenant);
+        $included = $this->seedOrder($tenant, ['status' => 'paid']);
+
+        $csv = $this->exportCsv($tenant, []);
+        $orderNumbers = array_column($this->csvDataRows($csv), 0);
+
+        self::assertContains('ORD-' . $included, $orderNumbers);
+        self::assertNotContains('ORD-' . $draft, $orderNumbers);
+        // A draft's order_number is NULL, so it could never render as a matching cell anyway —
+        // the real proof is the row COUNT: exactly the one finalized order, never two.
+        self::assertCount(1, $this->csvDataRows($csv));
+    }
+
+    public function testExportedCsvExcludesASeededDraftOrderUnderAFilter(): void
+    {
+        $tenant = '';
+        $this->seedDraftOrder($tenant);
+        $included = $this->seedOrder($tenant, ['status' => 'paid']);
+
+        $csv = $this->exportCsv($tenant, ['status' => 'paid']);
+        $orderNumbers = array_column($this->csvDataRows($csv), 0);
+
+        self::assertSame(['ORD-' . $included], $orderNumbers);
+    }
+
+    // ==================================================================
     // Shared filter proof: export narrows exactly like search does
     // ==================================================================
 
@@ -358,6 +393,47 @@ final class AdminOrderExportTest extends AppTestCase
         $uuid = Utils::generateNanoID();
         $row = $this->orderDefaults($tenant, $uuid, $overrides);
         $this->connection()->table('commerce_orders')->insert($row);
+
+        return $uuid;
+    }
+
+    /**
+     * A draft order per the engine's walk-in-order schema — mirrors
+     * {@see AdminOrderSearchTest::seedDraftOrder()} exactly (same fixture shape, both suites
+     * exercise the same `AdminOrderSearchQuery::builder()` choke point).
+     *
+     * @return string the seeded draft's uuid
+     */
+    private function seedDraftOrder(string $tenant): string
+    {
+        $uuid = Utils::generateNanoID();
+        $this->connection()->table('commerce_orders')->insert([
+            'uuid' => $uuid,
+            'tenant_uuid' => $tenant,
+            'order_number' => null,
+            'status' => 'draft',
+            'fulfillment_status' => 'unfulfilled',
+            'marketplace_partitioned' => false,
+            'fulfillment_revision' => 0,
+            'refund_revision' => 0,
+            'email' => null,
+            'user_uuid' => null,
+            'guest_token_hash' => null,
+            'currency' => 'USD',
+            'subtotal' => 1000,
+            'discount_total' => 0,
+            'shipping_total' => 0,
+            'tax_total' => 0,
+            'grand_total' => 1000,
+            'refunded_total' => 0,
+            'discount_code' => null,
+            'shipping_method' => null,
+            'origin' => 'admin',
+            'fulfillment_mode' => 'in_store',
+            'draft_revision' => 0,
+            'placed_at' => null,
+            'created_at' => '2026-01-15 12:00:00',
+        ]);
 
         return $uuid;
     }

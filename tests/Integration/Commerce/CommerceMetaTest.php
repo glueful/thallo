@@ -83,7 +83,10 @@ final class CommerceMetaTest extends AppTestCase
         self::assertSame(200, $response->getStatusCode());
         $data = $this->data($response);
         self::assertSame(
-            ['currency', 'currency_exponent', 'shop_index_url', 'low_stock_threshold', 'can_view', 'can_manage'],
+            [
+                'currency', 'currency_exponent', 'shop_index_url', 'low_stock_threshold',
+                'can_view', 'can_manage', 'can_attach_user',
+            ],
             array_keys($data),
         );
         self::assertSame('USD', $data['currency']);
@@ -112,6 +115,53 @@ final class CommerceMetaTest extends AppTestCase
 
         self::assertFalse($data['can_view']);
         self::assertFalse($data['can_manage']);
+    }
+
+    // ------------------------------------------------------------------
+    // can_attach_user matrix (admin-order-creation cycle 2, Task 12, design spec §2.3): a CLOSED
+    // conjunction of `users.user_lookup.list.enabled` config AND effective `users.view`
+    // permission — true ONLY when both gates are open, all four cells proven below.
+    //
+    // `list.enabled` is `true` by default in this suite's real `.env` (`USERS_USER_LIST_ENABLED
+    // =true`), so the (true, *) cells run against the process-shared boot directly. The (false, *)
+    // cells need `list.enabled` forced OFF — and unlike `commerce.currency` (see this class's own
+    // docblock for why THAT key defeats `bootAppWithConfigOverride()`), this key is read EAGERLY
+    // during boot by `glueful/users`' own `UsersServiceProvider::boot()` (deciding whether to
+    // register `GET /users`), so the override IS already baked into the booted context's config
+    // cache before the helper's `finally` deletes the temporary override file — the secondary
+    // boot genuinely observes it.
+    // ------------------------------------------------------------------
+
+    public function testCanAttachUserIsTrueWhenListEnabledAndUsersViewAreBothGranted(): void
+    {
+        $user = $this->userGranted(['users.view']);
+
+        $data = $this->data($this->controller()->meta($this->userRequest($user)));
+
+        self::assertTrue($data['can_attach_user']);
+    }
+
+    public function testCanAttachUserIsFalseWhenListEnabledButUsersViewIsNotGranted(): void
+    {
+        $user = $this->userGranted([]);
+
+        $data = $this->data($this->controller()->meta($this->userRequest($user)));
+
+        self::assertFalse($data['can_attach_user']);
+    }
+
+    public function testCanAttachUserIsFalseWhenUsersViewIsGrantedButListIsDisabled(): void
+    {
+        $data = $this->metaUnderUserListDisabled(['users.view']);
+
+        self::assertFalse($data['can_attach_user']);
+    }
+
+    public function testCanAttachUserIsFalseWhenNeitherListEnabledNorUsersViewIsGranted(): void
+    {
+        $data = $this->metaUnderUserListDisabled([]);
+
+        self::assertFalse($data['can_attach_user']);
     }
 
     // ------------------------------------------------------------------
@@ -312,5 +362,55 @@ final class CommerceMetaTest extends AppTestCase
     private function provider(): AegisPermissionProvider
     {
         return $this->container()->get(AegisPermissionProvider::class);
+    }
+
+    /**
+     * The two (false, *) matrix cells (see the section docblock above for why this override
+     * genuinely takes effect for THIS key): boots a second app with `user_lookup.list.enabled`
+     * forced off, grants $grantedPermissionSlugs on a fresh user via the SAME physical database
+     * (both boots share one DB — the role/grant rows this writes through the SHARED app's own
+     * `AegisPermissionProvider` are immediately visible to the secondary boot's reads, no
+     * transaction boundary separates them), and resolves `CommerceMetaController` from the
+     * secondary app's OWN container so its `PermissionRequirementAuthority` observes the SAME
+     * grant. Restores the process-shared RBAC provider/repository connection in a `finally` —
+     * mirrors {@see self::bootAppWithConfigOverride()}'s own established idiom
+     * ({@see \Thallo\Commerce\...CommerceMetaTest::testRouteIsAbsentWhenCapabilityDisabled()}
+     * two methods up) — so later tests in this class/process never see the throwaway boot.
+     *
+     * @param list<string> $grantedPermissionSlugs
+     * @return array<string,mixed>
+     */
+    private function metaUnderUserListDisabled(array $grantedPermissionSlugs): array
+    {
+        $this->flags()->forget('tenancy.schema_state');
+        $this->flags()->forget('tenancy.default_tenant_uuid');
+
+        $disabledListApp = self::bootAppWithConfigOverride('users', [
+            'user_lookup' => ['list' => ['enabled' => false]],
+        ]);
+
+        try {
+            $userUuid = Utils::generateNanoID(12);
+            $this->userUuids[] = $userUuid;
+            if ($grantedPermissionSlugs !== []) {
+                $this->grantRole($userUuid, $grantedPermissionSlugs);
+            }
+            $this->provider()->invalidateAllCache();
+
+            $secondaryProvider = $disabledListApp->getContainer()->get(AegisPermissionProvider::class);
+            $secondaryProvider->invalidateAllCache();
+
+            $controller = $disabledListApp->getContainer()->get(CommerceMetaController::class);
+            $request = Request::create('/v1/admin/commerce/meta', 'GET');
+            $request->attributes->set(
+                'user',
+                ['uuid' => $userUuid, 'roles' => [], 'claims' => ['scopes' => []]],
+            );
+
+            return $this->data($controller->meta($request));
+        } finally {
+            self::resetSharedRepositoryConnection();
+            self::restoreSharedPermissionProvider();
+        }
     }
 }

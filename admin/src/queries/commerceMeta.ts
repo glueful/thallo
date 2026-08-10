@@ -14,6 +14,7 @@ export interface CommerceMeta {
   low_stock_threshold: number
   can_view: boolean
   can_manage: boolean
+  can_attach_user: boolean
 }
 
 // The admin envelope is doc-only in the OpenAPI schema (see collections.ts's identical note), so
@@ -29,6 +30,7 @@ export async function fetchCommerceMeta(): Promise<CommerceMeta> {
     low_stock_threshold: raw.low_stock_threshold ?? 0,
     can_view: raw.can_view ?? false,
     can_manage: raw.can_manage ?? false,
+    can_attach_user: raw.can_attach_user ?? false,
   }
 }
 
