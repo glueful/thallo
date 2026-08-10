@@ -68,6 +68,25 @@ final class AdminOpenApiGateTest extends AppTestCase
         ['GET', '/v1/admin/commerce/orders/{uuid}/payments'],
     ];
 
+    /**
+     * The ONLY permitted gap between the live router and the documented surface: routes that are
+     * registered and serving, but whose `composer docs:openapi` regeneration is scheduled for a
+     * later task. Every entry is a debt with a named owner, and the gate below is exact in BOTH
+     * directions — so this list can neither grow silently (a new undocumented route fails
+     * immediately) nor go stale silently (once the spec is regenerated and the route is added to
+     * {@see self::PACK_OWNED_ROUTES}, leaving the entry here fails too, forcing its removal).
+     *
+     * Current debt:
+     *  - `POST /v1/admin/commerce/orders/{uuid}/complete-sale` (admin-order-creation cycle 2,
+     *    Task 13). **Task 16 must, in ONE commit:** run `composer docs:openapi`, add the pair to
+     *    `PACK_OWNED_ROUTES` above, and EMPTY this list.
+     *
+     * @var list<array{0:string,1:string}> [method, path] pairs awaiting the Task 16 regeneration.
+     */
+    private const AWAITING_SPEC_REGENERATION = [
+        ['POST', '/v1/admin/commerce/orders/{uuid}/complete-sale'],
+    ];
+
     // ------------------------------------------------------------------
     // Input gate — live router
     // ------------------------------------------------------------------
@@ -108,6 +127,49 @@ final class AdminOpenApiGateTest extends AppTestCase
             self::assertIsString($name, "{$method} {$path} must be named");
             self::assertStringStartsWith(self::NAME_PREFIX, $name);
         }
+    }
+
+    /**
+     * The drift gate the artifact check alone cannot provide: `docs/openapi.json` can only drift
+     * from the LIVE router in one direction on its own (a documented route that no longer exists),
+     * because a route registered but never regenerated simply never appears in the file — so a
+     * forgotten `composer docs:openapi` is invisible to
+     * {@see self::testGeneratedOpenApiDocumentsExactlyTheApprovedCommerceAdminSurface()}.
+     *
+     * This closes it from the router side: every live `/v1/admin/commerce` route must be in the
+     * approved documented surface (the allowlist-derived catalog entries plus
+     * {@see self::PACK_OWNED_ROUTES}) or in the explicit, owner-annotated
+     * {@see self::AWAITING_SPEC_REGENERATION} carve-out — and the comparison is `assertSame` on a
+     * sorted list, so the carve-out must be emptied the moment its debt is paid.
+     */
+    public function testEveryLiveCommerceAdminRouteIsDocumentedOrExplicitlyAwaitingRegeneration(): void
+    {
+        $live = [];
+        foreach ($this->router()->getAllRoutes() as $route) {
+            $path = (string) ($route['path'] ?? '');
+            if (str_starts_with($path, '/v1/admin/commerce')) {
+                $live[] = strtoupper((string) $route['method']) . ' ' . $path;
+            }
+        }
+        self::assertNotSame([], $live, 'expected /v1/admin/commerce routes to be registered');
+
+        $undocumented = array_values(array_unique(array_diff($live, $this->expectedApprovedSurface())));
+        sort($undocumented);
+
+        $expectedDebt = array_map(
+            static fn (array $pair): string => strtoupper($pair[0]) . ' ' . $pair[1],
+            self::AWAITING_SPEC_REGENERATION,
+        );
+        sort($expectedDebt);
+
+        self::assertSame(
+            $expectedDebt,
+            $undocumented,
+            'the live /v1/admin/commerce surface and docs/openapi.json have diverged: either run '
+                . '`composer docs:openapi` and list the route in PACK_OWNED_ROUTES, or (if its '
+                . 'regeneration is deliberately deferred) record it in AWAITING_SPEC_REGENERATION '
+                . '— and remove it from there once the spec catches up',
+        );
     }
 
     public function testNativeCommerceAdminRoutesRemainUnnamed(): void

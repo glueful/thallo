@@ -61,13 +61,16 @@ use Thallo\Commerce\Orders\CompleteSaleCoordinator;
  *     controller's own 191-char validation): PostgreSQL rejects the write INSIDE `fulfill()`'s
  *     transaction, producing a genuinely unexpected, non-domain failure with the order left
  *     `paid` — the exact state spec §2.8's fourth outcome describes.
+ *  5. **An `OrderPaid` listener that re-tenants the row**, so the order stops resolving between
+ *     the steps and `fulfill()`'s own tenant-safe precheck raises a real `NotFoundException` —
+ *     the vanished-order concurrency verdict, which must be a 409 with a `null` order rather than
+ *     a server fault.
  *
- * The coordinator's one narrow `$stepBoundaryProbe` seam (see its own docblock) is used only for
- * the two states the engine cannot be made to produce on demand: a throw AFTER `markPaid()` has
+ * The coordinator's ONE narrow `$afterMarkPaidProbe` seam (see its own docblock) is used only for
+ * the single state the engine cannot be made to produce on demand: a throw AFTER `markPaid()` has
  * already committed (spec §2.8's "after-commit callback threw" case — the framework's
  * `TransactionManager` deliberately swallows after-commit callback failures, and `EventService`
- * is fault-isolated, so no listener can produce it) and a non-domain throw at the fulfillment
- * boundary on a driver that does not enforce column widths.
+ * is fault-isolated, so no listener can produce it). Every other outcome above is genuine.
  *
  * Tenant is sentinel mode ('') — the default harness's Commerce tenancy resolution, matching
  * {@see AdminOrderPaymentsTest}'s identical seeding convention.
@@ -163,23 +166,35 @@ final class CompleteSaleTest extends AppTestCase
     // ==================================================================
 
     /**
-     * @return iterable<string,array{0:array<string,mixed>}>
+     * @return iterable<string,array{0:array<string,mixed>,1:string}>
      */
     public static function nonCompletableOrders(): iterable
     {
-        yield 'already paid' => [['status' => 'paid']];
-        yield 'already fulfilled' => [['status' => 'fulfilled', 'fulfillment_status' => 'fulfilled']];
-        yield 'canceled' => [['status' => 'canceled']];
-        yield 'refunded' => [['status' => 'refunded']];
-        yield 'delivery order awaiting payment' => [['fulfillment_mode' => 'delivery']];
+        $notPending = CompleteSaleCoordinator::MESSAGE_NOT_PENDING_PAYMENT;
+
+        yield 'already paid' => [['status' => 'paid'], $notPending];
+        yield 'already fulfilled' => [
+            ['status' => 'fulfilled', 'fulfillment_status' => 'fulfilled'],
+            $notPending,
+        ];
+        yield 'canceled' => [['status' => 'canceled'], $notPending];
+        yield 'refunded' => [['status' => 'refunded'], $notPending];
+        // The delivery case must be refused for its OWN reason, never collapsed into the
+        // wrong-status one -- the SPA renders a different remedy for each.
+        yield 'delivery order awaiting payment' => [
+            ['fulfillment_mode' => 'delivery'],
+            CompleteSaleCoordinator::MESSAGE_NOT_IN_STORE,
+        ];
     }
 
     /**
      * @param array<string,mixed> $overrides
      * @dataProvider nonCompletableOrders
      */
-    public function testNonCompletableOrderIsAConflictWithZeroTransitions(array $overrides): void
-    {
+    public function testNonCompletableOrderIsAConflictWithZeroTransitions(
+        array $overrides,
+        string $expectedMessage,
+    ): void {
         $uuid = $this->seedOrder('', $overrides);
         $before = $this->dbRow($uuid);
         $events = $this->captureEvents($uuid);
@@ -187,7 +202,9 @@ final class CompleteSaleTest extends AppTestCase
         $response = $this->complete($uuid);
 
         self::assertSame(409, $response->getStatusCode(), (string) $response->getContent());
-        $data = $this->decode($response)['data'];
+        $body = $this->decode($response);
+        self::assertSame($expectedMessage, $body['message']);
+        $data = $body['data'];
         self::assertSame(
             [
                 ['step' => 'mark_paid', 'status' => 'skipped'],
@@ -216,6 +233,12 @@ final class CompleteSaleTest extends AppTestCase
         yield 'array tracking_ref' => ['{"tracking_ref": ["a"]}'];
         yield 'over-long tracking_ref' => ['{"tracking_ref": "' . str_repeat('t', 192) . '"}'];
         yield 'unknown field' => ['{"status": "paid"}'];
+        yield 'many long unknown fields' => [
+            '{"' . implode('": 1, "', array_map(
+                static fn (int $i): string => str_repeat('k', 200) . $i,
+                range(1, 12),
+            )) . '": 1}',
+        ];
         yield 'JSON array body' => ['[1,2,3]'];
         yield 'unparseable JSON' => ['{not json'];
     }
@@ -236,6 +259,32 @@ final class CompleteSaleTest extends AppTestCase
         self::assertSame('pending_payment', $this->dbRow($uuid)['status']);
         self::assertSame(0, $events->paid);
         self::assertSame(0, $events->fulfilled);
+    }
+
+    /**
+     * A 422 names the offending fields; it does not mirror an arbitrarily large attacker-supplied
+     * body back into the response (and into whatever renders it). The echo is bounded on both
+     * axes: at most a handful of keys, each truncated.
+     */
+    public function testTheUnknownFieldEchoIsBounded(): void
+    {
+        $uuid = $this->seedOrder();
+        $keys = array_map(static fn (int $i): string => str_repeat('k', 5000) . $i, range(1, 40));
+        $body = (string) json_encode(array_fill_keys($keys, 1));
+
+        try {
+            $this->controller()->completeSale($this->rawRequest($body), $uuid);
+            self::fail('Expected a ValidationException for a body of unknown fields.');
+        } catch (ValidationException $e) {
+            $rendered = (string) (new Handler())->render($e)->getContent();
+            self::assertSame(422, (new Handler())->render($e)->getStatusCode());
+            self::assertLessThan(
+                500,
+                mb_strlen($rendered),
+                'the rejected body must not be echoed back wholesale: ' . mb_substr($rendered, 0, 200),
+            );
+            self::assertDoesNotMatchRegularExpression('/k{200}/', $rendered);
+        }
     }
 
     /** An absent body and an explicit empty object are BOTH valid — tracking is optional. */
@@ -373,10 +422,8 @@ final class CompleteSaleTest extends AppTestCase
         $events = $this->captureEvents($uuid);
         $logger = $this->capturingLogger();
         $coordinator = $this->coordinator(
-            probe: static function (string $point): void {
-                if ($point === CompleteSaleCoordinator::POINT_AFTER_MARK_PAID) {
-                    throw new \RuntimeException(self::POISON);
-                }
+            probe: static function (): void {
+                throw new \RuntimeException(self::POISON);
             },
             logger: $logger,
         );
@@ -406,10 +453,8 @@ final class CompleteSaleTest extends AppTestCase
     {
         $uuid = $this->seedOrder();
         $coordinator = $this->coordinator(
-            probe: static function (string $point): void {
-                if ($point === CompleteSaleCoordinator::POINT_AFTER_MARK_PAID) {
-                    throw new \RuntimeException(self::POISON);
-                }
+            probe: static function (): void {
+                throw new \RuntimeException(self::POISON);
             },
         );
         $coordinator->complete('', $this->repoRow($uuid), null);
@@ -428,10 +473,8 @@ final class CompleteSaleTest extends AppTestCase
     {
         $uuid = $this->seedOrder();
         $coordinator = $this->coordinator(
-            probe: static function (string $point): void {
-                if ($point === CompleteSaleCoordinator::POINT_AFTER_MARK_PAID) {
-                    throw new \RuntimeException(self::POISON);
-                }
+            probe: static function (): void {
+                throw new \RuntimeException(self::POISON);
             },
         );
         $coordinator->complete('', $this->repoRow($uuid), null);
@@ -480,30 +523,33 @@ final class CompleteSaleTest extends AppTestCase
         $this->assertNoExceptionTextCrossedTheBoundary($response);
     }
 
-    /** The same outcome with the payment left intact: the refreshed order is still PAID. */
-    public function testFulfillmentDomainConflictReturnsTheRefreshedPaidOrder(): void
+    /**
+     * The vanished-order verdict: an `OrderPaid` listener re-tenants the row between the steps, so
+     * `fulfill()`'s own tenant-safe precheck raises a real `NotFoundException`. That is a
+     * concurrency outcome, NOT a server fault — 409, `fulfill: failed`, and a `null` order because
+     * the refreshed lookup can no longer resolve it.
+     */
+    public function testAnOrderThatVanishesBetweenTheStepsIsAConflictWithANullOrder(): void
     {
         $uuid = $this->seedOrder();
         $events = $this->captureEvents($uuid);
-        $coordinator = $this->coordinator(
-            probe: static function (string $point): void {
-                if ($point === CompleteSaleCoordinator::POINT_BEFORE_FULFILL) {
-                    throw new \DomainException(self::POISON);
-                }
-            },
-        );
+        $this->onOrderPaid($uuid, function () use ($uuid): void {
+            $this->connection()->table('commerce_orders')->where('uuid', '=', $uuid)
+                ->update(['tenant_uuid' => 'movedaway01']);
+        });
 
-        $response = $this->respond($coordinator->complete('', $this->repoRow($uuid), null));
+        $response = $this->complete($uuid);
 
         self::assertSame(409, $response->getStatusCode(), (string) $response->getContent());
         $data = $this->decode($response)['data'];
         self::assertSame(['step' => 'mark_paid', 'status' => 'done'], $data['steps'][0]);
+        self::assertSame('fulfill', $data['steps'][1]['step']);
         self::assertSame('failed', $data['steps'][1]['status']);
-        self::assertSame('paid', $data['order']['status']);
-        self::assertSame('unfulfilled', $data['order']['fulfillment_status']);
+        self::assertNull($data['order'], 'an unresolvable order must be reported as null, not stale');
         self::assertSame(1, $events->paid);
         self::assertSame(0, $events->fulfilled);
-        $this->assertClosedProjection($data['order']);
+        self::assertSame(1, $this->auditCount($uuid, 'status:paid'));
+        self::assertSame(0, $this->auditCount($uuid, 'status:fulfilled'));
         $this->assertNoExceptionTextCrossedTheBoundary($response);
     }
 
@@ -543,16 +589,21 @@ final class CompleteSaleTest extends AppTestCase
         $this->assertNoExceptionTextCrossedTheBoundary($response);
     }
 
-    /** The same outcome reached at the fulfillment boundary itself, driver-independently. */
-    public function testUnexpectedFulfillmentBoundaryFailureIsASanitizedFiveHundred(): void
+    /**
+     * The `order: null` branch on the 500 side: the row is re-tenanted between the steps AND the
+     * committed payment is followed by an unexpected throw, so the reload resolves nothing. Step 1
+     * must then report `failed` — a reload that cannot confirm `paid` may never claim `done`.
+     */
+    public function testAnUnresolvableReloadAfterAnUnexpectedFailureReportsFailedWithANullOrder(): void
     {
         $uuid = $this->seedOrder();
-        $events = $this->captureEvents($uuid);
+        $this->onOrderPaid($uuid, function () use ($uuid): void {
+            $this->connection()->table('commerce_orders')->where('uuid', '=', $uuid)
+                ->update(['tenant_uuid' => 'movedaway02']);
+        });
         $coordinator = $this->coordinator(
-            probe: static function (string $point): void {
-                if ($point === CompleteSaleCoordinator::POINT_BEFORE_FULFILL) {
-                    throw new \RuntimeException(self::POISON);
-                }
+            probe: static function (): void {
+                throw new \RuntimeException(self::POISON);
             },
         );
 
@@ -560,11 +611,10 @@ final class CompleteSaleTest extends AppTestCase
 
         self::assertSame(500, $response->getStatusCode(), (string) $response->getContent());
         $data = $this->decode($response)['data'];
-        self::assertSame(['step' => 'mark_paid', 'status' => 'done'], $data['steps'][0]);
-        self::assertSame('failed', $data['steps'][1]['status']);
-        self::assertSame('paid', $data['order']['status']);
-        self::assertSame(1, $events->paid);
-        self::assertSame(0, $events->fulfilled);
+        self::assertSame('mark_paid', $data['steps'][0]['step']);
+        self::assertSame('failed', $data['steps'][0]['status']);
+        self::assertSame(['step' => 'fulfill', 'status' => 'skipped'], $data['steps'][1]);
+        self::assertNull($data['order']);
         $this->assertNoExceptionTextCrossedTheBoundary($response);
     }
 
@@ -574,13 +624,6 @@ final class CompleteSaleTest extends AppTestCase
 
     public function testNoExceptionMessageTextEverCrossesTheResponseBoundary(): void
     {
-        $throwAt = static fn (string $target, \Throwable $e): callable
-            => static function (string $point) use ($target, $e): void {
-                if ($point === $target) {
-                    throw $e;
-                }
-            };
-
         $responses = [];
 
         // 1. mark-paid domain conflict (real state-machine rejection).
@@ -600,19 +643,19 @@ final class CompleteSaleTest extends AppTestCase
         // 2b. unexpected mark-paid failure after the commit.
         $uuid = $this->seedOrder();
         $responses['mark_paid post-commit'] = $this->respond(
-            $this->coordinator(probe: $throwAt(
-                CompleteSaleCoordinator::POINT_AFTER_MARK_PAID,
-                new \RuntimeException(self::POISON),
-            ))->complete('', $this->repoRow($uuid), null),
+            $this->coordinator(probe: static function (): void {
+                throw new \RuntimeException(self::POISON);
+            })->complete('', $this->repoRow($uuid), null),
         );
 
-        // 3. fulfillment domain conflict.
+        // 3. fulfillment domain conflict (a real concurrent fulfill, via the OrderPaid listener).
         $uuid = $this->seedOrder();
+        $this->onOrderPaid($uuid, function () use ($uuid): void {
+            $this->connection()->table('commerce_orders')->where('uuid', '=', $uuid)
+                ->update(['status' => 'fulfilled', 'fulfillment_status' => 'fulfilled']);
+        });
         $responses['fulfill domain'] = $this->respond(
-            $this->coordinator(probe: $throwAt(
-                CompleteSaleCoordinator::POINT_BEFORE_FULFILL,
-                new \DomainException(self::POISON),
-            ))->complete('', $this->repoRow($uuid), null),
+            $this->coordinator()->complete('', $this->repoRow($uuid), null),
         );
 
         // 4. unexpected fulfillment failure (real driver rejection).
