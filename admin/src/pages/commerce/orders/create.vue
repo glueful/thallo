@@ -22,6 +22,7 @@ import {
   finalizeDraft,
   getOrCreateFinalizeIdempotencyKey,
   clearFinalizeIdempotencyKeys,
+  dropFinalizeIdempotencyKey,
 } from '@/queries/commerceDrafts'
 import { useCommerceMeta } from '@/queries/commerceMeta'
 import { useMoney } from '@/composables/useMoney'
@@ -158,6 +159,26 @@ type FinalizeConflict =
   | { type: 'stale_revision' | 'currency' | 'idempotency_key' | 'not_draft' | 'shipping_method' | 'discount' }
   | { type: 'error'; message: string }
 
+// Review fix (round 1, minor): the closed per-line reasons split into two genuinely different
+// remedies. `drift`/`stock`/`currency` are snapshot problems — a recalculate can refresh the price
+// or re-check availability and may clear the conflict outright. `unavailable`/`digital`/
+// `marketplace` are NOT snapshot problems: no recalculate will ever make a digital or
+// marketplace-seller line sellable in a walk-in order, or an unpublished/deleted one reappear —
+// the only remedy is removing the line (already available in the Items card above). Offering
+// "Refresh prices" for those was actively misleading.
+const RECALCULATE_FIXABLE_REASONS = new Set(['drift', 'stock', 'currency'])
+const LINE_CONFLICT_LABELS: Record<string, string> = {
+  drift: 'Price or add-on pricing changed since this line was added.',
+  stock: 'Not enough stock available.',
+  currency: 'No longer priced in this draft’s currency.',
+  unavailable: 'No longer available.',
+  digital: 'Digital product — cannot be sold in a walk-in order.',
+  marketplace: 'Marketplace-seller product — cannot be sold in a walk-in order.',
+}
+function lineConflictLabel(reason: string): string {
+  return LINE_CONFLICT_LABELS[reason] ?? reason
+}
+
 const finalizing = ref(false)
 const finalizeConflict = ref<FinalizeConflict | null>(null)
 // Vue's template compiler does not narrow a ref's union type across a v-else-if chain, so the
@@ -167,16 +188,36 @@ const finalizeErrorMessage = computed(() => {
   return conflict && conflict.type === 'error' ? conflict.message : ''
 })
 
+/** True only when at least one conflicting line has a reason recalculate can actually help with —
+ * the "Refresh prices" action is hidden entirely when every conflict is remove-only. */
+const hasFixableLineConflicts = computed(() => {
+  const conflict = finalizeConflict.value
+  if (!conflict || conflict.type !== 'line_conflicts') return false
+  return conflict.lines.some((l) => RECALCULATE_FIXABLE_REASONS.has(l.reason))
+})
+
+/** True when at least one conflicting line can ONLY be resolved by removing it. */
+const hasRemoveOnlyLineConflicts = computed(() => {
+  const conflict = finalizeConflict.value
+  if (!conflict || conflict.type !== 'line_conflicts') return false
+  return conflict.lines.some((l) => !RECALCULATE_FIXABLE_REASONS.has(l.reason))
+})
+
 async function finalize() {
   if (!draft.value) return
   finalizeConflict.value = null
   finalizing.value = true
   const uuid = draft.value.uuid
   const revision = draft.value.draft_revision
-  // Reused across ambiguous failures/reloads at this SAME revision; rotates automatically once
-  // the revision above changes (a fresh call after any successful mutation reads a new value).
-  const idempotencyKey = getOrCreateFinalizeIdempotencyKey(uuid, revision)
   try {
+    // Reused across ambiguous failures/reloads at this SAME revision; rotates automatically once
+    // the revision above changes (a fresh call after any successful mutation reads a new value).
+    // Minted INSIDE the try (review fix, round 1, Important): sessionStorage can throw (Safari
+    // private browsing, quota, policy) and this call used to sit before the try — a throw there
+    // escaped both `catch` and `finally`, wedging `finalizing` at true forever with no rendered
+    // error. `getOrCreateFinalizeIdempotencyKey` itself is now storage-throw-safe too (see
+    // commerceDrafts.ts), so this is defense in depth, not the only guard.
+    const idempotencyKey = getOrCreateFinalizeIdempotencyKey(uuid, revision)
     const finalized = await finalizeDraft(uuid, revision, idempotencyKey)
     clearFinalizeIdempotencyKeys(uuid)
     draftUuid.value = null
@@ -189,10 +230,16 @@ async function finalize() {
         type: 'line_conflicts',
         lines: Array.isArray(details?.lines) ? (details.lines as DraftLineConflict[]) : [],
       }
+    } else if (conflict === 'idempotency_key') {
+      // Review fix (round 1, Important): the server has confirmed THIS key is already bound to a
+      // different request — retrying with the identical stored key would 409 forever. The
+      // documented remedy is a fresh key, so drop the stored one for this exact (draft, revision)
+      // now; the next finalize attempt at this revision mints a new one.
+      dropFinalizeIdempotencyKey(uuid, revision)
+      finalizeConflict.value = { type: 'idempotency_key' }
     } else if (
       conflict === 'stale_revision' ||
       conflict === 'currency' ||
-      conflict === 'idempotency_key' ||
       conflict === 'not_draft' ||
       conflict === 'shipping_method' ||
       conflict === 'discount'
@@ -299,13 +346,25 @@ async function finalize() {
                 <p class="mb-2 font-medium">Some items changed since this draft was started.</p>
                 <ul class="mb-2 flex flex-col gap-1">
                   <li v-for="l in finalizeConflict.lines" :key="l.line_uuid" data-test="draft-line-conflict-row">
-                    <span>{{ l.product_name }} ({{ l.sku }}) — {{ l.reason }}</span>
+                    <span>{{ l.product_name }} ({{ l.sku }}) — {{ lineConflictLabel(l.reason) }}</span>
                     <span v-if="l.reason === 'stock'" data-test="draft-line-conflict-available">
                       Available: {{ l.available }}
                     </span>
                   </li>
                 </ul>
-                <UButton size="sm" data-test="draft-conflict-refresh-prices" @click="doRecalculate">
+                <!-- unavailable/digital/marketplace lines have NO price/snapshot to refresh — the
+                     only remedy is removing them (Items card above already has that control), so
+                     this hint replaces "Refresh prices" for those rather than sitting alongside a
+                     button that would do nothing for them. -->
+                <p v-if="hasRemoveOnlyLineConflicts" class="mb-2" data-test="draft-line-conflict-remove-hint">
+                  Remove the affected line(s) above (Items) to continue.
+                </p>
+                <UButton
+                  v-if="hasFixableLineConflicts"
+                  size="sm"
+                  data-test="draft-conflict-refresh-prices"
+                  @click="doRecalculate"
+                >
                   Refresh prices
                 </UButton>
               </template>

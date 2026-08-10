@@ -565,7 +565,10 @@ const billingDisplay = computed(() => {
               <div>
                 <h4 class="mb-1 text-xs font-medium uppercase text-muted">Order</h4>
                 <p>{{ invoice.order.number ?? '—' }} · {{ invoice.order.status ?? '—' }}</p>
-                <p class="text-muted">{{ invoice.buyer.email ?? '—' }}</p>
+                <!-- Review fix (round 1, minor): matches InvoiceDocument.vue's own printed invoice
+                     — a walk-in order's null email reads "Walk-in customer" here too, never a bare
+                     em-dash that could pass for missing/broken data. -->
+                <p class="text-muted">{{ invoice.buyer.email ?? 'Walk-in customer' }}</p>
                 <p class="text-muted">{{ fmtDateTime(invoice.order.dates.placed_at ?? invoice.order.dates.created_at) }}</p>
               </div>
             </div>

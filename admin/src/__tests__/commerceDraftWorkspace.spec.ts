@@ -125,10 +125,12 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
 
 import DraftOrderCreate from '@/pages/commerce/orders/create.vue'
 import DraftCustomerCard from '@/pages/commerce/orders/components/DraftCustomerCard.vue'
+import DraftFulfillmentCard from '@/pages/commerce/orders/components/DraftFulfillmentCard.vue'
 import DraftLineItemsCard from '@/pages/commerce/orders/components/DraftLineItemsCard.vue'
 import {
   getOrCreateFinalizeIdempotencyKey,
   clearFinalizeIdempotencyKeys,
+  dropFinalizeIdempotencyKey,
 } from '@/queries/commerceDrafts'
 
 function draft(overrides: Partial<CommerceDraft> = {}): CommerceDraft {
@@ -400,6 +402,48 @@ describe('finalize idempotency-key custody (pure functions)', () => {
     const key = getOrCreateFinalizeIdempotencyKey('d1', 0)
     expect(key).toMatch(/^[0-9a-f-]{36}$/i)
   })
+
+  // Review fix (round 1, Important) ───────────────────────────────────────────────────────────
+
+  it('dropFinalizeIdempotencyKey removes ONLY the (draft, revision) pair given, not sibling revisions or other drafts', () => {
+    getOrCreateFinalizeIdempotencyKey('d1', 0)
+    getOrCreateFinalizeIdempotencyKey('d1', 1)
+    getOrCreateFinalizeIdempotencyKey('d2', 0)
+    dropFinalizeIdempotencyKey('d1', 0)
+    expect(sessionStorage.getItem('thallo:commerce:draft-finalize-key:d1:0')).toBeNull()
+    expect(sessionStorage.getItem('thallo:commerce:draft-finalize-key:d1:1')).not.toBeNull()
+    expect(sessionStorage.getItem('thallo:commerce:draft-finalize-key:d2:0')).not.toBeNull()
+  })
+
+  it('mints a fresh key after a drop at the same (draft, revision) pair', () => {
+    const first = getOrCreateFinalizeIdempotencyKey('d1', 0)
+    dropFinalizeIdempotencyKey('d1', 0)
+    const second = getOrCreateFinalizeIdempotencyKey('d1', 0)
+    expect(second).not.toBe(first)
+  })
+
+  it('degrades to an in-memory fallback (mint/reuse/clear) when sessionStorage itself throws, instead of crashing', () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('QuotaExceededError')
+    })
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('QuotaExceededError')
+    })
+    try {
+      const first = getOrCreateFinalizeIdempotencyKey('d1', 0)
+      const second = getOrCreateFinalizeIdempotencyKey('d1', 0)
+      expect(second).toBe(first)
+      dropFinalizeIdempotencyKey('d1', 0)
+      const third = getOrCreateFinalizeIdempotencyKey('d1', 0)
+      expect(third).not.toBe(first)
+      const rev1 = getOrCreateFinalizeIdempotencyKey('d1', 1)
+      clearFinalizeIdempotencyKeys('d1')
+      expect(getOrCreateFinalizeIdempotencyKey('d1', 1)).not.toBe(rev1)
+    } finally {
+      getItem.mockRestore()
+      setItem.mockRestore()
+    }
+  })
 })
 
 // ── Idempotency-key custody exercised through the finalize flow ────────────────────────────────
@@ -448,6 +492,34 @@ describe('idempotency-key custody in the finalize flow', () => {
     expect(rev1).toBe(0)
     expect(rev2).toBe(1)
     expect(key1).not.toBe(key2)
+  })
+
+  // Review fix (round 1, Important): a confirmed `idempotency_key` 409 means the server has bound
+  // THIS exact key to a different request — retrying with the identical stored key would 409
+  // forever. The remedy is a fresh key, so the conflict handler must drop the stored one before
+  // the next attempt.
+  it('a confirmed idempotency_key conflict drops the rejected key so a retry at the same revision mints a fresh one', async () => {
+    routeState.query = { draft: 'd1' }
+    draftData.value = draft({ uuid: 'd1', draft_revision: 0 })
+    sessionStorage.setItem('thallo:commerce:draft-finalize-key:d1:0', 'rejected-key')
+    finalizeDraftMock.mockRejectedValueOnce(
+      conflictError('idempotency_key', {}, 'This idempotency key was already used with a different request.'),
+    )
+    const wrapper = mount(DraftOrderCreate, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    await wrapper.find('[data-test="draft-finalize"]').trigger('click')
+    await flushPromises()
+
+    expect(sessionStorage.getItem('thallo:commerce:draft-finalize-key:d1:0')).toBeNull()
+    expect(finalizeDraftMock.mock.calls[0]![2]).toBe('rejected-key')
+
+    finalizeDraftMock.mockResolvedValueOnce({ uuid: 'order-1' } as CommerceFinalizedOrder)
+    await wrapper.find('[data-test="draft-finalize"]').trigger('click')
+    await flushPromises()
+
+    expect(finalizeDraftMock).toHaveBeenCalledTimes(2)
+    expect(finalizeDraftMock.mock.calls[1]![2]).not.toBe('rejected-key')
   })
 })
 
@@ -541,6 +613,52 @@ describe('finalize conflict rendering', () => {
     await wrapper.find('[data-test="draft-conflict-refresh-prices"]').trigger('click')
     await flushPromises()
     expect(recalculateMock).toHaveBeenCalledWith({ uuid: 'd1', expectedRevision: 0 })
+  })
+
+  // Review fix (round 1, minor): recalculate can never make a digital/marketplace/unavailable
+  // line sellable — offering "Refresh prices" there was actively misleading. Those reasons get
+  // honest per-line copy and a remove-line hint instead, with no refresh action at all.
+  it.each([
+    ['digital', 'Digital product — cannot be sold in a walk-in order.'],
+    ['marketplace', 'Marketplace-seller product — cannot be sold in a walk-in order.'],
+    ['unavailable', 'No longer available.'],
+  ])('renders an honest remove-only message for the "%s" line conflict, with no "Refresh prices" action', async (reason, label) => {
+    routeState.query = { draft: 'd1' }
+    draftData.value = draft({ uuid: 'd1', draft_revision: 0 })
+    finalizeDraftMock.mockRejectedValue(
+      conflictError('line_conflicts', {
+        lines: [
+          { line_uuid: 'l1', variant_uuid: 'v1', sku: 'SKU-1', product_name: 'Widget', quantity: 1, reason },
+        ],
+      }),
+    )
+    const wrapper = mount(DraftOrderCreate, { global: { stubs: pageStubs } })
+    await flushPromises()
+    await wrapper.find('[data-test="draft-finalize"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="draft-line-conflict-row"]').text()).toContain(label)
+    expect(wrapper.find('[data-test="draft-conflict-refresh-prices"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="draft-line-conflict-remove-hint"]').exists()).toBe(true)
+  })
+
+  it('shows "Refresh prices" and no remove hint when every conflicting line is fixable by recalculate', async () => {
+    routeState.query = { draft: 'd1' }
+    draftData.value = draft({ uuid: 'd1', draft_revision: 0 })
+    finalizeDraftMock.mockRejectedValue(
+      conflictError('line_conflicts', {
+        lines: [
+          { line_uuid: 'l1', variant_uuid: 'v1', sku: 'SKU-1', product_name: 'Widget', quantity: 1, reason: 'drift' },
+        ],
+      }),
+    )
+    const wrapper = mount(DraftOrderCreate, { global: { stubs: pageStubs } })
+    await flushPromises()
+    await wrapper.find('[data-test="draft-finalize"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="draft-conflict-refresh-prices"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="draft-line-conflict-remove-hint"]').exists()).toBe(false)
   })
 
   it('renders the idempotency_key conflict message verbatim', async () => {
@@ -787,15 +905,76 @@ describe('nullable customer identity in the workspace', () => {
     expect(updateMock.mock.calls[0]![0].input.phone).toBe('+1 (555) 010-9999')
   })
 
-  it('renders a 422 field error on the phone field verbatim', async () => {
-    updateMock.mockRejectedValue(
-      new ApiError('Validation failed', 422, { phone: 'phone must be a phone number in international format, e.g. +15550109999.' }, {}),
-    )
-    const wrapper = mount(DraftCustomerCard, { props: { draft: draft({ uuid: 'd1' }), canAttachUser: false } })
-    await wrapper.find('[data-test="draft-customer-phone"]').setValue('not-a-phone')
+  // A field-error-rendering test used to live here, but it hand-constructed
+  // `new ApiError(..., { phone: '…' })` directly — that only proves the CARD renders a
+  // pre-normalized fieldErrors map, not that the real wire response (authFetch -> responseError)
+  // ever produces one (review round 1, CRITICAL: it didn't — `responseError()` was missing the
+  // `error.details` fallback `toApiError()` has, so every draft mutation's field errors were
+  // silently dropped). That real-pipeline coverage now lives in
+  // `commerceDraftFieldErrors.spec.ts`, which mocks only `global.fetch` and drives the genuine
+  // `updateDraft() -> authFetch() -> responseError()` chain — this file keeps mocking
+  // `useCommerceDraftMutations()` for everything else, which is the wrong seam for that specific
+  // claim.
+})
+
+// ── Message-level save-error surface for non-field failures (review round 1, CRITICAL) ─────────
+//
+// A stale_revision/user_email_mismatch 409, or a bare 5xx, carries NO field to attach to — before
+// this fix the cards just stopped loading with nothing rendered anywhere. `conflictError()` builds
+// the real `{ error: { details: { conflict, ... } } }` envelope shape (see `DraftConflictException`),
+// constructed with `fieldErrors: {}` — exactly what the real `fieldErrorsFromBody()` pipeline
+// produces for a conflict-shaped body too (pinned separately, against the actual wire bytes, in
+// errors.spec.ts and commerceDraftFieldErrors.spec.ts). This block is about the CARDS' own
+// rendering given that correctly-shaped input, not the extraction pipeline itself.
+
+describe('DraftCustomerCard: message-level save error for non-field failures', () => {
+  it('shows a message-level banner (and no field errors) for a non-field 409 conflict', async () => {
+    updateMock.mockRejectedValue(conflictError('stale_revision', {}, 'This draft changed since you loaded it; reload the draft and retry.'))
+    const wrapper = mount(DraftCustomerCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 0 }), canAttachUser: false } })
     await wrapper.find('[data-test="draft-customer-save"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('phone must be a phone number in international format')
+    expect(wrapper.find('[data-test="draft-customer-save-error"]').text()).toBe(
+      'This draft changed since you loaded it; reload the draft and retry.',
+    )
+  })
+
+  it('re-seeding the card (a genuinely different draft) clears any prior save error', async () => {
+    updateMock.mockRejectedValue(conflictError('stale_revision', {}, 'Reload and retry.'))
+    const wrapper = mount(DraftCustomerCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 0 }), canAttachUser: false } })
+    await wrapper.find('[data-test="draft-customer-save"]').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('[data-test="draft-customer-save-error"]').exists()).toBe(true)
+
+    await wrapper.setProps({ draft: draft({ uuid: 'd2', draft_revision: 0 }) })
+    expect(wrapper.find('[data-test="draft-customer-save-error"]').exists()).toBe(false)
+  })
+})
+
+describe('DraftFulfillmentCard: message-level save error for non-field failures', () => {
+  it('shows a message-level banner for a non-field 409 conflict (in_store save)', async () => {
+    updateMock.mockRejectedValue(conflictError('currency', {}, 'This draft is priced in USD but the store currency is now EUR; cancel it and start a new draft.'))
+    const wrapper = mount(DraftFulfillmentCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 0 }) } })
+    await wrapper.find('[data-test="draft-fulfillment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="draft-fulfillment-save-error"]').text()).toContain('store currency is now EUR')
+  })
+
+  // A field-shaped error while staying in `in_store` mode: `save()`'s own logic (shared with
+  // DraftCustomerCard, pinned there in detail) suppresses the message-level banner whenever
+  // `fieldErrors` is non-empty, regardless of which field. Delivery mode's own field errors
+  // (`addresses`/`shipping_method`) aren't separately exercised here — reaching them means
+  // interacting with the real shipping-method `<USelect>`, which is a heavier DOM path already
+  // covered structurally elsewhere; the suppression RULE itself is what this pins.
+  it('a field error suppresses the message-level banner even outside delivery mode', async () => {
+    updateMock.mockRejectedValue(
+      new ApiError('Validation failed', 422, { fulfillment_mode: 'Invalid fulfillment mode.' }, {}),
+    )
+    const wrapper = mount(DraftFulfillmentCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 0 }) } })
+    await wrapper.find('[data-test="draft-fulfillment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="draft-fulfillment-save-error"]').exists()).toBe(false)
   })
 })

@@ -21,6 +21,11 @@ const phone = ref('')
 const name = ref('')
 const userUuid = ref<string | null>(null)
 const fieldErrors = ref<Record<string, string>>({})
+// Review fix (round 1): a save can fail with NO field errors at all — a stale_revision/
+// user_email_mismatch 409 (`DraftConflictException`), or a bare 5xx — and until now the card had
+// no surface for that at all: the button just stopped loading with nothing visibly wrong. This
+// carries the human message whenever the failure isn't (fully) explained by a field error.
+const saveError = ref<string | null>(null)
 const saved = ref(false)
 
 function syncFromDraft() {
@@ -31,6 +36,7 @@ function syncFromDraft() {
   name.value = props.draft.customer_name ?? ''
   userUuid.value = props.draft.user_uuid
   fieldErrors.value = {}
+  saveError.value = null
   saved.value = false
 }
 
@@ -41,6 +47,7 @@ watch(() => props.draft.uuid, syncFromDraft, { immediate: true })
 
 async function save() {
   fieldErrors.value = {}
+  saveError.value = null
   saved.value = false
   try {
     await update.mutateAsync({
@@ -57,7 +64,12 @@ async function save() {
     })
     saved.value = true
   } catch (e) {
-    fieldErrors.value = toApiError(e).fieldErrors
+    const err = toApiError(e)
+    fieldErrors.value = err.fieldErrors
+    // A field error already explains itself inline next to its input; a message-level banner on
+    // top of that would be redundant. Only surface the banner when there is nothing field-shaped
+    // to show (a conflict, a network failure, a bare 5xx).
+    saveError.value = Object.keys(err.fieldErrors).length === 0 ? err.message : null
   }
 }
 </script>
@@ -92,6 +104,15 @@ async function save() {
           data-test="draft-customer-user-error"
         />
       </div>
+
+      <UAlert
+        v-if="saveError"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-triangle-alert"
+        :title="saveError"
+        data-test="draft-customer-save-error"
+      />
 
       <div class="flex items-center gap-2">
         <UButton :loading="update.isLoading.value" data-test="draft-customer-save" @click="save">

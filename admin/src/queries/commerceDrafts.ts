@@ -389,23 +389,81 @@ function idempotencyStorageKey(draftUuid: string, expectedRevision: number): str
   return `${IDEMPOTENCY_KEY_PREFIX}${draftUuid}:${expectedRevision}`
 }
 
+// Review fix (round 1, Important): `sessionStorage` CAN throw on read/write (Safari private
+// browsing historically, a full quota, or a browser policy) — a caller that let that escape
+// (create.vue used to call the getter BEFORE its own try block) would abort `finalize()` with
+// neither a rendered error nor a reset loading state. Every storage access here is defensive: on
+// a throw, it degrades to this in-memory map, which keeps the SAME-PAGE-LIFETIME half of the
+// contract working (mint once, reuse across retries) even though it can no longer survive an
+// actual reload — strictly better than crashing the workspace. Never consulted when the real
+// sessionStorage works normally.
+const inMemoryFallback = new Map<string, string>()
+
+function safeGetItem(key: string): string | null {
+  try {
+    return sessionStorage.getItem(key)
+  } catch {
+    return inMemoryFallback.get(key) ?? null
+  }
+}
+
+function safeSetItem(key: string, value: string): void {
+  try {
+    sessionStorage.setItem(key, value)
+  } catch {
+    inMemoryFallback.set(key, value)
+  }
+}
+
+function safeRemoveItem(key: string): void {
+  try {
+    sessionStorage.removeItem(key)
+  } catch {
+    // Fall through: still attempt to drop it from the fallback map below.
+  }
+  inMemoryFallback.delete(key)
+}
+
+function safeKeysWithPrefix(prefix: string): string[] {
+  const out = new Set<string>()
+  try {
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+      const key = sessionStorage.key(i)
+      if (key && key.startsWith(prefix)) out.add(key)
+    }
+  } catch {
+    // sessionStorage itself is unusable — fall through to whatever the in-memory map has.
+  }
+  for (const key of inMemoryFallback.keys()) {
+    if (key.startsWith(prefix)) out.add(key)
+  }
+  return [...out]
+}
+
 export function getOrCreateFinalizeIdempotencyKey(draftUuid: string, expectedRevision: number): string {
   const storageKey = idempotencyStorageKey(draftUuid, expectedRevision)
-  const existing = sessionStorage.getItem(storageKey)
+  const existing = safeGetItem(storageKey)
   if (existing) return existing
   const fresh = crypto.randomUUID()
-  sessionStorage.setItem(storageKey, fresh)
+  safeSetItem(storageKey, fresh)
   return fresh
+}
+
+/**
+ * Drops the ONE key minted for this exact `(draft_uuid, expected_revision)` pair — the remedy for
+ * a confirmed `idempotency_key` 409 (the server has bound this key to a DIFFERENT request; per
+ * `DraftConflictException::idempotencyKeyReuse()` the fix is a fresh key, never a retry with the
+ * same one). Deliberately narrower than `clearFinalizeIdempotencyKeys()`: this fires on a
+ * conflict, not a confirmed finalize/cancel, so every OTHER revision's key (if any survive) is
+ * left alone.
+ */
+export function dropFinalizeIdempotencyKey(draftUuid: string, expectedRevision: number): void {
+  safeRemoveItem(idempotencyStorageKey(draftUuid, expectedRevision))
 }
 
 /** Clears EVERY finalize key ever minted for this draft (every revision it passed through), not
  * just the current one — called once after a CONFIRMED finalize or cancel, per the brief. */
 export function clearFinalizeIdempotencyKeys(draftUuid: string): void {
   const prefix = `${IDEMPOTENCY_KEY_PREFIX}${draftUuid}:`
-  const toRemove: string[] = []
-  for (let i = 0; i < sessionStorage.length; i += 1) {
-    const key = sessionStorage.key(i)
-    if (key && key.startsWith(prefix)) toRemove.push(key)
-  }
-  toRemove.forEach((key) => sessionStorage.removeItem(key))
+  safeKeysWithPrefix(prefix).forEach((key) => safeRemoveItem(key))
 }

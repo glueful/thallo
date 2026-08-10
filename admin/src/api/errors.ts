@@ -67,6 +67,13 @@ function flattenFieldErrors(errors: ApiErrorBody['errors']): Record<string, stri
  * legitimate FIELD name (a discount's code — "Code is required." arrives as details.code), so the
  * machine-shape detection requires the code VALUE to look like a machine code (UPPER_SNAKE), not
  * merely the key to exist — otherwise a real field message would be silently swallowed.
+ *
+ * The admin draft surface (`DraftConflictException`, commerce v1.10.0) adds a SECOND
+ * machine-readable shape: every draft 409 is `{ conflict: 'stale_revision' | 'currency' | …,
+ * ...extra }` — a closed, lowercase, non-sentence discriminator that would otherwise be
+ * misread as a field named "conflict" with the discriminator string as its "message" (there is
+ * no legitimate form field literally named `conflict` anywhere this parses details). Consumers
+ * branch on it via `apiErrorDetails(e)?.conflict`, never `fieldErrors.conflict`.
  */
 function looksLikeMachineCode(value: unknown): boolean {
   return typeof value === 'string' && /^[A-Z][A-Z0-9_]*$/.test(value)
@@ -76,7 +83,13 @@ function fieldErrorsFromDetails(details: unknown): Record<string, string> {
   if (typeof details !== 'object' || details === null || Array.isArray(details)) return {}
   const record = details as Record<string, unknown>
   const entries = Object.entries(record)
-  if (entries.length === 0 || looksLikeMachineCode(record.code)) return {}
+  if (
+    entries.length === 0 ||
+    looksLikeMachineCode(record.code) ||
+    typeof record.conflict === 'string'
+  ) {
+    return {}
+  }
   const out: Record<string, string> = {}
   for (const [field, message] of entries) {
     if (typeof message !== 'string' || message.trim() === '') return {}
@@ -115,6 +128,22 @@ export function apiErrorDetails(e: unknown): Record<string, unknown> | null {
 }
 
 /**
+ * Shared between `toApiError()` and `responseError()` — a body may carry field errors either as
+ * the global handler's `{ errors: { field: [message] } }` OR as `Response::validation()`'s
+ * `{ error: { details: { field: message } } }` (see the docblock above `fieldErrorsFromDetails`).
+ * Every consumer of either entry point must see BOTH shapes, or a controller that manually catches
+ * its own ValidationException (the draft endpoints included) renders silently with no field errors
+ * at all.
+ */
+function fieldErrorsFromBody(body: unknown): Record<string, string> {
+  if (!isErrorBody(body)) return {}
+  const fromErrorsKey = flattenFieldErrors(body.errors)
+  if (Object.keys(fromErrorsKey).length > 0) return fromErrorsKey
+  const details = (body as { error?: { details?: unknown } }).error?.details
+  return fieldErrorsFromDetails(details)
+}
+
+/**
  * Normalize an openapi-fetch failure (its `error` body + `response`) — or any thrown value — into
  * an ApiError. Pass the destructured `response` so the resulting error carries the HTTP status.
  */
@@ -127,11 +156,7 @@ export function toApiError(
   const status = response?.status ?? 0
   const fallbackMessage = error instanceof Error ? error.message : fallback
   const message = messageFromBody(error, fallbackMessage)
-  let fieldErrors = flattenFieldErrors(isErrorBody(error) ? error.errors : undefined)
-  if (Object.keys(fieldErrors).length === 0 && isErrorBody(error)) {
-    const details = (error as { error?: { details?: unknown } }).error?.details
-    fieldErrors = fieldErrorsFromDetails(details)
-  }
+  const fieldErrors = fieldErrorsFromBody(error)
   return new ApiError(message, status, fieldErrors, error ?? null)
 }
 
@@ -147,6 +172,6 @@ export async function responseError(res: Response, fallback = DEFAULT_MESSAGE): 
     // Non-JSON error body (e.g. an HTML 500 / proxy error) — keep the generic fallback message.
   }
   const message = messageFromBody(body, fallback)
-  const fieldErrors = flattenFieldErrors(isErrorBody(body) ? body.errors : undefined)
+  const fieldErrors = fieldErrorsFromBody(body)
   return new ApiError(message, res.status, fieldErrors, body)
 }

@@ -30,6 +30,10 @@ const country = ref('')
 const phone = ref('')
 const shippingMethod = ref('')
 const fieldErrors = ref<Record<string, string>>({})
+// Review fix (round 1): mirrors DraftCustomerCard's own saveError — a stale_revision/currency
+// conflict or a bare 5xx has no field to attach to, so without this the card just stopped loading
+// with no visible failure at all.
+const saveError = ref<string | null>(null)
 const saved = ref(false)
 
 function syncFromDraft() {
@@ -46,6 +50,7 @@ function syncFromDraft() {
   phone.value = str(shipping.phone)
   shippingMethod.value = props.draft.shipping_method ?? ''
   fieldErrors.value = {}
+  saveError.value = null
   saved.value = false
 }
 
@@ -63,6 +68,7 @@ const shippingMethodItems = computed(() => {
 
 async function save() {
   fieldErrors.value = {}
+  saveError.value = null
   saved.value = false
   try {
     if (mode.value === 'in_store') {
@@ -75,6 +81,13 @@ async function save() {
         uuid: props.draft.uuid,
         input: {
           fulfillment_mode: 'delivery',
+          // Unlike the top-level PATCH body (where an ABSENT key means "leave untouched" and an
+          // explicit `null` clears it), `addresses.shipping` itself is a single PATCH field whose
+          // value the server writes as a whole object — there is no per-sub-field presence
+          // semantics inside it to preserve. So a blank sub-field is simply omitted from the
+          // object (`|| undefined`, dropped by `JSON.stringify`) rather than sent as an explicit
+          // `null`: the two are equivalent from the server's point of view here, and omitting
+          // reads more naturally as "this line wasn't filled in" than "clear this address field".
           addresses: {
             shipping: {
               name: name.value.trim() || undefined,
@@ -94,7 +107,9 @@ async function save() {
     }
     saved.value = true
   } catch (e) {
-    fieldErrors.value = toApiError(e).fieldErrors
+    const err = toApiError(e)
+    fieldErrors.value = err.fieldErrors
+    saveError.value = Object.keys(err.fieldErrors).length === 0 ? err.message : null
   }
 }
 </script>
@@ -162,6 +177,15 @@ async function save() {
           />
         </UFormField>
       </div>
+
+      <UAlert
+        v-if="saveError"
+        color="error"
+        variant="subtle"
+        icon="i-lucide-triangle-alert"
+        :title="saveError"
+        data-test="draft-fulfillment-save-error"
+      />
 
       <div class="flex items-center gap-2">
         <UButton :loading="update.isLoading.value" data-test="draft-fulfillment-save" @click="save">
