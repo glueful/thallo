@@ -60,6 +60,12 @@ final class AdminOpenApiGateTest extends AppTestCase
         ['POST', '/v1/admin/commerce/marketplace/deactivate'],
         ['PUT', '/v1/admin/commerce/marketplace/commission'],
         ['PUT', '/v1/admin/commerce/marketplace/master'],
+        // Orders search/export/payments (orders-invoices-receipts plan, Tasks 3-5): app-owned,
+        // registered directly in packages/thallo-commerce/routes/admin-routes.php ahead of
+        // AdminRouteCatalog::mount(), not vendor catalog keys.
+        ['GET', '/v1/admin/commerce/orders/search'],
+        ['GET', '/v1/admin/commerce/orders/export'],
+        ['GET', '/v1/admin/commerce/orders/{uuid}/payments'],
     ];
 
     // ------------------------------------------------------------------
