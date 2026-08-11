@@ -107,9 +107,11 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
   `AdminOrderDraftController` REST surface (create/read/list, customer/mode/address/shipping/
   discount updates, line add/update/delete, recalculate, cancel, finalize) mounted through
   `AdminRouteCatalog`. Thallo adds `POST /v1/admin/commerce/orders/{uuid}/complete-sale`
-  (app-owned, same posture as the cycle-1 orders search/export/payments routes) — a single
-  one-click action that finalizes a draft AND marks it paid/fulfilled in one call, returning one
-  of five typed outcomes (spec §2.8) the SPA renders as a RESULT rather than a blank failure. The
+  (app-owned, same posture as the cycle-1 orders search/export/payments routes) — draft-blind
+  (a draft uuid 404s here just like the cycle-1 routes; finalize is a separate, earlier operation)
+  and only ever runs against an ALREADY-FINALIZED in-store order still `pending_payment`, chaining
+  the engine's `mark-paid` then `fulfill` in one call, returning one of five typed outcomes (spec
+  §2.8) the SPA renders as a RESULT rather than a blank failure. The
   admin SPA's walk-in order workspace (`admin/src/pages/commerce/orders/`) drives the whole draft
   lifecycle against real wire-envelope error normalization (idempotency-key rotation on retry,
   resilient finalize custody, a drafts list view). **Task 16 artifact regeneration:** the

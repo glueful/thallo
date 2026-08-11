@@ -377,6 +377,33 @@ describe('commerce order detail page', () => {
     expect(wrapper.find('[data-test="order-customer-type"]').text()).toContain('Registered')
   })
 
+  // ── Final review fix wave (finding 4): admin-origin walk-ins vs. storefront guests ─────────
+
+  it('labels a user-less admin-origin order "Walk-in customer", never "Guest checkout"', async () => {
+    singleOrder.value = order({ origin: 'admin', user_uuid: null, email: null })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-customer-type"]').text()).toContain('Walk-in customer')
+    expect(wrapper.find('[data-test="order-customer-type"]').text()).not.toContain('Guest')
+  })
+
+  it('still labels a user-less STOREFRONT order "Guest checkout" (unchanged)', async () => {
+    singleOrder.value = order({ origin: 'storefront', user_uuid: null, email: 'guest@example.com' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-customer-type"]').text()).toContain('Guest checkout')
+  })
+
+  it('labels a REGISTERED admin-origin order "Registered customer", not "Walk-in customer"', async () => {
+    singleOrder.value = order({ origin: 'admin', user_uuid: 'u1' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-customer-type"]').text()).toContain('Registered customer')
+  })
+
   // ── Nullable email (Task 14: admin-order-creation walk-in orders) ─────────────────────────
 
   it('renders "Walk-in customer" and omits the copy control when email is null', async () => {

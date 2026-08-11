@@ -147,6 +147,129 @@ final class AdminOrderPaymentsTest extends AppTestCase
     }
 
     // ==================================================================
+    // Draft-uuid isolation proof for the OTHER mounted engine order endpoints (final review fix
+    // wave, finding 2): the print/invoice path plus the surfaces that fold in cheaply alongside
+    // it, driven through the REAL kernel/route with the SAME seeded-draft idiom as above.
+    // ==================================================================
+
+    /**
+     * `AdminOrderController::invoiceData()` resolves via its own `order()` helper -- exactly the
+     * same `findByUuid(..., includeDrafts: false)` default proven above -- so this is another pin
+     * of an existing fail-closed default, not new behavior.
+     */
+    public function testKernelDrivenInvoiceDataForADraftOrderUuidIs404(): void
+    {
+        $draftUuid = $this->seedDraftOrder('');
+        $key = $this->seedApiKeyUser(['commerce.view'], ['commerce.view']);
+
+        $response = $this->handle(
+            $this->apiKeyRequest('GET', "/v1/admin/commerce/orders/{$draftUuid}/invoice-data", $key),
+        );
+
+        self::assertSame(404, $response->getStatusCode(), (string) $response->getContent());
+    }
+
+    /** `AdminOrderController::notes()` -- same `order()` pre-check, GET side. */
+    public function testKernelDrivenNotesIndexForADraftOrderUuidIs404(): void
+    {
+        $draftUuid = $this->seedDraftOrder('');
+        $key = $this->seedApiKeyUser(['commerce.view'], ['commerce.view']);
+
+        $response = $this->handle(
+            $this->apiKeyRequest('GET', "/v1/admin/commerce/orders/{$draftUuid}/notes", $key),
+        );
+
+        self::assertSame(404, $response->getStatusCode(), (string) $response->getContent());
+    }
+
+    /** `AdminOrderController::addNote()` -- same `order()` pre-check, runs BEFORE DTO validation. */
+    public function testKernelDrivenNotesStoreForADraftOrderUuidIs404(): void
+    {
+        $draftUuid = $this->seedDraftOrder('');
+        $key = $this->seedApiKeyUser(['commerce.manage'], ['commerce.manage']);
+
+        $response = $this->handle($this->apiKeyRequestWithBody(
+            'POST',
+            "/v1/admin/commerce/orders/{$draftUuid}/notes",
+            $key,
+            ['body' => 'note body', 'visibility' => 'internal'],
+        ));
+
+        self::assertSame(404, $response->getStatusCode(), (string) $response->getContent());
+    }
+
+    /** `AdminOrderFulfillmentService::fulfill()` pre-checks `order()` before ever transitioning. */
+    public function testKernelDrivenFulfillForADraftOrderUuidIs404(): void
+    {
+        $draftUuid = $this->seedDraftOrder('');
+        $key = $this->seedApiKeyUser(['commerce.manage'], ['commerce.manage']);
+
+        $response = $this->handle(
+            $this->apiKeyRequestWithBody('POST', "/v1/admin/commerce/orders/{$draftUuid}/fulfill", $key, []),
+        );
+
+        self::assertSame(404, $response->getStatusCode(), (string) $response->getContent());
+    }
+
+    /**
+     * `AdminOrderController::markPaid()` is the ONE outlier in this group: it never pre-checks
+     * `order()` at all -- it calls `OrderPaymentService::markPaid()` straight into
+     * `OrderRepository::transition()`, which (unlike every `findByUuid()` call site elsewhere in
+     * this controller) resolves with `includeDrafts: true` on purpose, specifically so it can
+     * recognize a draft row and refuse the transition with its own dedicated message. A draft
+     * uuid is therefore never "not found" on this one route -- it is found, and rejected as an
+     * invalid state transition (`draft -> paid` is not in {@see
+     * \Glueful\Extensions\Commerce\Orders\OrderStateMachine}'s allowed pairs), which
+     * `AdminOrderController::markPaid()`'s own `catch (\DomainException)` converts to 409, not
+     * 404. Verified directly against the real kernel/route (not assumed from reading the engine
+     * source): this pins that VERIFIED behavior -- a draft can never be silently marked paid --
+     * rather than asserting the 404 the sibling endpoints above share; see the final report's
+     * concerns section for why this one route's status code differs and why it isn't "fixed"
+     * (the divergence lives entirely in vendored engine code, out of scope here).
+     */
+    public function testKernelDrivenMarkPaidForADraftOrderUuidIsAConflictNotFound(): void
+    {
+        $draftUuid = $this->seedDraftOrder('');
+        $key = $this->seedApiKeyUser(['commerce.manage'], ['commerce.manage']);
+
+        $response = $this->handle(
+            $this->apiKeyRequestWithBody('POST', "/v1/admin/commerce/orders/{$draftUuid}/mark-paid", $key, []),
+        );
+
+        self::assertSame(409, $response->getStatusCode(), (string) $response->getContent());
+        self::assertStringContainsString('Invalid order transition draft -> paid', (string) $response->getContent());
+        self::assertSame('draft', $this->dbRow($draftUuid)['status'], 'a draft must never actually become paid');
+    }
+
+    /** @param array<string,mixed> $body */
+    private function apiKeyRequestWithBody(string $method, string $path, string $key, array $body): Request
+    {
+        return Request::create(
+            $path,
+            $method,
+            [],
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_ACCEPT' => 'application/json',
+                'HTTP_AUTHORIZATION' => 'Bearer unused-clears-the-auth-middleware-bearer-gate',
+                'HTTP_X_API_KEY' => $key,
+            ],
+            (string) json_encode($body),
+        );
+    }
+
+    /** @return array<string,mixed> */
+    private function dbRow(string $uuid): array
+    {
+        $row = $this->connection()->table('commerce_orders')->where('uuid', '=', $uuid)->first();
+        self::assertIsArray($row, "order {$uuid} must exist");
+
+        return $row;
+    }
+
+    // ==================================================================
     // Closed projection: hostile secret-bearing columns never reach the wire
     // ==================================================================
 

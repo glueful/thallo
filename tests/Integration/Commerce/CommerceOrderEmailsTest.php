@@ -122,8 +122,119 @@ final class CommerceOrderEmailsTest extends AppTestCase
     }
 
     // -----------------------------------------------------------------
+    // Admin-origin confirmation gate (spec §2.5.9): this is the ONE OrderPlaced sender an
+    // out-of-the-box install actually runs (registered only when `commerce.email.enabled` is
+    // false — see CommerceIntegrationServiceProvider::registerOrderEmails()), so it must mirror
+    // OrderMailListener::onOrderPlaced()'s admin-origin gate for the toggle to mean anything.
+    // -----------------------------------------------------------------
+
+    public function testAdminOriginConfirmationIsSkippedWhenEngineToggleIsOff(): void
+    {
+        $this->withConfig('commerce.order_confirmation', false, function () {
+            $sent = [];
+            $listener = $this->listener($this->capturingService($sent));
+
+            $listener->onOrderPlaced(new OrderPlaced($this->order(['origin' => 'admin'])));
+
+            self::assertSame([], $sent);
+        });
+    }
+
+    public function testAdminOriginConfirmationStillSendsWhenEngineToggleIsOnWithAnEmail(): void
+    {
+        $this->withConfig('commerce.order_confirmation', true, function () {
+            $sent = [];
+            $listener = $this->listener($this->capturingService($sent));
+
+            $listener->onOrderPlaced(new OrderPlaced($this->order(['origin' => 'admin'])));
+
+            self::assertCount(1, $sent);
+            self::assertSame('commerce.order_confirmation', $sent[0]['data']['template_name']);
+        });
+    }
+
+    /**
+     * Storefront/legacy behavior is byte-identical regardless of the engine toggle: the gate is
+     * consulted ONLY for `origin === 'admin'`.
+     */
+    public function testStorefrontOriginConfirmationIgnoresTheEngineToggleEitherWay(): void
+    {
+        foreach ([true, false] as $toggle) {
+            $this->withConfig('commerce.order_confirmation', $toggle, function () use ($toggle) {
+                $sent = [];
+                $listener = $this->listener($this->capturingService($sent));
+
+                $listener->onOrderPlaced(new OrderPlaced($this->order(['origin' => 'storefront'])));
+
+                self::assertCount(1, $sent, "storefront must send regardless of toggle={$toggle}");
+            });
+        }
+
+        // An order with no `origin` key at all reads as storefront (pre-migration-022 legacy row).
+        $this->withConfig('commerce.order_confirmation', false, function () {
+            $sent = [];
+            $listener = $this->listener($this->capturingService($sent));
+            $order = $this->order();
+            unset($order['origin']);
+
+            $listener->onOrderPlaced(new OrderPlaced($order));
+
+            self::assertCount(1, $sent, 'an order with no origin at all must read as storefront');
+        });
+    }
+
+    /**
+     * A null-email admin walk-in order must produce ZERO send attempts, even with the engine
+     * toggle on — the existing blank-email guard in {@see SendOrderEmails::send()} already covers
+     * this (a null `email` normalizes to `''` before the usability check), pinned here for the
+     * admin-origin path specifically.
+     */
+    public function testNullEmailAdminOrderProducesZeroSendAttemptsRegardlessOfTheToggle(): void
+    {
+        foreach ([true, false] as $toggle) {
+            $this->withConfig('commerce.order_confirmation', $toggle, function () use ($toggle) {
+                $sent = [];
+                $listener = $this->listener($this->capturingService($sent));
+
+                $listener->onOrderPlaced(new OrderPlaced($this->order(['origin' => 'admin', 'email' => null])));
+
+                self::assertSame([], $sent, "toggle={$toggle}");
+            });
+        }
+    }
+
+    // -----------------------------------------------------------------
     // helpers
     // -----------------------------------------------------------------
+
+    /**
+     * Primes the (process-shared) ApplicationContext's config cache for the duration of
+     * $callback, then restores it — mirrors {@see \App\Tests\Integration\DeliveryFlowTest::
+     * forceDefaultPerPage()}'s established idiom: reflection is the surgical option here because
+     * `commerce.order_confirmation` is read LAZILY (only when an event actually fires), so
+     * `bootAppWithConfigOverride()`'s temporary override FILE is already restored/deleted by the
+     * time any test would first trigger that read (task-12-report.md documents this exact gotcha
+     * for the sibling lazily-read `commerce.currency` key), and `overrideConfig()` itself refuses
+     * to run at all once the shared app has booted.
+     */
+    private function withConfig(string $key, bool $value, callable $callback): void
+    {
+        $context = $this->appContext();
+        $ref = new \ReflectionProperty($context, 'configCache');
+        $ref->setAccessible(true);
+        /** @var array<string,mixed> $previous */
+        $previous = $ref->getValue($context);
+
+        $patched = $previous;
+        $patched[$key] = $value;
+        $ref->setValue($context, $patched);
+
+        try {
+            $callback();
+        } finally {
+            $ref->setValue($context, $previous);
+        }
+    }
 
     /** @param array<string,mixed> $overrides */
     private function order(array $overrides = []): array

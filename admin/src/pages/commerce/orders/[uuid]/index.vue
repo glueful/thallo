@@ -60,6 +60,15 @@ const { data: invoice, status: invoiceStatus } = useOrderInvoiceData(uuid, invoi
 const cancelDialogOpen = ref(false)
 const canCancel = computed(() => canManage.value && !!order.value && canCancelOrder(order.value.status))
 
+// Final review fix wave (finding 4): a user-less order is either a storefront GUEST checkout or
+// an admin-created WALK-IN counter sale — the two are different customer relationships even
+// though both leave `user_uuid` null, so they read differently here. A registered account
+// (`user_uuid` present) always wins regardless of origin.
+const customerTypeLabel = computed(() => {
+  if (order.value?.user_uuid) return 'Registered customer'
+  return order.value?.origin === 'admin' ? 'Walk-in customer' : 'Guest checkout'
+})
+
 const overflowItems = computed<DropdownMenuItem[]>(() => {
   const items: DropdownMenuItem[] = []
   if (canCancel.value) {
@@ -353,8 +362,12 @@ const billingDisplay = computed(() => {
                     label="Copy customer email"
                     data-test="order-email-copy"
                   />
+                  <!-- Final review fix wave (finding 4): a user-less ADMIN-origin order is a
+                       walk-in counter sale, never an anonymous storefront "guest checkout" — the
+                       two are different customer relationships even though both leave
+                       `user_uuid` null. Storefront guests keep the original label. -->
                   <UBadge color="neutral" variant="subtle" size="sm" data-test="order-customer-type">
-                    {{ order.user_uuid ? 'Registered customer' : 'Guest checkout' }}
+                    {{ customerTypeLabel }}
                   </UBadge>
                 </div>
               </div>
