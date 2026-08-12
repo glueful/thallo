@@ -4,7 +4,7 @@
 > pointer page), this file is meant to be edited as work lands — tick items off, link the
 > spec/plan/commit, and move them to **Recently shipped**.
 
-**Last reconciled:** 2026-08-10 (against the working tree, not just `NEXT.md`).
+**Last reconciled:** 2026-08-12 (against the working tree, not just `NEXT.md`).
 
 ## How to use this file
 
@@ -42,8 +42,7 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
 - [ ] **Orders/invoices: branding snapshots for historical receipts** — `M` — historical receipts render with CURRENT branding settings (logo/footer/toggles) against immutable order data (Ruling 4); a true point-in-time snapshot of branding as it was when the order was placed is a later compliance feature. **Home:** [orders-invoices-receipts spec §4](superpowers/specs/commerce/2026-08-09-orders-invoices-receipts-design.md) — follow-up on the orders invoices & receipts program (cycle 1).
 - [ ] **Orders/invoices: template editor** — `L` — a separate future project (sandboxing, versioning, preview, recovery) for admin-authored invoice/receipt templates, distinct from the shipped settings-driven customization (logo, footer text, SKU/address/tax-id toggles, paper preset). **Home:** [orders-invoices-receipts spec §4](superpowers/specs/commerce/2026-08-09-orders-invoices-receipts-design.md) — follow-up on the orders invoices & receipts program (cycle 1).
 - [ ] **Orders/invoices: retire the app orders list endpoint at upstream filter parity** — `S` — `GET /v1/admin/commerce/orders/search` and `GET /v1/admin/commerce/orders/export` are TEMPORARY app ownership (both carry a temporary-ownership docblock) standing in for filtering the vendor `orders.index` endpoint doesn't yet offer; the vendor endpoint stays mounted untouched in the meantime. Retire both once `glueful/commerce` ships equivalent filtering. **Home:** [orders-invoices-receipts spec, Posture](superpowers/specs/commerce/2026-08-09-orders-invoices-receipts-design.md) — follow-up on the orders invoices & receipts program (cycle 1).
-- [ ] **Admin order creation: Payvia payment links + customer emailing** — `M` — one flow covering link custody, expiry, guest access, and delivery for admin-born orders. **Home:** [admin-order-creation spec §4](superpowers/specs/commerce/2026-08-09-admin-order-creation-design.md) — follow-up on shipped admin order creation (cycle 2).
-- [ ] **Admin order creation: guest self-service access custody** — `S` — guest self-service access custody for admin-born orders. **Home:** [admin-order-creation spec §4](superpowers/specs/commerce/2026-08-09-admin-order-creation-design.md) — follow-up on shipped admin order creation (cycle 2).
+- [ ] **Admin order creation: guest self-service access custody** — `S` — guest self-service access custody for admin-born orders; unchanged by the payment-links cycle — the payment token deliberately grants none of it. **Home:** [admin-order-creation spec §4](superpowers/specs/commerce/2026-08-09-admin-order-creation-design.md) — follow-up on shipped admin order creation (cycle 2).
 - [ ] **Admin order creation: account-attached digital orders** — `M` — download delivery for admin-born digital orders defined by account custody. **Home:** [admin-order-creation spec §4](superpowers/specs/commerce/2026-08-09-admin-order-creation-design.md) — follow-up on shipped admin order creation (cycle 2).
 - [ ] **Admin order creation: marketplace-partitioned admin orders** — `M` — seller-order split + ledger at finalize. **Home:** [admin-order-creation spec §4](superpowers/specs/commerce/2026-08-09-admin-order-creation-design.md) — follow-up on shipped admin order creation (cycle 2).
 - [ ] **Admin order creation: audited per-line price override** — `S` — comps/B2B price override capability, audited. **Home:** [admin-order-creation spec §4](superpowers/specs/commerce/2026-08-09-admin-order-creation-design.md) — follow-up on shipped admin order creation (cycle 2).
@@ -53,6 +52,12 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
 - [ ] **`glueful/commerce` engine: draft-blind precheck in `AdminOrderController::markPaid()`** — `S` — mark-paid on a draft uuid returns 409 (the transition CAS rejects it) where every sibling order endpoint 404s via the draft-blind `order()` helper; the draft provably can never become paid, but the 409-vs-404 split mildly reveals draft existence. Add the same precheck the siblings use. **Home:** _(no design yet)_ — follow-up on shipped admin order creation (cycle 2).
 - [ ] **`glueful/framework` engine: `OpenApiGenerator::obtainRouter()` stale-cache re-registration bug** — `S` — when `storage/cache/routes_dev.php` exists, generation re-registers routes onto a cache-populated router, producing named-route collisions; workaround today is deleting the gitignored cache before regenerating. **Home:** _(no design yet)_ — framework bug, follow-up on shipped admin order creation (cycle 2).
 - [ ] **Admin SPA: `DraftFulfillmentCard` `USelect` empty-string placeholder** — `S` — a reka-ui crash when the empty-string placeholder option is actually mounted (pre-existing, latent, disclosed at discovery). **Home:** _(no design yet)_ — follow-up on shipped admin order creation (cycle 2).
+- [ ] **Payment links: Paystack renewal** — `S` — unavailable in v1: a new Paystack initialization cannot prove the old authorization URL dead, and a late second settlement is only detected after a double charge, so renewal requires a provider-confirmed permanent-death signal (or Paystack's payment-request API) that doesn't exist yet. Today's recovery is offline mark-paid or an explicit risk-acknowledged cancel/recreate. **Home:** [payment-links spec §4](superpowers/specs/commerce/2026-08-11-payment-links-design.md) — follow-up on shipped payment links.
+- [ ] **Payment links: generic provider-session invalidation/status seam** — `M` — so a Stripe-confirmed dead session could release the conservative issued-session cancellation hold automatically instead of requiring the operator's `accept_late_payment_risk` acknowledgement; v1 deliberately uses one safe rule for every gateway regardless of which one can actually prove death. **Home:** [payment-links spec §4](superpowers/specs/commerce/2026-08-11-payment-links-design.md) — follow-up on shipped payment links.
+- [ ] **Payment links: SMS/WhatsApp delivery channels** — `M` — only email is a first-class Send action today; copy-to-clipboard covers other channels manually. **Home:** [payment-links spec §4](superpowers/specs/commerce/2026-08-11-payment-links-design.md) — follow-up on shipped payment links.
+- [ ] **Payment links: link analytics (opened/clicked)** — `S` — deliberately excluded — would require relaxing the landing page's no-analytics/zero-third-party-asset rule. **Home:** [payment-links spec §4](superpowers/specs/commerce/2026-08-11-payment-links-design.md) — follow-up on shipped payment links.
+- [ ] **`thallo-commerce` pack: tenant purge/adoption gap for `thallo_commerce_product_slugs` + `thallo_commerce_checkout_attempts`** — `S` — pre-existing gap, predates the payment-links cycle: `CommercePurgeHandler`/`CommerceAdoptionContributor` register `thallo_commerce_product_links` and (as of payment links) `thallo_commerce_payment_link_deliveries`, but neither of these two pack-owned tables, so a tenant purge/adoption pass silently leaves their rows behind. Deliberately not widened into the payment-links cycle (out of scope for it); recorded here from that cycle's review. **Home:** _(no design yet)_.
+- [ ] **Thallo PHP suite: `composer test` assertion-total nondeterminism** — `S` — the reported assertion total wobbles ±1-2 across otherwise-identical runs while the test count and skip count both stay exactly stable; the reliable gate today is tests+skips, not the assertion total, until the source of the conditional assertion is found. Surfaced during the payment-links program's repeated gate runs. **Home:** _(no design yet)_.
 
 - [ ] **Slider: caption overlay on bare image slides** — `S` — hero slides already carry
   full text-over-image (scrim, on-media ink, buttons); this is the LIGHTWEIGHT middle
@@ -95,6 +100,66 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
 
 > Move ticked items here (newest first) with their ship date + spec link, so the sections
 > above stay focused on what's left.
+
+- [x] **Payment links for admin orders (Payvia payment links + customer emailing)** — shipped
+  2026-08-12 — durable, revocable payment links for admin-origin `pending_payment` orders, closing
+  the admin-order-creation cycle-2 follow-up: an admin finalizes a phone/remote order and sends the
+  customer a link to a hosted-gateway-backed landing page instead of taking payment in person.
+  Three-release train, human-published in order: **Payvia 2.6.0** makes `initiate()` ensure-live
+  (no intent ⇒ create; confirmed-live ⇒ same URL; confirmed-dead ⇒ renew; unknown provider state ⇒
+  fail closed, never force-fresh), backed by reference-addressable session attempts (`payment_intents`
+  migrated to a service-enforced `initializing|open|superseded|closed|failed` status set, per-durable
+  -attempt idempotency keyed off the attempt UUID, a reference-aware `ConfirmationDispatcher` that
+  resolves the exact provider reference instead of "whichever intent is open") and a provider-host
+  URL trust boundary that also fixes Paystack's previously-unchecked `authorization_url`. **Commerce
+  1.11.0** adds the engine-native `commerce_payment_links` table/`PaymentLinkService` (hash-only
+  token custody — a raw token exists at exactly TWO egress points, the one-time mint/regenerate
+  response and the send-time email body, and never touches a database, queue, log, or audit row),
+  one-active-link-per-order enforced transactionally, a lease-governed TTL
+  (`commerce.payment_links.ttl_days`, default 7, clamped 1–30) with a fail-closed
+  provider-session-exposure boundary (once a hosted gateway URL has ever been returned, automatic
+  stock release/cancellation is blocked until the order is paid or an operator explicitly accepts
+  late-payment risk — Paystack cannot prove a prior session dead, so renewal is unavailable in v1 by
+  design, not oversight), and a two-phase `initiateByToken()` that runs no provider/network I/O
+  inside a database transaction or while row locks are held. **Thallo** binds the
+  `PaymentLinkPublicUrlProvider`/`PaymentLinkReturnUrlProvider` host seams, ships the pay-only
+  `GET /checkout/pay/{token}` landing page (`no-store`/`no-referrer`/`noindex`, zero third-party
+  assets) with signed, non-authorizing return/cancel receipts (`PaymentLinkReturnSigner`, distinct
+  purposes, `hash_equals()` verification, no fallback key), and the pack-owned send surface
+  (`POST /v1/admin/commerce/orders/{uuid}/payment-link/send`, required `Idempotency-Key`) with its
+  own idempotent delivery ledger (`thallo_commerce_payment_link_deliveries`: a replayed
+  same-key-and-fingerprint request re-answers the recorded outcome without a raw URL or another
+  send attempt; a crashed `processing` row times out to `indeterminate` after
+  `thallo-commerce.payment_links.delivery_processing_stale_seconds`, default 300s) and a dedicated
+  synchronous `PaymentRequestMailer` (never `NotificationService::send()`, which would persist the
+  token). The admin SPA's order-detail "Payment link" card gates Create/Regenerate/Revoke/Send on
+  order origin, status, recipient email, the `payment_request` template toggle, and rich-email-channel
+  availability; renders the one-time URL exactly once with custody enforced even against Pinia
+  Colada's own mutation cache (plain awaited functions instead of `useMutation()` — an entry there
+  would have parked the URL/token past "Hide" and unmount in the global `_pc_mutation` store); and
+  carries the post-exposure warning copy plus Paystack honesty (no revive/invalidate claims —
+  recovery is mark-paid or a risk-acknowledged cancel/recreate). **Task 14 artifact regeneration:**
+  `docs/openapi.json` regenerated (cache-deletion first per the known
+  `OpenApiGenerator::obtainRouter()` stale-cache bug, two consecutive cache-deleted runs verified
+  byte-identical) to document the four new shop-side `/checkout/pay/*` routes and the pack-owned
+  send route, which moved out of `AdminOpenApiGateTest`'s `AWAITING_SPEC_REGENERATION` carve-out
+  (now empty again) into `PACK_OWNED_ROUTES`; `admin/src/api/schema.d.ts`/`core-schema.d.ts`
+  regenerated from the new spec; and `commercePaymentLinks.ts`'s four admin calls (status read,
+  mint, revoke, send) migrated from raw `authFetch` to the typed `client`, preserving the
+  token-free `normalizeLink()` closed projection and every custody guarantee — the unmocked
+  `orderPaymentLinkCustody.spec.ts` (converted to dynamic-importing the card per test, since the
+  typed client captures `globalThis.fetch` once at construction rather than per call) and the
+  module/card specs all stayed green throughout. The shop-side public `/checkout/pay/*` routes
+  deliberately stay on raw `fetch` — no admin auth client applies to an unauthenticated landing
+  page. **Follow-ups** (recorded above, out of scope for this cycle): Paystack renewal pending a
+  provider-confirmed death signal, a generic provider-session invalidation/status seam, SMS/WhatsApp
+  delivery channels, and link analytics (deliberately excluded); guest self-service custody for
+  admin orders is unchanged from cycle 2's existing follow-up entry. Also surfaced and recorded
+  during this cycle's review (pre-existing, out of scope for it): a tenant purge/adoption gap for
+  `thallo_commerce_product_slugs`/`thallo_commerce_checkout_attempts`, and `composer test`'s
+  assertion-total nondeterminism.
+  [spec](superpowers/specs/commerce/2026-08-11-payment-links-design.md) ·
+  [plan](superpowers/plans/2026-08-11-payment-links.md).
 
 - [x] **Admin order creation (cycle 2: walk-in draft orders + one-click complete sale)** — shipped
   2026-08-10 — a manual order-creation surface for admin-side (walk-in/counter) sales, built on

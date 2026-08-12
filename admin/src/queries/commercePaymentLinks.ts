@@ -1,11 +1,10 @@
 import { useQuery, useQueryCache } from '@pinia/colada'
 import { toValue, type MaybeRefOrGetter } from 'vue'
-import { authFetch } from '@/api/authFetch'
-import { ApiError, apiErrorDetails } from '@/api/errors'
-import { runtimeConfig } from '@/runtime/config'
+import { client } from '@/api/client'
+import { apiErrorDetails, toApiError } from '@/api/errors'
 import { qk } from './keys'
 
-// ── Admin payment links (payment-links spec §2.2/§2.4, Task 13) ────────────────────────────────
+// ── Admin payment links (payment-links spec §2.2/§2.4, Task 13/14) ─────────────────────────────
 //
 // FOUR routes, TWO owners, ONE client surface:
 //   - the mounted Commerce catalog owns mint/status/revoke —
@@ -13,9 +12,14 @@ import { qk } from './keys'
 //   - the Thallo commerce pack owns delivery — `POST /commerce/orders/{uuid}/payment-link/send`
 //     (a DISTINCT path one segment deeper, so neither shadows the other).
 //
-// Raw `authFetch` rather than the typed client: these routes are not in the generated OpenAPI
-// schema yet (Task 14 regenerates it, and this module moves onto `client` then) — the same
-// interim idiom `formSubmissions.ts`/`navigation.ts` use.
+// Task 14 moved this module onto the typed `client` now that `docs/openapi.json` and
+// `admin/src/api/schema.d.ts` document all four routes. Every response/request body here is
+// still undocumented in the generated types (`content?: never` / no `requestBody` schema), so
+// this reads/writes through `as`-cast `Record<string, unknown>` exactly like the rest of the
+// commerce query modules (see `commerceCatalog.ts`) — the typed client buys route/method/path
+// correctness, not payload shape checking, which stays this module's job via the normalizers
+// below. The shop-side `/checkout/pay/*` routes stay on raw `fetch` (no auth client applies to
+// an unauthenticated public landing page).
 //
 // ## Token custody (the reason this module is shaped the way it is)
 //
@@ -104,10 +108,17 @@ export const PAYMENT_LINK_TTL_DEFAULT = 7
 /** The engine's own token shape (`PaymentLinkService::TOKEN_PATTERN`). */
 const TOKEN_PATTERN = /^[a-f0-9]{64}$/
 
-const base = (uuid: string) => `${runtimeConfig.apiBase}/commerce/orders/${uuid}/payment-link`
-
 function str(v: unknown): string {
   return typeof v === 'string' ? v : ''
+}
+
+/** Unwrap the framework's `{ data: {...} }` envelope, falling back to the raw body when there is
+ * no wrapper — mirrors the pre-migration `(json.data ?? json)` idiom exactly. */
+function unwrap(json: unknown): Record<string, unknown> {
+  if (typeof json !== 'object' || json === null) return {}
+  const rec = json as Record<string, unknown>
+  const inner = rec.data
+  return typeof inner === 'object' && inner !== null ? (inner as Record<string, unknown>) : rec
 }
 
 /** Project the wire's link object down to the engine's four documented fields — and ONLY those,
@@ -204,9 +215,12 @@ export function newPaymentLinkIdempotencyKey(): string {
 }
 
 export async function fetchOrderPaymentLink(uuid: string): Promise<PaymentLinkStatus> {
-  const json = await authFetch(base(uuid))
-  const data = (json.data ?? json) as { link?: unknown; exposure?: unknown }
-  return { link: normalizeLink(data.link), exposure: normalizeExposure(data.exposure) }
+  const { data, error, response } = await client.GET('/commerce/orders/{uuid}/payment-link', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const body = unwrap(data)
+  return { link: normalizeLink(body.link), exposure: normalizeExposure(body.exposure) }
 }
 
 /**
@@ -217,16 +231,17 @@ export async function createOrderPaymentLink(
   uuid: string,
   ttlDays: number | null,
 ): Promise<PaymentLinkMint> {
-  const json = await authFetch(base(uuid), {
-    method: 'POST',
+  const { data, error, response } = await client.POST('/commerce/orders/{uuid}/payment-link', {
+    params: { path: { uuid } },
     // Absent (not null) means "use the configured default" — the engine treats a present null the
     // same, but omitting it keeps the request honest about what the operator actually chose.
-    body: JSON.stringify(ttlDays === null ? {} : { ttl_days: clampPaymentLinkTtl(ttlDays) }),
+    body: (ttlDays === null ? {} : { ttl_days: clampPaymentLinkTtl(ttlDays) }) as never,
   })
-  const data = (json.data ?? json) as { url?: unknown; link?: unknown }
+  if (error) throw toApiError(error, response)
+  const body = unwrap(data)
   return {
-    url: str(data.url),
-    link: normalizeLink(data.link) ?? {
+    url: str(body.url),
+    link: normalizeLink(body.link) ?? {
       link_uuid: '',
       status: 'active',
       expires_at: '',
@@ -236,7 +251,10 @@ export async function createOrderPaymentLink(
 }
 
 export async function revokeOrderPaymentLink(uuid: string): Promise<void> {
-  await authFetch(base(uuid), { method: 'DELETE' })
+  const { error, response } = await client.DELETE('/commerce/orders/{uuid}/payment-link', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
 }
 
 /**
@@ -251,27 +269,26 @@ export async function sendOrderPaymentLink(
   input: PaymentLinkSendInput,
   idempotencyKey: string,
 ): Promise<PaymentLinkSendEnvelope> {
-  const body = JSON.stringify(
+  const body =
     input.mode === 'current'
       ? { mode: 'current', token: input.token }
       : input.ttl_days === undefined || input.ttl_days === null
         ? { mode: 'regenerate' }
-        : { mode: 'regenerate', ttl_days: clampPaymentLinkTtl(input.ttl_days) },
-  )
+        : { mode: 'regenerate', ttl_days: clampPaymentLinkTtl(input.ttl_days) }
 
-  try {
-    const json = await authFetch(`${base(uuid)}/send`, {
-      method: 'POST',
-      headers: { 'Idempotency-Key': idempotencyKey },
-      body,
-    })
-    return envelopeFrom(json, 200)
-  } catch (e) {
-    if (e instanceof ApiError && hasReceipt(e.body)) {
-      return envelopeFrom(e.body as Record<string, unknown>, e.status)
-    }
-    throw e
+  const { data, error, response } = await client.POST('/commerce/orders/{uuid}/payment-link/send', {
+    params: { path: { uuid } },
+    headers: { 'Idempotency-Key': idempotencyKey },
+    body: body as never,
+  })
+  // A 502 (delivery failed) still carries a receipt — the caller resolves it like a 200 rather
+  // than seeing an exception. openapi-fetch routes every non-2xx into `error`, so that receipt
+  // check runs there instead of a catch block, but it is otherwise the same branch as before.
+  if (error) {
+    if (hasReceipt(error)) return envelopeFrom(error as Record<string, unknown>, response?.status ?? 502)
+    throw toApiError(error, response)
   }
+  return envelopeFrom((data ?? {}) as Record<string, unknown>, response?.status ?? 200)
 }
 
 function hasReceipt(body: unknown): boolean {

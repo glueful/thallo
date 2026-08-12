@@ -71,6 +71,11 @@ final class AdminOpenApiGateTest extends AppTestCase
         // AdminRouteCatalog::mount(), same posture as the three orders routes above. Regenerated
         // into docs/openapi.json and moved out of AWAITING_SPEC_REGENERATION at Task 16.
         ['POST', '/v1/admin/commerce/orders/{uuid}/complete-sale'],
+        // Payment-link send (payment-links program, Task 12/14): app-owned, registered directly
+        // in packages/thallo-commerce/routes/admin-routes.php ahead of AdminRouteCatalog::mount(),
+        // same posture as the routes above. Regenerated into docs/openapi.json and moved out of
+        // AWAITING_SPEC_REGENERATION at Task 14.
+        ['POST', '/v1/admin/commerce/orders/{uuid}/payment-link/send'],
     ];
 
     /**
@@ -93,19 +98,15 @@ final class AdminOpenApiGateTest extends AppTestCase
      * the `docs/openapi.json` artifact gate) can't paper over them. `composer docs:openapi` was
      * regenerated in the same commit instead.
      *
-     * NOT empty as of the payment-links program's Task 12: the pack-owned
-     * `POST /v1/admin/commerce/orders/{uuid}/payment-link/send` is registered and serving, but the
-     * spec's §2.5 schedules ONE openapi regeneration pass for the whole program (after the Thallo
-     * repin, cache-deletion first per the known generator bug) rather than one per task. Owner:
-     * the payment-links Artifacts task, which must regenerate `docs/openapi.json`, move the pair
-     * into {@see self::PACK_OWNED_ROUTES}, and empty this list again — leaving the entry here once
-     * the spec catches up fails the `assertSame` below, which is what forces that.
+     * Empty again as of Task 14: the pack-owned `POST
+     * /v1/admin/commerce/orders/{uuid}/payment-link/send` (registered at Task 12) was the one
+     * outstanding debt this list carried — `docs/openapi.json` has now been regenerated
+     * (cache-deletion first per the known generator bug, two-run byte-identity verified) and the
+     * route pair moved up into {@see self::PACK_OWNED_ROUTES}.
      *
      * @var list<array{0:string,1:string}> [method, path] pairs awaiting a future regeneration.
      */
-    private const AWAITING_SPEC_REGENERATION = [
-        ['POST', '/v1/admin/commerce/orders/{uuid}/payment-link/send'],
-    ];
+    private const AWAITING_SPEC_REGENERATION = [];
 
     // ------------------------------------------------------------------
     // Input gate — live router

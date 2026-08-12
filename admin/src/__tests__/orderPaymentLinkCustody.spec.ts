@@ -4,6 +4,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, ref, h } from 'vue'
 import { PiniaColada, useMutationCache, useQueryCache } from '@pinia/colada'
 import type { CommerceOrder } from '@/queries/commerceOrders'
+import type OrderPaymentLinkCardType from '@/pages/commerce/orders/components/OrderPaymentLinkCard.vue'
 
 // ── Payment links Task 13, fix round 1 (Important 1): custody against the COLADA CACHES ────────
 //
@@ -16,6 +17,13 @@ import type { CommerceOrder } from '@/queries/commerceOrders'
 // `mode=current` send would park the RAW TOKEN there as its vars, surviving "Hide", the
 // `payment_link_changed` custody drop, and unmount alike. The card therefore awaits the plain
 // functions instead, and this spec sweeps BOTH caches for the sentinels to keep it that way.
+//
+// Task 14: `commercePaymentLinks.ts` moved onto the typed `client`, which captures
+// `globalThis.fetch` once at construction (module load). A static top-level import of the card
+// would therefore bind it to a `client` built against whatever `fetch` existed before this file's
+// `beforeEach` ever stubbed it. `OrderPaymentLinkCard` is dynamic-imported per test instead, after
+// `vi.stubGlobal('fetch', ...)` and the global `vi.resetModules()` in `src/__tests__/setup.ts` —
+// mirrors `commerceDraftFieldErrors.spec.ts`'s identical stub-then-dynamic-import pattern.
 
 const TOKEN = 'c'.repeat(64)
 const URL_1 = `https://shop.test/pay/${TOKEN}`
@@ -65,8 +73,6 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
   }
 })
 
-import OrderPaymentLinkCard from '@/pages/commerce/orders/components/OrderPaymentLinkCard.vue'
-
 function order(): CommerceOrder {
   return {
     uuid: 'o1',
@@ -112,10 +118,14 @@ const linkBody = {
   provider_session_issued: false,
 }
 
-/** Routes the card's real requests: the status read, the mint, and the send. */
+/** Routes the card's real requests: the status read, the mint, and the send. The typed client
+ * (Task 14) hands `fetch` a `Request` object rather than a bare path string, so this reads the
+ * method/pathname off it instead of the old `(path, init)` signature. */
 function routeFetch() {
-  return vi.fn(async (path: string, init?: RequestInit) => {
-    const method = (init?.method ?? 'GET').toUpperCase()
+  return vi.fn(async (input: RequestInfo | URL) => {
+    const request = input as Request
+    const path = new URL(request.url, 'http://localhost').pathname
+    const method = request.method.toUpperCase()
     if (path.endsWith('/payment-link/send')) {
       return jsonResponse({
         success: true,
@@ -163,21 +173,31 @@ const caches: {
   query: ReturnType<typeof useQueryCache> | null
 } = { mutation: null, query: null }
 
-const Harness = defineComponent({
-  setup() {
-    caches.mutation = useMutationCache()
-    caches.query = useQueryCache()
-    return () => h(OrderPaymentLinkCard, { order: order(), canManage: true })
-  },
-})
-
 // The confirm buttons live in UModal, which teleports its content out of the wrapper's tree.
 const ModalStub = {
   props: ['open'],
   template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>',
 }
 
-function mountHarness() {
+/** Dynamic-imports `OrderPaymentLinkCard` (and everything it transitively pulls in, including the
+ * typed `client`) AFTER the caller has already stubbed `global.fetch`, so the freshly re-created
+ * `client` singleton captures the stub rather than whatever `fetch` was global before this test's
+ * `beforeEach` ran. Must be called after `vi.stubGlobal('fetch', ...)` in every test. */
+async function mountHarness() {
+  const { default: OrderPaymentLinkCard } = await import(
+    '@/pages/commerce/orders/components/OrderPaymentLinkCard.vue'
+  )
+  const Harness = defineComponent({
+    setup() {
+      caches.mutation = useMutationCache()
+      caches.query = useQueryCache()
+      return () =>
+        h(OrderPaymentLinkCard as typeof OrderPaymentLinkCardType, {
+          order: order(),
+          canManage: true,
+        })
+    },
+  })
   return mount(Harness, {
     global: { plugins: [createPinia(), PiniaColada], stubs: { Modal: ModalStub } },
   })
@@ -207,7 +227,7 @@ beforeEach(() => {
 
 describe('payment-link card custody against the colada caches', () => {
   it('leaves NO minted URL or token in the mutation cache after a mint and a current-send', async () => {
-    const wrapper = mountHarness()
+    const wrapper = await mountHarness()
     await flushPromises()
 
     await wrapper.find('[data-test="payment-link-regenerate"]').trigger('click')
@@ -221,12 +241,11 @@ describe('payment-link card custody against the colada caches', () => {
     expect(wrapper.find('[data-test="payment-link-send-status"]').text()).toContain('sent')
 
     // The send really did carry the token — on the wire, which is the only place it belongs.
-    const fetchCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls as [
-      string,
-      RequestInit,
-    ][]
-    const sendCall = fetchCalls.find((call) => call[0].endsWith('/payment-link/send'))
-    expect(JSON.parse(sendCall![1].body as string)).toEqual({ mode: 'current', token: TOKEN })
+    const fetchCalls = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls as [Request][]
+    const sendCall = fetchCalls.find((call) =>
+      new URL(call[0].url, 'http://localhost').pathname.endsWith('/payment-link/send'),
+    )
+    expect(await sendCall![0].clone().json()).toEqual({ mode: 'current', token: TOKEN })
 
     // Neither cache may hold the URL or the token — as `vars`, as `data`, or anywhere else.
     expect(caches.mutation?.getEntries()).toHaveLength(0)
@@ -235,7 +254,7 @@ describe('payment-link card custody against the colada caches', () => {
   })
 
   it('keeps the caches clean after the URL is hidden and after unmount', async () => {
-    const wrapper = mountHarness()
+    const wrapper = await mountHarness()
     await flushPromises()
     await wrapper.find('[data-test="payment-link-regenerate"]').trigger('click')
     await wrapper.find('[data-test="payment-link-regenerate-confirm"]').trigger('click')
@@ -251,7 +270,7 @@ describe('payment-link card custody against the colada caches', () => {
   })
 
   it('the cached STATUS query carries no token — a lost URL is genuinely unrecoverable', async () => {
-    const wrapper = mountHarness()
+    const wrapper = await mountHarness()
     await flushPromises()
     await wrapper.find('[data-test="payment-link-regenerate"]').trigger('click')
     await wrapper.find('[data-test="payment-link-regenerate-confirm"]').trigger('click')

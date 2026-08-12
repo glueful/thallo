@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// Payment links Task 13: the SPA's payment-link query surface. Raw `authFetch` (the codebase's
-// idiom for routes not yet in the generated OpenAPI schema — Task 14 regenerates it), so every
-// test here stubs `globalThis.fetch` and dynamic-imports the module after the stub is in place
-// (mirrors commerceInvoice.spec.ts).
+// Payment links Task 13/14: the SPA's payment-link query surface. Task 14 moved it from raw
+// `authFetch` onto the typed `client` now that `docs/openapi.json`/`schema.d.ts` document all
+// four routes. The typed client captures `globalThis.fetch` at module-load time, so every test
+// here stubs `fetch` and dynamic-imports the module after the stub is in place (mirrors
+// commerceInvoice.spec.ts / commerceOrders.spec.ts) — and asserts on the `Request` object openapi-
+// fetch hands to `fetch`, not a bare path string.
 
 vi.mock('@/runtime/config', () => ({
   runtimeConfig: { apiBase: '/v1/admin' },
@@ -74,7 +76,11 @@ describe('commerce payment-link query layer', () => {
     const result = await fetchOrderPaymentLink('o1')
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(fetchMock.mock.calls[0][0]).toBe('/v1/admin/commerce/orders/o1/payment-link')
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('GET')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/orders/o1/payment-link',
+    )
     expect(result.link).toEqual({
       link_uuid: 'link-1',
       status: 'active',
@@ -138,10 +144,12 @@ describe('commerce payment-link query layer', () => {
     const { createOrderPaymentLink } = await import('./commercePaymentLinks')
     const result = await createOrderPaymentLink('o1', 7)
 
-    const [path, init] = fetchMock.mock.calls[0]
-    expect(path).toBe('/v1/admin/commerce/orders/o1/payment-link')
-    expect(init.method).toBe('POST')
-    expect(JSON.parse(init.body as string)).toEqual({ ttl_days: 7 })
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('POST')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/orders/o1/payment-link',
+    )
+    expect(await request.clone().json()).toEqual({ ttl_days: 7 })
     expect(result.url).toBe(`https://shop.test/pay/${TOKEN}`)
     expect(result.link.link_uuid).toBe('link-1')
   })
@@ -154,7 +162,8 @@ describe('commerce payment-link query layer', () => {
     const { createOrderPaymentLink } = await import('./commercePaymentLinks')
     await createOrderPaymentLink('o1', null)
 
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({})
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(await request.clone().json()).toEqual({})
   })
 
   it('createOrderPaymentLink surfaces the refusal reason from error.details', async () => {
@@ -171,12 +180,18 @@ describe('commerce payment-link query layer', () => {
     )
     const { createOrderPaymentLink, paymentLinkRefusalReason } = await import('./commercePaymentLinks')
 
-    await expect(createOrderPaymentLink('o1', 7)).rejects.toMatchObject({ status: 409 })
+    // One call, one caught error — the mocked Response's body can only be read once (the typed
+    // client reads the error body directly rather than cloning it, unlike the pre-migration
+    // authFetch path), so a second call against the same mocked value would see an already-used
+    // stream. Mirrors subscriptionsBilling.spec.ts's identical single-catch idiom.
+    let caught: unknown
     try {
       await createOrderPaymentLink('o1', 7)
     } catch (e) {
-      expect(paymentLinkRefusalReason(e)).toBe('order_not_admin_origin')
+      caught = e
     }
+    expect(caught).toMatchObject({ status: 409 })
+    expect(paymentLinkRefusalReason(caught)).toBe('order_not_admin_origin')
   })
 
   // ── DELETE /orders/{uuid}/payment-link (revoke) ──────────────────────────────────────────────
@@ -187,8 +202,11 @@ describe('commerce payment-link query layer', () => {
     const { revokeOrderPaymentLink } = await import('./commercePaymentLinks')
     await revokeOrderPaymentLink('o1')
 
-    expect(fetchMock.mock.calls[0][0]).toBe('/v1/admin/commerce/orders/o1/payment-link')
-    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE')
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('DELETE')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/orders/o1/payment-link',
+    )
   })
 
   // ── POST /orders/{uuid}/payment-link/send ────────────────────────────────────────────────────
@@ -205,11 +223,13 @@ describe('commerce payment-link query layer', () => {
     const { sendOrderPaymentLink } = await import('./commercePaymentLinks')
     const envelope = await sendOrderPaymentLink('o1', { mode: 'current', token: TOKEN }, 'key-0123456789abcdef')
 
-    const [path, init] = fetchMock.mock.calls[0]
-    expect(path).toBe('/v1/admin/commerce/orders/o1/payment-link/send')
-    expect(init.method).toBe('POST')
-    expect((init.headers as Record<string, string>)['Idempotency-Key']).toBe('key-0123456789abcdef')
-    expect(JSON.parse(init.body as string)).toEqual({ mode: 'current', token: TOKEN })
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(request.method).toBe('POST')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/orders/o1/payment-link/send',
+    )
+    expect(request.headers.get('idempotency-key')).toBe('key-0123456789abcdef')
+    expect(await request.clone().json()).toEqual({ mode: 'current', token: TOKEN })
     expect(envelope.http_status).toBe(200)
     expect(envelope.receipt.status).toBe('sent')
     expect(envelope.url).toBeNull()
@@ -227,7 +247,8 @@ describe('commerce payment-link query layer', () => {
     const { sendOrderPaymentLink } = await import('./commercePaymentLinks')
     await sendOrderPaymentLink('o1', { mode: 'regenerate', ttl_days: 14 }, 'key-0123456789abcdef')
 
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({
+    const request = fetchMock.mock.calls[0]![0] as Request
+    expect(await request.clone().json()).toEqual({
       mode: 'regenerate',
       ttl_days: 14,
     })
