@@ -93,6 +93,14 @@ final class ShopPaymentLinkTest extends AppTestCase
             self::assertContains('rate_limit', $middleware, "{$method} {$path}");
             // Never page-cached: these are per-bearer, no-store responses.
             self::assertNotContains(ShopPageCache::class, $middleware, "{$method} {$path}");
+            // The header stamper must sit OUTSIDE the rate limiter (and, on the POST, outside the
+            // CSRF guard) — that ordering is what makes "headers on every response" structural
+            // rather than a list of places somebody remembered.
+            self::assertLessThan(
+                array_search('rate_limit', $middleware, true),
+                array_search(ShopPaymentLinkHeaders::class, $middleware, true),
+                "{$method} {$path}: headers must wrap the rate limiter",
+            );
         }
 
         // The POST carries the anonymous-checkout provenance policy.
@@ -112,6 +120,26 @@ final class ShopPaymentLinkTest extends AppTestCase
                 self::assertGreaterThan(0, (int) ($config['attempts'] ?? 0), $path);
             }
         }
+    }
+
+    public function testTheHeaderStamperCoversAnInnerRateLimit429AndOverridesAWeakerPolicy(): void
+    {
+        // The 429 is produced by the framework's rate limiter, BELOW this middleware and above
+        // the controller — the one payment-link status no request-driven test can reach without
+        // burning a shared IP bucket for every other test in the process. Driving the middleware
+        // directly pins the same guarantee: whatever the inner chain returns leaves with these
+        // three headers, and a weaker Cache-Control set inside is overwritten, not merged.
+        $inner = new Response('{"error":"rate limited"}', 429, [
+            'Content-Type' => 'application/json',
+            'Cache-Control' => 'public, max-age=60',
+        ]);
+
+        $response = $this->container()->get(ShopPaymentLinkHeaders::class)
+            ->handle(Request::create('/checkout/pay/' . self::UNKNOWN_TOKEN . '/initiate', 'POST'), fn () => $inner);
+
+        self::assertInstanceOf(Response::class, $response);
+        self::assertSame(429, $response->getStatusCode());
+        $this->assertPaymentLinkHeaders($response);
     }
 
     public function testThePaymentLinkPathsSitUnderTheAlreadyReservedCheckoutPrefix(): void
@@ -444,8 +472,10 @@ final class ShopPaymentLinkTest extends AppTestCase
         $omitted = $this->handle($this->initiatePost($token, ['HTTP_SEC_FETCH_SITE' => 'same-origin']));
         $noSignalAtAll = $this->handle($this->initiatePost($token, []));
 
-        self::assertNotSame(403, $accepted->getStatusCode());
-        self::assertNotSame(403, $omitted->getStatusCode());
+        // Not merely "not rejected": both pass THROUGH the guard into the engine, which refuses
+        // with the unavailable state because this harness's canonical origin is not HTTPS.
+        self::assertSame(503, $accepted->getStatusCode());
+        self::assertSame(503, $omitted->getStatusCode());
         self::assertSame(403, $rejected->getStatusCode());
         // Fetch Metadata alone is never enough when a real Origin/Referer COULD have been sent:
         // with no signals at all, ShopCsrfGuard's own step 4 still refuses.
