@@ -85,6 +85,14 @@ final class AdminOpenApiGateTest extends AppTestCase
      * /v1/admin/commerce/orders/{uuid}/complete-sale` — was paid by regenerating
      * `docs/openapi.json` and moving the pair up into {@see self::PACK_OWNED_ROUTES}.
      *
+     * Still empty at Task 10 (payment-links program): unlike an app-owned route registered
+     * directly ahead of the catalog, the three new `orders.payment_link.*` keys are
+     * catalog/allowlist-derived — the moment they're added to {@see AdminMountAllowlist} (to
+     * make them reachable at all) they're automatically part of `expectedApprovedSurface()`
+     * below, so this carve-out (which only covers the LIVE-router-vs-expected-surface gate, not
+     * the `docs/openapi.json` artifact gate) can't paper over them. `composer docs:openapi` was
+     * regenerated in the same commit instead.
+     *
      * @var list<array{0:string,1:string}> [method, path] pairs awaiting a future regeneration.
      */
     private const AWAITING_SPEC_REGENERATION = [];

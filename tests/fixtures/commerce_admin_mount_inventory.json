@@ -184,6 +184,18 @@
         "mode": "manage"
     },
     {
+        "key": "orders.payment_link.destroy",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.payment_link.show",
+        "mode": "manage"
+    },
+    {
+        "key": "orders.payment_link.store",
+        "mode": "manage"
+    },
+    {
         "key": "orders.refunds.index",
         "mode": "view"
     },

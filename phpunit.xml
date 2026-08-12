@@ -39,6 +39,7 @@
         </include>
     </source>
     <php>
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="DB_DRIVER" value="pgsql"/>
         <env name="DB_PGSQL_HOST" value="127.0.0.1"/>

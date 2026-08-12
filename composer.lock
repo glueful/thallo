@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "4a1c608decba34d244885a5d7d093f7a",
+    "content-hash": "34ae22d40c88c59e8e4b3928816ef7ff",
     "packages": [
         {
             "name": "composer/semver",
@@ -563,16 +563,16 @@
         },
         {
             "name": "glueful/commerce",
-            "version": "v1.10.0",
+            "version": "v1.11.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/commerce.git",
-                "reference": "404ef7d8cb0534ced4b29c27939c763892fcb67b"
+                "reference": "afe385a2f587be140e15a47b7bf25adfadd126b6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/commerce/zipball/404ef7d8cb0534ced4b29c27939c763892fcb67b",
-                "reference": "404ef7d8cb0534ced4b29c27939c763892fcb67b",
+                "url": "https://api.github.com/repos/glueful/commerce/zipball/afe385a2f587be140e15a47b7bf25adfadd126b6",
+                "reference": "afe385a2f587be140e15a47b7bf25adfadd126b6",
                 "shasum": ""
             },
             "require": {
@@ -590,7 +590,7 @@
                 "glueful": {
                     "icon": "assets/icon.png",
                     "name": "Commerce",
-                    "version": "1.10.0",
+                    "version": "1.11.0",
                     "provider": "Glueful\\Extensions\\Commerce\\CommerceServiceProvider",
                     "requires": {
                         "glueful": ">=1.71.0",
@@ -639,9 +639,9 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/commerce/issues",
-                "source": "https://github.com/glueful/commerce/tree/v1.10.0"
+                "source": "https://github.com/glueful/commerce/tree/v1.11.0"
             },
-            "time": "2026-08-10T02:38:38+00:00"
+            "time": "2026-08-12T02:32:56+00:00"
         },
         {
             "name": "glueful/email-notification",
@@ -1227,16 +1227,16 @@
         },
         {
             "name": "glueful/payvia",
-            "version": "2.5.0",
+            "version": "2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/payvia.git",
-                "reference": "ee1dd7bce089dce35597e9b41f357318b13adf4a"
+                "reference": "83b6d9dd05410e702ec489e397804f3dd40419e3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/payvia/zipball/ee1dd7bce089dce35597e9b41f357318b13adf4a",
-                "reference": "ee1dd7bce089dce35597e9b41f357318b13adf4a",
+                "url": "https://api.github.com/repos/glueful/payvia/zipball/83b6d9dd05410e702ec489e397804f3dd40419e3",
+                "reference": "83b6d9dd05410e702ec489e397804f3dd40419e3",
                 "shasum": ""
             },
             "require": {
@@ -1255,7 +1255,7 @@
                 "glueful": {
                     "icon": "assets/icon.png",
                     "name": "Payvia",
-                    "version": "2.5.0",
+                    "version": "2.6.0",
                     "provider": "Glueful\\Extensions\\Payvia\\PayviaServiceProvider",
                     "requires": {
                         "glueful": ">=1.71.0",
@@ -1300,9 +1300,9 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/payvia/issues",
-                "source": "https://github.com/glueful/payvia/tree/v2.5.0"
+                "source": "https://github.com/glueful/payvia/tree/v2.6.0"
             },
-            "time": "2026-08-04T07:49:33+00:00"
+            "time": "2026-08-12T02:30:31+00:00"
         },
         {
             "name": "glueful/subscriptions",
@@ -1587,10 +1587,10 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-commerce",
-                "reference": "b30b681fea3ce7bab56004c96d86a4d618cf2bfa"
+                "reference": "e3cd7705c9b6534b01eaae830cbd07c8a6af99a9"
             },
             "require": {
-                "glueful/commerce": "^1.10.0",
+                "glueful/commerce": "^1.11.0",
                 "glueful/extension-contracts": "*",
                 "glueful/framework": "^1.71.0",
                 "glueful/thallo-contracts": "*",
