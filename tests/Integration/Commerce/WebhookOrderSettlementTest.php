@@ -14,7 +14,10 @@ use Glueful\Extensions\Payvia\Contracts\StrictPaymentEventListener;
 use Glueful\Extensions\Payvia\Events\EventType;
 use Glueful\Extensions\Payvia\Events\ProviderEvent;
 use Glueful\Extensions\Payvia\Repositories\PaymentIntentRepository;
+use Glueful\Extensions\Payvia\Events\PaymentProviderEvent;
 use Glueful\Helpers\Utils;
+use Psr\Container\ContainerInterface;
+use Thallo\Commerce\CommerceIntegrationServiceProvider;
 use Thallo\Commerce\Payments\WebhookOrderSettlementListener;
 
 /**
@@ -75,6 +78,61 @@ final class WebhookOrderSettlementTest extends AppTestCase
         // The strict lane, NOT the fault-isolated bus: a settlement failure must release the
         // webhook's dispatch lease and be retried, never be swallowed and logged.
         self::assertContains(WebhookOrderSettlementListener::class, $classes);
+    }
+
+    /**
+     * The STALE-COMPILED-CONTAINER fallback, in the shape it actually occurs.
+     *
+     * The first version of this guard probed `has(listener) && !has(TAG)`, which can never be
+     * true (definition and tag are emitted together, and a tagged-iterator entry is bound for any
+     * tag with a contributor) — and `has(TAG)` alone is no better, because
+     * `SubscriptionsServiceProvider` tags its OWN bridge under the same id, so a container
+     * compiled before this listener existed still answers `true`. That is the shape simulated
+     * here: the tag is bound and non-empty, but carries somebody else's listener.
+     */
+    public function testTheBusFallbackEngagesWhenTheStrictLaneDoesNotCarryThisListener(): void
+    {
+        $probe = new \ReflectionMethod(
+            CommerceIntegrationServiceProvider::class,
+            'strictLaneCarriesSettlementListener'
+        );
+        $probe->setAccessible(true);
+
+        // A lane bound, non-empty, and carrying a DIFFERENT strict listener — the realistic
+        // stale-container shape. The guard must read it as "settlement is not wired".
+        $foreignLane = $this->containerWithStrictLane([$this->foreignStrictListener()]);
+        self::assertFalse($probe->invoke(null, $foreignLane), 'a foreign-only lane is not wired');
+
+        // An empty lane, and no tag at all, are the same answer.
+        self::assertFalse($probe->invoke(null, $this->containerWithStrictLane([])));
+        self::assertFalse($probe->invoke(null, $this->containerWithStrictLane(null)));
+
+        // And the real container — where this pack DID contribute — must read as wired, so the
+        // fallback never fires (and never double-registers) on an ordinary boot.
+        self::assertTrue($probe->invoke(null, $this->container()));
+    }
+
+    /**
+     * The fallback's construction path does not depend on the listener id being bound: on the
+     * stale-container shape the definition itself is what went missing, so `boot()` calls the
+     * public factory directly. Pinned because a `$container->get(listener)` there would throw
+     * into the catch and disable the fallback silently.
+     */
+    public function testTheFallbackListenerCanBeBuiltStraightFromTheFactory(): void
+    {
+        $listener = CommerceIntegrationServiceProvider::makeWebhookOrderSettlementListener(
+            $this->container()
+        );
+
+        self::assertInstanceOf(WebhookOrderSettlementListener::class, $listener);
+
+        // And the bus adapter it is registered under is a real, working entry point: same
+        // supports()/handle() pair, reached through a PaymentProviderEvent envelope.
+        [$order, $linkUuid, $reference] = $this->pendingOrderWithLinkAndIntent();
+        $listener->onProviderEvent(new PaymentProviderEvent($this->successFor($order, $reference)));
+
+        self::assertSame('paid', $this->orderStatus($order['uuid']));
+        self::assertSame('consumed', $this->linkStatus($linkUuid));
     }
 
     public function testOnlyVerifiedPaymentSuccessEventsCarryingAReferenceAreSupported(): void
@@ -276,6 +334,48 @@ final class WebhookOrderSettlementTest extends AppTestCase
     // ==================================================================
     // helpers
     // ==================================================================
+
+    /**
+     * A minimal container standing in for one whose strict-lane tag resolves to `$lane`
+     * (`null` = the tag is not bound at all). Only `has()`/`get()` are exercised by the probe.
+     */
+    private function containerWithStrictLane(?array $lane): ContainerInterface
+    {
+        return new class ($lane) implements ContainerInterface {
+            /** @param list<object>|null $lane */
+            public function __construct(private readonly ?array $lane)
+            {
+            }
+
+            public function has(string $id): bool
+            {
+                return $id === StrictPaymentEventListener::CONTAINER_TAG && $this->lane !== null;
+            }
+
+            public function get(string $id): mixed
+            {
+                if (!$this->has($id)) {
+                    throw new \RuntimeException("Unbound: {$id}");
+                }
+
+                return $this->lane;
+            }
+        };
+    }
+
+    private function foreignStrictListener(): StrictPaymentEventListener
+    {
+        return new class implements StrictPaymentEventListener {
+            public function supports(PaymentProviderEventInterface $event): bool
+            {
+                return false;
+            }
+
+            public function handle(PaymentProviderEventInterface $event): void
+            {
+            }
+        };
+    }
 
     private function listener(): WebhookOrderSettlementListener
     {

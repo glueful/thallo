@@ -26,8 +26,6 @@ import { toApiError } from '@/api/errors'
 const props = defineProps<{
   order: CommerceOrder
   open: boolean
-  /** The order-level `exposure.requires_risk_acknowledgement` when the caller knows it. */
-  sessionExposed?: boolean
 }>()
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 
@@ -36,8 +34,8 @@ const error = ref<string | null>(null)
 /** Set by the server's own refusal; never cleared by anything but a reopen. */
 const riskRefused = ref(false)
 
-/** Show the acknowledgement step when the server demanded it, or when we already know it will. */
-const needsAcknowledgement = computed(() => riskRefused.value || props.sessionExposed === true)
+/** Show the acknowledgement step once the SERVER has demanded it. */
+const needsAcknowledgement = computed(() => riskRefused.value)
 
 // Clear any stale error/refusal from a previous open the moment this reopens.
 watch(
