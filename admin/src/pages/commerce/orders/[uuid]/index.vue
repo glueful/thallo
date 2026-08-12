@@ -24,6 +24,7 @@ import { toApiError } from '@/api/errors'
 import OrderActions from '../components/OrderActions.vue'
 import OrderCancelDialog from '../components/OrderCancelDialog.vue'
 import OrderPaymentCard from '../components/OrderPaymentCard.vue'
+import OrderPaymentLinkCard from '../components/OrderPaymentLinkCard.vue'
 import OrderStickyRail from '../components/OrderStickyRail.vue'
 import OrderNotes from '../components/OrderNotes.vue'
 import CopyButton from '@/components/CopyButton.vue'
@@ -515,6 +516,14 @@ const billingDisplay = computed(() => {
                refunded-total aggregate. Self-querying — see OrderPaymentCard.vue. -->
           <div id="section-payments">
             <OrderPaymentCard :order-uuid="uuid" />
+          </div>
+
+          <!-- Payment link (payment-links Task 13): ONLY for an admin-origin order still awaiting
+               payment — the exact pair the engine's own mint accepts. Gated here so the card's
+               status query never fires for an order that could not carry a link (the card
+               re-asserts the same guard itself, so it can never render out of context). -->
+          <div v-if="order.origin === 'admin' && order.status === 'pending_payment'" id="section-payment-link">
+            <OrderPaymentLinkCard :order="order" :can-manage="canManage" />
           </div>
 
           <!-- Refunds (Task 13c) — per-order GET, amounts via useMoney. A completed refund appears

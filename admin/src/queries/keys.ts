@@ -81,6 +81,10 @@ export const qk = {
   // and from `commerceOrderSearch()` (the finalized-order list, which stays draft-blind).
   commerceDraftsList: (page: number, perPage: number) => ['commerce-drafts-list', page, perPage] as const,
   commerceOrderPayments: (orderUuid: string) => ['commerce-order-payments', orderUuid] as const,
+  // Payment links Task 13: the order's payment-link STATUS read (`GET /orders/{uuid}/payment-link`).
+  // Its own prefix — a link's lifecycle is independent of the payment/attempt history above it,
+  // and the one-time minted URL is never cached under this (or any) key.
+  commerceOrderPaymentLink: (orderUuid: string) => ['commerce-order-payment-link', orderUuid] as const,
   commerceOrderRefunds: (orderUuid: string) => ['commerce-order-refunds', orderUuid] as const,
   commerceRefunds: () => ['commerce-refunds'] as const,
   commerceOrderNotes: (orderUuid: string) => ['commerce-order-notes', orderUuid] as const,
