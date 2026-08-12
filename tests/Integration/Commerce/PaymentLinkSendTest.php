@@ -485,6 +485,8 @@ final class PaymentLinkSendTest extends AppTestCase
         $data = $this->data($replay);
         self::assertTrue($data['receipt']['replayed']);
         self::assertSame('sent', $data['receipt']['status']);
+        self::assertTrue($this->success($replay), 'replaying a SENT delivery is a success');
+        self::assertNull($data['recovery'], 'a replayed success needs no recovery instruction');
         self::assertSame($first['receipt']['delivery_uuid'], $data['receipt']['delivery_uuid']);
         self::assertNull($data['url'], 'a replay NEVER carries a raw URL');
         self::assertNull($data['link'], 'a replay never re-mints, so there is no fresh link to report');
@@ -492,6 +494,92 @@ final class PaymentLinkSendTest extends AppTestCase
         self::assertCount(1, $this->channelCalls(), 'a replay must not resend');
         self::assertSame(1, (int) $this->connection()->table('commerce_payment_links')->count());
         self::assertSame(1, $this->deliveryCount());
+    }
+
+    /**
+     * The state the literal-200 version got exactly backwards: a key whose first attempt FAILED
+     * to deliver. The operator has lost the URL — the original 502 body was its only copy, and a
+     * replay never re-exposes plaintext — so this answer must read as a failure AND say what to
+     * do next, rather than as a 200 `success:true` carrying a `failed` receipt.
+     */
+    public function testReplayingAFailedDeliveryAnswersFailureSemanticsAndInstructsRecovery(): void
+    {
+        $order = $this->seedPayableOrder();
+        $controller = $this->controller(channel: $this->failingChannel());
+
+        $first = $controller->send($this->request(['mode' => 'regenerate'], self::KEY), $order);
+        self::assertSame(502, $first->getStatusCode());
+        self::assertIsString($this->data($first)['url']);
+
+        $replay = $controller->send($this->request(['mode' => 'regenerate'], self::KEY), $order);
+
+        self::assertSame(502, $replay->getStatusCode(), (string) $replay->getContent());
+        self::assertFalse($this->success($replay));
+        $data = $this->data($replay);
+        self::assertTrue($data['receipt']['replayed']);
+        self::assertSame('failed', $data['receipt']['status']);
+        self::assertSame(PaymentRequestSendResult::SEND_FAILED, $data['receipt']['error_code']);
+        self::assertNull($data['url'], 'a replay never re-exposes the URL, which is why recovery is needed');
+        self::assertSame(AdminPaymentLinkSendController::RECOVERY_NEW_KEY_OR_REGENERATE, $data['recovery']);
+
+        self::assertCount(1, $this->channelCalls(), 'a replayed failure must not resend either');
+        self::assertSame(1, $this->deliveryCount());
+    }
+
+    /**
+     * The same asymmetry on the other family of recorded failures: a MINT refusal. Its first
+     * answer was a 409 `order_not_pending_payment`; the replay must keep that status rather than
+     * promoting a recorded refusal to a success.
+     */
+    public function testReplayingAFailedMintRefusalKeepsTheRefusalsOwnStatus(): void
+    {
+        $order = $this->seedPayableOrder(['status' => 'paid']);
+
+        $first = $this->send($order, ['mode' => 'regenerate']);
+        self::assertSame(409, $first->getStatusCode());
+        self::assertSame('order_not_pending_payment', $this->reason($first));
+
+        $replay = $this->send($order, ['mode' => 'regenerate']);
+
+        self::assertSame(409, $replay->getStatusCode(), (string) $replay->getContent());
+        self::assertFalse($this->success($replay));
+        $data = $this->data($replay);
+        self::assertTrue($data['receipt']['replayed']);
+        self::assertSame('failed', $data['receipt']['status']);
+        self::assertSame('order_not_pending_payment', $data['receipt']['error_code']);
+        self::assertSame(AdminPaymentLinkSendController::RECOVERY_NEW_KEY_OR_REGENERATE, $data['recovery']);
+        self::assertSame([], $this->channelCalls());
+    }
+
+    /**
+     * The CAS-loss race, driven for real rather than described: the channel itself transitions the
+     * claimed row to `indeterminate` (exactly what a concurrent replay past the stale window does)
+     * and THEN reports a successful send. `markSent()`'s compare-and-set on `processing` therefore
+     * changes nothing, and the response must be derived from the post-CAS row — never from the
+     * branch, which believes it just sent.
+     */
+    public function testASuccessfulSendThatLostTheCasReportsTheRowRatherThanTheBranch(): void
+    {
+        $order = $this->seedPayableOrder();
+        $connection = $this->connection();
+        $flipToIndeterminate = static function () use ($connection): void {
+            $connection->table(self::DELIVERIES)
+                ->where('status', '=', 'processing')
+                ->update(['status' => 'indeterminate']);
+        };
+
+        $response = $this->controller(channel: $this->hookedChannel($flipToIndeterminate))
+            ->send($this->request(['mode' => 'regenerate'], self::KEY), $order);
+
+        self::assertSame(200, $response->getStatusCode(), (string) $response->getContent());
+        $data = $this->data($response);
+        self::assertSame('indeterminate', $data['receipt']['status']);
+        self::assertStringContainsString(
+            'never completed',
+            $this->message($response),
+            'the message must describe the RECORDED state, not the branch that believed it sent',
+        );
+        self::assertSame(AdminPaymentLinkSendController::RECOVERY_NEW_KEY_OR_REGENERATE, $data['recovery']);
     }
 
     public function testTheSameKeyWithADifferentRequestIs409(): void
@@ -684,6 +772,48 @@ final class PaymentLinkSendTest extends AppTestCase
             'transport_exception',
             'SMTP connect to smtp.example:587 refused (credentials: hunter2)',
         ));
+    }
+
+    /**
+     * A recording channel that runs `$before` — a real, committed database mutation — at the exact
+     * instant the transport would be doing its work, then reports success. That is the only moment
+     * a concurrent transition can land between the claim and `markSent()`'s compare-and-set.
+     */
+    private function hookedChannel(callable $before): RecordingRichEmailChannel
+    {
+        return new class ($before) extends RecordingRichEmailChannel {
+            /** @var callable */
+            private $before;
+
+            public function __construct(callable $before)
+            {
+                parent::__construct(\Glueful\Notifications\Results\NotificationResult::success('provider-message-9'));
+                $this->before = $before;
+            }
+
+            public function sendNotification(
+                \Glueful\Notifications\Contracts\Notifiable $notifiable,
+                array $data,
+            ): \Glueful\Notifications\Results\NotificationResult {
+                ($this->before)();
+
+                return parent::sendNotification($notifiable, $data);
+            }
+        };
+    }
+
+    private function success(Response $response): bool
+    {
+        $decoded = (array) json_decode((string) $response->getContent(), true);
+
+        return (bool) ($decoded['success'] ?? false);
+    }
+
+    private function message(Response $response): string
+    {
+        $decoded = (array) json_decode((string) $response->getContent(), true);
+
+        return (string) ($decoded['message'] ?? '');
     }
 
     private function publicUrls(): ThalloPaymentLinkPublicUrlProvider

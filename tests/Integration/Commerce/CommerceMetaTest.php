@@ -13,8 +13,12 @@ use Glueful\Helpers\Utils;
 use Glueful\Http\Exceptions\Handler;
 use Glueful\Http\Response;
 use Symfony\Component\HttpFoundation\Request;
+use Glueful\Notifications\Services\ChannelManager;
+use Thallo\Commerce\Email\RichEmailAvailability;
 use Thallo\Commerce\Http\CommerceConfigurationException;
 use Thallo\Commerce\Http\CommerceMetaController;
+use Thallo\Commerce\Shop\StorefrontPreviewUrlBuilder;
+use Thallo\Contracts\Authorization\PermissionRequirementAuthority;
 use Thallo\Tenancy\System\SystemFlags;
 
 /**
@@ -105,6 +109,45 @@ final class CommerceMetaTest extends AppTestCase
 
         self::assertTrue($data['can_view'], 'commerce.manage must satisfy can_view via implication');
         self::assertTrue($data['can_manage']);
+    }
+
+    // ------------------------------------------------------------------
+    // email_available — MANDATORY, both cases (payment links Task 12, spec §2.4)
+    // ------------------------------------------------------------------
+
+    public function testEmailAvailableIsTrueWhenTheInstallHasARichEmailChannel(): void
+    {
+        $data = $this->data($this->controller()->meta($this->userRequest($this->userGranted(['commerce.view']))));
+
+        self::assertArrayHasKey('email_available', $data);
+        self::assertTrue(
+            $data['email_available'],
+            'this install ships glueful/email-notification, whose EmailChannel is a rich channel',
+        );
+    }
+
+    /**
+     * The FALSE case, driven through a controller built over an availability authority with no
+     * `email` channel registered at all — the state an install without a mail extension is in.
+     * The field must still be PRESENT (it is mandatory, not conditional) and the endpoint must
+     * still answer 200: spec §2.4 is explicit that a missing rich channel is a reported state and
+     * a send refusal, never a boot failure or a missing key.
+     */
+    public function testEmailAvailableIsFalseAndStillPresentWhenNoRichEmailChannelIsRegistered(): void
+    {
+        $controller = new CommerceMetaController(
+            $this->appContext(),
+            $this->container()->get(PermissionRequirementAuthority::class),
+            $this->container()->get(StorefrontPreviewUrlBuilder::class),
+            new RichEmailAvailability(new ChannelManager()),
+        );
+
+        $response = $controller->meta($this->userRequest($this->userGranted(['commerce.view'])));
+
+        self::assertSame(200, $response->getStatusCode());
+        $data = $this->data($response);
+        self::assertArrayHasKey('email_available', $data);
+        self::assertFalse($data['email_available']);
     }
 
     public function testUserWithNeitherPermissionSeesBothFlagsFalse(): void

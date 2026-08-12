@@ -17,8 +17,12 @@ use Glueful\Notifications\Results\NotificationResult;
  * (and would therefore store a live bearer token). This double is what makes "exactly one call,
  * to exactly that method, with exactly this data" an assertion rather than an inspection, while
  * keeping a genuine SMTP transport out of the suite.
+ *
+ * Deliberately NOT `final`: a test that needs to land a real, committed database mutation at the
+ * exact instant the transport would be working (proving a compare-and-set race) subclasses this
+ * and wraps `sendNotification()`, rather than reimplementing the whole channel contract.
  */
-final class RecordingRichEmailChannel implements RichNotificationChannel
+class RecordingRichEmailChannel implements RichNotificationChannel
 {
     /** @var list<array{notifiable:Notifiable, data:array<string,mixed>}> */
     public array $calls = [];
