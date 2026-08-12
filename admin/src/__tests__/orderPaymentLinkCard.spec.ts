@@ -27,7 +27,7 @@ const URL_2 = `https://shop.test/pay/${TOKEN_2}`
 const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
 vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
 
-const metaData = ref({
+const metaData = ref<Record<string, unknown> | undefined>({
   currency: 'USD',
   currency_exponent: 2,
   shop_index_url: '',
@@ -37,13 +37,15 @@ const metaData = ref({
   can_attach_user: false,
   email_available: true,
 })
+const metaStatus = ref<'pending' | 'error' | 'success'>('success')
 vi.mock('@/queries/commerceMeta', () => ({
-  useCommerceMeta: () => ({ data: metaData }),
+  useCommerceMeta: () => ({ data: metaData, status: metaStatus }),
 }))
 
 // The `payment_request` switch rides the existing order-email settings surface (default OFF
 // server-side — it emails a live bearer credential).
-const emailSettings = ref<{ templates: { template: string; key: string; enabled: { value: boolean; default: boolean; overridden: boolean } }[]; commerce_mailer_active: boolean }>({
+const emailSettingsStatus = ref<'pending' | 'error' | 'success'>('success')
+const emailSettings = ref<undefined | { templates: { template: string; key: string; enabled: { value: boolean; default: boolean; overridden: boolean } }[]; commerce_mailer_active: boolean }>({
   templates: [
     {
       template: 'payment_request',
@@ -57,7 +59,7 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceSettings')>()
   return {
     ...actual,
-    useCommerceEmailSettings: () => ({ data: emailSettings, status: ref('success') }),
+    useCommerceEmailSettings: () => ({ data: emailSettings, status: emailSettingsStatus }),
   }
 })
 
@@ -69,16 +71,18 @@ const linkStatusState = ref<'pending' | 'error' | 'success'>('success')
 const createMock = vi.hoisted(() => vi.fn())
 const revokeMock = vi.hoisted(() => vi.fn())
 const sendMock = vi.hoisted(() => vi.fn())
+const invalidateMock = vi.hoisted(() => vi.fn())
 vi.mock('@/queries/commercePaymentLinks', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commercePaymentLinks')>()
   return {
     ...actual,
     useOrderPaymentLink: () => ({ data: linkStatus, status: linkStatusState }),
-    useOrderPaymentLinkMutations: () => ({
-      create: { mutateAsync: createMock, isLoading: ref(false) },
-      revoke: { mutateAsync: revokeMock, isLoading: ref(false) },
-      send: { mutateAsync: sendMock, isLoading: ref(false) },
-    }),
+    useOrderPaymentLinkInvalidation: () => invalidateMock,
+    // The three writes are plain awaited functions in the card (never `useMutation()` — see
+    // orderPaymentLinkCustody.spec.ts for why), so they are mocked as such.
+    createOrderPaymentLink: createMock,
+    revokeOrderPaymentLink: revokeMock,
+    sendOrderPaymentLink: sendMock,
   }
 })
 
@@ -249,9 +253,13 @@ beforeEach(() => {
   }
   linkStatus.value = status({ link: null, exposure: { reason: 'none', blocks_automatic_cancellation: false, requires_risk_acknowledgement: false } })
   linkStatusState.value = 'success'
+  metaStatus.value = 'success'
+  emailSettingsStatus.value = 'success'
   createMock.mockReset()
   revokeMock.mockReset()
   sendMock.mockReset()
+  invalidateMock.mockReset()
+  invalidateMock.mockResolvedValue(undefined)
   notify.success.mockReset()
   notify.error.mockReset()
   routeState.params = { uuid: 'o1' }
@@ -322,7 +330,7 @@ describe('payment-link create and one-time custody', () => {
     await wrapper.find('[data-test="payment-link-create"]').trigger('click')
     await flushPromises()
 
-    expect(createMock).toHaveBeenCalledWith({ uuid: 'o1', ttlDays: 14 })
+    expect(createMock).toHaveBeenCalledWith('o1', 14)
   })
 
   it('clamps the TTL to 1..30 in the UI and in the request', async () => {
@@ -334,14 +342,14 @@ describe('payment-link create and one-time custody', () => {
     expect((wrapper.find('[data-test="payment-link-ttl"]').element as HTMLInputElement).value).toBe('30')
     await wrapper.find('[data-test="payment-link-create"]').trigger('click')
     await flushPromises()
-    expect(createMock).toHaveBeenLastCalledWith({ uuid: 'o1', ttlDays: 30 })
+    expect(createMock).toHaveBeenLastCalledWith('o1', 30)
 
     await wrapper.find('[data-test="payment-link-ttl"]').setValue('0')
     await wrapper.find('[data-test="payment-link-ttl"]').trigger('blur')
     expect((wrapper.find('[data-test="payment-link-ttl"]').element as HTMLInputElement).value).toBe('1')
     await wrapper.find('[data-test="payment-link-create"]').trigger('click')
     await flushPromises()
-    expect(createMock).toHaveBeenLastCalledWith({ uuid: 'o1', ttlDays: 1 })
+    expect(createMock).toHaveBeenLastCalledWith('o1', 1)
   })
 
   it('renders the raw URL EXACTLY ONCE, copyable, with the shown-once warning', async () => {
@@ -383,6 +391,31 @@ describe('payment-link create and one-time custody', () => {
 
     expect(wrapper.find('[data-test="payment-link-url"]').exists()).toBe(false)
     expect(wrapper.html()).not.toContain(TOKEN)
+  })
+
+  // Fix round 1 (minor 6): the guard is in the handler, not merely in the button's loading prop.
+  it('mints ONCE on a double-click', async () => {
+    createMock.mockResolvedValue(mint())
+    const wrapper = mountCard()
+    const button = wrapper.find('[data-test="payment-link-create"]')
+    button.trigger('click')
+    button.trigger('click')
+    await flushPromises()
+
+    expect(createMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('regenerates ONCE on a double-clicked confirmation', async () => {
+    linkStatus.value = status()
+    createMock.mockResolvedValue(mint(URL_2))
+    const wrapper = mountCard()
+    await wrapper.find('[data-test="payment-link-regenerate"]').trigger('click')
+    const confirm = wrapper.find('[data-test="payment-link-regenerate-confirm"]')
+    confirm.trigger('click')
+    confirm.trigger('click')
+    await flushPromises()
+
+    expect(createMock).toHaveBeenCalledTimes(1)
   })
 
   it('surfaces a create refusal inline', async () => {
@@ -460,7 +493,7 @@ describe('payment-link regenerate and revoke', () => {
     await wrapper.find('[data-test="payment-link-regenerate-confirm"]').trigger('click')
     await flushPromises()
 
-    expect(createMock).toHaveBeenCalledWith({ uuid: 'o1', ttlDays: 7 })
+    expect(createMock).toHaveBeenCalledWith('o1', 7)
     expect(wrapper.find('[data-test="payment-link-url"]').text()).toBe(URL_2)
     expect(wrapper.find('[data-test="payment-link-regenerate-dialog"]').exists()).toBe(false)
   })
@@ -545,7 +578,7 @@ describe('payment-link send preconditions', () => {
     metaData.value = { ...metaData.value, email_available: true }
 
     emailSettings.value = {
-      ...emailSettings.value,
+      commerce_mailer_active: false,
       templates: [
         {
           template: 'payment_request',
@@ -562,10 +595,50 @@ describe('payment-link send preconditions', () => {
 
   it('lists all three reasons independently when all three are missing', () => {
     metaData.value = { ...metaData.value, email_available: false }
-    emailSettings.value = { ...emailSettings.value, templates: [] }
+    emailSettings.value = {
+      templates: [],
+      commerce_mailer_active: false,
+    }
     const wrapper = mountCard({ email: null })
 
     expect(wrapper.findAll('[data-test="payment-link-send-reason"]')).toHaveLength(3)
+  })
+
+  // Fix round 1 (Important 3): an unresolved probe is NOT a `false`. While /commerce/meta or
+  // /commerce/emails are in flight the card must not state that the store has no email channel or
+  // has switched the template off — those are assertions about a misconfiguration that may not
+  // exist.
+  it.each([
+    ['meta', () => (metaData.value = undefined)],
+    ['email settings', () => (emailSettings.value = undefined)],
+    ['both', () => {
+      metaData.value = undefined
+      emailSettings.value = undefined
+    }],
+  ])('says it is still checking (and asserts nothing) while %s is loading', (_label, unresolve) => {
+    metaStatus.value = 'pending'
+    emailSettingsStatus.value = 'pending'
+    unresolve()
+    const wrapper = mountCard()
+
+    expect(wrapper.find('[data-test="payment-link-send-checking"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-test="payment-link-send-reason"]')).toHaveLength(0)
+    expect(wrapper.find('[data-test="payment-link-send-regenerate"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled')).toBeDefined()
+  })
+
+  it('reports a FAILED probe as its own reason rather than checking forever', () => {
+    metaData.value = undefined
+    metaStatus.value = 'error'
+    emailSettings.value = undefined
+    emailSettingsStatus.value = 'error'
+    const wrapper = mountCard()
+
+    expect(wrapper.find('[data-test="payment-link-send-checking"]').exists()).toBe(false)
+    const reasons = wrapper.findAll('[data-test="payment-link-send-reason"]').map((r) => r.text())
+    expect(reasons).toHaveLength(2)
+    expect(reasons.join(' ')).toMatch(/couldn’t check/i)
+    expect(wrapper.find('[data-test="payment-link-send-regenerate"]').attributes('disabled')).toBeDefined()
   })
 })
 
@@ -599,10 +672,10 @@ describe('payment-link send: current', () => {
     await flushPromises()
 
     expect(sendMock).toHaveBeenCalledTimes(1)
-    const arg = sendMock.mock.calls[0][0]
-    expect(arg.uuid).toBe('o1')
-    expect(arg.input).toEqual({ mode: 'current', token: TOKEN })
-    expect(typeof arg.idempotencyKey).toBe('string')
+    const [uuid, input, idempotencyKey] = sendMock.mock.calls[0]
+    expect(uuid).toBe('o1')
+    expect(input).toEqual({ mode: 'current', token: TOKEN })
+    expect(typeof idempotencyKey).toBe('string')
     expect(wrapper.find('[data-test="payment-link-send-status"]').text()).toContain('sent')
   })
 
@@ -645,7 +718,7 @@ describe('payment-link send: current', () => {
     await flushPromises()
 
     expect(sendMock).toHaveBeenCalledTimes(2)
-    expect(sendMock.mock.calls[1][0].idempotencyKey).toBe(sendMock.mock.calls[0][0].idempotencyKey)
+    expect(sendMock.mock.calls[1][2]).toBe(sendMock.mock.calls[0][2])
   })
 
   it('uses a FRESH key for a new intent after a successful send', async () => {
@@ -658,7 +731,61 @@ describe('payment-link send: current', () => {
     await flushPromises()
 
     expect(sendMock).toHaveBeenCalledTimes(2)
-    expect(sendMock.mock.calls[1][0].idempotencyKey).not.toBe(sendMock.mock.calls[0][0].idempotencyKey)
+    expect(sendMock.mock.calls[1][2]).not.toBe(sendMock.mock.calls[0][2])
+  })
+
+  // Fix round 1 (Important 2): the ledger fingerprint is (order, mode, recipient, ttl_days) and
+  // carries NO link, so a key held across a regenerate would replay the OLD link's failure and
+  // email nothing for the link now on screen. A different link is a different intent.
+  it('starts a NEW send intent after a regenerate, so the old failure is never replayed', async () => {
+    sendMock.mockResolvedValue(
+      envelope({
+        http_status: 502,
+        message: 'the payment link could not be emailed.',
+        receipt: { ...envelope().receipt, status: 'failed', error_code: 'send_failed' },
+      }),
+    )
+    const wrapper = await withVisibleUrl()
+    await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
+    await flushPromises()
+
+    createMock.mockResolvedValue(mint(URL_2))
+    await wrapper.find('[data-test="payment-link-regenerate"]').trigger('click')
+    await wrapper.find('[data-test="payment-link-regenerate-confirm"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
+    await flushPromises()
+
+    expect(sendMock).toHaveBeenCalledTimes(2)
+    expect(sendMock.mock.calls[1][1]).toEqual({ mode: 'current', token: TOKEN_2 })
+    expect(sendMock.mock.calls[1][2]).not.toBe(sendMock.mock.calls[0][2])
+  })
+
+  it('starts a new send intent after a revoke too', async () => {
+    sendMock.mockResolvedValue(
+      envelope({
+        http_status: 502,
+        receipt: { ...envelope().receipt, status: 'failed', error_code: 'send_failed' },
+      }),
+    )
+    revokeMock.mockResolvedValue(undefined)
+    const wrapper = await withVisibleUrl()
+    await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.find('[data-test="payment-link-revoke"]').trigger('click')
+    await wrapper.find('[data-test="payment-link-revoke-confirm"]').trigger('click')
+    await flushPromises()
+
+    createMock.mockResolvedValue(mint(URL_2))
+    await wrapper.find('[data-test="payment-link-regenerate"]').trigger('click')
+    await wrapper.find('[data-test="payment-link-regenerate-confirm"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
+    await flushPromises()
+
+    expect(sendMock.mock.calls[1][2]).not.toBe(sendMock.mock.calls[0][2])
   })
 
   it('renders a replayed receipt with its recovery instruction', async () => {
@@ -721,7 +848,7 @@ describe('payment-link send: regenerate', () => {
     await flushPromises()
 
     expect(sendMock).toHaveBeenCalledTimes(1)
-    expect(sendMock.mock.calls[0][0].input).toEqual({ mode: 'regenerate', ttl_days: 7 })
+    expect(sendMock.mock.calls[0][1]).toEqual({ mode: 'regenerate', ttl_days: 7 })
     expect(wrapper.find('[data-test="payment-link-send-status"]').text()).toContain('sent')
   })
 

@@ -521,10 +521,14 @@ const billingDisplay = computed(() => {
           <!-- Payment link (payment-links Task 13): ONLY for an admin-origin order still awaiting
                payment — the exact pair the engine's own mint accepts. Gated here so the card's
                status query never fires for an order that could not carry a link (the card
-               re-asserts the same guard itself, so it can never render out of context). -->
-          <div v-if="order.origin === 'admin' && order.status === 'pending_payment'" id="section-payment-link">
-            <OrderPaymentLinkCard :order="order" :can-manage="canManage" />
-          </div>
+               re-asserts the same guard itself, so it can never render out of context). No
+               section id: `OrderStickyRail`'s entries are the unconditional sections, and an
+               anchor for a block that is usually absent would be a dead link on most orders. -->
+          <OrderPaymentLinkCard
+            v-if="order.origin === 'admin' && order.status === 'pending_payment'"
+            :order="order"
+            :can-manage="canManage"
+          />
 
           <!-- Refunds (Task 13c) — per-order GET, amounts via useMoney. A completed refund appears
                in the status timeline below too (RefundService::applyCompletion() records a

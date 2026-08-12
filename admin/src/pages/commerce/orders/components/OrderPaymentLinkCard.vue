@@ -26,11 +26,14 @@ import { computed, ref } from 'vue'
 import type { CommerceOrder } from '@/queries/commerceOrders'
 import {
   clampPaymentLinkTtl,
+  createOrderPaymentLink,
   newPaymentLinkIdempotencyKey,
   paymentLinkRefusalReason,
   paymentLinkTokenFromUrl,
+  revokeOrderPaymentLink,
+  sendOrderPaymentLink,
   useOrderPaymentLink,
-  useOrderPaymentLinkMutations,
+  useOrderPaymentLinkInvalidation,
   PAYMENT_LINK_TTL_DEFAULT,
   PAYMENT_LINK_TTL_MAX,
   PAYMENT_LINK_TTL_MIN,
@@ -51,9 +54,19 @@ const eligible = computed(
 )
 
 const { data, status } = useOrderPaymentLink(() => props.order.uuid, eligible)
-const { data: meta } = useCommerceMeta()
-const { data: emailSettings } = useCommerceEmailSettings()
-const { create, revoke, send } = useOrderPaymentLinkMutations()
+const metaQuery = useCommerceMeta()
+const emailSettingsQuery = useCommerceEmailSettings()
+const meta = metaQuery.data
+const emailSettings = emailSettingsQuery.data
+const invalidatePaymentLink = useOrderPaymentLinkInvalidation()
+
+// The three writes are AWAITED plain functions, never `useMutation()` — see
+// `useOrderPaymentLinkInvalidation()`'s docblock: a mutation entry would park the minted URL (and
+// a current-send's raw token, as its `vars`) in the global `_pc_mutation` Pinia store for gcTime,
+// outliving this component and every custody control on this card. In-flight state is tracked
+// here instead, which is all the bundle ever gave us.
+const mintInFlight = ref(false)
+const revokeInFlight = ref(false)
 
 const link = computed(() => data.value?.link ?? null)
 
@@ -94,6 +107,24 @@ const sendRegenerateOpen = ref(false)
 // (order email present) AND (the `payment_request` switch on) AND (a rich email channel exists).
 // Every failing one is listed, so an operator fixes all of them in one pass rather than one
 // refusal at a time.
+//
+// Two of the three answer to a QUERY, and an unresolved query is not a `false`. Reading `meta` or
+// the email settings while they are still in flight would have this card state, in its own words,
+// that the store has no email channel or has switched the template off — assertions about a
+// misconfiguration that may not exist, on a surface whose whole job is honest copy. So the
+// preconditions have a third state: not yet known. It renders as such, and lists nothing.
+const metaLoaded = computed(() => meta.value !== undefined)
+const emailSettingsLoaded = computed(() => emailSettings.value !== undefined)
+// A FAILED probe is knowable-and-negative rather than pending — otherwise the card waits forever.
+const metaFailed = computed(() => metaQuery.status?.value === 'error')
+const emailSettingsFailed = computed(() => emailSettingsQuery.status?.value === 'error')
+
+const sendPreconditionsPending = computed(
+  () =>
+    (!metaLoaded.value && !metaFailed.value) ||
+    (!emailSettingsLoaded.value && !emailSettingsFailed.value),
+)
+
 const paymentRequestEnabled = computed(
   () =>
     emailSettings.value?.templates.find((t) => t.template === 'payment_request')?.enabled.value ===
@@ -102,21 +133,28 @@ const paymentRequestEnabled = computed(
 const emailAvailable = computed(() => meta.value?.email_available === true)
 
 const sendReasons = computed<string[]>(() => {
+  if (sendPreconditionsPending.value) return []
   const reasons: string[] = []
   if (!props.order.email) {
     reasons.push('This order has no email address, so there is nobody to send the link to.')
   }
-  if (!emailAvailable.value) {
+  if (metaFailed.value) {
+    reasons.push('Couldn’t check whether this installation can send email. Reload and try again.')
+  } else if (!emailAvailable.value) {
     reasons.push('This installation has no rich email channel, so nothing can be emailed.')
   }
-  if (!paymentRequestEnabled.value) {
+  if (emailSettingsFailed.value) {
+    reasons.push('Couldn’t check this store’s email settings. Reload and try again.')
+  } else if (!paymentRequestEnabled.value) {
     reasons.push(
       'The payment request email is switched off for this store (Settings → Emails).',
     )
   }
   return reasons
 })
-const canSend = computed(() => props.canManage && sendReasons.value.length === 0)
+const canSend = computed(
+  () => props.canManage && !sendPreconditionsPending.value && sendReasons.value.length === 0,
+)
 
 /** Why current-mode send can't run right now — the URL is the input, and it is one-time. */
 const currentSendReason = computed<string | null>(() => {
@@ -169,29 +207,54 @@ function reportRefusal(e: unknown) {
   if (paymentLinkRefusalReason(e) === 'payment_link_changed') visibleUrl.value = null
 }
 
+/**
+ * A DIFFERENT LINK IS A DIFFERENT INTENT.
+ *
+ * The send ledger's fingerprint is (order, mode, recipient, ttl_days) — deliberately link-free —
+ * so a key held over from a failed send would, after a regenerate, fingerprint identically and the
+ * server would replay the OLD link's recorded failure without emailing the link now on screen.
+ * Every call that changes which link this order has therefore ends the current send intent.
+ */
+function endSendIntent() {
+  sendKey.value = null
+  sendIntent.value = null
+}
+
 async function mint() {
+  if (mintInFlight.value) return
+  mintInFlight.value = true
   actionError.value = null
   try {
-    const minted = await create.mutateAsync({ uuid: props.order.uuid, ttlDays: effectiveTtl.value })
+    const minted = await createOrderPaymentLink(props.order.uuid, effectiveTtl.value)
     // The ONE assignment of plaintext in this component, straight from the response.
     visibleUrl.value = minted.url
+    endSendIntent()
     regenerateOpen.value = false
+    await invalidatePaymentLink(props.order.uuid)
   } catch (e) {
     reportRefusal(e)
+  } finally {
+    mintInFlight.value = false
   }
 }
 
 async function confirmRevoke() {
+  if (revokeInFlight.value) return
+  revokeInFlight.value = true
   actionError.value = null
   try {
-    await revoke.mutateAsync(props.order.uuid)
+    await revokeOrderPaymentLink(props.order.uuid)
     visibleUrl.value = null
     sendEnvelope.value = null
+    endSendIntent()
     revokeOpen.value = false
+    await invalidatePaymentLink(props.order.uuid)
   } catch (e) {
     // The server stays authoritative (a since-changed status races this into a 409) — the dialog
     // stays open for retry rather than closing as if the revoke had gone through.
     reportRefusal(e)
+  } finally {
+    revokeInFlight.value = false
   }
 }
 
@@ -207,23 +270,19 @@ async function runSend(mode: 'current' | 'regenerate') {
   sendEnvelope.value = null
   const idempotencyKey = keyFor(mode)
   try {
-    const envelope = await send.mutateAsync({
-      uuid: props.order.uuid,
-      input:
-        token !== null
-          ? { mode: 'current', token }
-          : { mode: 'regenerate', ttl_days: effectiveTtl.value },
+    const envelope = await sendOrderPaymentLink(
+      props.order.uuid,
+      token !== null ? { mode: 'current', token } : { mode: 'regenerate', ttl_days: effectiveTtl.value },
       idempotencyKey,
-    })
+    )
     sendEnvelope.value = envelope
     // A regenerate whose DELIVERY failed hands back the new link's one-time URL — the link stays
     // active and this is its only copy, so it takes over the one-time surface above.
     if (envelope.url !== null) visibleUrl.value = envelope.url
-    if (envelope.receipt.status === 'sent') {
-      // Intent complete: a later send is a NEW intent and must not replay this one.
-      sendKey.value = null
-      sendIntent.value = null
-    }
+    // A regenerate minted a new link whatever the delivery outcome, and intent ends on success —
+    // either way the next send addresses a different situation and must not replay this one.
+    if (envelope.receipt.status === 'sent' || mode === 'regenerate') endSendIntent()
+    await invalidatePaymentLink(props.order.uuid)
   } catch (e) {
     reportRefusal(e)
   } finally {
@@ -304,7 +363,7 @@ async function runSend(mode: 'current' | 'regenerate') {
             color="primary"
             icon="i-lucide-link"
             data-test="payment-link-create"
-            :loading="create.isLoading.value"
+            :loading="mintInFlight"
             @click="mint"
           >
             Create payment link
@@ -399,7 +458,16 @@ async function runSend(mode: 'current' | 'regenerate') {
               Regenerate and send
             </UButton>
           </div>
-          <ul v-if="sendReasons.length > 0" class="flex flex-col gap-0.5">
+          <!-- Not yet known is its own state: while the meta/email-settings probes are in flight
+               this card asserts nothing about the store's configuration. -->
+          <p
+            v-if="sendPreconditionsPending"
+            class="text-xs text-muted"
+            data-test="payment-link-send-checking"
+          >
+            Checking whether this store can email payment links…
+          </p>
+          <ul v-else-if="sendReasons.length > 0" class="flex flex-col gap-0.5">
             <li
               v-for="reason in sendReasons"
               :key="reason"
@@ -493,7 +561,7 @@ async function runSend(mode: 'current' | 'regenerate') {
           <UButton
             color="primary"
             data-test="payment-link-regenerate-confirm"
-            :loading="create.isLoading.value"
+            :loading="mintInFlight"
             @click="mint"
           >
             Regenerate link
@@ -522,7 +590,7 @@ async function runSend(mode: 'current' | 'regenerate') {
           <UButton
             color="error"
             data-test="payment-link-revoke-confirm"
-            :loading="revoke.isLoading.value"
+            :loading="revokeInFlight"
             @click="confirmRevoke"
           >
             Revoke link

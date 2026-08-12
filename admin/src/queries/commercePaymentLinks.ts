@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
+import { useQuery, useQueryCache } from '@pinia/colada'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { authFetch } from '@/api/authFetch'
 import { ApiError, apiErrorDetails } from '@/api/errors'
@@ -174,6 +174,11 @@ export function clampPaymentLinkTtl(value: unknown): number {
  * the raw value — a hand-rolled `split('/')` would happily "find" a token in a pasted fragment,
  * a query string, or a non-URL, and hand a live credential to the wrong host. Null means the
  * visible URL cannot be trusted to contain this link's token, and current-mode send must refuse.
+ *
+ * The SCHEME is gated as well as the shape. Today's URLs are server-minted from the configured
+ * public origin, but `new URL()` happily parses `ftp://`, `file://` and friends, and a 64-hex
+ * segment lifted out of one of those is a credential taken from somewhere this store never
+ * published to — not this link's token.
  */
 export function paymentLinkTokenFromUrl(url: string): string | null {
   let parsed: URL
@@ -182,6 +187,7 @@ export function paymentLinkTokenFromUrl(url: string): string | null {
   } catch {
     return null
   }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null
   const segments = parsed.pathname.split('/').filter((s) => s !== '')
   const last = segments.length === 0 ? '' : segments[segments.length - 1]
   return TOKEN_PATTERN.test(last) ? last : null
@@ -300,41 +306,27 @@ export function useOrderPaymentLink(
 }
 
 /**
- * Mint / revoke / send. Every one of them can change what the status read reports (a mint revokes
- * the predecessor; a regenerate-send mints inside the request), so all three invalidate it —
- * and the ORDER itself too, since a link's existence feeds the detail page's exposure-aware
- * cancellation copy.
+ * Invalidation for the three writes, and DELIBERATELY not a `useMutation()` bundle.
+ *
+ * `useMutation()` is the ordinary idiom in this codebase, and it is the wrong tool for exactly
+ * these three calls: colada registers every invocation in the global `_pc_mutation` Pinia store,
+ * keeping the call's `vars` AND its resolved `data` in a cache entry for `gcTime` (60s by
+ * default) — reachable through `useMutationCache().getEntries()`, visible in Pinia devtools, and
+ * outliving the component. For mint that entry would hold the one-time URL; for a `mode=current`
+ * send it would hold the raw token in `vars`. Both would survive dismissing the surface, the
+ * `payment_link_changed` custody drop, and unmount — silently undoing the whole point of the
+ * one-time surface. The card therefore awaits the plain functions above (tracking in-flight state
+ * itself, which is all the bundle contributed) and calls this to invalidate afterwards.
+ *
+ * A mint revokes its predecessor and a regenerate-send mints inside the request, so every write
+ * invalidates the status read — and the ORDER too, since a link's existence feeds the detail
+ * page's exposure-aware cancellation copy.
  */
-export function useOrderPaymentLinkMutations() {
+export function useOrderPaymentLinkInvalidation() {
   const cache = useQueryCache()
 
-  async function invalidate(uuid: string) {
+  return async function invalidate(uuid: string): Promise<void> {
     await cache.invalidateQueries({ key: qk.commerceOrderPaymentLink(uuid) })
     await cache.invalidateQueries({ key: qk.commerceOrder(uuid) })
   }
-
-  const create = useMutation({
-    mutation: (vars: { uuid: string; ttlDays: number | null }) =>
-      createOrderPaymentLink(vars.uuid, vars.ttlDays),
-    onSettled: async (_data, _error, vars) => {
-      await invalidate(vars.uuid)
-    },
-  })
-
-  const revoke = useMutation({
-    mutation: (uuid: string) => revokeOrderPaymentLink(uuid),
-    onSettled: async (_data, _error, uuid) => {
-      await invalidate(uuid)
-    },
-  })
-
-  const send = useMutation({
-    mutation: (vars: { uuid: string; input: PaymentLinkSendInput; idempotencyKey: string }) =>
-      sendOrderPaymentLink(vars.uuid, vars.input, vars.idempotencyKey),
-    onSettled: async (_data, _error, vars) => {
-      await invalidate(vars.uuid)
-    },
-  })
-
-  return { create, revoke, send }
 }

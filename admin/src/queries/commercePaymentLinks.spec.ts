@@ -337,6 +337,11 @@ describe('commerce payment-link query layer', () => {
     expect(paymentLinkTokenFromUrl(`https://shop.test/pay/${'a'.repeat(63)}`)).toBeNull()
     expect(paymentLinkTokenFromUrl(`https://shop.test/pay/${'a'.repeat(65)}`)).toBeNull()
     expect(paymentLinkTokenFromUrl('https://shop.test/')).toBeNull()
+    // Scheme-gated: `new URL()` parses these happily, but a token lifted out of one is a
+    // credential from somewhere this store never published to.
+    expect(paymentLinkTokenFromUrl(`ftp://shop.test/pay/${TOKEN}`)).toBeNull()
+    expect(paymentLinkTokenFromUrl(`file:///tmp/pay/${TOKEN}`)).toBeNull()
+    expect(paymentLinkTokenFromUrl(`http://shop.test/pay/${TOKEN}`)).toBe(TOKEN)
   })
 
   it('newPaymentLinkIdempotencyKey produces distinct 16..128 printable-ASCII keys', async () => {
