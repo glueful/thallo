@@ -126,6 +126,38 @@ final class ShopCsrfTest extends AppTestCase
         self::assertSame(200, $response->getStatusCode());
     }
 
+    /**
+     * PINNED (payment-links strict-origin decision): a `Referrer-Policy: strict-origin` page
+     * sends the ORIGIN ONLY — `https://host/`, no path — so the stock guard's Referer fallback
+     * has to accept that shape or the payment-link POST breaks the moment a browser omits
+     * `Origin`. `normalizeOrigin()` is a plain `parse_url()` keeping scheme/host/port, so it
+     * does; this pins it, because the whole reason the bespoke payment-link guard could be
+     * deleted is that the stock one is sufficient under strict-origin.
+     *
+     * @dataProvider originOnlyReferers
+     */
+    public function testAbsentOriginWithAnOriginOnlyStrictOriginRefererSucceeds(bool $trailingSlash): void
+    {
+        $variant = $this->seedVariant();
+        $origin = rtrim($this->expectedOrigin(), '/');
+
+        $response = $this->postAdd([
+            'HTTP_REFERER' => $trailingSlash ? $origin . '/' : $origin,
+            'HTTP_ACCEPT' => 'application/json',
+        ], $variant);
+
+        self::assertSame(200, $response->getStatusCode());
+    }
+
+    /** @return array<string, array{0: bool}> */
+    public static function originOnlyReferers(): array
+    {
+        return [
+            'what a browser actually sends' => [true],
+            'the same origin with no trailing slash' => [false],
+        ];
+    }
+
     public function testAbsentOriginWithACrossOriginRefererIsRejected(): void
     {
         $response = $this->postAdd(['HTTP_REFERER' => 'https://evil.attacker.test/whatever']);

@@ -19,7 +19,7 @@ use Glueful\Helpers\Utils;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Thallo\Commerce\Http\Shop\ShopPaymentLinkController;
-use Thallo\Commerce\Http\Shop\ShopPaymentLinkCsrfGuard;
+use Thallo\Commerce\Http\Shop\ShopCsrfGuard;
 use Thallo\Commerce\Http\Shop\ShopPaymentLinkHeaders;
 use Thallo\Commerce\Payments\PaymentLinkReturnSigner;
 use Thallo\Commerce\Shop\Contribution\ShopReservedPathContributor;
@@ -103,11 +103,21 @@ final class ShopPaymentLinkTest extends AppTestCase
             );
         }
 
-        // The POST carries the anonymous-checkout provenance policy.
-        self::assertContains(
-            ShopPaymentLinkCsrfGuard::class,
-            (array) ($this->findRoute('POST', '/checkout/pay/{token}/initiate')['middleware'] ?? []),
+        // The POST carries the STOCK anonymous-checkout provenance policy — nothing widened
+        // for this surface. `Referrer-Policy: strict-origin` is what makes that sufficient
+        // (a same-origin form POST still sends a real Origin), and the bespoke
+        // ShopPaymentLinkCsrfGuard wrapper that `no-referrer` used to require is deleted.
+        $initiateMiddleware = (array) ($this->findRoute('POST', '/checkout/pay/{token}/initiate')['middleware'] ?? []);
+        self::assertContains(ShopCsrfGuard::class, $initiateMiddleware);
+        // Deleted, not merely unused. Asserted on the FILE rather than class_exists(), which a
+        // stale composer classmap can answer true for long after the source is gone.
+        self::assertFileDoesNotExist(
+            dirname(__DIR__, 3) . '/packages/thallo-commerce/src/Http/Shop/ShopPaymentLinkCsrfGuard.php',
+            'the payment-link CSRF wrapper must be gone, not merely unused',
         );
+        foreach ($initiateMiddleware as $entry) {
+            self::assertStringNotContainsString('ShopPaymentLinkCsrfGuard', (string) $entry);
+        }
     }
 
     public function testEveryPaymentLinkRouteCarriesAnIpKeyedRateLimitCeiling(): void
@@ -452,34 +462,75 @@ final class ShopPaymentLinkTest extends AppTestCase
         $this->assertPaymentLinkHeaders($response);
     }
 
-    public function testAnOpaqueOriginIsAcceptedOnlyAlongsideSameOriginFetchMetadata(): void
+    /**
+     * PINNED (user decision): under `Referrer-Policy: strict-origin` a same-origin form POST
+     * still carries a real `Origin`, so the STOCK guard's ordinary comparison decides it. No
+     * opaque-`null` reconciliation, no Fetch-Metadata-only acceptance.
+     */
+    public function testModernOriginValidationSucceedsOnTheInitiatePost(): void
     {
-        // `Referrer-Policy: no-referrer` (spec §2.3, mandatory on this page) makes a browser
-        // serialize the form POST's Origin as the opaque `null` and send no Referer at all —
-        // so the plain origin comparison CANNOT be the whole gate here, and Fetch Metadata is.
         [$token, ] = $this->mintedLink();
 
-        $accepted = $this->handle($this->initiatePost($token, [
-            'HTTP_ORIGIN' => 'null',
+        // Not merely "not rejected": it passes THROUGH the guard into the engine, which refuses
+        // with the unavailable state because this harness's canonical origin is not HTTPS.
+        $response = $this->handle($this->initiatePost($token, [
+            'HTTP_ORIGIN' => $this->expectedOrigin(),
             'HTTP_SEC_FETCH_SITE' => 'same-origin',
         ]));
-        $rejected = $this->handle($this->initiatePost($token, [
-            'HTTP_ORIGIN' => 'null',
-            'HTTP_SEC_FETCH_SITE' => 'cross-site',
-        ]));
-        // Some browsers OMIT the header entirely instead of sending the literal `null`; that is
-        // the same shape and gets the same answer.
-        $omitted = $this->handle($this->initiatePost($token, ['HTTP_SEC_FETCH_SITE' => 'same-origin']));
-        $noSignalAtAll = $this->handle($this->initiatePost($token, []));
 
-        // Not merely "not rejected": both pass THROUGH the guard into the engine, which refuses
-        // with the unavailable state because this harness's canonical origin is not HTTPS.
-        self::assertSame(503, $accepted->getStatusCode());
-        self::assertSame(503, $omitted->getStatusCode());
-        self::assertSame(403, $rejected->getStatusCode());
-        // Fetch Metadata alone is never enough when a real Origin/Referer COULD have been sent:
-        // with no signals at all, ShopCsrfGuard's own step 4 still refuses.
-        self::assertSame(403, $noSignalAtAll->getStatusCode());
+        self::assertSame(503, $response->getStatusCode());
+        self::assertNull($response->headers->get('Location'));
+    }
+
+    /**
+     * PINNED: with no `Origin` and no `Sec-Fetch-Site`, the stock guard's Referer fallback is the
+     * only thing left — and `strict-origin` sends exactly an ORIGIN-ONLY Referer
+     * (`https://host/`), never the payment-link path. `ShopCsrfGuard::normalizeOrigin()` is a
+     * plain `parse_url()` that keeps scheme/host/port and discards the path, so the origin-only
+     * form passes; a foreign one does not.
+     */
+    public function testAMissingOriginSucceedsOnlyWithACorrectStrictOriginRefererAndTheTokenIsNeverInIt(): void
+    {
+        [$token, ] = $this->mintedLink();
+
+        // What a strict-origin browser actually sends: the bare origin with a trailing slash.
+        $strictOriginReferer = rtrim($this->expectedOrigin(), '/') . '/';
+        self::assertStringNotContainsString($token, $strictOriginReferer);
+        self::assertStringNotContainsString('/checkout/pay', $strictOriginReferer);
+
+        $accepted = $this->handle($this->initiatePost($token, ['HTTP_REFERER' => $strictOriginReferer]));
+        // The same host with no trailing slash at all is still just an origin, and still passes.
+        $bare = $this->handle($this->initiatePost($token, ['HTTP_REFERER' => rtrim($this->expectedOrigin(), '/')]));
+        $foreign = $this->handle($this->initiatePost($token, ['HTTP_REFERER' => 'https://evil.attacker.test/']));
+        $none = $this->handle($this->initiatePost($token, []));
+
+        self::assertSame(503, $accepted->getStatusCode(), 'an origin-only strict-origin Referer must pass');
+        self::assertSame(503, $bare->getStatusCode());
+        self::assertSame(403, $foreign->getStatusCode(), 'foreign provenance still fails');
+        self::assertSame(403, $none->getStatusCode(), 'absent provenance still fails');
+    }
+
+    /**
+     * PINNED: the policy header IS the contract for what a browser puts in `Referer`. Assert its
+     * value on BOTH the landing GET and the initiate POST (and on the 403 the guard produces),
+     * because a payment token may never leave in a referrer.
+     */
+    public function testTheStrictOriginPolicyIsConsistentOnLandingAndOnThePost(): void
+    {
+        [$token, ] = $this->mintedLink();
+
+        $landing = $this->handle(Request::create('/checkout/pay/' . $token));
+        $post = $this->handle($this->initiatePost($token, ['HTTP_ORIGIN' => $this->expectedOrigin()]));
+        $refused = $this->handle($this->initiatePost($token, ['HTTP_ORIGIN' => 'https://evil.attacker.test']));
+
+        foreach (['landing' => $landing, 'initiate' => $post, 'refused' => $refused] as $label => $response) {
+            self::assertSame(
+                ShopPaymentLinkHeaders::REFERRER_POLICY,
+                $response->headers->get('Referrer-Policy'),
+                $label,
+            );
+            self::assertSame('strict-origin', $response->headers->get('Referrer-Policy'), $label);
+        }
     }
 
     public function testASameOriginInitiatePostReachesTheEngineAndNeverEmitsALocation(): void
@@ -619,7 +670,7 @@ final class ShopPaymentLinkTest extends AppTestCase
         self::assertStringContainsString('no-store', $cacheControl);
         self::assertStringNotContainsString('public', $cacheControl);
         self::assertStringNotContainsString('max-age', $cacheControl);
-        self::assertSame('no-referrer', $response->headers->get('Referrer-Policy'));
+        self::assertSame('strict-origin', $response->headers->get('Referrer-Policy'));
         self::assertSame('noindex, nofollow, noarchive', $response->headers->get('X-Robots-Tag'));
     }
 
