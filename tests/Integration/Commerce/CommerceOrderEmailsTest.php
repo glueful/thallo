@@ -31,8 +31,14 @@ final class CommerceOrderEmailsTest extends AppTestCase
             self::assertNotNull($definition, "missing template definition {$key}");
             self::assertSame(CommerceEmailTemplates::OWNER, $definition->owner);
             $names = array_map(static fn ($p) => $p->name, $definition->placeholders);
+            // The four ORDER templates share one chip set. `commerce.payment_request`
+            // (payment-links spec §2.4) deliberately does not: it has no `status` and no
+            // `customer_email`, and it adds the validated `action_url` link slot plus the expiry
+            // chip. Its own definition is pinned by PaymentRequestMailerTest.
             self::assertSame(
-                ['order_number', 'customer_email', 'total', 'status', 'store_name'],
+                $key === 'commerce.payment_request'
+                    ? ['order_number', 'total', 'store_name', 'expires_at', 'action_url']
+                    : ['order_number', 'customer_email', 'total', 'status', 'store_name'],
                 $names,
             );
         }

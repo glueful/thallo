@@ -39,15 +39,22 @@ final class CommerceEmailSettingsEndpointTest extends AppTestCase
         $this->container()->get(SettingsStore::class)->clearCache();
     }
 
-    public function testGetReportsAllFourTemplatesEnabledByDefault(): void
+    /**
+     * The four ORDER templates default ON; `payment_request` (payment-links spec §2.4) is the one
+     * that defaults OFF, from an EXPLICIT `false` in the pack config — the controller's generic
+     * fallback here is `true`, so this asymmetry is exactly what proves the pack config sets that
+     * key rather than omitting it.
+     */
+    public function testGetReportsEveryTemplateWithItsOwnConfiguredDefault(): void
     {
         $data = $this->data($this->controller()->show(Request::create('/x')));
 
         self::assertFalse($data['commerce_mailer_active']);
         self::assertSame(EmailSettingsController::TEMPLATES, array_column($data['templates'], 'template'));
         foreach ($data['templates'] as $row) {
-            self::assertTrue($row['enabled']['value']);
-            self::assertTrue($row['enabled']['default']);
+            $expected = $row['template'] !== 'payment_request';
+            self::assertSame($expected, $row['enabled']['value'], $row['template'] . ' value');
+            self::assertSame($expected, $row['enabled']['default'], $row['template'] . ' default');
             self::assertFalse($row['enabled']['overridden']);
             self::assertStringStartsWith('commerce.', $row['key']);
         }

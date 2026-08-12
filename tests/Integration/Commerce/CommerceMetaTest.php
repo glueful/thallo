@@ -85,7 +85,7 @@ final class CommerceMetaTest extends AppTestCase
         self::assertSame(
             [
                 'currency', 'currency_exponent', 'shop_index_url', 'low_stock_threshold',
-                'can_view', 'can_manage', 'can_attach_user',
+                'can_view', 'can_manage', 'can_attach_user', 'email_available',
             ],
             array_keys($data),
         );
