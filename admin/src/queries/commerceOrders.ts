@@ -406,9 +406,56 @@ export function canFulfillOrder(status: string): boolean {
   return status === 'paid'
 }
 
-export async function cancelOrder(uuid: string): Promise<CommerceOrder> {
+/**
+ * The 409 discriminator `AdminOrderController::cancel()` puts under `error.details.reason` when
+ * `PaymentSessionExposureGuard` refuses an unacknowledged cancellation
+ * (`PaymentSessionExposureException::RISK_UNACKNOWLEDGED`). It is NOT a retryable failure and NOT
+ * an illegal transition: the order CAN be canceled, but only by an operator who states that they
+ * accept the late-payment risk. Everything else the endpoint can 409 with (an illegal transition)
+ * arrives with no `reason` at all and stays an ordinary inline error.
+ */
+export const PAYMENT_SESSION_RISK_UNACKNOWLEDGED = 'payment_session_risk_unacknowledged'
+
+/** `useCommerceOrderMutations().cancel` accepts the bare uuid or an acknowledged cancellation. */
+export type CancelOrderVars = string | { uuid: string; acceptLatePaymentRisk?: boolean }
+
+/**
+ * True when `e` is the exposure guard's acknowledgement demand rather than any other 409.
+ *
+ * Deliberately STRUCTURAL rather than `e instanceof ApiError`: `ApiError` is a class identity, and
+ * a caller whose module graph loaded `@/api/errors` a second time (vitest's `importOriginal`
+ * inside a `vi.mock` factory does exactly this, and a split bundle can too) holds a DIFFERENT
+ * constructor for a byte-identical error. An identity check silently answers `false` there and the
+ * operator gets an unactionable inline 409 instead of the acknowledgement step. The shape below —
+ * `status: 409` plus `body.error.details.reason` — is the framework's own error envelope and is
+ * what actually distinguishes this refusal.
+ */
+export function isPaymentSessionRiskRefusal(e: unknown): boolean {
+  if (typeof e !== 'object' || e === null) return false
+  const candidate = e as { status?: unknown; body?: unknown }
+  if (candidate.status !== 409) return false
+  const details = (candidate.body as { error?: { details?: unknown } } | null)?.error?.details
+  if (typeof details !== 'object' || details === null) return false
+
+  return (details as Record<string, unknown>).reason === PAYMENT_SESSION_RISK_UNACKNOWLEDGED
+}
+
+/**
+ * `POST /commerce/orders/{uuid}/cancel`.
+ *
+ * The body stays ABSENT unless the caller is acknowledging the late-payment risk — the endpoint's
+ * OpenAPI operation declares `requestBody?: never`, the server parses the flag with
+ * `filter_var(..., FILTER_VALIDATE_BOOL)` out of whatever input it finds, and every non-exposed
+ * order must keep posting the byte-empty body it always did (an unrequested `false` would be a
+ * silent behavioural change for orders the guard never looks at).
+ */
+export async function cancelOrder(
+  uuid: string,
+  acceptLatePaymentRisk = false,
+): Promise<CommerceOrder> {
   const { data, error, response } = await client.POST('/commerce/orders/{uuid}/cancel', {
     params: { path: { uuid } },
+    ...(acceptLatePaymentRisk ? { body: { accept_late_payment_risk: true } as never } : {}),
   })
   if (error) throw toApiError(error, response)
   const raw = (data as { data?: unknown } | undefined)?.data
@@ -671,9 +718,15 @@ export function useCommerceOrderMutations() {
   }
 
   return {
+    // `vars` is the uuid alone for an ordinary cancel (unchanged for every caller that never
+    // meets the exposure guard) or `{ uuid, acceptLatePaymentRisk }` for the resubmit that
+    // carries an operator's acknowledgement.
     cancel: useMutation({
-      mutation: (uuid: string) => cancelOrder(uuid),
-      onSettled: (_d, _e, uuid) => invalidate(uuid),
+      mutation: (vars: CancelOrderVars) =>
+        typeof vars === 'string'
+          ? cancelOrder(vars)
+          : cancelOrder(vars.uuid, vars.acceptLatePaymentRisk === true),
+      onSettled: (_d, _e, vars) => invalidate(typeof vars === 'string' ? vars : vars.uuid),
     }),
     markPaid: useMutation({
       mutation: (uuid: string) => markOrderPaid(uuid),

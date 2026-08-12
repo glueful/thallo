@@ -754,7 +754,7 @@ describe('order lifecycle actions', () => {
     await wrapper.find('[data-test="order-cancel-confirm"]').trigger('click')
     await flushPromises()
     expect(cancelMock).toHaveBeenCalledTimes(1)
-    expect(cancelMock).toHaveBeenCalledWith('o1')
+    expect(cancelMock).toHaveBeenCalledWith({ uuid: 'o1', acceptLatePaymentRisk: false })
   })
 
   it('dismissing the cancel confirm never calls the mutation', async () => {
@@ -844,6 +844,105 @@ describe('order lifecycle actions', () => {
     expect(wrapper.find('[data-test="order-cancel-confirm"]').exists()).toBe(true)
   })
 
+  // ── Risk-acknowledged cancel (payment-links final review, Important 3) ───────────────────────
+  //
+  // `PaymentSessionExposureGuard` refuses an unacknowledged cancellation of an order whose
+  // payment link already exposed a provider checkout session, with 409
+  // `error.details.reason = payment_session_risk_unacknowledged`. That is a QUESTION, not a
+  // retryable failure, so the dialog must promote itself to a second step instead of showing the
+  // 409 as an inline error the operator can only re-hit.
+
+  function riskRefusal(ApiErrorCtor: typeof import('@/api/errors').ApiError) {
+    return new ApiErrorCtor(
+      'A checkout session was already opened for this order, so a payment may still arrive.',
+      409,
+      {},
+      { error: { details: { reason: 'payment_session_risk_unacknowledged' } } },
+    )
+  }
+
+  it('handles the risk refusal by presenting the acknowledgement instead of an inline error', async () => {
+    const { ApiError } = await import('@/api/errors')
+    cancelMock.mockRejectedValueOnce(riskRefusal(ApiError))
+    singleOrder.value = order({ uuid: 'o1', status: 'pending_payment' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    await openOverflow(wrapper)
+
+    await wrapper.find('[data-test="order-cancel"]').trigger('click')
+    await flushPromises()
+    // The first submit is the ordinary, unacknowledged one.
+    expect(wrapper.find('[data-test="order-cancel-risk"]').exists()).toBe(false)
+    await wrapper.find('[data-test="order-cancel-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(cancelMock).toHaveBeenCalledWith({ uuid: 'o1', acceptLatePaymentRisk: false })
+    // Not an error — a decision. The risk is stated and the dialog stays open.
+    expect(wrapper.find('[data-test="order-cancel-error"]').exists()).toBe(false)
+    const risk = wrapper.find('[data-test="order-cancel-risk"]')
+    expect(risk.exists()).toBe(true)
+    expect(risk.text()).toContain('checkout session')
+    expect(risk.text()).toContain('late payment')
+    expect(wrapper.find('[data-test="order-cancel-confirm"]').text()).toContain('accept the risk')
+  })
+
+  it('the acknowledged resubmit carries accept_late_payment_risk', async () => {
+    const { ApiError } = await import('@/api/errors')
+    cancelMock.mockRejectedValueOnce(riskRefusal(ApiError))
+    cancelMock.mockResolvedValueOnce(undefined)
+    singleOrder.value = order({ uuid: 'o1', status: 'pending_payment' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    await openOverflow(wrapper)
+
+    await wrapper.find('[data-test="order-cancel"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="order-cancel-confirm"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="order-cancel-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(cancelMock).toHaveBeenCalledTimes(2)
+    expect(cancelMock).toHaveBeenNthCalledWith(1, { uuid: 'o1', acceptLatePaymentRisk: false })
+    expect(cancelMock).toHaveBeenNthCalledWith(2, { uuid: 'o1', acceptLatePaymentRisk: true })
+  })
+
+  it('a non-exposed order is unaffected: no risk copy, and the flag stays false', async () => {
+    cancelMock.mockResolvedValue(undefined)
+    singleOrder.value = order({ uuid: 'o1', status: 'pending_payment' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    await openOverflow(wrapper)
+
+    await wrapper.find('[data-test="order-cancel"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="order-cancel-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(cancelMock).toHaveBeenCalledTimes(1)
+    expect(cancelMock).toHaveBeenCalledWith({ uuid: 'o1', acceptLatePaymentRisk: false })
+    expect(wrapper.find('[data-test="order-cancel-risk"]').exists()).toBe(false)
+  })
+
+  it('an ordinary 409 is still an inline error, never a risk prompt', async () => {
+    const { ApiError } = await import('@/api/errors')
+    cancelMock.mockRejectedValue(
+      new ApiError('Invalid order transition canceled -> canceled.', 409, {}, null),
+    )
+    singleOrder.value = order({ uuid: 'o1', status: 'paid' })
+    const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
+    await flushPromises()
+    await openOverflow(wrapper)
+
+    await wrapper.find('[data-test="order-cancel"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="order-cancel-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="order-cancel-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="order-cancel-risk"]').exists()).toBe(false)
+  })
+
   // ── Detail refetch reflects the new status after a successful action (mock sequence) ────────
 
   it('reflects the canceled status once the (simulated) refetch lands', async () => {
@@ -860,7 +959,7 @@ describe('order lifecycle actions', () => {
     await wrapper.find('[data-test="order-cancel"]').trigger('click')
     await wrapper.find('[data-test="order-cancel-confirm"]').trigger('click')
     await flushPromises()
-    expect(cancelMock).toHaveBeenCalledWith('o1')
+    expect(cancelMock).toHaveBeenCalledWith({ uuid: 'o1', acceptLatePaymentRisk: false })
 
     // The invalidation-triggered refetch resolving with the now-canceled order.
     singleOrder.value = order({ uuid: 'o1', status: 'canceled' })

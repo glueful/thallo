@@ -384,6 +384,132 @@ final class ShopPaymentLinkTest extends AppTestCase
         self::assertStringNotContainsString('ransaction', (string) $response->getContent());
     }
 
+    // ==================================================================
+    // Landing copy honesty (final-review Important 5)
+    // ==================================================================
+
+    /**
+     * The retired single `unavailable` message promised BOTH "please try again later" AND
+     * "Nothing has been charged". On a manual-collection store the first is permanently false;
+     * on a driver that threw mid-initiation the second is unknowable. Each sub-state now carries
+     * copy that is true for it, and NO 503 sub-state asserts what the provider did with the
+     * money.
+     *
+     * @dataProvider unavailableCopyVariants
+     * @param list<string> $mustContain
+     * @param list<string> $mustNotContain
+     */
+    public function testEachUnavailableSubStateRendersItsOwnHonestCopy(
+        string $errorCode,
+        string $expectedReason,
+        int $expectedStatus,
+        array $mustContain,
+        array $mustNotContain
+    ): void {
+        [$state, $reason, $status] = ShopPaymentLinkController::stateForErrorCode($errorCode);
+        self::assertSame('unavailable', $state, $errorCode);
+        self::assertSame($expectedReason, $reason, $errorCode);
+        self::assertSame($expectedStatus, $status, $errorCode);
+
+        $html = $this->renderUnavailable($reason);
+        self::assertStringContainsString('data-payment-link-reason="' . $reason . '"', $html);
+        foreach ($mustContain as $needle) {
+            self::assertStringContainsString($needle, $html, "{$errorCode}: {$needle}");
+        }
+        foreach ($mustNotContain as $needle) {
+            self::assertStringNotContainsString($needle, $html, "{$errorCode} must not claim: {$needle}");
+        }
+    }
+
+    /** @return array<string, array{0:string,1:string,2:int,3:list<string>,4:list<string>}> */
+    public static function unavailableCopyVariants(): array
+    {
+        // "Nothing has been charged" is gone from EVERY branch; "try again" survives only where
+        // it is honest advice (the rate limit, and the two genuinely-unknown states).
+        $noChargeClaim = ['Nothing has been charged', 'nothing has been charged'];
+
+        return [
+            'manual collection is permanently futile' => [
+                'checkout_manual',
+                'manual',
+                503,
+                ['Online payment isn', 'contact the merchant'],
+                [...$noChargeClaim, 'try again'],
+            ],
+            'a missing return URL is a store-side fault' => [
+                'return_url_unavailable',
+                'misconfigured',
+                503,
+                ['contact the merchant', 'Retrying won'],
+                $noChargeClaim,
+            ],
+            'a missing checkout URL is the same fault' => [
+                'checkout_url_missing',
+                'misconfigured',
+                503,
+                ['contact the merchant'],
+                $noChargeClaim,
+            ],
+            'an untrusted checkout URL is the same fault' => [
+                'checkout_url_untrusted',
+                'misconfigured',
+                503,
+                ['contact the merchant'],
+                $noChargeClaim,
+            ],
+            'a failed initiation leaves the provider state unknown' => [
+                'checkout_initiation_failed',
+                'provider_unknown',
+                503,
+                ['couldn', 'confirm the payment session', 'try again shortly'],
+                $noChargeClaim,
+            ],
+            'an unrecognised code falls through to the same unknown state' => [
+                'something_the_engine_grew_later',
+                'provider_unknown',
+                503,
+                ['confirm the payment session'],
+                $noChargeClaim,
+            ],
+            'the rate limit is the one honest retry promise' => [
+                'payment_link_rate_limited',
+                'rate_limited',
+                429,
+                ['try again shortly'],
+                $noChargeClaim,
+            ],
+        ];
+    }
+
+    public function testAManualCollectorRendersTheManualCopyRatherThanARetryPromise(): void
+    {
+        [$token, ] = $this->mintedLink();
+        $controller = $this->controllerWith($this->collectorReturning('manual', ['instructions' => 'Pay by bank']));
+
+        $html = (string) $controller->initiate($this->postRequest($token), $token)->getContent();
+
+        self::assertStringContainsString('data-payment-link-reason="manual"', $html);
+        self::assertStringNotContainsString('Nothing has been charged', $html);
+        self::assertStringNotContainsString('Pay by bank', $html);
+    }
+
+    public function testAThrowingCollectorRendersTheProviderUnknownCopyAndClaimsNoRefund(): void
+    {
+        [$token, ] = $this->mintedLink();
+        $controller = $this->controllerWith(new class implements PaymentCollector {
+            public function initiate(ApplicationContext $context, PayableReference $payable): PaymentInitiation
+            {
+                throw new \RuntimeException('gateway-secret-detail-77');
+            }
+        });
+
+        $html = (string) $controller->initiate($this->postRequest($token), $token)->getContent();
+
+        self::assertStringContainsString('data-payment-link-reason="provider_unknown"', $html);
+        self::assertStringNotContainsString('Nothing has been charged', $html);
+        self::assertStringNotContainsString('gateway-secret-detail-77', $html);
+    }
+
     public function testANonPayableLinkRendersTheInvalidStateWithNoLocation(): void
     {
         [$token, $order] = $this->mintedLink();
@@ -661,6 +787,16 @@ final class ShopPaymentLinkTest extends AppTestCase
     // ==================================================================
     // helpers
     // ==================================================================
+
+    /** Render the landing template for one unavailable sub-state, through the real renderer. */
+    private function renderUnavailable(string $reason): string
+    {
+        $controller = $this->controllerWith($this->collectorReturning('ok', ['checkout_url' => 'https://psp.test/x']));
+        $render = new \ReflectionMethod($controller, 'renderState');
+        $render->setAccessible(true);
+
+        return (string) $render->invoke($controller, 'unavailable', $reason, null, null, 503)->getContent();
+    }
 
     private function assertPaymentLinkHeaders(Response $response): void
     {
