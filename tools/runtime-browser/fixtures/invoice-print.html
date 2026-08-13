@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<!--
+  Print-media gate fixture (orders-invoices-receipts spec, Task 11). Vitest already owns
+  Vue/query correctness for InvoiceDocument.vue; a hand-stubbed jsdom-style DOM never runs real
+  CSS computation, so this static page replicates the EXACT production `data-print-*` contract
+  byte-for-byte and loads the REAL `admin/src/assets/print.css` (via server.js, which serves the
+  repo root — see README.md) so this gate answers one question only: what does a real browser do
+  with that stylesheet under `page.emulateMedia({ media: 'print' })`?
+
+  Contract this fixture mirrors, cited by source line so drift is detectable at a glance:
+
+  - `admin/src/layouts/default.vue`:
+      L116 `<UDashboardGroup unit="rem" storage="local" data-print-root>` — Nuxt UI's dashboard
+             shell base class is `fixed inset-0 flex overflow-hidden` -> below: `<div
+             data-print-root>` carries that SAME hostile base (position:fixed; inset:0;
+             display:flex; overflow:hidden) in this fixture's own <style>, not just the attribute.
+      L117-130 `<UDashboardSidebar ... data-print-chrome ...>`    -> below: `<aside
+             data-print-chrome>` (the sidebar; a fixed-width flex child, never an ancestor of the
+             printable content).
+      L169-172 `<div data-print-shell class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden
+             bg-white rounded-2xl m-3 ring ring-default dark:bg-default">` -> below: `<div
+             data-print-shell>` carries the SAME hostile base (flex:1; min-height:0; overflow:
+             hidden; margin; border-radius; a ring-style box-shadow) — the exact properties
+             print.css's `[data-print-shell]` block (L122-130) resets. Without this baseline, that
+             reset block could be deleted entirely and every assertion below would stay green,
+             which is exactly the gap this fixture must not have.
+      (sidebar is a SIBLING of the shell, both children of the print-root — never an ancestor of
+      the printable content; reproduced structurally below, not just by attribute presence.)
+
+  - `admin/src/pages/commerce/orders/[uuid]/invoice.vue`:
+      L59-62 `<div data-print-chrome data-test="invoice-toolbar" class="flex ... border-b ...">`
+             — a SECOND, independent `[data-print-chrome]` placement: the in-content paper-preset
+             toolbar rendered INSIDE `data-print-shell`, next to the document (not the sidebar).
+             Reproduced below as the toolbar sibling of `.invoice-document`, so the print gate
+             proves chrome-hiding works for both real placements, not only the sidebar one.
+
+  - `admin/src/pages/commerce/orders/components/InvoiceDocument.vue`:
+      L26-29 `presetClass = 'invoice-' + preset.replace(/_/g, '-')`  -> reproduced verbatim in the
+             inline script below (the underscore->hyphen mapping: thermal_80 -> invoice-thermal-80,
+             thermal_58 -> invoice-thermal-58, a4 -> invoice-a4).
+      L97  root `<div class="invoice-document" :class="presetClass" :data-preset="preset"
+             data-test="invoice-document">`
+      L114 `<div data-test="invoice-order-number">Order {{ number }}</div>`
+      L116 `<div data-test="invoice-order-status">Order status: {{ status }}</div>`
+      L140-149 `<table data-test="invoice-lines"><thead>...` (thead/tbody structure)
+      L151-163 `<tr ... data-test="invoice-line">` with `<span data-test="invoice-line-name">`
+      L190-193 `<div class="invoice-total-grand">...<span data-test="invoice-total-grand">`
+
+  - `admin/src/assets/print.css` (loaded for real below, NOT copied):
+      L15-33   named pages `invoice-a4` / `invoice-thermal`, `.invoice-a4`/`.invoice-thermal-80`/
+               `.invoice-thermal-58` page assignment (page rule itself is intentionally NOT
+               asserted by this gate's spec — browsers hand paper selection to the print dialog).
+      L104-110 `[data-print-root]` un-fixes the dashboard shell for print.
+      L115-117 `[data-print-chrome]` hidden.
+      L122-130 `[data-print-shell]` reset (no margin/padding/radius/shadow/clip).
+      L132-134 `.invoice-document thead { display: table-header-group; }`
+      L136-138 `.invoice-document tr { break-inside: avoid; }`
+      L140-147 `.invoice-document td, th` overflow/white-space/line-clamp reset + `display:
+               table-cell` — the ONLY thing standing between a genuinely long line description and
+               a clipped row once print CSS applies.
+
+  Seeded content: 15 line-item rows plus one (row 8, `data-long-row`) with a long multi-line
+  description, so "does the row bounding box actually contain the long descendant" is a real
+  question and not vacuously true.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>runtime-browser fixture: invoice print</title>
+
+  <!--
+    Fixture-only truncation baseline — NOT part of production `print.css` or InvoiceDocument.vue.
+    Targets the EXACT selector print.css's `@media print` block resets (`.invoice-document td,
+    .invoice-document th`) with `overflow: hidden` + a 2-line `-webkit-line-clamp`, so the print
+    reset (print.css L140-147) has something real to undo. Without this, "not clipped in print"
+    would hold trivially for any content and the bounding-box assertion would prove nothing.
+    Placed BEFORE the print.css <link> below so print.css wins the cascade tie under print media
+    (equal selector specificity; later source order wins).
+  -->
+  <style>
+    .invoice-document td,
+    .invoice-document th {
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+  </style>
+
+  <!--
+    Hostile screen-mode baseline — NOT a copy of print.css, a reproduction of the OTHER half of the
+    contract: the dashboard-shell classes print.css's `[data-print-root]`/`[data-print-shell]`
+    blocks (L104-130) exist to undo. `default.vue` L116 puts `UDashboardGroup`'s own base
+    (`fixed inset-0 flex overflow-hidden`) on `data-print-root`, and L169-172 puts `flex-1 flex
+    flex-col min-w-0 min-h-0 overflow-hidden bg-white rounded-2xl m-3 ring ring-default` on
+    `data-print-shell`. Reproduced here as plain CSS (no Tailwind in this static fixture) so that,
+    absent the print.css reset, the shell clips its content to ONE viewport height exactly like
+    production would — making "the full multi-row document survives print" a real, falsifiable
+    question instead of one that passes no matter what the reset does.
+  -->
+  <style>
+    html, body { margin: 0; height: 100%; }
+    [data-print-root] {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      overflow: hidden;
+    }
+    [data-print-shell] {
+      flex: 1 1 0%;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      background: #fff;
+      border-radius: 16px;
+      margin: 12px;
+      box-shadow: 0 0 0 2px #999;
+    }
+  </style>
+
+  <!-- The REAL production stylesheet, loaded by real repo path (server.js serves the repo root). -->
+  <link rel="stylesheet" href="/admin/src/assets/print.css">
+
+  <!-- Cosmetic-only screen styling (not part of any tested contract) so the two DIFFERENT
+       [data-print-chrome] placements — the sidebar and the in-content toolbar — are visually
+       distinguishable during local/manual debugging. -->
+  <style>
+    body { font-family: sans-serif; }
+    .fixture-sidebar { background: #222; color: #fff; padding: 12px; width: 220px; flex-shrink: 0; }
+    .fixture-toolbar { border-bottom: 1px solid #ccc; padding: 8px 12px; }
+  </style>
+</head>
+<body>
+
+<div data-print-root>
+  <aside data-print-chrome class="fixture-sidebar">
+    <nav>Sidebar navigation (must never print)</nav>
+  </aside>
+
+  <div data-print-shell>
+    <div data-print-chrome data-test="invoice-toolbar" class="fixture-toolbar">
+      Paper size: A4 / 80mm / 58mm — Print / Save as PDF (must never print)
+    </div>
+
+    <div class="invoice-document" data-test="invoice-document">
+      <header class="invoice-header">
+        <div data-test="invoice-seller">
+          <p data-test="invoice-seller-name">Thallo Test Storefront</p>
+          <p>123 Example Street, Testville</p>
+          <p data-test="invoice-seller-tax-id">TAX-000-111</p>
+        </div>
+      </header>
+
+      <hr class="invoice-rule">
+
+      <section class="invoice-meta" data-test="invoice-meta">
+        <div data-test="invoice-order-number">Order ORD-1042</div>
+        <div data-test="invoice-order-date">Jan 5, 2026</div>
+        <div data-test="invoice-order-status">Order status: fulfilled</div>
+        <div data-test="invoice-buyer-email">buyer@example.com</div>
+      </section>
+
+      <section class="invoice-addresses" data-test="invoice-addresses">
+        <div data-test="invoice-address-shipping">
+          <p class="invoice-address-label">Shipping</p>
+          <p>Jane Buyer</p>
+          <p>456 Delivery Ave</p>
+          <p>Testville, TS 90210</p>
+        </div>
+        <div data-test="invoice-address-billing">
+          <p class="invoice-address-label">Billing</p>
+          <p>Jane Buyer</p>
+          <p>456 Delivery Ave</p>
+          <p>Testville, TS 90210</p>
+        </div>
+      </section>
+
+      <hr class="invoice-rule">
+
+      <table data-test="invoice-lines">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>SKU</th>
+            <th>Qty</th>
+            <th>Unit price</th>
+            <th>Line total</th>
+          </tr>
+        </thead>
+        <tbody data-test="invoice-lines-body">
+          <!-- 15 seeded rows. Row 8 carries the long multi-line description (data-long-row). -->
+          <tr data-test="invoice-line" data-row="1">
+            <td><span data-test="invoice-line-name">Ceramic mug</span></td>
+            <td data-test="invoice-line-sku">MUG-001</td>
+            <td data-test="invoice-line-qty">1</td>
+            <td data-test="invoice-line-unit">$12.00</td>
+            <td data-test="invoice-line-total">$12.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="2">
+            <td><span data-test="invoice-line-name">Canvas tote bag</span></td>
+            <td data-test="invoice-line-sku">TOTE-014</td>
+            <td data-test="invoice-line-qty">2</td>
+            <td data-test="invoice-line-unit">$18.50</td>
+            <td data-test="invoice-line-total">$37.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="3">
+            <td><span data-test="invoice-line-name">Wool scarf</span></td>
+            <td data-test="invoice-line-sku">SCARF-007</td>
+            <td data-test="invoice-line-qty">1</td>
+            <td data-test="invoice-line-unit">$34.00</td>
+            <td data-test="invoice-line-total">$34.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="4">
+            <td><span data-test="invoice-line-name">Stainless water bottle</span></td>
+            <td data-test="invoice-line-sku">BOTTLE-022</td>
+            <td data-test="invoice-line-qty">3</td>
+            <td data-test="invoice-line-unit">$21.00</td>
+            <td data-test="invoice-line-total">$63.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="5">
+            <td><span data-test="invoice-line-name">Leather notebook</span></td>
+            <td data-test="invoice-line-sku">NOTE-009</td>
+            <td data-test="invoice-line-qty">1</td>
+            <td data-test="invoice-line-unit">$28.00</td>
+            <td data-test="invoice-line-total">$28.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="6">
+            <td><span data-test="invoice-line-name">Bamboo cutlery set</span></td>
+            <td data-test="invoice-line-sku">CUT-003</td>
+            <td data-test="invoice-line-qty">2</td>
+            <td data-test="invoice-line-unit">$9.50</td>
+            <td data-test="invoice-line-total">$19.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="7">
+            <td><span data-test="invoice-line-name">Enamel pin set</span></td>
+            <td data-test="invoice-line-sku">PIN-018</td>
+            <td data-test="invoice-line-qty">4</td>
+            <td data-test="invoice-line-unit">$6.25</td>
+            <td data-test="invoice-line-total">$25.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="8" data-long-row="true">
+            <td>
+              <span data-test="invoice-line-name" data-test-long="invoice-line-long-desc">Hand-thrown stoneware dinner plate set, glazed in a reactive matte finish that shifts between slate grey and deep ochre depending on kiln placement — each plate is individually wheel-thrown by a single potter, trimmed by hand once leather-hard, bisque-fired, dipped in a small-batch glaze mixed on-site, and fired a second time in a gas kiln with intentional flame-path variation, so no two place settings in a set are perfectly identical; includes care instructions for hand-washing only, a note on expected glaze crazing over years of use, and a certificate of the specific firing batch and kiln load this particular set came from.</span>
+              <div class="invoice-line-addons" data-test="invoice-line-addons">Glaze: Slate/Ochre reactive, Set size: 4-piece, Gift wrap: Kraft paper + twine</div>
+            </td>
+            <td data-test="invoice-line-sku">PLATE-SET-4PC</td>
+            <td data-test="invoice-line-qty">1</td>
+            <td data-test="invoice-line-unit">$96.00</td>
+            <td data-test="invoice-line-total">$96.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="9">
+            <td><span data-test="invoice-line-name">Wax melt sampler</span></td>
+            <td data-test="invoice-line-sku">WAX-005</td>
+            <td data-test="invoice-line-qty">2</td>
+            <td data-test="invoice-line-unit">$8.00</td>
+            <td data-test="invoice-line-total">$16.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="10">
+            <td><span data-test="invoice-line-name">Linen tea towel</span></td>
+            <td data-test="invoice-line-sku">TOWEL-011</td>
+            <td data-test="invoice-line-qty">3</td>
+            <td data-test="invoice-line-unit">$11.00</td>
+            <td data-test="invoice-line-total">$33.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="11">
+            <td><span data-test="invoice-line-name">Cork trivet</span></td>
+            <td data-test="invoice-line-sku">TRIVET-002</td>
+            <td data-test="invoice-line-qty">1</td>
+            <td data-test="invoice-line-unit">$14.00</td>
+            <td data-test="invoice-line-total">$14.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="12">
+            <td><span data-test="invoice-line-name">Recycled glass tumbler</span></td>
+            <td data-test="invoice-line-sku">TUMB-006</td>
+            <td data-test="invoice-line-qty">4</td>
+            <td data-test="invoice-line-unit">$7.50</td>
+            <td data-test="invoice-line-total">$30.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="13">
+            <td><span data-test="invoice-line-name">Woven market basket</span></td>
+            <td data-test="invoice-line-sku">BASKET-013</td>
+            <td data-test="invoice-line-qty">1</td>
+            <td data-test="invoice-line-unit">$42.00</td>
+            <td data-test="invoice-line-total">$42.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="14">
+            <td><span data-test="invoice-line-name">Soy candle, cedar</span></td>
+            <td data-test="invoice-line-sku">CANDLE-021</td>
+            <td data-test="invoice-line-qty">2</td>
+            <td data-test="invoice-line-unit">$16.00</td>
+            <td data-test="invoice-line-total">$32.00</td>
+          </tr>
+          <tr data-test="invoice-line" data-row="15">
+            <td><span data-test="invoice-line-name">Handmade soap bar</span></td>
+            <td data-test="invoice-line-sku">SOAP-010</td>
+            <td data-test="invoice-line-qty">5</td>
+            <td data-test="invoice-line-unit">$5.00</td>
+            <td data-test="invoice-line-total">$25.00</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <hr class="invoice-rule">
+
+      <section class="invoice-totals" data-test="invoice-totals">
+        <div><span>Subtotal</span><span data-test="invoice-total-subtotal">$486.00</span></div>
+        <div><span>Discount</span><span data-test="invoice-total-discount">-$20.00</span></div>
+        <div><span>Shipping</span><span data-test="invoice-total-shipping">$8.00</span></div>
+        <div><span>Tax</span><span data-test="invoice-total-tax">$38.88</span></div>
+        <div><span>Refunded</span><span data-test="invoice-total-refunded">$0.00</span></div>
+        <div class="invoice-total-grand">
+          <span>Total</span>
+          <span data-test="invoice-total-grand">$512.88</span>
+        </div>
+      </section>
+
+      <footer class="invoice-footer" data-test="invoice-footer">Thank you for your order — returns accepted within 30 days.</footer>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Reproduces InvoiceDocument.vue L26-29 verbatim (`presetClass` computed):
+  //   const presetClass = computed(() => `invoice-${props.preset.replace(/_/g, '-')}`)
+  // `preset` is read from `?preset=` (default 'a4') instead of a Vue prop, since this is a static
+  // fixture, not a mounted component — the mapping logic itself is byte-identical.
+  (function applyPreset() {
+    var ALLOWED = ['a4', 'thermal_80', 'thermal_58'];
+    var params = new URLSearchParams(window.location.search);
+    var preset = params.get('preset') || 'a4';
+    if (ALLOWED.indexOf(preset) === -1) { preset = 'a4'; }
+    var presetClass = 'invoice-' + preset.replace(/_/g, '-');
+    var root = document.querySelector('[data-test="invoice-document"]');
+    root.classList.add(presetClass);
+    root.setAttribute('data-preset', preset);
+  })();
+</script>
+
+</body>
+</html>

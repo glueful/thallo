@@ -185,7 +185,13 @@ final class PurgeAdoptionTest extends AppTestCase
         self::assertContains('commerce_products', $tables);
         self::assertContains('commerce_orders', $tables);
         self::assertSame(
-            ['thallo_commerce_product_links', ...DiagnosticsReport::tenantTables()],
+            [
+                'thallo_commerce_product_links',
+                // Payment links Task 12 (payment-links spec §2.4): the delivery ledger is
+                // tenant-owned and named by that spec as adoption-covered.
+                'thallo_commerce_payment_link_deliveries',
+                ...DiagnosticsReport::tenantTables(),
+            ],
             $tables,
         );
     }
@@ -358,6 +364,18 @@ final class PurgeAdoptionTest extends AppTestCase
             'CREATE TABLE thallo_commerce_product_links ('
             . 'id BIGSERIAL PRIMARY KEY, uuid VARCHAR(12), tenant_uuid VARCHAR(12) DEFAULT \'\', '
             . 'product_uuid VARCHAR(12), entry_uuid VARCHAR(12), '
+            . 'created_at TIMESTAMP, updated_at TIMESTAMP)'
+        );
+        // Payment links Task 12: this fixture stands in for "the pack's own schema, with no
+        // Commerce schema anywhere on the search_path", so it must carry EVERY pack-owned table
+        // the purge handler touches — otherwise the handler's delivery-ledger cleanup would fail
+        // for a missing table rather than for the absent-Commerce condition under test.
+        $connection->getPDO()->exec(
+            'CREATE TABLE thallo_commerce_payment_link_deliveries ('
+            . 'id BIGSERIAL PRIMARY KEY, uuid VARCHAR(12), tenant_uuid VARCHAR(12) DEFAULT \'\', '
+            . 'idempotency_key VARCHAR(191), fingerprint VARCHAR(64), order_uuid VARCHAR(12), '
+            . 'link_uuid VARCHAR(12), recipient_hash VARCHAR(64), mode VARCHAR(16), '
+            . 'status VARCHAR(16), error_code VARCHAR(64), provider_message_id VARCHAR(191), '
             . 'created_at TIMESTAMP, updated_at TIMESTAMP)'
         );
 

@@ -8,6 +8,7 @@ import { useCommerceMeta } from '@/queries/commerceMeta'
 import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 import StorePanel from './components/StorePanel.vue'
 import StorePagesCard from './components/StorePagesCard.vue'
+import InvoicesPanel from './components/InvoicesPanel.vue'
 import ZonesPanel from './components/ZonesPanel.vue'
 import ClassesPanel from './components/ClassesPanel.vue'
 import TaxRatesPanel from './components/TaxRatesPanel.vue'
@@ -30,12 +31,19 @@ const showPaymentsLink = computed(() => accessStore.access.manage_platform)
 const tab = ref('store')
 const tabItems = [
   { label: 'Store', value: 'store' },
+  { label: 'Invoices & receipts', value: 'invoices' },
   { label: 'Emails', value: 'emails' },
   { label: 'Marketplace', value: 'marketplace' },
   { label: 'Shipping zones', value: 'zones' },
   { label: 'Shipping classes', value: 'classes' },
   { label: 'Tax rates', value: 'rates' },
 ]
+
+// Task 10: InvoicesPanel's seller-identity mirror is read-only — it points back here via
+// `edit-store` rather than forking an editable copy (see InvoicesPanel.vue's own docblock).
+function goToStore(): void {
+  tab.value = 'store'
+}
 </script>
 
 <template>
@@ -64,6 +72,9 @@ const tabItems = [
       <template v-if="tab === 'store'">
         <StorePagesCard />
         <StorePanel :can-manage="canManage" />
+      </template>
+      <template v-else-if="tab === 'invoices'">
+        <InvoicesPanel :can-manage="canManage" @edit-store="goToStore" />
       </template>
       <template v-else-if="tab === 'emails'">
         <EmailsPanel :can-manage="canManage" />

@@ -78,6 +78,19 @@ vi.mock('@/queries/email', async (importOriginal) => {
   return { ...actual, fetchEmailTemplates: fetchEmailTemplatesMock }
 })
 
+// InvoicesPanel (Task 10): the logo picker mounts AssetField/MediaPickerModal, which pull from
+// @/queries/media — mocked here (same shape as assetFieldLibrary.spec.ts's established precedent)
+// so no real network call happens under jsdom.
+const uploadMediaMock = vi.hoisted(() => vi.fn())
+vi.mock('@/queries/media', () => ({
+  useUploadMedia: () => ({ mutateAsync: uploadMediaMock, isLoading: ref(false) }),
+  useMediaList: () => ({
+    data: ref({ media: [], total: 0, current_page: 1, per_page: 24 }),
+    status: ref('success'),
+  }),
+  blobDisplayUrl: (uuid: string) => `/blobs/${uuid}`,
+}))
+
 // Task 15c: tax-rate mutation mocks, same shape as the zone/class mocks above.
 const createRateMock = vi.hoisted(() => vi.fn())
 const updateRateMock = vi.hoisted(() => vi.fn())
@@ -125,6 +138,7 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
 
 import StorePanel from '@/pages/commerce/settings/components/StorePanel.vue'
 import StorePagesCard from '@/pages/commerce/settings/components/StorePagesCard.vue'
+import InvoicesPanel from '@/pages/commerce/settings/components/InvoicesPanel.vue'
 import ZonesPanel from '@/pages/commerce/settings/components/ZonesPanel.vue'
 import ClassesPanel from '@/pages/commerce/settings/components/ClassesPanel.vue'
 import TaxRatesPanel from '@/pages/commerce/settings/components/TaxRatesPanel.vue'
@@ -1331,6 +1345,7 @@ describe('Settings page tab shell', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Store')
+    expect(wrapper.text()).toContain('Invoices & receipts')
     expect(wrapper.text()).toContain('Shipping zones')
     expect(wrapper.text()).toContain('Shipping classes')
     expect(wrapper.text()).toContain('Tax rates')
@@ -1387,6 +1402,42 @@ describe('Settings page tab shell', () => {
     expect(wrapper.findComponent(ClassesPanel).exists()).toBe(false)
     expect(wrapper.findComponent(TaxRatesPanel).exists()).toBe(true)
     expect(wrapper.findComponent(TaxRatesPanel).props('canManage')).toBe(false)
+  })
+
+  it('switches to the Invoices & receipts tab, rendering InvoicesPanel with can_manage passed through', async () => {
+    metaData.value = { ...metaData.value, can_manage: false }
+    const wrapper = mount(SettingsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    expect(wrapper.findComponent(InvoicesPanel).exists()).toBe(false)
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    const invoicesTab = tabs.find((t) => t.text() === 'Invoices & receipts')
+    await invoicesTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+
+    expect(wrapper.findComponent(StorePanel).exists()).toBe(false)
+    expect(wrapper.findComponent(InvoicesPanel).exists()).toBe(true)
+    expect(wrapper.findComponent(InvoicesPanel).props('canManage')).toBe(false)
+  })
+
+  it('an edit-store emit from InvoicesPanel switches the parent tab back to Store', async () => {
+    storeSettingsData.value = storeSettings()
+    storeSettingsStatus.value = 'success'
+    const wrapper = mount(SettingsIndex, { global: { stubs: pageStubs } })
+    await flushPromises()
+
+    const tabs = wrapper.findAll('[role="tab"]')
+    const invoicesTab = tabs.find((t) => t.text() === 'Invoices & receipts')
+    await invoicesTab!.trigger('mousedown', { button: 0 })
+    await flushPromises()
+    expect(wrapper.findComponent(InvoicesPanel).exists()).toBe(true)
+
+    await wrapper.find('[data-test="invoices-edit-store"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findComponent(StorePanel).exists()).toBe(true)
+    expect(wrapper.findComponent(InvoicesPanel).exists()).toBe(false)
   })
 })
 
@@ -1445,8 +1496,15 @@ function storeSettings(
       'commerce.seller.name': { value: '', default: '', overridden: false },
       'commerce.seller.address': { value: '', default: '', overridden: false },
       'commerce.seller.tax_id': { value: '', default: '', overridden: false },
+      'commerce.invoice.logo_blob_uuid': { value: '', default: '', overridden: false },
+      'commerce.invoice.footer_text': { value: '', default: '', overridden: false },
+      'commerce.invoice.show_sku': { value: true, default: true, overridden: false },
+      'commerce.invoice.show_addresses': { value: true, default: true, overridden: false },
+      'commerce.invoice.show_tax_id': { value: true, default: true, overridden: false },
+      'commerce.invoice.paper_preset': { value: 'a4', default: 'a4', overridden: false },
       ...overrides.settings,
     },
+    invoice_logo_url: overrides.invoice_logo_url ?? null,
     currency_locked: overrides.currency_locked ?? false,
     has_priced_products: overrides.has_priced_products ?? false,
     pages: overrides.pages ?? [],
@@ -1585,6 +1643,174 @@ describe('StorePanel', () => {
     expect(
       wrapper.find('[data-test="store-tax-input"]').attributes('disabled'),
     ).toBeDefined()
+  })
+})
+
+// ── InvoicesPanel: invoice & receipt branding settings (orders-invoices-receipts spec, Task 10) ─
+//
+// Reuses the SAME `useStoreSettings()`/`useSaveStoreSettings()` mocks StorePanel's own describe
+// block sets up above (both panels read/write the one `commerce.settings` pair) — the `storeSettings()`
+// factory already seeds all six `commerce.invoice.*` keys. `@/queries/media` is mocked at the top
+// of this file (Task 10 addition) so AssetField/MediaPickerModal never hit the network here.
+
+describe('InvoicesPanel', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    storeSettingsData.value = storeSettings()
+    storeSettingsStatus.value = 'success'
+    saveStoreSettingsMock.mockReset()
+    saveStoreSettingsMock.mockResolvedValue(storeSettings())
+    uploadMediaMock.mockReset()
+  })
+
+  function mountInvoices(canManage = true) {
+    return mount(InvoicesPanel, { props: { canManage }, global: { stubs: pageStubs } })
+  }
+
+  /** Drives AssetField's own hidden `<input type="file">` directly (a "direct drop", bypassing the
+   * choose-or-upload modal entirely) — `useFileDialog`'s `input.onchange` reads `event.target.files`,
+   * so setting `.files` then dispatching a native `change` is the jsdom-safe equivalent of a user
+   * dropping/picking a file on the dropzone. */
+  async function dropOnLogoField(wrapper: ReturnType<typeof mount>, file: File) {
+    const input = wrapper.find('[data-test="asset-dropzone-open"] input[type="file"]')
+    Object.defineProperty(input.element, 'files', { value: [file], configurable: true })
+    await input.trigger('change')
+    await flushPromises()
+  }
+
+  it('shows the seller identity fields read-only, sourced from Store settings', async () => {
+    storeSettingsData.value = storeSettings({
+      settings: {
+        'commerce.seller.name': { value: 'Aurora Lighting Co.', default: '', overridden: true },
+        'commerce.seller.address': { value: '221B Baker Street', default: '', overridden: true },
+        'commerce.seller.tax_id': { value: 'GH-TIN-0042', default: '', overridden: true },
+      } as never,
+    })
+    const wrapper = mountInvoices()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="invoices-seller-name"]').text()).toBe('Aurora Lighting Co.')
+    expect(wrapper.find('[data-test="invoices-seller-address"]').text()).toBe('221B Baker Street')
+    expect(wrapper.find('[data-test="invoices-seller-tax-id"]').text()).toBe('GH-TIN-0042')
+    // Read-only: none of these values are editable inputs in this panel.
+    expect(wrapper.find('textarea[data-test="invoices-seller-address"]').exists()).toBe(false)
+  })
+
+  it('emits edit-store when the seller-identity pointer is clicked', async () => {
+    const wrapper = mountInvoices()
+    await flushPromises()
+
+    await wrapper.find('[data-test="invoices-edit-store"]').trigger('click')
+    expect(wrapper.emitted('edit-store')).toHaveLength(1)
+  })
+
+  it('labels the addresses toggle accurately — it governs BUYER/customer addresses, not the seller block above', async () => {
+    const wrapper = mountInvoices()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Show customer addresses')
+  })
+
+  it('saves the footer, toggles, and paper preset together in a single payload', async () => {
+    const wrapper = mountInvoices()
+    await flushPromises()
+
+    await wrapper.find('[data-test="invoices-footer-input"]').setValue('Thank you for your business.')
+    wrapper
+      .findComponent<{ $emit: (e: string, v: boolean) => void }>('[data-test="invoices-toggle-sku"]')
+      .vm.$emit('update:modelValue', false)
+    selectRootByTestId(wrapper, 'invoices-paper-preset').vm.$emit('update:modelValue', 'thermal_80')
+    await flushPromises()
+    await wrapper.find('[data-test="invoices-settings-save"]').trigger('click')
+    await flushPromises()
+
+    expect(saveStoreSettingsMock).toHaveBeenCalledTimes(1)
+    const body = saveStoreSettingsMock.mock.calls[0]![0]
+    expect(body['commerce.invoice.footer_text']).toBe('Thank you for your business.')
+    expect(body['commerce.invoice.show_sku']).toBe(false)
+    expect(body['commerce.invoice.show_addresses']).toBe(true)
+    expect(body['commerce.invoice.show_tax_id']).toBe(true)
+    expect(body['commerce.invoice.paper_preset']).toBe('thermal_80')
+  })
+
+  it('shows a running character counter for the footer textarea', async () => {
+    const wrapper = mountInvoices()
+    await flushPromises()
+
+    await wrapper.find('[data-test="invoices-footer-input"]').setValue('Hello')
+    expect(wrapper.find('[data-test="invoices-footer-counter"]').text()).toBe('5 / 500')
+  })
+
+  it('maps a footer 422 onto the field', async () => {
+    // Plain framework error-body object — see ZonesPanel's identical 422 test above for why a
+    // directly-constructed ApiError can't be used here (this file's module registry resets per test).
+    saveStoreSettingsMock.mockRejectedValue({
+      success: false,
+      message: 'Validation failed',
+      error: {
+        code: 422,
+        timestamp: '2026-01-01T00:00:00Z',
+        request_id: 'req_1',
+        details: { 'commerce.invoice.footer_text': 'Footer must be 500 characters or fewer.' },
+      },
+    })
+    const wrapper = mountInvoices()
+    await flushPromises()
+
+    await wrapper.find('[data-test="invoices-settings-save"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Footer must be 500 characters or fewer.')
+  })
+
+  it('stores the uploaded uuid but previews ONLY the server-derived invoice_logo_url, never a uuid-synthesized URL', async () => {
+    uploadMediaMock.mockResolvedValue({ blob_uuid: 'blob-logo-1', url: 'x' })
+    storeSettingsData.value = storeSettings({ invoice_logo_url: '/v1/blobs/blob-logo-1' })
+    const wrapper = mountInvoices()
+    await flushPromises()
+
+    // Already shows the settings-derived URL before any upload happens.
+    expect(wrapper.find('[data-test="invoices-logo-preview"]').attributes('src')).toBe(
+      '/v1/blobs/blob-logo-1',
+    )
+
+    await dropOnLogoField(wrapper, new File(['x'], 'logo.png', { type: 'image/png' }))
+
+    expect(uploadMediaMock).toHaveBeenCalledTimes(1)
+    expect(uploadMediaMock.mock.calls[0]![0]).toMatchObject({ visibility: 'public' })
+    // The preview is untouched by the freshly stored uuid — it is NEVER built from
+    // `blobDisplayUrl(uuid)` (that would be `/blobs/blob-logo-1`, a different string entirely).
+    expect(wrapper.find('[data-test="invoices-logo-preview"]').attributes('src')).toBe(
+      '/v1/blobs/blob-logo-1',
+    )
+
+    await wrapper.find('[data-test="invoices-settings-save"]').trigger('click')
+    await flushPromises()
+    expect(saveStoreSettingsMock.mock.calls[0]![0]['commerce.invoice.logo_blob_uuid']).toBe(
+      'blob-logo-1',
+    )
+  })
+
+  it('rejects a non-image file dropped on the logo field client-side, without uploading', async () => {
+    const wrapper = mountInvoices()
+    await flushPromises()
+
+    await dropOnLogoField(wrapper, new File(['x'], 'malware.exe', { type: 'application/octet-stream' }))
+
+    expect(uploadMediaMock).not.toHaveBeenCalled()
+    expect(notify.error).toHaveBeenCalledTimes(1)
+  })
+
+  it('hides the logo picker, disables every input, and hides Save without manage rights', async () => {
+    const wrapper = mountInvoices(false)
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="invoices-settings-save"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="asset-dropzone-open"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="invoices-footer-input"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="invoices-toggle-sku"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="invoices-toggle-addresses"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.find('[data-test="invoices-toggle-tax-id"]').attributes('disabled')).toBeDefined()
   })
 })
 

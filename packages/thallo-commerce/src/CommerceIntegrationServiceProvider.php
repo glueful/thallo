@@ -7,6 +7,8 @@ namespace Thallo\Commerce;
 use Glueful\Extensions\DeclaresLoadOrder;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Cache\CacheStore;
+use Glueful\Container\Container as GluefulContainer;
+use Glueful\Container\Definition\FactoryDefinition;
 use Glueful\Cache\Contracts\EdgeCacheInterface;
 use Glueful\Database\Connection;
 use Glueful\Database\Migrations\MigrationPriority;
@@ -18,7 +20,12 @@ use Glueful\Extensions\Commerce\Events\ProductDeleted;
 use Glueful\Extensions\Commerce\Events\ProductSlugChanged;
 use Glueful\Extensions\Commerce\Events\StorefrontCatalogChanged;
 use Glueful\Extensions\Commerce\Contracts\OrderPaymentReturnUrlProvider;
+use Glueful\Extensions\Commerce\Contracts\PaymentLinkPublicUrlProvider;
+use Glueful\Extensions\Commerce\Contracts\PaymentLinkReturnUrlProvider;
 use Glueful\Extensions\Commerce\Orders\CheckoutAttemptAuthority;
+use Glueful\Extensions\Commerce\Orders\OrderFulfillmentService;
+use Glueful\Extensions\Commerce\Orders\OrderPaymentService;
+use Glueful\Extensions\Commerce\Orders\OrderRepository;
 use Glueful\Extensions\Commerce\Tenancy\CommerceTenantPurge;
 use Glueful\Extensions\Commerce\Tenancy\CommerceTenantResolution;
 use Glueful\Extensions\Commerce\Support\CommerceSettingsOverride;
@@ -27,11 +34,19 @@ use Glueful\Extensions\Commerce\Tenancy\TenantAdopter;
 use Glueful\Extensions\Contracts\Tenancy\TenantTableRegistry;
 use Glueful\Extensions\ServiceProvider;
 use Psr\Container\ContainerInterface;
+use Psr\Log\LoggerInterface;
 use Thallo\Commerce\Adoption\CommerceAdoptionContributor;
 use Thallo\Commerce\Diagnostics\CommerceIntegrationDiagnostics;
 use Thallo\Commerce\Email\CommerceEmailTemplates;
+use Thallo\Commerce\Email\PaymentRequestMailer;
+use Thallo\Commerce\Email\RichEmailAvailability;
 use Thallo\Commerce\Email\SendOrderEmails;
 use Thallo\Commerce\Events\ProductLinkChanged;
+use Thallo\Commerce\Http\AdminCompleteSaleController;
+use Thallo\Commerce\Http\AdminOrderExportController;
+use Thallo\Commerce\Http\AdminOrderPaymentsController;
+use Thallo\Commerce\Http\AdminOrderSearchController;
+use Thallo\Commerce\Http\AdminPaymentLinkSendController;
 use Thallo\Commerce\Http\CommerceMetaController;
 use Thallo\Commerce\Http\CommerceSettingsController;
 use Thallo\Commerce\Http\EmailSettingsController;
@@ -41,6 +56,10 @@ use Thallo\Commerce\Links\EntryLinkSearch;
 use Thallo\Commerce\Links\LinkReconciler;
 use Thallo\Commerce\Links\ProductLinkRepository;
 use Thallo\Commerce\Links\ProductLinkService;
+use Thallo\Commerce\Orders\AdminOrderSearchQuery;
+use Thallo\Commerce\Orders\CompleteSaleCoordinator;
+use Thallo\Commerce\Payments\OrderPaymentSummaryRepository;
+use Thallo\Commerce\Payments\PaymentLinkDeliveryRepository;
 use Thallo\Commerce\Http\Shop\CartCookie;
 use Thallo\Commerce\Http\Shop\GuestOrderCookie;
 use Thallo\Commerce\Http\Shop\ShopAssetController;
@@ -49,13 +68,25 @@ use Thallo\Commerce\Http\Shop\ShopCartController;
 use Thallo\Commerce\Http\Shop\ShopCatalogController;
 use Thallo\Commerce\Http\Shop\ShopCheckoutController;
 use Thallo\Commerce\Http\Shop\ShopCsrfGuard;
+use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;
+use Glueful\Extensions\Payvia\Contracts\StrictPaymentEventListener;
+use Glueful\Extensions\Payvia\Events\PaymentProviderEvent;
+use Glueful\Extensions\Payvia\Repositories\PaymentIntentRepository;
+use Glueful\Extensions\Payvia\Services\ConfirmationDispatcher;
+use Thallo\Commerce\Payments\WebhookOrderSettlementListener;
+use Thallo\Commerce\Payments\PaymentLinkReturnSigner;
 use Thallo\Commerce\Payments\ThalloOrderPaymentReturnUrlProvider;
+use Thallo\Commerce\Payments\ThalloPaymentLinkPublicUrlProvider;
+use Thallo\Commerce\Payments\ThalloPaymentLinkReturnUrlProvider;
 use Thallo\Commerce\Http\Shop\ShopPageRenderer;
+use Thallo\Commerce\Http\Shop\ShopPaymentLinkController;
+use Thallo\Commerce\Http\Shop\ShopPaymentLinkHeaders;
 use Thallo\Commerce\Http\Shop\ShopProductCardAssembler;
 use Thallo\Commerce\Http\Shop\ShopWishlistController;
 use Thallo\Commerce\Listeners\EntryDeletedListener;
 use Thallo\Commerce\Listeners\ProductDeletedListener;
 use Thallo\Commerce\Purge\CommercePurgeHandler;
+use Thallo\Commerce\Settings\InvoiceLogoResolver;
 use Thallo\Commerce\Shop\CapabilityFlipPurge;
 use Thallo\Commerce\Shop\Contribution\ShopReservedPathContributor;
 use Thallo\Commerce\Shop\Contribution\ShopTemplatePathContributor;
@@ -123,6 +154,14 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
     private const PRODUCT_LINK_TABLE = 'thallo_commerce_product_links';
 
     /**
+     * The payment-link delivery ledger (payment-links spec §2.4). Registered as tenant-owned
+     * alongside the link table and covered by this pack's purge handler + adoption contributor —
+     * §2.4 names tenant purge/adoption as part of this table's contract, so it is not left to the
+     * generic backstop.
+     */
+    private const PAYMENT_LINK_DELIVERY_TABLE = 'thallo_commerce_payment_link_deliveries';
+
+    /**
      * Tenant resolution is infrastructure, not a user-facing surface: bound unconditionally
      * (never inside the capability gate in boot() below), so Commerce's own
      * `makeTenantResolver()` picks up the three-mode seam regardless of whether
@@ -187,6 +226,17 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
                 'shared'   => true,
                 'autowire' => true,
             ],
+            // Task 6 (orders-invoices-receipts plan): the one ownership+servability authority for
+            // the invoice logo blob uuid. Autowired -- Connection is framework core; the
+            // Glueful\Uploader\Contracts\BlobAccessPolicy and Thallo\Contracts\Delivery\
+            // MediaUrlResolver seams are both bound UNCONDITIONALLY at the app level (never
+            // behind this pack's own thallo.commerce gate), so this resolves regardless of
+            // capability state -- CommerceSettingsController itself decides when to call it.
+            InvoiceLogoResolver::class => [
+                'class'    => InvoiceLogoResolver::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
             // Store-settings spec §3.4: GET/PUT /settings. Autowired — storage resolves through
             // the pack-owned CommerceSettingsStore contract the host app binds.
             CommerceSettingsController::class => [
@@ -206,6 +256,62 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
             // Spec §3.6 Marketplace group: thin front over commerce's marketplace services.
             MarketplaceSettingsController::class => [
                 'class'    => MarketplaceSettingsController::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            // Task 3 (orders-invoices-receipts plan): TEMPORARY app-owned filtered orders search
+            // (see AdminOrderSearchController's own docblock for the retirement condition).
+            // AdminOrderSearchFilter is deliberately NOT bound here -- the controller constructs
+            // it directly per-request from the live Request (`new AdminOrderSearchFilter($request)`,
+            // mirroring every other request-driven QueryFilter in this codebase), so it carries
+            // no DI entry of its own.
+            AdminOrderSearchQuery::class => [
+                'class'    => AdminOrderSearchQuery::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            AdminOrderSearchController::class => [
+                'class'    => AdminOrderSearchController::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            // Task 4 (orders-invoices-receipts plan): the bounded streamed CSV export sharing
+            // AdminOrderSearchQuery/AdminOrderSearchFilter with the search controller above (see
+            // AdminOrderExportController's own docblock). Same autowired-controller shape.
+            AdminOrderExportController::class => [
+                'class'    => AdminOrderExportController::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            // Task 5 (orders-invoices-receipts plan): the admin order payment summary. Autowired
+            // -- OrderPaymentSummaryRepository takes only Connection (see its own docblock for
+            // why it never depends on any Payvia-provided service), so this is resolvable whether
+            // or not glueful/payvia's own provider happens to be booted.
+            OrderPaymentSummaryRepository::class => [
+                'class'    => OrderPaymentSummaryRepository::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            AdminOrderPaymentsController::class => [
+                'class'    => AdminOrderPaymentsController::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            // Task 13 (admin-order-creation cycle 2, design spec §2.8): the complete-sale
+            // orchestration. The coordinator takes an explicit factory rather than autowiring
+            // because its last constructor parameter is an optional test-only `callable` seam
+            // (see its own docblock) that has no container type to resolve -- production must
+            // always get the no-op default, and a factory says so unambiguously. Its Commerce
+            // collaborators (OrderRepository/OrderPaymentService/OrderFulfillmentService) resolve
+            // lazily, exactly like AdminOrderPaymentsController's own autowired ones, so this
+            // definition stays harmless when Commerce's provider is inactive and the (capability-
+            // gated) route is unreachable anyway.
+            CompleteSaleCoordinator::class => [
+                'factory' => [self::class, 'makeCompleteSaleCoordinator'],
+                'shared'  => true,
+            ],
+            AdminCompleteSaleController::class => [
+                'class'    => AdminCompleteSaleController::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
@@ -243,6 +349,40 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
             ],
             CommerceAdoptionContributor::class => [
                 'factory' => [self::class, 'makeCommerceAdoptionContributor'],
+                'shared'  => true,
+            ],
+            // Payment links Task 12 (payment-links spec §2.4): the delivery-idempotency ledger,
+            // the shared rich-email availability authority, the dedicated payment-request mailer,
+            // and the pack's ONE payment-link route's controller.
+            //
+            // RichEmailAvailability gets an explicit factory rather than autowiring because its
+            // ONE dependency is OPTIONAL by contract: an install whose framework notification
+            // provider is inactive has no ChannelManager bound at all, and autowiring a nullable
+            // constructor parameter is exactly the situation where "it happened to work" and
+            // "it degrades correctly" are indistinguishable in a diff. Bound unconditionally —
+            // CommerceMetaController's MANDATORY `email_available` flag must resolve on every
+            // boot, including ones that can never send.
+            RichEmailAvailability::class => [
+                'factory' => [self::class, 'makeRichEmailAvailability'],
+                'shared'  => true,
+            ],
+            PaymentLinkDeliveryRepository::class => [
+                'class'    => PaymentLinkDeliveryRepository::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            PaymentRequestMailer::class => [
+                'class'    => PaymentRequestMailer::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            // An explicit factory, not autowiring: the controller's last two constructor
+            // parameters are the LAZY PaymentLinkService/PaymentLinkPublicUrlProvider seams (see
+            // its own docblock for why they must not be constructed on a request that refuses at
+            // validation), so production must always receive the null defaults and a factory says
+            // so unambiguously. Mirrors makeCompleteSaleCoordinator()'s identical reasoning.
+            AdminPaymentLinkSendController::class => [
+                'factory' => [self::class, 'makeAdminPaymentLinkSendController'],
                 'shared'  => true,
             ],
             // Task 11 (storefront-rendering spec §5.2): the boot-built content-hash allowlist
@@ -355,6 +495,36 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
                 'shared'   => true,
                 'autowire' => true,
             ],
+            // Payment links Task 11 (payment-links spec §2.3): the public landing/initiate/receipt
+            // surface. The signer is dependency-free (it derives app.key per call, never latches
+            // a key); the controller autowires over Commerce's own PaymentLinkService binding and
+            // this pack's ShopPageRenderer/ShopUrlGenerator.
+            PaymentLinkReturnSigner::class => [
+                'class'  => PaymentLinkReturnSigner::class,
+                'shared' => true,
+            ],
+            // The two engine seams themselves are bound by CONCRETE class here and re-pinned onto
+            // Commerce's contract ids at boot() — see rebindPaymentLinkSeams() for why the
+            // contract ids cannot be won from this array.
+            ThalloPaymentLinkPublicUrlProvider::class => [
+                'class'    => ThalloPaymentLinkPublicUrlProvider::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            ThalloPaymentLinkReturnUrlProvider::class => [
+                'class'    => ThalloPaymentLinkReturnUrlProvider::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            ShopPaymentLinkHeaders::class => [
+                'class'  => ShopPaymentLinkHeaders::class,
+                'shared' => true,
+            ],
+            ShopPaymentLinkController::class => [
+                'class'    => ShopPaymentLinkController::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
             ShopCartController::class => [
                 'class'    => ShopCartController::class,
                 'shared'   => true,
@@ -433,6 +603,16 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
             // discoverCommands() in boot() below, matching the thallo-tenancy pack's convention.
         ];
 
+        // NOTE: Commerce's two PAYMENT-LINK host seams (PaymentLinkPublicUrlProvider /
+        // PaymentLinkReturnUrlProvider) are deliberately NOT bound in this array. Commerce binds
+        // its own "Unavailable" defaults for both ids, and
+        // ContainerFactory::loadExtensionDefinitions() merges provider definitions id-by-id with
+        // `$defs += $compiled` in resolver order — first writer wins — while this pack declares
+        // loadAfter(CommerceServiceProvider). A definition here would therefore be silently
+        // DROPPED, not applied. The seams are re-pinned at boot() instead
+        // ({@see self::rebindPaymentLinkSeams()}), the same idiom
+        // Thallo\Subscriptions\EnginePreemptionServiceProvider uses for the identical situation.
+
         // NOTE: Payvia's runtime-settings seam is deliberately NOT bound here any more.
         // Platform-payments-settings spec §2 (Task 4) moved gateway-credential ownership to the
         // HOST APP, which binds that seam from its own provider's services(): credentials are
@@ -440,7 +620,60 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
         // tenant context exists, so they must not sit behind this pack's `thallo.commerce`
         // capability gate.
 
+        // The webhook -> order settlement lane (payment-links final review). Registered LAST and
+        // conditionally, because it is the one definition in this array that names a payvia type.
+        $services += self::webhookOrderSettlementDefinitions();
+
         return $services;
+    }
+
+    /**
+     * The strict-lane listener that turns a provider-verified `payment.succeeded` webhook into a
+     * paid order ({@see WebhookOrderSettlementListener} for the whole rationale).
+     *
+     * `interface_exists()` because payvia is a SOFT dependency of this pack (it is not in the
+     * package's composer requires; the app pulls it in). An install without payvia — or pinned to
+     * a payvia older than the strict lane — registers nothing at all rather than compiling a
+     * reference to a missing type.
+     *
+     * The `'tags'` key on the definition is what actually wires the tag: this is a `services()`
+     * (DSL) provider, and `ContainerFactory` only consults a provider's static `tags()` for
+     * typed `defs()`-based providers. A static `tags()` here would be dead code — the same trap
+     * `SubscriptionsServiceProvider` documents at length for its own strict-lane bridge.
+     *
+     * @return array<string, mixed>
+     */
+    private static function webhookOrderSettlementDefinitions(): array
+    {
+        if (!interface_exists(StrictPaymentEventListener::class)) {
+            return [];
+        }
+
+        return [
+            WebhookOrderSettlementListener::class => [
+                'factory' => [self::class, 'makeWebhookOrderSettlementListener'],
+                'shared'  => true,
+                'tags'    => [StrictPaymentEventListener::CONTAINER_TAG],
+            ],
+        ];
+    }
+
+    /**
+     * Explicit factory rather than autowiring: the tenant runner is an OPTIONAL contract (a
+     * single-store install binds none) and autowiring a nullable interface parameter is not a
+     * thing the container does. Everything else is a plain payvia-bound service.
+     */
+    public static function makeWebhookOrderSettlementListener(
+        ContainerInterface $container
+    ): WebhookOrderSettlementListener {
+        return new WebhookOrderSettlementListener(
+            $container->get(ApplicationContext::class),
+            $container->get(PaymentIntentRepository::class),
+            $container->get(ConfirmationDispatcher::class),
+            interface_exists(TenantContextRunner::class) && $container->has(TenantContextRunner::class)
+                ? $container->get(TenantContextRunner::class)
+                : null,
+        );
     }
 
     public static function makeCommerceTenantResolution(ContainerInterface $container): CommerceTenantResolution
@@ -462,6 +695,43 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
         return new ShopUrlGenerator(
             (string) config($context, 'thallo-commerce.shop_prefix', 'shop'),
             $container->get(ShopAssetMap::class),
+        );
+    }
+
+    /**
+     * Payment links Task 12: the shared rich-email availability authority. Soft-resolves the
+     * framework {@see \Glueful\Notifications\Services\ChannelManager} (a `has()` check, not a
+     * `class_exists()` one — the class always autoloads with the framework; what varies is
+     * whether the notifications provider bound it), so an install with no notification stack
+     * answers `email_available=false` instead of failing to boot.
+     */
+    public static function makeRichEmailAvailability(ContainerInterface $container): RichEmailAvailability
+    {
+        return new RichEmailAvailability(
+            $container->has(\Glueful\Notifications\Services\ChannelManager::class)
+                ? $container->get(\Glueful\Notifications\Services\ChannelManager::class)
+                : null,
+        );
+    }
+
+    /**
+     * Payment links Task 12: the send controller with its two LAZY engine seams left null (see
+     * the class's own docblock). Its six eager collaborators are all plain container-bound
+     * services; {@see PaymentLinkService} and {@see PaymentLinkPublicUrlProvider} are resolved
+     * per-request from inside the controller, long after boot — which also means this definition
+     * stays harmless when Commerce's provider is inactive and the (capability-gated) route is
+     * unreachable anyway.
+     */
+    public static function makeAdminPaymentLinkSendController(
+        ContainerInterface $container,
+    ): AdminPaymentLinkSendController {
+        return new AdminPaymentLinkSendController(
+            $container->get(ApplicationContext::class),
+            $container->get(OrderRepository::class),
+            $container->get(CommerceTenantResolution::class),
+            $container->get(PaymentLinkDeliveryRepository::class),
+            $container->get(PaymentRequestMailer::class),
+            $container->get(RichEmailAvailability::class),
         );
     }
 
@@ -530,6 +800,75 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
             $container->get(ApplicationContext::class),
             $container->get(CanonicalPublicOriginResolver::class),
         );
+    }
+
+    /**
+     * Payment links Task 11 (payment-links spec §2.3): re-pin Commerce's two payment-link host
+     * seams onto this pack's implementations.
+     *
+     * WHY THIS IS NOT IN `services()`. Commerce binds BOTH ids itself — to its engine-owned
+     * `UnavailablePaymentLink*Provider` defaults, so a generic host still compiles and receives a
+     * typed unavailable outcome. `ContainerFactory::loadExtensionDefinitions()` then merges
+     * provider definitions with `$defs += $compiled` in resolver order, which is FIRST-WRITER-WINS,
+     * and this pack declares `loadAfter(CommerceServiceProvider)`. A `services()` entry for either
+     * id would be silently discarded — the failure mode being a store that mints links nobody can
+     * open, with nothing anywhere saying why. (An `alias` on the concrete definition loses for the
+     * same reason: aliases are compiled into this provider's own map and merged identically.)
+     *
+     * Guarded three ways, all of which are real states rather than defensive noise:
+     *  - a non-{@see GluefulContainer} (a compiled container) has no `load()`, so this would
+     *    silently skip. Today container compilation always throws and falls back to the plain
+     *    container; `tests/Integration/Subscriptions/SubjectResolverCompiledContainerGateTest.php`
+     *    drives the real `ContainerFactory::create($context, prod: true)` path and turns red the
+     *    day that stops being true, which is the same day this re-pin needs another home;
+     *  - `interface_exists()` — an install pinned to a pre-payment-links Commerce must stay inert;
+     *  - `has()` — if Commerce's provider is not active at all, the id is unbound and binding it
+     *    would advertise an engine contract this boot cannot honour.
+     *
+     * The definitions are FACTORIES resolving this pack's own container-bound implementations, so
+     * the engine's lazily-constructed `PaymentLinkService` (itself a factory) picks them up on
+     * first resolution — which is always after boot.
+     *
+     * SINGLETON-LATCH FRAGILITY, stated because it is invisible otherwise: both seam ids are
+     * SHARED, so anything that resolves `PaymentLinkService` (or either seam id directly) BEFORE
+     * this method runs would latch Commerce's `Unavailable*` default for the rest of the process,
+     * silently — a mint would then answer `public_url_unavailable` with nothing in any log saying
+     * why. Nothing does today (the only consumers are this pack's own HTTP routes and Commerce's
+     * admin routes, all of which resolve per-request, long after boot), and
+     * `PaymentLinkHostSeamsTest` asserts both ids resolve to the Thallo implementations. A future
+     * boot-time consumer of the payment-link service would have to load AFTER this provider.
+     */
+    private function rebindPaymentLinkSeams(): void
+    {
+        if (!$this->app instanceof GluefulContainer) {
+            return;
+        }
+
+        if (
+            interface_exists(PaymentLinkPublicUrlProvider::class)
+            && $this->app->has(PaymentLinkPublicUrlProvider::class)
+        ) {
+            $this->app->load([
+                PaymentLinkPublicUrlProvider::class => new FactoryDefinition(
+                    PaymentLinkPublicUrlProvider::class,
+                    static fn (ContainerInterface $c): ThalloPaymentLinkPublicUrlProvider
+                        => $c->get(ThalloPaymentLinkPublicUrlProvider::class),
+                ),
+            ]);
+        }
+
+        if (
+            interface_exists(PaymentLinkReturnUrlProvider::class)
+            && $this->app->has(PaymentLinkReturnUrlProvider::class)
+        ) {
+            $this->app->load([
+                PaymentLinkReturnUrlProvider::class => new FactoryDefinition(
+                    PaymentLinkReturnUrlProvider::class,
+                    static fn (ContainerInterface $c): ThalloPaymentLinkReturnUrlProvider
+                        => $c->get(ThalloPaymentLinkReturnUrlProvider::class),
+                ),
+            ]);
+        }
     }
 
     /**
@@ -677,6 +1016,22 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
         );
     }
 
+    /**
+     * Task 13: {@see CompleteSaleCoordinator} with the production (absent) step-boundary probe.
+     * The logger is soft-resolved the same way `makeSendOrderEmails()` does below, so a host
+     * without a bound PSR logger still gets a working endpoint (it simply records nothing).
+     */
+    public static function makeCompleteSaleCoordinator(ContainerInterface $container): CompleteSaleCoordinator
+    {
+        return new CompleteSaleCoordinator(
+            $container->get(ApplicationContext::class),
+            $container->get(OrderRepository::class),
+            $container->get(OrderPaymentService::class),
+            $container->get(OrderFulfillmentService::class),
+            $container->has(LoggerInterface::class) ? $container->get(LoggerInterface::class) : null,
+        );
+    }
+
     public static function makeCommerceIntegrationDiagnostics(
         ContainerInterface $container,
     ): CommerceIntegrationDiagnostics {
@@ -767,6 +1122,10 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
         // thallo.commerce can never leave a stale entry for the NEXT time it's re-enabled.
         $this->registerShopCachePurgeListeners($context);
 
+        // Money infrastructure, never behind the capability gate — a webhook for an order that
+        // was placed while thallo.commerce was on must still settle.
+        $this->registerWebhookOrderSettlement($context);
+
         // Capability-boundary pin: a flip of thallo.commerce between boots purges the rendered
         // page cache (+ edge) so previously cached shop shells/script tags — or, on re-enable,
         // cached missing-template fallbacks — disappear immediately. OUTSIDE the gate for the
@@ -778,6 +1137,12 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
         if ($registry->isEnabled('thallo.commerce')) {
             $this->loadRoutesFrom(__DIR__ . '/../routes/admin-routes.php');
             $this->loadRoutesFrom(__DIR__ . '/../routes/shop-routes.php');
+
+            // Payment links Task 11 (payment-links spec §2.3): re-pin Commerce's two payment-link
+            // host seams onto this pack's implementations, INSIDE the gate — the seams and the
+            // public routes they point at must appear and disappear together, or a minted link
+            // would carry a URL that 404s.
+            $this->rebindPaymentLinkSeams();
 
             // Capability-boundary pin: the pack template dir joins Render's resolution chain
             // ONLY while the capability is on. With it off, `blocks/product-grid.twig` etc.
@@ -916,6 +1281,122 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
     }
 
     /**
+     * The webhook -> order settlement lane's STALE-COMPILED-CONTAINER guard.
+     *
+     * {@see self::webhookOrderSettlementDefinitions()} decides from a live probe at COMPILE time
+     * (frozen into a compiled container) while this runs on every boot. A container compiled
+     * before this listener existed leaves payvia's `composeStrictLane()` without it, and webhook
+     * settlement is SILENTLY DEAD — the exact failure this whole lane exists to fix. The probe is
+     * over the TAG'S CONTENTS, never over `has(id)`/`has(TAG)`; see
+     * {@see self::strictLaneCarriesSettlementListener()} for why both of those are unreachable or
+     * untrue in the realistic shapes. Degraded delivery beats none, so the listener is attached to the ordinary
+     * `PaymentProviderEvent` bus instead, and the log says plainly what is degraded about it:
+     * bus dispatch is fault-isolated, so a settlement that THROWS is caught and logged rather
+     * than retried. The order simply stays `pending_payment` (recoverable through the
+     * authenticated `POST /payvia/payments/confirm`); no money moves twice, because every CAS in
+     * the chain is unchanged. The real fix is recompiling the container.
+     */
+    private function registerWebhookOrderSettlement(ApplicationContext $context): void
+    {
+        if (
+            !interface_exists(StrictPaymentEventListener::class)
+            || !class_exists(PaymentProviderEvent::class)
+            || !$context->hasContainer()
+        ) {
+            return;
+        }
+
+        $container = $context->getContainer();
+        if (!$container->has(EventService::class)) {
+            return;
+        }
+
+        if (self::strictLaneCarriesSettlementListener($container)) {
+            return;
+        }
+
+        try {
+            // NOT `$container->get(WebhookOrderSettlementListener::class)`: on the stale-container
+            // shape the definition itself is what is missing, so the id is unbound. The public
+            // factory is used directly instead — its three collaborators all come from payvia's
+            // OWN definitions, which a container compiled while payvia was installed does have.
+            $listener = $container->has(WebhookOrderSettlementListener::class)
+                ? $container->get(WebhookOrderSettlementListener::class)
+                : self::makeWebhookOrderSettlementListener($container);
+        } catch (\Throwable $e) {
+            error_log(
+                '[Thallo\Commerce] CRITICAL: webhook order settlement is DEAD — the strict lane '
+                . 'does not carry ' . WebhookOrderSettlementListener::class . ' and the degraded '
+                . 'bus fallback could not be constructed either: ' . $e->getMessage()
+                . '. Provider webhooks will NOT settle orders; every payment must be confirmed '
+                . 'manually through POST /payvia/payments/confirm until the container is '
+                . 'recompiled (di:container:compile --force).'
+            );
+
+            return;
+        }
+
+        error_log(
+            '[Thallo\Commerce] CRITICAL: payvia is installed but the strict payment-event lane '
+            . 'does not carry ' . WebhookOrderSettlementListener::class . ' — this looks like a '
+            . 'stale compiled container built before this listener existed (the '
+            . StrictPaymentEventListener::CONTAINER_TAG . ' tag may still be bound by ANOTHER '
+            . 'contributor, which is why the tag being present proves nothing). Falling back to '
+            . 'the DEGRADED event-bus lane so provider webhooks still settle orders. That lane is '
+            . 'fault-isolated: a settlement failure is swallowed and logged, never retried, and '
+            . 'the order stays pending_payment until someone confirms it manually. Recompile the '
+            . 'container (di:container:compile --force) to restore the strict lane.'
+        );
+
+        /** @var EventService $events */
+        $events = $container->get(EventService::class);
+        $events->addListener(PaymentProviderEvent::class, [$listener, 'onProviderEvent']);
+    }
+
+    /**
+     * Does the live strict lane ACTUALLY carry this pack's settlement listener?
+     *
+     * The obvious probes are both wrong, and each is wrong in a way that silently disables the
+     * fallback in exactly the shape it was written for:
+     *
+     *  - `has(WebhookOrderSettlementListener::class) && !has(TAG)` can never be true. The
+     *    definition and its tag are emitted by the SAME interface_exists-guarded block, and
+     *    `ContainerFactory` binds a tagged-iterator entry for any tag with at least one
+     *    contributor — so the two always appear and disappear together.
+     *  - `has(TAG)` alone proves nothing about US: `SubscriptionsServiceProvider` tags its own
+     *    strict-lane bridge under the same id, so a container compiled before THIS listener
+     *    existed still answers `true` while carrying no settlement listener at all.
+     *
+     * Only the tag's CONTENTS answer the real question, which is what payvia's
+     * `composeStrictLane()` will actually iterate. An unbound tag, a non-iterable value, or a
+     * lane that simply does not include us all mean the same thing: settlement is not wired.
+     */
+    private static function strictLaneCarriesSettlementListener(ContainerInterface $container): bool
+    {
+        if (!$container->has(StrictPaymentEventListener::CONTAINER_TAG)) {
+            return false;
+        }
+
+        try {
+            $tagged = $container->get(StrictPaymentEventListener::CONTAINER_TAG);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        if (!is_iterable($tagged)) {
+            return false;
+        }
+
+        foreach ($tagged as $listener) {
+            if ($listener instanceof WebhookOrderSettlementListener) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Task 8 (storefront-rendering spec §9): the shop catalog cache's five purge listeners.
      * {@see StorefrontCatalogChanged} covers all 11 of its closed reasons through ONE
      * registration — the reason lives on the event INSTANCE, not the event class, so this
@@ -971,7 +1452,8 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
     }
 
     /**
-     * Register {@see self::PRODUCT_LINK_TABLE} into the tenancy backstop — but only when
+     * Register {@see self::PRODUCT_LINK_TABLE} and {@see self::PAYMENT_LINK_DELIVERY_TABLE} into
+     * the tenancy backstop — but only when
      * TenantTableRegistry is bound (the glueful/tenancy extension is active). Unlike
      * {@see \Thallo\Tenancy\TenancyServiceProvider::registerTenantTables()}, this does NOT also
      * gate on tenancy-enforcement flags: the pack's own table is always declared tenant-owned
@@ -998,7 +1480,7 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
             $registry = $container->get(TenantTableRegistry::class);
         }
 
-        $registry->register([self::PRODUCT_LINK_TABLE]);
+        $registry->register([self::PRODUCT_LINK_TABLE, self::PAYMENT_LINK_DELIVERY_TABLE]);
 
         return true;
     }

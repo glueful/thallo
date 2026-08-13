@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
-import { toValue, type MaybeRefOrGetter } from 'vue'
+import { computed, toValue, type MaybeRefOrGetter } from 'vue'
 import { client } from '@/api/client'
 import { ApiError, toApiError } from '@/api/errors'
 import { qk } from './keys'
@@ -808,8 +808,10 @@ export function useCommerceTaxRateMutations() {
 // shows through).
 
 export interface StoreSettingEntry {
-  value: string | number
-  default: string | number
+  /** A boolean-typed key (Task 6's three invoice toggles) carries a real `boolean` here — the
+   * server returns genuine JSON booleans for those, never `'1'`/`'0'` strings on the read side. */
+  value: string | number | boolean
+  default: string | number | boolean
   overridden: boolean
 }
 
@@ -821,6 +823,12 @@ export interface StorePage {
 
 export interface StoreSettings {
   settings: Record<string, StoreSettingEntry>
+  /** Derived, non-editable (Task 6): the ONE URL a print view/settings panel may turn into an
+   * `<img src>` — a stored `commerce.invoice.logo_blob_uuid` alone must NEVER be used to
+   * synthesize an image URL. Null whenever the setting is unset OR the stored uuid no longer
+   * resolves to a servable public image (deleted/private/non-image), WITHOUT erasing the stored
+   * uuid itself (`CommerceSettingsController::invoiceLogoUrl()`'s own docblock). */
+  invoice_logo_url: string | null
   /** True once ORDERS exist — recorded money history; the currency lock's predicate. */
   currency_locked: boolean
   /** Priced products exist (no lock, but a currency change reinterprets their numbers). */
@@ -840,12 +848,50 @@ export const STORE_SETTING_KEYS = [
   'commerce.seller.name',
   'commerce.seller.address',
   'commerce.seller.tax_id',
+  // Invoice & receipt branding (orders-invoices-receipts spec, Task 6): logo/footer plus the
+  // three optional-section toggles and the print paper preset (`CommerceSettingsController`'s
+  // `BOOLEAN_KEYS`/`INVOICE_PAPER_PRESETS`). The logo uuid's ownership+servability is validated
+  // save-side through `InvoiceLogoResolver`; the derived, ALWAYS-non-editable `invoice_logo_url`
+  // lives on `StoreSettings` itself, never inside this settings map.
+  'commerce.invoice.logo_blob_uuid',
+  'commerce.invoice.footer_text',
+  'commerce.invoice.show_sku',
+  'commerce.invoice.show_addresses',
+  'commerce.invoice.show_tax_id',
+  'commerce.invoice.paper_preset',
 ] as const
 
 export type StoreSettingKey = (typeof STORE_SETTING_KEYS)[number]
 
+/** `CommerceSettingsController::INVOICE_PAPER_PRESETS` — the closed vocabulary for
+ * `commerce.invoice.paper_preset` AND the print page's per-print segmented override (spec
+ * Ruling 12). Shared by both so the settings default and the print page's preset prop can never
+ * drift into different enums. */
+export const INVOICE_PAPER_PRESETS = ['a4', 'thermal_80', 'thermal_58'] as const
+export type InvoicePaperPreset = (typeof INVOICE_PAPER_PRESETS)[number]
+
+function isInvoicePaperPreset(value: unknown): value is InvoicePaperPreset {
+  return (
+    typeof value === 'string' && (INVOICE_PAPER_PRESETS as readonly string[]).includes(value)
+  )
+}
+
+/** The three invoice toggle keys carry a genuine `boolean` on the SAVE side too (Task 6's
+ * `BOOLEAN_KEYS`) — every other key stays `string | number`, unlike the read side's uniform
+ * `StoreSettingEntry.value` union. Named so `StoreSettingsSave` can widen ONLY these three rather
+ * than making every key's save type a boolean union it can never actually take (Task 8 review
+ * carry-over: the original blanket `string | number | null` made a toggle's `true`/`false`
+ * unrepresentable here — InvoicesPanel is the first save-side consumer of these three keys). */
+export type InvoiceToggleSettingKey =
+  | 'commerce.invoice.show_sku'
+  | 'commerce.invoice.show_addresses'
+  | 'commerce.invoice.show_tax_id'
+
 /** PUT body: value = set (validated server-side), null = clear back to default, absent = untouched. */
-export type StoreSettingsSave = Partial<Record<StoreSettingKey, string | number | null>>
+export type StoreSettingsSave = Partial<
+  Record<Exclude<StoreSettingKey, InvoiceToggleSettingKey>, string | number | null>
+> &
+  Partial<Record<InvoiceToggleSettingKey, boolean | null>>
 
 function normalizeStoreEntry(raw: unknown): StoreSettingEntry {
   const entry = (raw ?? {}) as Partial<StoreSettingEntry>
@@ -859,6 +905,7 @@ function normalizeStoreEntry(raw: unknown): StoreSettingEntry {
 function normalizeStoreSettings(raw: unknown): StoreSettings {
   const data = (raw ?? {}) as {
     settings?: Record<string, unknown>
+    invoice_logo_url?: unknown
     currency_locked?: boolean
     has_priced_products?: boolean
     pages?: unknown
@@ -875,6 +922,7 @@ function normalizeStoreSettings(raw: unknown): StoreSettings {
     : []
   return {
     settings,
+    invoice_logo_url: typeof data.invoice_logo_url === 'string' ? data.invoice_logo_url : null,
     currency_locked: data.currency_locked === true,
     has_priced_products: data.has_priced_products === true,
     pages,
@@ -895,6 +943,49 @@ export async function saveStoreSettings(body: StoreSettingsSave): Promise<StoreS
 
 export function useStoreSettings() {
   return useQuery({ key: qk.commerceStoreSettings(), query: fetchStoreSettings })
+}
+
+// ── Invoice & receipt branding — typed selector (orders-invoices-receipts spec, Task 8) ────────
+// A thin, typed projection over `useStoreSettings()`'s generic `Record<StoreSettingKey,
+// StoreSettingEntry>` map for the six `commerce.invoice.*` keys plus the derived
+// `invoice_logo_url` — every print-view/settings-panel consumer reads through THIS selector
+// rather than re-deriving the same six lookups + coercions at each call site.
+
+export interface InvoiceSettings {
+  logoBlobUuid: string
+  /** The ONE thing a print view may render as `<img src>` — never synthesized from
+   * `logoBlobUuid` alone (see `StoreSettings.invoice_logo_url`'s own docblock). */
+  logoUrl: string | null
+  footerText: string
+  showSku: boolean
+  showAddresses: boolean
+  showTaxId: boolean
+  paperPreset: InvoicePaperPreset
+}
+
+export function useInvoiceSettings() {
+  const { data, status } = useStoreSettings()
+  const invoiceSettings = computed<InvoiceSettings | undefined>(() => {
+    const settings = data.value
+    if (!settings) return undefined
+    const rows = settings.settings
+    const rawPreset = rows['commerce.invoice.paper_preset']?.value
+    return {
+      logoBlobUuid: String(rows['commerce.invoice.logo_blob_uuid']?.value ?? ''),
+      logoUrl: settings.invoice_logo_url,
+      footerText: String(rows['commerce.invoice.footer_text']?.value ?? ''),
+      // Task 6's documented default for all three toggles is `true` — an ABSENT entry (older
+      // backend, malformed/partial payload) normalizes its `.value` to `''` (never `false`), so
+      // `!== false` is the correct "unless explicitly turned off" test. A strict `=== true` would
+      // silently invert a missing key to OFF, hiding SKU/addresses/tax-id from every invoice the
+      // moment the server omits the key rather than sending the real boolean.
+      showSku: rows['commerce.invoice.show_sku']?.value !== false,
+      showAddresses: rows['commerce.invoice.show_addresses']?.value !== false,
+      showTaxId: rows['commerce.invoice.show_tax_id']?.value !== false,
+      paperPreset: isInvoicePaperPreset(rawPreset) ? rawPreset : 'a4',
+    }
+  })
+  return { data: invoiceSettings, status }
 }
 
 export function useSaveStoreSettings() {

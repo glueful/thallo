@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import type { FieldDef } from '../types'
 import { useUploadMedia, blobDisplayUrl } from '@/queries/media'
 import { useNotify } from '@/composables/useNotify'
+import { isAcceptedMediaFile } from '@/fields/mediaTypeFilter'
 import MediaPickerModal from './MediaPickerModal.vue'
 
 const props = withDefaults(
@@ -14,8 +15,12 @@ const props = withDefaults(
     /** Hosts that render their own preview (e.g. the favicon's browser-tab
         mock) can hide the built-in single-asset one. Defaults to shown. */
     preview?: boolean
+    /** Forwarded to the picker modal's Library tab AND enforced here on direct drops/uploads
+     * (`isAcceptedMediaFile`'s own contract) — defaults to 'image': every pre-existing caller
+     * (site logo/favicon, content assets) only ever picks images. */
+    mediaType?: string
   }>(),
-  { libraryButton: true, preview: true },
+  { libraryButton: true, preview: true, mediaType: 'image' },
 )
 // Stores blob uuid(s) — the backend FieldValidator::assetExistsOnMediaDisk validates by uuid.
 // Single: string | undefined. Multiple: string[].
@@ -38,6 +43,13 @@ const multiUuids = computed<string[]>({
 
 watch(file, async (f) => {
   if (!f) return
+  // Fail fast, client-side, on the SAME contract the Library tab already filters by
+  // (`isAcceptedMediaFile`'s own docblock) — the backend still validates on upload.
+  if (!isAcceptedMediaFile(f, props.mediaType)) {
+    notifyError(new Error(`“${f.name}” isn’t a supported file type.`), 'Unsupported file type')
+    file.value = null
+    return
+  }
   // Check cap BEFORE uploading to avoid orphaned blobs
   if (isMultiple.value) {
     const cap = props.field.maxItems
@@ -166,6 +178,7 @@ function onLibraryPick(uuid: string) {
       v-model:open="libraryOpen"
       :multiple="isMultiple"
       :initial-tab="pickerTab"
+      :media-type="mediaType"
       @select="onLibraryPick"
     />
   </UFormField>

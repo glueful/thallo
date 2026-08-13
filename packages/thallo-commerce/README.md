@@ -204,6 +204,99 @@ the real freshness mechanism.
                                           // general expiry, so this pack defines its own instead)
 ```
 
+### Payment links: the public surface, and REDACTING THE TOKEN FROM LOGS
+
+The pack serves Commerce's payment links at four public paths:
+
+| Path | What it is |
+| --- | --- |
+| `GET /checkout/pay/{token}` | the payer's landing page (summary + a no-JS Pay form) |
+| `POST /checkout/pay/{token}/initiate` | starts a gateway checkout; `303` only to a re-validated absolute-HTTPS URL |
+| `GET /checkout/pay/return/{linkUuid}/{signature}` | a signed, **non-authorizing** receipt — reveals nothing |
+| `GET /checkout/pay/cancel/{linkUuid}/{signature}` | the cancel sibling, under its own signing purpose |
+
+Every response carries `Cache-Control: no-store`, `Referrer-Policy: strict-origin`, and
+`X-Robots-Tag: noindex, nofollow, noarchive`. Under `strict-origin` a cross-origin navigation
+discloses only the merchant's ORIGIN (`https://shop.example/`) and never the path, so the token
+cannot ride out in a `Referer` — while the same-origin form POST still sends a real `Origin`,
+which is what lets the stock `ShopCsrfGuard` stand alone here. The receipt handles carry a link uuid and a
+signature — **never** a token.
+
+**`{token}` is a bearer credential in a URL path.** Whoever reads it can open the page and start
+a checkout, so it must never be written to an access log, an APM trace, or an error report. The
+application never logs it (see `ShopPaymentLinkController` and
+`ThalloPaymentLinkPublicUrlProvider`: the parameter is overwritten the moment it is consumed, and
+it appears in exactly one place in the markup — the Pay form's own `action`). **Your reverse
+proxy does not know that**, and its access log is written before any PHP runs. Redact it there:
+
+**nginx** — rewrite the logged path, keeping everything else:
+
+```nginx
+# Replace the 64-hex token segment with a marker BEFORE the line is written.
+map $request_uri $request_uri_redacted {
+    "~^(?<pre>/checkout/pay/)[a-f0-9]{64}(?<post>.*)$"  "${pre}[REDACTED]${post}";
+    default                                             $request_uri;
+}
+
+log_format redacted '$remote_addr - $remote_user [$time_local] '
+                    '"$request_method $request_uri_redacted $server_protocol" '
+                    '$status $body_bytes_sent "$http_referer" "$http_user_agent"';
+
+access_log /var/log/nginx/access.log redacted;
+```
+
+**Apache 2.4** — build the request line from a pre-redacted environment variable. Apache has no
+"rewrite the logged URI" primitive, so the substitute path is set explicitly per shape and the
+format never uses `%r` or `%U` (both of which would print the real path, token and all):
+
+```apache
+# mod_setenvif. Anchored, so exactly one of these can match; the value is the URI to log.
+SetEnvIfExpr "%{REQUEST_URI} =~ m#^/checkout/pay/[a-f0-9]{64}$#"          redacted_uri=/checkout/pay/[REDACTED]
+SetEnvIfExpr "%{REQUEST_URI} =~ m#^/checkout/pay/[a-f0-9]{64}/initiate$#" redacted_uri=/checkout/pay/[REDACTED]/initiate
+
+# NOTE: %r / %U are deliberately absent — this line is assembled from method + env var + protocol.
+LogFormat "%h %l %u %t \"%m %{redacted_uri}e %H\" %>s %b \"%{Referer}i\" \"%{User-Agent}i\"" redacted
+
+CustomLog logs/access_log combined env=!redacted_uri
+CustomLog logs/access_log redacted  env=redacted_uri
+```
+
+What it covers and what it does not: it covers the two token-bearing paths only (the receipt
+handles carry a link uuid and a signature, never a token, so they log normally through
+`combined`). A request that is neither shape is logged verbatim by the first `CustomLog`. It does
+NOT touch the error log, `mod_security`'s audit log, or anything an APM agent records — those need
+their own rules.
+
+**Caddy** — rewrite the logged URI with the `filter` encoder's `regexp` action. This is
+**site-wide** (Caddy's `log` directive accepts no request matcher — a `@matcher` next to it would
+be dead config), but it is a *substitution*, so non-payment-link URIs pass through untouched:
+
+```caddy
+log {
+    format filter {
+        wrap console
+        fields {
+            request>uri regexp "^/checkout/pay/[0-9a-f]+" "/checkout/pay/[REDACTED]"
+        }
+    }
+}
+```
+
+The pattern is `[0-9a-f]+` rather than an exact `{64}` quantifier because braces are placeholder
+syntax in a Caddyfile; the widened match only ever redacts MORE of this path prefix, never less.
+Only the matched prefix is replaced, so `/checkout/pay/<token>/initiate` still logs as
+`/checkout/pay/[REDACTED]/initiate`. If you would rather not log these requests at all, use
+`log_skip` with a `path_regexp` matcher instead — that directive does take one.
+
+Also worth pinning on any install that serves payment links:
+
+- `zend.exception_ignore_args=On` in php.ini — PHP records call arguments in exception
+  backtraces, and the framework's error handler writes `getTraceAsString()` to the error log.
+- No third-party analytics/RUM script on these pages. The templates ship zero third-party assets
+  and `Referrer-Policy: strict-origin` stops the token reaching the payment gateway through
+  `Referer` — only the merchant origin is disclosed, never the payment-link path; a tag manager
+  added later would undo both.
+
 ## Boundary
 
 Depends on `glueful/thallo-contracts`, `glueful/thallo-tenancy`, and (hard dependency, per the

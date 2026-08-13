@@ -2,7 +2,12 @@
 
 declare(strict_types=1);
 
+use Thallo\Commerce\Http\AdminCompleteSaleController;
 use Thallo\Commerce\Http\AdminMountAllowlist;
+use Thallo\Commerce\Http\AdminOrderExportController;
+use Thallo\Commerce\Http\AdminOrderPaymentsController;
+use Thallo\Commerce\Http\AdminOrderSearchController;
+use Thallo\Commerce\Http\AdminPaymentLinkSendController;
 use Thallo\Commerce\Http\CommerceMetaController;
 use Thallo\Commerce\Http\CommerceSettingsController;
 use Thallo\Commerce\Http\EmailSettingsController;
@@ -107,6 +112,58 @@ $router->group(
         $router->put('/marketplace/master', [MarketplaceSettingsController::class, 'setMaster'])
             ->middleware('content_permission:commerce.manage')
             ->name('thallo.commerce.admin.marketplace.master');
+        // Task 3 (orders-invoices-receipts plan): TEMPORARY app-owned filtered orders search,
+        // until Commerce's own admin orders endpoint gains equivalent filter parity upstream
+        // (see AdminOrderSearchController's own docblock for the retirement condition). A fully
+        // static path ('/orders/search') — the router tries its static-route table before the
+        // catalog's dynamic '/orders/{uuid}' mount below, so this can never be shadowed by (or
+        // shadow) that route regardless of registration order (Router::match() step 1 vs step 2).
+        // View authority, matching every other read in this pack's own group.
+        $router->get('/orders/search', [AdminOrderSearchController::class, 'search'])
+            ->middleware('content_permission:commerce.view,commerce.manage')
+            ->name('thallo.commerce.admin.orders.search');
+        // Task 4 (orders-invoices-receipts plan): the bounded streamed CSV export sharing
+        // AdminOrderSearchQuery/AdminOrderSearchFilter with the search route above (see
+        // AdminOrderExportController's own docblock). Also a fully static path
+        // ('/orders/export'), same non-shadowing reasoning as '/orders/search'. Same view
+        // authority as every other read in this pack's own group.
+        $router->get('/orders/export', [AdminOrderExportController::class, 'export'])
+            ->middleware('content_permission:commerce.view,commerce.manage')
+            ->name('thallo.commerce.admin.orders.export');
+        // Task 5 (orders-invoices-receipts plan): the admin order payment summary, reading
+        // Payvia's own `payments`/`payment_intents` tables (see
+        // AdminOrderPaymentsController/OrderPaymentSummaryRepository's own docblocks). Registered
+        // in THIS group -- before AdminRouteCatalog::mount() below -- so it can never be shadowed
+        // by the vendor catalog's own `/orders/{uuid}` mount; the vendor catalog declares no
+        // `/orders/{uuid}/payments` key of its own (AdminRouteCatalog's own route table has no
+        // "payments" entry under the `orders` domain), so there is nothing to collide with either
+        // way. Same view authority as every other read in this pack's own group.
+        $router->get('/orders/{uuid}/payments', [AdminOrderPaymentsController::class, 'payments'])
+            ->middleware('content_permission:commerce.view,commerce.manage')
+            ->name('thallo.commerce.admin.orders.payments');
+        // Task 13 (admin-order-creation cycle 2, design spec §2.8): the server-orchestrated
+        // walk-in finish -- markPaid() then fulfill(), each keeping its own CAS/audit/events (see
+        // AdminCompleteSaleController/CompleteSaleCoordinator's own docblocks). MANAGE authority:
+        // unlike the reads above it performs two real state transitions. Registered in THIS group
+        // -- before AdminRouteCatalog::mount() below -- for the same reason as
+        // `/orders/{uuid}/payments`: the vendor catalog declares no `complete-sale` key under the
+        // `orders` domain, so nothing can shadow it or be shadowed by it either way.
+        $router->post('/orders/{uuid}/complete-sale', [AdminCompleteSaleController::class, 'completeSale'])
+            ->middleware('content_permission:commerce.manage')
+            ->name('thallo.commerce.admin.orders.complete_sale');
+        // Payment links Task 12 (payment-links spec §2.4): the ONE payment-link surface this pack
+        // owns. Mint (`POST /orders/{uuid}/payment-link`), revoke (`DELETE`) and status (`GET`)
+        // belong to the vendor catalog mounted below -- this pack must never redeclare that
+        // method/path triple, and `PaymentLinkSendTest`'s route-uniqueness assertions prove it
+        // doesn't. `/payment-link/send` is a DISTINCT path (one segment deeper), so it neither
+        // shadows nor is shadowed by the catalog's `/orders/{uuid}/payment-link` entry, and
+        // registering it HERE -- ahead of AdminRouteCatalog::mount() -- matches the identical
+        // posture of `/orders/{uuid}/payments` and `/orders/{uuid}/complete-sale` above.
+        // MANAGE authority: a send emails a bearer credential and, in regenerate mode,
+        // invalidates the order's existing link.
+        $router->post('/orders/{uuid}/payment-link/send', [AdminPaymentLinkSendController::class, 'send'])
+            ->middleware('content_permission:commerce.manage')
+            ->name('thallo.commerce.admin.orders.payment_link.send');
     },
 );
 

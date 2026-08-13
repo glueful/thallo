@@ -99,7 +99,10 @@ final class PackSkeletonTest extends AppTestCase
         self::assertTrue($provider->registerProductLinkTable($this->appContext(), $fake));
         self::assertTrue($provider->registerProductLinkTable($this->appContext(), $fake));
 
-        self::assertSame(['thallo_commerce_product_links'], array_keys($fake->registered));
+        self::assertSame(
+            ['thallo_commerce_product_links', 'thallo_commerce_payment_link_deliveries'],
+            array_keys($fake->registered),
+        );
     }
 
     public function testCommerceConfigIsMergedAndMarketplaceIsDisabledByDefault(): void

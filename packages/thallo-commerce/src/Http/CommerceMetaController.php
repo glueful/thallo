@@ -8,8 +8,10 @@ use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Commerce\Support\CommerceSettings;
 use Glueful\Extensions\Commerce\Support\Money;
 use Glueful\Http\Response;
+use Glueful\Interfaces\Permission\PermissionStandards;
 use Glueful\Routing\Attributes\ApiOperation;
 use Symfony\Component\HttpFoundation\Request;
+use Thallo\Commerce\Email\RichEmailAvailability;
 use Thallo\Commerce\Shop\StorefrontPreviewUrlBuilder;
 use Thallo\Contracts\Authorization\PermissionRequirementAuthority;
 
@@ -42,6 +44,26 @@ use function config;
  * `shop_index_url` is the absolute, selected-workspace storefront index URL from the SAME
  * {@see StorefrontPreviewUrlBuilder} the product-link projection uses (Task 5/7) — no storefront
  * URL template is ever exposed to the client.
+ *
+ * `can_attach_user` (admin-order-creation cycle 2, Task 12, design spec §2.3) is a CLOSED
+ * conjunction of THREE independent gates, all required — a `false` from any one is a `false`
+ * flag, no partial credit: `users.user_lookup.enabled` (the master switch for the user-lookup
+ * surface at all) AND `users.user_lookup.list.enabled` (the `GET /users` COLLECTION switch —
+ * consulted by `glueful/users`' own `UsersServiceProvider::boot()` only INSIDE the parent's
+ * branch, {@see \Glueful\Extensions\Users\UsersServiceProvider}, so `list.enabled=true` with the
+ * parent off still means `GET /users` is a 404 — this flag must never claim otherwise) AND the
+ * effective `users.view` permission, computed via the SAME {@see PermissionRequirementAuthority}
+ * mechanism as `can_view`/`can_manage` above — never a second, parallel authorization path.
+ * `PermissionStandards::PERMISSION_USERS_VIEW` is the framework's own CORE_PERMISSION slug
+ * (`'users.view'`), not a Thallo-local string literal.
+ *
+ * `email_available` (payment links Task 12, payment-links spec §2.4) is MANDATORY — it is emitted
+ * on every response, unconditionally, and is not contingent on any SPA implementation preference.
+ * It is computed through the SAME {@see RichEmailAvailability} authority
+ * {@see \Thallo\Commerce\Email\PaymentRequestMailer} refuses on, so the admin card's
+ * disabled-with-reason Send control and the endpoint's own 503 can never disagree about whether
+ * this install can email a payment link. Absence of a rich email channel is a `false` here, never
+ * a boot failure and never a missing key.
  */
 final class CommerceMetaController
 {
@@ -49,6 +71,7 @@ final class CommerceMetaController
         private readonly ApplicationContext $context,
         private readonly PermissionRequirementAuthority $authority,
         private readonly StorefrontPreviewUrlBuilder $previewUrls,
+        private readonly RichEmailAvailability $email,
     ) {
     }
 
@@ -60,6 +83,8 @@ final class CommerceMetaController
      *     low_stock_threshold:int,
      *     can_view:bool,
      *     can_manage:bool,
+     *     can_attach_user:bool,
+     *     email_available:bool,
      * }
      */
     #[ApiOperation(
@@ -77,6 +102,10 @@ final class CommerceMetaController
             );
         }
 
+        $userLookupEnabled = (bool) config($this->context, 'users.user_lookup.enabled', false);
+        $userLookupListEnabled = (bool) config($this->context, 'users.user_lookup.list.enabled', false);
+        $canViewUsers = $this->authority->allows($request, [PermissionStandards::PERMISSION_USERS_VIEW]);
+
         return Response::success([
             'currency' => $currency,
             'currency_exponent' => $exponent,
@@ -84,6 +113,8 @@ final class CommerceMetaController
             'low_stock_threshold' => CommerceSettings::lowStockThreshold($this->context),
             'can_view' => $this->authority->allows($request, ['commerce.view']),
             'can_manage' => $this->authority->allows($request, ['commerce.manage']),
+            'can_attach_user' => $userLookupEnabled && $userLookupListEnabled && $canViewUsers,
+            'email_available' => $this->email->isAvailable(),
         ]);
     }
 }

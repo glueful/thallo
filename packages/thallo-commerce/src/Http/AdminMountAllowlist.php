@@ -116,6 +116,21 @@ final class AdminMountAllowlist
             'orders.invoice_data',
             'refunds.list',
             'refunds.show',
+            // — Payment links (payment-links Task 8/10, design spec §2.2) —
+            'orders.payment_link.store',
+            'orders.payment_link.destroy',
+            'orders.payment_link.show',
+            // — Draft orders (admin-order-creation cycle 2, Tasks 9 and 10) —
+            'orders.drafts.index',
+            'orders.drafts.store',
+            'orders.drafts.show',
+            'orders.drafts.update',
+            'orders.drafts.cancel',
+            'orders.drafts.finalize',
+            'orders.drafts.recalculate',
+            'orders.drafts.lines.store',
+            'orders.drafts.lines.update',
+            'orders.drafts.lines.destroy',
 
             // — Reviews —
             'reviews.index',

@@ -13,8 +13,12 @@ use Glueful\Helpers\Utils;
 use Glueful\Http\Exceptions\Handler;
 use Glueful\Http\Response;
 use Symfony\Component\HttpFoundation\Request;
+use Glueful\Notifications\Services\ChannelManager;
+use Thallo\Commerce\Email\RichEmailAvailability;
 use Thallo\Commerce\Http\CommerceConfigurationException;
 use Thallo\Commerce\Http\CommerceMetaController;
+use Thallo\Commerce\Shop\StorefrontPreviewUrlBuilder;
+use Thallo\Contracts\Authorization\PermissionRequirementAuthority;
 use Thallo\Tenancy\System\SystemFlags;
 
 /**
@@ -83,7 +87,10 @@ final class CommerceMetaTest extends AppTestCase
         self::assertSame(200, $response->getStatusCode());
         $data = $this->data($response);
         self::assertSame(
-            ['currency', 'currency_exponent', 'shop_index_url', 'low_stock_threshold', 'can_view', 'can_manage'],
+            [
+                'currency', 'currency_exponent', 'shop_index_url', 'low_stock_threshold',
+                'can_view', 'can_manage', 'can_attach_user', 'email_available',
+            ],
             array_keys($data),
         );
         self::assertSame('USD', $data['currency']);
@@ -104,6 +111,45 @@ final class CommerceMetaTest extends AppTestCase
         self::assertTrue($data['can_manage']);
     }
 
+    // ------------------------------------------------------------------
+    // email_available — MANDATORY, both cases (payment links Task 12, spec §2.4)
+    // ------------------------------------------------------------------
+
+    public function testEmailAvailableIsTrueWhenTheInstallHasARichEmailChannel(): void
+    {
+        $data = $this->data($this->controller()->meta($this->userRequest($this->userGranted(['commerce.view']))));
+
+        self::assertArrayHasKey('email_available', $data);
+        self::assertTrue(
+            $data['email_available'],
+            'this install ships glueful/email-notification, whose EmailChannel is a rich channel',
+        );
+    }
+
+    /**
+     * The FALSE case, driven through a controller built over an availability authority with no
+     * `email` channel registered at all — the state an install without a mail extension is in.
+     * The field must still be PRESENT (it is mandatory, not conditional) and the endpoint must
+     * still answer 200: spec §2.4 is explicit that a missing rich channel is a reported state and
+     * a send refusal, never a boot failure or a missing key.
+     */
+    public function testEmailAvailableIsFalseAndStillPresentWhenNoRichEmailChannelIsRegistered(): void
+    {
+        $controller = new CommerceMetaController(
+            $this->appContext(),
+            $this->container()->get(PermissionRequirementAuthority::class),
+            $this->container()->get(StorefrontPreviewUrlBuilder::class),
+            new RichEmailAvailability(new ChannelManager()),
+        );
+
+        $response = $controller->meta($this->userRequest($this->userGranted(['commerce.view'])));
+
+        self::assertSame(200, $response->getStatusCode());
+        $data = $this->data($response);
+        self::assertArrayHasKey('email_available', $data);
+        self::assertFalse($data['email_available']);
+    }
+
     public function testUserWithNeitherPermissionSeesBothFlagsFalse(): void
     {
         $user = $this->userGranted([]);
@@ -112,6 +158,72 @@ final class CommerceMetaTest extends AppTestCase
 
         self::assertFalse($data['can_view']);
         self::assertFalse($data['can_manage']);
+    }
+
+    // ------------------------------------------------------------------
+    // can_attach_user matrix (admin-order-creation cycle 2, Task 12, design spec §2.3; hardened
+    // by review): a CLOSED conjunction of THREE gates — `users.user_lookup.enabled` (the parent
+    // master switch), `users.user_lookup.list.enabled` (the `GET /users` COLLECTION switch), and
+    // effective `users.view` — true ONLY when all three are open. `list.enabled` alone is NOT
+    // sufficient: `glueful/users`' own `UsersServiceProvider::boot()` only consults `list.enabled`
+    // INSIDE the parent's `if (user_lookup.enabled)` branch (`UsersServiceProvider.php` lines
+    // 95-99), so `list.enabled=true` with the parent off still leaves `GET /users` a 404 — a flag
+    // that ignored the parent would report `true` for a capability that 404s.
+    //
+    // Both `user_lookup.enabled` and `user_lookup.list.enabled` default to `true` in this suite's
+    // real `.env` (`USERS_USER_LOOKUP_ENABLED=true`, `USERS_USER_LIST_ENABLED=true`), so the
+    // (true, true, *) cells run against the process-shared boot directly. The cells needing either
+    // switch OFF need a secondary boot — and unlike `commerce.currency` (see this class's own
+    // docblock for why THAT key defeats `bootAppWithConfigOverride()`), BOTH switches are read
+    // EAGERLY during boot by `UsersServiceProvider::boot()` while deciding whether to register
+    // `GET /users`/`GET /users/{uuid}` at all, so an override to either IS baked into the booted
+    // context's config cache before the helper's `finally` deletes the temporary override file —
+    // the secondary boot genuinely observes both.
+    // ------------------------------------------------------------------
+
+    public function testCanAttachUserIsTrueWhenBothLookupSwitchesAndUsersViewAreAllGranted(): void
+    {
+        $user = $this->userGranted(['users.view']);
+
+        $data = $this->data($this->controller()->meta($this->userRequest($user)));
+
+        self::assertTrue($data['can_attach_user']);
+    }
+
+    public function testCanAttachUserIsFalseWhenBothSwitchesAreOnButUsersViewIsNotGranted(): void
+    {
+        $user = $this->userGranted([]);
+
+        $data = $this->data($this->controller()->meta($this->userRequest($user)));
+
+        self::assertFalse($data['can_attach_user']);
+    }
+
+    public function testCanAttachUserIsFalseWhenUsersViewIsGrantedButListIsDisabled(): void
+    {
+        $data = $this->metaUnderUserLookupOverride(['enabled' => true, 'list' => ['enabled' => false]], ['users.view']);
+
+        self::assertFalse($data['can_attach_user']);
+    }
+
+    public function testCanAttachUserIsFalseWhenNeitherSwitchIsOnNorUsersViewIsGranted(): void
+    {
+        $data = $this->metaUnderUserLookupOverride(['enabled' => false, 'list' => ['enabled' => false]], []);
+
+        self::assertFalse($data['can_attach_user']);
+    }
+
+    /**
+     * The review-hardened cell: `list.enabled=true` alone must NOT be enough when the PARENT
+     * `user_lookup.enabled` switch is off — the route itself would still 404
+     * ({@see UsersServiceProvider::boot()}'s nested `if`), so this flag must not claim otherwise
+     * even with a granted `users.view` permission.
+     */
+    public function testCanAttachUserIsFalseWhenListIsEnabledButParentLookupIsDisabledEvenWithPermission(): void
+    {
+        $data = $this->metaUnderUserLookupOverride(['enabled' => false, 'list' => ['enabled' => true]], ['users.view']);
+
+        self::assertFalse($data['can_attach_user']);
     }
 
     // ------------------------------------------------------------------
@@ -312,5 +424,58 @@ final class CommerceMetaTest extends AppTestCase
     private function provider(): AegisPermissionProvider
     {
         return $this->container()->get(AegisPermissionProvider::class);
+    }
+
+    /**
+     * The matrix cells needing either `user_lookup` switch forced off (see the section docblock
+     * above for why this override genuinely takes effect for BOTH keys): boots a second app with
+     * `users.user_lookup` overridden to $userLookupOverride (deep-merged over the real
+     * `config/users.php`, so an omitted nested key keeps its `.env`-derived default), grants
+     * $grantedPermissionSlugs on a fresh user via the SAME physical database (both boots share one
+     * DB — the role/grant rows this writes through the SHARED app's own `AegisPermissionProvider`
+     * are immediately visible to the secondary boot's reads, no transaction boundary separates
+     * them), and resolves `CommerceMetaController` from the secondary app's OWN container so its
+     * `PermissionRequirementAuthority` observes the SAME grant. Restores the process-shared RBAC
+     * provider/repository connection in a `finally` — mirrors
+     * {@see self::bootAppWithConfigOverride()}'s own established idiom
+     * ({@see \Thallo\Commerce\...CommerceMetaTest::testRouteIsAbsentWhenCapabilityDisabled()}
+     * two methods up) — so later tests in this class/process never see the throwaway boot.
+     *
+     * @param array<string,mixed> $userLookupOverride e.g. ['enabled' => false, 'list' => ['enabled' => true]]
+     * @param list<string> $grantedPermissionSlugs
+     * @return array<string,mixed>
+     */
+    private function metaUnderUserLookupOverride(array $userLookupOverride, array $grantedPermissionSlugs): array
+    {
+        $this->flags()->forget('tenancy.schema_state');
+        $this->flags()->forget('tenancy.default_tenant_uuid');
+
+        $overriddenApp = self::bootAppWithConfigOverride('users', [
+            'user_lookup' => $userLookupOverride,
+        ]);
+
+        try {
+            $userUuid = Utils::generateNanoID(12);
+            $this->userUuids[] = $userUuid;
+            if ($grantedPermissionSlugs !== []) {
+                $this->grantRole($userUuid, $grantedPermissionSlugs);
+            }
+            $this->provider()->invalidateAllCache();
+
+            $secondaryProvider = $overriddenApp->getContainer()->get(AegisPermissionProvider::class);
+            $secondaryProvider->invalidateAllCache();
+
+            $controller = $overriddenApp->getContainer()->get(CommerceMetaController::class);
+            $request = Request::create('/v1/admin/commerce/meta', 'GET');
+            $request->attributes->set(
+                'user',
+                ['uuid' => $userUuid, 'roles' => [], 'claims' => ['scopes' => []]],
+            );
+
+            return $this->data($controller->meta($request));
+        } finally {
+            self::resetSharedRepositoryConnection();
+            self::restoreSharedPermissionProvider();
+        }
     }
 }

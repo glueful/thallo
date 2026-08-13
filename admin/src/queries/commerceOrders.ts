@@ -85,8 +85,27 @@ export interface CommerceOrder {
   order_number: string
   status: string
   fulfillment_status: string
-  email: string
+  /** Nullable since commerce v1.10.0 (admin-order-creation cycle 2): an admin-created "walk-in"
+   * order may be fully anonymous (migration 022 relaxes `commerce_orders.email` to nullable;
+   * Ruling 4 — no placeholder email is ever invented). Every render site (list/detail/invoice)
+   * must show "Walk-in customer" and omit any email-copy control when this is null, never an
+   * empty-string placeholder. */
+  email: string | null
   user_uuid: string | null
+  /** Free-text walk-in customer name (migration 022) — null for every storefront-checkout order. */
+  customer_name: string | null
+  /** Canonical E.164 form (`DraftPhone::parse()`) — null when no phone was ever recorded. */
+  phone_normalized: string | null
+  /** The operator's own trimmed-but-unstripped phone input, preserved verbatim for display —
+   * never re-derived from `phone_normalized`, since that would silently drop the operator's own
+   * formatting choice. Null when no phone was ever recorded. */
+  phone_display: string | null
+  /** `'in_store' | 'delivery'` (migration 022, backfilled `'delivery'` for every pre-existing
+   * row) — Task 15's Complete-sale gating consumes this field directly. */
+  fulfillment_mode: string
+  /** `'storefront' | 'admin'` (migration 022, backfilled `'storefront'` for every pre-existing
+   * row) — every row genuinely has one; never a fabricated distinction for older data. */
+  origin: string
   currency: string
   /** Minor-unit integer amounts — format with `useMoney`, never `Number()`. */
   subtotal: number
@@ -105,19 +124,6 @@ export interface CommerceOrder {
   events: CommerceOrderEvent[]
 }
 
-export interface OrderListFilters {
-  status?: string
-  page?: number
-  perPage?: number
-}
-
-export interface OrderListPage {
-  orders: CommerceOrder[]
-  total: number
-  current_page: number
-  per_page: number
-}
-
 // The admin envelopes are doc-only in the OpenAPI schema (see commerceCatalog.ts's identical
 // note), so normalize the raw JSON into the stricter hand-written shapes above at the boundary.
 
@@ -127,7 +133,9 @@ function normalizeAddress(raw: unknown): CommerceOrderAddress | null {
     : null
 }
 
-function normalizeAddresses(raw: unknown): CommerceOrderAddresses | null {
+/** Exported for `commerceInvoice.ts`'s identical `buyer.addresses` shape — the ONE normalizer for
+ * this loose shape, never duplicated. */
+export function normalizeAddresses(raw: unknown): CommerceOrderAddresses | null {
   if (typeof raw !== 'object' || raw === null) return null
   const obj = raw as Record<string, unknown>
   return {
@@ -136,7 +144,9 @@ function normalizeAddresses(raw: unknown): CommerceOrderAddresses | null {
   }
 }
 
-function normalizeOrderLineAddon(raw: Record<string, unknown>): CommerceOrderLineAddon {
+/** Exported for `commerceInvoice.ts`'s identical per-line addon shape — the ONE normalizer for a
+ * sanitized `AddonSnapshot` echo, never duplicated. */
+export function normalizeOrderLineAddon(raw: Record<string, unknown>): CommerceOrderLineAddon {
   const addon: CommerceOrderLineAddon = {
     name: String(raw.name ?? ''),
     price_delta: typeof raw.price_delta === 'number' ? raw.price_delta : 0,
@@ -188,8 +198,15 @@ function normalizeOrder(raw: Record<string, unknown>): CommerceOrder {
     order_number: String(raw.order_number ?? ''),
     status: String(raw.status ?? 'pending_payment'),
     fulfillment_status: String(raw.fulfillment_status ?? 'unfulfilled'),
-    email: String(raw.email ?? ''),
+    email: typeof raw.email === 'string' ? raw.email : null,
     user_uuid: typeof raw.user_uuid === 'string' ? raw.user_uuid : null,
+    customer_name: typeof raw.customer_name === 'string' ? raw.customer_name : null,
+    phone_normalized: typeof raw.phone_normalized === 'string' ? raw.phone_normalized : null,
+    phone_display: typeof raw.phone_display === 'string' ? raw.phone_display : null,
+    // Backfill defaults mirror migration 022's own column defaults exactly — a row genuinely
+    // predating this migration (or any wire response that omits the key) means precisely this.
+    fulfillment_mode: typeof raw.fulfillment_mode === 'string' ? raw.fulfillment_mode : 'delivery',
+    origin: typeof raw.origin === 'string' ? raw.origin : 'storefront',
     currency: String(raw.currency ?? ''),
     // Amounts are JSON numbers from the API; anything else is malformed and becomes the neutral
     // fallback rather than a silently Number()-coerced guess (mirrors commerceCatalog.ts's
@@ -214,31 +231,6 @@ function normalizeOrder(raw: Record<string, unknown>): CommerceOrder {
 
 // ── Fetchers ─────────────────────────────────────────────────────────────────
 
-/** `GET /commerce/orders` — OrderListQuery's exact param set is `{status, page, per_page}`; there
- * is no `type`/`q` filter on orders (unlike products). */
-export async function fetchOrders(filters: OrderListFilters = {}): Promise<OrderListPage> {
-  const { data, error, response } = await client.GET('/commerce/orders', {
-    params: {
-      query: {
-        status: filters.status || undefined,
-        page: filters.page,
-        per_page: filters.perPage,
-      },
-    },
-  })
-  if (error) throw toApiError(error, response)
-  const body = data as
-    | { data?: unknown[]; current_page?: number; per_page?: number; total?: number }
-    | undefined
-  const rows = Array.isArray(body?.data) ? body.data : []
-  return {
-    orders: rows.map((o) => normalizeOrder(o as Record<string, unknown>)),
-    total: body?.total ?? 0,
-    current_page: body?.current_page ?? filters.page ?? 1,
-    per_page: body?.per_page ?? filters.perPage ?? 24,
-  }
-}
-
 export async function fetchOrder(uuid: string): Promise<CommerceOrder> {
   const { data, error, response } = await client.GET('/commerce/orders/{uuid}', {
     params: { path: { uuid } },
@@ -251,20 +243,122 @@ export async function fetchOrder(uuid: string): Promise<CommerceOrder> {
 
 // ── Query wrappers ───────────────────────────────────────────────────────────
 
-export function useCommerceOrders(filters: MaybeRefOrGetter<OrderListFilters>) {
-  return useQuery({
-    key: () => {
-      const f = toValue(filters)
-      return [...qk.commerceOrders(), f.status ?? '', f.page ?? 1, f.perPage ?? 24]
-    },
-    query: () => fetchOrders(toValue(filters)),
-  })
-}
-
 export function useCommerceOrder(uuid: MaybeRefOrGetter<string>) {
   return useQuery({
     key: () => qk.commerceOrder(toValue(uuid)),
     query: () => fetchOrder(toValue(uuid)),
+    enabled: () => !!toValue(uuid),
+  })
+}
+
+// ── Payment summary (Task 5 / Task 9) ─────────────────────────────────────────
+//
+// `GET /commerce/orders/{uuid}/payments` (AdminOrderPaymentsController::payments()) is now in the
+// generated OpenAPI schema (Task 16 regeneration) and rides the typed `client` — the response body
+// itself carries no documented schema (no `#[ApiResponse]` on the handler), so `data` is cast the
+// same way every other untyped-response fetcher in this file already does (see `fetchOrder()`).
+//
+// The envelope is INVARIANT on every 200 — `{available, payments, intents, refund}` — regardless
+// of whether Payvia's own tables are migrated: `available` reports whether they physically exist,
+// `payments`/`intents` are empty arrays (never omitted) when they don't, and `refund` is always
+// the order's OWN `refunded_total`/`refund_revision` pair, echoed from the already-validated order
+// row rather than re-derived from Payvia. `OrderPaymentCard.vue` renders this as an order-level
+// aggregate ALONGSIDE (never instead of) the gateway rows, since Payvia has no concept of a
+// commerce refund.
+
+/** A `payments` row, closed to `OrderPaymentSummaryRepository::PAYMENT_FIELDS` — never the raw
+ * `metadata`/`raw_payload`/`message` columns the backend deliberately excludes (its own docblock
+ * calls those out as secret/PII-bearing). */
+export interface CommerceOrderPaymentRecord {
+  gateway: string
+  status: string
+  reference: string
+  gateway_transaction_id: string | null
+  /** Minor-unit integer amount — format with `formatMoney`, never `Number()`. */
+  amount: number
+  currency: string
+  created_at: string | null
+  updated_at: string | null
+}
+
+/** A `payment_intents` row, closed to `OrderPaymentSummaryRepository::INTENT_FIELDS` — a full
+ * attempt history (both `open` and `closed`), never just in-flight ones. */
+export interface CommerceOrderPaymentIntent {
+  gateway: string
+  status: string
+  reference: string
+  /** Minor-unit integer amount — format with `formatMoney`, never `Number()`. */
+  amount: number
+  currency: string
+  created_at: string | null
+}
+
+export interface CommerceOrderPaymentsEnvelope {
+  /** Both Payvia tables physically present. `false` means every list below is (correctly) empty
+   * — never itself an error condition. */
+  available: boolean
+  payments: CommerceOrderPaymentRecord[]
+  intents: CommerceOrderPaymentIntent[]
+  /** Echoed straight from the order row — an ORDER-LEVEL aggregate, not a Payvia concept. */
+  refund: { refunded_total: number; refund_revision: number }
+}
+
+function normalizeOrderPaymentRecord(raw: Record<string, unknown>): CommerceOrderPaymentRecord {
+  return {
+    gateway: String(raw.gateway ?? ''),
+    status: String(raw.status ?? ''),
+    reference: String(raw.reference ?? ''),
+    gateway_transaction_id:
+      typeof raw.gateway_transaction_id === 'string' ? raw.gateway_transaction_id : null,
+    amount: typeof raw.amount === 'number' ? raw.amount : 0,
+    currency: String(raw.currency ?? ''),
+    created_at: typeof raw.created_at === 'string' ? raw.created_at : null,
+    updated_at: typeof raw.updated_at === 'string' ? raw.updated_at : null,
+  }
+}
+
+function normalizeOrderPaymentIntent(raw: Record<string, unknown>): CommerceOrderPaymentIntent {
+  return {
+    gateway: String(raw.gateway ?? ''),
+    status: String(raw.status ?? ''),
+    reference: String(raw.reference ?? ''),
+    amount: typeof raw.amount === 'number' ? raw.amount : 0,
+    currency: String(raw.currency ?? ''),
+    created_at: typeof raw.created_at === 'string' ? raw.created_at : null,
+  }
+}
+
+function normalizeOrderPayments(raw: Record<string, unknown>): CommerceOrderPaymentsEnvelope {
+  const payments = Array.isArray(raw.payments) ? raw.payments : []
+  const intents = Array.isArray(raw.intents) ? raw.intents : []
+  const refund =
+    typeof raw.refund === 'object' && raw.refund !== null
+      ? (raw.refund as Record<string, unknown>)
+      : {}
+  return {
+    available: raw.available === true,
+    payments: payments.map((p) => normalizeOrderPaymentRecord(p as Record<string, unknown>)),
+    intents: intents.map((i) => normalizeOrderPaymentIntent(i as Record<string, unknown>)),
+    refund: {
+      refunded_total: typeof refund.refunded_total === 'number' ? refund.refunded_total : 0,
+      refund_revision: typeof refund.refund_revision === 'number' ? refund.refund_revision : 0,
+    },
+  }
+}
+
+export async function fetchOrderPayments(uuid: string): Promise<CommerceOrderPaymentsEnvelope> {
+  const { data, error, response } = await client.GET('/commerce/orders/{uuid}/payments', {
+    params: { path: { uuid } },
+  })
+  if (error) throw toApiError(error, response)
+  const raw = (data as { data?: unknown } | undefined)?.data
+  return normalizeOrderPayments((raw ?? {}) as Record<string, unknown>)
+}
+
+export function useOrderPayments(uuid: MaybeRefOrGetter<string>) {
+  return useQuery({
+    key: () => qk.commerceOrderPayments(toValue(uuid)),
+    query: () => fetchOrderPayments(toValue(uuid)),
     enabled: () => !!toValue(uuid),
   })
 }
@@ -312,9 +406,56 @@ export function canFulfillOrder(status: string): boolean {
   return status === 'paid'
 }
 
-export async function cancelOrder(uuid: string): Promise<CommerceOrder> {
+/**
+ * The 409 discriminator `AdminOrderController::cancel()` puts under `error.details.reason` when
+ * `PaymentSessionExposureGuard` refuses an unacknowledged cancellation
+ * (`PaymentSessionExposureException::RISK_UNACKNOWLEDGED`). It is NOT a retryable failure and NOT
+ * an illegal transition: the order CAN be canceled, but only by an operator who states that they
+ * accept the late-payment risk. Everything else the endpoint can 409 with (an illegal transition)
+ * arrives with no `reason` at all and stays an ordinary inline error.
+ */
+export const PAYMENT_SESSION_RISK_UNACKNOWLEDGED = 'payment_session_risk_unacknowledged'
+
+/** `useCommerceOrderMutations().cancel` accepts the bare uuid or an acknowledged cancellation. */
+export type CancelOrderVars = string | { uuid: string; acceptLatePaymentRisk?: boolean }
+
+/**
+ * True when `e` is the exposure guard's acknowledgement demand rather than any other 409.
+ *
+ * Deliberately STRUCTURAL rather than `e instanceof ApiError`: `ApiError` is a class identity, and
+ * a caller whose module graph loaded `@/api/errors` a second time (vitest's `importOriginal`
+ * inside a `vi.mock` factory does exactly this, and a split bundle can too) holds a DIFFERENT
+ * constructor for a byte-identical error. An identity check silently answers `false` there and the
+ * operator gets an unactionable inline 409 instead of the acknowledgement step. The shape below —
+ * `status: 409` plus `body.error.details.reason` — is the framework's own error envelope and is
+ * what actually distinguishes this refusal.
+ */
+export function isPaymentSessionRiskRefusal(e: unknown): boolean {
+  if (typeof e !== 'object' || e === null) return false
+  const candidate = e as { status?: unknown; body?: unknown }
+  if (candidate.status !== 409) return false
+  const details = (candidate.body as { error?: { details?: unknown } } | null)?.error?.details
+  if (typeof details !== 'object' || details === null) return false
+
+  return (details as Record<string, unknown>).reason === PAYMENT_SESSION_RISK_UNACKNOWLEDGED
+}
+
+/**
+ * `POST /commerce/orders/{uuid}/cancel`.
+ *
+ * The body stays ABSENT unless the caller is acknowledging the late-payment risk — the endpoint's
+ * OpenAPI operation declares `requestBody?: never`, the server parses the flag with
+ * `filter_var(..., FILTER_VALIDATE_BOOL)` out of whatever input it finds, and every non-exposed
+ * order must keep posting the byte-empty body it always did (an unrequested `false` would be a
+ * silent behavioural change for orders the guard never looks at).
+ */
+export async function cancelOrder(
+  uuid: string,
+  acceptLatePaymentRisk = false,
+): Promise<CommerceOrder> {
   const { data, error, response } = await client.POST('/commerce/orders/{uuid}/cancel', {
     params: { path: { uuid } },
+    ...(acceptLatePaymentRisk ? { body: { accept_late_payment_risk: true } as never } : {}),
   })
   if (error) throw toApiError(error, response)
   const raw = (data as { data?: unknown } | undefined)?.data
@@ -557,7 +698,13 @@ export function useCommerceOrderMutations() {
   const cache = useQueryCache()
   const invalidate = (uuid: string) => {
     cache.invalidateQueries({ key: qk.commerceOrder(uuid) })
-    cache.invalidateQueries({ key: qk.commerceOrders() })
+    // The list view's live query is `useOrderSearch()` (commerceOrderSearch.ts), keyed off THIS
+    // same prefix — pinia-colada's `isSubsetOf` match is element-wise from index 0, so this MUST
+    // be the exact prefix the list query's own key starts with, or a lifecycle mutation silently
+    // never invalidates it (the retired `useCommerceOrders()`/`qk.commerceOrders()` pair had a
+    // DIFFERENT prefix — `['commerce-orders']` vs `['commerce','orders','search',...]` — which
+    // never matched anything after Task 7's migration; caught in review, fixed here).
+    cache.invalidateQueries({ key: qk.commerceOrderSearch() })
   }
   const invalidateRefund = (uuid: string) => {
     invalidate(uuid)
@@ -571,9 +718,15 @@ export function useCommerceOrderMutations() {
   }
 
   return {
+    // `vars` is the uuid alone for an ordinary cancel (unchanged for every caller that never
+    // meets the exposure guard) or `{ uuid, acceptLatePaymentRisk }` for the resubmit that
+    // carries an operator's acknowledgement.
     cancel: useMutation({
-      mutation: (uuid: string) => cancelOrder(uuid),
-      onSettled: (_d, _e, uuid) => invalidate(uuid),
+      mutation: (vars: CancelOrderVars) =>
+        typeof vars === 'string'
+          ? cancelOrder(vars)
+          : cancelOrder(vars.uuid, vars.acceptLatePaymentRisk === true),
+      onSettled: (_d, _e, vars) => invalidate(typeof vars === 'string' ? vars : vars.uuid),
     }),
     markPaid: useMutation({
       mutation: (uuid: string) => markOrderPaid(uuid),
@@ -689,146 +842,9 @@ export function useOrderNotes(uuid: MaybeRefOrGetter<string>) {
   })
 }
 
-// ── Invoice data (Task 13d) ──────────────────────────────────────────────────
-//
-// Endpoint: `GET /commerce/orders/{uuid}/invoice-data` (AdminOrderController::invoiceData(),
-// view-graded) — mirrors `InvoiceData::build()` (Invoices/InvoiceData.php) field-for-field. Every
-// `*_minor` amount is a genuine integer minor-unit value (format with `useMoney`, never `Number()`)
-// and `refunds` is already completed-only, exactly whitelisted (`date`, `amount_minor`, `method` —
-// never `reason`) by the backend itself.
-
-export interface CommerceInvoiceLine {
-  name: string
-  sku: string
-  quantity: number
-  /** Minor-unit integer amount — format with `useMoney`, never `Number()`. */
-  unit_minor: number
-  /** Minor-unit integer amount — format with `useMoney`, never `Number()`. */
-  subtotal_minor: number
-  addons: CommerceOrderLineAddon[]
-}
-
-export interface CommerceInvoiceRefund {
-  date: string | null
-  /** Minor-unit integer amount — format with `useMoney`, never `Number()`. */
-  amount_minor: number
-  method: string
-}
-
-export interface CommerceInvoiceData {
-  schema_version: number
-  seller: { name: string | null; address: string | null; tax_id: string | null }
-  buyer: { email: string | null; addresses: CommerceOrderAddresses | null }
-  order: {
-    number: string | null
-    dates: { placed_at: string | null; created_at: string | null; updated_at: string | null }
-    currency: string | null
-    status: string | null
-  }
-  lines: CommerceInvoiceLine[]
-  totals: {
-    subtotal_minor: number
-    discount_minor: number
-    shipping_minor: number
-    tax_minor: number
-    grand_minor: number
-    refunded_minor: number
-  }
-  refunds: CommerceInvoiceRefund[]
-}
-
-function normalizeInvoiceLine(raw: Record<string, unknown>): CommerceInvoiceLine {
-  const addons = Array.isArray(raw.addons) ? raw.addons : []
-  return {
-    name: String(raw.name ?? ''),
-    sku: String(raw.sku ?? ''),
-    quantity: typeof raw.quantity === 'number' ? raw.quantity : 0,
-    unit_minor: typeof raw.unit_minor === 'number' ? raw.unit_minor : 0,
-    subtotal_minor: typeof raw.subtotal_minor === 'number' ? raw.subtotal_minor : 0,
-    addons: addons.map((a) => normalizeOrderLineAddon(a as Record<string, unknown>)),
-  }
-}
-
-function normalizeInvoiceRefund(raw: Record<string, unknown>): CommerceInvoiceRefund {
-  return {
-    date: typeof raw.date === 'string' ? raw.date : null,
-    amount_minor: typeof raw.amount_minor === 'number' ? raw.amount_minor : 0,
-    method: String(raw.method ?? ''),
-  }
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : {}
-}
-
-function normalizeInvoiceData(raw: Record<string, unknown>): CommerceInvoiceData {
-  const seller = asRecord(raw.seller)
-  const buyer = asRecord(raw.buyer)
-  const orderInfo = asRecord(raw.order)
-  const dates = asRecord(orderInfo.dates)
-  const totals = asRecord(raw.totals)
-  const lines = Array.isArray(raw.lines) ? raw.lines : []
-  const refunds = Array.isArray(raw.refunds) ? raw.refunds : []
-
-  return {
-    schema_version: typeof raw.schema_version === 'number' ? raw.schema_version : 1,
-    seller: {
-      name: typeof seller.name === 'string' ? seller.name : null,
-      address: typeof seller.address === 'string' ? seller.address : null,
-      tax_id: typeof seller.tax_id === 'string' ? seller.tax_id : null,
-    },
-    buyer: {
-      email: typeof buyer.email === 'string' ? buyer.email : null,
-      addresses: normalizeAddresses(buyer.addresses),
-    },
-    order: {
-      number: typeof orderInfo.number === 'string' ? orderInfo.number : null,
-      dates: {
-        placed_at: typeof dates.placed_at === 'string' ? dates.placed_at : null,
-        created_at: typeof dates.created_at === 'string' ? dates.created_at : null,
-        updated_at: typeof dates.updated_at === 'string' ? dates.updated_at : null,
-      },
-      currency: typeof orderInfo.currency === 'string' ? orderInfo.currency : null,
-      status: typeof orderInfo.status === 'string' ? orderInfo.status : null,
-    },
-    lines: lines.map((l) => normalizeInvoiceLine(l as Record<string, unknown>)),
-    totals: {
-      subtotal_minor: typeof totals.subtotal_minor === 'number' ? totals.subtotal_minor : 0,
-      discount_minor: typeof totals.discount_minor === 'number' ? totals.discount_minor : 0,
-      shipping_minor: typeof totals.shipping_minor === 'number' ? totals.shipping_minor : 0,
-      tax_minor: typeof totals.tax_minor === 'number' ? totals.tax_minor : 0,
-      grand_minor: typeof totals.grand_minor === 'number' ? totals.grand_minor : 0,
-      refunded_minor: typeof totals.refunded_minor === 'number' ? totals.refunded_minor : 0,
-    },
-    refunds: refunds.map((r) => normalizeInvoiceRefund(r as Record<string, unknown>)),
-  }
-}
-
-/** `GET /commerce/orders/{uuid}/invoice-data` (AdminOrderController::invoiceData()). */
-export async function fetchOrderInvoiceData(orderUuid: string): Promise<CommerceInvoiceData> {
-  const { data, error, response } = await client.GET('/commerce/orders/{uuid}/invoice-data', {
-    params: { path: { uuid: orderUuid } },
-  })
-  if (error) throw toApiError(error, response)
-  const raw = (data as { data?: unknown } | undefined)?.data
-  return normalizeInvoiceData(asRecord(raw))
-}
-
-/** `enabled` defaults to always-on but OrderDetail passes a modal-open ref so the request only
- * fires once the invoice section is actually opened (mirrors `useCommerceProduct()`'s identical
- * `enabled` parameter). */
-export function useOrderInvoiceData(
-  uuid: MaybeRefOrGetter<string>,
-  enabled: MaybeRefOrGetter<boolean> = true,
-) {
-  return useQuery({
-    key: () => qk.commerceOrderInvoiceData(toValue(uuid)),
-    query: () => fetchOrderInvoiceData(toValue(uuid)),
-    enabled: () => toValue(enabled) && !!toValue(uuid),
-  })
-}
+// The order invoice endpoint's fetch/types/query moved to `commerceInvoice.ts` in Task 8
+// (orders-invoices-receipts spec) — the ONE implementation both the order-detail page's formatted
+// "Invoice data" modal and the printable invoice/receipt page import.
 
 // ── Per-product order activity (composed-editor spec §5.4b phase 2, commerce 1.6.0) ──────────
 

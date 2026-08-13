@@ -15,6 +15,7 @@ const columns = computed<TableColumn<CommerceOrder>[]>(() => [
   { accessorKey: 'order_number', header: 'Order' },
   { accessorKey: 'email', header: 'Customer' },
   { accessorKey: 'status', header: 'Status' },
+  { accessorKey: 'fulfillment_status', header: 'Fulfillment' },
   { accessorKey: 'grand_total', header: 'Total' },
   { accessorKey: 'placed_at', header: 'Date' },
 ])
@@ -31,6 +32,19 @@ function statusColor(s: string): 'success' | 'info' | 'warning' | 'error' | 'neu
       return 'error'
     case 'refunded':
       return 'neutral'
+    default:
+      return 'neutral'
+  }
+}
+
+function fulfillmentColor(s: string): 'success' | 'info' | 'warning' | 'neutral' {
+  switch (s) {
+    case 'fulfilled':
+      return 'success'
+    case 'partial':
+      return 'info'
+    case 'unfulfilled':
+      return 'warning'
     default:
       return 'neutral'
   }
@@ -88,12 +102,25 @@ function fmtDate(v: string | null): string {
     </template>
 
     <template #email-cell="{ row }">
-      <span class="text-sm">{{ row.original.email }}</span>
+      <span class="text-sm" :class="{ 'text-muted italic': !row.original.email }">
+        {{ row.original.email ?? 'Walk-in customer' }}
+      </span>
     </template>
 
     <template #status-cell="{ row }">
       <UBadge :color="statusColor(row.original.status)" variant="subtle" size="sm" data-test="order-status">
         {{ row.original.status }}
+      </UBadge>
+    </template>
+
+    <template #fulfillment_status-cell="{ row }">
+      <UBadge
+        :color="fulfillmentColor(row.original.fulfillment_status)"
+        variant="subtle"
+        size="sm"
+        data-test="order-fulfillment"
+      >
+        {{ row.original.fulfillment_status }}
       </UBadge>
     </template>
 

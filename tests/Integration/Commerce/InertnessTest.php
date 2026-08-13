@@ -103,7 +103,10 @@ final class InertnessTest extends AppTestCase
             $fakeTables = $this->capturingTableRegistry();
             $provider = new CommerceIntegrationServiceProvider($container);
             self::assertTrue($provider->registerProductLinkTable($disabledApp, $fakeTables));
-            self::assertSame(['thallo_commerce_product_links'], array_keys($fakeTables->registered));
+            self::assertSame(
+                ['thallo_commerce_product_links', 'thallo_commerce_payment_link_deliveries'],
+                array_keys($fakeTables->registered),
+            );
 
             // -- BUT the purge handler stays registered (aliased into the shared registry
             //    unconditionally by the pack's own boot(), which this disabled boot still ran) --

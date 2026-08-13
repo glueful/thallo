@@ -9,6 +9,8 @@ use Thallo\Commerce\Http\Shop\ShopCartController;
 use Thallo\Commerce\Http\Shop\ShopCatalogController;
 use Thallo\Commerce\Http\Shop\ShopCheckoutController;
 use Thallo\Commerce\Http\Shop\ShopCsrfGuard;
+use Thallo\Commerce\Http\Shop\ShopPaymentLinkController;
+use Thallo\Commerce\Http\Shop\ShopPaymentLinkHeaders;
 use Thallo\Commerce\Http\Shop\ShopWishlistController;
 use Thallo\Commerce\Shop\ShopFrameEmbedding;
 use Thallo\Commerce\Shop\ShopPageCache;
@@ -123,6 +125,58 @@ $router->get('/checkout/cancel/{ref}', [ShopCheckoutController::class, 'paymentC
     ->middleware(['tenant_profile:public', 'tenant_bootstrap']);
 $router->get('/checkout/confirmation/{ref}', [ShopCheckoutController::class, 'confirmation'])
     ->middleware(['tenant_profile:public', 'tenant_bootstrap']);
+
+/*
+ * Payment links Task 11 (payment-links spec §2.3): the PUBLIC payment-link surface — the landing
+ * page, the no-JS initiate POST, and the two signed NON-AUTHORIZING receipts a gateway returns
+ * the browser to. All four live under the `checkout` path segment ShopReservedPathContributor
+ * already reserves UNCONDITIONALLY, so Render's `/{path}` catch-all can never serve a builder
+ * page at any of them; none carries ShopPageCache (deliberately absent, like every other
+ * /checkout route above) — every response here is per-bearer and no-store.
+ *
+ * Middleware order is the security posture, not a style choice:
+ *  1. the tenant pair, so the canonical-origin authority and Commerce's tenant scoping are
+ *     resolved before anything below reads them;
+ *  2. ShopPaymentLinkHeaders FIRST after it, so spec §2.3's three headers land on EVERY response
+ *     — including the ones produced below it (a rate-limit 429, a CSRF 403), which never reach
+ *     the controller at all;
+ *  3. `rate_limit` next. The engine's own ceiling is PER LINK and therefore cannot see an
+ *     UNKNOWN token: these IP ceilings are the only thing standing between a prober and
+ *     unlimited token enumeration, which is why they sit on the GETs as well as the POST.
+ *     The windows are deliberately multi-minute (a real payer opens their bill a handful of
+ *     times, not sixty times a minute) and keyed BY IP — never by endpoint, which would give a
+ *     token enumerator a fresh bucket for every guess;
+ *  4. ShopCsrfGuard last on the POST — the STOCK guard, mirroring its own "runs LAST" ordering
+ *     everywhere else in this file, with nothing widened for this surface. That is a direct
+ *     consequence of §2.3's `Referrer-Policy: strict-origin`: a same-origin form POST from a
+ *     `strict-origin` page still sends a real `Origin` (and an origin-only `Referer`), so the
+ *     guard's ordinary Origin comparison decides it. Under the previous `no-referrer` the browser
+ *     serialized that `Origin` as opaque `null` and sent no `Referer`, which is why a bespoke
+ *     wrapper existed at all; it is deleted.
+ *
+ * Route shapes cannot collide with the guest-cookie checkout routes above: `/checkout/pay/...`
+ * has a LITERAL second segment, so `/checkout/return/{ref}`, `/checkout/cancel/{ref}`, and
+ * `/checkout/confirmation/{ref}` keep matching exactly what they always did, and the receipt
+ * paths are five segments to their three.
+ */
+$router->get('/checkout/pay/{token}', [ShopPaymentLinkController::class, 'landing'])
+    ->middleware(['tenant_profile:public', 'tenant_bootstrap', ShopPaymentLinkHeaders::class, 'rate_limit'])
+    ->rateLimit(120, 5, by: 'ip');
+$router->post('/checkout/pay/{token}/initiate', [ShopPaymentLinkController::class, 'initiate'])
+    ->middleware([
+        'tenant_profile:public',
+        'tenant_bootstrap',
+        ShopPaymentLinkHeaders::class,
+        'rate_limit',
+        ShopCsrfGuard::class,
+    ])
+    ->rateLimit(30, 10, by: 'ip');
+$router->get('/checkout/pay/return/{linkUuid}/{signature}', [ShopPaymentLinkController::class, 'paymentReturn'])
+    ->middleware(['tenant_profile:public', 'tenant_bootstrap', ShopPaymentLinkHeaders::class, 'rate_limit'])
+    ->rateLimit(120, 5, by: 'ip');
+$router->get('/checkout/pay/cancel/{linkUuid}/{signature}', [ShopPaymentLinkController::class, 'paymentCancel'])
+    ->middleware(['tenant_profile:public', 'tenant_bootstrap', ShopPaymentLinkHeaders::class, 'rate_limit'])
+    ->rateLimit(120, 5, by: 'ip');
 
 /*
  * Task 11 (storefront-rendering spec §5.2/§10): the JSON data source `shop.js` hydrates the

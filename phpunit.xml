@@ -39,6 +39,7 @@
         </include>
     </source>
     <php>
+        <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="DB_DRIVER" value="pgsql"/>
         <env name="DB_PGSQL_HOST" value="127.0.0.1"/>
@@ -60,5 +61,15 @@
              public blobs; force="true" pins this against ambient .env/CI values. -->
         <env name="UPLOADS_ACCESS" value="public" force="true"/>
         <env name="UPLOADS_ENABLED" value="true" force="true"/>
+        <!-- CommerceMetaTest's `can_attach_user` matrix (a closed conjunction of BOTH
+             `users.user_lookup` switches and effective `users.view`) asserts the (on, on, *)
+             cells against the process-shared boot. Both keys ship OFF by default in
+             glueful/users' own config, so those cells silently depended on a developer .env
+             that happens to set them — CI generates a .env WITHOUT them, which turned the
+             true cell red (shard integration-a) and made the paired false cell pass
+             vacuously. force="true" pins the suite's contract against ambient .env/CI values
+             in BOTH directions, exactly as the uploads pins above do. -->
+        <env name="USERS_USER_LOOKUP_ENABLED" value="true" force="true"/>
+        <env name="USERS_USER_LIST_ENABLED" value="true" force="true"/>
     </php>
 </phpunit>

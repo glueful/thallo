@@ -1,0 +1,148 @@
+/**
+ * Global print stylesheet (orders-invoices-receipts spec, Task 8). Loaded once from `main.ts` so
+ * there is exactly one print stylesheet for the whole SPA — every rule here targets either the
+ * `[data-print-chrome]`/`[data-print-shell]` layout hooks (present on every page, but only ever
+ * MEANINGFUL on the printable invoice route) or the `.invoice-*` classes that only
+ * `InvoiceDocument.vue` renders.
+ *
+ * Named pages use ONLY valid CSS Paged Media grammar. The standards grammar cannot express "a
+ * fixed content width with automatic roll height" — a thermal `@page` rule stays `size: auto`
+ * (never the invalid `size: 80mm auto` / `58mm auto`); the operator selects the matching roll
+ * width in the browser/printer dialog, and the CONTENT BOX itself is constrained to 80mm/58mm by
+ * the ordinary (non-`@page`) `.invoice-thermal-80`/`.invoice-thermal-58` width rules below.
+ */
+
+@page invoice-a4 {
+  size: A4;
+  margin: 15mm;
+}
+
+@page invoice-thermal {
+  size: auto;
+  margin: 0;
+}
+
+/* Both thermal presets share ONE named page — only the content-box width differs. */
+.invoice-a4 {
+  page: invoice-a4;
+}
+
+.invoice-thermal-80,
+.invoice-thermal-58 {
+  page: invoice-thermal;
+}
+
+/* ── Screen layout shared by every preset ────────────────────────────────────────────────────── */
+
+.invoice-document {
+  background: #fff;
+  color: #111;
+  box-sizing: border-box;
+}
+
+.invoice-document * {
+  box-sizing: border-box;
+}
+
+.invoice-a4 {
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 12mm;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+/* Thermal: single column, monochrome, dashed rules, larger relative type. */
+.invoice-thermal-80,
+.invoice-thermal-58 {
+  margin: 0 auto;
+  padding: 3mm;
+  font-family: 'Courier New', ui-monospace, monospace;
+  color: #000;
+  background: #fff;
+  font-size: 1.05em;
+  line-height: 1.35;
+}
+
+.invoice-thermal-80 {
+  width: 80mm;
+}
+
+.invoice-thermal-58 {
+  width: 58mm;
+}
+
+.invoice-thermal-80 table,
+.invoice-thermal-58 table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.invoice-thermal-80 .invoice-rule,
+.invoice-thermal-58 .invoice-rule {
+  border: none;
+  border-top: 1px dashed #000;
+  margin: 2mm 0;
+}
+
+/* ── Print media ──────────────────────────────────────────────────────────────────────────────
+ * Everything below only ever matches on the invoice print route — the layout hooks are present
+ * (but inert) on every other page. */
+
+@media print {
+  /* The dashboard shell's own root (Nuxt UI's `UDashboardGroup`, theme base `fixed inset-0 flex
+   * overflow-hidden`) clips its content to the viewport — fine on screen (the shell scrolls
+   * internally), fatal for print: a `position: fixed` + `overflow: hidden` ancestor truncates
+   * EVERY page after the first, silently dropping the rest of an A4 invoice or any thermal
+   * receipt (totals/footer included). Reset it to a normal flow container so the printable
+   * content can span as many physical pages as it needs. `!important` because Tailwind's
+   * `fixed`/`inset-0`/`overflow-hidden` utilities carry the SAME specificity as this attribute
+   * selector — without it, cascade order (not intent) would decide the winner. */
+  [data-print-root] {
+    position: static !important;
+    inset: auto !important;
+    overflow: visible !important;
+    height: auto !important;
+    display: block !important;
+  }
+
+  /* Dashboard sidebar + the on-page preset/print toolbar never print. A `[data-print-chrome]`
+   * element must never be an ancestor of the printable RouterView (enforced structurally in
+   * `layouts/default.vue`, never by this stylesheet). */
+  [data-print-chrome] {
+    display: none !important;
+  }
+
+  /* The RouterView content wrapper stays visible but loses every dashboard-chrome affordance —
+   * margin/ring(box-shadow)/radius/overflow-clipping — so the printable document isn't boxed,
+   * shadowed, or clipped. */
+  [data-print-shell] {
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  .invoice-document thead {
+    display: table-header-group;
+  }
+
+  .invoice-document tr {
+    break-inside: avoid;
+  }
+
+  /* No clipping/line-clamp on any row content while printing. */
+  .invoice-document td,
+  .invoice-document th {
+    overflow: visible !important;
+    white-space: normal !important;
+    -webkit-line-clamp: unset !important;
+    display: table-cell;
+  }
+}

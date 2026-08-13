@@ -52,7 +52,7 @@ describe('useCommerceOrderMutations invalidation', () => {
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceOrder('o1') }],
-      [{ key: qk.commerceOrders() }],
+      [{ key: qk.commerceOrderSearch() }],
     ])
   })
 
@@ -62,7 +62,7 @@ describe('useCommerceOrderMutations invalidation', () => {
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceOrder('o2') }],
-      [{ key: qk.commerceOrders() }],
+      [{ key: qk.commerceOrderSearch() }],
     ])
   })
 
@@ -75,7 +75,7 @@ describe('useCommerceOrderMutations invalidation', () => {
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceOrder('o3') }],
-      [{ key: qk.commerceOrders() }],
+      [{ key: qk.commerceOrderSearch() }],
     ])
   })
 
@@ -85,7 +85,7 @@ describe('useCommerceOrderMutations invalidation', () => {
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceOrder('o4') }],
-      [{ key: qk.commerceOrders() }],
+      [{ key: qk.commerceOrderSearch() }],
     ])
   })
 
@@ -99,7 +99,7 @@ describe('useCommerceOrderMutations invalidation', () => {
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceOrder('o5') }],
-      [{ key: qk.commerceOrders() }],
+      [{ key: qk.commerceOrderSearch() }],
     ])
   })
 
@@ -119,7 +119,7 @@ describe('useCommerceOrderMutations invalidation', () => {
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceOrder('o6') }],
-      [{ key: qk.commerceOrders() }],
+      [{ key: qk.commerceOrderSearch() }],
       [{ key: qk.commerceOrderRefunds('o6') }],
       [{ key: qk.commerceRefunds() }],
     ])
@@ -135,7 +135,7 @@ describe('useCommerceOrderMutations invalidation', () => {
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceOrder('o7') }],
-      [{ key: qk.commerceOrders() }],
+      [{ key: qk.commerceOrderSearch() }],
       [{ key: qk.commerceOrderRefunds('o7') }],
       [{ key: qk.commerceRefunds() }],
     ])

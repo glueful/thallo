@@ -113,7 +113,7 @@ const utilityItems = computed(() => nav.value[1])
 </script>
 
 <template>
-  <UDashboardGroup unit="rem" storage="local">
+  <UDashboardGroup unit="rem" storage="local" data-print-root>
     <UDashboardSidebar
       id="default"
       v-model:open="open"
@@ -121,6 +121,7 @@ const utilityItems = computed(() => nav.value[1])
       :min-size="16"
       :default-size="16"
       :max-size="16"
+      data-print-chrome
       class="bg-elevated/25 border-r-0"
       :ui="{
         footer: 'lg:border-t lg:border-default',
@@ -166,6 +167,7 @@ const utilityItems = computed(() => nav.value[1])
       </template>
     </UDashboardSidebar>
     <div
+      data-print-shell
       class="flex-1 flex flex-col min-w-0 min-h-0 overflow-hidden bg-white rounded-2xl m-3 ring ring-default dark:bg-default"
     >
       <CapabilityErrorPanel v-if="capabilityBlocked" :retrying="retryingCaps" @retry="retryCaps" />

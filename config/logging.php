@@ -92,6 +92,33 @@ return [
     'default_profile' => $defaultProfile,
     'profiles' => $profiles,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Sensitive Request Paths
+    |--------------------------------------------------------------------------
+    |
+    | Route templates whose path itself carries a credential. A `{name}` segment
+    | is replaced with [REDACTED] in every log sink (request/response logging,
+    | exception reports, activity logs, CSRF/auth/security middleware, tracing
+    | spans, persisted API metrics). Templates are written WITHOUT the
+    | deployment's base URL — the base URL is stripped before matching and
+    | restored on output — and segments beyond the template are preserved, so
+    | `/checkout/pay/{token}` also covers the initiate POST at
+    | `/checkout/pay/{token}/initiate`.
+    |
+    | Redaction is log-emission-time only: the request is never mutated, so
+    | routing, token verification and handlers still see the original path.
+    |
+    | This list append-merges with the framework default (which is env-driven
+    | via LOG_SENSITIVE_PATHS and empty otherwise).
+    |
+    */
+    'sensitive_paths' => [
+        // Shop payment links: the token is the bearer credential for the
+        // hosted pay page and its initiate POST.
+        '/checkout/pay/{token}',
+    ],
+
     // Framework-level logging configuration
     'framework' => [
         'enabled' => env('FRAMEWORK_LOGGING_ENABLED', true),

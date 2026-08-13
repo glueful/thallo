@@ -7,6 +7,7 @@ import { computed, ref, watch } from 'vue'
 import { refDebounced } from '@vueuse/core'
 import { useMediaList, useUploadMedia, type MediaItem } from '@/queries/media'
 import { useNotify } from '@/composables/useNotify'
+import { isAcceptedMediaFile } from '@/fields/mediaTypeFilter'
 
 const props = defineProps<{
   /** Multi-asset fields upload several files at once; single fields take one. */
@@ -45,6 +46,14 @@ const fileCount = computed(() => (props.multiple ? (files.value?.length ?? 0) : 
 async function uploadSelected(): Promise<void> {
   const list = props.multiple ? (files.value ?? []) : singleFile.value ? [singleFile.value] : []
   if (!list.length) return
+  // Fail fast, client-side, on the SAME `mediaType` contract the Library tab's query already
+  // filters by (`isAcceptedMediaFile`'s own docblock) — the backend still validates on upload, but
+  // there's no reason to spend the round-trip on a file the Library tab wouldn't even show back.
+  const rejected = list.find((f) => !isAcceptedMediaFile(f, props.mediaType))
+  if (rejected) {
+    notifyError(new Error(`“${rejected.name}” isn’t a supported file type.`), 'Unsupported file type')
+    return
+  }
   uploading.value = true
   try {
     for (const file of list) {

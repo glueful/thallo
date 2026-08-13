@@ -2,9 +2,21 @@ name: Runtime Browser
 
 on:
   push:
-    paths: ['packages/thallo-render/**', 'tools/runtime-browser/**']
+    paths:
+      - 'packages/thallo-render/**'
+      - 'tools/runtime-browser/**'
+      - 'admin/src/assets/print.css'
+      - 'admin/src/pages/commerce/orders/components/InvoiceDocument.vue'
+      - 'admin/src/pages/commerce/orders/**/invoice.vue'
+      - 'admin/src/layouts/default.vue'
   pull_request:
-    paths: ['packages/thallo-render/**', 'tools/runtime-browser/**']
+    paths:
+      - 'packages/thallo-render/**'
+      - 'tools/runtime-browser/**'
+      - 'admin/src/assets/print.css'
+      - 'admin/src/pages/commerce/orders/components/InvoiceDocument.vue'
+      - 'admin/src/pages/commerce/orders/**/invoice.vue'
+      - 'admin/src/layouts/default.vue'
 
 defaults:
   run:

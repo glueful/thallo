@@ -61,8 +61,30 @@ export const qk = {
   commerceLink: (productUuid: string) => ['commerce-link', productUuid] as const,
   commerceLinkByEntry: (entryUuid: string) => ['commerce-link-by-entry', entryUuid] as const,
   commerceEntrySearch: (q: string) => ['commerce-entry-search', q] as const,
-  commerceOrders: () => ['commerce-orders'] as const,
+  // Task 7 retired the old `useCommerceOrders()`/`fetchOrders()` list query (superseded by
+  // `useOrderSearch()` in commerceOrderSearch.ts, whose key starts with this SAME prefix array) —
+  // `commerceOrderSearch()` is the shared prefix both that query's key builder AND
+  // `useCommerceOrderMutations()`'s list invalidation must use, so a lifecycle mutation's
+  // `invalidateQueries({ key: qk.commerceOrderSearch() })` actually matches the live list query's
+  // key via pinia-colada's element-wise `isSubsetOf` (a stale/different prefix silently never
+  // matches anything — see the fix-round-2 note in commerceOrders.ts).
+  commerceOrderSearch: () => ['commerce', 'orders', 'search'] as const,
   commerceOrder: (uuid: string) => ['commerce-order', uuid] as const,
+  // Task 14 (admin-order-creation): the walk-in draft workspace — DELIBERATELY a different prefix
+  // from `commerceOrder()` (drafts live on `/orders/drafts/{uuid}`, a distinct resource from
+  // `/orders/{uuid}`, and `AdminOrderController::findByUuid()` is draft-blind by construction), so
+  // a draft mutation's own invalidation never collides with (or accidentally invalidates) an
+  // ordinary order's cache entry.
+  commerceDraft: (uuid: string) => ['commerce-draft', uuid] as const,
+  // Task 15 (admin-order-creation cycle 2): the drafts LIST view (`GET /orders/drafts`, 'view'-
+  // graded server-side) — its own prefix, distinct from `commerceDraft()` above (a single draft)
+  // and from `commerceOrderSearch()` (the finalized-order list, which stays draft-blind).
+  commerceDraftsList: (page: number, perPage: number) => ['commerce-drafts-list', page, perPage] as const,
+  commerceOrderPayments: (orderUuid: string) => ['commerce-order-payments', orderUuid] as const,
+  // Payment links Task 13: the order's payment-link STATUS read (`GET /orders/{uuid}/payment-link`).
+  // Its own prefix — a link's lifecycle is independent of the payment/attempt history above it,
+  // and the one-time minted URL is never cached under this (or any) key.
+  commerceOrderPaymentLink: (orderUuid: string) => ['commerce-order-payment-link', orderUuid] as const,
   commerceOrderRefunds: (orderUuid: string) => ['commerce-order-refunds', orderUuid] as const,
   commerceRefunds: () => ['commerce-refunds'] as const,
   commerceOrderNotes: (orderUuid: string) => ['commerce-order-notes', orderUuid] as const,

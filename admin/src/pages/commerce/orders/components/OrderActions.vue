@@ -1,14 +1,18 @@
 <script setup lang="ts">
-// Task 13b (admin-commerce-area plan, slice 3): cancel / mark-paid / fulfill. Visibility is
-// gated by BOTH `canManage` and the current status's legal-transition set (see
-// canCancelOrder()/canMarkOrderPaid()/canFulfillOrder() in commerceOrders.ts, which mirror
+// Task 13b (admin-commerce-area plan, slice 3): mark-paid / fulfill / refund — the lifecycle
+// actions that stay grouped in the canonical header action group (orders-invoices-receipts plan,
+// Task 9 moved destructive `cancel` OUT of here and into the parent-owned `OrderCancelDialog`,
+// controlled by the overflow menu, so this component now owns no cancellation state or mutation
+// at all — exactly one place in the tree ever calls `cancel.mutateAsync`).
+//
+// Visibility is gated by BOTH `canManage` and the current status's legal-transition set (see
+// canMarkOrderPaid()/canFulfillOrder()/canRefundOrder() in commerceOrders.ts, which mirror
 // OrderStateMachine::ALLOWED field-for-field) — but the server's own CAS remains authoritative:
 // a since-changed or otherwise illegal transition still comes back as a 409/422, surfaced inline
 // via `actionError` rather than assumed away by the client-side guard.
 import { computed, ref } from 'vue'
 import {
   useCommerceOrderMutations,
-  canCancelOrder,
   canMarkOrderPaid,
   canFulfillOrder,
   canRefundOrder,
@@ -22,17 +26,16 @@ const props = defineProps<{
   canManage: boolean
 }>()
 
-const { cancel, markPaid, fulfill } = useCommerceOrderMutations()
+const { markPaid, fulfill } = useCommerceOrderMutations()
 
-const canCancel = computed(() => props.canManage && canCancelOrder(props.order.status))
 const canMarkPaid = computed(() => props.canManage && canMarkOrderPaid(props.order.status))
 const canFulfill = computed(() => props.canManage && canFulfillOrder(props.order.status))
 const canRefund = computed(() => props.canManage && canRefundOrder(props.order.status))
-const hasAnyAction = computed(() => canCancel.value || canMarkPaid.value || canFulfill.value || canRefund.value)
+const hasAnyAction = computed(() => canMarkPaid.value || canFulfill.value || canRefund.value)
 
 const refundSlideoverOpen = ref(false)
 
-type PendingAction = 'cancel' | 'mark-paid' | 'fulfill' | null
+type PendingAction = 'mark-paid' | 'fulfill' | null
 const pendingAction = ref<PendingAction>(null)
 const actionError = ref<string | null>(null)
 const trackingRef = ref('')
@@ -46,16 +49,6 @@ function dismissConfirm() {
   pendingAction.value = null
   actionError.value = null
   trackingRef.value = ''
-}
-
-async function confirmCancel() {
-  actionError.value = null
-  try {
-    await cancel.mutateAsync(props.order.uuid)
-    dismissConfirm()
-  } catch (e) {
-    actionError.value = toApiError(e).message
-  }
 }
 
 async function confirmMarkPaid() {
@@ -86,17 +79,6 @@ async function confirmFulfill() {
 <template>
   <div v-if="hasAnyAction" class="flex flex-col gap-3" data-test="order-actions">
     <div class="flex flex-wrap gap-2">
-      <UButton
-        v-if="canCancel"
-        color="error"
-        variant="outline"
-        size="sm"
-        icon="i-lucide-ban"
-        data-test="order-cancel"
-        @click="openConfirm('cancel')"
-      >
-        Cancel order
-      </UButton>
       <UButton
         v-if="canMarkPaid"
         color="success"
@@ -140,34 +122,6 @@ async function confirmFulfill() {
       :title="actionError"
       data-test="order-action-error"
     />
-
-    <div
-      v-if="pendingAction === 'cancel'"
-      class="rounded-md border border-error p-3 text-sm"
-      data-test="order-cancel-panel"
-    >
-      <p>Cancel order <strong>{{ order.order_number }}</strong>? Any tracked stock will be released. This can’t be undone.</p>
-      <div class="mt-2 flex gap-2">
-        <UButton
-          size="xs"
-          color="error"
-          data-test="order-cancel-confirm"
-          :loading="cancel.isLoading.value"
-          @click="confirmCancel"
-        >
-          Confirm cancel
-        </UButton>
-        <UButton
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          data-test="order-cancel-dismiss"
-          @click="dismissConfirm"
-        >
-          Dismiss
-        </UButton>
-      </div>
-    </div>
 
     <div
       v-if="pendingAction === 'mark-paid'"
