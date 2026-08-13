@@ -45,6 +45,8 @@ final class WebhookOrderSettlementTest extends AppTestCase
 
     /** @var list<string> */
     private array $seededIntents = [];
+    /** @var list<string> */
+    private array $seededOrders = [];
 
     protected function tearDown(): void
     {
@@ -53,6 +55,15 @@ final class WebhookOrderSettlementTest extends AppTestCase
             $this->connection()->table('payment_intents')->where(['uuid' => $uuid])->delete();
         }
         $this->seededIntents = [];
+
+        // Nor is `commerce_orders` — every other order-seeding class here cleans it up and this
+        // one did not, so its rows survived the whole process and were still there on the NEXT
+        // run against the same database, where they fed AdminOrderExportTest (which asserts an
+        // exact row COUNT) a pile of foreign orders. Intents first: they reference these orders.
+        foreach ($this->seededOrders as $uuid) {
+            $this->connection()->table('commerce_orders')->where(['uuid' => $uuid])->forceDelete();
+        }
+        $this->seededOrders = [];
 
         parent::tearDown();
     }
@@ -426,6 +437,7 @@ final class WebhookOrderSettlementTest extends AppTestCase
     {
         $uuid = Utils::generateNanoID();
         $number = 'WHS-' . (++self::$seq) . '-' . substr($uuid, 0, 5);
+        $this->seededOrders[] = $uuid;
         $this->connection()->table('commerce_orders')->insert([
             'uuid' => $uuid,
             'tenant_uuid' => '',
