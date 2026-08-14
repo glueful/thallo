@@ -41,6 +41,11 @@ const { success: notifySuccess } = useNotify()
 
 const invoiceHref = computed(() => `/commerce/orders/${uuid.value}/invoice`)
 
+/** Null for a never-completed (canceled, numberless) row — see `CommerceOrder.order_number`. The
+ * copy affordance is bound to THIS rather than to `order.order_number` so the value it copies is
+ * provably non-null, never an empty-string stand-in for an identifier that does not exist. */
+const orderNumber = computed<string | null>(() => order.value?.order_number ?? null)
+
 // Invoice data (Task 13d): view-graded (AdminRouteCatalog 'orders.invoice_data' -> 'view') —
 // the trigger is visible regardless of canManage. Fetched lazily: `enabled` is gated on
 // `invoiceOpen` so the request only fires once the modal is actually opened, mirroring
@@ -323,11 +328,19 @@ const billingDisplay = computed(() => {
           <div class="flex flex-col gap-4 rounded-lg border border-default p-4" data-test="order-header-band">
             <div class="flex flex-wrap items-start justify-between gap-4">
               <div class="flex flex-col gap-2">
+                <!-- A never-completed (canceled, numberless) row has no identifier to copy — it
+                     is named for what it is rather than offering a control that would copy an
+                     empty string. -->
                 <div class="flex items-center gap-1">
                   <h2 class="text-lg font-semibold text-default" data-test="order-header-number">
-                    {{ order.order_number }}
+                    {{ order.order_number ?? 'No order number' }}
                   </h2>
-                  <CopyButton :value="order.order_number" label="Copy order number" data-test="order-number-copy" />
+                  <CopyButton
+                    v-if="orderNumber !== null"
+                    :value="orderNumber"
+                    label="Copy order number"
+                    data-test="order-number-copy"
+                  />
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                   <UBadge :color="statusColor(order.status)" variant="subtle" data-test="order-detail-status">

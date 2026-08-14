@@ -27,6 +27,7 @@ import type { CommerceOrder } from '@/queries/commerceOrders'
 import {
   clampPaymentLinkTtl,
   createOrderPaymentLink,
+  fetchOrderPaymentLink,
   newPaymentLinkIdempotencyKey,
   paymentLinkRefusalReason,
   paymentLinkTokenFromUrl,
@@ -38,6 +39,7 @@ import {
   PAYMENT_LINK_TTL_MAX,
   PAYMENT_LINK_TTL_MIN,
   type PaymentLinkSendEnvelope,
+  type PaymentLinkStatus,
 } from '@/queries/commercePaymentLinks'
 import { useCommerceMeta } from '@/queries/commerceMeta'
 import { useCommerceEmailSettings } from '@/queries/commerceSettings'
@@ -258,6 +260,44 @@ async function confirmRevoke() {
   }
 }
 
+/**
+ * THE PRE-SEND RE-READ (payment-links final review: current-send stale-status recheck).
+ *
+ * The status query above is a SNAPSHOT. Between the moment it resolved and the moment the
+ * operator clicks "Send this link", another tab can revoke or regenerate the link and the payer
+ * can consume it — and the email that then goes out carries an already-dead address to a
+ * customer. The engine still refuses the eventual payment, so this is recipient confusion rather
+ * than a custody hole, but the fix is the same shape as the custody one: re-read the link's
+ * CURRENT status immediately before submitting, and if it is no longer active take the same path
+ * the server's own `payment_link_changed` 409 takes — send nothing, drop the dead address, say so.
+ *
+ * A direct fetch, not the cached query: the whole question is what the cache cannot answer.
+ *
+ * An INCONCLUSIVE answer (the re-read itself failed) is deliberately NOT a refusal. This read
+ * authorizes nothing — the server's own `matchCurrentToken()` is what actually rejects a stale
+ * token — so a transient failure must not become a wall the operator cannot get past. Only a
+ * definite "this link is not active" stops the send.
+ */
+async function currentLinkStillLive(): Promise<boolean> {
+  let fresh: PaymentLinkStatus
+  try {
+    fresh = await fetchOrderPaymentLink(props.order.uuid)
+  } catch {
+    return true
+  }
+  const freshStatus = fresh.link?.status ?? null
+  if (freshStatus === 'active') return true
+
+  visibleUrl.value = null
+  endSendIntent()
+  actionError.value =
+    freshStatus === null
+      ? 'This order’s payment link is no longer active, so nothing was sent. Use “Regenerate and send”.'
+      : `This payment link is no longer active (${freshStatus}), so nothing was sent. Use “Regenerate and send”.`
+  await invalidatePaymentLink(props.order.uuid)
+  return false
+}
+
 async function runSend(mode: 'current' | 'regenerate') {
   if (sendInFlight.value) return
   // Current-mode needs a token the VISIBLE url actually yielded. The button is already disabled
@@ -268,8 +308,12 @@ async function runSend(mode: 'current' | 'regenerate') {
   sendInFlight.value = true
   actionError.value = null
   sendEnvelope.value = null
-  const idempotencyKey = keyFor(mode)
   try {
+    // Only current-mode needs it: a regenerate mints its own link inside the request, so there is
+    // no stale credential to protect. The key is claimed AFTER the re-read, so a send that never
+    // went out never burns an idempotency key either.
+    if (mode === 'current' && !(await currentLinkStillLive())) return
+    const idempotencyKey = keyFor(mode)
     const envelope = await sendOrderPaymentLink(
       props.order.uuid,
       token !== null ? { mode: 'current', token } : { mode: 'regenerate', ttl_days: effectiveTtl.value },
@@ -509,6 +553,18 @@ async function runSend(mode: 'current' | 'regenerate') {
             Replayed
           </UBadge>
         </div>
+        <!-- The recorded failure's MACHINE code, not just its message. A replay reproduces the
+             original envelope, and the code is the part that tells an operator whether retrying
+             is even the right move (a transient `send_failed` is worth another attempt; a hard
+             provider rejection is not) — a decision that must not be made from prose alone. -->
+        <p
+          v-if="deliveryFailed && sendEnvelope.receipt.error_code"
+          class="text-xs text-muted"
+          data-test="payment-link-send-error-code"
+        >
+          Failure code:
+          <code class="text-default">{{ sendEnvelope.receipt.error_code }}</code>
+        </p>
         <p v-if="deliveryFailed && visibleUrl" class="text-muted" data-test="payment-link-failure-note">
           The link is still active — only the email failed. Copy the address above and send it to
           the customer yourself.

@@ -260,7 +260,7 @@ async function exportCsv(): Promise<void> {
     </template>
 
     <template #body>
-      <OrdersTable :rows="rows" :status="queryStatus" />
+      <OrdersTable :rows="rows" :status="queryStatus" :can-manage="canManage" />
 
       <TablePagination
         v-if="(data?.total ?? 0) > 0"

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { toValue, type MaybeRefOrGetter } from 'vue'
 import { client } from '@/api/client'
-import { ApiError, toApiError } from '@/api/errors'
+import { ApiError, apiErrorDetails, toApiError } from '@/api/errors'
 import { qk } from './keys'
 
 // Closed vocabularies mirrored from the backend (Glueful\Extensions\Commerce\Orders\
@@ -82,7 +82,14 @@ export interface CommerceOrderAddresses {
  * (AdminOrderController::sellerOrderProjection()'s own docblock states it explicitly). */
 export interface CommerceOrder {
   uuid: string
-  order_number: string
+  /** NULL for a row that never completed checkout. `commerce_orders.order_number` is nullable
+   * (migration 022): a number is issued at finalize, so a draft has none — and a draft that was
+   * abandoned and CANCELED keeps none forever. Those numberless canceled rows are the artifacts
+   * `deleteOrderArtifact()` below exists for, and the pair (`order_number IS NULL`, `canceled`)
+   * is the engine's own proof the row never touched money. Every render site must say so rather
+   * than print an empty cell — a blank where an identifier belongs reads as a bug, not as "this
+   * order never got one". */
+  order_number: string | null
   status: string
   fulfillment_status: string
   /** Nullable since commerce v1.10.0 (admin-order-creation cycle 2): an admin-created "walk-in"
@@ -195,7 +202,8 @@ function normalizeOrder(raw: Record<string, unknown>): CommerceOrder {
   const events = Array.isArray(raw.events) ? raw.events : []
   return {
     uuid: String(raw.uuid ?? ''),
-    order_number: String(raw.order_number ?? ''),
+    // Preserved as NULL, never coerced to '' — see CommerceOrder.order_number.
+    order_number: typeof raw.order_number === 'string' ? raw.order_number : null,
     status: String(raw.status ?? 'pending_payment'),
     fulfillment_status: String(raw.fulfillment_status ?? 'unfulfilled'),
     email: typeof raw.email === 'string' ? raw.email : null,
@@ -460,6 +468,47 @@ export async function cancelOrder(
   if (error) throw toApiError(error, response)
   const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeOrder((raw ?? {}) as Record<string, unknown>)
+}
+
+// ── Draft-artifact delete (cleanup-train Task 5/9) ───────────────────────────
+//
+// `DELETE /commerce/orders/{uuid}/artifact` (AdminOrderArtifactController) is the engine's ONE
+// hard delete of a `commerce_orders` row, and it is legal for exactly one shape of row:
+// `order_number IS NULL AND status = 'canceled'` — an abandoned draft that was canceled, a pair
+// the database itself treats as proof the row never touched money. Everything else this tenant
+// owns is a typed 409 `order_not_deletable` (an ACTIVE draft included: it must be canceled first,
+// so a mis-click can never destroy work in progress); unknown and cross-tenant uuids are a
+// byte-identical 404.
+
+/** The endpoint's ONE typed refusal, published as `error.details.reason`. */
+export const ORDER_NOT_DELETABLE = 'order_not_deletable'
+
+/**
+ * True when `e` is the artifact endpoint's typed refusal rather than any other failure.
+ *
+ * STRUCTURAL, for the same reason `isPaymentSessionRiskRefusal()` above is: a class identity
+ * (`instanceof ApiError`) silently answers `false` across a duplicated module graph, and the
+ * operator would get a generic "couldn't delete" where the server said something specific.
+ */
+export function isOrderNotDeletable(e: unknown): boolean {
+  return apiErrorDetails(e)?.reason === ORDER_NOT_DELETABLE
+}
+
+/**
+ * `DELETE /commerce/orders/{uuid}/artifact`. Resolves to nothing: the response echoes the uuid
+ * only so a client can settle an optimistic update, and this layer refetches instead.
+ *
+ * A 404 RESOLVES rather than throwing. The endpoint answers 404 for a row that is not there —
+ * which, for a delete, is precisely the post-condition the caller asked for (a concurrent
+ * operator or the engine's own purge sweep got there first). Treating it as a failure would put
+ * an error toast in front of an operator whose intent was in fact satisfied. Every other refusal
+ * — the typed 409 above included — throws the ordinary `ApiError` with the server's own message.
+ */
+export async function deleteOrderArtifact(uuid: string): Promise<void> {
+  const { error, response } = await client.DELETE('/commerce/orders/{uuid}/artifact', {
+    params: { path: { uuid } },
+  })
+  if (error && response?.status !== 404) throw toApiError(error, response)
 }
 
 export async function markOrderPaid(uuid: string): Promise<CommerceOrder> {
@@ -730,6 +779,13 @@ export function useCommerceOrderMutations() {
     }),
     markPaid: useMutation({
       mutation: (uuid: string) => markOrderPaid(uuid),
+      onSettled: (_d, _e, uuid) => invalidate(uuid),
+    }),
+    // The row is GONE on success, so the list must be re-read — and on a refusal too: a 409 means
+    // the row is not what the list said it was, which is itself a reason to re-read. `onSettled`
+    // covers both without a second code path.
+    deleteArtifact: useMutation({
+      mutation: (uuid: string) => deleteOrderArtifact(uuid),
       onSettled: (_d, _e, uuid) => invalidate(uuid),
     }),
     fulfill: useMutation({

@@ -1,15 +1,28 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
 import { useMoney } from '@/composables/useMoney'
-import type { CommerceOrder } from '@/queries/commerceOrders'
+import { useNotify } from '@/composables/useNotify'
+import {
+  isOrderNotDeletable,
+  useCommerceOrderMutations,
+  type CommerceOrder,
+} from '@/queries/commerceOrders'
 
-const props = defineProps<{
-  rows: CommerceOrder[]
-  status: 'pending' | 'error' | 'success' | 'idle'
-}>()
+const props = withDefaults(
+  defineProps<{
+    rows: CommerceOrder[]
+    status: 'pending' | 'error' | 'success' | 'idle'
+    /** Manage grade (`/commerce/meta`'s `can_manage`). Gates the ONE destructive action below —
+     * the artifact delete, whose route is manage-graded server-side. Defaults to false so a
+     * caller that has not resolved the grade yet never offers a control the server would 403. */
+    canManage?: boolean
+  }>(),
+  { canManage: false },
+)
 
 const { format } = useMoney()
+const { error: notifyError } = useNotify()
 
 const columns = computed<TableColumn<CommerceOrder>[]>(() => [
   { accessorKey: 'order_number', header: 'Order' },
@@ -78,6 +91,50 @@ function fmtDate(v: string | null): string {
   const d = new Date(v.replace(' ', 'T'))
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { dateStyle: 'medium' })
 }
+
+// ── Draft-artifact delete (cleanup-train Task 9) ───────────────────────────────────────────────
+//
+// A row with NO order number never completed checkout: a number is issued at finalize, so there
+// is no payment, no invoice and no receipt attached to it, and this list is draft-blind — the
+// only numberless rows that reach it are canceled artifacts, exactly the shape the engine's
+// `DELETE /orders/{uuid}/artifact` accepts (`order_number IS NULL AND status = 'canceled'`).
+//
+// The row gate is therefore the ABSENCE OF A NUMBER, and nothing else. A numbered row is a real
+// order with real money history and can never be deleted — it does not render the control at all,
+// rather than rendering a disabled one that would invite the question. The route is also
+// manage-graded, so a view-only operator is never offered it either. The server stays
+// authoritative either way: a row that stopped being an artifact between render and click is
+// refused with its own typed 409, surfaced verbatim below rather than guessed at here.
+function isDeletableArtifact(row: CommerceOrder): boolean {
+  return props.canManage && row.order_number === null
+}
+
+const deleteTarget = ref<CommerceOrder | null>(null)
+const deleteInFlight = ref(false)
+const { deleteArtifact } = useCommerceOrderMutations()
+
+function askDelete(row: CommerceOrder) {
+  deleteTarget.value = row
+}
+
+async function confirmDelete() {
+  const target = deleteTarget.value
+  if (target === null || deleteInFlight.value) return
+  deleteInFlight.value = true
+  try {
+    // Resolves for a 404 too — the row already being gone IS the outcome asked for, and the
+    // mutation's own invalidation refreshes the list either way.
+    await deleteArtifact.mutateAsync(target.uuid)
+  } catch (e) {
+    // The engine's ONE typed refusal (`order_not_deletable`) carries the remedy in its message
+    // ("Cancel this draft before deleting it." / "…has been placed and can never be deleted.") —
+    // surfaced verbatim, never restated in copy that could drift from the server's rule.
+    notifyError(e, isOrderNotDeletable(e) ? 'This order can’t be deleted' : 'Couldn’t delete this order')
+  } finally {
+    deleteInFlight.value = false
+    deleteTarget.value = null
+  }
+}
 </script>
 
 <template>
@@ -105,12 +162,15 @@ function fmtDate(v: string | null): string {
 
   <UTable v-else :data="rows" :columns="columns" :ui="{ td: 'align-middle' }">
     <template #order_number-cell="{ row }">
+      <!-- A numberless row is still a real row with a detail page — it is named for what it is
+           ("No number", muted) rather than left as a blank cell that reads as a rendering bug. -->
       <RouterLink
         :to="`/commerce/orders/${row.original.uuid}`"
-        class="font-medium text-default hover:underline"
+        class="font-medium hover:underline"
+        :class="row.original.order_number === null ? 'text-muted italic' : 'text-default'"
         data-test="order-row"
       >
-        {{ row.original.order_number }}
+        {{ row.original.order_number ?? 'No number' }}
       </RouterLink>
     </template>
 
@@ -178,7 +238,55 @@ function fmtDate(v: string | null): string {
         >
           <UIcon name="i-lucide-printer" class="size-4" />
         </RouterLink>
+        <!-- The ONLY destructive control in this table, and it exists on numberless rows alone
+             (see `isDeletableArtifact`). A button, not a link: it opens the confirmation and
+             performs no request of its own. -->
+        <button
+          v-if="isDeletableArtifact(row.original)"
+          type="button"
+          aria-label="Delete this draft artifact"
+          title="Delete this draft artifact"
+          data-test="order-row-delete"
+          class="inline-flex size-7 items-center justify-center rounded-md text-muted hover:bg-elevated hover:text-error"
+          @click="askDelete(row.original)"
+        >
+          <UIcon name="i-lucide-trash-2" class="size-4" />
+        </button>
       </div>
     </template>
   </UTable>
+
+  <!-- Permanent, unrecoverable, and stated as such. The copy names the three things whose absence
+       is what makes the deletion safe at all — no number, no payments, no invoices. -->
+  <UModal
+    :open="deleteTarget !== null"
+    title="Delete this draft permanently"
+    @update:open="(v: boolean) => { if (!v) deleteTarget = null }"
+  >
+    <template #body>
+      <p class="text-sm" data-test="order-artifact-delete-dialog">
+        This never-completed draft has no order number, payments, or invoices — delete permanently?
+      </p>
+    </template>
+    <template #footer>
+      <div class="flex w-full justify-end gap-2">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          data-test="order-artifact-delete-dismiss"
+          @click="deleteTarget = null"
+        >
+          Dismiss
+        </UButton>
+        <UButton
+          color="error"
+          data-test="order-artifact-delete-confirm"
+          :loading="deleteInFlight"
+          @click="confirmDelete"
+        >
+          Delete permanently
+        </UButton>
+      </div>
+    </template>
+  </UModal>
 </template>

@@ -51,7 +51,11 @@ const sections: { href: string; label: string }[] = [
   >
     <div class="flex flex-col gap-4 rounded-lg border border-default p-4 text-sm">
       <div class="flex flex-col gap-1">
-        <span class="font-medium text-default" data-test="order-sticky-number">{{ order.order_number }}</span>
+        <!-- Never a blank line where the identifier belongs: a never-completed row genuinely has
+             no number (see `CommerceOrder.order_number`) and says so. -->
+        <span class="font-medium text-default" data-test="order-sticky-number">
+          {{ order.order_number ?? 'No order number' }}
+        </span>
         <UBadge :color="statusColor(order.status)" variant="subtle" class="w-fit" data-test="order-sticky-status">
           {{ order.status }}
         </UBadge>

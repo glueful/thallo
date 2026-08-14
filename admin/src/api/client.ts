@@ -51,6 +51,14 @@ const authMiddleware: Middleware = {
 // The retry must use a clone taken BEFORE the body was sent: fetch consumes the request body, so
 // request.clone() in onResponse throws for a bodied POST/PATCH/PUT (GETs have no body, which hid
 // the bug). Clone in onRequest instead and stash it keyed to the request.
+//
+// CUSTODY (payment-links final review): the stashed clone carries the request BODY, and for a
+// payment-link `mode=current` send that body is the raw link token. A WeakMap only drops an entry
+// when its KEY is collected, and the Request stays reachable for as long as the caller holds the
+// response — so the entry is deleted the moment the response arrives instead. That is precisely
+// when the clone has either been used for the retry or can never be used again: one 401 gets one
+// refresh + one retry, and the retry is a fresh `fetch()` outside this middleware, so nothing
+// downstream ever looks the entry up a second time.
 let refreshing: Promise<boolean> | null = null
 const pristineRequests = new WeakMap<Request, Request>()
 const refreshMiddleware: Middleware = {
@@ -59,6 +67,9 @@ const refreshMiddleware: Middleware = {
     return request
   },
   async onResponse({ request, response }) {
+    // Read-and-consume: every branch below (including the early return) leaves the map empty.
+    const pristine = pristineRequests.get(request)
+    pristineRequests.delete(request)
     if (response.status !== 401) return response
     const { useSessionStore } = await import('@/stores/session')
     const session = useSessionStore()
@@ -71,7 +82,7 @@ const refreshMiddleware: Middleware = {
       return response
     }
     // Re-clone the pristine copy so its body is still intact if openapi-fetch retries again.
-    const retry = (pristineRequests.get(request) ?? request).clone()
+    const retry = (pristine ?? request).clone()
     retry.headers.set('authorization', `Bearer ${session.accessToken ?? ''}`)
     return fetch(retry)
   },
