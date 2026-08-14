@@ -19,6 +19,12 @@ const props = defineProps<{
 
 const { update } = useCommerceDraftMutations()
 
+// USelect/reka-ui reserve the empty string as "no selection" and reject a SelectItem with an
+// empty `value` — so the "Choose a method…" placeholder option uses a non-empty sentinel,
+// translated to `null` (no shipping method chosen) at the query/save boundary, same idiom as
+// commerce/products/index.vue's `ALL` sentinel.
+const NO_SHIPPING_METHOD = '__none__'
+
 const mode = ref<'in_store' | 'delivery'>('in_store')
 const name = ref('')
 const line1 = ref('')
@@ -48,7 +54,7 @@ function syncFromDraft() {
   postcode.value = str(shipping.postcode)
   country.value = str(shipping.country)
   phone.value = str(shipping.phone)
-  shippingMethod.value = props.draft.shipping_method ?? ''
+  shippingMethod.value = props.draft.shipping_method ?? NO_SHIPPING_METHOD
   fieldErrors.value = {}
   saveError.value = null
   saved.value = false
@@ -100,7 +106,7 @@ async function save() {
               phone: phone.value.trim() || undefined,
             },
           },
-          shipping_method: shippingMethod.value === '' ? null : shippingMethod.value,
+          shipping_method: shippingMethod.value === NO_SHIPPING_METHOD ? null : shippingMethod.value,
           expected_revision: props.draft.draft_revision,
         },
       })
@@ -171,7 +177,7 @@ async function save() {
         <UFormField label="Shipping method" :error="fieldErrors.shipping_method">
           <USelect
             v-model="shippingMethod"
-            :items="[{ label: 'Choose a method…', value: '' }, ...shippingMethodItems]"
+            :items="[{ label: 'Choose a method…', value: NO_SHIPPING_METHOD }, ...shippingMethodItems]"
             class="w-full"
             data-test="draft-shipping-method"
           />
