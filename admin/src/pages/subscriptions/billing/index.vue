@@ -31,7 +31,10 @@ const tenancyEnabled = computed(() => meta.value?.tenancy_enabled ?? false)
 const defaultUuid = computed(() => meta.value?.default_tenant_uuid ?? null)
 
 const page = ref(1)
-const perPage = ref(20)
+// TablePagination's page-size dropdown only offers [10, 25, 50, 100] (its own default
+// `pageSizes`, never overridden here) — the initial value MUST be one of those or the select
+// renders with no matching option. 25 mirrors every other TablePagination consumer's default.
+const perPage = ref(25)
 const directoryEnabled = computed(() => engineReady.value && tenancyEnabled.value)
 
 const { data: workspaces, status: workspacesStatus } = useWorkspaces(

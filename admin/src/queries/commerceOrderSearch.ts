@@ -43,7 +43,7 @@ export const ORDER_SEARCH_DEFAULTS: OrderSearchFilters = {
   placedFrom: null,
   placedTo: null,
   page: 1,
-  perPage: 24,
+  perPage: 25,
 }
 
 export interface OrderSearchPage {

@@ -18,7 +18,20 @@ const columns = computed<TableColumn<CommerceOrder>[]>(() => [
   { accessorKey: 'fulfillment_status', header: 'Fulfillment' },
   { accessorKey: 'grand_total', header: 'Total' },
   { accessorKey: 'placed_at', header: 'Date' },
+  { id: 'actions', header: 'Actions' },
 ])
+
+// The order-detail page's own Print link composes the SAME `/commerce/orders/{uuid}/invoice`
+// path (orders/[uuid]/index.vue's `invoiceHref`, mirrored verbatim by OrderStickyRail.vue) — kept
+// as an equally trivial one-line local composition here rather than a shared import, mirroring
+// this codebase's established per-file small-helper convention (see OrderStickyRail.vue's own
+// note on `statusColor`). Never diverges from the other two: always `uuid` + `/invoice`, no
+// alternate field. There is currently no print-availability gating by order status anywhere in
+// the codebase — the detail page's Print link renders unconditionally for every order — so this
+// action is likewise always enabled.
+function invoiceHref(row: CommerceOrder): string {
+  return `/commerce/orders/${row.uuid}/invoice`
+}
 
 function statusColor(s: string): 'success' | 'info' | 'warning' | 'error' | 'neutral' {
   switch (s) {
@@ -132,6 +145,40 @@ function fmtDate(v: string | null): string {
       <span class="text-sm text-muted" data-test="order-date">
         {{ fmtDate(row.original.placed_at ?? row.original.created_at) }}
       </span>
+    </template>
+
+    <template #actions-cell="{ row }">
+      <!-- Icon-only links, aria-labeled with a native `title` tooltip — a plain `<RouterLink>`
+           styled as a compact ghost icon button, mirroring the order-number cell's own RouterLink
+           (above) and the detail page's Print link (orders/[uuid]/index.vue's `order-print-link`)
+           rather than `UButton`'s `to` prop: `UButton` resolves its link through Nuxt UI's `Link`
+           wrapper, which only produces a real `href` via the REAL `RouterLink`'s scoped-slot data —
+           this codebase's established `RouterLinkStub` (a plain non-scoped stub, used everywhere
+           these tables are unit-tested) can't supply that, so a `UButton :to=...` renders hrefless
+           in every existing spec. A direct `<RouterLink>` needs no scoped-slot data and stays
+           testable exactly like the order-number cell already is. -->
+      <div class="flex items-center justify-end gap-1">
+        <RouterLink
+          :to="`/commerce/orders/${row.original.uuid}`"
+          aria-label="View order details"
+          title="View order details"
+          data-test="order-row-view"
+          class="inline-flex size-7 items-center justify-center rounded-md text-muted hover:bg-elevated hover:text-default"
+        >
+          <UIcon name="i-lucide-eye" class="size-4" />
+        </RouterLink>
+        <RouterLink
+          :to="invoiceHref(row.original)"
+          target="_blank"
+          rel="noopener"
+          aria-label="Print receipt"
+          title="Print receipt"
+          data-test="order-row-print"
+          class="inline-flex size-7 items-center justify-center rounded-md text-muted hover:bg-elevated hover:text-default"
+        >
+          <UIcon name="i-lucide-printer" class="size-4" />
+        </RouterLink>
+      </div>
     </template>
   </UTable>
 </template>

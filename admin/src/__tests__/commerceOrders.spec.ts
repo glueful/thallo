@@ -208,15 +208,16 @@ describe('OrdersTable', () => {
     expect(badges[1]!.text()).toBe('fulfilled')
   })
 
-  it('links only the order-number cell — no other cell navigates', () => {
+  it('links only the order-number cell and the Actions column — no other cell navigates', () => {
     const wrapper = mount(OrdersTable, {
       props: { rows, status: 'success' },
       global: { stubs: pageStubs },
     })
     const links = wrapper.findAll('a')
-    expect(links).toHaveLength(rows.length)
-    links.forEach((link, i) => {
-      expect(link.attributes('data-test')).toBe('order-row')
+    // Per row: the order-number cell, the View-details action, and the Print-receipt action.
+    expect(links).toHaveLength(rows.length * 3)
+    const numberLinks = wrapper.findAll('[data-test="order-row"]')
+    numberLinks.forEach((link, i) => {
       expect(link.text()).toBe(rows[i]!.order_number)
     })
   })
@@ -252,6 +253,46 @@ describe('OrdersTable', () => {
     const links = wrapper.findAll('[data-test="order-row"]')
     expect(links[0]!.attributes('href')).toBe('/commerce/orders/o1')
     expect(links[1]!.attributes('href')).toBe('/commerce/orders/o2')
+  })
+
+  // ── Actions column (discoverability fix): the order-number cell is no longer the ONLY way
+  // to reach a row's detail page — a trailing Actions column now carries an explicit View and
+  // Print affordance per row too. ─────────────────────────────────────────────────────────────
+
+  it('renders a View-details action per row, linking to the same order detail page as the order-number cell', () => {
+    const wrapper = mount(OrdersTable, {
+      props: { rows, status: 'success' },
+      global: { stubs: pageStubs },
+    })
+    const views = wrapper.findAll('[data-test="order-row-view"]')
+    expect(views).toHaveLength(2)
+    expect(views[0]!.attributes('href')).toBe('/commerce/orders/o1')
+    expect(views[1]!.attributes('href')).toBe('/commerce/orders/o2')
+    expect(views[0]!.attributes('aria-label')).toBe('View order details')
+  })
+
+  it('renders a Print-receipt action per row, opening the invoice in a new tab', () => {
+    const wrapper = mount(OrdersTable, {
+      props: { rows, status: 'success' },
+      global: { stubs: pageStubs },
+    })
+    const prints = wrapper.findAll('[data-test="order-row-print"]')
+    expect(prints).toHaveLength(2)
+    expect(prints[0]!.attributes('href')).toBe('/commerce/orders/o1/invoice')
+    expect(prints[1]!.attributes('href')).toBe('/commerce/orders/o2/invoice')
+    prints.forEach((link) => {
+      expect(link.attributes('target')).toBe('_blank')
+      expect(link.attributes('rel')).toBe('noopener')
+      expect(link.attributes('aria-label')).toBe('Print receipt')
+    })
+  })
+
+  it('renders an "Actions" column header', () => {
+    const wrapper = mount(OrdersTable, {
+      props: { rows, status: 'success' },
+      global: { stubs: pageStubs },
+    })
+    expect(wrapper.text()).toContain('Actions')
   })
 })
 
@@ -319,7 +360,7 @@ describe('commerce orders list page', () => {
     [{ placed_from: '2026-02-30' }, 'placedFrom', null],
     [{ placed_to: '2026-13-01' }, 'placedTo', null],
     [{ page: '0' }, 'page', 1],
-    [{ per_page: '101' }, 'perPage', 24],
+    [{ per_page: '101' }, 'perPage', 25],
   ])('discards an invalid %j from the URL, falling back to the default', async (query, field, expected) => {
     routeState.query = query as Record<string, string>
     mount(OrdersIndex, { global: { stubs: pageStubs } })
