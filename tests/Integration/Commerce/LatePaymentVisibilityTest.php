@@ -267,11 +267,18 @@ final class LatePaymentVisibilityTest extends AppTestCase
     }
 
     /** @return list<array<string,mixed>> */
+    /**
+     * Scoped to the orders THIS test seeded: sibling classes (the webhook settlement suite)
+     * legitimately produce late rejections of their own, and within-process class order is not
+     * guaranteed — an unscoped count is a cross-class contamination hazard, not extra rigor.
+     */
     private function auditRows(): array
     {
+        $uuids = "'" . implode("','", $this->seededOrders) . "'";
         $statement = $this->connection()->getPDO()->query(
             "SELECT * FROM audit_logs WHERE action = '"
-            . LatePaymentVisibilityListener::AUDIT_ACTION . "' ORDER BY id ASC"
+            . LatePaymentVisibilityListener::AUDIT_ACTION . "'"
+            . " AND target_uuid IN ({$uuids}) ORDER BY id ASC"
         );
 
         return $statement === false ? [] : $statement->fetchAll(\PDO::FETCH_ASSOC);
@@ -315,9 +322,13 @@ final class LatePaymentVisibilityTest extends AppTestCase
         };
     }
 
+    /** @var list<string> */
+    private array $seededOrders = [];
+
     private function seedOrder(): string
     {
         $uuid = Utils::generateNanoID();
+        $this->seededOrders[] = $uuid;
         $this->connection()->table('commerce_orders')->insert([
             'uuid' => $uuid,
             'tenant_uuid' => $this->tenant(),
