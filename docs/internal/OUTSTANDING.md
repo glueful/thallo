@@ -123,8 +123,9 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
   resolves the exact provider reference instead of "whichever intent is open") and a provider-host
   URL trust boundary that also fixes Paystack's previously-unchecked `authorization_url`. **Commerce
   1.11.0** adds the engine-native `commerce_payment_links` table/`PaymentLinkService` (hash-only
-  token custody — a raw token exists at exactly TWO egress points, the one-time mint/regenerate
-  response and the send-time email body, and never touches a database, queue, log, or audit row),
+  token custody — a raw token exists at exactly THREE egress points, the one-time mint/regenerate
+  response, the send-time email body, and the landing page's Pay-form `action` attribute, and
+  never touches a database, queue, log, or audit row),
   one-active-link-per-order enforced transactionally, a lease-governed TTL
   (`commerce.payment_links.ttl_days`, default 7, clamped 1–30) with a fail-closed
   provider-session-exposure boundary (once a hosted gateway URL has ever been returned, automatic
