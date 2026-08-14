@@ -702,8 +702,19 @@ final class CompleteSaleTest extends AppTestCase
             $winner['body']['data']['steps'],
         );
 
+        // ONE WINNER, THROUGH THE 1.12.0 API. `markPaid()` no longer THROWS on a lost paid CAS —
+        // it returns `false` (an idempotent concession: this call performed no transition, someone
+        // else reached `paid`). The coordinator branches on that concession and classifies it as
+        // the loss it is, so `mark_paid` is NEVER `done` for the loser: `failed` when it conceded
+        // the CAS, `skipped` when it lost earlier still and the pre-gate refused it. Either way
+        // fulfillment is `skipped` and never attempted — which is exactly what the audit counts
+        // below (one paid row, one fulfilled row) then prove independently.
         $loser = $results[array_search(409, array_column($results, 'status'), true)];
-        self::assertSame('skipped', $loser['body']['data']['steps'][1]['status']);
+        $loserSteps = $loser['body']['data']['steps'];
+        self::assertSame('mark_paid', $loserSteps[0]['step']);
+        self::assertContains($loserSteps[0]['status'], ['failed', 'skipped'], json_encode($loser));
+        self::assertNotSame('done', $loserSteps[0]['status'], 'a conceded markPaid is not a win');
+        self::assertSame('skipped', $loserSteps[1]['status']);
         self::assertNotSame([], $loser['body']['data']['order'], 'the loser gets the current order');
         $this->assertClosedProjection($loser['body']['data']['order'], 'race loser');
 
@@ -722,6 +733,11 @@ final class CompleteSaleTest extends AppTestCase
      * committed as paid when it resolved) or at the CAS itself depends on scheduling, so the
      * assertion covers both truthfully — what must ALWAYS hold is: a 409, fulfillment skipped,
      * and not a single fulfillment side effect.
+     *
+     * Since commerce 1.12.0 the CAS lane reports its loss by RETURNING `false` from `markPaid()`
+     * rather than by raising, so `failed` below is now reached through the coordinator's explicit
+     * concession branch instead of its `catch (\DomainException)`. The observable contract is
+     * deliberately unchanged — that is the point of the branch, and this test is what pins it.
      */
     public function testALoserOfTheMarkPaidRaceNeverProceedsToFulfillment(): void
     {
@@ -740,7 +756,8 @@ final class CompleteSaleTest extends AppTestCase
         $steps = $result['body']['data']['steps'];
         self::assertSame('fulfill', $steps[1]['step']);
         self::assertSame('skipped', $steps[1]['status']);
-        self::assertContains($steps[0]['status'], ['failed', 'skipped']);
+        self::assertContains($steps[0]['status'], ['failed', 'skipped'], json_encode($result));
+        self::assertNotSame('done', $steps[0]['status'], 'a conceded markPaid is not a win');
         self::assertSame(0, $this->auditCount($uuid, 'status:fulfilled'));
         self::assertSame('paid', $this->dbRow($uuid)['status']);
     }

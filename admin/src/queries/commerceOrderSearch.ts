@@ -43,7 +43,7 @@ export const ORDER_SEARCH_DEFAULTS: OrderSearchFilters = {
   placedFrom: null,
   placedTo: null,
   page: 1,
-  perPage: 24,
+  perPage: 25,
 }
 
 export interface OrderSearchPage {
@@ -93,7 +93,8 @@ function searchQuery(filters: OrderSearchFilters) {
 function normalizeSearchOrder(raw: Record<string, unknown>): CommerceOrder {
   return {
     uuid: String(raw.uuid ?? ''),
-    order_number: String(raw.order_number ?? ''),
+    // Preserved as NULL, never coerced to '' — see CommerceOrder.order_number.
+    order_number: typeof raw.order_number === 'string' ? raw.order_number : null,
     status: String(raw.status ?? 'pending_payment'),
     fulfillment_status: String(raw.fulfillment_status ?? 'unfulfilled'),
     email: typeof raw.email === 'string' ? raw.email : null,

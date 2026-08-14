@@ -116,6 +116,10 @@
         "mode": "manage"
     },
     {
+        "key": "orders.artifact.destroy",
+        "mode": "manage"
+    },
+    {
         "key": "orders.cancel",
         "mode": "manage"
     },

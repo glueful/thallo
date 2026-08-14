@@ -72,12 +72,17 @@ const createMock = vi.hoisted(() => vi.fn())
 const revokeMock = vi.hoisted(() => vi.fn())
 const sendMock = vi.hoisted(() => vi.fn())
 const invalidateMock = vi.hoisted(() => vi.fn())
+// The pre-send status RE-READ (OUTSTANDING: current-send stale-status recheck) — a direct
+// fetch, not the card's cached status query, because the whole point is a value the cache cannot
+// have: what the link's status is RIGHT NOW, after another tab may have revoked it.
+const fetchStatusMock = vi.hoisted(() => vi.fn())
 vi.mock('@/queries/commercePaymentLinks', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commercePaymentLinks')>()
   return {
     ...actual,
     useOrderPaymentLink: () => ({ data: linkStatus, status: linkStatusState }),
     useOrderPaymentLinkInvalidation: () => invalidateMock,
+    fetchOrderPaymentLink: fetchStatusMock,
     // The three writes are plain awaited functions in the card (never `useMutation()` — see
     // orderPaymentLinkCustody.spec.ts for why), so they are mocked as such.
     createOrderPaymentLink: createMock,
@@ -258,6 +263,8 @@ beforeEach(() => {
   createMock.mockReset()
   revokeMock.mockReset()
   sendMock.mockReset()
+  fetchStatusMock.mockReset()
+  fetchStatusMock.mockImplementation(async () => linkStatus.value ?? status())
   invalidateMock.mockReset()
   invalidateMock.mockResolvedValue(undefined)
   notify.success.mockReset()
@@ -882,6 +889,219 @@ describe('payment-link send: regenerate', () => {
     confirm.trigger('click')
     await flushPromises()
 
+    expect(sendMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ── The replayed FAILED delivery's machine code (OUTSTANDING: replayed-failure error_code) ─────
+//
+// A replay reproduces the RECORDED envelope, and the recorded failure's `error_code` is the only
+// part of it that tells an operator whether retrying is even the right move: `send_failed` is
+// worth another try, a hard provider rejection is not. Rendering the message alone made that
+// decision message-only, which is exactly the honesty gap the review found.
+
+describe('payment-link delivery failure: the machine code is on screen', () => {
+  beforeEach(() => {
+    linkStatus.value = status()
+    createMock.mockResolvedValue(mint())
+  })
+
+  async function withVisibleUrl(url = URL_1) {
+    createMock.mockResolvedValue(mint(url))
+    const wrapper = mountCard()
+    await wrapper.find('[data-test="payment-link-regenerate"]').trigger('click')
+    await wrapper.find('[data-test="payment-link-regenerate-confirm"]').trigger('click')
+    await flushPromises()
+    return wrapper
+  }
+
+  it('renders a REPLAYED failure’s recorded error_code alongside its status', async () => {
+    sendMock.mockResolvedValue(
+      envelope({
+        http_status: 502,
+        message: 'Replayed: the payment link could not be emailed.',
+        receipt: {
+          ...envelope().receipt,
+          status: 'failed',
+          error_code: 'email_channel_unavailable',
+          replayed: true,
+        },
+        recovery: 'use_a_new_idempotency_key_or_regenerate',
+      }),
+    )
+    const wrapper = await withVisibleUrl()
+    await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="payment-link-send-replayed"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="payment-link-send-error-code"]').text()).toContain(
+      'email_channel_unavailable',
+    )
+  })
+
+  it('renders a FIRST-attempt failure’s error_code too — the same decision, same code', async () => {
+    sendMock.mockResolvedValue(
+      envelope({
+        http_status: 502,
+        message: 'the payment link could not be emailed.',
+        receipt: { ...envelope().receipt, status: 'failed', error_code: 'send_failed' },
+      }),
+    )
+    const wrapper = await withVisibleUrl()
+    await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="payment-link-send-error-code"]').text()).toContain('send_failed')
+  })
+
+  it('renders NO code element for a successful delivery, and none when the receipt carries no code', async () => {
+    sendMock.mockResolvedValue(envelope())
+    const sent = await withVisibleUrl()
+    await sent.find('[data-test="payment-link-send-current"]').trigger('click')
+    await flushPromises()
+    expect(sent.find('[data-test="payment-link-send-error-code"]').exists()).toBe(false)
+
+    sendMock.mockResolvedValue(
+      envelope({
+        http_status: 502,
+        receipt: { ...envelope().receipt, status: 'failed', error_code: null },
+      }),
+    )
+    const codeless = await withVisibleUrl()
+    await codeless.find('[data-test="payment-link-send-current"]').trigger('click')
+    await flushPromises()
+    expect(codeless.find('[data-test="payment-link-send-error-code"]').exists()).toBe(false)
+    expect(codeless.find('[data-test="payment-link-send-status"]').text()).toContain('failed')
+  })
+})
+
+// ── Pre-send status recheck (OUTSTANDING: current-send stale-status recheck) ───────────────────
+//
+// The card's status query is a SNAPSHOT. Between the moment it resolved and the moment an
+// operator clicks "Send this link", another tab (or the payer) can revoke, consume or expire the
+// link — and the email that then goes out carries an already-dead address to a customer. So the
+// current-send re-reads the link's status immediately before submitting, and a link that is no
+// longer active takes the SAME path the server's own `payment_link_changed` 409 takes: nothing is
+// sent, the dead address stops being offered, and the operator is told to regenerate.
+//
+// Only `mode=current` needs it: a regenerate mints inside the request, so there is no stale
+// credential to protect.
+
+describe('payment-link send: current re-reads the link status first', () => {
+  beforeEach(() => {
+    linkStatus.value = status()
+    createMock.mockResolvedValue(mint())
+  })
+
+  async function withVisibleUrl(url = URL_1) {
+    createMock.mockResolvedValue(mint(url))
+    const wrapper = mountCard()
+    await wrapper.find('[data-test="payment-link-regenerate"]').trigger('click')
+    await wrapper.find('[data-test="payment-link-regenerate-confirm"]').trigger('click')
+    await flushPromises()
+    return wrapper
+  }
+
+  it('re-reads the status BEFORE the send, and sends when the link is still active', async () => {
+    sendMock.mockResolvedValue(envelope())
+    const wrapper = await withVisibleUrl()
+    fetchStatusMock.mockClear()
+    await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
+    await flushPromises()
+
+    expect(fetchStatusMock).toHaveBeenCalledWith('o1')
+    expect(sendMock).toHaveBeenCalledTimes(1)
+    expect(fetchStatusMock.mock.invocationCallOrder[0]!).toBeLessThan(
+      sendMock.mock.invocationCallOrder[0]!,
+    )
+  })
+
+  it.each(['revoked', 'consumed', 'expired'])(
+    'sends NOTHING when the fresh read says the link is %s',
+    async (staleStatus) => {
+      sendMock.mockResolvedValue(envelope())
+      const wrapper = await withVisibleUrl()
+      // Another tab acted between the card's load and this click.
+      fetchStatusMock.mockResolvedValue(status({ link: link({ status: staleStatus }) }))
+
+      await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
+      await flushPromises()
+
+      expect(sendMock).not.toHaveBeenCalled()
+      const error = wrapper.find('[data-test="payment-link-action-error"]')
+      expect(error.exists()).toBe(true)
+      expect(error.text()).toMatch(/no longer active/i)
+      expect(error.text()).toContain(staleStatus)
+      // The dead address stops being offered — the same custody drop `payment_link_changed` does.
+      expect(wrapper.find('[data-test="payment-link-url"]').exists()).toBe(false)
+      expect(wrapper.html()).not.toContain(TOKEN)
+      expect(wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled')).toBeDefined()
+      // And the card's own view of the order is refreshed rather than left stating the old truth.
+      expect(invalidateMock).toHaveBeenCalledWith('o1')
+    },
+  )
+
+  it('sends nothing when the fresh read shows the order has no link at all', async () => {
+    sendMock.mockResolvedValue(envelope())
+    const wrapper = await withVisibleUrl()
+    fetchStatusMock.mockResolvedValue(
+      status({ link: null, exposure: { reason: 'none', blocks_automatic_cancellation: false, requires_risk_acknowledgement: false } }),
+    )
+
+    await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
+    await flushPromises()
+
+    expect(sendMock).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-test="payment-link-action-error"]').text()).toMatch(/no longer active/i)
+  })
+
+  it('leaves the send intent unburnt: the refused attempt consumed no idempotency key', async () => {
+    sendMock.mockResolvedValue(envelope())
+    const wrapper = await withVisibleUrl()
+    fetchStatusMock.mockResolvedValue(status({ link: link({ status: 'revoked' }) }))
+    await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
+    await flushPromises()
+    expect(sendMock).not.toHaveBeenCalled()
+
+    // Regenerate: a live link and a visible URL again, and the send now goes through.
+    fetchStatusMock.mockImplementation(async () => status())
+    createMock.mockResolvedValue(mint(URL_2))
+    await wrapper.find('[data-test="payment-link-regenerate"]').trigger('click')
+    await wrapper.find('[data-test="payment-link-regenerate-confirm"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
+    await flushPromises()
+
+    expect(sendMock).toHaveBeenCalledTimes(1)
+    expect(sendMock.mock.calls[0]![1]).toEqual({ mode: 'current', token: TOKEN_2 })
+  })
+
+  // The re-read authorizes nothing — the SERVER's own `matchCurrentToken()` check is what
+  // actually refuses a stale token (409 `payment_link_changed`). So an INCONCLUSIVE re-read (the
+  // request itself failed) must not become a refusal the operator cannot get past: the send goes
+  // out and the server stays the authority.
+  it('still sends when the re-read itself fails — an unanswered question is not a refusal', async () => {
+    sendMock.mockResolvedValue(envelope())
+    const wrapper = await withVisibleUrl()
+    fetchStatusMock.mockRejectedValue(new ApiError('Network down.', 0, {}, null))
+
+    await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
+    await flushPromises()
+
+    expect(sendMock).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-test="payment-link-send-status"]').text()).toContain('sent')
+  })
+
+  it('does NOT re-read for a regenerate send — that mints its own link inside the request', async () => {
+    sendMock.mockResolvedValue(envelope({ receipt: { ...envelope().receipt, mode: 'regenerate' } }))
+    const wrapper = mountCard()
+    fetchStatusMock.mockClear()
+
+    await wrapper.find('[data-test="payment-link-send-regenerate"]').trigger('click')
+    await wrapper.find('[data-test="payment-link-send-regenerate-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(fetchStatusMock).not.toHaveBeenCalled()
     expect(sendMock).toHaveBeenCalledTimes(1)
   })
 })

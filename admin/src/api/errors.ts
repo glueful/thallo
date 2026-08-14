@@ -110,6 +110,8 @@ function messageFromBody(body: unknown, fallback: string): string {
  * puts caller details under `error.details`, so a coded failure looks like
  * `{ error: { details: { code: 'STALE_DRAFT' | 'BLOCK_MIGRATION_IN_PROGRESS', ... } } }`.
  * Null when absent — callers branch on the code instead of parsing messages.
+ *
+ * Structural for exactly the reason `apiErrorDetails()` below is (it delegates to it).
  */
 export function apiErrorCode(e: unknown): string | null {
   const details = apiErrorDetails(e)
@@ -117,11 +119,30 @@ export function apiErrorCode(e: unknown): string | null {
   return typeof code === 'string' ? code : null
 }
 
-/** The framework error body's `error.details` object, if any. */
+/**
+ * The framework error body's `error.details` object, if any.
+ *
+ * STRUCTURAL, deliberately — `status` (a number, which every ApiError carries, 0 when unknown)
+ * plus `body.error.details`, which IS the framework's error envelope. This used to gate on
+ * `e instanceof ApiError`, and a class identity silently answers `false` the moment the error
+ * crosses a DUPLICATED MODULE GRAPH: vitest's `importOriginal()`/`importActual()` inside a
+ * `vi.mock` factory loads `@/api/errors` a second time, and a split production bundle can do the
+ * same, so a byte-identical error carries a DIFFERENT constructor. Every consumer branching on a
+ * machine-readable code (`STALE_DRAFT`, `BLOCK_MIGRATION_IN_PROGRESS`, the draft `conflict`
+ * discriminator, a payment-link `reason`) therefore had a latent path that fell through to
+ * generic error rendering — caught concretely in the payment-links final wave, where
+ * `isPaymentSessionRiskRefusal()` (commerceOrders.ts) was written with `instanceof` first,
+ * returned `false` under test, and would have left an operator with an unactionable 409.
+ *
+ * `instanceof ApiError` remains the right tool for TS NARROWING at a call site that wants
+ * `fieldErrors`/`status` typed — it is just never the authority on whether a body is coded.
+ */
 export function apiErrorDetails(e: unknown): Record<string, unknown> | null {
-  if (!(e instanceof ApiError)) return null
-  const body = e.body as { error?: { details?: unknown } } | null
-  const details = body?.error?.details
+  if (typeof e !== 'object' || e === null) return null
+  const candidate = e as { status?: unknown; body?: unknown }
+  if (typeof candidate.status !== 'number') return null
+  const details = (candidate.body as { error?: { details?: unknown } } | null | undefined)?.error
+    ?.details
   return typeof details === 'object' && details !== null
     ? (details as Record<string, unknown>)
     : null

@@ -1287,6 +1287,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/commerce/admin/orders/{uuid}/artifact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Permanently delete a canceled draft artifact */
+        delete: operations["deleteCommerceAdminOrdersByUuidArtifact"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/commerce/admin/orders/{uuid}/cancel": {
         parameters: {
             query?: never;
@@ -2886,7 +2903,7 @@ export interface paths {
         put?: never;
         /**
          * Confirm Payment via Gateway
-         * @description Verifies a payment with a configured gateway (Paystack, Stripe, etc.) and upserts a record into the generic `payments` table. Body: `reference` (required; provider transaction reference), `gateway` (gateway key from `payvia.gateways` config, defaults to `payvia.default_gateway`), `payable_type` (optional logical type for the payable, e.g. subscription, order), `payable_id` (optional identifier of the payable in its domain), `metadata` (optional free-form JSON metadata to persist), `options` (optional gateway-specific options passed to the gateway driver). Requires authentication. The stored `user_uuid` is always derived from the authenticated session and is NOT caller-settable; supplying a `user_uuid` that differs from the session returns 422.
+         * @description Verifies a payment with a configured gateway (Paystack, Stripe, etc.) and upserts a record into the generic `payments` table. Body: `reference` (required; provider transaction reference), `gateway` (gateway key from `payvia.gateways` config, defaults to `payvia.default_gateway`), `payable_type` (optional logical type for the payable, e.g. subscription, order), `payable_id` (optional identifier of the payable in its domain), `metadata` (optional free-form JSON metadata to persist), `options` (optional gateway-specific options passed to the gateway driver). Requires authentication. The stored `user_uuid` is always derived from the authenticated session and is NOT caller-settable; supplying a `user_uuid` that differs from the session returns 422. When the reference has a payment intent of its own, the supplied `payable_type`/`payable_id` must be the pair that intent is bound to; attributing the reference to any other payable returns 409 and confirms nothing.
          */
         post: operations["postPayviaPaymentsConfirm"];
         delete?: never;
@@ -11754,6 +11771,91 @@ export interface operations {
             };
         };
     };
+    deleteCommerceAdminOrdersByUuidArtifact: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uuid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Draft artifact deleted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Order not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Order is not a deletable draft artifact */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     postCommerceAdminOrdersByUuidCancel: {
         parameters: {
             query?: never;
@@ -12066,6 +12168,13 @@ export interface operations {
                         };
                     };
                 };
+            };
+            /** @description Order not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Invalid order transition */
             409: {
@@ -21943,6 +22052,13 @@ export interface operations {
                         };
                     };
                 };
+            };
+            /** @description The reference is bound to a different payable than the one supplied (`payable_mismatch`); nothing is recorded, dispatched, or settled */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation failed (also returned if a user_uuid that differs from the authenticated session is supplied) */
             422: {

@@ -9,6 +9,7 @@ use App\Tests\Support\RecordingRichEmailChannel;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Commerce\Contracts\PaymentLinkPublicUrlProvider;
 use Glueful\Extensions\Commerce\Orders\OrderRepository;
+use Glueful\Extensions\Commerce\Orders\PaymentLinkException;
 use Glueful\Extensions\Commerce\Orders\PaymentLinkRepository;
 use Glueful\Extensions\Commerce\Orders\PaymentLinkService;
 use Glueful\Extensions\Commerce\Tenancy\CommerceTenantResolution;
@@ -524,6 +525,75 @@ final class PaymentLinkSendTest extends AppTestCase
 
         self::assertCount(1, $this->channelCalls(), 'a replayed failure must not resend either');
         self::assertSame(1, $this->deliveryCount());
+    }
+
+    /**
+     * Cleanup-train Task 10 (the server half of the OUTSTANDING `error_code` item): the status map
+     * used to document itself as mirroring the delivery vocabulary while handling five of its
+     * codes, so anything else — including every initiation-family engine refusal and three of the
+     * mailer's own four codes — silently collapsed into the generic 502. Both vocabularies are
+     * CLOSED and enumerable, so the map now covers them exhaustively, and this test fails the
+     * moment either package adds a code without a status here.
+     */
+    public function testTheStatusMapCoversTheWholeClosedErrorVocabularyOfBothPackages(): void
+    {
+        $mapped = array_keys(AdminPaymentLinkSendController::STATUS_BY_ERROR_CODE);
+
+        $vocabulary = [
+            ...PaymentLinkException::ERROR_CODES,
+            PaymentRequestSendResult::EMAIL_UNAVAILABLE,
+            PaymentRequestSendResult::TEMPLATE_DISABLED,
+            PaymentRequestSendResult::NO_RECIPIENT,
+            PaymentRequestSendResult::SEND_FAILED,
+        ];
+
+        self::assertSame(
+            [],
+            array_values(array_diff($vocabulary, $mapped)),
+            'every code that can reach the ledger or a refusal must have a stated status',
+        );
+        self::assertSame(
+            [],
+            array_values(array_diff($mapped, $vocabulary)),
+            'the map must not invent codes neither package can produce',
+        );
+
+        // The three codes whose ledger-recorded status must agree with the PREFLIGHT refusal the
+        // same condition produces before any claim is burnt — an operator who hits the wall twice
+        // must not be told two different things about it.
+        self::assertSame(503, AdminPaymentLinkSendController::STATUS_BY_ERROR_CODE['email_unavailable']);
+        self::assertSame(409, AdminPaymentLinkSendController::STATUS_BY_ERROR_CODE['template_disabled']);
+        self::assertSame(422, AdminPaymentLinkSendController::STATUS_BY_ERROR_CODE['no_recipient']);
+    }
+
+    /**
+     * The STATED fallback. The map is exhaustive over both closed vocabularies today, so this can
+     * only be reached by a code some future version of either package writes into a ledger row
+     * this build then replays — and the honest answer for "a delivery failed for a reason this
+     * build cannot classify" is the same 502 the transport failure gets, never a 200.
+     */
+    public function testARecordedErrorCodeOutsideTheMapFallsBackToTheStatedGatewayStatus(): void
+    {
+        $order = $this->seedPayableOrder();
+        $controller = $this->controller(channel: $this->failingChannel());
+
+        $controller->send($this->request(['mode' => 'regenerate'], self::KEY), $order);
+
+        // Rewrite the recorded failure's code to one this build has never heard of, exactly as a
+        // newer writer of this ledger would have left it.
+        $this->connection()->table(self::DELIVERIES)
+            ->where('status', '=', 'failed')
+            ->update(['error_code' => 'a_code_from_the_future']);
+
+        $replay = $controller->send($this->request(['mode' => 'regenerate'], self::KEY), $order);
+
+        self::assertSame(502, $replay->getStatusCode(), (string) $replay->getContent());
+        self::assertFalse($this->success($replay));
+        self::assertSame('a_code_from_the_future', $this->data($replay)['receipt']['error_code']);
+        self::assertSame(
+            AdminPaymentLinkSendController::RECOVERY_NEW_KEY_OR_REGENERATE,
+            $this->data($replay)['recovery'],
+        );
     }
 
     /**

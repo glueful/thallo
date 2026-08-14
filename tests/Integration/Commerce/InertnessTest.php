@@ -104,7 +104,12 @@ final class InertnessTest extends AppTestCase
             $provider = new CommerceIntegrationServiceProvider($container);
             self::assertTrue($provider->registerProductLinkTable($disabledApp, $fakeTables));
             self::assertSame(
-                ['thallo_commerce_product_links', 'thallo_commerce_payment_link_deliveries'],
+                [
+                    'thallo_commerce_product_links',
+                    'thallo_commerce_payment_link_deliveries',
+                    'thallo_commerce_product_slugs',
+                    'thallo_commerce_checkout_attempts',
+                ],
                 array_keys($fakeTables->registered),
             );
 

@@ -114,6 +114,23 @@ return [
     |
     */
     'sensitive_paths' => [
+        // Shop payment-link RECEIPTS: `GET /checkout/pay/{return|cancel}/
+        // {linkUuid}/{signature}`. The signature is non-authorizing (these
+        // pages render generic copy only), so this is hygiene rather than a
+        // credential leak — which is why `*` KEEPS the link uuid: an operator
+        // correlating a payer's report to a link needs it.
+        //
+        // ORDER IS LOAD-BEARING. The redactor applies every matching template
+        // to the SAME segment array, in this order, and a literal segment
+        // already replaced by [REDACTED] no longer matches a literal token. The
+        // `/checkout/pay/{token}` template below matches these paths too (its
+        // placeholder lands on the literal `return`/`cancel` segment — harmless
+        // over-redaction), so it must come AFTER these two or it would blank
+        // `return`/`cancel` first and stop them matching at all, leaving the
+        // signature legible. `PaymentLinkLogRedactionTest` pins this.
+        '/checkout/pay/return/*/{signature}',
+        '/checkout/pay/cancel/*/{signature}',
+
         // Shop payment links: the token is the bearer credential for the
         // hosted pay page and its initiate POST.
         '/checkout/pay/{token}',

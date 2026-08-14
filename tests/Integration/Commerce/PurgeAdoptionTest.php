@@ -9,8 +9,10 @@ use Glueful\Database\Connection;
 use Glueful\Extensions\Commerce\Support\DiagnosticsReport;
 use Glueful\Extensions\Commerce\Tenancy\CommerceTenantPurge;
 use Glueful\Extensions\Commerce\Tenancy\TenantAdopter;
+use Glueful\Extensions\Contracts\Tenancy\TenantTableRegistry as TenantTableRegistryContract;
 use Glueful\Helpers\Utils;
 use Thallo\Commerce\Adoption\CommerceAdoptionContributor;
+use Thallo\Commerce\CommerceIntegrationServiceProvider;
 use Thallo\Commerce\Purge\CommercePurgeHandler;
 
 /**
@@ -30,6 +32,24 @@ use Thallo\Commerce\Purge\CommercePurgeHandler;
  */
 final class PurgeAdoptionTest extends AppTestCase
 {
+    /**
+     * Every table this pack OWNS and therefore must purge/adopt itself. Cleanup-train Task 10
+     * closed the two that predate the payment-links cycle (`_product_slugs`, `_checkout_attempts`):
+     * both are tenant-keyed pack tables, so a purge that left them behind kept a deleted
+     * workspace's slug history and its checkout-attempt ledger (including that ledger's encrypted
+     * guest credentials) on disk, and an adoption that skipped them left `tenant_uuid = ''` rows
+     * that a post-enablement request can no longer see — turning a slug reservation or an
+     * idempotency key into a silent collision.
+     *
+     * @var list<string>
+     */
+    private const PACK_TENANT_TABLES = [
+        'thallo_commerce_product_links',
+        'thallo_commerce_payment_link_deliveries',
+        'thallo_commerce_product_slugs',
+        'thallo_commerce_checkout_attempts',
+    ];
+
     /** @var list<string> Postgres schemas created by {@see self::schemaLessLinkOnlyConnection()}. */
     private array $createdSchemas = [];
 
@@ -109,17 +129,30 @@ final class PurgeAdoptionTest extends AppTestCase
             'product_uuid' => Utils::generateNanoID(),
             'entry_uuid' => Utils::generateNanoID(),
         ]);
+        $connection->table('thallo_commerce_product_slugs')->insert([
+            'tenant_uuid' => $tenantUuid,
+            'slug' => 'pack-only-' . strtolower(Utils::generateNanoID(8)),
+            'product_uuid' => Utils::generateNanoID(),
+        ]);
+        $connection->table('thallo_commerce_checkout_attempts')->insert([
+            'tenant_uuid' => $tenantUuid,
+            'idempotency_key' => 'pack-only-' . Utils::generateNanoID(),
+            'request_fingerprint' => str_repeat('a', 64),
+            'status' => 'completed',
+        ]);
 
         // None of these three may throw: there is no Commerce schema for them to leave behind.
         $artifacts = $handler->prepare($this->appContext(), $tenantUuid);
         $handler->purge($this->appContext(), $tenantUuid, $artifacts);
         self::assertTrue($handler->verify($this->appContext(), $tenantUuid, $artifacts));
 
-        self::assertSame(
-            0,
-            (int) $connection->table('thallo_commerce_product_links')
-                ->where('tenant_uuid', $tenantUuid)->count()
-        );
+        foreach (self::PACK_TENANT_TABLES as $table) {
+            self::assertSame(
+                0,
+                (int) $connection->table($table)->where('tenant_uuid', $tenantUuid)->count(),
+                "{$table} must be emptied for the purged tenant",
+            );
+        }
     }
 
     public function testHandlerPurgesLinkAndCommerceRowsForTheTargetTenantOnlyWhenPurgeServiceIsBound(): void
@@ -129,12 +162,7 @@ final class PurgeAdoptionTest extends AppTestCase
         $tenantB = Utils::generateNanoID();
 
         foreach ([$tenantA, $tenantB] as $tenant) {
-            $this->connection()->table('thallo_commerce_product_links')->insert([
-                'uuid' => Utils::generateNanoID(),
-                'tenant_uuid' => $tenant,
-                'product_uuid' => Utils::generateNanoID(),
-                'entry_uuid' => Utils::generateNanoID(),
-            ]);
+            $this->seedPackTenantRows($tenant);
             $this->connection()->table('commerce_products')->insert([
                 'uuid' => Utils::generateNanoID(),
                 'tenant_uuid' => $tenant,
@@ -145,31 +173,65 @@ final class PurgeAdoptionTest extends AppTestCase
 
         $artifacts = $handler->prepare($this->appContext(), $tenantA);
         self::assertSame(1, $artifacts['link_count']);
+        self::assertSame(1, $artifacts['delivery_count']);
+        self::assertSame(1, $artifacts['slug_count']);
+        self::assertSame(1, $artifacts['attempt_count']);
         self::assertSame(1, $artifacts['commerce_counts']['commerce_products']);
 
         $handler->purge($this->appContext(), $tenantA, $artifacts);
         self::assertTrue($handler->verify($this->appContext(), $tenantA, $artifacts));
 
-        self::assertSame(
-            0,
-            (int) $this->connection()->table('thallo_commerce_product_links')
-                ->where('tenant_uuid', $tenantA)->count()
-        );
+        // PHYSICAL deletion, table by table — verify() answering true is the handler's own
+        // opinion; these are the rows.
+        foreach (self::PACK_TENANT_TABLES as $table) {
+            self::assertSame(
+                0,
+                (int) $this->connection()->table($table)->where('tenant_uuid', $tenantA)->count(),
+                "{$table} must have no rows left for the purged tenant",
+            );
+        }
         self::assertSame(
             0,
             (int) $this->connection()->table('commerce_products')->where('tenant_uuid', $tenantA)->count()
         );
 
         // Tenant B is untouched.
-        self::assertSame(
-            1,
-            (int) $this->connection()->table('thallo_commerce_product_links')
-                ->where('tenant_uuid', $tenantB)->count()
-        );
+        foreach (self::PACK_TENANT_TABLES as $table) {
+            self::assertSame(
+                1,
+                (int) $this->connection()->table($table)->where('tenant_uuid', $tenantB)->count(),
+                "{$table} must keep the OTHER tenant's row",
+            );
+        }
         self::assertSame(
             1,
             (int) $this->connection()->table('commerce_products')->where('tenant_uuid', $tenantB)->count()
         );
+    }
+
+    /**
+     * A `verify()` that only ever consulted the link table would answer true while a purged
+     * tenant's slug/attempt rows were still on disk — the exact shape of the gap this task
+     * closed. Each pack table is re-seeded ALONE after a completed purge, so a single missing
+     * `verify()` check is caught by name rather than hidden behind the others.
+     */
+    public function testVerifyRefusesWhileAnyPackOwnedTableStillHoldsTheTenantSRows(): void
+    {
+        $handler = new CommercePurgeHandler($this->connection(), new CommerceTenantPurge());
+        $tenantUuid = Utils::generateNanoID();
+
+        $artifacts = $handler->prepare($this->appContext(), $tenantUuid);
+        $handler->purge($this->appContext(), $tenantUuid, $artifacts);
+        self::assertTrue($handler->verify($this->appContext(), $tenantUuid, $artifacts));
+
+        foreach (self::PACK_TENANT_TABLES as $table) {
+            $this->seedPackTenantRows($tenantUuid, only: $table);
+            self::assertFalse(
+                $handler->verify($this->appContext(), $tenantUuid, $artifacts),
+                "verify() must refuse while {$table} still holds the tenant's rows",
+            );
+            $this->connection()->table($table)->where('tenant_uuid', $tenantUuid)->forceDelete();
+        }
     }
 
     // =================================================================================
@@ -190,10 +252,49 @@ final class PurgeAdoptionTest extends AppTestCase
                 // Payment links Task 12 (payment-links spec §2.4): the delivery ledger is
                 // tenant-owned and named by that spec as adoption-covered.
                 'thallo_commerce_payment_link_deliveries',
+                // Cleanup-train Task 10: the two pack-owned tables that predate the payment-links
+                // cycle and were never registered here.
+                'thallo_commerce_product_slugs',
+                'thallo_commerce_checkout_attempts',
                 ...DiagnosticsReport::tenantTables(),
             ],
             $tables,
         );
+    }
+
+    /**
+     * `tables()` is what `FinalizationProbe` checks against the tenant-table REGISTRY before
+     * enforcement may report ON, so the pack's provider must register exactly the pack-owned
+     * tables this contributor claims — a claim the registry does not carry would fail
+     * finalization, and a registered table this contributor does not adopt would be enforced
+     * against while still holding sentinel rows.
+     */
+    public function testEveryPackOwnedTableThisContributorClaimsIsAlsoRegisteredAsATenantTable(): void
+    {
+        $contributor = new CommerceAdoptionContributor($this->connection(), new TenantAdopter());
+
+        $claimed = array_values(array_filter(
+            $contributor->tables(),
+            static fn (string $table): bool => str_starts_with($table, 'thallo_commerce_'),
+        ));
+
+        self::assertSame(self::PACK_TENANT_TABLES, $claimed);
+
+        $registry = new class implements TenantTableRegistryContract {
+            /** @var array<string, true> */
+            public array $registered = [];
+
+            public function register(array $tables): void
+            {
+                foreach ($tables as $table) {
+                    $this->registered[$table] = true;
+                }
+            }
+        };
+
+        $provider = new CommerceIntegrationServiceProvider($this->container());
+        self::assertTrue($provider->registerProductLinkTable($this->appContext(), $registry));
+        self::assertSame(self::PACK_TENANT_TABLES, array_keys($registry->registered));
     }
 
     public function testAdoptRekeysSentinelLinkAndCommerceRowsIntoTheTenant(): void
@@ -201,12 +302,7 @@ final class PurgeAdoptionTest extends AppTestCase
         $contributor = new CommerceAdoptionContributor($this->connection(), new TenantAdopter());
         $tenantUuid = Utils::generateNanoID();
 
-        $this->connection()->table('thallo_commerce_product_links')->insert([
-            'uuid' => Utils::generateNanoID(),
-            'tenant_uuid' => '',
-            'product_uuid' => Utils::generateNanoID(),
-            'entry_uuid' => Utils::generateNanoID(),
-        ]);
+        $this->seedPackTenantRows('');
         $this->connection()->table('commerce_products')->insert([
             'uuid' => Utils::generateNanoID(),
             'tenant_uuid' => '',
@@ -216,16 +312,18 @@ final class PurgeAdoptionTest extends AppTestCase
 
         $contributor->adopt($this->appContext(), $tenantUuid);
 
-        self::assertSame(
-            0,
-            (int) $this->connection()->table('thallo_commerce_product_links')
-                ->where('tenant_uuid', '')->count()
-        );
-        self::assertSame(
-            1,
-            (int) $this->connection()->table('thallo_commerce_product_links')
-                ->where('tenant_uuid', $tenantUuid)->count()
-        );
+        foreach (self::PACK_TENANT_TABLES as $table) {
+            self::assertSame(
+                0,
+                (int) $this->connection()->table($table)->where('tenant_uuid', '')->count(),
+                "{$table} must have no sentinel rows left after adoption",
+            );
+            self::assertSame(
+                1,
+                (int) $this->connection()->table($table)->where('tenant_uuid', $tenantUuid)->count(),
+                "{$table}'s sentinel row must be rekeyed into the adopting tenant",
+            );
+        }
         self::assertSame(
             0,
             (int) $this->connection()->table('commerce_products')->where('tenant_uuid', '')->count()
@@ -321,6 +419,53 @@ final class PurgeAdoptionTest extends AppTestCase
     // =================================================================================
 
     /**
+     * One row in each pack-owned tenant table (or in just `$only`), carrying `$tenant` — which is
+     * the sentinel `''` for the adoption tests and a real uuid for the purge ones. Keys are
+     * randomized per call because three of the four tables carry a `(tenant_uuid, …)` unique.
+     */
+    private function seedPackTenantRows(string $tenant, ?string $only = null): void
+    {
+        $nonce = strtolower(Utils::generateNanoID(10));
+
+        $rows = [
+            'thallo_commerce_product_links' => [
+                'uuid' => Utils::generateNanoID(),
+                'tenant_uuid' => $tenant,
+                'product_uuid' => Utils::generateNanoID(),
+                'entry_uuid' => Utils::generateNanoID(),
+            ],
+            'thallo_commerce_payment_link_deliveries' => [
+                'uuid' => Utils::generateNanoID(),
+                'tenant_uuid' => $tenant,
+                'idempotency_key' => 'purge-adoption-' . $nonce,
+                'fingerprint' => str_repeat('b', 64),
+                'order_uuid' => Utils::generateNanoID(),
+                'recipient_hash' => str_repeat('c', 64),
+                'mode' => 'current',
+                'status' => 'sent',
+            ],
+            'thallo_commerce_product_slugs' => [
+                'tenant_uuid' => $tenant,
+                'slug' => 'purge-adoption-' . $nonce,
+                'product_uuid' => Utils::generateNanoID(),
+            ],
+            'thallo_commerce_checkout_attempts' => [
+                'tenant_uuid' => $tenant,
+                'idempotency_key' => 'purge-adoption-' . $nonce,
+                'request_fingerprint' => str_repeat('d', 64),
+                'status' => 'completed',
+            ],
+        ];
+
+        foreach ($rows as $table => $row) {
+            if ($only !== null && $only !== $table) {
+                continue;
+            }
+            $this->connection()->table($table)->insert($row);
+        }
+    }
+
+    /**
      * Deletes every row from every table {@see DiagnosticsReport::tenantTables()} lists that
      * actually exists in this connection's schema — the full set {@see TenantAdopter}'s
      * "mixed data" refusal inspects, not just `commerce_products` (see setUp()'s docblock).
@@ -377,6 +522,21 @@ final class PurgeAdoptionTest extends AppTestCase
             . 'link_uuid VARCHAR(12), recipient_hash VARCHAR(64), mode VARCHAR(16), '
             . 'status VARCHAR(16), error_code VARCHAR(64), provider_message_id VARCHAR(191), '
             . 'created_at TIMESTAMP, updated_at TIMESTAMP)'
+        );
+        // Cleanup-train Task 10, same reasoning: the fixture must carry EVERY pack-owned table
+        // the purge handler touches, or the absent-Commerce case under test would fail for a
+        // missing table instead.
+        $connection->getPDO()->exec(
+            'CREATE TABLE thallo_commerce_product_slugs ('
+            . 'id BIGSERIAL PRIMARY KEY, tenant_uuid VARCHAR(12) DEFAULT \'\', '
+            . 'slug VARCHAR(191), product_uuid VARCHAR(12), created_at TIMESTAMP)'
+        );
+        $connection->getPDO()->exec(
+            'CREATE TABLE thallo_commerce_checkout_attempts ('
+            . 'id BIGSERIAL PRIMARY KEY, tenant_uuid VARCHAR(12) DEFAULT \'\', '
+            . 'idempotency_key VARCHAR(191), request_fingerprint VARCHAR(64), '
+            . 'status VARCHAR(16), order_uuid VARCHAR(12), order_ref VARCHAR(191), '
+            . 'guest_credential_ciphertext TEXT, created_at TIMESTAMP, updated_at TIMESTAMP)'
         );
 
         return $connection;

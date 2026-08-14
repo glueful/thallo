@@ -784,6 +784,27 @@ final class ShopPaymentLinkTest extends AppTestCase
         self::assertStringContainsString('redact', strtolower($readme));
     }
 
+    /**
+     * Cleanup-train Task 10. The custody prose counted TWO egress points for a raw token — the
+     * one-time mint/regenerate response and the send-time email body — and predates the landing
+     * page's no-JS Pay form, whose `action` attribute carries the token as a matter of design
+     * ({@see \Thallo\Commerce\Http\Shop\ShopPaymentLinkController::landing()} says so, and
+     * `testTheTokenAppearsOnlyOnceInTheLandingMarkupAsTheFormTarget` above proves it). Three is the
+     * honest number; an operator reasoning about where the credential can leak from must be
+     * counting the same places the code does.
+     */
+    public function testThePackReadmeCountsAllThreeTokenEgressPoints(): void
+    {
+        $readme = (string) file_get_contents(dirname(__DIR__, 3) . '/packages/thallo-commerce/README.md');
+
+        self::assertStringContainsString('three egress points', strtolower($readme));
+        self::assertMatchesRegularExpression(
+            '/three egress points.{0,900}action/is',
+            $readme,
+            'the Pay form action must be named as the sanctioned third egress point',
+        );
+    }
+
     // ==================================================================
     // helpers
     // ==================================================================

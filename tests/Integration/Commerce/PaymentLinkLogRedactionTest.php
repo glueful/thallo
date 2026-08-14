@@ -119,6 +119,75 @@ final class PaymentLinkLogRedactionTest extends AppTestCase
         ];
     }
 
+    // ==================================================================
+    // The return/cancel receipt paths (cleanup-train Task 10)
+    // ==================================================================
+
+    public function testTheAppAlsoRegistersBothReceiptSignatureTemplatesBeforeTheTokenTemplate(): void
+    {
+        $patterns = SensitiveParamRedactor::sensitivePathPatterns();
+
+        self::assertContains('/checkout/pay/return/*/{signature}', $patterns);
+        self::assertContains('/checkout/pay/cancel/*/{signature}', $patterns);
+
+        // ORDER IS LOAD-BEARING, and silently so — see config/logging.php's own note. The
+        // redactor walks every template over the SAME segment array in registration order, so
+        // `/checkout/pay/{token}` (whose placeholder lands on the literal `return`/`cancel`
+        // segment) must run LAST: run first, it replaces that segment with [REDACTED], and the
+        // two templates below then fail their literal comparison and never reach the signature.
+        self::assertGreaterThan(
+            array_search('/checkout/pay/cancel/*/{signature}', $patterns, true),
+            array_search('/checkout/pay/{token}', $patterns, true),
+        );
+        self::assertGreaterThan(
+            array_search('/checkout/pay/return/*/{signature}', $patterns, true),
+            array_search('/checkout/pay/{token}', $patterns, true),
+        );
+    }
+
+    /**
+     * `GET /checkout/pay/{return|cancel}/{linkUuid}/{signature}` is a DIFFERENT shape from the
+     * landing/initiate pair: the already-registered `/checkout/pay/{token}` template matches it
+     * too, but its placeholder lands on the literal `return`/`cancel` segment, leaving BOTH the
+     * link uuid and the receipt signature legible. The two new templates put a placeholder on the
+     * signature and a `*` on the uuid.
+     *
+     * The signature is non-authorizing (the receipt pages render generic copy only), so this is
+     * hygiene rather than a credential leak — which is exactly why the uuid is deliberately KEPT:
+     * an operator correlating a payer's report to a link needs it, and over-redacting it would
+     * cost more than the signature's presence ever did.
+     *
+     * @dataProvider receiptPaths
+     */
+    public function testTheReceiptSignatureIsRedactedWhileTheLinkUuidStaysLegible(string $leg): void
+    {
+        $linkUuid = 'lnk123456789';
+
+        $records = $this->captureRequestLog(
+            Request::create('/checkout/pay/' . $leg . '/' . $linkUuid . '/' . self::SENTINEL)
+        );
+
+        self::assertStringNotContainsString(
+            self::SENTINEL,
+            json_encode($records, JSON_THROW_ON_ERROR),
+            'the receipt signature reached a log record',
+        );
+
+        $path = (string) ($this->firstOfType($records, 'http_request')['path'] ?? '');
+        self::assertSame(
+            '/checkout/pay/' . SensitiveParamRedactor::REDACTED
+                . '/' . $linkUuid . '/' . SensitiveParamRedactor::REDACTED,
+            $path,
+            'the leg segment is harmlessly over-redacted by the token template; the uuid is not',
+        );
+    }
+
+    /** @return array<string, array{0: string}> */
+    public static function receiptPaths(): array
+    {
+        return ['the return leg' => ['return'], 'the cancel leg' => ['cancel']];
+    }
+
     public function testAnUnrelatedPathIsLoggedByteIdentically(): void
     {
         // Registering a template must not start redacting the rest of the app.

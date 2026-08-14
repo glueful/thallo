@@ -11760,6 +11760,138 @@
                 }
             }
         },
+        "\/commerce\/admin\/orders\/{uuid}\/artifact": {
+            "delete": {
+                "operationId": "deleteCommerceAdminOrdersByUuidArtifact",
+                "summary": "Permanently delete a canceled draft artifact",
+                "tags": [
+                    "Commerce Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Draft artifact deleted"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Order not found"
+                    },
+                    "409": {
+                        "description": "Order is not a deletable draft artifact"
+                    }
+                }
+            }
+        },
         "\/commerce\/admin\/orders\/{uuid}\/cancel": {
             "post": {
                 "operationId": "postCommerceAdminOrdersByUuidCancel",
@@ -12323,6 +12455,9 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "description": "Order not found"
                     },
                     "409": {
                         "description": "Invalid order transition"
@@ -28272,7 +28407,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Verifies a payment with a configured gateway (Paystack, Stripe, etc.) and upserts a record into the generic `payments` table. Body: `reference` (required; provider transaction reference), `gateway` (gateway key from `payvia.gateways` config, defaults to `payvia.default_gateway`), `payable_type` (optional logical type for the payable, e.g. subscription, order), `payable_id` (optional identifier of the payable in its domain), `metadata` (optional free-form JSON metadata to persist), `options` (optional gateway-specific options passed to the gateway driver). Requires authentication. The stored `user_uuid` is always derived from the authenticated session and is NOT caller-settable; supplying a `user_uuid` that differs from the session returns 422.",
+                "description": "Verifies a payment with a configured gateway (Paystack, Stripe, etc.) and upserts a record into the generic `payments` table. Body: `reference` (required; provider transaction reference), `gateway` (gateway key from `payvia.gateways` config, defaults to `payvia.default_gateway`), `payable_type` (optional logical type for the payable, e.g. subscription, order), `payable_id` (optional identifier of the payable in its domain), `metadata` (optional free-form JSON metadata to persist), `options` (optional gateway-specific options passed to the gateway driver). Requires authentication. The stored `user_uuid` is always derived from the authenticated session and is NOT caller-settable; supplying a `user_uuid` that differs from the session returns 422. When the reference has a payment intent of its own, the supplied `payable_type`\/`payable_id` must be the pair that intent is bound to; attributing the reference to any other payable returns 409 and confirms nothing.",
                 "responses": {
                     "200": {
                         "description": "Payment verified and recorded"
@@ -28372,6 +28507,9 @@
                                 }
                             }
                         }
+                    },
+                    "409": {
+                        "description": "The reference is bound to a different payable than the one supplied (`payable_mismatch`); nothing is recorded, dispatched, or settled"
                     },
                     "422": {
                         "description": "Validation failed (also returned if a user_uuid that differs from the authenticated session is supplied)"
@@ -51950,6 +52088,138 @@
                 }
             }
         },
+        "\/v1\/admin\/commerce\/orders\/{uuid}\/artifact": {
+            "delete": {
+                "operationId": "thalloCommerceAdminOrdersArtifactDestroy",
+                "summary": "Permanently delete a canceled draft artifact",
+                "tags": [
+                    "Commerce Admin"
+                ],
+                "parameters": [
+                    {
+                        "name": "uuid",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Draft artifact deleted"
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Order not found"
+                    },
+                    "409": {
+                        "description": "Order is not a deletable draft artifact"
+                    }
+                }
+            }
+        },
         "\/v1\/admin\/commerce\/orders\/{uuid}\/cancel": {
             "post": {
                 "operationId": "thalloCommerceAdminOrdersCancel",
@@ -52639,6 +52909,9 @@
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "description": "Order not found"
                     },
                     "409": {
                         "description": "Invalid order transition"

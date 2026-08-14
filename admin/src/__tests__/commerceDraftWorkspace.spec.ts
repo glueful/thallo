@@ -978,3 +978,62 @@ describe('DraftFulfillmentCard: message-level save error for non-field failures'
     expect(wrapper.find('[data-test="draft-fulfillment-save-error"]').exists()).toBe(false)
   })
 })
+
+// OUTSTANDING (cycle-2 entry): the shipping-method <USelect> placed an empty-string `value` on
+// its placeholder option ('Choose a method…'). reka-ui reserves the empty string internally to
+// mean "no selection" and throws once that option is actually MOUNTED (switching into delivery
+// mode, which is the only way the v-if block renders) — every other USelect in the SPA already
+// dodges this with a non-empty sentinel translated at the query/save boundary (see
+// commerce/products/index.vue's `ALL` sentinel). These tests mount the real <USelect>/reka-ui
+// stack (no stub), matching the crash's actual trigger.
+describe('DraftFulfillmentCard: shipping-method USelect placeholder', () => {
+  it('switching to delivery mode mounts the shipping-method select without throwing', async () => {
+    zonesPage.value = {
+      zones: [{ uuid: 'z1', name: 'Domestic', methods: [{ uuid: 'm1', label: 'Standard', enabled: true }] }] as never[],
+      total: 1,
+      current_page: 1,
+      per_page: 100,
+    }
+    const wrapper = mount(DraftFulfillmentCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 0 }) } })
+
+    await wrapper.find('[data-test="draft-mode-delivery"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="draft-shipping-method"]').exists()).toBe(true)
+  })
+
+  it('an unset shipping method still saves as null (no method chosen)', async () => {
+    updateMock.mockResolvedValue(draft({ uuid: 'd1', draft_revision: 1 }))
+    const wrapper = mount(DraftFulfillmentCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 0 }) } })
+
+    await wrapper.find('[data-test="draft-mode-delivery"]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test="draft-fulfillment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ input: expect.objectContaining({ shipping_method: null }) }),
+    )
+  })
+
+  it('an existing shipping_method on the draft round-trips through the select unchanged on save', async () => {
+    updateMock.mockResolvedValue(draft({ uuid: 'd1', draft_revision: 1 }))
+    zonesPage.value = {
+      zones: [{ uuid: 'z1', name: 'Domestic', methods: [{ uuid: 'm1', label: 'Standard', enabled: true }] }] as never[],
+      total: 1,
+      current_page: 1,
+      per_page: 100,
+    }
+    const wrapper = mount(DraftFulfillmentCard, {
+      props: { draft: draft({ uuid: 'd1', draft_revision: 0, fulfillment_mode: 'delivery', shipping_method: 'm1' }) },
+    })
+    await flushPromises()
+
+    await wrapper.find('[data-test="draft-fulfillment-save"]').trigger('click')
+    await flushPromises()
+
+    expect(updateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ input: expect.objectContaining({ shipping_method: 'm1' }) }),
+    )
+  })
+})

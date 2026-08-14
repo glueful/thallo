@@ -212,32 +212,48 @@ final class AdminOrderPaymentsTest extends AppTestCase
     }
 
     /**
-     * `AdminOrderController::markPaid()` is the ONE outlier in this group: it never pre-checks
-     * `order()` at all -- it calls `OrderPaymentService::markPaid()` straight into
-     * `OrderRepository::transition()`, which (unlike every `findByUuid()` call site elsewhere in
-     * this controller) resolves with `includeDrafts: true` on purpose, specifically so it can
-     * recognize a draft row and refuse the transition with its own dedicated message. A draft
-     * uuid is therefore never "not found" on this one route -- it is found, and rejected as an
-     * invalid state transition (`draft -> paid` is not in {@see
-     * \Glueful\Extensions\Commerce\Orders\OrderStateMachine}'s allowed pairs), which
-     * `AdminOrderController::markPaid()`'s own `catch (\DomainException)` converts to 409, not
-     * 404. Verified directly against the real kernel/route (not assumed from reading the engine
-     * source): this pins that VERIFIED behavior -- a draft can never be silently marked paid --
-     * rather than asserting the 404 the sibling endpoints above share; see the final report's
-     * concerns section for why this one route's status code differs and why it isn't "fixed"
-     * (the divergence lives entirely in vendored engine code, out of scope here).
+     * `AdminOrderController::markPaid()` USED to be the one outlier in this group: it pre-checked
+     * nothing, calling `OrderPaymentService::markPaid()` straight into
+     * `OrderRepository::transition()` (which resolves `includeDrafts: true`), so a draft uuid was
+     * found, refused as an invalid `draft -> paid` transition, and converted by the controller's
+     * own `catch (\DomainException)` into a 409 that incidentally CONFIRMED the uuid was a real,
+     * if unpayable, order.
+     *
+     * commerce 1.12.0 closed that leak deliberately -- CHANGELOG 1.12.0, "Changed":
+     * "`AdminOrderController::markPaid()` runs the draft-blind `order()` precheck every sibling
+     * order endpoint already ran: a draft (or unknown, or cross-tenant) uuid is now the same
+     * non-revealing 404 instead of the 409 the transition CAS used to return", restated under
+     * "Behavior changes (operator-visible)". So this route now joins the sibling endpoints above
+     * instead of diverging from them, and this test pins the NON-REVEALING half of that promise,
+     * not merely the status code: the draft response must be BYTE-IDENTICAL to the response for a
+     * uuid that was never an order at all. A draft that answered 404 with even a different
+     * message would still be an existence oracle.
+     *
+     * What has not changed, and is still asserted: a draft never actually becomes paid.
      */
-    public function testKernelDrivenMarkPaidForADraftOrderUuidIsAConflictNotFound(): void
+    public function testKernelDrivenMarkPaidForADraftOrderUuidIsANonRevealingNotFound(): void
     {
         $draftUuid = $this->seedDraftOrder('');
         $key = $this->seedApiKeyUser(['commerce.manage'], ['commerce.manage']);
 
-        $response = $this->handle(
+        $draftResponse = $this->handle(
             $this->apiKeyRequestWithBody('POST', "/v1/admin/commerce/orders/{$draftUuid}/mark-paid", $key, []),
         );
+        $unknownResponse = $this->handle($this->apiKeyRequestWithBody(
+            'POST',
+            '/v1/admin/commerce/orders/' . Utils::generateNanoID() . '/mark-paid',
+            $key,
+            [],
+        ));
 
-        self::assertSame(409, $response->getStatusCode(), (string) $response->getContent());
-        self::assertStringContainsString('Invalid order transition draft -> paid', (string) $response->getContent());
+        self::assertSame(404, $draftResponse->getStatusCode(), (string) $draftResponse->getContent());
+        self::assertSame(404, $unknownResponse->getStatusCode(), (string) $unknownResponse->getContent());
+        self::assertSame(
+            (string) $unknownResponse->getContent(),
+            (string) $draftResponse->getContent(),
+            'a draft uuid must be indistinguishable from a uuid that was never an order',
+        );
+        self::assertStringNotContainsString('draft', (string) $draftResponse->getContent());
         self::assertSame('draft', $this->dbRow($draftUuid)['status'], 'a draft must never actually become paid');
     }
 

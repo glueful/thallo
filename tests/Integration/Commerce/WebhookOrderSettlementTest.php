@@ -201,13 +201,47 @@ final class WebhookOrderSettlementTest extends AppTestCase
             $this->intentStatus(self::GATEWAY, $reference),
         );
 
-        // The paid-order CAS refuses the repeat, so the money-moving events do not multiply;
-        // the engine records the replays as late payments instead.
+        // The closed-intent skip stops the repeats before the engine ever sees them, so the
+        // money-moving events do not multiply — and neither does late-payment noise.
         $after = $this->orderEventTypes($order['uuid']);
         self::assertSame(
             $this->occurrencesOf($eventsAfterFirst, 'payment_confirmed'),
             $this->occurrencesOf($after, 'payment_confirmed'),
             'a redelivery must not confirm the payment a second time',
+        );
+    }
+
+    /**
+     * The composed-system mirror of payvia 2.7.0's guard 3 (final-review Important 1): once THIS
+     * reference's own intent is `closed`, a replayed confirmation — reachable as the FIRST manual
+     * replay via the confirm route's `recordVerifyEvent()` strict-lane drive, whose
+     * `verify:{providerId}` delivery key the webhook's own event-id key never claimed — must be
+     * skipped entirely, not dispatched into the engine's paid-order CAS where it would record a
+     * spurious `payment_late_rejected` for a payment that was applied, not late. Contrast
+     * {@see self::testAWebhookForASupersededAttemptSettlesThatRowAndIsRefusedByThePaidOrderCas()}:
+     * SUPERSEDED rows keep dispatching by design — a late settlement of a retired attempt is a
+     * genuine refund-relevant fact the engine must refuse and record.
+     */
+    public function testAReplayedConfirmationForAClosedIntentIsSkippedWithoutLatePaymentNoise(): void
+    {
+        [$order, $linkUuid, $reference] = $this->pendingOrderWithLinkAndIntent();
+
+        $this->listener()->handle($this->successFor($order, $reference));
+        self::assertSame(
+            PaymentIntentRepository::STATUS_CLOSED,
+            $this->intentStatus(self::GATEWAY, $reference),
+        );
+
+        // A fresh event object for the SAME reference — the replay shape the lease dedupe
+        // cannot absorb (different delivery key in production).
+        $this->listener()->handle($this->successFor($order, $reference));
+
+        self::assertSame('paid', $this->orderStatus($order['uuid']));
+        self::assertSame('consumed', $this->linkStatus($linkUuid));
+        self::assertNotContains(
+            'payment_late_rejected',
+            $this->orderEventTypes($order['uuid']),
+            'a replay of the reference that PAID this order is not a late payment',
         );
     }
 

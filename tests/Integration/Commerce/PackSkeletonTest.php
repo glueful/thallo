@@ -100,7 +100,14 @@ final class PackSkeletonTest extends AppTestCase
         self::assertTrue($provider->registerProductLinkTable($this->appContext(), $fake));
 
         self::assertSame(
-            ['thallo_commerce_product_links', 'thallo_commerce_payment_link_deliveries'],
+            [
+                'thallo_commerce_product_links',
+                'thallo_commerce_payment_link_deliveries',
+                // Cleanup-train Task 10: the two pack-owned tenant tables that predate the
+                // payment-links cycle and were never registered here.
+                'thallo_commerce_product_slugs',
+                'thallo_commerce_checkout_attempts',
+            ],
             array_keys($fake->registered),
         );
     }

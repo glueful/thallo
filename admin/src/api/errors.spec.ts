@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { ApiError, toApiError, apiErrorCode, apiErrorDetails, responseError } from '@/api/errors'
 
 // Pins toApiError's field-error extraction across BOTH real backend envelope shapes:
@@ -167,5 +167,75 @@ describe('responseError field-error extraction (raw-fetch path, e.g. authFetch)'
     expect(err.fieldErrors).toEqual({})
     expect(err.message).toBe('This draft changed since you loaded it; reload the draft and retry.')
     expect(apiErrorDetails(err)).toEqual({ conflict: 'stale_revision' })
+  })
+})
+
+// ── `apiErrorDetails()` / `apiErrorCode()` are STRUCTURAL, never identity-based ────────────────
+//
+// Both helpers used to gate on `e instanceof ApiError`, which silently answers `false` the moment
+// the error crosses a DUPLICATED MODULE GRAPH — vitest's `importOriginal()`/`importActual()`
+// inside a `vi.mock` factory loads `@/api/errors` a second time, and a split production bundle can
+// do the same, so a byte-identical error carries a DIFFERENT constructor. Every consumer that
+// branches on a machine-readable code (`STALE_DRAFT`, `BLOCK_MIGRATION_IN_PROGRESS`, the draft
+// `conflict` discriminator, the payment-link `reason`) therefore had a latent path that fell
+// through to generic error rendering. Caught concretely in the payment-links final wave, where
+// `isPaymentSessionRiskRefusal()` was written with `instanceof` first and returned `false` under
+// test — which is why that function is structural and why these two now are as well.
+//
+// The shape below (`status` + `body.error.details`) is the framework's own error envelope, and it
+// is what actually distinguishes a coded refusal; `instanceof ApiError` survives only as a TS
+// narrowing tool for callers that want the typed fields.
+describe('apiErrorDetails/apiErrorCode across a duplicated module graph', () => {
+  it('reads an ApiError built by a SECOND copy of this module, whose constructor is not ours', async () => {
+    const duplicate = await vi.importActual<typeof import('@/api/errors')>('@/api/errors')
+    // The duplication is real: same source, different class identity.
+    expect(duplicate.ApiError).not.toBe(ApiError)
+
+    const foreign = new duplicate.ApiError('Conflict.', 409, {}, {
+      success: false,
+      error: { code: 409, details: { code: 'BLOCK_MIGRATION_IN_PROGRESS', block_type: 'card' } },
+    })
+    expect(foreign instanceof ApiError).toBe(false)
+
+    expect(apiErrorCode(foreign)).toBe('BLOCK_MIGRATION_IN_PROGRESS')
+    expect(apiErrorDetails(foreign)).toEqual({
+      code: 'BLOCK_MIGRATION_IN_PROGRESS',
+      block_type: 'card',
+    })
+  })
+
+  it('reads the draft `conflict` discriminator and the payment-link `reason` off a foreign error', async () => {
+    const duplicate = await vi.importActual<typeof import('@/api/errors')>('@/api/errors')
+    const stale = new duplicate.ApiError('Stale.', 409, {}, {
+      error: { details: { conflict: 'stale_revision' } },
+    })
+    const refusal = new duplicate.ApiError('Risk.', 409, {}, {
+      error: { details: { reason: 'payment_session_risk_unacknowledged' } },
+    })
+
+    expect(apiErrorDetails(stale)?.conflict).toBe('stale_revision')
+    expect(apiErrorDetails(refusal)?.reason).toBe('payment_session_risk_unacknowledged')
+  })
+
+  // A split bundle produces exactly this: the SAME fields, a different (or absent) prototype.
+  it('reads a structurally-identical error that was never an ApiError at all', () => {
+    const bundled = {
+      name: 'ApiError',
+      message: 'Conflict.',
+      status: 409,
+      fieldErrors: {},
+      body: { error: { details: { reason: 'order_not_deletable', status: 'draft' } } },
+    }
+    expect(apiErrorDetails(bundled)).toEqual({ reason: 'order_not_deletable', status: 'draft' })
+  })
+
+  it('still answers null for everything that is not a framework error envelope', () => {
+    expect(apiErrorDetails(null)).toBeNull()
+    expect(apiErrorDetails('nope')).toBeNull()
+    expect(apiErrorCode(new Error('x'))).toBeNull()
+    // An object with a body but no HTTP status is not an error this layer produced.
+    expect(apiErrorDetails({ body: { error: { details: { code: 'X' } } } })).toBeNull()
+    expect(apiErrorDetails(new ApiError('x', 409, {}, { success: false }))).toBeNull()
+    expect(apiErrorCode(new ApiError('x', 409, {}, { error: { details: { block_type: 'card' } } }))).toBeNull()
   })
 })
