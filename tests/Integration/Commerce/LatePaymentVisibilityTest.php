@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace App\Tests\Integration\Commerce;
 
 use App\Tests\Support\AppTestCase;
+use Glueful\Extensions\Audit\Contracts\AuditRecorderInterface;
+use Glueful\Extensions\Audit\Support\AuditEntry;
 use Glueful\Extensions\Commerce\Events\LatePaymentRejected;
 use Glueful\Extensions\Commerce\Orders\OrderPaymentService;
 use Glueful\Extensions\Commerce\Orders\OrderRepository;
 use Glueful\Extensions\Commerce\Tenancy\CommerceTenantResolution;
 use Glueful\Helpers\Utils;
+use Psr\Log\AbstractLogger;
+use Psr\Log\LoggerInterface;
 use Thallo\Commerce\Payments\LatePaymentVisibilityListener;
 
 /**
@@ -42,8 +46,14 @@ use Thallo\Commerce\Payments\LatePaymentVisibilityListener;
  * exactly what providers do — re-fires it again, with the SAME reference every time. Those are
  * one payment, and one payment that settled this order needs no refund. A genuinely
  * refund-relevant late payment is a DIFFERENT reference: a second, distinct attempt against an
- * order somebody else already settled. So the surface records once per (order, reference) and the
- * order-event trail — which the engine writes before it dispatches — is the durable memory.
+ * order somebody else already settled. So the surface records once per (order, reference).
+ *
+ * Fix round 1: the memory is OUR OWN audit writes, not the engine's order-event trail. The
+ * engine's order event is written unconditionally and synchronously, before it dispatches, so two
+ * concurrent rejections of the same reference both land their order-event row before either
+ * listener invocation checks anything — counting THAT trail let both racers see two matching rows
+ * and both skip, dropping the entry entirely. Counting our own audit rows means the same race can
+ * at worst duplicate an entry, never drop one. See {@see LatePaymentVisibilityListener}'s docblock.
  */
 final class LatePaymentVisibilityTest extends AppTestCase
 {
@@ -138,22 +148,108 @@ final class LatePaymentVisibilityTest extends AppTestCase
     }
 
     /**
-     * Fault isolation. This listener sits on the webhook settlement lane: a throw from it would
-     * turn a correctly-refused late payment into a failed webhook the provider then retries
-     * forever. It is best-effort by construction — an unusable payload is dropped, never raised.
+     * Fault isolation. Every failure is caught rather than allowed to propagate — see the
+     * listener's class docblock for why (NOT to protect a webhook retry loop; the ordinary
+     * EventService dispatch bus already fault-isolates each listener on its own). An unusable
+     * payload is dropped, never raised.
      */
     public function testAnUnusablePayloadIsDroppedRatherThanRaised(): void
     {
         $listener = new LatePaymentVisibilityListener(
             $this->appContext(),
-            $this->container()->get(OrderRepository::class),
-            $this->container()->get(\Glueful\Extensions\Audit\Contracts\AuditRecorderInterface::class),
+            $this->container()->get(AuditRecorderInterface::class),
         );
 
         $listener->onLatePaymentRejected(new LatePaymentRejected([]));
         $listener->onLatePaymentRejected(new LatePaymentRejected(['order_uuid' => '']));
 
         self::assertSame([], $this->auditRows());
+    }
+
+    /**
+     * Fix round 1 (Important finding #1): reproduces the exact interleaving that used to zero
+     * out the audit entry. The OLD predicate counted matching `payment_late_rejected` order
+     * EVENTS; the engine writes that event unconditionally and synchronously, before it
+     * dispatches, so two racing `rejectLatePayment()` calls for the same reference both land
+     * their order-event row before either listener invocation checks anything. Seeding that exact
+     * precondition directly — two order events, ZERO audit rows — and then running the listener
+     * once proves the corrected predicate (which counts audit rows, not order events) still
+     * writes the entry instead of seeing "2 matches" and skipping.
+     */
+    public function testTheRaceThatUsedToZeroOutTheEntryStillWritesOne(): void
+    {
+        $order = $this->seedOrder();
+
+        $orders = $this->container()->get(OrderRepository::class);
+        $orders->recordEvent(
+            $this->appContext(),
+            $order,
+            'payment_late_rejected',
+            ['reference' => self::REFERENCE],
+        );
+        $orders->recordEvent(
+            $this->appContext(),
+            $order,
+            'payment_late_rejected',
+            ['reference' => self::REFERENCE],
+        );
+
+        self::assertSame(
+            [],
+            $this->auditRows(),
+            'precondition: two order-event rows exist but neither racer wrote an audit row yet',
+        );
+
+        $listener = new LatePaymentVisibilityListener(
+            $this->appContext(),
+            $this->container()->get(AuditRecorderInterface::class),
+        );
+        $listener->onLatePaymentRejected(new LatePaymentRejected([
+            'order_uuid' => $order,
+            'tenant_uuid' => $this->tenant(),
+            'reference' => self::REFERENCE,
+            'status' => 'success',
+            'amount' => 1500,
+            'currency' => 'USD',
+        ]));
+
+        self::assertCount(
+            1,
+            $this->auditRows(),
+            'the old order-event-counting predicate would see 2 rows and skip, losing the entry; '
+                . 'counting audit rows instead must still write it',
+        );
+    }
+
+    /**
+     * Fix round 1 (Important finding #2): a failure must be diagnosable, not silently discarded.
+     * The rationale for swallowing here is display-decision fault isolation, not "an uncaught
+     * exception would break the webhook" — the ordinary EventService dispatch bus already
+     * catches and logs each listener independently. So a throwing audit recorder must still
+     * produce a log line through the injected logger before the failure is swallowed.
+     */
+    public function testAThrowingAuditRecorderIsLoggedNotSilentlySwallowed(): void
+    {
+        $order = $this->seedOrder();
+        $logger = $this->capturingLogger();
+
+        $listener = new LatePaymentVisibilityListener(
+            $this->appContext(),
+            $this->throwingAuditRecorder(),
+            $logger,
+        );
+
+        $listener->onLatePaymentRejected(new LatePaymentRejected([
+            'order_uuid' => $order,
+            'tenant_uuid' => $this->tenant(),
+            'reference' => self::REFERENCE,
+            'status' => 'success',
+            'amount' => 1500,
+            'currency' => 'USD',
+        ]));
+
+        self::assertNotSame([], $logger->records, 'a swallowed failure must still be logged');
+        self::assertSame('error', $logger->records[0]['level']);
     }
 
     // ==================================================================
@@ -192,6 +288,31 @@ final class LatePaymentVisibilityTest extends AppTestCase
     private function tenant(): string
     {
         return $this->container()->get(CommerceTenantResolution::class)->tenantUuid($this->appContext());
+    }
+
+    private function throwingAuditRecorder(): AuditRecorderInterface
+    {
+        return new class implements AuditRecorderInterface {
+            public function record(AuditEntry $entry): void
+            {
+                throw new \RuntimeException('audit backend unavailable');
+            }
+        };
+    }
+
+    /** Mirrors CompleteSaleTest's spy logger. */
+    private function capturingLogger(): LoggerInterface
+    {
+        return new class extends AbstractLogger {
+            /** @var list<array{level:mixed,message:string,context:array<string,mixed>}> */
+            public array $records = [];
+
+            /** @param array<string,mixed> $context */
+            public function log($level, string|\Stringable $message, array $context = []): void
+            {
+                $this->records[] = ['level' => $level, 'message' => (string) $message, 'context' => $context];
+            }
+        };
     }
 
     private function seedOrder(): string
