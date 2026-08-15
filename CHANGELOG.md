@@ -7,7 +7,7 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
-## [1.0.0-beta.1] - UNRELEASED — Developer Preview
+## [1.0.0-beta.1] - 2026-08-15 — Developer Preview
 
 The initial public release: a self-hosted, composable CMS and commerce platform for
 developers, on the Glueful PHP framework with a Vue 3 admin.
