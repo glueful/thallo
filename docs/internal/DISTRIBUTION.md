@@ -56,6 +56,14 @@ a fresh install:
 | Glueful I18n, Media | Locales and media are table-stakes CMS features |
 | Glueful Audit, ImportExport | Admin operations surface (revisit if weight matters) |
 
+**Bundled billing engine — shipped and enabled.** `glueful/subscriptions` is the deliberate
+exception to Tier 2: it stays in the fresh-install `config/extensions.php` allow-list and its
+`thallo.subscriptions` capability is enabled by default. This is the engine behind Thallo's
+workspace SaaS-billing product, not a storefront dependency. It remains independently
+disable-able through the extensions browser, and keyless installs retain the manual-assignment
+floor. The distribution-default CI lane must exercise this exact posture so the exception is
+visible rather than inferred from the committed config.
+
 **Tier 2 — Capability extensions, added via the in-admin extensions browser.** Stateless to
 enable, safe to remove, capability-gated in the UI. NOT active in a fresh install.
 
@@ -96,9 +104,11 @@ extensions-browser-managed, never statically listed.
 4. **Gateway-less and keyless installs sell nothing but break nothing** — manual collection
    is the floor the whole payments stack degrades to. This is what makes trimming commerce
    and payvia from defaults safe.
-5. **Tier 2 ships installed-but-disabled** (2026-08-15). Not hope: `InertnessTest` and the
-   `interface_exists` guards pin the inert posture, and the extensions-browser enable flow is
-   tested. The skeleton split stays a later option, not v1.
+5. **Tier 2 ships installed-but-disabled** (2026-08-15). Tier 2 means the three extensions
+   enumerated in §2: Commerce, Payvia and Meilisearch. `glueful/subscriptions` is the explicit
+   enabled billing-engine exception recorded immediately above that tier. This is not hope:
+   `InertnessTest` and the `interface_exists` guards pin the inert posture, and the
+   extensions-browser enable flow is tested. The skeleton split stays a later option, not v1.
 6. **No setup wizard for Developer Preview** (2026-08-15). README + the documented CLI
    sequence; the audience is developers. Revisit at Beta.
 7. **All 13 `packages/thallo-*` modules stay path-local** (2026-08-15). Publish one only when
@@ -121,9 +131,10 @@ extensions-browser-managed, never statically listed.
 
 Execute top-to-bottom when we decide to ship. Each item is small; the point is not to forget any.
 
-- [ ] **Trim `config/extensions.php`** to tier 1 (drop the Commerce, Payvia, Meilisearch
-      lines — the Thallo modules are no longer in this file at all). Keep the tenancy comment
-      block and the `extensions.protected` map verbatim.
+- [ ] **Trim `config/extensions.php`** to tier 1 plus the bundled subscriptions-engine
+      exception (drop the Commerce, Payvia and Meilisearch lines; retain Subscriptions — the
+      Thallo modules are no longer in this file at all). Keep the tenancy comment block and the
+      `extensions.protected` map verbatim.
 - [ ] **Decide the capability switchboard defaults** (`thallo.capabilities`): all-on for
       tier-1 surfaces; `thallo.search` stays off (already the committed default); document
       that tier-2 capabilities appear on install.
@@ -135,8 +146,9 @@ Execute top-to-bottom when we decide to ship. Each item is small; the point is n
       executor: ~10-minute wall time, shard lists in `ci.yml`, env pins in `phpunit.xml`.
 - [ ] **`.env.example` pass**: fresh-install values (APP_KEY placeholder + generation
       instructions, DB, mail, `EXTENSIONS_INSTALL_ENABLED` stance for prod), no dogfood values.
-- [ ] **First-run experience**: document (or script) create-project → `.env` → `migrate:run`
-      → admin-user creation → login. Decide whether a setup wizard is v1 or later.
+- [ ] **First-run experience**: document and smoke-test create-project → `.env` →
+      `migrate:run` → admin-user creation → login. No setup wizard ships in Developer
+      Preview (decision 6).
 - [ ] **Seed content**: default theme, starter block types (contributor already ships),
       decide on a sample entry/homepage.
 - [ ] **Admin SPA release bake (HARD GATE — machinery missing, see decision 9):** script the
@@ -183,20 +195,23 @@ Execute top-to-bottom when we decide to ship. Each item is small; the point is n
       open/click analytics deliberately excluded (zero-third-party landing rule).
 - [ ] **Changelog curation — not a blind collapse**: condense the pre-release chronology into
       the initial release entry (written as a product description), PRESERVE durable security
-      decisions, migration requirements and upgrade instructions, move the full development
-      history to `HISTORY.md`.
+      decisions, migration requirements and upgrade instructions. Git remains the development
+      history; do not publish a second chronology file unless it has a concrete user-facing use.
 - [ ] **SECURITY.md, support channels, upgrade policy, semver expectations** — none exist yet.
 - [ ] **Public-Git curation of `docs/internal/`** — independent of `export-ignore` (which
-      already excludes it from dists): Packagist publication makes the GIT repo public, so
-      decide per file what stays in public Git, what graduates to user-facing docs, and what
-      relocates.
+      already excludes it from dists): public distribution requires an explicit public-repository
+      posture (Packagist indexes the configured VCS/dist source; it does not make a repository
+      public). Decide per file what stays in public Git, what graduates to user-facing docs, and
+      what relocates before the repository is opened.
 - [ ] **Composer self-containment**: no `repositories` entries or scripts escaping the repo
       (the `packages/*` relative path-repos ship with the app and are fine; any sibling
       `../` dev links must be gone). Proven by the artifact gate below, not by inspection.
-- [ ] **Artifact clean-machine gate**: `composer create-project --prefer-dist` from the
-      PUBLISHED tag in a directory with no sibling repositories; `composer install --no-dev`;
-      confirm no escaping path repositories or symlinks; the admin loads; the documented
-      first-run sequence completes using only the public docs.
+- [ ] **Artifact clean-machine gate**: run
+      `composer create-project --prefer-dist --no-dev glueful/thallo <target> <published-tag>`
+      in an empty directory with no sibling repositories. The initial create-project command
+      itself must omit dev dependencies; a later `composer install --no-dev` after a normal
+      create-project is not proof. Confirm no escaping path repositories or symlinks; the admin
+      loads; the documented first-run sequence completes using only the public docs.
 - [ ] **Website-from-tag gate**: deploy the Thallo website + docs from that exact published
       tag — never from the dev checkout. Announce only after BOTH gates pass; anything found
       becomes `beta.N+1`, never a mutated tag.
