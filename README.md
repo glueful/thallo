@@ -13,9 +13,8 @@ PHP framework with a Vue 3 admin.
 ## Requirements
 
 - PHP **8.3+** (CLI + your web SAPI)
-- A database: **SQLite** works out of the box; **PostgreSQL** is what Thallo's own site and
-  test suite run and is recommended for production. MySQL is configurable but not part of the
-  tested lanes.
+- **PostgreSQL** (what Thallo's own site and test suite run). SQLite/MySQL are configurable
+  but not currently tested lanes — see [docs/limitations.md](docs/limitations.md).
 - A web server pointing at `public/` (the PHP built-in server works for evaluation)
 - **cron** (per-capability entries; see [docs/production.md](docs/production.md))
 - Optional: queue workers for background jobs, an SMTP/rich-mail transport for email features
@@ -25,11 +24,13 @@ PHP framework with a Vue 3 admin.
 ```bash
 composer create-project --prefer-dist glueful/thallo my-site
 cd my-site
-cp .env.example .env        # then edit: database, BASE_URL, mail
-php glueful install         # generates keys, sets up the database, runs migrations
-php glueful aegis:bootstrap-admin  # grant your first admin (see --help)
+createdb thallo                   # or create a database with your PostgreSQL tool
+php glueful thallo:provision      # prompts for the database; writes .env, keys, migrations, cache
+php glueful thallo:create-admin   # prompts for site name + first admin; grants full access
 php -S localhost:8000 -t public vendor/glueful/framework/router.php
 ```
+
+Both commands take flags for scripted installs (`--help`; pass `-n` for non-interactive).
 
 Log in at `http://localhost:8000/admin`.
 

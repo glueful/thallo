@@ -37,6 +37,12 @@ The public payment-link landing page ships zero third-party assets and no tracki
 (it carries a bearer credential in its URL). Platform analytics cover the rest of the site;
 the link page itself is deliberately blind.
 
+## PostgreSQL only (for now)
+
+The tested and supported database is PostgreSQL. SQLite and MySQL are configurable at the
+framework level but are not tested lanes — the fresh-install rehearsal surfaced at least one
+migration that fails on SQLite — so treat them as unsupported in the Developer Preview.
+
 ## Delivery channels
 
 Payment links are delivered by email or copy-to-clipboard. SMS/WhatsApp channels are not
