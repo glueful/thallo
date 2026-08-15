@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+#
+# Admin SPA release bake (DISTRIBUTION.md decision 9 — HARD GATE).
+#
+# Packagist dists come from `git archive` of the tag: there is no post-archive hook, so the
+# RELEASE COMMIT ITSELF must contain the built public/admin — which is gitignored in daily
+# development. This script builds the SPA and force-stages the bundle for the release commit.
+# `/admin` (the source) stays export-ignored; the bundle is what ships.
+#
+# Usage (from docs/internal/RELEASING.md):
+#   scripts/release-bake        # on a clean tree, immediately before the release commit
+#   git commit -m "Release vX.Y.Z-beta.N — ..."
+#   scripts/verify-dist-archive # against the release commit, BEFORE tagging
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "release-bake: refusing to run on a dirty tree — commit or stash first." >&2
+  git status --porcelain >&2
+  exit 1
+fi
+
+echo "== release-bake: building the admin SPA =="
+(cd admin && pnpm install --frozen-lockfile && pnpm run -s build)
+
+if [[ ! -f public/admin/index.html ]]; then
+  echo "release-bake: build produced no public/admin/index.html — aborting." >&2
+  exit 1
+fi
+
+echo "== release-bake: force-staging the bundle past the gitignore =="
+git add -f public/admin
+
+STAGED="$(git diff --cached --name-only | wc -l | tr -d ' ')"
+echo "== release-bake: staged $STAGED file(s) under public/admin =="
+echo "Next: create the release commit, then run scripts/verify-dist-archive before tagging."
