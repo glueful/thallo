@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+#
+# Dist-archive verification (DISTRIBUTION.md release-bake HARD GATE).
+#
+# Asserts the tree a tag would ship — `git archive` honors .gitattributes export-ignore, and
+# Packagist dists are exactly this archive. Run against the release commit BEFORE tagging.
+#
+# Usage: scripts/verify-dist-archive [<ref>]   (default: HEAD)
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+
+REF="${1:-HEAD}"
+LISTING="$(git archive "$REF" | tar -t)"
+
+fail=0
+
+must_contain() {
+  if ! grep -qx "$1" <<< "$LISTING"; then
+    echo "FAIL: dist archive of $REF is missing: $1" >&2
+    fail=1
+  else
+    echo "ok: contains $1"
+  fi
+}
+
+must_not_contain_prefix() {
+  if grep -q "^$1" <<< "$LISTING"; then
+    echo "FAIL: dist archive of $REF must not contain: $1*" >&2
+    grep "^$1" <<< "$LISTING" | head -3 >&2
+    fail=1
+  else
+    echo "ok: excludes $1*"
+  fi
+}
+
+# The baked admin bundle IS the shipped admin (decision 9).
+must_contain "public/admin/index.html"
+# The SPA source toolchain never ships.
+must_not_contain_prefix "admin/"
+# Internal engineering record never ships.
+must_not_contain_prefix "docs/internal/"
+# The dogfood dev overlay never ships — fresh installs get the trimmed base posture.
+must_not_contain_prefix "config/development/"
+
+if [[ "$fail" -ne 0 ]]; then
+  echo "verify-dist-archive: FAILED for $REF" >&2
+  exit 1
+fi
+echo "verify-dist-archive: OK for $REF"

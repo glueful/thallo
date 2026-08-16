@@ -19,6 +19,12 @@
  * - Empty = nothing loads. To kill everything fast, set `enabled => []`.
  *
  * Manage with: php glueful extensions:list | enable <name> | disable <name> | cache
+ *
+ * DISTRIBUTION DEFAULT (docs/internal/DISTRIBUTION.md §2, posture split 2026-08-15): this
+ * list is tier 1 plus the bundled Subscriptions billing engine. Tier 2 (Commerce, Payvia,
+ * Meilisearch) is installed-but-disabled — enable via the in-admin extensions browser or
+ * `php glueful extensions:enable`. Thallo's own development/test environments re-enable
+ * tier 2 through the config/{development,testing}/extensions.php overlays (repo-only).
  */
 
 return [
@@ -29,9 +35,6 @@ return [
         'Glueful\Extensions\I18n\I18nServiceProvider',
         'Glueful\Extensions\ImportExport\ImportExportServiceProvider',
         'Glueful\Extensions\Media\MediaServiceProvider',
-        'Glueful\Extensions\Meilisearch\MeilisearchProvider',
-        'Glueful\Extensions\Commerce\CommerceServiceProvider',
-        'Glueful\Extensions\Payvia\PayviaServiceProvider',
         'Glueful\Extensions\Subscriptions\SubscriptionsServiceProvider',
         'Glueful\Extensions\Users\UsersServiceProvider',
     ],

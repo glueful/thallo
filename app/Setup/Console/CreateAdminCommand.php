@@ -32,6 +32,23 @@ final class CreateAdminCommand extends BaseCommand
         /** @var SetupService $setup */
         $setup = $this->getService(SetupService::class);
 
+        // Complete any pending migrations first (idempotent; a no-op when everything is
+        // applied). Fresh-install rehearsal finding (2026-08-15): pack permission seeds can
+        // land BEFORE the RBAC provider's own tables in the first migration pass, fail, and
+        // stay pending — a second pass completes them. Running the pass here makes Layer 2
+        // self-healing instead of asking the operator to re-run migrate:run by hand.
+        /** @var \Glueful\Database\Migrations\MigrationManager $migrations */
+        $migrations = $this->getService(\Glueful\Database\Migrations\MigrationManager::class);
+        $result = $migrations->migrate();
+        if (($result['failed'] ?? []) !== []) {
+            // One retry: a first FULL pass can order a pack's permission seed before the RBAC
+            // provider's own tables inside the same batch; the second pass runs with every
+            // table present. Converges (each pass strictly shrinks the pending set); anything
+            // still failing after the retry is reported by install()'s own failures instead
+            // of being silently ignored here.
+            $migrations->migrate();
+        }
+
         // Layer 2 is permanent: once installed, the first admin is never re-created.
         if ($setup->isInstalled()) {
             $this->info('Already installed — the first admin already exists; nothing to do.');

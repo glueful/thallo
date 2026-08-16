@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#
+# Distribution-defaults smoke lane (DISTRIBUTION.md charter, CI posture (b)).
+#
+# The default suite runs against config/testing/extensions.php — the everything-on dogfood
+# overlay. This runner sets that overlay ASIDE (restoring it on every exit path), resets the
+# test database, runs the migration chain under the TRIMMED base posture (exactly what a fresh
+# install migrates), and then runs tests/Distribution — the fresh-install activation contract
+# as users actually receive it.
+#
+# Usage: composer test:distribution
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+OVERLAY="$ROOT/config/testing/extensions.php"
+ASIDE="$OVERLAY.dogfood-aside"
+
+if [[ ! -f "$OVERLAY" ]]; then
+  echo "distribution-smoke: $OVERLAY missing — is another smoke run active, or was a restore lost?" >&2
+  echo "If a previous run crashed hard, restore it from git: git checkout -- config/testing/extensions.php" >&2
+  exit 1
+fi
+
+restore() {
+  if [[ -f "$ASIDE" ]]; then
+    mv "$ASIDE" "$OVERLAY"
+  fi
+}
+trap restore EXIT
+
+mv "$OVERLAY" "$ASIDE"
+
+echo "== distribution smoke: fresh-install migration chain (trimmed posture) =="
+(cd "$ROOT" && DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/reset-test-db.php)
+(cd "$ROOT" && DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/run-test-migrations.php)
+
+echo "== distribution smoke: posture assertions =="
+(cd "$ROOT" && vendor/bin/phpunit tests/Distribution)
+
+echo "== distribution smoke: OK =="

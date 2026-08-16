@@ -87,6 +87,7 @@
       "@test:migrate",
       "@test:phpunit"
     ],
+    "test:distribution": "bash scripts/distribution-smoke",
     "test:unit": "vendor/bin/phpunit --testsuite Unit",
     "test:integration": "vendor/bin/phpunit --testsuite Integration",
     "phpcs": "vendor/bin/phpcs",

@@ -180,6 +180,10 @@ jobs:
             lint-unit)
               composer phpcs
               timeout --signal=KILL 900 vendor/bin/phpunit --testsuite Feature,Unit
+              # Distribution-defaults posture (charter CI item (b)): runs LAST in this shard
+              # because it resets app_test and re-migrates under the TRIMMED fresh-install
+              # extensions list — proving installed-but-disabled as users receive it.
+              timeout --signal=KILL 300 composer test:distribution
               ;;
             integration-a)
               timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_A

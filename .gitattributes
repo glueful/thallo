@@ -6,3 +6,6 @@
 # Internal engineering record (specs, plans, design history) — repo-only, never in the
 # distribution archive. User-facing docs stay at docs/ top level.
 /docs/internal export-ignore
+# Dogfood-only environment overlay — the everything-on development posture. A distributed
+# install must receive the trimmed distribution default in config/extensions.php only.
+/config/development export-ignore

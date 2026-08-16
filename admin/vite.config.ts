@@ -77,7 +77,8 @@ export default defineConfig(({ mode }) => {
 
         ui: {
           colors: {
-            primary: 'blue',
+            // Thallo's own brand scale — the mirage tokens defined in assets/css/main.css.
+            primary: 'mirage',
             // Success = the design mock's emerald green (Nuxt UI's default success is a limier green).
             success: 'emerald',
             neutral: 'slate'
