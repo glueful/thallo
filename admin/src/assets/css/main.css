@@ -1,7 +1,10 @@
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
-@theme {
+/* `static` is load-bearing: Nuxt UI maps primary to var(--color-mirage-*) at RUNTIME, so
+   no template ever uses a mirage-* utility — a plain @theme block would be tree-shaken out
+   of the build and the primary would collapse to transparent (white buttons). */
+@theme static {
   /* Your custom design tokens go here */
   --color-mirage-50: #f4f6fb;
   --color-mirage-100: #e8ecf6;
