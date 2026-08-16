@@ -31,6 +31,10 @@ php -S localhost:8000 -t public vendor/glueful/framework/router.php
 ```
 
 Both commands take flags for scripted installs (`--help`; pass `-n` for non-interactive).
+If your PostgreSQL requires credentials for the default role, set
+`DB_PGSQL_USERNAME`/`DB_PGSQL_PASSWORD` in `.env` before running `thallo:provision` — the
+database named in `.env` (default `thallo`) must exist and be reachable for provision to run
+(the quickstart's `createdb thallo`).
 
 Log in at `http://localhost:8000/admin`.
 
