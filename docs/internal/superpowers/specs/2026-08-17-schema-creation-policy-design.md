@@ -8,16 +8,17 @@ beta.3 release program.
 ## Decisions of record
 
 1. **Boot performs no DDL.** Schema mutation happens only in deliberate migrate operations.
-   The v1.0.0-beta.2 gate proved `php glueful list` creates the `migrations` table on any
-   install with a reachable database.
+   The v1.0.0-beta.2 gate proved `php glueful list` created the `migrations` table on any
+   install with a reachable database; framework 1.78.4 removed that path, and the patched
+   beta.2 artifact's PostgreSQL statement log then proved a complete boot issues zero writes.
 2. **Full-schema-at-provision is transitional**, not the launch posture. It remains the
    behavior through beta.2 and is replaced in beta.3 by schema-on-enable.
 3. **The extension is the schema authority.** Enabling an extension runs its pending
    migrations, then marks it enabled. Capabilities are runtime switches that never create
    tables and refuse to enable unless the owning extension is enabled and schema-ready.
 4. **Nothing is ever dropped.** Disabling an extension or capability preserves all tables and
-   data. Upgrades migrate only enabled extensions; disabled extensions catch up when next
-   enabled.
+   data. Upgrades migrate every `core` descriptor plus the `on_enable` descriptors of enabled
+   extensions; disabled extensions' `on_enable` descriptors catch up when next enabled.
 5. **Enable surface is SPA + CLI** (deliberate reversal of the earlier CLI-only ruling —
    Thallo's tenancy admin flow already performs web-driven migration via its enablement state
    machine, so web-runtime DDL is the honest beta posture). A privileged worker / separate
@@ -50,14 +51,14 @@ Consequence: read-only operational commands work with read-only database credent
 provider (framework or pack) needs any change.
 
 **Invariant proven by 1.78.4:** *migration discovery and registration perform zero DDL.*
-The broader claim ("application boot performs zero DDL") is **not** asserted; a boot-level
-query-spy investigation (A3) enumerates the remaining eager-DDL classes (known suspects:
-`DatabaseLogHandler`, `WebhookDispatcher`) as concrete findings for follow-up.
+The completed A3 artifact investigation supplies the broader Thallo-level evidence: a
+PostgreSQL statement-log spy observed zero writes during a complete application boot.
 
 **Tests:** construct the manager and register paths under a query-spying connection —
-assert zero queries; assert status/pending reads on a ledger-less database return empty
-without DDL; assert rollback on a ledger-less database reports nothing-to-rollback without
-DDL; assert the ledger DDL fires exactly once, at the first `migrate()`.
+assert zero queries; with one discoverable migration and no ledger, assert the applied list is
+empty and the migration is reported pending without DDL; assert rollback on a ledger-less
+database reports nothing-to-rollback without DDL; assert the ledger DDL fires exactly once,
+at the first `migrate()`.
 
 ### A2. Thallo: provision `-n` accepts trust-auth PostgreSQL
 
@@ -75,18 +76,19 @@ DDL; assert the ledger DDL fires exactly once, at the first `migrate()`.
 `DB_PGSQL_PASSWORD=` line; non-empty password; absent host (defaults); explicitly empty host
 (fails).
 
-### A3. Investigation: the 19-table partial state, and the boot query-spy
+### A3. Completed investigation: the 19-table claim and the boot query-spy
 
-Stated as an investigation, not a prescribed outcome. Against a dedicated scratch database:
+The captured beta.2-artifact rerun closed both questions:
 
-1. Reproduce the beta.2 gate's "failed provision left 19 tables" scenario capturing the
-   command output, exit code, pre/post table inventory, and `.env` state at each step.
-2. Classify whether the tables came from partial non-transactional migrations (the `.env`
-   already held working credentials at that point) or from boot-time DDL.
-3. Run a full application-boot query-spy and enumerate every class that performs DDL or
-   writes during boot. Each becomes a named finding.
-4. Correct the OUTSTANDING item for "provision that fails validation mutates schema" to match
-   the verified mechanism.
+1. The failed-provision reproduction did **not** mutate schema. The earlier 19-table
+   attribution did not survive a controlled pre/post inventory and was removed rather than
+   preserved as a speculative defect.
+2. With framework 1.78.4's lazy-ledger change applied, `php glueful list` and
+   `migrate:status` create nothing on an empty database.
+3. A PostgreSQL statement-log spy over full application boot recorded zero writes of any
+   kind. No eager-DDL follow-up class remained to enumerate.
+4. `docs/internal/OUTSTANDING.md` records the verified verdicts and the shipped framework and
+   provision fixes.
 
 **Sequencing:** A1 lands first in the framework repo (tests + changelog, committed locally
 for human publication as 1.78.4); Thallo then bumps the requirement and lands A2/A3; full
@@ -99,23 +101,37 @@ gates re-run.
 This is a coordinated framework + first-party-extension release program, not a change to
 `extensions:enable` alone.
 
-### B1. Manifest migration contract (new, closed)
+### B1. Manifest migration contract and single inventory (new, closed)
 
-- `extra.glueful` gains a migrations declaration. **Every package must explicitly declare
-  either migration descriptors or `migrations: none` — fail closed.** An unknown/undeclared
-  legacy package cannot participate in migrate-before-enable.
+- `extra.glueful` gains a migrations declaration. **Every Glueful package that declares a
+  provider or otherwise participates in schema management must explicitly declare migration
+  descriptors or `migrations: none` — fail closed.** This rule does not apply to arbitrary
+  Composer dependencies. An unknown/undeclared Glueful package cannot participate in
+  migrate-before-enable.
 - `PackageManifest::getCandidates()` returns only glueful-extension-type packages; core
   companions (e.g. `glueful/thallo-commerce`) are libraries. A separate **all-package
   `migrationDescriptors()` projection** is added for schema purposes.
 - Each descriptor carries: a **stable ID**, relative path, priority (closed enum), and mode
   `core | on_enable`. Multiple descriptors per package are allowed (identity is the
   descriptor ID, not merely the package name). Paths are validated: traversal and any path
-  escaping the package directory are rejected.
+  escaping the package directory are rejected. A declared descriptor path must exist and
+  contain at least one migration; an empty schema declares `migrations: none` instead.
+- `on_enable` is valid only for a package of type `glueful-extension`; its owner is that
+  package's provider. Library-typed Thallo packs have no independent extension-enable event
+  and therefore declare their schema descriptors `core`. A future library-to-extension
+  ownership indirection requires a new reviewed manifest contract rather than an inferred
+  name match.
+- **The manifest projection is the sole package migration inventory in beta.3.** First-party
+  providers remove their `loadMigrationsFrom()` calls for manifest-described paths. The
+  compatibility method may validate that a legacy registration exactly matches a descriptor,
+  but it must not append a second source. Duplicate descriptor IDs, canonical paths, or legacy
+  aliases fail closed; one physical migration file can enter one execution batch only once.
 - **Legacy ledger identities are preserved.** Existing sources (`thallo-commerce`,
   thallo-render's implicit registrations, `app:dependent`, …) would appear unapplied if
   `source` were simply forced to the composer name. Descriptors carry explicit **legacy
   source aliases**, and a verified **receipt-normalization step** migrates ledger rows to the
-  descriptor identity before anything reads readiness from them.
+  descriptor identity before anything reads readiness from them. Normalization verifies the
+  migration checksum before rewriting and refuses ambiguous aliases.
 
 ### B2. Modes and their plain consequences
 
@@ -124,23 +140,45 @@ This is a coordinated framework + first-party-extension release program, not a c
   **Thallo's commerce link table continues provisioning before Commerce is enabled.**
   Schema-on-enable governs the engine extension's schema, not every table associated with the
   broader product.
+- Framework-owned migration leaves are classified explicitly: `auth`, `locks`, `uploads`,
+  `queue`, `scheduler`, `notifications`, and `metrics` are all `core`. Their configuration
+  flags continue to govern runtime behavior, not schema presence. This removes the current
+  second policy in `CoreProvider` where registration depends on runtime configuration.
+- Every schema-owning library-typed Thallo pack declares `core`; the first-party adoption
+  matrix lists each pack and descriptor so no library descriptor is orphaned from an enable
+  event.
 - `on_enable` descriptors migrate only via the enable flow (or upgrade, if already enabled).
+- Installing a package never performs DDL in the Composer request. Newly discovered `core`
+  descriptors run on the next deliberate upgrade/migrate operation; enabling an extension
+  first applies any pending core prerequisites and then only that extension's `on_enable`
+  descriptors before changing enabled state.
 
 ### B3. Readiness, dependencies, and gating
 
-- *Schema-ready(descriptor)* = all of the descriptor's migration files have ledger receipts
-  under its identity (including normalized legacy aliases). Ledger-driven; never `hasTable`
-  probes.
+- *Schema-ready(descriptor)* = the descriptor path is valid and non-empty, and every current
+  migration file has a ledger receipt under its identity with the **exact current SHA-256
+  checksum** (including verified, normalized legacy aliases). A missing path, checksum
+  mismatch, removed migration with a historical receipt, or ambiguous identity is
+  **divergent**, never ready and never silently rerun. Readiness remains ledger-driven; it
+  never uses `hasTable` probes.
 - `requires.extensions` metadata must be **complete for all first-party extensions before
   release** (it exists today and is empty everywhere). Enable refuses with the ordered
   dependency list; there is no undeclared-package fallback behavior.
-- Capability enable checks the owning extension is enabled and schema-ready; refusal names
-  the exact remedy (SPA action or `php glueful extensions:enable <extension>`).
+- The capability contract gains an optional explicit owning-extension **Composer package**. It is
+  mandatory for every engine-backed capability and absent for genuinely app-only
+  capabilities. The identifier is syntax-validated at registration; an absent package leaves
+  the capability registered but unavailable so the SPA can name the installation remedy. An
+  installed owner must resolve to exactly one extension candidate/provider. Capability enable
+  checks that owner is installed, enabled, and schema-ready; refusal names the owning package
+  and exact remedy (SPA action or `php glueful extensions:enable <package>`). Capability IDs
+  and naming conventions are never used to infer ownership.
 
 ### B4. Execution: locking, transactions, failure
 
-- A **migration-lock abstraction** (not hard-coded PostgreSQL advisory locks) serializes
-  enable/migrate per source; drivers provide implementations.
+- A **migration-lock abstraction** (not hard-coded PostgreSQL advisory locks) serializes all
+  enable, disable, migrate, normalize, and adopt operations per extension/descriptor source;
+  drivers provide implementations. Disable cannot race an enable operation's final state
+  write.
 - On transactional-DDL drivers (PostgreSQL), each migration's DDL **and its ledger insert
   run in the same transaction**.
 - On drivers without transactional DDL, a failure enters an explicit **`manual_repair`**
@@ -151,8 +189,20 @@ This is a coordinated framework + first-party-extension release program, not a c
 
 The SPA/CLI shared step machine persists its operation record in a **core-owned operation
 table** — locking, actor, current step, failed migration, recovery state — because the target
-extension's schema does not exist yet at enable time. The CLI and SPA drive the same
-executor over the same operation record.
+extension's schema does not exist yet at enable time. The CLI, the framework extension HTTP
+controller, and Thallo's extension HTTP controller all drive the same executor over the same
+operation record. The executor runs an explicit descriptor set: generic enable never calls
+global `MigrationManager::migrate()` and cannot apply an unrelated disabled extension's
+schema. It migrates first, verifies readiness, writes enabled state last, then recompiles the
+provider cache.
+
+`ExtensionStateWriter` becomes executor-internal plumbing for generic flows; an architecture
+test inventories mutation callers and rejects direct CLI/controller use. Tenancy's protected
+state machine is the sole named exception and uses the shared migration executor before its
+own activation step. Enable/disable are supported in production through both CLI and SPA:
+the current `APP_ENV=production` refusals are removed. Existing platform authority,
+the approved CSRF policy for cookie-authenticated requests, host-writability checks, audit
+records, and the explicit beta acceptance of web-runtime DDL remain mandatory.
 
 ### B6. Tenancy exception
 
@@ -170,7 +220,8 @@ tenancy and directs to the dedicated flow.
 - *Adoptable* requires a **package/migration-owned structural verifier**: receipts for
   missing `(source, migration)` rows are written only after that verifier passes. A generic
   command must not infer a migration ran merely because tables exist — **without a verifier,
-  the state is classified divergent** (manual attention, with guidance).
+  the state is classified divergent** (manual attention, with guidance). An adopted receipt
+  records the checksum of the exact shipped file that its verifier covers.
 - No table is ever dropped by classification, adoption, upgrade, or disablement.
 
 ### B8. Provision and SPA behavior in beta.3
@@ -187,17 +238,23 @@ tenancy and directs to the dedicated flow.
 
 1. Framework release: manifest descriptor contract + `migrationDescriptors()`, lock
    abstraction, transactional runner, ledger-driven readiness, receipt normalization.
-2. First-party extensions: adopt descriptors (or `migrations: none`), populate
-   `requires.extensions`, provide structural verifiers.
-3. Thallo: provision changes, enable step machine + core-owned operation table, SPA states,
-   tenancy executor swap, adoption tooling, upgrade tests from a beta.2 fixture.
+2. First-party engine extensions: adopt `on_enable` descriptors (or `migrations: none`),
+   populate `requires.extensions`, and provide structural verifiers.
+3. Thallo: adopt `core` descriptors (or `migrations: none`) across every library-typed pack;
+   then land provision changes, the enable step machine + core-owned operation table, SPA
+   states, tenancy executor swap, adoption tooling, and beta.2-fixture upgrade tests.
 4. Cut v1.0.0-beta.3.
 
 ## Testing summary
 
-- **A:** framework query-spy unit tests (construction, reads, rollback, first-migrate);
-  provision validation matrix; boot query-spy investigation.
+- **A:** framework query-spy unit tests (construction, a non-empty pending read, rollback,
+  first-migrate); provision validation matrix; completed artifact boot statement-log proof.
 - **B:** fresh-install enable matrix per extension; upgrade-from-beta.2 fixture (ready /
   adoptable / divergent paths); disable-preserves-data; re-enable catch-up; mid-enable
   failure on transactional and non-transactional drivers; dependency refusal ordering;
-  tenancy flow through the shared executor; path-traversal rejection in descriptors.
+  tenancy flow through the shared executor; path-traversal, missing/empty-path,
+  duplicate-path/ID/alias, and checksum-mismatch rejection; provider/manifest
+  single-inventory proof; source-scoped enable proof; capability-owner truth table;
+  concurrent enable/disable serialization; production CLI/SPA enable coverage; newly
+  installed core-descriptor catch-up; framework-core and Thallo-library classification
+  inventories.
