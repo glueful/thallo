@@ -111,8 +111,13 @@ This is a coordinated framework + first-party-extension release program, not a c
 - `PackageManifest::getCandidates()` returns only glueful-extension-type packages; core
   companions (e.g. `glueful/thallo-commerce`) are libraries. A separate **all-package
   `migrationDescriptors()` projection** is added for schema purposes.
-- Each descriptor carries: a **stable ID**, relative path, priority (closed enum), and mode
-  `core | on_enable`. Multiple descriptors per package are allowed (identity is the
+- Each descriptor carries: a **stable ID**, relative path, priority (closed enum), mode
+  `core | on_enable`, and an optional structural-verifier FQCN. The verifier is manifest metadata
+  rather than a provider contribution so it remains discoverable while an extension is disabled;
+  it must implement the framework verifier contract, have a public zero-required-argument
+  constructor, and report the descriptor's exact source identity. Missing, malformed,
+  non-conforming, or source-mismatched verifier classes make adoption divergent, never inferred.
+  Multiple descriptors per package are allowed (identity is the
   descriptor ID, not merely the package name). Paths are validated: traversal and any path
   escaping the package directory are rejected. A declared descriptor path must exist and
   contain at least one migration; an empty schema declares `migrations: none` instead.

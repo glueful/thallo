@@ -254,6 +254,7 @@ final class MigrationDescriptor
         public readonly int $priority,
         public readonly DescriptorMode $mode,
         public readonly array $legacyAliases = [],
+        public readonly ?string $verifierClass = null,
     ) {
         if (preg_match('/^[a-z0-9][a-z0-9_-]*$/', $id) !== 1) {
             throw new DescriptorValidationException("Descriptor id '{$id}' is not a lowercase slug.");
@@ -277,6 +278,14 @@ final class MigrationDescriptor
                 );
             }
             $seen[$alias] = true;
+        }
+        if (
+            $verifierClass !== null
+            && preg_match('/^(?:[A-Za-z_][A-Za-z0-9_]*\\\\)+[A-Za-z_][A-Za-z0-9_]*$/D', $verifierClass) !== 1
+        ) {
+            throw new DescriptorValidationException(
+                "Descriptor '{$package}:{$id}' verifier must be a canonical, non-leading-slash FQCN."
+            );
         }
     }
 
@@ -430,9 +439,18 @@ final class MigrationDescriptor
     delegates to `addMigrationPath($absolutePath, $d->priority, $d->source())` and records
     source→path in a private map;
   - `MigrationManager::hasSource(string $source): bool`;
+  - `MigrationManager::setGlobalSourcePolicy(\Closure $enabledPackages): void` — the closure
+    returns `list<string>` package names and is evaluated at EACH global read/run, never at manager
+    construction; `globalSources(): list<string>` returns `app` + every non-descriptor legacy
+    source + every `core` descriptor + only the `on_enable` descriptors whose package the closure
+    currently reports enabled. With no policy (bare construction/back-compat tests), every
+    registered source remains global;
   - `MigrationManager::pendingForSources(array $sources): array` — `list<array{file: string, source: string}>`,
-    the subset of `getPendingMigrations()` belonging to the given sources, in global priority
-    order (the executor's "pending files for these descriptors" API — P1 fix);
+    discovers candidates DIRECTLY from exactly the named registered sources, in global priority
+    order; it MUST NOT call/filter `getPendingMigrations()`, because that public global view omits
+    disabled `on_enable` descriptors while this is the executor's intentional explicit-source API.
+    `getPendingMigrations()` is instead the projection of
+    `pendingForSources(globalSources())` down to its legacy `list<string>` file shape;
   - `loadMigrationsFrom()` new behavior (bypass-proof): when the container has a
     `DescriptorInventory`, resolve the calling provider's owning package — the declared
     `packageOfProvider(static::class)` map is only the fast path; on a miss, ownership is resolved
@@ -460,7 +478,12 @@ final class MigrationDescriptor
     provider) registering an undescribed path throws (file-containment ownership);
   - a provider from an UNDECLARED package still appends (legacy compatibility);
   - an app-local provider (file outside every package root) still appends;
+  - global source policy includes app, legacy, core, and enabled `on_enable` sources while
+    excluding a disabled `on_enable` source; changing the closure's returned package set AFTER
+    manager construction changes `globalSources()` on the next call (call-time evaluation);
   - `pendingForSources(['a'])` returns only source-a files, each row carrying `file` + `source`;
+    a disabled descriptor omitted from `getPendingMigrations()` remains discoverable through
+    `pendingForSources([$disabledSource])` (proves the executor path is not accidentally filtered);
   - `registerDescriptor()` + `pendingForSources()` on a ledger-less DB: zero tables afterwards.
 - [ ] **Step 2: Run to verify failure.**
 - [ ] **Step 3: Implement.**
@@ -485,7 +508,11 @@ final class MigrationDescriptor
   described path). Without this, a declared extension's `pendingForSources()` would be empty.
   Framework sources and FOUNDATION priority are byte-identical to today (receipt identities
   preserved). Undeclared packages still reach the manager only through their providers' legacy
-  `loadMigrationsFrom()` appends.
+  `loadMigrationsFrom()` appends. After registration, the factory calls Task 4's
+  `setGlobalSourcePolicy()` with a closure that computes enabled PACKAGE names at call time from
+  `EnabledProviders::from($context)` and `PackageManifest::getCandidates()` (invert each
+  candidate's provider back to its package; never infer by slug). This wiring belongs here, after
+  the API already exists — Task 9 does not retroactively revisit this factory.
 
 - [ ] **Step 1: Write the failing test** — build the factory's manager with locks/queue/uploads
   config gates OFF; assert `hasSource()` true for all seven current sources
@@ -494,7 +521,12 @@ final class MigrationDescriptor
   is non-empty via `pendingForSources()`; with a fixture manifest declaring one extension
   descriptor, assert `hasSource('acme/widgets')` is true and its file appears in
   `pendingForSources(['acme/widgets'])` (manifest descriptors registered by the factory, not by
-  provider boot).
+  provider boot). Toggle the fixture provider in `config/extensions.php` after constructing the
+  manager, clear `ApplicationContext`'s config cache after each on-disk edit (the production
+  writer→`writeCacheNow()` path does this at `ExtensionManager.php:445-452`), and assert
+  `globalSources()` excludes/includes `acme/widgets` on successive calls. This proves the factory
+  closure reads current context state rather than capturing the enabled list at manager creation;
+  it does not pretend `config()` bypasses the context's deliberate cache.
 - [ ] **Step 2: Run to verify failure** (gated leaves absent today).
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run to verify pass** + `vendor/bin/phpunit tests/Integration/Database/Migrations`.
@@ -540,6 +572,7 @@ final class MigrationDescriptor
 - Create: `src/Extensions/Schema/PgsqlAdvisoryMigrationLock.php`
 - Create: `src/Extensions/Schema/MysqlNamedMigrationLock.php`
 - Create: `src/Extensions/Schema/FileMigrationLock.php`
+- Create: `src/Extensions/Schema/MigrationLockFactory.php`
 - Test: `tests/Unit/Extensions/Schema/MigrationLockTest.php`
 
 **Interfaces:**
@@ -571,9 +604,14 @@ final class MigrationLockHandle { public function release(): void; }
     (host-local flock cannot).
   - `FileMigrationLock`: `flock()` on `storage/framework/locks/schema-<sha1(source)>.lock` —
     used for sqlite/local operation and tests only.
-  - Selection by `Connection` driver: pgsql → advisory; mysql → named lock; otherwise file. Every
+  - `MigrationLockFactory::forConnection(Connection $db, ?ApplicationContext $context):
+    MigrationLockInterface` is the ONE driver selector: pgsql → advisory; mysql → named lock;
+    otherwise file. CoreProvider's lazy binding and the framework Installer both use this factory,
+    so the preflight/injected installer connection cannot drift onto a different lock backend.
+  - Every
     schema operation — normalization (Task 8), **ordinary global migration (Task 9's `migrate()`
-    path via the Task 11 `RunCommand` wiring)**, the executor (Task 10), adoption (Task 12) —
+    path via the Task 11 `RunCommand` and `Installer` wiring)**, the executor (Task 10), adoption
+    (Task 12) —
     wraps work in `try { … } finally { $handle->release(); }`.
 
 - [ ] **Step 1: Write the failing tests** — sorted acquisition order observable via a spy subclass;
@@ -584,11 +622,12 @@ final class MigrationLockHandle { public function release(): void; }
   the same test process on the same path — use `proc_open` of a 3-line PHP script if same-process
   flock is reentrant; keep the helper script inline in the test) → `LockContentionException`;
   disjoint sources don't contend; release frees; handle survives longer than any TTL (no expiry
-  field exists to assert — assert the interface exposes none).
+  field exists to assert — assert the interface exposes none); factory selection returns the pgsql,
+  mysql, and file implementations for the three driver fixtures respectively.
 - [ ] **Step 2: Run to verify failure.**
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run to verify pass.**
-- [ ] **Step 5: Commit** — `git commit -m "feat(extensions): bootstrap-safe migration locks — pg advisory / flock, sorted acquisition, no TTL"`
+- [ ] **Step 5: Commit** — `git commit -m "feat(extensions): bootstrap-safe migration locks — pg advisory, mysql named locks, flock; no TTL"`
 
 ---
 
@@ -634,6 +673,7 @@ final class MigrationLockHandle { public function release(): void; }
 **Files:**
 - Modify: `src/Database/Migrations/MigrationManager.php` (`runMigration()` ~440-510; new `migrateSources()`)
 - Create: `src/Database/Migrations/MigrationRunReport.php`
+- Create: `src/Database/Migrations/MigrationScopeException.php`
 - Test: `tests/Unit/Database/Migrations/TransactionalMigrationTest.php`
 
 **Interfaces:**
@@ -656,16 +696,14 @@ final class MigrationRunReport
   - `MigrationManager::migrateSources(array $sources): MigrationRunReport` — ensures the ledger,
     then runs exactly `pendingForSources($sources)` in order, stopping at the first failure
     (later files stay pending);
-  - **Global source policy (P1 fix — a global run must not apply disabled extensions):**
-    `MigrationManager::setGlobalSourcePolicy(callable $enabledPackages): void` — the factory
-    (Task 5) injects a closure returning the currently-enabled package names (computed from
-    `EnabledProviders::from()` + the candidates' provider→package map at CALL time, not boot
-    time). `globalSources(): array` = the app source + every non-descriptor (legacy-appended)
-    source + all `core` descriptor sources + `on_enable` descriptor sources whose package the
-    closure reports enabled. `getPendingMigrations()` and global `migrate()` operate over
-    `globalSources()` only; `pendingForSources()`/`migrateSources()` remain explicit and
-    unfiltered (the executor's tool). With no policy set (bare constructions, tests, legacy),
-    all registered sources are global — today's behavior;
+  - **Global source policy enforcement (consumes Task 4's API):** `getPendingMigrations()` and
+    every global `migrate()` overload operate over `globalSources()` only. The no-argument form
+    discovers only those sources. The legacy string and caller-supplied-array forms first resolve
+    EVERY requested canonical file to its registered source and reject the WHOLE request with
+    `MigrationScopeException` if any file belongs to a non-global descriptor; no earlier allowed
+    file may run before that validation completes. `migrateSources()` is the sole intentional,
+    named scoped bypass used by the executor. With no policy set, the compatibility behavior is
+    unchanged;
   - `runMigration()`: on transactional-DDL drivers (`pgsql`, `sqlite`) the migration's `up()` AND
     its ledger insert run in one transaction — failure rolls back both (no partial DDL without a
     receipt); on other drivers behavior is unchanged and the outcome row carries
@@ -681,7 +719,10 @@ final class MigrationRunReport
   `requiresManualRepair` true via a driver-name seam stub, false for sqlite; global policy: a
   registered `on_enable` descriptor whose package the policy closure reports DISABLED does not
   appear in `getPendingMigrations()` and global `migrate()` does not apply it, while an enabled
-  one and a `core` descriptor do (a disabled extension's schema stays uncreated by `migrate:run`).
+  one and a `core` descriptor do (a disabled extension's schema stays uncreated by `migrate:run`);
+  `migrate($disabledFile)` and a mixed `migrate([$allowedFile, $disabledFile])` both throw
+  `MigrationScopeException` BEFORE any DDL/receipt, while `migrateSources([$disabledSource])`
+  remains the explicit executor path.
 - [ ] **Step 2: Run to verify failure.**
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run to verify pass** + full `tests/Unit/Database/Migrations` + `tests/Integration/Database/Migrations`.
@@ -767,12 +808,17 @@ final class MigrationRunReport
   refusal at line 55; `--dry-run`/`--backup` forwarded to the executor)
 - Modify: `src/Console/Commands/Extensions/DisableCommand.php` (same; line 56)
 - Modify: `src/Console/Commands/Migrate/RunCommand.php` (serialize ordinary migration: acquire
-  the migration lock over `globalSources()`, take a FRESH pending read inside the lock — the
-  pre-lock status read at RunCommand.php:88 is display-only — run the migration, `finally`
-  release; two concurrent `migrate:run`/provision/enable processes can no longer race)
+  one `$sourceSnapshot = globalSources()`, acquire the migration lock over THAT snapshot, then take
+  a FRESH `pendingForSources($sourceSnapshot)` read inside the lock — the pre-lock status read at
+  RunCommand.php:88 is display-only — run only those returned files, `finally` release. Never call
+  `globalSources()` again inside the custody window: an extension enabled after the snapshot was
+  not locked and therefore must not join this run; its enable executor migrates it)
+- Modify: `src/Installer/Installer.php` (use Task 7's `MigrationLockFactory` with the SAME injected
+  preflight connection; acquire source `app`, take a fresh pending read, migrate, finally release)
 - Modify: `src/Controllers/ExtensionsController.php:89-145` (executor; keep `audit()`, add the
   operation id/status to the audit row and the response payload)
 - Test: `tests/Unit/Console/Extensions/EnableThroughExecutorTest.php`
+- Test: `tests/Unit/Installer/InstallerMigrationLockTest.php`
 
 **Interfaces:**
 - Consumes: Task 10's executor, resolved lazily inside `execute()`/action methods (never constructors).
@@ -783,8 +829,12 @@ final class MigrationRunReport
   their remedies, exit `FAILURE`/HTTP 409.
 
 - [ ] **Step 1: Write the failing tests** — `APP_ENV=production`: no refusal, spy executor invoked;
-  `RunCommand` acquires and releases the migration lock around a fresh in-lock pending read (spy
-  lock + spy manager call order);
+  `RunCommand` acquires and releases the migration lock around a fresh in-lock pending read over
+  the exact captured source snapshot (spy lock + spy manager call order); mutate the enabled-set
+  closure immediately after lock acquisition and assert the newly enabled, therefore-unlocked
+  source is NOT read or migrated in that run; Installer contending on an already-held `app` lock refuses
+  before migration, and releases its own lock after both success and failure (this is what makes
+  the migrate:run/provision/enable serialization claim true for every framework operation path);
   `--dry-run`/`--backup` reach the executor arguments; failure path prints `failed_migration`;
   bootstrap exception renders its remedy; controller `enable()` returns the operation payload and
   writes the audit row with the operation id.
@@ -814,6 +864,7 @@ enum AdoptionState: string { case Ready = 'ready'; case Adoptable = 'adoptable';
 
 interface StructuralVerifierInterface
 {
+    /** Must equal the descriptor source that names this verifier. */
     public function source(): string;
     public function verify(\Glueful\Database\Connection $db, string $migrationBasename): bool;
 }
@@ -835,7 +886,10 @@ interface StructuralVerifierInterface
   and `adopt()` refuses with "run a migrate operation first" — only migrate operations create the
   ledger. Verifiers are discovered from the MANIFEST, not the container: each descriptor's
   `$verifierClass` (Tasks 1/2) is instantiated directly (`new $verifierClass()`) after checking
-  `class_exists` + `implements StructuralVerifierInterface` — composer autoload ships tier-2 code
+  `class_exists` + `implements StructuralVerifierInterface`. A verifier MUST be an instantiable
+  class with a public zero-required-argument constructor, and its `source()` MUST exactly equal the
+  descriptor's `source()`; otherwise classification is Divergent before `verify()` runs. Composer
+  autoload ships tier-2 code
   regardless of enablement, so a DISABLED extension's verifier is still discoverable, exactly when
   adoption needs it (a container tag from an unbooted provider would not exist). A declared
   verifier class that does not exist or does not implement the interface classifies the descriptor
@@ -847,7 +901,9 @@ interface StructuralVerifierInterface
   receipts atomically with current sha256; adopt refuses non-Adoptable; a re-verification failure
   during adopt writes zero rows (atomicity); ledger-absent database: classify works without
   querying the missing table (zero DDL, no error) and adopt refuses with the migrate-first remedy;
-  lock acquired and released (spy).
+  lock acquired and released (spy); declared verifier class missing, wrong-interface class,
+  constructor-with-required-argument, and verifier-source mismatch each classify Divergent with a
+  precise reason and never call/write a receipt.
 - [ ] **Step 2: Run to verify failure.**
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run to verify pass.**
@@ -883,14 +939,16 @@ interface StructuralVerifierInterface
 - Modify: `ROADMAP.md` only if it lists schema work (check; skip otherwise)
 
 - [ ] **Step 1: Write the changelog entry** — Added (descriptor contract, `migrationDescriptors()` +
-  undeclared listing, inventory with framework built-ins, readiness, normalization, bootstrap-safe
-  locks, `migrateSources` report, operation table + executor, `migrate:verify`/adopt,
+  undeclared listing, manifest-owned structural-verifier metadata, inventory with framework
+  built-ins, readiness, normalization, bootstrap-safe locks, `migrateSources` report, operation
+  table + executor, `migrate:verify`/adopt,
   `migrate:normalize-receipts`); Changed (**UPGRADE NOTE, prominent:** run `php glueful migrate:run`
   once after upgrading, before any extension enable — the operation ledger is a new core migration;
   core leaves now provision unconditionally — name all seven plus `extensions`; production
   enable/disable now allowed with authority/CSRF/audit controls; `loadMigrationsFrom()` validates
-  descriptor-covered paths); Fixed (per-migration transaction closes the partial-DDL-without-receipt
-  gap). Compatibility: packages without manifest declarations boot unchanged, and legacy global
+  descriptor-covered paths; global migrate/provision operations are source-locked and global runs
+  skip disabled `on_enable` descriptors); Fixed (per-migration transaction closes the
+  partial-DDL-without-receipt gap). Compatibility: packages without manifest declarations boot unchanged, and legacy global
   `migrate:run` still executes their appended paths; the NEW schema-on-enable, readiness,
   normalization, and adoption operations fail closed on them.
 - [ ] **Step 2: Run the full gates**
@@ -904,10 +962,9 @@ composer phpcs                              # expect: no errors
 - [ ] **Step 3: Commit** — `git commit -m "docs: 1.79.0 changelog — schema-on-enable framework program"`
 - [ ] **Step 4: Merge to dev locally** (`git checkout dev && git merge --ff-only <branch>`); publication and release timing relative to Plans 2/3 are the human's call.
 
-## Self-review (completed; third pass applied the second review round: factory-registers-all
-inventory, provider-owned bypass closure, try-lock bounded waits + partial-acquisition rollback +
-MySQL named locks, verification-must-pass adoption with atomic re-verified writes, manifest shape
-rules, ledger-absent guards, and the narrowed fail-closed compatibility claim)
+## Self-review (completed; fourth review round additionally pins the verifier field in executable
+code, orders global policy before factory wiring, locks Installer as well as RunCommand, rejects
+every explicit global-migrate scope bypass, and closes verifier construction/source identity)
 
 - **Review findings addressed:** compatibility stance rewritten (undeclared = bootable, schema-ops
   fail closed) — Tasks 2/3/6/10; framework built-ins in the sole inventory — Tasks 3/5/10;
