@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- `glueful/framework` requirement raised to `^1.78.4`: application boot performs no schema
+  work at all — migration discovery and registration are database-free, and only an actual
+  `migrate` operation creates the migrations ledger. (Beta.2's framework fix covered the
+  migrate commands; this closes the remaining boot path through extension providers.)
+
 ### Fixed
 - **Provision accepts passwordless (trust/peer-auth) PostgreSQL**: `thallo:provision -n`
   refused any empty password, so the common local trust-auth setup could not pass validation
