@@ -12,8 +12,8 @@ and CLI/HTTP wiring through one executor.
 readiness, normalization, and the enable executor. Framework core leaves become built-in
 descriptors in the same inventory (their existing receipt sources preserved verbatim).
 `MigrationManager` gains source-scoped pending/migrate APIs but keeps its lazy-ledger contract
-(1.78.4). Locking is schema-independent (pg advisory / file), never the configured
-`LockManager`. `ExtensionStateWriter` becomes executor-internal.
+(1.78.4). Locking is schema-independent (pg advisory / mysql named lock / file), never the
+configured `LockManager`. `ExtensionStateWriter` becomes executor-internal.
 
 **Compatibility stance (corrects the earlier claim):** an installed Glueful package that has
 NOT adopted the manifest contract stays fully bootable — projection never throws for mere
@@ -56,7 +56,10 @@ ships and pins the real APIs.
 - Consumes: `Glueful\Database\Migrations\MigrationPriority` constants (existing).
 - Produces: `DescriptorMode::Core|OnEnable` (string-backed `'core'|'on_enable'`);
   `MigrationDescriptor` readonly VO with
-  `__construct(string $id, string $package, string $packageType, string $relativePath, int $priority, DescriptorMode $mode, array $legacyAliases = [])`,
+  `__construct(string $id, string $package, string $packageType, string $relativePath, int $priority, DescriptorMode $mode, array $legacyAliases = [], ?string $verifierClass = null)`
+  (`$verifierClass`: optional FQCN of the descriptor's structural verifier — manifest-declared so
+  adoption can discover it even while the owning extension is disabled; syntax-validated at
+  construction, class-existence checked at use),
   `source(): string` (returns `$package . ':' . $id` unless `$id === 'default'`, then `$package`),
   `absolutePath(string $packageDir): string` — **canonical containment**: both `realpath($packageDir)`
   and `realpath($joined)` must resolve, and the resolved path must sit inside the resolved package
@@ -178,6 +181,20 @@ final class MigrationDescriptorTest extends TestCase
         $this->expectException(DescriptorValidationException::class);
         $this->descriptor(aliases: ['legacy', 'legacy']);
     }
+
+    public function testVerifierClassMustLookLikeAnFqcnWhenGiven(): void
+    {
+        $this->expectException(DescriptorValidationException::class);
+        new MigrationDescriptor(
+            id: 'default',
+            package: 'acme/widgets',
+            packageType: 'glueful-extension',
+            relativePath: 'migrations',
+            priority: MigrationPriority::DEFAULT,
+            mode: DescriptorMode::OnEnable,
+            verifierClass: 'not a class name',
+        );
+    }
 }
 ```
 
@@ -287,7 +304,7 @@ final class MigrationDescriptor
 }
 ```
 
-- [ ] **Step 4: Run to verify pass** (10 tests).
+- [ ] **Step 4: Run to verify pass** (all listed cases).
 - [ ] **Step 5: Commit** — `git add src/Extensions/Schema tests/Unit/Extensions/Schema && git commit -m "feat(extensions): migration descriptor VO with canonical path containment"`
 
 ---
@@ -295,7 +312,7 @@ final class MigrationDescriptor
 ### Task 2: `PackageManifest::migrationDescriptors()` — declared projection + undeclared listing
 
 **Files:**
-- Modify: `src/Extensions/PackageManifest.php` (append two methods; do not touch `getCandidates()`)
+- Modify: `src/Extensions/PackageManifest.php` (append three methods; do not touch `getCandidates()`)
 - Test: `tests/Unit/Extensions/Schema/ManifestMigrationDescriptorsTest.php`
 
 **Interfaces:**
@@ -316,7 +333,8 @@ final class MigrationDescriptor
 ```json
 "migrations": [
   { "id": "default", "path": "migrations", "priority": "dependent",
-    "mode": "on_enable", "legacyAliases": ["acme-widgets"] }
+    "mode": "on_enable", "legacyAliases": ["acme-widgets"],
+    "verifier": "Acme\\Widgets\\Schema\\WidgetsStructuralVerifier" }
 ]
 ```
 
@@ -341,7 +359,7 @@ final class MigrationDescriptor
 - [ ] **Step 2: Run to verify failure.**
 - [ ] **Step 3: Implement** (projection loop as in the JSON shape above; absence → collect name into
   the undeclared list instead of throwing).
-- [ ] **Step 4: Run to verify pass** (7 tests).
+- [ ] **Step 4: Run to verify pass** (all listed cases; `verifier` maps to `$verifierClass`).
 - [ ] **Step 5: Commit** — `git commit -m "feat(extensions): manifest migration projection — declared descriptors plus undeclared listing, malformed fails closed"`
 
 ---
@@ -379,13 +397,16 @@ final class MigrationDescriptor
   - Fail-closed construction rules: duplicate descriptor **sources**, duplicate **canonical paths**,
     an alias claimed twice, an alias equal to any live source, a declared path that does not
     resolve (via `absolutePath()`), a path whose `filesOf()` is empty (message: “an empty schema
-    declares migrations: none”), or **duplicate migration basenames within one descriptor**
-    (ledger identity is `(source, basename)`) — all throw `DescriptorValidationException` naming
-    every claimant.
+    declares migrations: none”), **duplicate migration basenames within one descriptor**
+    (ledger identity is `(source, basename)`), or — because `FileFinder` discovery is recursive —
+    **one descriptor's canonical path being an ancestor or descendant of another's** (a nested
+    file would enter the batch twice under two sources) — all throw
+    `DescriptorValidationException` naming every claimant.
 
 - [ ] **Step 1: Write the failing tests** — real temp package dirs, each with `migrations/` and
   dummy `NNN_*.php` files (nested subdir in one fixture to prove recursive discovery matches
-  runtime). One test per fail-closed rule above (8), plus: framework built-ins are present with
+  runtime). One test per fail-closed rule above — including two descriptors at `migrations/` and
+  `migrations/tenant/` of the same fixture package rejected as ancestor/descendant — plus: framework built-ins are present with
   the exact legacy sources; `isDeclared()` false for an undeclared package; `filesOf()` returns the
   nested file.
 - [ ] **Step 2: Run to verify failure.**
@@ -413,15 +434,20 @@ final class MigrationDescriptor
     the subset of `getPendingMigrations()` belonging to the given sources, in global priority
     order (the executor's "pending files for these descriptors" API — P1 fix);
   - `loadMigrationsFrom()` new behavior (bypass-proof): when the container has a
-    `DescriptorInventory`, resolve the calling provider's owning package via
-    `packageOfProvider(static::class)`.
+    `DescriptorInventory`, resolve the calling provider's owning package — the declared
+    `packageOfProvider(static::class)` map is only the fast path; on a miss, ownership is resolved
+    by **file containment**: `realpath((new \ReflectionClass(static::class))->getFileName())`
+    matched against the inventory's canonical `installPaths()` roots (longest-prefix wins). A
+    second, undeclared ServiceProvider class shipped inside a declared package therefore still
+    answers to that package's manifest. Only a provider whose file lies in no installed package
+    root (an app-local provider) is ownerless.
     - Owning package **declared**: the dir's canonical path must equal one of that package's
       descriptors' `pathOf()`; then VALIDATE (call-site source+priority must match exactly;
       mismatch throws `DescriptorValidationException`) and return WITHOUT registering — the
       container factory (Task 5) is the only registrar. A declared package registering any path
       its manifest does not describe — including a package that declared `migrations: none` —
       throws `DescriptorValidationException` (a declared manifest cannot be bypassed).
-    - Owning package **undeclared** (or provider unknown to the manifest): legacy append,
+    - Owning package **undeclared**, or provider ownerless (app-local): legacy append,
       unchanged — bootable.
 
 - [ ] **Step 1: Write the failing tests** (sqlite lazy-ledger harness):
@@ -430,7 +456,10 @@ final class MigrationDescriptor
   - mismatched source in the legacy call throws;
   - a provider whose package declared `migrations: none` calling `loadMigrationsFrom()` throws;
   - a declared package registering a second, undescribed path throws;
+  - a SECOND provider class inside a declared package's install root (not the manifest-named
+    provider) registering an undescribed path throws (file-containment ownership);
   - a provider from an UNDECLARED package still appends (legacy compatibility);
+  - an app-local provider (file outside every package root) still appends;
   - `pendingForSources(['a'])` returns only source-a files, each row carrying `file` + `source`;
   - `registerDescriptor()` + `pendingForSources()` on a ledger-less DB: zero tables afterwards.
 - [ ] **Step 2: Run to verify failure.**
@@ -509,6 +538,7 @@ final class MigrationDescriptor
 **Files:**
 - Create: `src/Extensions/Schema/MigrationLockInterface.php`
 - Create: `src/Extensions/Schema/PgsqlAdvisoryMigrationLock.php`
+- Create: `src/Extensions/Schema/MysqlNamedMigrationLock.php`
 - Create: `src/Extensions/Schema/FileMigrationLock.php`
 - Test: `tests/Unit/Extensions/Schema/MigrationLockTest.php`
 
@@ -542,7 +572,9 @@ final class MigrationLockHandle { public function release(): void; }
   - `FileMigrationLock`: `flock()` on `storage/framework/locks/schema-<sha1(source)>.lock` —
     used for sqlite/local operation and tests only.
   - Selection by `Connection` driver: pgsql → advisory; mysql → named lock; otherwise file. Every
-    schema operation (Tasks 8/10/12 callers) wraps work in `try { … } finally { $handle->release(); }`.
+    schema operation — normalization (Task 8), **ordinary global migration (Task 9's `migrate()`
+    path via the Task 11 `RunCommand` wiring)**, the executor (Task 10), adoption (Task 12) —
+    wraps work in `try { … } finally { $handle->release(); }`.
 
 - [ ] **Step 1: Write the failing tests** — sorted acquisition order observable via a spy subclass;
   partial-acquisition rollback: a spy whose source-2 acquire fails must see source-1 released
@@ -624,6 +656,16 @@ final class MigrationRunReport
   - `MigrationManager::migrateSources(array $sources): MigrationRunReport` — ensures the ledger,
     then runs exactly `pendingForSources($sources)` in order, stopping at the first failure
     (later files stay pending);
+  - **Global source policy (P1 fix — a global run must not apply disabled extensions):**
+    `MigrationManager::setGlobalSourcePolicy(callable $enabledPackages): void` — the factory
+    (Task 5) injects a closure returning the currently-enabled package names (computed from
+    `EnabledProviders::from()` + the candidates' provider→package map at CALL time, not boot
+    time). `globalSources(): array` = the app source + every non-descriptor (legacy-appended)
+    source + all `core` descriptor sources + `on_enable` descriptor sources whose package the
+    closure reports enabled. `getPendingMigrations()` and global `migrate()` operate over
+    `globalSources()` only; `pendingForSources()`/`migrateSources()` remain explicit and
+    unfiltered (the executor's tool). With no policy set (bare constructions, tests, legacy),
+    all registered sources are global — today's behavior;
   - `runMigration()`: on transactional-DDL drivers (`pgsql`, `sqlite`) the migration's `up()` AND
     its ledger insert run in one transaction — failure rolls back both (no partial DDL without a
     receipt); on other drivers behavior is unchanged and the outcome row carries
@@ -636,7 +678,10 @@ final class MigrationRunReport
   throws → afterwards NO table and NO receipt (the exact partial state the spec bans — this fails
   today); happy path → table + receipt; `migrateSources(['a'])` applies only source-a files and the
   report rows carry file/source/status; stop-at-first-failure leaves later files pending;
-  `requiresManualRepair` true via a driver-name seam stub, false for sqlite.
+  `requiresManualRepair` true via a driver-name seam stub, false for sqlite; global policy: a
+  registered `on_enable` descriptor whose package the policy closure reports DISABLED does not
+  appear in `getPendingMigrations()` and global `migrate()` does not apply it, while an enabled
+  one and a `core` descriptor do (a disabled extension's schema stays uncreated by `migrate:run`).
 - [ ] **Step 2: Run to verify failure.**
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run to verify pass** + full `tests/Unit/Database/Migrations` + `tests/Integration/Database/Migrations`.
@@ -653,6 +698,9 @@ final class MigrationRunReport
 - Create: `src/Extensions/Schema/ExtensionOperation.php`
 - Create: `src/Extensions/Schema/SchemaNotBootstrappedException.php`
 - Create: `src/Extensions/Schema/ExtensionSchemaExecutor.php`
+- Modify: `src/Container/Providers/CoreProvider.php` (register the executor as a lazy
+  `FactoryDefinition` — this container does not autowire unknown ids, so without an explicit
+  definition Task 11's resolution would fail)
 - Test: `tests/Integration/Extensions/ExtensionSchemaExecutorTest.php`
 
 **Interfaces:**
@@ -662,7 +710,11 @@ final class MigrationRunReport
 - Produces: table `extension_operations`
   `(id, package, operation enable|disable, step, status running|succeeded|failed|manual_repair|enabled_cache_stale, actor, failed_migration nullable, error nullable, created_at, updated_at)`;
   `ExtensionOperation` row VO with those fields;
-  `ExtensionSchemaExecutor::__construct(ApplicationContext $context, DescriptorInventory $inventory, MigrationManager $manager, SchemaReadiness $readiness, MigrationLockInterface $lock, ExtensionStateWriter $writer)`;
+  `ExtensionSchemaExecutor::__construct(ApplicationContext $context, DescriptorInventory $inventory, MigrationManager $manager, SchemaReadiness $readiness, MigrationLockInterface $lock)`
+  — the executor constructs its `ExtensionStateWriter` INTERNALLY (`new ExtensionStateWriter()`
+  in its constructor): the writer needs no configuration, no other binding for it exists, and the
+  Task 13 architecture test forbids the class token anywhere else — including in a container
+  provider, which is why it must not be a constructor parameter;
   `enable(string $package, string $actor, bool $dryRun = false, bool $backup = false): ExtensionOperation`;
   `disable(string $package, string $actor, bool $dryRun = false, bool $backup = false): ExtensionOperation`.
 
@@ -714,6 +766,10 @@ final class MigrationRunReport
 - Modify: `src/Console/Commands/Extensions/EnableCommand.php` (executor; delete the production
   refusal at line 55; `--dry-run`/`--backup` forwarded to the executor)
 - Modify: `src/Console/Commands/Extensions/DisableCommand.php` (same; line 56)
+- Modify: `src/Console/Commands/Migrate/RunCommand.php` (serialize ordinary migration: acquire
+  the migration lock over `globalSources()`, take a FRESH pending read inside the lock — the
+  pre-lock status read at RunCommand.php:88 is display-only — run the migration, `finally`
+  release; two concurrent `migrate:run`/provision/enable processes can no longer race)
 - Modify: `src/Controllers/ExtensionsController.php:89-145` (executor; keep `audit()`, add the
   operation id/status to the audit row and the response payload)
 - Test: `tests/Unit/Console/Extensions/EnableThroughExecutorTest.php`
@@ -727,6 +783,8 @@ final class MigrationRunReport
   their remedies, exit `FAILURE`/HTTP 409.
 
 - [ ] **Step 1: Write the failing tests** — `APP_ENV=production`: no refusal, spy executor invoked;
+  `RunCommand` acquires and releases the migration lock around a fresh in-lock pending read (spy
+  lock + spy manager call order);
   `--dry-run`/`--backup` reach the executor arguments; failure path prints `failed_migration`;
   bootstrap exception renders its remedy; controller `enable()` returns the operation payload and
   writes the audit row with the operation id.
@@ -761,7 +819,8 @@ interface StructuralVerifierInterface
 }
 ```
 
-  `AdoptionService::__construct(Connection $db, DescriptorInventory $inventory, SchemaReadiness $readiness, MigrationLockInterface $lock, array $verifiers /* source => StructuralVerifierInterface */)`;
+  `AdoptionService::__construct(Connection $db, DescriptorInventory $inventory, SchemaReadiness $readiness, MigrationLockInterface $lock)`
+  (verifiers come from the descriptors themselves — see the discovery rule below);
   `classify(): array<string, array{state: AdoptionState, reasons: list<string>}>` — mapping:
   readiness Ready → `Ready`; readiness Pending: **run the registered verifier for every missing
   basename** — all pass → `Adoptable`, any refusal → `Divergent` (reason names the failing
@@ -774,8 +833,13 @@ interface StructuralVerifierInterface
   existing rows are never touched; nothing is ever dropped. When the migration ledger table is
   absent, `classify()` derives states from an empty receipt set WITHOUT querying the missing table
   and `adopt()` refuses with "run a migrate operation first" — only migrate operations create the
-  ledger. Verifiers are container services tagged
-  `schema.verifier.{source}` (Plans 2/3 ship the real ones).
+  ledger. Verifiers are discovered from the MANIFEST, not the container: each descriptor's
+  `$verifierClass` (Tasks 1/2) is instantiated directly (`new $verifierClass()`) after checking
+  `class_exists` + `implements StructuralVerifierInterface` — composer autoload ships tier-2 code
+  regardless of enablement, so a DISABLED extension's verifier is still discoverable, exactly when
+  adoption needs it (a container tag from an unbooted provider would not exist). A declared
+  verifier class that does not exist or does not implement the interface classifies the descriptor
+  Divergent with that reason. Plans 2/3 ship the real verifier classes.
 
 - [ ] **Step 1: Write the failing tests** — classification truth table across five fixture
   descriptors (Ready / Pending+verifier-passes → Adoptable / Pending+verifier-fails → Divergent
