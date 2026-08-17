@@ -89,14 +89,14 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
     public function testRequiredFieldErrorsIsEmptyForCompleteConfig(): void
     {
         $cfg = new DatabaseConfig('pgsql', 'localhost', 5432, 'thallo', 'u', 'p');
-        self::assertSame([], (new PgsqlDatabaseConfigFactory())->requiredFieldErrors($cfg));
+        self::assertSame([], (new PgsqlDatabaseConfigFactory())->requiredFieldErrors($cfg, passwordProvided: true));
     }
 
     public function testRequiredFieldErrorsListsEveryMissingOrInvalidField(): void
     {
         // Empty host/db/user/pass and a zero port (what fromEnv yields from a blank/partial .env).
         $cfg = new DatabaseConfig('pgsql', '', 0, '', '', '');
-        $errors = (new PgsqlDatabaseConfigFactory())->requiredFieldErrors($cfg);
+        $errors = (new PgsqlDatabaseConfigFactory())->requiredFieldErrors($cfg, passwordProvided: false);
 
         self::assertCount(5, $errors);
         foreach (['host', 'port', 'database', 'username', 'password'] as $field) {
@@ -127,12 +127,67 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
         self::assertSame(0, $cfg->port, 'a non-numeric port becomes 0, not 5432');
         self::assertNotEmpty(
             array_filter(
-                $factory->requiredFieldErrors($cfg),
+                $factory->requiredFieldErrors($cfg, passwordProvided: true),
                 static fn (string $e): bool => str_starts_with($e, 'port'),
             ),
             'an invalid port must fail loudly',
         );
 
         @unlink($path);
+    }
+
+    public function testFromEnvDefaultsHostOnlyWhenAbsent(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'env');
+        self::assertIsString($path);
+        file_put_contents($path, "");
+        $env = new EnvWriter($path);
+        $env->setMany([
+            'DB_PGSQL_DATABASE' => 'thallo',
+            'DB_PGSQL_USERNAME' => 'u',
+        ]);
+
+        $cfg = (new PgsqlDatabaseConfigFactory())->fromEnv($env);
+        self::assertSame('localhost', $cfg->host, 'absent host defaults to localhost');
+
+        $env->setMany(['DB_PGSQL_HOST' => '']);
+        $cfg = (new PgsqlDatabaseConfigFactory())->fromEnv($env);
+        self::assertSame('', $cfg->host, 'an explicitly empty host must stay invalid, not default');
+
+        @unlink($path);
+    }
+
+    public function testPasswordProvidedInEnvDistinguishesAbsentFromExplicitlyEmpty(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'env');
+        self::assertIsString($path);
+        file_put_contents($path, "");
+        $env = new EnvWriter($path);
+        $factory = new PgsqlDatabaseConfigFactory();
+
+        self::assertFalse($factory->passwordProvidedInEnv($env), 'absent line means not provided');
+
+        $env->setMany(['DB_PGSQL_PASSWORD' => '']);
+        self::assertTrue($factory->passwordProvidedInEnv($env), 'a present-but-empty line means "none", provided');
+
+        $env->setMany(['DB_PGSQL_PASSWORD' => 'pw']);
+        self::assertTrue($factory->passwordProvidedInEnv($env));
+
+        @unlink($path);
+    }
+
+    public function testProvidedEmptyPasswordValidatesForTrustAuth(): void
+    {
+        $factory = new PgsqlDatabaseConfigFactory();
+        $cfg = new DatabaseConfig('pgsql', 'localhost', 5432, 'thallo', 'postgres', '');
+
+        self::assertSame([], $factory->requiredFieldErrors($cfg, passwordProvided: true));
+        self::assertNotEmpty(
+            array_filter(
+                $factory->requiredFieldErrors($cfg, passwordProvided: false),
+                static fn (string $e): bool => str_starts_with($e, 'password'),
+            ),
+            'an unprovided password must still refuse',
+        );
     }
 }

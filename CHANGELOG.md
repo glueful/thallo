@@ -7,6 +7,15 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **Provision accepts passwordless (trust/peer-auth) PostgreSQL**: `thallo:provision -n`
+  refused any empty password, so the common local trust-auth setup could not pass validation
+  at all. Password *presence* is now tracked separately from its value — `--db-password=""`
+  or a present-but-empty `DB_PGSQL_PASSWORD=` line means "none" and validates; a fully absent
+  password still refuses. The host now defaults to `localhost` only when absent (an
+  explicitly empty host still fails), and the preflight connection test remains the real
+  arbiter of the credentials.
+
 ## [1.0.0-beta.2] - 2026-08-16 — Developer Preview
 
 Corrections from the beta.1 clean-machine artifact gate (tags are immutable — beta.1 stands
