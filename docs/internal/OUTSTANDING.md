@@ -98,6 +98,9 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
 
 ## Recently shipped
 
+- [x] **Framework: console boot eagerly opens a DB connection and runs DDL** — shipped 2026-08-16 in `glueful/framework` 1.78.3 (migrate commands resolve `MigrationManager` lazily in `execute()`; `php glueful list` works before the database does). Surfaced by the beta.1 artifact gate.
+- [x] **Framework: `hasTable()` is privilege-blind on PostgreSQL** — shipped 2026-08-16 in `glueful/framework` 1.78.3 (`tableExistsQuery` reads `pg_catalog.pg_tables`, which reports existence regardless of privileges). Surfaced by the beta.1 artifact gate.
+
 > Move ticked items here (newest first) with their ship date + spec link, so the sections
 > above stay focused on what's left.
 

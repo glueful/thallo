@@ -7,6 +7,28 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.2] - 2026-08-16 — Developer Preview
+
+Corrections from the beta.1 clean-machine artifact gate (tags are immutable — beta.1 stands
+as published; install from beta.2).
+
+### Fixed
+- **Fresh installs could not run any console command**: the framework console connected to the
+  `.env` database on boot, and the shipped `.env.example` pointed at a database name no
+  quickstart ever created. Fixed on both sides: `.env.example` now names the quickstart
+  database (`thallo`) and documents the credentials requirement, and `glueful/framework`
+  1.78.3 resolves migration services lazily so the console works before the database does.
+- **PostgreSQL table detection was privilege-blind**: a table owned by another role (e.g.
+  created during a mis-credentialed first boot) surfaced as an inexplicable "Duplicate
+  table" error. `glueful/framework` 1.78.3 reads `pg_catalog` instead of the
+  privilege-filtered information schema.
+
+### Changed
+- `glueful/framework` requirement raised to `^1.78.3` (carries both fixes above).
+- **Dependency advisories**: `league/commonmark` updated past its published advisories
+  (2.8.3 → 2.10.0). The one remaining `composer audit` finding is a dev-only tool
+  (`php_codesniffer`) that never ships in `--no-dev` installs.
+
 ## [1.0.0-beta.1] - 2026-08-15 — Developer Preview
 
 The initial public release: a self-hosted, composable CMS and commerce platform for
