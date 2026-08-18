@@ -20,7 +20,7 @@ final class PackManifestsTest extends TestCase
         'thallo-collections' => ['dependent', \Thallo\Collections\Schema\CollectionsSchemaVerifier::class],
         'thallo-commerce' => ['dependent', \Thallo\Commerce\Schema\CommerceLinkSchemaVerifier::class],
         'thallo-navigation' => ['dependent', \Thallo\Navigation\Schema\NavigationSchemaVerifier::class],
-        'thallo-render' => ['default', \Thallo\Render\Schema\RenderSchemaVerifier::class],
+        'thallo-render' => ['dependent', \Thallo\Render\Schema\RenderSchemaVerifier::class],
         'thallo-seo' => ['dependent', \Thallo\Seo\Schema\SeoSchemaVerifier::class],
         'thallo-tenancy' => ['dependent', \Thallo\Tenancy\Schema\TenancySchemaVerifier::class],
         'thallo-workflow' => ['dependent', \Thallo\Workflow\Schema\WorkflowSchemaVerifier::class],
