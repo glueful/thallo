@@ -5,6 +5,9 @@ import {
   useExtensionMutations,
   useExtensionReadme,
   extensionShortName,
+  schemaChipColor,
+  toggleBlockedReason,
+  failedMigrationOf,
   type InstalledExtension,
 } from '@/queries/extensions'
 import { useNotify } from '@/composables/useNotify'
@@ -17,6 +20,7 @@ const extensions = computed<InstalledExtension[]>(() => data.value ?? [])
 const selectedName = ref<string>()
 const selected = computed(() => extensions.value.find((e) => e.name === selectedName.value))
 const busy = computed(() => enable.isLoading.value || disable.isLoading.value)
+const blocked = computed(() => (selected.value ? toggleBlockedReason(selected.value) : null))
 const { data: readme, status: readmeStatus } = useExtensionReadme(() => selectedName.value)
 
 async function toggle(ext: InstalledExtension) {
@@ -29,7 +33,9 @@ async function toggle(ext: InstalledExtension) {
       success('Extension enabled', extensionShortName(ext.name))
     }
   } catch (e) {
-    notifyError(e, 'Could not update extension')
+    // A failed migration is the actionable part of a 409 — put its name in the title.
+    const failed = failedMigrationOf(e)
+    notifyError(e, failed ? `Migration failed: ${failed}` : 'Could not update extension')
   }
 }
 </script>
@@ -66,6 +72,14 @@ async function toggle(ext: InstalledExtension) {
             </p>
             <p class="truncate text-xs text-muted">{{ ext.version ?? '—' }}</p>
           </div>
+          <UBadge
+            v-if="ext.schema_state === 'divergent' || ext.schema_state === 'pending'"
+            :label="ext.schema_state"
+            :color="schemaChipColor(ext.schema_state)"
+            variant="subtle"
+            size="xs"
+            class="shrink-0"
+          />
           <UBadge
             :label="ext.enabled ? 'Enabled' : 'Disabled'"
             :color="ext.enabled ? 'success' : 'neutral'"
@@ -111,14 +125,17 @@ async function toggle(ext: InstalledExtension) {
               <p class="truncate text-sm text-muted">{{ selected.name }}</p>
             </div>
           </div>
-          <UButton
-            :label="selected.enabled ? 'Disable' : 'Enable'"
-            :color="selected.enabled ? 'neutral' : 'primary'"
-            :variant="selected.enabled ? 'outline' : 'solid'"
-            :icon="selected.enabled ? 'i-lucide-power-off' : 'i-lucide-power'"
-            :loading="busy"
-            @click="toggle(selected)"
-          />
+          <UTooltip :text="blocked ?? undefined" :disabled="!blocked">
+            <UButton
+              :label="selected.enabled ? 'Disable' : 'Enable'"
+              :color="selected.enabled ? 'neutral' : 'primary'"
+              :variant="selected.enabled ? 'outline' : 'solid'"
+              :icon="selected.enabled ? 'i-lucide-power-off' : 'i-lucide-power'"
+              :loading="busy"
+              :disabled="busy || blocked !== null"
+              @click="toggle(selected)"
+            />
+          </UTooltip>
         </header>
 
         <p v-if="selected.description" class="text-sm text-default">{{ selected.description }}</p>
@@ -131,6 +148,24 @@ async function toggle(ext: InstalledExtension) {
           <div>
             <dt class="text-xs text-muted">Status</dt>
             <dd class="text-sm text-default">{{ selected.enabled ? 'Enabled' : 'Disabled' }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-muted">Schema</dt>
+            <dd class="text-sm text-default">
+              <UBadge
+                :label="selected.schema_state"
+                :color="schemaChipColor(selected.schema_state)"
+                variant="subtle"
+                size="xs"
+              />
+            </dd>
+          </div>
+          <div v-if="selected.schema_reasons.length" class="col-span-2">
+            <dt class="text-xs text-muted">Schema notes</dt>
+            <dd class="text-sm text-default">
+              <p v-for="reason in selected.schema_reasons" :key="reason">{{ reason }}</p>
+              <code v-if="selected.cli_command" class="text-xs">{{ selected.cli_command }}</code>
+            </dd>
           </div>
           <div class="col-span-2">
             <dt class="text-xs text-muted">Provider</dt>
