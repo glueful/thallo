@@ -8,7 +8,6 @@ use App\Http\Controllers\CapabilityAdminController;
 use App\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Auth\ApiKey\ApiKeyService;
-use Glueful\Auth\UserIdentity;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;
@@ -20,11 +19,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Subscriptions\Engine\EngineGateway;
 use Thallo\Subscriptions\Http\EngineNativeRoutesDenied;
-use Thallo\Subscriptions\Http\MetaController;
-use Thallo\Subscriptions\Http\PlansController;
-use Thallo\Subscriptions\Http\SelfBillingController;
-use Thallo\Subscriptions\Settings\SelfServeCheckoutSetting;
-use Thallo\Tenancy\System\SystemFlags;
 
 /**
  * Task 12 (Phase B, final task): the capability/engine truth table (spec §7), composed
@@ -42,16 +36,13 @@ use Thallo\Tenancy\System\SystemFlags;
  *    capability -- disabling never un-registers it, only hides/gates it). Driven via a REAL
  *    second boot with `config/testing/thallo.php`'s `capabilities` override (mirrors
  *    `StorefrontInertnessTest`'s established `thallo.commerce` capability-off idiom).
- *  - capability ON + engine provider disabled: the routes ARE registered (the shell is visible --
- *    capability gate alone decides route registration) but every accessor the controllers resolve
- *    through {@see EngineGateway} throws, so `/meta` still reports 200 with `engine: engine_disabled`
- *    (never a 500) and an engine-backed action (`/plans` index) answers structured 409
- *    `{error: {details: {code: 'engine_disabled'}}}`. Driven via a REAL second boot with
- *    glueful/subscriptions' own provider filtered out of `config/extensions.php`'s enabled list --
- *    the exact `bootWithEngineProviderDisabled()` idiom {@see EngineGatewayTest} establishes
- *    (including its `array_replace_recursive` index-merge padding workaround), just resolving
- *    this pack's OWN controllers from that boot's container instead of hand-constructing a
- *    gateway.
+ *  - capability requested ON + engine provider disabled: since the owner-availability gate
+ *    (schema program Task 6), glueful/subscriptions OWNS `thallo.subscriptions` -- with the
+ *    engine off the capability is requested but unavailable, so EFFECTIVELY off: the boot gate
+ *    never loads this pack's routes and the surface answers exactly like Row 1, while the
+ *    registry names the package and the enable remedy. Driven via a REAL second boot with
+ *    glueful/subscriptions' own provider filtered out of `config/extensions.php`'s enabled list
+ *    (the `bootWithEngineProviderDisabled()` idiom {@see EngineGatewayTest} establishes).
  * Final-wave fix A extends all three rows with the ENGINE's own native `/subscriptions/plans*`
  * mounts ({@see self::ENGINE_NATIVE_ROUTES}): before that fix Row 1 claimed more than it proved --
  * "capability off ⇒ 404" held only for this pack's routes while glueful/subscriptions' unconditional
@@ -226,30 +217,19 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
     }
 
     // ==================================================================
-    // Row 2: capability ON, engine provider disabled -- shell visible, degraded honestly.
+    // Row 2: capability requested ON, engine provider disabled -- effectively OFF (spec B3).
     // ==================================================================
 
-    public function testCapabilityOnEngineDisabledMeansRoutesRespondWithMetaEngineDisabledAndActions409(): void
+    /**
+     * Since the owner-availability gate (schema program Task 6), `thallo.subscriptions` is OWNED
+     * by glueful/subscriptions: with the engine provider disabled the capability is REQUESTED but
+     * not AVAILABLE, so it is effectively off -- the boot gate never loads this pack's routes and
+     * the whole surface answers exactly like Row 1. The old "shell visible, controllers degrade
+     * through EngineGateway" posture now applies only to secondary integrations (Payvia);
+     * EngineGatewayTest keeps the gateway-level coverage.
+     */
+    public function testEngineDisabledMakesTheCapabilityEffectivelyOffDespiteBeingRequested(): void
     {
-        // Seeded through THIS process's connection (the same physical database the second boot
-        // below will read through its own, independent container) so SelfBillingController's
-        // `SingleStoreTenant::resolve()` has a real default workspace to resolve either way --
-        // fix round C1's own truth-table extension needs a workspace to exist for its `/meta`
-        // call to reach the engine-state branch at all, rather than 409ing on
-        // `default_workspace_missing` first.
-        $workspaceUuid = Utils::generateNanoID(12);
-        $this->tenantUuids[] = $workspaceUuid;
-        $this->connection()->table('tenants')->insert([
-            'uuid' => $workspaceUuid,
-            'slug' => 'truthtable-billing-' . strtolower(substr($workspaceUuid, 0, 6)),
-            'name' => 'Truth Table Billing Workspace',
-            'status' => 'active',
-        ]);
-        $this->container()->get(SystemFlags::class)->put('tenancy.default_tenant_uuid', $workspaceUuid);
-        // Enabled so checkout() reaches the engine-readiness check (the thing under test) rather
-        // than refusing earlier with `self_serve_disabled`.
-        $this->container()->get(SelfServeCheckoutSetting::class)->enable();
-
         $disabledEngineApp = $this->bootWithEngineProviderDisabled();
 
         try {
@@ -262,93 +242,54 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
                 'sanity: this boot really lacks the engine binding',
             );
 
-            // The capability itself is untouched -- still ON (this row's whole point: the
-            // capability gate and the engine gate are two independent seams).
+            $registry = $container->get(CapabilityRegistry::class);
+
+            // Still registered and still REQUESTED -- the switchboard was never touched...
+            $ids = array_map(static fn ($c): string => $c->id, $registry->all());
+            self::assertContains('thallo.subscriptions', $ids);
             self::assertTrue(
-                $container->get(CapabilityRegistry::class)->isEnabled('thallo.subscriptions'),
-                'the capability must stay enabled while only the engine provider is disabled',
+                $registry->isRequestedEnabled('thallo.subscriptions'),
+                'the switchboard still says on -- only availability changed',
             );
 
-            // The shell is visible: every route is still REGISTERED on this boot's router
-            // (capability gate alone decides registration, never the engine's own state).
+            // ...but the OWNER is disabled, so availability fails with the package + remedy...
+            $availability = $registry->availability('thallo.subscriptions');
+            self::assertFalse($availability->available);
+            self::assertStringContainsString('glueful/subscriptions', (string) $availability->reason);
+            self::assertSame('php glueful extensions:enable glueful/subscriptions', $availability->remedy);
+
+            // ...and EFFECTIVE state is requested AND available => off, everywhere at once.
+            self::assertFalse(
+                $registry->isEnabled('thallo.subscriptions'),
+                'engine disabled must make the capability effectively off',
+            );
+
+            // The boot gate therefore never loaded this pack's routes: the whole admin surface
+            // answers exactly like Row 1 (Render catch-all 404 for GET, router 405 otherwise).
             $routes = $container->get(Router::class)->getAllRoutes();
-            foreach (self::ALL_ROUTES as [$method, $path]) {
-                self::assertTrue(
-                    $this->routeIsRegistered($routes, $method, $path),
-                    "{$method} {$path} must stay registered while only the engine is disabled",
-                );
-            }
-
-            // /meta: 200 always, reporting engine_disabled -- never a 500.
-            $meta = $container->get(MetaController::class);
-            $metaResponse = $meta->show(Request::create('/', 'GET'));
-            self::assertSame(200, $metaResponse->getStatusCode());
-            $metaBody = json_decode((string) $metaResponse->getContent(), true);
-            self::assertIsArray($metaBody);
-            self::assertSame(EngineGateway::DISABLED, $metaBody['data']['engine']);
-
-            // Task 16 fix round (code review, Critical C1): the workspace billing API's OWN
-            // `/meta` must be equally 200-always -- it used to constructor-inject Payvia's
-            // ledger repositories and glueful/users' UserRepository directly, which would have
-            // made `container->get(SelfBillingController::class)` itself throw on THIS boot
-            // (glueful/subscriptions disabled means SubscriptionService, which
-            // WorkspaceCheckoutCoordinator depended on, is absent) before this line even ran.
-            $billing = $container->get(SelfBillingController::class);
-            self::assertInstanceOf(SelfBillingController::class, $billing);
-            $billingMetaResponse = $billing->meta(Request::create('/', 'GET'));
-            self::assertSame(200, $billingMetaResponse->getStatusCode(), (string) $billingMetaResponse->getContent());
-            $billingMetaBody = json_decode((string) $billingMetaResponse->getContent(), true);
-            self::assertIsArray($billingMetaBody);
-            self::assertSame(EngineGateway::DISABLED, $billingMetaBody['data']['engine']);
-            self::assertSame($workspaceUuid, $billingMetaBody['data']['workspace_uuid']);
-            self::assertNull($billingMetaBody['data']['subscription']);
-            self::assertSame([], $billingMetaBody['data']['purchasable_plans']);
-
-            // The checkout action: structured 409, code engine_disabled -- same posture as the
-            // platform PlansController check above, proving the workspace billing API degrades
-            // through the SAME EngineGateway seam.
-            $checkoutRequest = Request::create(
-                '/',
-                'POST',
-                [],
-                [],
-                [],
-                ['CONTENT_TYPE' => 'application/json'],
-                (string) json_encode(['plan_key' => 'irrelevant']),
-            );
-            $checkoutRequest->headers->set('Idempotency-Key', str_repeat('a', 20));
-            $checkoutRequest->attributes->set('auth.user', new UserIdentity(uuid: Utils::generateNanoID(12)));
-            $billingCheckoutResponse = $billing->checkout($checkoutRequest);
-            self::assertSame(409, $billingCheckoutResponse->getStatusCode());
-            $billingCheckoutBody = json_decode((string) $billingCheckoutResponse->getContent(), true);
-            self::assertIsArray($billingCheckoutBody);
-            self::assertSame('engine_disabled', $billingCheckoutBody['error']['details']['code'] ?? null);
-
-            // An engine-backed action: structured 409, code engine_disabled. PlansController's
-            // index() resolves the gateway as its very first step (no tenancy/workspace
-            // resolution ahead of it, unlike WorkspaceBillingController), so this is the cleanest
-            // proof of the degraded-action row.
-            $plans = $container->get(PlansController::class);
-            $plansResponse = $plans->index(Request::create('/', 'GET'));
-            self::assertSame(409, $plansResponse->getStatusCode());
-            $plansBody = json_decode((string) $plansResponse->getContent(), true);
-            self::assertIsArray($plansBody);
-            self::assertSame('engine_disabled', $plansBody['error']['details']['code'] ?? null);
-
-            // The engine's native plan API is absent here for the simplest possible reason: with its
-            // provider off, its own boot() never loads routes.php, and this pack deliberately does
-            // not pre-empt a file nobody is going to load (see
-            // EnginePreemptionServiceProvider::denyEngineNativePlanRoutes()). So they are
-            // genuinely unregistered -- the SAME Render-catch-all signature Row 1 documents for this
-            // pack's own routes: GET falls through the catch-all to a 404, a non-GET verb never
-            // matches its single GET registration so the router answers 405.
             $hit = static fn (string $method, string $path): int => (new Application($disabledEngineApp))->handle(
                 Request::create($path, $method, [], [], [], [
                     'CONTENT_TYPE' => 'application/json',
                     'HTTP_ACCEPT' => 'application/json',
                 ]),
             )->getStatusCode();
-            $routes = $container->get(Router::class)->getAllRoutes();
+            foreach (self::ALL_ROUTES as [$method, $template]) {
+                self::assertFalse(
+                    $this->routeIsRegistered($routes, $method, $template),
+                    "{$method} {$template} must not be registered while the owner engine is disabled",
+                );
+                $path = str_replace(['{key}', '{uuid}', '{entitlement}'], 'irrelevant', $template);
+                $expected = $method === 'GET' ? 404 : 405;
+                self::assertSame(
+                    $expected,
+                    $hit($method, $path),
+                    "{$method} {$path} must {$expected} while the owner engine is disabled",
+                );
+            }
+
+            // The engine's native plan API is equally absent: with its provider off, its own
+            // boot() never loads routes.php, and this pack deliberately does not pre-empt a file
+            // nobody is going to load (EnginePreemptionServiceProvider).
             foreach (self::ENGINE_NATIVE_ROUTES as [$method, $template]) {
                 self::assertFalse(
                     $this->routeIsRegistered($routes, $method, $template),

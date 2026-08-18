@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Capabilities\DefaultCapabilityRegistry;
+use App\Capabilities\ExtensionCapabilityAvailabilityResolver;
 use App\Setup\SetupService;
 use App\Content\Delivery\DeliveryRepository;
 use App\Content\Delivery\EngineMediaUrlResolver;
@@ -1960,7 +1961,10 @@ final class ThalloServiceProvider extends ServiceProvider
             // Pre-migration boot or DB down: the config map default stands.
         }
 
-        return new DefaultCapabilityRegistry($overrides);
+        return new DefaultCapabilityRegistry(
+            $overrides,
+            new ExtensionCapabilityAvailabilityResolver($context)
+        );
     }
 
     public static function makePathRenderer(ContainerInterface $container): PathRenderer
