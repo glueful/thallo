@@ -3,12 +3,26 @@
 ## The sequence (every upgrade)
 
 ```bash
-composer update
-php glueful migrate:run
+composer update \
+  && php glueful migrate:normalize-receipts \
+  && php glueful migrate:run \
+  && php glueful migrate:verify
 # clear compiled state — REQUIRED, not optional:
 php glueful extensions:cache   # or your cache-clear entry point
 rm -rf storage/cache/container_*.php storage/cache/routes_*.php
 ```
+
+**The order is load-bearing, and the `&&` chaining is part of the contract.**
+`migrate:normalize-receipts` rewrites migration receipts recorded under a pre-beta.3
+legacy ledger name (`thallo-*`, render's bare `migrations`) to their canonical
+package sources; it needs only the existing `migrations` table, so it runs before
+anything else touches the schema. If it refuses anything — a receipt whose checksum
+no longer matches the shipped file — it exits non-zero and the chain **stops before
+`migrate:run`**: running migrations while receipts still sit under a legacy alias
+would re-apply migrations that already ran. Repair the divergent receipt, re-run the
+sequence from `migrate:normalize-receipts` (it is idempotent), and only then let
+`migrate:run` apply what is genuinely new. `migrate:verify` confirms every declared
+migration source is Ready afterwards.
 
 Then read the release's section in [CHANGELOG.md](../CHANGELOG.md) for anything marked
 **Upgrade Notes**.
