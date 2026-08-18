@@ -1,25 +1,46 @@
 {
-  "name": "glueful/thallo-workflow",
-  "description": "Editorial approval workflow for Thallo: single-stage review state machine over draft/publish, as a removable capability pack.",
-  "type": "library",
-  "license": "MIT",
-  "authors": [
-    { "name": "Michael Tawiah Sowah", "email": "michael@glueful.dev" }
-  ],
-  "version": "0.1.0",
-  "require": {
-    "php": "^8.3",
-    "glueful/thallo-contracts": "*",
-    "glueful/extension-contracts": "*",
-    "glueful/framework": "^1.65.0"
-  },
-  "autoload": {
-    "psr-4": { "Thallo\\Workflow\\": "src/" }
-  },
-  "extra": {
-    "glueful": {
-      "provider": "Thallo\\Workflow\\WorkflowServiceProvider"
-    }
-  },
-  "minimum-stability": "stable"
+    "name": "glueful/thallo-workflow",
+    "description": "Editorial approval workflow for Thallo: single-stage review state machine over draft/publish, as a removable capability pack.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Michael Tawiah Sowah",
+            "email": "michael@glueful.dev"
+        }
+    ],
+    "version": "0.1.0",
+    "require": {
+        "php": "^8.3",
+        "glueful/thallo-contracts": "*",
+        "glueful/extension-contracts": "*",
+        "glueful/framework": "^1.65.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Thallo\\Workflow\\": "src/"
+        }
+    },
+    "extra": {
+        "glueful": {
+            "provider": "Thallo\\Workflow\\WorkflowServiceProvider",
+            "requires": {
+                "glueful": ">=1.79.0",
+                "extensions": []
+            },
+            "migrations": [
+                {
+                    "id": "default",
+                    "path": "migrations",
+                    "priority": "dependent",
+                    "mode": "core",
+                    "legacyAliases": [
+                        "thallo-workflow"
+                    ],
+                    "verifier": "Thallo\\Workflow\\Schema\\WorkflowSchemaVerifier"
+                }
+            ]
+        }
+    },
+    "minimum-stability": "stable"
 }

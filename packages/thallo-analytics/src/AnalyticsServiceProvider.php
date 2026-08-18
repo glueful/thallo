@@ -6,7 +6,6 @@ namespace Thallo\Analytics;
 
 use Glueful\Extensions\DeclaresLoadOrder;
 use Glueful\Bootstrap\ApplicationContext;
-use Glueful\Database\Migrations\MigrationPriority;
 use Glueful\Events\Auth\AuthenticationFailedEvent;
 use Glueful\Events\Auth\SessionCreatedEvent;
 use Glueful\Events\Auth\SessionDestroyedEvent;
@@ -110,11 +109,7 @@ final class AnalyticsServiceProvider extends ServiceProvider implements Declares
             description: 'Product-analytics fact store fed by lifecycle events.',
         ));
 
-        $this->loadMigrationsFrom(
-            __DIR__ . '/../migrations',
-            MigrationPriority::DEPENDENT,
-            'thallo-analytics',
-        );
+        // Migrations are declared by the composer manifest (extra.glueful.migrations).
 
         if ($registry->isEnabled('thallo.analytics')) {
             $events = app($context, EventService::class);

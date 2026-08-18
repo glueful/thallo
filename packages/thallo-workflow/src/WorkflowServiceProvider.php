@@ -6,7 +6,6 @@ namespace Thallo\Workflow;
 
 use Glueful\Extensions\DeclaresLoadOrder;
 use Glueful\Bootstrap\ApplicationContext;
-use Glueful\Database\Migrations\MigrationPriority;
 use Glueful\Events\EventService;
 use Glueful\Extensions\ServiceProvider;
 use Thallo\Contracts\Capability\Capability;
@@ -106,11 +105,7 @@ final class WorkflowServiceProvider extends ServiceProvider implements DeclaresL
             description: 'Single-stage editorial review over draft/publish.',
         ));
 
-        $this->loadMigrationsFrom(
-            __DIR__ . '/../migrations',
-            MigrationPriority::DEPENDENT,
-            'thallo-workflow',
-        );
+        // Migrations are declared by the composer manifest (extra.glueful.migrations).
 
         if ($registry->isEnabled('thallo.workflow')) {
             // Automatic transitions ride the CONTRACT lifecycle events (interface-typed
