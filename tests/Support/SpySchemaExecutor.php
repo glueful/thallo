@@ -41,6 +41,11 @@ final class SpySchemaExecutor extends ExtensionSchemaExecutor
         return $this->respond('disable', $package, $actor);
     }
 
+    public function migrateProtected(string $package, string $actor): ExtensionOperation
+    {
+        return $this->respond('protected_migrate', $package, $actor);
+    }
+
     private function respond(string $op, string $package, string $actor): ExtensionOperation
     {
         $this->calls[] = ['op' => $op, 'package' => $package, 'actor' => $actor];

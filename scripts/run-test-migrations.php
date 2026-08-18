@@ -70,6 +70,11 @@ $frameworkSources = [
     'scheduler' => 'glueful/framework:scheduler',
     'notifications' => 'glueful/framework:notifications',
     'metrics' => 'glueful/framework:metrics',
+    'locks' => 'glueful/framework:locks',
+    // The 1.79 extension-operations ledger: 1.80 provision applies it, so the test database
+    // must carry it too — the real ExtensionSchemaExecutor asserts this bootstrap before any
+    // operation (SchemaNotBootstrappedException otherwise).
+    'extensions' => 'glueful/framework:extensions',
 ];
 
 foreach ($frameworkSources as $dir => $source) {
