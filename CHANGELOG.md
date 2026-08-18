@@ -8,6 +8,13 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Changed
+- Dependency stack moved to the schema-on-enable releases: `glueful/framework` `^1.79`
+  (1.79.1 in the lock) and the adopted extension minors (aegis ^1.15, audit ^1.4,
+  commerce ^1.13, email-notification ^1.13, i18n ^1.2, import-export ^1.2, media ^1.2,
+  meilisearch ^1.7, payvia ^2.8, subscriptions ^2.3, tenancy ^2.1, users ^2.4) — the
+  Plan 2 pin-set of the schema policy program.
+
+### Changed
 - `glueful/framework` requirement raised to `^1.78.4`: application boot performs no schema
   work at all — migration discovery and registration are database-free, and only an actual
   `migrate` operation creates the migrations ledger. (Beta.2's framework fix covered the
