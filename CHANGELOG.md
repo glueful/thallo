@@ -7,7 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
-### Changed — the schema-on-enable program (beta.3)
+## [1.0.0-beta.3] - 2026-08-18 — Developer Preview
+
+The schema-on-enable release: schema exists exactly when the feature that owns it is
+provisioned or enabled — never as a side effect of boot — and every migration operation is
+locked, truthful, and recorded.
+
+### Changed — the schema-on-enable program
 
 - **BREAKING — pre-beta.3 installs are not upgradable in place.** Developer Preview builds up
   to `1.0.0-beta.2` recorded pack migration receipts under pre-manifest ledger names
