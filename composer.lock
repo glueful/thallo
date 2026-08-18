@@ -1597,7 +1597,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-analytics",
-                "reference": "ba5d0c163f0756e46d572fe7608826181468efd7"
+                "reference": "81918ae64f01c8283931b1f603e1bbf8ebb4ce3a"
             },
             "require": {
                 "glueful/extension-contracts": "*",
@@ -1619,9 +1619,6 @@
                             "path": "migrations",
                             "priority": "dependent",
                             "mode": "core",
-                            "legacyAliases": [
-                                "thallo-analytics"
-                            ],
                             "verifier": "Thallo\\Analytics\\Schema\\AnalyticsSchemaVerifier"
                         }
                     ]
@@ -1652,7 +1649,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-collections",
-                "reference": "4af234b36b85eeaed22f080acccc80fc2c335ee3"
+                "reference": "9338c2884fb943d55214eba0105bff5aa25e0249"
             },
             "require": {
                 "glueful/framework": "^1.64.0",
@@ -1674,9 +1671,6 @@
                             "path": "migrations",
                             "priority": "dependent",
                             "mode": "core",
-                            "legacyAliases": [
-                                "thallo-collections"
-                            ],
                             "verifier": "Thallo\\Collections\\Schema\\CollectionsSchemaVerifier"
                         }
                     ]
@@ -1707,7 +1701,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-commerce",
-                "reference": "30722b0a5af446c7c0f37a851b82ec2f70941457"
+                "reference": "44569750cdcaeec6bc646003da62d020e7a425ea"
             },
             "require": {
                 "glueful/commerce": "^1.12.0",
@@ -1734,9 +1728,6 @@
                             "path": "migrations",
                             "priority": "dependent",
                             "mode": "core",
-                            "legacyAliases": [
-                                "thallo-commerce"
-                            ],
                             "verifier": "Thallo\\Commerce\\Schema\\CommerceLinkSchemaVerifier"
                         }
                     ]
@@ -1846,7 +1837,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-navigation",
-                "reference": "0df176ce6db900c797e1324a017818d2a21a9d65"
+                "reference": "d51c3250b49200235e7b4cedee0bd3cf747588eb"
             },
             "require": {
                 "glueful/extension-contracts": "*",
@@ -1868,9 +1859,6 @@
                             "path": "migrations",
                             "priority": "dependent",
                             "mode": "core",
-                            "legacyAliases": [
-                                "thallo-navigation"
-                            ],
                             "verifier": "Thallo\\Navigation\\Schema\\NavigationSchemaVerifier"
                         }
                     ]
@@ -1901,7 +1889,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-render",
-                "reference": "c15441802d62502c1d31ebab756cb32ea966903a"
+                "reference": "f725b3754f0846a65391e2a8bee231af36246e2c"
             },
             "require": {
                 "glueful/framework": "^1.65.2",
@@ -1924,9 +1912,6 @@
                             "path": "migrations",
                             "priority": "default",
                             "mode": "core",
-                            "legacyAliases": [
-                                "migrations"
-                            ],
                             "verifier": "Thallo\\Render\\Schema\\RenderSchemaVerifier"
                         }
                     ]
@@ -2001,7 +1986,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-seo",
-                "reference": "eaa03d1dcb0d2ff240260e3df96602565c643bfb"
+                "reference": "de43c81de3f75dbe1ed84cf20c5c2d90c5ebb6ed"
             },
             "require": {
                 "glueful/extension-contracts": "*",
@@ -2024,9 +2009,6 @@
                             "path": "migrations",
                             "priority": "dependent",
                             "mode": "core",
-                            "legacyAliases": [
-                                "thallo-seo"
-                            ],
                             "verifier": "Thallo\\Seo\\Schema\\SeoSchemaVerifier"
                         }
                     ]
@@ -2105,7 +2087,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-tenancy",
-                "reference": "8d1fb2819818d63e128183eea6af14b3eddd13b4"
+                "reference": "4bb1aef8344949e13a7f2f5e175c3d7bdd2354a8"
             },
             "require": {
                 "glueful/extension-contracts": "*",
@@ -2127,9 +2109,6 @@
                             "path": "migrations",
                             "priority": "dependent",
                             "mode": "core",
-                            "legacyAliases": [
-                                "thallo-tenancy"
-                            ],
                             "verifier": "Thallo\\Tenancy\\Schema\\TenancySchemaVerifier"
                         }
                     ]
@@ -2160,7 +2139,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-workflow",
-                "reference": "23448c91def11d56e85f28e98c89c6491da877de"
+                "reference": "289c49311f65fbb72f1696a3a0df376f4e340b86"
             },
             "require": {
                 "glueful/extension-contracts": "*",
@@ -2182,9 +2161,6 @@
                             "path": "migrations",
                             "priority": "dependent",
                             "mode": "core",
-                            "legacyAliases": [
-                                "thallo-workflow"
-                            ],
                             "verifier": "Thallo\\Workflow\\Schema\\WorkflowSchemaVerifier"
                         }
                     ]

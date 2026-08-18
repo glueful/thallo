@@ -2,6 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Deviation (2026-08-18, user decision during execution):** the legacy-alias receipt
+> machinery was DROPPED after Task 3 completed — beta.2 is not running anywhere, so
+> beta.2 → beta.3 in-place upgrades are unsupported rather than normalized. Framework
+> 1.80.0 (pre-publication) removed `legacyAliases`/`ReceiptNormalizer`/
+> `migrate:normalize-receipts`; the pack manifests dropped their aliases; Task 3's
+> `Beta2UpgradeTest` was deleted; the dev database's 29 aliased receipts were rewritten
+> to canonical sources in place (checksum-verified, with the 8 pre-beta.2 drifted seed
+> receipts verifier-adopted). Every later mention of aliases/normalization in Tasks 4–11
+> is void.
+
 **Goal:** Thallo consumes the published schema-on-enable stack (framework 1.79.0 + the Plan 2
 pin-set), audits all 13 library packs and adopts the 12 that declare Glueful providers into the
 manifest contract with legacy aliases and receipt normalization, makes provision a locked and

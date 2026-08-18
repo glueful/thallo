@@ -35,9 +35,6 @@
                     "path": "migrations",
                     "priority": "dependent",
                     "mode": "core",
-                    "legacyAliases": [
-                        "thallo-seo"
-                    ],
                     "verifier": "Thallo\\Seo\\Schema\\SeoSchemaVerifier"
                 }
             ]

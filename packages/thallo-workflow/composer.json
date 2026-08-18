@@ -34,9 +34,6 @@
                     "path": "migrations",
                     "priority": "dependent",
                     "mode": "core",
-                    "legacyAliases": [
-                        "thallo-workflow"
-                    ],
                     "verifier": "Thallo\\Workflow\\Schema\\WorkflowSchemaVerifier"
                 }
             ]

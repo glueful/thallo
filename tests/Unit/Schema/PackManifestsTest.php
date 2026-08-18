@@ -15,19 +15,15 @@ use PHPUnit\Framework\TestCase;
 final class PackManifestsTest extends TestCase
 {
     private const SCHEMA_OWNING = [
-        // pack => [priority, alias, verifier FQCN]
-        'thallo-analytics' =>
-            ['dependent', 'thallo-analytics', \Thallo\Analytics\Schema\AnalyticsSchemaVerifier::class],
-        'thallo-collections' =>
-            ['dependent', 'thallo-collections', \Thallo\Collections\Schema\CollectionsSchemaVerifier::class],
-        'thallo-commerce' =>
-            ['dependent', 'thallo-commerce', \Thallo\Commerce\Schema\CommerceLinkSchemaVerifier::class],
-        'thallo-navigation' =>
-            ['dependent', 'thallo-navigation', \Thallo\Navigation\Schema\NavigationSchemaVerifier::class],
-        'thallo-render' => ['default', 'migrations', \Thallo\Render\Schema\RenderSchemaVerifier::class],
-        'thallo-seo' => ['dependent', 'thallo-seo', \Thallo\Seo\Schema\SeoSchemaVerifier::class],
-        'thallo-tenancy' => ['dependent', 'thallo-tenancy', \Thallo\Tenancy\Schema\TenancySchemaVerifier::class],
-        'thallo-workflow' => ['dependent', 'thallo-workflow', \Thallo\Workflow\Schema\WorkflowSchemaVerifier::class],
+        // pack => [priority, verifier FQCN]
+        'thallo-analytics' => ['dependent', \Thallo\Analytics\Schema\AnalyticsSchemaVerifier::class],
+        'thallo-collections' => ['dependent', \Thallo\Collections\Schema\CollectionsSchemaVerifier::class],
+        'thallo-commerce' => ['dependent', \Thallo\Commerce\Schema\CommerceLinkSchemaVerifier::class],
+        'thallo-navigation' => ['dependent', \Thallo\Navigation\Schema\NavigationSchemaVerifier::class],
+        'thallo-render' => ['default', \Thallo\Render\Schema\RenderSchemaVerifier::class],
+        'thallo-seo' => ['dependent', \Thallo\Seo\Schema\SeoSchemaVerifier::class],
+        'thallo-tenancy' => ['dependent', \Thallo\Tenancy\Schema\TenancySchemaVerifier::class],
+        'thallo-workflow' => ['dependent', \Thallo\Workflow\Schema\WorkflowSchemaVerifier::class],
     ];
 
     private const SCHEMA_FREE = ['thallo-account', 'thallo-importers', 'thallo-search', 'thallo-subscriptions'];
@@ -42,16 +38,20 @@ final class PackManifestsTest extends TestCase
         return $composer['extra']['glueful'];
     }
 
-    public function testSchemaOwningPacksDeclareCoreDescriptorsWithTheirLegacyAlias(): void
+    public function testSchemaOwningPacksDeclareCoreDescriptors(): void
     {
-        foreach (self::SCHEMA_OWNING as $pack => [$priority, $alias, $verifier]) {
+        foreach (self::SCHEMA_OWNING as $pack => [$priority, $verifier]) {
             $migrations = $this->glueful($pack)['migrations'];
             self::assertCount(1, $migrations, $pack);
             self::assertSame('default', $migrations[0]['id'], $pack);
             self::assertSame('migrations', $migrations[0]['path'], $pack);
             self::assertSame('core', $migrations[0]['mode'], "{$pack}: libraries have no enable event");
             self::assertSame($priority, $migrations[0]['priority'], $pack);
-            self::assertSame([$alias], $migrations[0]['legacyAliases'], $pack);
+            self::assertArrayNotHasKey(
+                'legacyAliases',
+                $migrations[0],
+                "{$pack}: the alias machinery is gone — receipts are canonical from provision"
+            );
             self::assertSame($verifier, $migrations[0]['verifier'], $pack);
             self::assertSame('>=1.79.0', $this->glueful($pack)['requires']['glueful'], $pack);
             self::assertSame([], $this->glueful($pack)['requires']['extensions'], $pack);
@@ -68,7 +68,7 @@ final class PackManifestsTest extends TestCase
 
     public function testVerifiersConformToTheManifestContract(): void
     {
-        foreach (self::SCHEMA_OWNING as $pack => [, , $class]) {
+        foreach (self::SCHEMA_OWNING as $pack => [, $class]) {
             self::assertTrue(class_exists($class), $pack);
             self::assertTrue(
                 is_subclass_of($class, \Glueful\Extensions\Schema\StructuralVerifierInterface::class),
@@ -85,7 +85,7 @@ final class PackManifestsTest extends TestCase
 
     public function testVerifiersCoverEveryRecursivelyDiscoveredMigration(): void
     {
-        foreach (self::SCHEMA_OWNING as $pack => [, , $class]) {
+        foreach (self::SCHEMA_OWNING as $pack => [, $class]) {
             $mapped = (new $class())->migrationBasenames();
             $root = dirname(__DIR__, 3) . "/packages/{$pack}/migrations";
             $it = new \RecursiveIteratorIterator(
