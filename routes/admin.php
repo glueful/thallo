@@ -423,6 +423,15 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
         // its own `content_permission:*` gate.
         $router->get('/capabilities', [CapabilityAdminController::class, 'index']);
 
+        // The operator switchboard (schema program Task 7): every registered capability with
+        // requested/availability/effective state, and the requested-state flip. Operator-only —
+        // unlike the discovery feed above, these carry `system.access`. The PUT is pure
+        // bearer-auth like every admin mutation (no cookie, no CSRF surface).
+        $router->get('/capabilities/manage', [CapabilityAdminController::class, 'manage'])
+            ->middleware('content_permission:system.access');
+        $router->put('/capabilities/{id}', [CapabilityAdminController::class, 'update'])
+            ->middleware('content_permission:system.access');
+
     // Utilities — system ops tools (Health, Cache, Scheduled tasks). All gated by system.access.
         $router->get('/health', [HealthAdminController::class, 'show'])
         ->middleware('content_permission:system.access');

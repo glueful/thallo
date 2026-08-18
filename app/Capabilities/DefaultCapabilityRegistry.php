@@ -30,10 +30,19 @@ final class DefaultCapabilityRegistry implements CapabilityRegistry
     /** @var array<string,CapabilityAvailability> memoized per registry lifetime */
     private array $availability = [];
 
-    /** @param array<string,bool> $overrides Full-capability-id => enabled flag. */
+    /** @var array<string,bool> memoized per registry lifetime */
+    private array $requested = [];
+
+    /**
+     * @param array<string,bool> $overrides Full-capability-id => enabled flag.
+     * @param (\Closure(string): bool)|null $requestedState Live requested-state source (the
+     *        switchboard); when set it REPLACES the static overrides map. Memoized per registry
+     *        lifetime, so repeated gates cost one lookup per capability per boot.
+     */
     public function __construct(
         private readonly array $overrides = [],
         private readonly ?CapabilityAvailabilityResolver $resolver = null,
+        private readonly ?\Closure $requestedState = null,
     ) {
     }
 
@@ -66,7 +75,13 @@ final class DefaultCapabilityRegistry implements CapabilityRegistry
 
     public function isRequestedEnabled(string $id): bool
     {
-        return isset($this->capabilities[$id]) && ($this->overrides[$id] ?? true) === true;
+        if (!isset($this->capabilities[$id])) {
+            return false;
+        }
+        if ($this->requestedState !== null) {
+            return $this->requested[$id] ??= ($this->requestedState)($id);
+        }
+        return ($this->overrides[$id] ?? true) === true;
     }
 
     public function availability(string $id): CapabilityAvailability

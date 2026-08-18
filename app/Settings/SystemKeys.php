@@ -36,6 +36,9 @@ final class SystemKeys
      */
     public const PREFIXES = [
         'payvia.',
+        // The capability switchboard (CapabilityStateStore): `capability.<full-id>.enabled`
+        // rows are platform-wide requested state, never tenant-scoped.
+        'capability.',
     ];
 
     public static function isSystem(string $key): bool

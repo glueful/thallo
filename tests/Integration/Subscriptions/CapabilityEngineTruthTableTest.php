@@ -169,7 +169,14 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
 
             // The capabilities admin surface (the admin SPA's own module-visibility signal)
             // must omit it from the ENABLED list.
-            $capabilitiesController = new CapabilityAdminController($registry);
+            $capabilitiesController = new CapabilityAdminController(
+                $registry,
+                new \App\Capabilities\CapabilityStateStore(
+                    $disabledApp,
+                    new \App\Tests\Support\RecordingSystemChannel()
+                ),
+                $disabledApp,
+            );
             $body = json_decode((string) $capabilitiesController->index()->getContent(), true);
             self::assertIsArray($body);
             $enabledIds = array_column((array) $body['data']['capabilities'], 'id');
