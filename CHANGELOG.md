@@ -7,12 +7,47 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
-### Changed
-- Dependency stack moved to the schema-on-enable releases: `glueful/framework` `^1.79`
-  (1.79.1 in the lock) and the adopted extension minors (aegis ^1.15, audit ^1.4,
-  commerce ^1.13, email-notification ^1.13, i18n ^1.2, import-export ^1.2, media ^1.2,
-  meilisearch ^1.7, payvia ^2.8, subscriptions ^2.3, tenancy ^2.1, users ^2.4) — the
-  Plan 2 pin-set of the schema policy program.
+### Changed — the schema-on-enable program (beta.3)
+
+- **BREAKING — pre-beta.3 installs are not upgradable in place.** Developer Preview builds up
+  to `1.0.0-beta.2` recorded pack migration receipts under pre-manifest ledger names
+  (`thallo-*`, render's bare `migrations`); beta.3's ledger is canonical from provision and
+  ships no migration path for those receipts. Re-provision, or rewrite the ledger `source`
+  values by hand before upgrading (see [docs/upgrading.md](docs/upgrading.md)).
+- **Fresh provision is ONE locked, failure-aware complete pass**: `thallo:provision` applies
+  the app schema, every core pack descriptor (the eight schema-owning packs and the tenancy
+  platform tier), and every shipped-enabled engine together under an all-source migration
+  lock, and a failed migration fails provision naming the file — never a quiet success.
+  Disabled engines (Commerce, Payvia) get their schema later through the executor's
+  migrate-first enable, which is the point of the program. The create-admin catch-up pass now
+  applies only the app's dependent-grants lane; its first-pass-ordering retry is obsolete
+  (render's permission seed moved to the dependent tier with the other packs).
+- **Extension toggling works in production, truthfully**: the admin SPA and CLI both drive the
+  shared schema executor — migrate-first, lock-serialized, with a persisted operation record
+  (id, terminal status, failed migration, error) surfaced through the API and UI. A stale
+  provider cache is a warning on success; failures and manual-repair states are 409s carrying
+  the record. The extensions list shows each package's schema state (ready/pending/divergent/
+  none/undeclared) with reasons and the CLI equivalent; a divergent schema blocks the toggle.
+- **Capabilities know their owning engine**: each engine-backed capability declares the
+  Composer package whose activation defines it (accounts→glueful/users, commerce→
+  glueful/commerce, importers→glueful/import-export, search→glueful/meilisearch,
+  subscriptions→glueful/subscriptions, tenancy→glueful/tenancy). Effective capability state is
+  now *requested AND available* — an engine that is missing, disabled, or schema-unready turns
+  its capability off everywhere at once, with the reason and remedy named, instead of leaving
+  a half-alive surface.
+- **One system-scoped capability switchboard**: requested state lives in
+  `capability.<id>.enabled` system rows with an operator-only management surface
+  (`GET /v1/admin/capabilities/manage`, `PUT /v1/admin/capabilities/{id}`, and a Capabilities
+  tab on the extensions page). Disable is always allowed; enable refuses while the owning
+  engine cannot back it; the Settings › General search toggle now reads and writes through
+  the same authority (its legacy `search_enabled` row is retired on first write).
+- Dependency stack: `glueful/framework` `^1.80` (1.80.1 in the lock — complete provision,
+  the protected migration lane, unconditional manifest enforcement) and the adopted extension
+  minors (aegis ^1.15, audit ^1.4, commerce ^1.13, email-notification ^1.13, i18n ^1.2,
+  import-export ^1.2, media ^1.2, meilisearch ^1.7, payvia ^2.8, subscriptions ^2.3,
+  tenancy ^2.1, users ^2.4). Tenancy's enablement flow migrates through the executor's
+  protected lane (`protected_migrate` operations) while keeping sole custody of the provider
+  state write.
 
 ### Changed
 - `glueful/framework` requirement raised to `^1.78.4`: application boot performs no schema
