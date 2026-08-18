@@ -473,3 +473,37 @@ resolver evidence per Plan 2's rule.
   are pinned. Per-pack verifier effects remain derived from migration `up()` bodies, but the
   extraction method and isolated negative/positive proof contract are executable and identical to
   Plan 2's reviewed bar.
+
+
+---
+
+## Completion ledger (2026-08-18)
+
+**Program complete.** All eleven tasks executed inline on `dev` (local commits, unpushed):
+`4b9c8747` repin → `9c377b7c` pack manifests → `fef7f44e` beta.2 upgrade proof (later
+superseded) → `131bfa42` admin executor surface → `9ab60818` capability owners → `0d163792`
+alias drop (Thallo side) → `fad80bd0` switchboard → `ef42c35b`/`ee91c1ac`/`cb0dec3e` framework
+1.80 consume + render tier fix + provision acceptance → `d9638820` tenancy protected lane →
+`3505bd10` beta.3 docs → `6b520a8c` policy acceptance matrices.
+
+**Final version matrix:** `glueful/framework` ^1.80 (v1.80.1 locked — complete provision,
+protected migration lane, unconditional manifest enforcement, operation-column width fix);
+aegis ^1.15, audit ^1.4, commerce ^1.13, email-notification ^1.13, extension-contracts 1.5.1,
+i18n ^1.2, import-export ^1.2, media ^1.2, meilisearch ^1.7, payvia ^2.8, subscriptions ^2.3,
+tenancy ^2.1, users ^2.4.
+
+**Strict-manifest state:** superseded by execution-time user decisions — manifest declaration
+is UNCONDITIONAL in framework 1.80 (the `require_declared_packages` opt-in flag never
+shipped; the planned next-major default flip is void), and the legacy-alias receipt machinery
+was removed entirely (beta.2 in-place upgrades unsupported; the dev ledger was rewritten in
+place, checksum-verified with verifier adoption for 8 pre-tag drifted receipts). The
+ownerless app-local append lane (`app:dependent`) is the one permanent non-manifest lane.
+
+**Verification matrix (serialized, all green):** Thallo full PHP suite 3,380 tests / 71
+skipped; distribution smoke; SPA 2,236 tests + vue-tsc type-check; `composer boundaries`
+(13 packages); `composer phpcs`; fresh-provision integration check
+(ProvisionFullPassTest — isolated pg schema over the real manifests); framework suite 2,284
+tests + phpstan at v1.80.1. The Task 3 upgrade test is deleted with its machinery.
+
+**Remaining for the beta.3 cut (NOT part of this plan):** the release sitting itself per
+RELEASING.md — bake, verify-dist-archive, tag, artifact gate. Human-gated.
