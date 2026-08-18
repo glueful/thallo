@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1f65f94ba63d3a9405858ae1a7ba29e8",
+    "content-hash": "9b49b5aaabc5dfe75d4736349d46cd4e",
     "packages": [
         {
             "name": "composer/semver",
@@ -850,16 +850,16 @@
         },
         {
             "name": "glueful/framework",
-            "version": "v1.79.1",
+            "version": "v1.80.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "0ff281ba21ef3f0a1f3116ee08fd14586ae751a4"
+                "reference": "674c37d24f1bcda55616fa15c949b24038fc6008"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/0ff281ba21ef3f0a1f3116ee08fd14586ae751a4",
-                "reference": "0ff281ba21ef3f0a1f3116ee08fd14586ae751a4",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/674c37d24f1bcda55616fa15c949b24038fc6008",
+                "reference": "674c37d24f1bcda55616fa15c949b24038fc6008",
                 "shasum": ""
             },
             "require": {
@@ -956,7 +956,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-08-18T02:52:50+00:00"
+            "time": "2026-08-18T07:45:41+00:00"
         },
         {
             "name": "glueful/i18n",
@@ -1889,7 +1889,7 @@
             "dist": {
                 "type": "path",
                 "url": "packages/thallo-render",
-                "reference": "f725b3754f0846a65391e2a8bee231af36246e2c"
+                "reference": "8a7d26ee1cd3bd3449f33d9a39aecf87e8a381c6"
             },
             "require": {
                 "glueful/framework": "^1.65.2",
@@ -1910,7 +1910,7 @@
                         {
                             "id": "default",
                             "path": "migrations",
-                            "priority": "default",
+                            "priority": "dependent",
                             "mode": "core",
                             "verifier": "Thallo\\Render\\Schema\\RenderSchemaVerifier"
                         }
