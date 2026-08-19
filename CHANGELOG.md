@@ -7,6 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- `glueful/framework` 1.80.2 in the lock: an untouched migration source (a disabled engine's
+  schema on a fresh install) classifies `pending`, never `divergent`, so `migrate:verify`
+  exits 0 on healthy installs. Beta.3 artifacts lock 1.80.1 but never hit the defect — the
+  first-run sequence doesn't run verify, and the upgrade chain's `composer update` pulls the
+  fix before verify executes.
+
 ## [1.0.0-beta.3] - 2026-08-18 — Developer Preview
 
 The schema-on-enable release: schema exists exactly when the feature that owns it is
