@@ -8,6 +8,8 @@ import { useCapabilitiesStore } from '@/stores/capabilities'
 // Installed data is local (PackageManifest + the enabled allow-list); Browse proxies Packagist
 // filtered to type=glueful-extension. Enable/disable rewrites config/extensions.php (dev only).
 
+export type SchemaState = 'ready' | 'pending' | 'divergent' | 'none' | 'undeclared'
+
 export interface InstalledExtension {
   name: string
   provider: string
@@ -16,6 +18,44 @@ export interface InstalledExtension {
   author?: string | null
   requires_extensions: string[]
   enabled: boolean
+  /** Closed aggregation over the package's migration descriptors (spec B6). */
+  schema_state: SchemaState
+  /** Per-source explanations when the state is not ready (or authoring guidance). */
+  schema_reasons: string[]
+  /** The CLI equivalent an operator can run for this row's state. */
+  cli_command: string | null
+}
+
+/** Chip color for a schema state (ready is calm, divergent demands attention). */
+export function schemaChipColor(state: SchemaState): 'success' | 'warning' | 'error' | 'neutral' {
+  if (state === 'divergent') return 'error'
+  if (state === 'pending') return 'warning'
+  if (state === 'ready') return 'success'
+  return 'neutral'
+}
+
+/**
+ * Why the enable/disable toggle is blocked, or null when it isn't. A divergent schema must be
+ * repaired on the CLI first — toggling would either replay or paper over the divergence.
+ */
+export function toggleBlockedReason(ext: InstalledExtension): string | null {
+  if (ext.schema_state !== 'divergent') return null
+  const reasons = ext.schema_reasons.join(' · ')
+  const cli = ext.cli_command ? ` Run: ${ext.cli_command}` : ''
+  return `Schema divergent — repair before toggling. ${reasons}${cli}`.trim()
+}
+
+/**
+ * The failed migration named by a toggle error response (409 carries the persisted operation
+ * record under error.details), or null when the failure has no migration to blame.
+ */
+export function failedMigrationOf(e: unknown): string | null {
+  const body = (e as { body?: unknown } | null)?.body
+  if (typeof body !== 'object' || body === null) return null
+  const details = (body as { error?: { details?: { operation?: { failed_migration?: unknown } } } })
+    .error?.details
+  const failed = details?.operation?.failed_migration
+  return typeof failed === 'string' && failed !== '' ? failed : null
 }
 
 export interface CatalogExtension {

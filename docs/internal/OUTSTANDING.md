@@ -4,7 +4,7 @@
 > pointer page), this file is meant to be edited as work lands — tick items off, link the
 > spec/plan/commit, and move them to **Recently shipped**.
 
-**Last reconciled:** 2026-08-14 (against the working tree, not just `NEXT.md`).
+**Last reconciled:** 2026-08-18 (against the working tree, not just `NEXT.md`).
 
 ## How to use this file
 
@@ -98,6 +98,22 @@ Legend: **Size** S/M/L · **Home** = existing spec/doc, or _"(no design yet)"_.
 
 ## Recently shipped
 
+- [x] **Schema-on-enable program (beta.3 pre-launch gate)** — shipped 2026-08-18
+  ([spec](superpowers/specs/2026-08-17-schema-creation-policy-design.md),
+  [plan 3](superpowers/plans/2026-08-18-schema-program-thallo.md)) — framework 1.79/1.80 +
+  the 13-package extension pin-set + the Thallo program: manifest descriptors are the sole
+  schema inventory (providers register nothing), provision is one locked failure-aware
+  complete pass over app + core + enabled sources (closing "provision migrates app-tier
+  only" — the create-admin catch-up is now a no-op belt for everything but the dependent
+  grants lane), extension toggling drives the shared executor in production with persisted
+  operation records, capabilities gate on their owning engine's availability, requested
+  state lives in the one system-scoped switchboard, and tenancy enablement migrates through
+  the protected executor lane. Legacy-alias receipts were dropped rather than normalized
+  (beta.2 in-place upgrades unsupported — user decision during execution; deviation note in
+  the plan).
+
+- [x] **Framework: extension providers resolve `MigrationManager` at boot — eager connect + DDL survives 1.78.3** — shipped 2026-08-17 in `glueful/framework` 1.78.4 (lazy-ledger contract, spec 2026-08-17-schema-creation-policy-design.md A1): construction/registration perform zero DB work; migrate() is the sole ledger creator; verified on the beta.2 artifact — boot issues zero writes (pg statement-log spy). Surfaced by the beta.2 artifact gate.
+- [x] **Provision: non-interactive mode rejects passwordless (trust/peer) PostgreSQL and unset host** — shipped 2026-08-17 on dev (`5d77d02a`, spec 2026-08-17-schema-creation-policy-design.md A2): password presence tracked separately from value (`--db-password=""`/present-but-empty env line = "none", validates; absent refuses), host defaults to localhost only when absent. Surfaced by the beta.2 artifact gate.
 - [x] **Framework: console boot eagerly opens a DB connection and runs DDL** — shipped 2026-08-16 in `glueful/framework` 1.78.3 (migrate commands resolve `MigrationManager` lazily in `execute()`; `php glueful list` works before the database does). Surfaced by the beta.1 artifact gate.
 - [x] **Framework: `hasTable()` is privilege-blind on PostgreSQL** — shipped 2026-08-16 in `glueful/framework` 1.78.3 (`tableExistsQuery` reads `pg_catalog.pg_tables`, which reports existence regardless of privileges). Surfaced by the beta.1 artifact gate.
 

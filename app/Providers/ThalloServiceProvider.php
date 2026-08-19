@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Capabilities\CapabilityStateStore;
 use App\Capabilities\DefaultCapabilityRegistry;
+use App\Capabilities\ExtensionCapabilityAvailabilityResolver;
 use App\Setup\SetupService;
 use App\Content\Delivery\DeliveryRepository;
 use App\Content\Delivery\EngineMediaUrlResolver;
@@ -1706,6 +1708,11 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            CapabilityStateStore::class => [
+                'class' => CapabilityStateStore::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             // Platform-payments-settings spec Task 2: the encrypted write/read surface over the
             // unscoped SystemChannel for payvia.* gateway credentials — SystemChannel and
             // EncryptionService both autowire (constructor injection only, no container lookups
@@ -1945,22 +1952,19 @@ final class ThalloServiceProvider extends ServiceProvider
     public static function makeCapabilityRegistry(ContainerInterface $container): DefaultCapabilityRegistry
     {
         $context = $container->get(ApplicationContext::class);
-        /** @var array<string,bool> $overrides */
-        $overrides = (array) config($context, 'thallo.capabilities', []);
+        // Requested state comes LIVE from the one system-scoped switchboard
+        // (CapabilityStateStore: canonical key → legacy search row → config map → enabled),
+        // memoized inside the registry for this boot — a switchboard write lands on the next
+        // request, after the per-boot memo is gone. The store itself fails soft to config on
+        // pre-provision boots, so this factory stays safe during CLI boots before the system
+        // table exists.
+        $switchboard = $container->get(CapabilityStateStore::class);
 
-        // Settings › General search switch: the stored `search_enabled` row wins over the
-        // deploy-time map, so the admin toggle applies on the next request with no restart
-        // (searchEnabled() itself falls back to the map when no row exists, so this
-        // assignment is a no-op on a rowless install). Fail-soft to the map alone — this
-        // factory runs during EVERY boot, including CLI boots before the settings table
-        // exists (fresh install, migrate:run).
-        try {
-            $overrides['thallo.search'] = $container->get(GeneralSettings::class)->searchEnabled();
-        } catch (\Throwable) {
-            // Pre-migration boot or DB down: the config map default stands.
-        }
-
-        return new DefaultCapabilityRegistry($overrides);
+        return new DefaultCapabilityRegistry(
+            [],
+            new ExtensionCapabilityAvailabilityResolver($context),
+            static fn (string $id): bool => $switchboard->requested($id),
+        );
     }
 
     public static function makePathRenderer(ContainerInterface $container): PathRenderer

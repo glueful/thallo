@@ -1,0 +1,1 @@
+import{O as e}from"./Link-DicLyUnY.js";import{U as t}from"./index-CZKBPSXz.js";function n(n,r){return t(n)?!1:Array.isArray(n)?n.some(t=>e(t,r)):e(n,r)}export{n as t};

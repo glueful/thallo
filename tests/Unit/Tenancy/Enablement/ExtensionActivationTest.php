@@ -7,8 +7,12 @@ namespace App\Tests\Unit\Tenancy\Enablement;
 use App\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Bootstrap\ConfigurationLoader;
+use App\Tests\Support\SpySchemaExecutor;
+use App\Tests\Support\TestableExtensionActivation;
 use Glueful\Container\Container;
+use Glueful\Extensions\EnabledProviders;
 use Glueful\Extensions\ExtensionManager;
+use Glueful\Extensions\Schema\ExtensionOperation;
 use Thallo\Tenancy\Enablement\ExtensionActivation;
 
 final class ExtensionActivationTest extends AppTestCase
@@ -155,5 +159,91 @@ final class ExtensionActivationTest extends AppTestCase
             $this->removeTree($path . '/' . $entry);
         }
         rmdir($path);
+    }
+
+    // ── the protected migration lane (schema program Task 8) ──────────────────────
+
+    private function spiedActivation(): TestableExtensionActivation
+    {
+        $activation = new TestableExtensionActivation($this->appContext());
+        $activation->spy = new SpySchemaExecutor();
+        return $activation;
+    }
+
+    public function testMigrateDelegatesToTheProtectedLaneWithTheEnablementActor(): void
+    {
+        $activation = $this->spiedActivation();
+
+        $result = $activation->migrate();
+
+        self::assertSame([], $result['failed']);
+        self::assertSame(
+            [['op' => 'protected_migrate', 'package' => 'glueful/tenancy', 'actor' => 'tenancy-enablement']],
+            $activation->spy->calls,
+            'the executor owns source scoping — no name-derived source list here'
+        );
+    }
+
+    public function testAFailedMigrationSurfacesTheBasenameAndOperationId(): void
+    {
+        $activation = $this->spiedActivation();
+        $activation->spy->status = ExtensionOperation::STATUS_FAILED;
+        $activation->spy->failedMigration = '004_CreateTenantRolePolicyTables.php';
+        $activation->spy->error = 'relation already exists';
+
+        $result = $activation->migrate();
+
+        self::assertCount(1, $result['failed']);
+        $detail = $result['failed'][0];
+        self::assertStringContainsString('004_CreateTenantRolePolicyTables.php', $detail);
+        self::assertStringContainsString('operation #7', $detail);
+        self::assertStringContainsString('failed', $detail);
+        self::assertStringContainsString('relation already exists', $detail);
+    }
+
+    public function testAHeldLockSurfacesAsAStepFailureNotAHang(): void
+    {
+        $activation = $this->spiedActivation();
+        $activation->spy->throws = new \Glueful\Database\Exceptions\LockContentionException(
+            'migration sources are locked: glueful/tenancy'
+        );
+
+        $result = $activation->migrate();
+
+        self::assertCount(1, $result['failed']);
+        self::assertStringContainsString('locked', $result['failed'][0]);
+    }
+
+    public function testMigrateNeverTouchesProviderState(): void
+    {
+        $before = EnabledProviders::from($this->appContext());
+
+        $activation = $this->spiedActivation();
+        $activation->migrate();
+
+        self::assertSame(
+            $before,
+            EnabledProviders::from($this->appContext()),
+            'only the activation step may write provider state'
+        );
+    }
+
+    public function testRealExecutorPathRecordsAProtectedMigrateOperation(): void
+    {
+        // End-to-end wiring over the real container executor and the test database: the
+        // bootstrap assertion passes (extension_operations exists), glueful/tenancy is in the
+        // protected map, its sources are already applied — so the operation succeeds as a
+        // recorded no-op and provider state stays untouched.
+        $before = EnabledProviders::from($this->appContext());
+        $result = $this->container()->get(ExtensionActivation::class)->migrate();
+
+        self::assertSame([], $result['failed'], implode('; ', $result['failed']));
+        $row = $this->connection()->getPDO()->query(
+            "SELECT operation, status, actor FROM extension_operations ORDER BY id DESC LIMIT 1"
+        )->fetch(\PDO::FETCH_ASSOC);
+        self::assertSame('protected_migrate', $row['operation'] ?? null);
+        self::assertSame(ExtensionOperation::STATUS_SUCCEEDED, $row['status'] ?? null);
+        self::assertSame('tenancy-enablement', $row['actor'] ?? null);
+        self::assertSame($before, EnabledProviders::from($this->appContext()));
     }
 }

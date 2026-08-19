@@ -33,7 +33,7 @@ final class PgsqlDatabaseConfigFactory
 
         return new DatabaseConfig(
             'pgsql',
-            $env->get('DB_PGSQL_HOST') ?? '',
+            $env->get('DB_PGSQL_HOST') ?? 'localhost', // absent defaults; explicitly empty stays invalid
             $this->parsePort($env->get('DB_PGSQL_PORT')),
             $env->get('DB_PGSQL_DATABASE') ?? '',
             $env->get('DB_PGSQL_USERNAME') ?? '',
@@ -57,13 +57,27 @@ final class PgsqlDatabaseConfigFactory
     }
 
     /**
+     * Whether a password was explicitly provided in .env — a present-but-empty
+     * DB_PGSQL_PASSWORD= line means "none" (trust/peer auth) and counts as provided;
+     * only a fully absent line does not. fromEnv() collapses both to '', so presence
+     * must be derived here, at the input boundary, not from the config value.
+     */
+    public function passwordProvidedInEnv(EnvWriter $env): bool
+    {
+        return $env->get('DB_PGSQL_PASSWORD') !== null;
+    }
+
+    /**
      * The required-field names that are missing or invalid in $config. Empty list => valid.
      * Used to FAIL LOUDLY before the Installer runs — both in --quiet mode (env may be blank/partial)
      * and interactively (a prompt may have been answered empty).
      *
+     * $passwordProvided carries explicit-empty ("none", valid for trust-auth PostgreSQL)
+     * past the '' collapse; an unprovided password still refuses.
+     *
      * @return list<string>
      */
-    public function requiredFieldErrors(DatabaseConfig $config): array
+    public function requiredFieldErrors(DatabaseConfig $config, bool $passwordProvided): array
     {
         $errors = [];
         if ($config->host === '') {
@@ -78,7 +92,7 @@ final class PgsqlDatabaseConfigFactory
         if ($config->username === '') {
             $errors[] = 'username (DB_PGSQL_USERNAME)';
         }
-        if ($config->password === '') {
+        if ($config->password === '' && !$passwordProvided) {
             $errors[] = 'password (DB_PGSQL_PASSWORD)';
         }
         return $errors;

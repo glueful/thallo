@@ -6,19 +6,28 @@ namespace App\Http\Controllers;
 
 use App\Support\ReadmeRenderer;
 use Glueful\Bootstrap\ApplicationContext;
+use Glueful\Database\Exceptions\LockContentionException;
 use Glueful\Extensions\EnabledProviders;
 use Glueful\Extensions\ExtensionManager;
-use Glueful\Extensions\ExtensionStateWriter;
 use Glueful\Extensions\Install\ExtensionInstaller;
+use Glueful\Extensions\Install\HostCapability;
 use Glueful\Extensions\Install\HostNotWritableException;
 use Glueful\Extensions\Install\InstallDisabledException;
 use Glueful\Extensions\Install\PackageNotAllowedException;
 use Glueful\Extensions\PackageManifest;
 use Glueful\Extensions\ProtectedProviders;
+use Glueful\Extensions\Schema\DescriptorInventory;
+use Glueful\Extensions\Schema\ExtensionOperation;
+use Glueful\Extensions\Schema\ExtensionSchemaExecutor;
+use Glueful\Extensions\Schema\ReadinessState;
+use Glueful\Extensions\Schema\SchemaNotBootstrappedException;
+use Glueful\Extensions\Schema\SchemaReadiness;
+use Glueful\Extensions\Schema\UndeclaredSchemaException;
 use Glueful\Helpers\RequestHelper;
 use Glueful\Http\Response;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpClient\HttpClient;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -26,15 +35,17 @@ use Symfony\Component\HttpFoundation\Request;
  * Admin API for the extensions screen.
  *
  *  - Installed: the locally-discovered `glueful-extension` packages (PackageManifest) plus the
- *    enabled allow-list (config/extensions.php). All local — no network.
+ *    enabled allow-list (config/extensions.php) and each package's schema readiness. All local —
+ *    no network.
  *  - Browse: proxies Packagist filtered to `type=glueful-extension` server-side, so the SPA
  *    avoids CORS / rate limits and we can mark which results are already installed.
- *  - Enable/disable: rewrites config/extensions.php and recompiles the extension cache. Like the
- *    CLI, this is a dev-only operation (production config is immutable/cached — edit + redeploy).
+ *  - Enable/disable: drives the shared ExtensionSchemaExecutor (schema policy spec B5) —
+ *    migrate-first, lock-serialized, truthful persisted operation record. Works in production;
+ *    the host-writability precondition (immutable deploys) refuses with 409 instead.
  *
  * Gated by `system.access` (see routes/admin.php).
  */
-final class ExtensionAdminController
+class ExtensionAdminController
 {
     private const PACKAGIST_SEARCH = 'https://packagist.org/search.json';
 
@@ -116,27 +127,30 @@ final class ExtensionAdminController
         return Response::success(['results' => $results, 'available' => true], 'Catalog retrieved.');
     }
 
-    /** POST /v1/admin/extensions/enable — activate an installed extension (dev only). */
+    /** POST /v1/admin/extensions/enable — activate an installed extension through the executor. */
     #[ApiOperation(
         summary: 'Enable an installed extension',
-        description: 'Adds the extension to config/extensions.php and recompiles the cache. Dev only. '
-            . 'Requires the `system.access` permission.',
+        description: 'Migrates the extension schema first, then enables it — the shared schema '
+            . 'executor serializes the whole operation and records its truthful outcome. Requires '
+            . 'the `system.access` permission.',
         tags: ['Extensions'],
     )]
-    #[ApiResponse(200, description: 'Extension enabled.')]
+    #[ApiResponse(200, description: 'Extension enabled (a stale provider cache carries a warning).')]
+    #[ApiResponse(409, description: 'Refused (protected/unwritable/lock) or the operation failed.')]
     public function enable(Request $request): Response
     {
         return $this->toggle($request, true);
     }
 
-    /** POST /v1/admin/extensions/disable — deactivate an installed extension (dev only). */
+    /** POST /v1/admin/extensions/disable — deactivate an installed extension through the executor. */
     #[ApiOperation(
         summary: 'Disable an installed extension',
-        description: 'Removes the extension from config/extensions.php and recompiles the cache. Dev '
-            . 'only. Requires the `system.access` permission.',
+        description: 'Disables the extension through the shared schema executor (never any schema '
+            . 'change — tables and data are preserved). Requires the `system.access` permission.',
         tags: ['Extensions'],
     )]
     #[ApiResponse(200, description: 'Extension disabled.')]
+    #[ApiResponse(409, description: 'Refused (protected/unwritable/lock) or the operation failed.')]
     public function disable(Request $request): Response
     {
         return $this->toggle($request, false);
@@ -258,12 +272,6 @@ final class ExtensionAdminController
 
     private function toggle(Request $request, bool $enable): Response
     {
-        if (env('APP_ENV') === 'production') {
-            return Response::forbidden(
-                'Toggling extensions is disabled in production — edit config/extensions.php and redeploy.',
-            );
-        }
-
         // JSON body with form-encoded fallback: Symfony leaves $request->request empty for
         // an application/json body, so reading it alone would yield ''.
         $raw = RequestHelper::getRequestData($request)['name'] ?? null;
@@ -273,31 +281,86 @@ final class ExtensionAdminController
             return Response::notFound("No installed extension named “{$name}”.");
         }
 
-        // Protected providers refuse before any state change: their activation is owned by a
-        // lifecycle flow (extensions.protected), and this generic toggle must never bypass it.
+        // Protected providers refuse before writability: their activation is owned by a
+        // lifecycle flow (extensions.protected), and no other precondition may mask that answer.
         if (($refusal = ProtectedProviders::refusalFor($this->context, $candidate->provider)) !== null) {
             return Response::error($refusal, 409);
         }
 
-        $configPath = config_path($this->context, 'extensions.php');
-        try {
-            $writer = new ExtensionStateWriter();
-            $enable
-                ? $writer->enable($configPath, $candidate->provider)
-                : $writer->disable($configPath, $candidate->provider);
-            // The recompile must resolve from the JUST-WRITTEN extensions.php — the enabled
-            // list was read (and cached on the context) at boot, before this write, and
-            // framework 1.72.0's writeCacheNow() resolves through that config cache.
-            $this->context->clearConfigCache();
-            app($this->context, ExtensionManager::class)->writeCacheNow();
-        } catch (\Throwable $e) {
-            return Response::error('Could not update extension state: ' . $e->getMessage(), 500);
+        // Host writability BEFORE the executor: an immutable deploy (read-only config or cache
+        // dir) must refuse up front rather than fail halfway through a migrate-then-write.
+        if (($cap = $this->hostToggleRefusal()) !== null) {
+            return Response::error('Host not writable', 409, ['reason' => $cap['reason']]);
         }
 
-        return Response::success(
-            ['name' => $name, 'enabled' => $enable],
-            $enable ? 'Extension enabled.' : 'Extension disabled.',
-        );
+        // Everything else — dependency dry-resolve, source locks, migrate-first/enable-last,
+        // cache recompile, the persisted operation record — is the executor's (spec B5). This
+        // surface keeps only HTTP concerns: authority, protected refusal, host writability.
+        try {
+            $executor = $this->schemaExecutor();
+            $operation = $enable
+                ? $executor->enable($name, 'admin-api')
+                : $executor->disable($name, 'admin-api');
+        } catch (SchemaNotBootstrappedException | UndeclaredSchemaException | LockContentionException $e) {
+            return Response::error($e->getMessage(), 409);
+        } catch (\RuntimeException $e) {
+            return Response::error($e->getMessage(), 422);
+        }
+
+        $succeeded = in_array($operation->status, [
+            ExtensionOperation::STATUS_SUCCEEDED,
+            ExtensionOperation::STATUS_CACHE_STALE,
+        ], true);
+        $this->audit($enable ? 'extension.enable' : 'extension.disable', $name, $operation);
+
+        $payload = [
+            'name' => $name,
+            'enabled' => $enable && $succeeded,
+            'operation' => [
+                'id' => $operation->id,
+                'status' => $operation->status,
+                'failed_migration' => $operation->failedMigration,
+                'error' => $operation->error,
+            ],
+        ];
+        if (!$succeeded) {
+            return Response::error('Extension operation did not complete', 409, $payload);
+        }
+        $message = $operation->status === ExtensionOperation::STATUS_CACHE_STALE
+            ? ($operation->error ?? 'State written, but the provider cache recompile failed — '
+                . "re-run 'php glueful extensions:cache'.")
+            : ($enable ? 'Extension enabled.' : 'Extension disabled.');
+        return Response::success($payload, $message);
+    }
+
+    /** Overridable seam: the executor comes from the app container in production. */
+    protected function schemaExecutor(): ExtensionSchemaExecutor
+    {
+        return app($this->context, ExtensionSchemaExecutor::class);
+    }
+
+    /**
+     * Overridable seam: host writability (immutable-deploy detection).
+     *
+     * @return array{reason: string, detail: string}|null null = toggleable
+     */
+    protected function hostToggleRefusal(): ?array
+    {
+        return app($this->context, HostCapability::class)->forToggle();
+    }
+
+    /** Structured audit trail for the toggle: the persisted operation id and terminal status. */
+    private function audit(string $action, string $package, ExtensionOperation $operation): void
+    {
+        try {
+            app($this->context, LoggerInterface::class)->info($action, [
+                'package' => $package,
+                'operation_id' => $operation->id,
+                'status' => $operation->status,
+            ]);
+        } catch (\Throwable) {
+            // The audit line must never turn a completed operation into an HTTP failure.
+        }
     }
 
     /**
@@ -320,6 +383,8 @@ final class ExtensionAdminController
             // text the Browse tab shows from Packagist); fall back to a registerMeta() override.
             $description = $ci['description']
                 ?? (is_string($m['description'] ?? null) ? $m['description'] : null);
+            $isEnabled = isset($enabled[$candidate->provider]);
+            [$schemaState, $schemaReasons] = $this->schemaState((string) $name);
             $out[] = [
                 'name' => (string) $name,
                 'provider' => $candidate->provider,
@@ -327,11 +392,86 @@ final class ExtensionAdminController
                 'description' => $description,
                 'author' => $ci['author'],
                 'requires_extensions' => $candidate->requiresExtensions,
-                'enabled' => isset($enabled[$candidate->provider]),
+                'enabled' => $isEnabled,
+                'schema_state' => $schemaState,
+                'schema_reasons' => $schemaReasons,
+                'cli_command' => $this->cliCommand($schemaState, (string) $name, $isEnabled),
             ];
         }
 
         return $out;
+    }
+
+    /** Overridable seam: is the package's migration manifest declared at all? */
+    protected function packageIsDeclared(string $package): bool
+    {
+        return app($this->context, DescriptorInventory::class)->isDeclared($package);
+    }
+
+    /**
+     * Overridable seam: raw per-source readiness (SchemaReadiness::forPackage).
+     *
+     * @return array<string, array{state: ReadinessState, reasons: list<string>}>
+     */
+    protected function packageReadiness(string $package): array
+    {
+        return app($this->context, SchemaReadiness::class)->forPackage($package);
+    }
+
+    /**
+     * Closed schema-state aggregation for one installed package (schema policy spec B6):
+     * `undeclared` (no extra.glueful.migrations), `none` (explicit "none"), otherwise
+     * `divergent` if ANY descriptor is divergent, else `pending` if any is pending, else
+     * `ready`. An undeclared third-party package stays listable — it can never make the whole
+     * endpoint throw.
+     *
+     * @return array{0: string, 1: list<string>}
+     */
+    private function schemaState(string $package): array
+    {
+        try {
+            if (!$this->packageIsDeclared($package)) {
+                return ['undeclared', [
+                    "{$package} declares no extra.glueful.migrations manifest — its author should "
+                    . 'declare migration descriptors or "migrations": "none".',
+                ]];
+            }
+            $results = $this->packageReadiness($package);
+        } catch (\Throwable $e) {
+            // Fail-soft per row: a single package's schema question must never 500 the list.
+            return ['undeclared', [$e->getMessage()]];
+        }
+        if ($results === []) {
+            return ['none', []];
+        }
+        $divergent = [];
+        $pending = [];
+        foreach ($results as $source => $result) {
+            $reasons = array_map(static fn(string $r): string => "{$source}: {$r}", $result['reasons']);
+            if ($result['state'] === ReadinessState::Divergent) {
+                $divergent = [...$divergent, ...$reasons];
+            } elseif ($result['state'] === ReadinessState::Pending) {
+                $pending = [...$pending, ...$reasons];
+            }
+        }
+        if ($divergent !== []) {
+            return ['divergent', $divergent];
+        }
+        if ($pending !== []) {
+            return ['pending', $pending];
+        }
+        return ['ready', []];
+    }
+
+    /** The CLI equivalent an operator can run for this row's state. */
+    private function cliCommand(string $schemaState, string $package, bool $enabled): string
+    {
+        if ($schemaState === 'divergent') {
+            return 'php glueful migrate:verify';
+        }
+        return $enabled
+            ? "php glueful extensions:disable {$package}"
+            : "php glueful extensions:enable {$package}";
     }
 
     /**

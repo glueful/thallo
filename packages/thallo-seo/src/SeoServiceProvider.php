@@ -6,7 +6,6 @@ namespace Thallo\Seo;
 
 use Glueful\Extensions\DeclaresLoadOrder;
 use Glueful\Bootstrap\ApplicationContext;
-use Glueful\Database\Migrations\MigrationPriority;
 use Glueful\Extensions\ServiceProvider;
 use Thallo\Contracts\Capability\Capability;
 use Thallo\Contracts\Capability\CapabilityRegistry;
@@ -145,11 +144,7 @@ final class SeoServiceProvider extends ServiceProvider implements DeclaresLoadOr
             description: 'Sitemaps, per-entry SEO meta, and robots.txt.',
         ));
 
-        $this->loadMigrationsFrom(
-            __DIR__ . '/../migrations',
-            MigrationPriority::DEPENDENT,
-            'thallo-seo',
-        );
+        // Migrations are declared by the composer manifest (extra.glueful.migrations).
 
         if ($registry->isEnabled('thallo.seo')) {
             $this->loadRoutesFrom(__DIR__ . '/../routes/public-routes.php');

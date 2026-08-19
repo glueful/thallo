@@ -11,7 +11,6 @@ use Glueful\Container\Container as GluefulContainer;
 use Glueful\Container\Definition\FactoryDefinition;
 use Glueful\Cache\Contracts\EdgeCacheInterface;
 use Glueful\Database\Connection;
-use Glueful\Database\Migrations\MigrationPriority;
 use Glueful\Encryption\EncryptionService;
 use Glueful\Events\EventService;
 use Glueful\Extensions\Commerce\Catalog\CatalogReader;
@@ -1097,15 +1096,12 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
             'thallo.commerce',
             label: 'Commerce',
             description: 'Adopts glueful/commerce and links Commerce products to Thallo entries.',
+            owningPackage: 'glueful/commerce',
         ));
 
         // Migrations register on INSTALL, not enable (outside the gate below), so disabling
         // the capability still preserves the link table.
-        $this->loadMigrationsFrom(
-            __DIR__ . '/../migrations',
-            MigrationPriority::DEPENDENT,
-            'thallo-commerce',
-        );
+        // Migrations are declared by the composer manifest (extra.glueful.migrations).
 
         // The pack owns thallo_commerce_product_links (design spec §8): register it directly
         // whenever TenantTableRegistry is bound — independent of the capability gate below, and

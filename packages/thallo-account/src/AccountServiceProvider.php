@@ -118,6 +118,7 @@ final class AccountServiceProvider extends ServiceProvider
             'thallo.accounts',
             label: 'Storefront accounts',
             description: 'Themed registration, sign-in and account pages for storefront visitors.',
+            owningPackage: 'glueful/users',
         ));
 
         // A capability flip between boots must purge cached pages that still hold the account chrome

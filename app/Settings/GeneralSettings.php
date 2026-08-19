@@ -58,6 +58,7 @@ final class GeneralSettings
     public function __construct(
         private readonly ApplicationContext $context,
         private readonly SettingsStore $store,
+        private readonly \App\Capabilities\CapabilityStateStore $capabilityState,
     ) {
     }
 
@@ -163,10 +164,13 @@ final class GeneralSettings
         return (bool) $this->value('webhooks_enabled');
     }
 
-    /** The EFFECTIVE `thallo.search` capability state (row → capabilities map → enabled). */
+    /**
+     * The REQUESTED `thallo.search` capability state, delegated to the one switchboard
+     * (CapabilityStateStore): canonical system key → legacy row → config map → enabled.
+     */
     public function searchEnabled(): bool
     {
-        return (bool) $this->value('search_enabled');
+        return $this->capabilityState->requested('thallo.search');
     }
 
     /**
@@ -203,6 +207,12 @@ final class GeneralSettings
                     $this->store->forget($key);
                     continue;
                 }
+                // The search switch is capability state, not a settings row: it goes through
+                // the switchboard (which also retires the legacy search_enabled system key).
+                if ($key === 'search_enabled') {
+                    $this->capabilityState->put('thallo.search', (bool) $partial[$key]);
+                    continue;
+                }
                 $pairs[$key] = $this->encode($partial[$key], $type);
             }
         }
@@ -212,15 +222,12 @@ final class GeneralSettings
     private function value(string $key): mixed
     {
         [$cfg, $type, $def] = self::DEFS[$key];
+        // The search switch reads through the one switchboard authority.
+        if ($key === 'search_enabled') {
+            return $this->capabilityState->requested('thallo.search');
+        }
         $raw = $this->store->get($key);
         if ($raw === null) {
-            // search_enabled's deploy default sits in the thallo.capabilities map, whose
-            // keys contain dots — read the map wholesale (absent key = enabled).
-            if ($key === 'search_enabled') {
-                $map = (array) config($this->context, 'thallo.capabilities', []);
-                return ($map['thallo.search'] ?? true) === true;
-            }
-
             // No override stored — fall back to the deploy-time config/.env value.
             return config($this->context, $cfg, $def);
         }

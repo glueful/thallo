@@ -70,6 +70,11 @@ $frameworkSources = [
     'scheduler' => 'glueful/framework:scheduler',
     'notifications' => 'glueful/framework:notifications',
     'metrics' => 'glueful/framework:metrics',
+    'locks' => 'glueful/framework:locks',
+    // The 1.79 extension-operations ledger: 1.80 provision applies it, so the test database
+    // must carry it too — the real ExtensionSchemaExecutor asserts this bootstrap before any
+    // operation (SchemaNotBootstrappedException otherwise).
+    'extensions' => 'glueful/framework:extensions',
 ];
 
 foreach ($frameworkSources as $dir => $source) {
@@ -109,37 +114,37 @@ $manager->addMigrationPath(
 $manager->addMigrationPath(
     $root . '/packages/thallo-analytics/migrations',
     MigrationPriority::DEPENDENT,
-    'thallo-analytics'
+    'glueful/thallo-analytics'
 );
 $manager->addMigrationPath(
     $root . '/packages/thallo-collections/migrations',
     MigrationPriority::DEPENDENT,
-    'thallo-collections'
+    'glueful/thallo-collections'
 );
 $manager->addMigrationPath(
     $root . '/packages/thallo-seo/migrations',
     MigrationPriority::DEPENDENT,
-    'thallo-seo'
+    'glueful/thallo-seo'
 );
 $manager->addMigrationPath(
     $root . '/packages/thallo-workflow/migrations',
     MigrationPriority::DEPENDENT,
-    'thallo-workflow'
+    'glueful/thallo-workflow'
 );
 $manager->addMigrationPath(
     $root . '/packages/thallo-navigation/migrations',
     MigrationPriority::DEPENDENT,
-    'thallo-navigation'
+    'glueful/thallo-navigation'
 );
 $manager->addMigrationPath(
     $root . '/packages/thallo-render/migrations',
     MigrationPriority::DEPENDENT,
-    'thallo-render'
+    'glueful/thallo-render'
 );
 $manager->addMigrationPath(
     $root . '/packages/thallo-tenancy/migrations',
     MigrationPriority::DEPENDENT,
-    'thallo-tenancy'
+    'glueful/thallo-tenancy'
 );
 // glueful/commerce (a hard app dependency, like glueful/tenancy above) — must run BEFORE
 // thallo-commerce below (its ServiceProvider::boot() itself pins that order: "tenancy
@@ -155,7 +160,7 @@ $manager->addMigrationPath(
 $manager->addMigrationPath(
     $root . '/packages/thallo-commerce/migrations',
     MigrationPriority::DEPENDENT,
-    'thallo-commerce'
+    'glueful/thallo-commerce'
 );
 // glueful/payvia extension (payments/billing/invoices/provider-events/intents/transfers) —
 // installed 2026-07-25; its PayviaPaymentCollector binds the contracts PaymentCollector port,

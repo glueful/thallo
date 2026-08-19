@@ -60,7 +60,11 @@ final class TenancyPackageDiscoverableTest extends AppTestCase
             flags: JSON_THROW_ON_ERROR,
         );
 
-        self::assertSame('^2.0.0', $composer['require']['glueful/tenancy'] ?? null);
+        // The guarantee is production-dependency-at-major-2, not a frozen minor — an exact
+        // pin here re-breaks on every routine tenancy bump.
+        $constraint = $composer['require']['glueful/tenancy'] ?? null;
+        self::assertIsString($constraint);
+        self::assertMatchesRegularExpression('/^\^2\./', $constraint);
         self::assertArrayNotHasKey('glueful/tenancy', $composer['require-dev'] ?? []);
     }
 }

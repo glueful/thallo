@@ -3,12 +3,23 @@
 ## The sequence (every upgrade)
 
 ```bash
-composer update
-php glueful migrate:run
+composer update \
+  && php glueful migrate:run \
+  && php glueful migrate:verify
 # clear compiled state — REQUIRED, not optional:
 php glueful extensions:cache   # or your cache-clear entry point
 rm -rf storage/cache/container_*.php storage/cache/routes_*.php
 ```
+
+**The `&&` chaining is part of the contract**: `migrate:run` applies what is
+genuinely new, and `migrate:verify` confirms every declared migration source is
+Ready afterwards — a non-zero exit anywhere stops the sequence.
+
+**Pre-beta.3 installs are not upgradable in place.** Developer Preview builds up to
+`1.0.0-beta.2` recorded pack migration receipts under pre-manifest ledger names
+(`thallo-*`, render's bare `migrations`); beta.3's ledger is canonical from
+provision and ships no migration path for those receipts. Re-provision, or rewrite
+the ledger `source` values by hand before upgrading.
 
 Then read the release's section in [CHANGELOG.md](../CHANGELOG.md) for anything marked
 **Upgrade Notes**.

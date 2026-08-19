@@ -53,14 +53,22 @@ final class ProvisionCommand extends BaseCommand
         }
 
         $quiet = !$this->isInteractive();
+        $env = new EnvWriter($basePath . '/.env');
 
         // 2. Build the pgsql DatabaseConfig (engine is fixed; never prompted).
         $database = $quiet
-            ? $this->fromEnvWithOverrides($factory, new EnvWriter($basePath . '/.env'), $input)
+            ? $this->fromEnvWithOverrides($factory, $env, $input)
             : $this->promptForCredentials($factory, $input);
 
+        // Presence is tracked separately from the value: --db-password="" or a
+        // present-but-empty .env line means "none" (trust-auth), which validates;
+        // interactive mode always asks, so the answer is always provided.
+        $passwordProvided = !$quiet
+            || $input->getOption('db-password') !== null
+            || $factory->passwordProvidedInEnv($env);
+
         // 3. Validate — fail LOUDLY before the Installer touches anything.
-        $missing = $factory->requiredFieldErrors($database);
+        $missing = $factory->requiredFieldErrors($database, $passwordProvided);
         if ($missing !== []) {
             $this->error('Missing/invalid database settings: ' . implode(', ', $missing)
                 . ($quiet ? ' — set DB_PGSQL_* in .env or pass --db-* options.' : '.'));
