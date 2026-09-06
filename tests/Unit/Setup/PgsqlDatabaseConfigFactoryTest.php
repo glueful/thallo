@@ -191,8 +191,12 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
         );
     }
     /** @dataProvider providedConfigs */
-    public function testIsProvidedRejectsPlaceholdersAndBlanks(string $db, string $user, string $pw, bool $expected): void
-    {
+    public function testIsProvidedRejectsPlaceholdersAndBlanks(
+        string $db,
+        string $user,
+        string $pw,
+        bool $expected,
+    ): void {
         $cfg = new DatabaseConfig('pgsql', 'localhost', 5432, $db, $user, $pw);
 
         self::assertSame($expected, (new PgsqlDatabaseConfigFactory())->isProvided($cfg));
