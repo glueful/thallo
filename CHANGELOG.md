@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.6] - 2026-09-06 — Developer Preview
+
+A first-run polish release on beta.5: `thallo:provision` recognises a hand-filled `.env` and
+asks for one confirmation instead of seven answers. No schema, API, or admin changes; beta.5
+installs upgrade in place.
+
 ### Changed
 - **`thallo:provision` confirms a pre-filled `.env` instead of re-asking**: when `.env` already
   holds real `DB_PGSQL_*` values (non-empty database and user, none of them the `.env.example`
