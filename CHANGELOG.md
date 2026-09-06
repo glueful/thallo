@@ -14,6 +14,10 @@ as the next release, never a mutated tag.
   denied write became a fatal `ErrorException` and no command — `thallo:provision`
   included — could boot. The dump is now opt-in via `BOOT_PROFILE_LOG` and best-effort.
   Surfaced by dogfooding thallo.dev on CloudPanel.
+- `.env.example` leads with PostgreSQL: the database block named SQLite as the no-setup
+  default and listed PostgreSQL as an alternative, while the effective values were already
+  PostgreSQL. SQLite and MySQL are now commented blocks marked unsupported, matching
+  `docs/limitations.md`.
 
 ## [1.0.0-beta.4] - 2026-09-06 — Developer Preview
 
