@@ -7,6 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.5] - 2026-09-06 — Developer Preview
+
+A maintenance release on beta.4: framework 1.81.0, whose boot profiler no longer aborts boot
+on hosts where `/tmp/boot_profile.log` belongs to another OS user — the defect that stopped
+`thallo:provision` on the first thallo.dev deploy. No schema, API, or admin changes; beta.4
+installs upgrade in place.
+
 ### Changed
 - `glueful/framework` 1.81.0 in the lock: the framework's boot profiler no longer writes a
   hard-coded `/tmp/boot_profile.log` on every boot. On a host where another OS user had
