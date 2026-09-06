@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.4] - 2026-09-06 — Developer Preview
+
+A maintenance release on beta.3: the framework lock moves to 1.80.2 so `migrate:verify`
+never misclassifies an untouched migration source on a healthy install. No schema, API, or
+admin changes; beta.3 installs upgrade in place.
+
 ### Changed
 - `glueful/framework` 1.80.2 in the lock: an untouched migration source (a disabled engine's
   schema on a fresh install) classifies `pending`, never `divergent`, so `migrate:verify`
