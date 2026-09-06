@@ -7,6 +7,15 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **`thallo:provision` confirms a pre-filled `.env` instead of re-asking**: when `.env` already
+  holds real `DB_PGSQL_*` values (non-empty database and user, none of them the `.env.example`
+  placeholders), the interactive run shows the settings — password masked — and asks one
+  question. "No" walks the usual prompts with those values prefilled, and an empty password
+  answer keeps the stored one. A placeholder or empty `.env` gets the plain prompts as before;
+  `-n` is unchanged. Surfaced by dogfooding: with credentials written by hand, seven prompts
+  after three boot warnings read like the command had stopped.
+
 ## [1.0.0-beta.5] - 2026-09-06 — Developer Preview
 
 A maintenance release on beta.4: framework 1.81.0, whose boot profiler no longer aborts boot

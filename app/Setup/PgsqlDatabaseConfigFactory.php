@@ -14,6 +14,27 @@ use Glueful\Installer\EnvWriter;
  */
 final class PgsqlDatabaseConfigFactory
 {
+    /** The commented-out sample values shipped in .env.example; never real settings. */
+    private const PLACEHOLDERS = [
+        'database' => 'your_database_name',
+        'username' => 'your_database_user',
+        'password' => 'your_database_password',
+    ];
+
+    /**
+     * True when .env already carries usable settings: database and username are non-empty and
+     * none of database/username/password is an .env.example placeholder. An empty password is
+     * allowed (trust auth) — only the literal placeholder disqualifies it.
+     */
+    public function isProvided(DatabaseConfig $config): bool
+    {
+        return $config->database !== ''
+            && $config->username !== ''
+            && $config->database !== self::PLACEHOLDERS['database']
+            && $config->username !== self::PLACEHOLDERS['username']
+            && $config->password !== self::PLACEHOLDERS['password'];
+    }
+
     public function fromInput(
         string $host,
         int $port,
