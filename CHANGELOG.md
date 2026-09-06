@@ -7,6 +7,25 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.5] - 2026-09-06 — Developer Preview
+
+A maintenance release on beta.4: framework 1.81.0, whose boot profiler no longer aborts boot
+on hosts where `/tmp/boot_profile.log` belongs to another OS user — the defect that stopped
+`thallo:provision` on the first thallo.dev deploy. No schema, API, or admin changes; beta.4
+installs upgrade in place.
+
+### Changed
+- `glueful/framework` 1.81.0 in the lock: the framework's boot profiler no longer writes a
+  hard-coded `/tmp/boot_profile.log` on every boot. On a host where another OS user had
+  created that file first (a second site, or a root CLI run followed by the site user), the
+  denied write became a fatal `ErrorException` and no command — `thallo:provision`
+  included — could boot. The dump is now opt-in via `BOOT_PROFILE_LOG` and best-effort.
+  Surfaced by dogfooding thallo.dev on CloudPanel.
+- `.env.example` leads with PostgreSQL: the database block named SQLite as the no-setup
+  default and listed PostgreSQL as an alternative, while the effective values were already
+  PostgreSQL. SQLite and MySQL are now commented blocks marked unsupported, matching
+  `docs/limitations.md`.
+
 ## [1.0.0-beta.4] - 2026-09-06 — Developer Preview
 
 A maintenance release on beta.3: the framework lock moves to 1.80.2 so `migrate:verify`
