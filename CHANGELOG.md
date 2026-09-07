@@ -30,13 +30,16 @@ changes; beta.8 installs upgrade in place.
   - **A fresh production checkout is quiet before provision.** Until the security keys exist,
     the framework skips its boot-time security validation and resolves extensions live once,
     writing the cache — so the `composer create-project` hook and the first `php glueful`
-    call print no warnings and no "Extension cache missing" failure. The one remaining
-    pre-provision line, Aegis' "RBAC tables not found", belongs to the Aegis package.
+    call print no warnings and no "Extension cache missing" failure. The remaining
+    pre-provision line, Aegis' "RBAC tables not found", is handled by Aegis 1.16.0 below.
   - The "FORCE_HTTPS not enabled" recommendation no longer fires on production hosts that
     leave it unset (unset = enabled).
   - Compiled autowiring mirrors the runtime autowirer for optional dependencies and for
     object defaults built in the initializer (1.82.1), and compiled containers accept
     boot-time `load()` re-pins through `RebindableContainer`.
+- `glueful/aegis` 1.16.0 in the lock: the boot-time "RBAC tables not found" warning is silent
+  before first run (no security keys yet) and unchanged once installed. With it, a fresh
+  production checkout prints nothing at all before `thallo:provision`.
 
 ### Upgrade Notes
 - **Production now runs the compiled container.** If anything behaves differently only in
