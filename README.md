@@ -26,9 +26,12 @@ composer create-project --prefer-dist glueful/thallo my-site
 cd my-site
 createdb thallo                   # or create a database with your PostgreSQL tool
 php glueful thallo:provision      # confirms/prompts for the database; writes .env, keys, migrations, cache
-php glueful thallo:create-admin   # prompts for site name + first admin; grants full access
 php -S localhost:8000 -t public vendor/glueful/framework/router.php
 ```
+
+Then create the first admin — in the browser at `http://localhost:8000/admin/setup` (recommended),
+or from the terminal with `php glueful thallo:create-admin` (prompts for site name + first admin;
+grants full access). Provision prints both when it finishes.
 
 `.env` ships in **production** mode (debug off, HTTPS enforced). For the local quickstart above,
 set `APP_ENV=development` and `APP_DEBUG=true` in `.env` before starting the server — the
