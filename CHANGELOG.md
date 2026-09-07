@@ -7,6 +7,23 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.10] - 2026-09-07 — Developer Preview
+
+A small follow-up to beta.9 from the first thallo.dev walkthrough: provision hands off to the
+browser setup screen, and the production checklist covers the web-server rule that otherwise
+leaves the rendered site unstyled. No schema, API, or admin changes; beta.9 installs upgrade
+in place.
+
+### Changed
+- **Provision ends by naming both ways to create the first admin**, browser first:
+  `<BASE_URL>/admin/setup` (recommended) and `php glueful thallo:create-admin`. The README
+  quickstart says the same. Surfaced by dogfooding: the old one-liner only mentioned the CLI.
+- **Production checklist: PHP-served asset paths must reach PHP.** `/theme-assets/*` and
+  `/_thallo/runtime/*` are served by Thallo, not from disk; a web-server rule that answers every
+  `.css`/`.js`/`.woff2` URL straight from the document root (CloudPanel's template does) turns
+  them into 404s and every rendered page loads unstyled. `docs/production.md` now carries the
+  required row with the nginx location to add above the static-file rule.
+
 ## [1.0.0-beta.9] - 2026-09-07 — Developer Preview
 
 Framework 1.82.1 makes the compiled container real and lets a never-installed production
@@ -44,9 +61,6 @@ changes; beta.8 installs upgrade in place.
   not merely its classes), and `thallo:payments:migrate-platform-credentials` no longer
   resolves its encryption-backed collaborators at construction, so the console can register it
   before `APP_KEY` exists.
-- **Provision ends by naming both ways to create the first admin**, browser first:
-  `<BASE_URL>/admin/setup` (recommended) and `php glueful thallo:create-admin`. The README
-  quickstart says the same. Surfaced by dogfooding: the old one-liner only mentioned the CLI.
 - `glueful/aegis` 1.16.0 in the lock: the boot-time "RBAC tables not found" warning is silent
   before first run (no security keys yet) and unchanged once installed. With it, a fresh
   production checkout prints nothing at all before `thallo:provision`.
