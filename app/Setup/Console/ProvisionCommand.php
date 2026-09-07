@@ -9,6 +9,7 @@ use App\Setup\Doctor\Doctor;
 use App\Setup\PgsqlDatabaseConfigFactory;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Console\BaseCommand;
+use Glueful\Extensions\ExtensionManager;
 use Glueful\Installer\DatabaseConfig;
 use Glueful\Installer\EnvWriter;
 use Glueful\Installer\Installer;
@@ -116,6 +117,17 @@ final class ProvisionCommand extends BaseCommand
                 }
             }
             return self::FAILURE;
+        }
+
+        // Production boot refuses live extension discovery, so the compiled extension cache
+        // must exist before the next `php glueful` call — rebuild it from the provisioned state.
+        try {
+            $this->getContainer()->get(ExtensionManager::class)->writeCacheNow();
+            $this->line('Extension cache rebuilt.');
+        } catch (\Throwable $e) {
+            $this->warning(
+                'Extension cache not rebuilt (' . $e->getMessage() . ') — run `php glueful extensions:cache`.',
+            );
         }
 
         // Postgres is fixed; the password is never shown.

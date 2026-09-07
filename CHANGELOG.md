@@ -27,13 +27,27 @@ installs upgrade in place.
   commented block at the end of the file is the local-development baseline, and the README
   quickstart says to apply it before starting the built-in server. `thallo:doctor` now warns
   when a public `BASE_URL` runs in development mode.
+- **A fresh install boots in production mode** — three defects the first production-mode
+  provision on thallo.dev surfaced, all fixed and pinned by tests:
+  - The app provider used two closure factories. The compiled container refuses closures and
+    skips the WHOLE provider, so the capability registry vanished, every pack failed to boot,
+    and no `thallo:*` command existed. Both are static factories now, and an architecture test
+    forbids closure factories in every Thallo provider.
+  - Production boot needs the compiled extension cache, which a fresh checkout lacks.
+    `composer create-project` now builds it right after copying `.env`, and `thallo:provision`
+    rebuilds it after migrating.
+  - `thallo:doctor`, `thallo:provision` and `thallo:create-admin` register in the provider's
+    register() phase, not boot(): boot needs a reachable database, and a production boot failure
+    is logged and skipped, which silently removed the very commands that diagnose it. The boot
+    also no longer dies when the tenancy flag cannot be read pre-provision.
 
 ### Upgrade Notes
 - **Existing `.env` files are untouched** — this only changes what a fresh copy of
   `.env.example` contains. Installs that copied the previous template and never changed
   `APP_ENV` are running in development mode on their public host; set `APP_ENV=production`
   and `APP_DEBUG=false` (or run `php glueful system:production`), then clear the compiled
-  container.
+  container and run `php glueful extensions:cache` — production boot refuses to start
+  without that cache.
 
 ## [1.0.0-beta.5] - 2026-09-06 — Developer Preview
 
