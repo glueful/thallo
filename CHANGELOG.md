@@ -40,6 +40,9 @@ installs upgrade in place.
     register() phase, not boot(): boot needs a reachable database, and a production boot failure
     is logged and skipped, which silently removed the very commands that diagnose it. The boot
     also no longer dies when the tenancy flag cannot be read pre-provision.
+- `glueful/framework` 1.81.1 in the lock: providers loaded from the extension cache now get
+  `register()` called. Without it the first-run commands above never existed in production,
+  because production boots from that cache.
 
 ### Upgrade Notes
 - **Existing `.env` files are untouched** — this only changes what a fresh copy of
