@@ -416,23 +416,23 @@
         },
         {
             "name": "glueful/aegis",
-            "version": "v1.15.0",
+            "version": "v1.16.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/aegis.git",
-                "reference": "a1362435e697b0cb5ce7a44cf9b943991b795e7c"
+                "reference": "fd393c0f970b4b38a0f154ed6a24001a05664c21"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/aegis/zipball/a1362435e697b0cb5ce7a44cf9b943991b795e7c",
-                "reference": "a1362435e697b0cb5ce7a44cf9b943991b795e7c",
+                "url": "https://api.github.com/repos/glueful/aegis/zipball/fd393c0f970b4b38a0f154ed6a24001a05664c21",
+                "reference": "fd393c0f970b4b38a0f154ed6a24001a05664c21",
                 "shasum": ""
             },
             "require": {
                 "php": "^8.3"
             },
             "require-dev": {
-                "glueful/framework": "^1.79",
+                "glueful/framework": "^1.82",
                 "phpstan/phpstan": "^1.10",
                 "phpunit/phpunit": "^10.0"
             },
@@ -441,7 +441,7 @@
                 "glueful": {
                     "icon": "assets/icon.png",
                     "name": "Aegis",
-                    "version": "1.15.0",
+                    "version": "1.16.0",
                     "provider": "Glueful\\Extensions\\Aegis\\Services\\AegisServiceProvider",
                     "requires": {
                         "glueful": ">=1.79.0",
@@ -488,9 +488,9 @@
             "homepage": "https://github.com/glueful/aegis",
             "support": {
                 "issues": "https://github.com/glueful/aegis/issues",
-                "source": "https://github.com/glueful/aegis/tree/v1.15.0"
+                "source": "https://github.com/glueful/aegis/tree/v1.16.0"
             },
-            "time": "2026-08-18T01:31:23+00:00"
+            "time": "2026-09-07T11:44:32+00:00"
         },
         {
             "name": "glueful/audit",
