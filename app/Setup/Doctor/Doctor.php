@@ -47,6 +47,10 @@ final class Doctor
         $checks[] = $this->envTargetCheck();
         $checks[] = $this->writableStorageCheck();
         $checks[] = $this->keysCheck();
+        $environment = $this->environmentCheck();
+        if ($environment !== null) {
+            $checks[] = $environment;
+        }
 
         return $checks;
     }
@@ -84,6 +88,46 @@ final class Doctor
         }
 
         return Check::ok('env-target', '.env will be created from .env.example.');
+    }
+
+    /**
+     * `.env.example` ships in production mode; a public BASE_URL still running in development
+     * (debug output, API docs, no HTTPS enforcement) is the silent mistake this warns about.
+     * Local hosts are fine in any mode. Null when there is no .env to read yet.
+     */
+    private function environmentCheck(): ?Check
+    {
+        $env = $this->basePath . '/.env';
+        if (!is_file($env)) {
+            return null;
+        }
+
+        $writer = new EnvWriter($env);
+        $appEnv = (string) ($writer->get('APP_ENV') ?? 'production');
+        $host = (string) (parse_url((string) ($writer->get('BASE_URL') ?? ''), PHP_URL_HOST) ?? '');
+
+        if ($appEnv === 'production') {
+            return Check::ok('environment', 'Production mode.');
+        }
+        if ($host === '' || $this->isLocalHost($host)) {
+            return Check::ok('environment', "{$appEnv} mode with a local BASE_URL.");
+        }
+
+        return Check::warn(
+            'environment',
+            "APP_ENV={$appEnv} but BASE_URL points at a public host ({$host}) — set APP_ENV=production"
+            . ' (php glueful system:production) before going live.',
+        );
+    }
+
+    private function isLocalHost(string $host): bool
+    {
+        $host = strtolower(trim($host, '[]'));
+
+        return in_array($host, ['localhost', '127.0.0.1', '::1', '0.0.0.0'], true)
+            || str_ends_with($host, '.localhost')
+            || str_ends_with($host, '.local')
+            || str_ends_with($host, '.test');
     }
 
     private function writableStorageCheck(): Check

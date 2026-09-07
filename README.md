@@ -30,6 +30,10 @@ php glueful thallo:create-admin   # prompts for site name + first admin; grants 
 php -S localhost:8000 -t public vendor/glueful/framework/router.php
 ```
 
+`.env` ships in **production** mode (debug off, HTTPS enforced). For the local quickstart above,
+set `APP_ENV=development` and `APP_DEBUG=true` in `.env` before starting the server — the
+commented "Local development baseline" block at the end of `.env.example` lists the full set.
+
 Both commands take flags for scripted installs (`--help`; pass `-n` for non-interactive).
 If `.env` already holds your `DB_PGSQL_*` values, provision shows them and asks you to confirm
 instead of prompting field by field.

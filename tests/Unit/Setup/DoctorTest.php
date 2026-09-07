@@ -35,6 +35,47 @@ final class DoctorTest extends TestCase
         return $dir;
     }
 
+    private function tempProjectWithEnv(string $env): string
+    {
+        $dir = $this->tempProject(withEnv: false, withExample: true);
+        file_put_contents($dir . '/.env', $env);
+        return $dir;
+    }
+
+    public function testDevelopmentModeWithAPublicBaseUrlWarns(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=development\nBASE_URL=https://thallo.dev\n");
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+
+        self::assertSame(Check::WARN, $checks['environment']->status);
+        self::assertStringContainsString('thallo.dev', $checks['environment']->message);
+        self::assertStringContainsString('APP_ENV=production', $checks['environment']->message);
+    }
+
+    public function testProductionModeWithAPublicBaseUrlIsOk(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\nBASE_URL=https://thallo.dev\n");
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+
+        self::assertSame(Check::OK, $checks['environment']->status);
+    }
+
+    public function testDevelopmentModeWithALocalBaseUrlIsOk(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=development\nBASE_URL=http://localhost:8000\n");
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+
+        self::assertSame(Check::OK, $checks['environment']->status);
+    }
+
+    public function testEnvironmentCheckIsSkippedWithoutAnEnvFile(): void
+    {
+        $dir = $this->tempProject(withEnv: false, withExample: true);
+        $checks = $this->byName((new Doctor($dir, '8.3.0', ['pdo_pgsql']))->preflight());
+
+        self::assertArrayNotHasKey('environment', $checks);
+    }
+
     public function testPhpVersionBelowMinimumFails(): void
     {
         $dir = $this->tempProject(withEnv: true, withExample: true);
