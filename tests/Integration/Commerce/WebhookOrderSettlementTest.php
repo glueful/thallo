@@ -101,6 +101,48 @@ final class WebhookOrderSettlementTest extends AppTestCase
      * compiled before this listener existed still answers `true`. That is the shape simulated
      * here: the tag is bound and non-empty, but carries somebody else's listener.
      */
+    /**
+     * Payvia is a SOFT dependency: an install without it (tier 2 is off by default) is a
+     * supported posture where payments degrade to manual collection — not a broken container.
+     * The registration must recognise "payvia not active" (its own services are unbound) and
+     * register nothing, silently. Before this, every production boot without payvia logged
+     * "CRITICAL: webhook order settlement is DEAD" because the fallback tried to build the
+     * listener from services payvia never contributed.
+     */
+    public function testNothingIsLoggedWhenPayviaIsNotActive(): void
+    {
+        $bare = new \Glueful\Container\Container([
+            \Glueful\Events\EventService::class => new \Glueful\Container\Definition\ValueDefinition(
+                \Glueful\Events\EventService::class,
+                $this->container()->get(\Glueful\Events\EventService::class),
+            ),
+        ]);
+        self::assertFalse($bare->has(PaymentIntentRepository::class), 'sanity: payvia is not in this container');
+        $context = \Glueful\Bootstrap\ApplicationContext::forTesting(dirname(__DIR__, 3));
+        $context->setContainer($bare);
+
+        $log = tempnam(sys_get_temp_dir(), 'thallo-errlog');
+        $previous = ini_set('error_log', (string) $log);
+        try {
+            $provider = new CommerceIntegrationServiceProvider($bare);
+            $register = new \ReflectionMethod($provider, 'registerWebhookOrderSettlement');
+            $register->setAccessible(true);
+            $register->invoke($provider, $context);
+        } finally {
+            ini_set('error_log', (string) $previous);
+        }
+        $logged = (string) file_get_contents((string) $log);
+        @unlink((string) $log);
+
+        self::assertStringNotContainsString(
+            'CRITICAL',
+            $logged,
+            'payvia absent is a supported posture, not a dead settlement lane',
+        );
+        self::assertFalse(CommerceIntegrationServiceProvider::payviaIsActive($bare));
+        self::assertTrue(CommerceIntegrationServiceProvider::payviaIsActive($this->container()));
+    }
+
     public function testTheBusFallbackEngagesWhenTheStrictLaneDoesNotCarryThisListener(): void
     {
         $probe = new \ReflectionMethod(

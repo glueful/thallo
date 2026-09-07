@@ -37,6 +37,13 @@ changes; beta.8 installs upgrade in place.
   - Compiled autowiring mirrors the runtime autowirer for optional dependencies and for
     object defaults built in the initializer (1.82.1), and compiled containers accept
     boot-time `load()` re-pins through `RebindableContainer`.
+- **A fresh production checkout prints nothing before provision.** Two Thallo lines the
+  quiet framework boot exposed are gone: the commerce pack no longer declares webhook
+  settlement "DEAD" on installs where Payvia is not active (tier 2 is off by default and
+  payments degrade to manual collection by design — it now checks for Payvia's own services,
+  not merely its classes), and `thallo:payments:migrate-platform-credentials` no longer
+  resolves its encryption-backed collaborators at construction, so the console can register it
+  before `APP_KEY` exists.
 - `glueful/aegis` 1.16.0 in the lock: the boot-time "RBAC tables not found" warning is silent
   before first run (no security keys yet) and unchanged once installed. With it, a fresh
   production checkout prints nothing at all before `thallo:provision`.

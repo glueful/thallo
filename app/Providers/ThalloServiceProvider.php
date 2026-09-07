@@ -468,6 +468,12 @@ final class ThalloServiceProvider extends ServiceProvider
     }
 
     /** Static (compilable) factories: production compiles the container and refuses closures. */
+    public static function makeMigratePlatformPaymentCredentialsCommand(
+        ContainerInterface $container,
+    ): MigratePlatformPaymentCredentialsCommand {
+        return new MigratePlatformPaymentCredentialsCommand($container, $container->get(ApplicationContext::class));
+    }
+
     public static function makeSignupDiagnostics(ContainerInterface $container): SignupDiagnostics
     {
         return $container->get(DefaultSignupDiagnostics::class);
@@ -1944,9 +1950,10 @@ final class ThalloServiceProvider extends ServiceProvider
             // the migration's collaborators are injected rather than looked up — autowiring fills
             // all six parameters, and tests point the legacy repository at an isolated table.
             MigratePlatformPaymentCredentialsCommand::class => [
-                'class' => MigratePlatformPaymentCredentialsCommand::class,
+                // Explicit factory, NOT autowire: its collaborators need the encryption service,
+                // which cannot exist before first run; the command resolves them when it runs.
+                'factory' => [self::class, 'makeMigratePlatformPaymentCredentialsCommand'],
                 'shared' => true,
-                'autowire' => true,
             ],
         ];
     }
