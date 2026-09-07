@@ -9,12 +9,20 @@ as the next release, never a mutated tag.
 
 ## [1.0.0-beta.9] - 2026-09-07 — Developer Preview
 
-A lock-only release on beta.8: framework 1.82.0 makes the compiled container real and lets a
-never-installed production checkout boot quietly. No Thallo code, schema, API, or admin
+Framework 1.82.1 makes the compiled container real and lets a never-installed production
+checkout boot quietly; Thallo's two boot-time container re-pins now guard on the framework's new
+`RebindableContainer` interface so they reach that compiled container. No schema, API, or admin
 changes; beta.8 installs upgrade in place.
 
 ### Changed
-- `glueful/framework` 1.82.0 in the lock:
+- **Boot-time re-pins reach the compiled container.** The subscriptions pre-engine seam and the
+  commerce payment-link seams re-bind services on the built container from `boot()`; both
+  guarded on the concrete runtime `Container` class, which production's compiled container is
+  not. With compilation now succeeding they would have silently no-op'd — exactly what
+  `SubjectResolverCompiledContainerGateTest` was written to catch, and it did. The guards target
+  `Glueful\Container\RebindableContainer` (framework ≥ 1.82.1) and the gate test now asserts
+  the production contract directly: build the compiled container, run the re-pin, resolve.
+- `glueful/framework` 1.82.1 in the lock:
   - **The compiled container actually engages in production.** Every production boot used to
     log `[Container][WARNING] container compilation failed` and run the runtime container;
     static factories, closure factories and the live `ApplicationContext` now all compile or
@@ -26,6 +34,9 @@ changes; beta.8 installs upgrade in place.
     pre-provision line, Aegis' "RBAC tables not found", belongs to the Aegis package.
   - The "FORCE_HTTPS not enabled" recommendation no longer fires on production hosts that
     leave it unset (unset = enabled).
+  - Compiled autowiring mirrors the runtime autowirer for optional dependencies and for
+    object defaults built in the initializer (1.82.1), and compiled containers accept
+    boot-time `load()` re-pins through `RebindableContainer`.
 
 ### Upgrade Notes
 - **Production now runs the compiled container.** If anything behaves differently only in
