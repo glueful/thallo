@@ -7,6 +7,52 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.9] - 2026-09-07 — Developer Preview
+
+Framework 1.82.1 makes the compiled container real and lets a never-installed production
+checkout boot quietly; Thallo's two boot-time container re-pins now guard on the framework's new
+`RebindableContainer` interface so they reach that compiled container. No schema, API, or admin
+changes; beta.8 installs upgrade in place.
+
+### Changed
+- **Boot-time re-pins reach the compiled container.** The subscriptions pre-engine seam and the
+  commerce payment-link seams re-bind services on the built container from `boot()`; both
+  guarded on the concrete runtime `Container` class, which production's compiled container is
+  not. With compilation now succeeding they would have silently no-op'd — exactly what
+  `SubjectResolverCompiledContainerGateTest` was written to catch, and it did. The guards target
+  `Glueful\Container\RebindableContainer` (framework ≥ 1.82.1) and the gate test now asserts
+  the production contract directly: build the compiled container, run the re-pin, resolve.
+- `glueful/framework` 1.82.1 in the lock:
+  - **The compiled container actually engages in production.** Every production boot used to
+    log `[Container][WARNING] container compilation failed` and run the runtime container;
+    static factories, closure factories and the live `ApplicationContext` now all compile or
+    hydrate, and the artifact lives in `storage/cache/container/`.
+  - **A fresh production checkout is quiet before provision.** Until the security keys exist,
+    the framework skips its boot-time security validation and resolves extensions live once,
+    writing the cache — so the `composer create-project` hook and the first `php glueful`
+    call print no warnings and no "Extension cache missing" failure. The remaining
+    pre-provision line, Aegis' "RBAC tables not found", is handled by Aegis 1.16.0 below.
+  - The "FORCE_HTTPS not enabled" recommendation no longer fires on production hosts that
+    leave it unset (unset = enabled).
+  - Compiled autowiring mirrors the runtime autowirer for optional dependencies and for
+    object defaults built in the initializer (1.82.1), and compiled containers accept
+    boot-time `load()` re-pins through `RebindableContainer`.
+- **A fresh production checkout prints nothing before provision.** Two Thallo lines the
+  quiet framework boot exposed are gone: the commerce pack no longer declares webhook
+  settlement "DEAD" on installs where Payvia is not active (tier 2 is off by default and
+  payments degrade to manual collection by design — it now checks for Payvia's own services,
+  not merely its classes), and `thallo:payments:migrate-platform-credentials` no longer
+  resolves its encryption-backed collaborators at construction, so the console can register it
+  before `APP_KEY` exists.
+- `glueful/aegis` 1.16.0 in the lock: the boot-time "RBAC tables not found" warning is silent
+  before first run (no security keys yet) and unchanged once installed. With it, a fresh
+  production checkout prints nothing at all before `thallo:provision`.
+
+### Upgrade Notes
+- **Production now runs the compiled container.** If anything behaves differently only in
+  production, set `APP_DEBUG=true` to compare against the runtime container and report it.
+  Delete `storage/cache/container/` to force a fresh compile.
+
 ## [1.0.0-beta.8] - 2026-09-07 — Developer Preview
 
 A lock-only release on beta.7: framework 1.81.2 stops a stale, host-shared command manifest

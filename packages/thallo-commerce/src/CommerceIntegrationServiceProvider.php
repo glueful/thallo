@@ -7,7 +7,7 @@ namespace Thallo\Commerce;
 use Glueful\Extensions\DeclaresLoadOrder;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Cache\CacheStore;
-use Glueful\Container\Container as GluefulContainer;
+use Glueful\Container\RebindableContainer;
 use Glueful\Container\Definition\FactoryDefinition;
 use Glueful\Cache\Contracts\EdgeCacheInterface;
 use Glueful\Database\Connection;
@@ -835,7 +835,7 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
      * same reason: aliases are compiled into this provider's own map and merged identically.)
      *
      * Guarded three ways, all of which are real states rather than defensive noise:
-     *  - a non-{@see GluefulContainer} (a compiled container) has no `load()`, so this would
+     *  - before framework 1.82.1 a compiled container had no `load()`, so this would
      *    silently skip. Today container compilation always throws and falls back to the plain
      *    container; `tests/Integration/Subscriptions/SubjectResolverCompiledContainerGateTest.php`
      *    drives the real `ContainerFactory::create($context, prod: true)` path and turns red the
@@ -859,7 +859,8 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
      */
     private function rebindPaymentLinkSeams(): void
     {
-        if (!$this->app instanceof GluefulContainer) {
+        // Interface guard (framework ≥ 1.82.1) so the re-pin also reaches the compiled container.
+        if (!$this->app instanceof RebindableContainer) {
             return;
         }
 
@@ -1387,6 +1388,12 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
             return;
         }
 
+        // Payvia is a SOFT dependency (tier 2, off by default). Without its provider there is
+        // no settlement lane to be dead — payments degrade to manual collection by design.
+        if (!self::payviaIsActive($container)) {
+            return;
+        }
+
         if (self::strictLaneCarriesSettlementListener($container)) {
             return;
         }
@@ -1447,6 +1454,12 @@ final class CommerceIntegrationServiceProvider extends ServiceProvider implement
      * `composeStrictLane()` will actually iterate. An unbound tag, a non-iterable value, or a
      * lane that simply does not include us all mean the same thing: settlement is not wired.
      */
+    /** Payvia's provider is loaded iff its own services are bound (autoload alone proves nothing). */
+    public static function payviaIsActive(ContainerInterface $container): bool
+    {
+        return class_exists(PaymentIntentRepository::class) && $container->has(PaymentIntentRepository::class);
+    }
+
     private static function strictLaneCarriesSettlementListener(ContainerInterface $container): bool
     {
         if (!$container->has(StrictPaymentEventListener::CONTAINER_TAG)) {

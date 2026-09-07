@@ -79,15 +79,40 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
     /** The per-gateway editable subkeys, verbatim from Task 4's whitelist. */
     private const GATEWAY_SUBKEYS = ['enabled', 'secret_key', 'webhook_secret'];
 
+    /**
+     * Collaborators are OPTIONAL at construction: the console instantiates every command at
+     * startup, and these need the encryption service, which refuses to exist before APP_KEY is
+     * generated. Tests inject them; the container factory passes none and they resolve on run.
+     */
     public function __construct(
         ContainerInterface $container,
         ApplicationContext $context,
-        private readonly PlatformPaymentSettingsStore $platform,
-        private readonly LegacyPlatformPaymentSettingsReader $legacy,
-        private readonly LegacyPlatformPaymentSettingsRepository $repository,
-        private readonly SystemChannel $system,
+        private ?PlatformPaymentSettingsStore $platform = null,
+        private ?LegacyPlatformPaymentSettingsReader $legacy = null,
+        private ?LegacyPlatformPaymentSettingsRepository $repository = null,
+        private ?SystemChannel $system = null,
     ) {
         parent::__construct($container, $context);
+    }
+
+    private function platform(): PlatformPaymentSettingsStore
+    {
+        return $this->platform ??= $this->getContainer()->get(PlatformPaymentSettingsStore::class);
+    }
+
+    private function legacy(): LegacyPlatformPaymentSettingsReader
+    {
+        return $this->legacy ??= $this->getContainer()->get(LegacyPlatformPaymentSettingsReader::class);
+    }
+
+    private function repository(): LegacyPlatformPaymentSettingsRepository
+    {
+        return $this->repository ??= $this->getContainer()->get(LegacyPlatformPaymentSettingsRepository::class);
+    }
+
+    private function system(): SystemChannel
+    {
+        return $this->system ??= $this->getContainer()->get(SystemChannel::class);
     }
 
     protected function configure(): void
@@ -133,7 +158,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
         // marker over an EMPTY platform store: Task 4's legacy fallback switches off with nothing
         // behind it, and --prune-legacy deletes the only copies. Refuse instead, and name the one
         // thing that fixes it.
-        if ($this->repository->awaitsDefaultWorkspacePointer()) {
+        if ($this->repository()->awaitsDefaultWorkspacePointer()) {
             return $this->refuseWithoutDefaultWorkspace();
         }
 
@@ -192,7 +217,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
         // LAST write of the run: every candidate key is accounted for and every conflict is absent
         // or acknowledged, so the compatibility path can be switched off. Pruning below deletes
         // legacy rows only — it never writes to the channel, so the marker stays the final write.
-        $this->system->put(PlatformPayviaSettingsOverride::MIGRATION_MARKER_KEY, '1');
+        $this->system()->put(PlatformPayviaSettingsOverride::MIGRATION_MARKER_KEY, '1');
         $this->line('  marker     ' . PlatformPayviaSettingsOverride::MIGRATION_MARKER_KEY);
 
         if (!$prune) {
@@ -255,7 +280,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
     private function markerState(): ?bool
     {
         try {
-            return $this->system->get(PlatformPayviaSettingsOverride::MIGRATION_MARKER_KEY) !== null;
+            return $this->system()->get(PlatformPayviaSettingsOverride::MIGRATION_MARKER_KEY) !== null;
         } catch (\Throwable) {
             return null;
         }
@@ -336,8 +361,8 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
      */
     private function reconcile(string $key, bool $alreadyMarked, array &$withPlatformValue): bool
     {
-        $legacyRow = $this->legacy->raw($key);
-        $platformValue = $this->platform->get($key);
+        $legacyRow = $this->legacy()->raw($key);
+        $platformValue = $this->platform()->get($key);
         $platformStored = $this->rawPlatformBytes($key);
 
         // A stored platform row whose value will not decrypt (rotated key, tampered bytes). It is
@@ -383,9 +408,9 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
         try {
             if (self::isSecretKey($key)) {
                 // Verbatim ciphertext, proven to decrypt under this key's AAD before it is written.
-                $this->platform->importEncryptedForMigration($key, $legacyRow['stored_value']);
+                $this->platform()->importEncryptedForMigration($key, $legacyRow['stored_value']);
             } else {
-                $this->platform->putMany([$key => $legacyRow['decrypted_value']]);
+                $this->platform()->putMany([$key => $legacyRow['decrypted_value']]);
             }
         } catch (\Throwable $e) {
             $this->line('  FAILED     ' . $key . ' (copy rejected: ' . self::reason($e) . ')');
@@ -446,7 +471,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
             return false;
         }
 
-        $platformValue = $this->platform->get($key);
+        $platformValue = $this->platform()->get($key);
         if ($platformValue === null || !hash_equals($legacyValue, $platformValue)) {
             return false;
         }
@@ -475,7 +500,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
         $kept = 0;
 
         foreach ($this->candidateKeys() as $key) {
-            $row = $this->legacy->raw($key);
+            $row = $this->legacy()->raw($key);
             if ($row === null) {
                 continue;
             }
@@ -486,7 +511,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
                 continue;
             }
 
-            $platformValue = $this->platform->get($key);
+            $platformValue = $this->platform()->get($key);
             $platformStored = $this->rawPlatformBytes($key);
             if ($platformValue === null || $platformStored === null) {
                 // Only a FAILURE for a key that HELD a platform value moments ago in pass 1 —
@@ -547,7 +572,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
     {
         $failures = 0;
         $discarded = 0;
-        foreach ($this->repository->conflictRowsForPrefix(self::PAYVIA_PREFIX) as $row) {
+        foreach ($this->repository()->conflictRowsForPrefix(self::PAYVIA_PREFIX) as $row) {
             $failed = $this->deleteRow($row['key'], $row['tenant_uuid'], $row['stored_value'], 'discarded ');
             $failures += $failed;
             $discarded += $failed === 0 ? 1 : 0;
@@ -560,7 +585,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
     private function deleteRow(string $key, ?string $tenantUuid, string $expectedStoredValue, string $label): int
     {
         try {
-            $this->repository->deleteExact($key, $tenantUuid, $expectedStoredValue);
+            $this->repository()->deleteExact($key, $tenantUuid, $expectedStoredValue);
         } catch (\Throwable $e) {
             $this->line(
                 '  FAILED     ' . $key . $this->tenantSuffix($tenantUuid)
@@ -585,7 +610,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
     private function reportConflicts(bool $acknowledge): int
     {
         $count = 0;
-        foreach ($this->legacy->conflicts() as $rows) {
+        foreach ($this->legacy()->conflicts() as $rows) {
             foreach ($rows as $row) {
                 $this->line(
                     '  ' . ($acknowledge ? 'discardable' : 'CONFLICT   ')
@@ -649,7 +674,7 @@ final class MigratePlatformPaymentCredentialsCommand extends BaseCommand
     private function rawPlatformBytes(string $key): ?string
     {
         try {
-            return $this->system->get($key);
+            return $this->system()->get($key);
         } catch (\Throwable) {
             return null;
         }

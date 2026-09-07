@@ -248,9 +248,16 @@ final class AdminOrderPaymentsTest extends AppTestCase
 
         self::assertSame(404, $draftResponse->getStatusCode(), (string) $draftResponse->getContent());
         self::assertSame(404, $unknownResponse->getStatusCode(), (string) $unknownResponse->getContent());
+        // Byte-identical EXCEPT the envelope's per-request timestamp: the two requests can
+        // straddle a second boundary, and that clock tick is not an existence oracle.
+        $withoutClock = static fn (string $body): string => (string) preg_replace(
+            '/"timestamp":"[^"]*"/',
+            '"timestamp":"<clock>"',
+            $body,
+        );
         self::assertSame(
-            (string) $unknownResponse->getContent(),
-            (string) $draftResponse->getContent(),
+            $withoutClock((string) $unknownResponse->getContent()),
+            $withoutClock((string) $draftResponse->getContent()),
             'a draft uuid must be indistinguishable from a uuid that was never an order',
         );
         self::assertStringNotContainsString('draft', (string) $draftResponse->getContent());
