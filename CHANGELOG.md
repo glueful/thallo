@@ -7,6 +7,25 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.8] - 2026-09-07 — Developer Preview
+
+A lock-only release on beta.7: framework 1.81.2 stops a stale, host-shared command manifest
+from breaking every production boot. No Thallo code, schema, API, or admin changes; beta.7
+installs upgrade in place.
+
+### Changed
+- `glueful/framework` 1.81.2 in the lock: the production console command manifest now lives
+  in the app's `storage/cache` and is re-validated on load. Before, every host shared one
+  `/tmp/glueful_commands_manifest.php` and trusted it verbatim, so a manifest left by an older
+  framework on the same VPS fed a phantom command class into every production boot — container
+  compilation failed and the console threw a 500 before `thallo:provision` could run. Surfaced
+  on thallo.dev's server, which once ran a pre-1.41 framework.
+
+### Upgrade Notes
+- **If a host ever showed `Cannot compile autowire definition for unknown class` at boot**:
+  after `composer update`, run `php glueful commands:clear` once to delete the old shared
+  temp manifest, or simply delete `/tmp/glueful_commands_manifest.php` as root.
+
 ## [1.0.0-beta.7] - 2026-09-07 — Developer Preview
 
 Hotfix on beta.6: the production mode beta.6 made the default could not provision a fresh
