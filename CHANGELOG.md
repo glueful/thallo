@@ -44,6 +44,9 @@ changes; beta.8 installs upgrade in place.
   not merely its classes), and `thallo:payments:migrate-platform-credentials` no longer
   resolves its encryption-backed collaborators at construction, so the console can register it
   before `APP_KEY` exists.
+- **Provision ends by naming both ways to create the first admin**, browser first:
+  `<BASE_URL>/admin/setup` (recommended) and `php glueful thallo:create-admin`. The README
+  quickstart says the same. Surfaced by dogfooding: the old one-liner only mentioned the CLI.
 - `glueful/aegis` 1.16.0 in the lock: the boot-time "RBAC tables not found" warning is silent
   before first run (no security keys yet) and unchanged once installed. With it, a fresh
   production checkout prints nothing at all before `thallo:provision`.

@@ -132,12 +132,36 @@ final class ProvisionCommand extends BaseCommand
 
         // Postgres is fixed; the password is never shown.
         $this->success(sprintf(
-            'Database configured: %s:%d/%s (migrations applied). Next: `thallo create-admin`.',
+            'Database configured: %s:%d/%s (migrations applied).',
             $database->host,
             $database->port,
             $database->database,
         ));
+        $this->line('Next: create the first admin');
+        foreach (self::nextSteps($env->get('BASE_URL')) as $step) {
+            $this->line('  ' . $step);
+        }
+        $this->line('');
         return self::SUCCESS;
+    }
+
+    /**
+     * The two ways to create the first admin, browser first: a CMS operator expects a setup
+     * screen, and /admin/setup is that screen; the CLI command is the scripted alternative.
+     *
+     * @return list<string>
+     */
+    public static function nextSteps(?string $baseUrl): array
+    {
+        $origin = rtrim(trim((string) $baseUrl), '/');
+        if ($origin === '') {
+            $origin = 'http://localhost:8000';
+        }
+
+        return [
+            '1. In your browser (recommended): ' . $origin . '/admin/setup',
+            '2. Or from this terminal:          php glueful thallo:create-admin',
+        ];
     }
 
     /** Env-derived config with any explicit --db-* option taking precedence. */
