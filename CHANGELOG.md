@@ -9,12 +9,19 @@ as the next release, never a mutated tag.
 
 ## [1.0.0-beta.11] - 2026-09-07 — Developer Preview
 
-A lock-only release on beta.10: framework 1.82.2 serves the admin's HTML document with a
-Content-Security-Policy a built front-end can run under. No Thallo code, schema, API, or admin
-changes; beta.10 installs upgrade in place.
+A lock-only release on beta.10: framework 1.82.3 serves the admin's HTML document with a
+Content-Security-Policy a built front-end can run under, and the `php -S` quickstart serves
+admin deep links. No Thallo code, schema, API, or admin changes; beta.10 installs upgrade in
+place.
 
 ### Changed
-- `glueful/framework` 1.82.2 in the lock: the SPA mount controller applied the static-asset
+- `glueful/framework` 1.82.3 in the lock:
+  - (1.82.3) **The `php -S … router.php` quickstart serves admin deep links.** With the admin
+    bundle at `public/admin/index.html`, PHP's built-in server resolved `/admin/setup` to that
+    directory index and Symfony stripped `/admin` as a base path, so every admin deep link or
+    reload 404'd locally (nginx/Apache were unaffected). The router script now presents the
+    front controller the way a real web server does.
+  - (1.82.2) The SPA mount controller applied the static-asset
   header set — `style-src 'self'`, no inline allowance — to `index.html` too, so the admin's
   runtime-injected styles were blocked in every environment where PHP serves the bundle: the
   primary button on the setup screen rendered with no background. `index.html` now carries a
