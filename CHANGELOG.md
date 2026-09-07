@@ -7,6 +7,34 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.6] - 2026-09-06 — Developer Preview
+
+A first-run polish release on beta.5: `thallo:provision` recognises a hand-filled `.env` and
+asks for one confirmation instead of seven answers. No schema, API, or admin changes; beta.5
+installs upgrade in place.
+
+### Changed
+- **`thallo:provision` confirms a pre-filled `.env` instead of re-asking**: when `.env` already
+  holds real `DB_PGSQL_*` values (non-empty database and user, none of them the `.env.example`
+  placeholders), the interactive run shows the settings — password masked — and asks one
+  question. "No" walks the usual prompts with those values prefilled, and an empty password
+  answer keeps the stored one. A placeholder or empty `.env` gets the plain prompts as before;
+  `-n` is unchanged. Surfaced by dogfooding: with credentials written by hand, seven prompts
+  after three boot warnings read like the command had stopped.
+- **`.env.example` ships in production mode.** Thallo is installed to be deployed, so the
+  template now defaults to `APP_ENV=production`, `APP_DEBUG=false`, API docs off, HTTPS
+  enforcement on, production logging, and no CORS origins (the admin is same-origin). The
+  commented block at the end of the file is the local-development baseline, and the README
+  quickstart says to apply it before starting the built-in server. `thallo:doctor` now warns
+  when a public `BASE_URL` runs in development mode.
+
+### Upgrade Notes
+- **Existing `.env` files are untouched** — this only changes what a fresh copy of
+  `.env.example` contains. Installs that copied the previous template and never changed
+  `APP_ENV` are running in development mode on their public host; set `APP_ENV=production`
+  and `APP_DEBUG=false` (or run `php glueful system:production`), then clear the compiled
+  container.
+
 ## [1.0.0-beta.5] - 2026-09-06 — Developer Preview
 
 A maintenance release on beta.4: framework 1.81.0, whose boot profiler no longer aborts boot

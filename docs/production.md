@@ -9,7 +9,7 @@ A tier-1 install (the fresh default) needs only the **Core** rows.
 |---|---|---|
 | `BASE_URL` set to the canonical public origin | **Required** | Every absolute URL derives from it, never the Host header. HTTPS with no non-default port if you will ever mint payment links. |
 | Scheduled-publishing cron | **Required** | `* * * * * php /path/to/site/glueful thallo:schedules:run` — fires due scheduled publish/unpublish actions. |
-| `APP_ENV=production` (+ real `APP_KEY`/`JWT_KEY`) | **Required** | `php glueful install` generates keys. Production automatically disables API docs and debug output. |
+| `APP_ENV=production` (+ real `APP_KEY`/`JWT_KEY`) | **Required** | The shipped `.env.example` is already production (debug off, API docs off, HTTPS enforced); keep it that way and let `thallo:provision` generate the keys. `thallo:doctor` warns if a public `BASE_URL` runs in development mode. |
 | Clear compiled containers on every deploy/update | **Required** | `php glueful` cache clears — a stale compiled container can construct services with outdated signatures (this failure class is designed to fail loud, not silently). See [upgrading](upgrading.md). |
 | Queue workers | Recommended | Background jobs (mail, maintenance) degrade gracefully without them, but production should run the queue (`php glueful queue:work`; presets in `.env`). |
 | Backups (database + `storage/`) | **Required** | Media, uploads, caches and the database carry all state. |

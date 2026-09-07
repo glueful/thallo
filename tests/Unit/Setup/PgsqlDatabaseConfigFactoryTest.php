@@ -190,4 +190,27 @@ final class PgsqlDatabaseConfigFactoryTest extends TestCase
             'an unprovided password must still refuse',
         );
     }
+    /** @dataProvider providedConfigs */
+    public function testIsProvidedRejectsPlaceholdersAndBlanks(
+        string $db,
+        string $user,
+        string $pw,
+        bool $expected,
+    ): void {
+        $cfg = new DatabaseConfig('pgsql', 'localhost', 5432, $db, $user, $pw);
+
+        self::assertSame($expected, (new PgsqlDatabaseConfigFactory())->isProvided($cfg));
+    }
+
+    /** @return iterable<string, array{string, string, string, bool}> */
+    public static function providedConfigs(): iterable
+    {
+        yield 'real values' => ['thallo', 'thallo_user', 's3cr3t', true];
+        yield 'real values, empty password (trust auth)' => ['thallo', 'postgres', '', true];
+        yield 'placeholder database' => ['your_database_name', 'thallo_user', 's3cr3t', false];
+        yield 'placeholder username' => ['thallo', 'your_database_user', 's3cr3t', false];
+        yield 'placeholder password' => ['thallo', 'thallo_user', 'your_database_password', false];
+        yield 'empty database' => ['', 'thallo_user', 's3cr3t', false];
+        yield 'empty username' => ['thallo', '', 's3cr3t', false];
+    }
 }
