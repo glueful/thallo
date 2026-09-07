@@ -388,8 +388,7 @@ final class ThalloServiceProvider extends ServiceProvider
             SignupController::class => $autowired(SignupController::class),
             DefaultSignupDiagnostics::class => $autowired(DefaultSignupDiagnostics::class),
             SignupDiagnostics::class => [
-                'factory' => static fn (ContainerInterface $container): SignupDiagnostics =>
-                    $container->get(DefaultSignupDiagnostics::class),
+                'factory' => [self::class, 'makeSignupDiagnostics'],
                 'shared' => true,
             ],
             SignupChallenge::class => [
@@ -466,6 +465,17 @@ final class ThalloServiceProvider extends ServiceProvider
             $sender instanceof FormMailSender ? $sender : null,
             $container->get(LoggerInterface::class),
         );
+    }
+
+    /** Static (compilable) factories: production compiles the container and refuses closures. */
+    public static function makeSignupDiagnostics(ContainerInterface $container): SignupDiagnostics
+    {
+        return $container->get(DefaultSignupDiagnostics::class);
+    }
+
+    public static function makePermissionImplicationSource(ContainerInterface $container): PermissionImplicationSource
+    {
+        return $container->get(CapabilityCatalog::class);
     }
 
     public static function makeFormGuard(ContainerInterface $container): DefaultFormGuard
@@ -1405,8 +1415,7 @@ final class ThalloServiceProvider extends ServiceProvider
             // vocabulary drives satisfiersFor()) — bind through a factory that resolves
             // the SAME shared CapabilityCatalog instance rather than a second one.
             PermissionImplicationSource::class => [
-                'factory' => static fn (ContainerInterface $container): PermissionImplicationSource =>
-                    $container->get(CapabilityCatalog::class),
+                'factory' => [self::class, 'makePermissionImplicationSource'],
                 'shared' => true,
             ],
             PolicyManifest::class => [
@@ -1944,9 +1953,17 @@ final class ThalloServiceProvider extends ServiceProvider
 
     public function register(ApplicationContext $context): void
     {
-        // No-op: config/thallo.php is auto-loaded by the app config system, and DI
-        // bindings are contributed declaratively via services(). Kept for lifecycle
-        // symmetry and as the seam for future runtime registration.
+        // config/thallo.php is auto-loaded by the app config system, and DI bindings are
+        // contributed declaratively via services(). The first-run commands register HERE, not
+        // in boot(): boot() needs a reachable database, and in production a provider boot
+        // failure is logged and skipped — commands registered there vanish exactly when the
+        // operator needs doctor/provision to say what is wrong. commands() is a console-only
+        // no-op in the HTTP phase.
+        $this->commands([
+            DoctorCommand::class,
+            ProvisionCommand::class,
+            CreateAdminCommand::class,
+        ]);
     }
 
     public static function makeCapabilityRegistry(ContainerInterface $container): DefaultCapabilityRegistry
@@ -2059,8 +2076,14 @@ final class ThalloServiceProvider extends ServiceProvider
         );
 
         $container = $context->getContainer();
-        $enabled = $container->has(SystemFlags::class)
-            && $container->get(SystemFlags::class)->tenancyEnabled();
+        try {
+            $enabled = $container->has(SystemFlags::class)
+                && $container->get(SystemFlags::class)->tenancyEnabled();
+        } catch (\Throwable) {
+            // Pre-provision / unreachable database: tenancy cannot be on, and boot must not
+            // die here — the rest of boot (routes, listeners, commands) is still needed.
+            $enabled = false;
+        }
         self::assertBlobPolicyReady($container, $enabled);
 
         // Mount the compiled admin SPA at /admin via the framework seam: secure asset serving
@@ -2081,8 +2104,8 @@ final class ThalloServiceProvider extends ServiceProvider
 
         EditorialFieldTypes::register(app($context, FieldTypeRegistry::class));
 
-        // Console: register Thallo's app commands. commands() is a console-only no-op in
-        // the HTTP phase (runningInConsole() guards it), so this is free during requests.
+        // Console: register Thallo's app commands (the first-run set is in register()).
+        // commands() is a console-only no-op in the HTTP phase (runningInConsole() guards it).
         $this->commands([
             ResyncCommand::class,
             PruneVersionsCommand::class,
@@ -2093,9 +2116,6 @@ final class ThalloServiceProvider extends ServiceProvider
             RunBlockBackfillCommand::class,
             RunBackfillCommand::class,
             RunDueSchedulesCommand::class,
-            DoctorCommand::class,
-            ProvisionCommand::class,
-            CreateAdminCommand::class,
             SuperuserGrantCommand::class,
             SuperuserTransferCommand::class,
             MigratePlatformPaymentCredentialsCommand::class,

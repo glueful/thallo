@@ -7,11 +7,49 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.7] - 2026-09-07 — Developer Preview
+
+Hotfix on beta.6: the production mode beta.6 made the default could not provision a fresh
+install. Three defects in Thallo and one in the framework, all surfaced by the first
+production-mode deploy of thallo.dev and each pinned by a test; a fresh install from the dist
+archive now provisions in production mode end to end. No schema, API, or admin changes.
+
+### Fixed
+- **A fresh install boots in production mode** — three defects the first production-mode
+  provision on thallo.dev surfaced, all fixed and pinned by tests:
+  - The app provider used two closure factories. The compiled container refuses closures and
+    skips the WHOLE provider, so the capability registry vanished, every pack failed to boot,
+    and no `thallo:*` command existed. Both are static factories now, and an architecture test
+    forbids closure factories in every Thallo provider.
+  - Production boot needs the compiled extension cache, which a fresh checkout lacks.
+    `composer create-project` now builds it right after copying `.env`, and `thallo:provision`
+    rebuilds it after migrating.
+  - `thallo:doctor`, `thallo:provision` and `thallo:create-admin` register in the provider's
+    register() phase, not boot(): boot needs a reachable database, and a production boot failure
+    is logged and skipped, which silently removed the very commands that diagnose it. The boot
+    also no longer dies when the tenancy flag cannot be read pre-provision.
+- `glueful/framework` 1.81.1 in the lock: providers loaded from the extension cache now get
+  `register()` called. Without it the first-run commands above never existed in production,
+  because production boots from that cache.
+
+
+### Upgrade Notes
+- **beta.6 installs that never completed first run**: update to beta.7 and run
+  `php glueful thallo:provision` again — it now builds the extension cache itself.
+- **Installs running in production already**: `composer update` then
+  `php glueful extensions:cache`, because the framework 1.81.1 fix changes what the cached
+  boot registers.
+
 ## [1.0.0-beta.6] - 2026-09-06 — Developer Preview
 
 A first-run polish release on beta.5: `thallo:provision` recognises a hand-filled `.env` and
-asks for one confirmation instead of seven answers. No schema, API, or admin changes; beta.5
-installs upgrade in place.
+asks for one confirmation instead of seven answers, and `.env.example` ships in production
+mode. No schema, API, or admin changes; beta.5 installs upgrade in place.
+
+> **Known issue — fixed in beta.7.** A FRESH beta.6 install cannot complete its first run in
+> the new default production mode (`thallo:provision` reports no `thallo` commands). Install
+> beta.7, or set `APP_ENV=development` in `.env` for the first run. Existing installs upgraded
+> in place are unaffected.
 
 ### Changed
 - **`thallo:provision` confirms a pre-filled `.env` instead of re-asking**: when `.env` already
@@ -27,13 +65,13 @@ installs upgrade in place.
   commented block at the end of the file is the local-development baseline, and the README
   quickstart says to apply it before starting the built-in server. `thallo:doctor` now warns
   when a public `BASE_URL` runs in development mode.
-
 ### Upgrade Notes
 - **Existing `.env` files are untouched** — this only changes what a fresh copy of
   `.env.example` contains. Installs that copied the previous template and never changed
   `APP_ENV` are running in development mode on their public host; set `APP_ENV=production`
   and `APP_DEBUG=false` (or run `php glueful system:production`), then clear the compiled
-  container.
+  container and run `php glueful extensions:cache` — production boot refuses to start
+  without that cache.
 
 ## [1.0.0-beta.5] - 2026-09-06 — Developer Preview
 
