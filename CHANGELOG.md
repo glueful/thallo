@@ -7,6 +7,31 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.9] - 2026-09-07 — Developer Preview
+
+A lock-only release on beta.8: framework 1.82.0 makes the compiled container real and lets a
+never-installed production checkout boot quietly. No Thallo code, schema, API, or admin
+changes; beta.8 installs upgrade in place.
+
+### Changed
+- `glueful/framework` 1.82.0 in the lock:
+  - **The compiled container actually engages in production.** Every production boot used to
+    log `[Container][WARNING] container compilation failed` and run the runtime container;
+    static factories, closure factories and the live `ApplicationContext` now all compile or
+    hydrate, and the artifact lives in `storage/cache/container/`.
+  - **A fresh production checkout is quiet before provision.** Until the security keys exist,
+    the framework skips its boot-time security validation and resolves extensions live once,
+    writing the cache — so the `composer create-project` hook and the first `php glueful`
+    call print no warnings and no "Extension cache missing" failure. The one remaining
+    pre-provision line, Aegis' "RBAC tables not found", belongs to the Aegis package.
+  - The "FORCE_HTTPS not enabled" recommendation no longer fires on production hosts that
+    leave it unset (unset = enabled).
+
+### Upgrade Notes
+- **Production now runs the compiled container.** If anything behaves differently only in
+  production, set `APP_DEBUG=true` to compare against the runtime container and report it.
+  Delete `storage/cache/container/` to force a fresh compile.
+
 ## [1.0.0-beta.8] - 2026-09-07 — Developer Preview
 
 A lock-only release on beta.7: framework 1.81.2 stops a stale, host-shared command manifest
