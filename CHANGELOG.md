@@ -8,6 +8,12 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Changed
+- **The admin health report says what is wrong.** `GET /v1/admin/health` flattened every
+  framework check to name/status/message, so "Configuration warnings detected" reached the
+  operator with no way to learn which setting. Each check now carries its `issues`, `warnings`
+  and `recommendations` lists when the framework provides them, and the Health page lists them
+  under the check. Pairs with framework 1.83.2, where a recommendation no longer degrades the
+  check's status.
 - **An untouched capability switch follows its engine.** The switchboard defaulted every
   capability to requested, so a fresh install showed Commerce and Multi-tenancy switched on
   with a "Requested · engine unavailable" warning — on-looking rows for features that are not

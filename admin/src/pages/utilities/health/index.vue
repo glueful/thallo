@@ -75,9 +75,18 @@ function fmtTime(v?: string | null): string {
                   size="xs"
                   class="mt-0.5 shrink-0 capitalize"
                 />
-                <div class="min-w-0">
+                <div class="min-w-0 flex-1">
                   <p class="text-sm font-medium capitalize text-default">{{ c.name }}</p>
                   <p class="truncate text-xs text-muted">{{ c.message }}</p>
+                  <ul v-if="c.issues?.length" class="mt-1 space-y-0.5 text-xs text-error" data-test="check-issues">
+                    <li v-for="line in c.issues" :key="line">{{ line }}</li>
+                  </ul>
+                  <ul v-if="c.warnings?.length" class="mt-1 space-y-0.5 text-xs text-warning" data-test="check-warnings">
+                    <li v-for="line in c.warnings" :key="line">{{ line }}</li>
+                  </ul>
+                  <ul v-if="c.recommendations?.length" class="mt-1 space-y-0.5 text-xs text-muted" data-test="check-recommendations">
+                    <li v-for="line in c.recommendations" :key="line">Recommendation: {{ line }}</li>
+                  </ul>
                 </div>
               </div>
             </div>
