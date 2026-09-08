@@ -28,6 +28,13 @@ use Symfony\Component\HttpFoundation\Request;
  */
 final class SetupController
 {
+    /**
+     * Query parameter the provision-printed setup link carries the token in
+     * (`/admin/setup?st=…`). The admin reads it once, drops it from the address bar and sends it
+     * back as X-Setup-Token. Short on purpose; the secret is the value, not the name.
+     */
+    public const TOKEN_QUERY_PARAM = 'st';
+
     public function __construct(
         private readonly ApplicationContext $context,
         private readonly SetupService $setup,
@@ -80,7 +87,23 @@ final class SetupController
             $this->persistBaseUrl($request->getSchemeAndHttpHost());
         }
 
+        // The setup link is single-use: the endpoint now locks itself (409), so the token has no
+        // further purpose and must not linger in .env.
+        self::clearSetupToken(base_path($this->context, '.env'));
+
         return Response::success(['installed' => true], 'Setup complete.');
+    }
+
+    /** Blank SETUP_TOKEN after a completed setup; best-effort, never fails the setup itself. */
+    public static function clearSetupToken(string $envPath): void
+    {
+        try {
+            if (is_file($envPath) && ((new EnvWriter($envPath))->get('SETUP_TOKEN') ?? '') !== '') {
+                (new EnvWriter($envPath))->set('SETUP_TOKEN', '');
+            }
+        } catch (\Throwable $e) {
+            error_log('Setup: failed to clear SETUP_TOKEN: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -102,14 +125,19 @@ final class SetupController
         if ($expected !== '') {
             $provided = (string) ($request->headers->get('X-Setup-Token') ?? '');
             if (!hash_equals($expected, $provided)) {
-                return Response::error('Invalid or missing setup token.', 403);
+                return Response::error(
+                    'Invalid or missing setup token. Open the setup link printed by '
+                    . '`php glueful thallo:provision` (run it again to print the link).',
+                    403,
+                );
             }
             return null;
         }
 
         if (env('APP_ENV') === 'production') {
             return Response::error(
-                'First-run setup is disabled. Set SETUP_TOKEN (or provision via the CLI).',
+                'First-run setup needs the setup link printed by `php glueful thallo:provision` '
+                . '(run it again to print the link), or create the admin with `thallo:create-admin`.',
                 403,
             );
         }

@@ -29,9 +29,9 @@ php glueful thallo:provision      # confirms/prompts for the database; writes .e
 php -S localhost:8000 -t public vendor/glueful/framework/router.php
 ```
 
-Then create the first admin — in the browser at `http://localhost:8000/admin/setup` (recommended),
-or from the terminal with `php glueful thallo:create-admin` (prompts for site name + first admin;
-grants full access). Provision prints both when it finishes.
+Then create the first admin — open the setup link provision printed (recommended; it carries this
+install's one-time `SETUP_TOKEN`, re-run provision to print it again), or from the terminal with
+`php glueful thallo:create-admin` (prompts for site name + first admin; grants full access).
 
 `.env` ships in **production** mode (debug off, HTTPS enforced). For the local quickstart above,
 set `APP_ENV=development` and `APP_DEBUG=true` in `.env` before starting the server — the

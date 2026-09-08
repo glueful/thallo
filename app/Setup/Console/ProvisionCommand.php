@@ -143,10 +143,10 @@ final class ProvisionCommand extends BaseCommand
             $database->database,
         ));
         $this->line('Next: create the first admin');
-        foreach (self::nextSteps($env->get('BASE_URL')) as $step) {
+        foreach (self::nextSteps($env->get('BASE_URL'), $setupToken) as $step) {
             $this->line('  ' . $step);
         }
-        $this->line('  Setup token (SETUP_TOKEN in .env; the web setup sends it as X-Setup-Token): ' . $setupToken);
+        $this->line('  (The link carries this install\'s SETUP_TOKEN; re-run provision to print it again.)');
         $this->line('');
         return self::SUCCESS;
     }
@@ -173,15 +173,19 @@ final class ProvisionCommand extends BaseCommand
      *
      * @return list<string>
      */
-    public static function nextSteps(?string $baseUrl): array
+    public static function nextSteps(?string $baseUrl, ?string $setupToken = null): array
     {
         $origin = rtrim(trim((string) $baseUrl), '/');
         if ($origin === '') {
             $origin = 'http://localhost:8000';
         }
+        $link = $origin . '/admin/setup';
+        if ($setupToken !== null && $setupToken !== '') {
+            $link .= '?' . \App\Http\Controllers\SetupController::TOKEN_QUERY_PARAM . '=' . rawurlencode($setupToken);
+        }
 
         return [
-            '1. In your browser (recommended): ' . $origin . '/admin/setup',
+            '1. In your browser (recommended): ' . $link,
             '2. Or from this terminal:          php glueful thallo:create-admin',
         ];
     }

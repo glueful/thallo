@@ -7,6 +7,36 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.13] - 2026-09-08 — Developer Preview
+
+Admin icons ship inside the bundle, and the browser first-run works on a production host:
+provision prints a one-time setup link. No schema or API changes beyond the setup gate's
+messages; beta.12 installs upgrade in place.
+
+### Changed
+- **The browser first-run is a link.** Provision prints `<BASE_URL>/admin/setup?st=<SETUP_TOKEN>`;
+  the setup page reads the token once, drops it from the address bar, and sends it back as the
+  `X-Setup-Token` header the production gate requires. A completed setup blanks `SETUP_TOKEN` in
+  `.env`, so the link is single-use on top of the endpoint's own 409 lock. Re-running provision
+  prints the link again; the production 403 says so. Local zero-config setup (no token, not
+  production) is unchanged.
+
+### Fixed
+- **Admin icons are embedded in the build instead of fetched from the Iconify API.** The Vite
+  plugin's `icon.clientBundle.scan` only embeds icons from an INSTALLED collection, and the admin
+  had none, so every icon was resolved at runtime from `api.iconify.design` — which the admin's
+  document Content-Security-Policy (`connect-src 'self'`, framework 1.82.2) now blocks, leaving
+  icons blank. `@iconify-json/lucide` is a dev dependency; the scan bundles the lucide icons the
+  admin uses and the runtime fetch is no longer attempted.
+
+### Removed
+- **`CSP_HEADER` is gone from `.env.example`.** Framework 1.83.0 (repinned here) makes the
+  variable real: a non-empty value is sent verbatim as `Content-Security-Policy` on every
+  response that does not set its own. Thallo's rendered site is not written for a blanket policy
+  (inline colour-mode resolver, theme assets, headless media), so the sample no longer suggests
+  one. Operators who want a CSP can still set `CSP_HEADER` — the admin's own document policy
+  keeps precedence — and audit it first with `CSP_REPORT_ONLY=true`.
+
 ## [1.0.0-beta.12] - 2026-09-08 — Developer Preview
 
 First-run and admin housekeeping on beta.11: provision mints `SETUP_TOKEN`, and the admin moves
