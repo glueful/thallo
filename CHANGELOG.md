@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **`SETUP_TOKEN` is minted by provision and listed in `.env.example`.** The unauthenticated
+  first-run `POST /admin/setup` is gated by it in production (sent as the `X-Setup-Token`
+  header); until now nothing generated or documented it, so a production host answered
+  "First-run setup is disabled" with no hint where the value came from. Provision now mints it
+  exactly like `APP_KEY`/`JWT_KEY`/`TOKEN_SALT` (only when empty, never overwritten) and prints
+  it at the end.
+
 ## [1.0.0-beta.11] - 2026-09-07 — Developer Preview
 
 A lock-only release on beta.10: framework 1.82.3 serves the admin's HTML document with a
