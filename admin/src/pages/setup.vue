@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, useTemplateRef } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import * as z from 'zod'
 import type { Form, FormSubmitEvent } from '@nuxt/ui'
 import { runtimeConfig } from '@/runtime/config'
@@ -10,7 +10,19 @@ import { useNotify } from '@/composables/useNotify'
 definePage({ meta: { layout: 'auth' } })
 
 const router = useRouter()
+const route = useRoute()
 const showPassword = ref(false)
+
+// The provision-printed setup link is /admin/setup?st=<SETUP_TOKEN> (SetupController::TOKEN_QUERY_PARAM).
+// Read it once, keep it in memory and drop it from the address bar so it never sits in history
+// or a referrer; the POST sends it back as X-Setup-Token, the header production requires.
+const SETUP_TOKEN_QUERY = 'st'
+const rawToken = route.query[SETUP_TOKEN_QUERY]
+const setupToken = ref(typeof rawToken === 'string' ? rawToken : '')
+if (setupToken.value !== '') {
+  const { [SETUP_TOKEN_QUERY]: _dropped, ...rest } = route.query
+  void router.replace({ query: rest })
+}
 const passwordFocused = ref(false)
 
 const schema = z.object({
@@ -93,7 +105,10 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
     // /admin/setup is UNAUTHENTICATED and OUTSIDE the /v1/admin client surface, so use raw fetch.
     const res = await fetch('/admin/setup', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        ...(setupToken.value !== '' ? { 'X-Setup-Token': setupToken.value } : {}),
+      },
       // admin_url: the SPA's own origin — powers the preview bar's
       // Edit/Design deep links with zero configuration.
       body: JSON.stringify({ ...event.data, admin_url: window.location.origin }),

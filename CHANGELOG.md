@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **The browser first-run is a link.** Provision prints `<BASE_URL>/admin/setup?st=<SETUP_TOKEN>`;
+  the setup page reads the token once, drops it from the address bar, and sends it back as the
+  `X-Setup-Token` header the production gate requires. A completed setup blanks `SETUP_TOKEN` in
+  `.env`, so the link is single-use on top of the endpoint's own 409 lock. Re-running provision
+  prints the link again; the production 403 says so. Local zero-config setup (no token, not
+  production) is unchanged.
+
 ## [1.0.0-beta.13] - 2026-09-08 — Developer Preview
 
 Admin icons ship inside the bundle. No schema or API changes; beta.12 installs upgrade in place.
