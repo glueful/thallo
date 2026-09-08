@@ -35,6 +35,7 @@ final class SetupService
         private readonly SettingKind $settings,
         private readonly RegionKind $regions,
         private readonly SingleStoreTenant $singleStore,
+        private readonly InstallRoleGrants $roleGrants,
     ) {
     }
 
@@ -52,7 +53,8 @@ final class SetupService
      * Steps:
      *   1. Re-checks isInstalled() to guard against races.
      *   2. Creates the admin user via UserRepository.
-     *   3. Assigns the canonical superuser and administrator roles to the install user.
+     *   3. Assigns the canonical superuser and administrator roles to the install user and
+     *      grants those roles the full permission catalog ({@see InstallRoleGrants}).
      *   4. Writes site_name and default_locale to settings.
      *   5. Seeds "Pages" (publicly delivered, mounted at root), "Posts"
      *      (publicly delivered, prefixed) and "Categories" (the taxonomy
@@ -106,6 +108,10 @@ final class SetupService
                     throw new \RuntimeException("Failed to assign install authority role '{$roleSlug}'.");
                 }
             }
+            // The roles exist but Aegis seeds only its own permissions: persist the declared
+            // catalog and grant the install roles everything, so the first admin can actually
+            // manage content models, read the audit log and see analytics.
+            $this->roleGrants->apply();
 
             $tenantUuid = $this->singleStore->ensure('default', $siteName, $userUuid);
             $seed = new SeedContext($tenantUuid, $siteName, $locale, $userUuid);

@@ -7,6 +7,21 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **The first admin really has full access.** Aegis seeds the install roles with its own 15
+  permissions only; Thallo's packs seed theirs by migration and Thallo's core catalog
+  (`content.manage`, `content.publish`, `content.routes`, `tenant.*.manage`, `billing.manage`)
+  was never persisted at all — so the superuser could not manage content models, triage form
+  submissions, read the audit log or see analytics (403 on every one of them). The provider now
+  declares the catalog to the framework's permission registry, and web setup, `thallo:create-admin`
+  and `thallo:provision` run `InstallRoleGrants`: persist the catalog, then grant `superuser`
+  every permission and `administrator` everything but `system.config`. Additive and idempotent;
+  re-running provision on an existing install heals it.
+- **The dashboard's first-run card asks for a page, not a "categorie".** The picker looked for
+  slug `page` (the seed is `pages`) and fell through to the first type alphabetically; the
+  singular was made by chopping a trailing "s". It now prefers Pages, then Posts, then any
+  non-taxonomy type, and singularizes properly (Categories → Category).
+
 ### Changed
 - **Framework 1.83.1.** Production recommendations are logged once per boot cache instead of
   on every request, and a recommendation no longer degrades the config health check — so a

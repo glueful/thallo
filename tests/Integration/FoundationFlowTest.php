@@ -117,8 +117,10 @@ final class FoundationFlowTest extends AppTestCase
         self::assertSame(401, $response->getStatusCode(), 'expected auth rejection, got: ' . $response->getContent());
     }
 
-    public function testRoutesManagePermissionIsAdminOnly(): void
+    public function testRoutesManagePermissionIsNeverGrantedToPlainUsers(): void
     {
+        // Seeded to administrator by migration; the install grants (InstallRoleGrants) may add
+        // superuser in the same process — the invariant is that `user` never holds it.
         $rows = $this->connection()->getPDO()->query(
             <<<'SQL'
             SELECT r.slug AS role_slug
@@ -131,6 +133,9 @@ final class FoundationFlowTest extends AppTestCase
         );
         self::assertNotFalse($rows);
 
-        self::assertSame(['administrator'], $rows->fetchAll(\PDO::FETCH_COLUMN));
+        $roles = $rows->fetchAll(\PDO::FETCH_COLUMN);
+        self::assertContains('administrator', $roles);
+        self::assertNotContains('user', $roles);
+        self::assertSame([], array_diff($roles, ['administrator', 'superuser']));
     }
 }

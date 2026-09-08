@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { pickFirstRunType, singularize } from '@/utils/firstRun'
 import { useRouter } from 'vue-router'
 import { useHomeOverview } from '@/queries/home'
 import { useCreateEntry } from '@/queries/entries'
@@ -30,17 +31,9 @@ const fmtCount = (n: number): string => new Intl.NumberFormat().format(n)
 const homeKpi = (event: string): string => fmtCount(analyticsSummary.value?.totals?.[event] ?? 0)
 const homeActiveUsers = computed(() => fmtCount(analyticsSummary.value?.active_users ?? 0))
 
-// First-run target: the seeded Pages type if present, otherwise the first type. A fresh install
-// seeds a Pages type, so first-run is "create your first page" (one click) rather than the
-// cold-start "define a content type" — that only shows when there are no types at all.
-const firstRunType = computed(() => {
-  const types = overview.value?.types ?? []
-  return types.find((t) => t.slug === 'page') ?? types[0]
-})
-
-function singularize(name: string): string {
-  return name.endsWith('s') ? name.slice(0, -1) : name
-}
+// First-run target: the seeded Pages type, then Posts, then any non-taxonomy type — a fresh
+// install must ask for a page, never for a category (see utils/firstRun).
+const firstRunType = computed(() => pickFirstRunType(overview.value?.types ?? []))
 
 const creatingSlug = ref('')
 
