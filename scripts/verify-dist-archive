@@ -44,6 +44,34 @@ must_not_contain_prefix "docs/internal/"
 # The dogfood dev overlay never ships — fresh installs get the trimmed base posture.
 must_not_contain_prefix "config/development/"
 
+# Every icon the admin references must be EMBEDDED in the baked bundle. The admin's document
+# CSP is connect-src 'self', so an icon the build did not embed is fetched from
+# api.iconify.design at runtime and blocked — blank icons in production (beta.13 shipped 28 of
+# them: the scan's default globs skipped the .ts module registries). Icon names come from the
+# SPA source at $REF (export-ignored, so read through git, not the archive); the embedded
+# collection serialises each icon as "<name>":{"width"…/"body"….
+ICON_NAMES="$(git grep -hoE 'i-lucide-[a-z0-9-]+' "$REF" -- 'admin/src/*.ts' 'admin/src/*.vue' \
+  | grep -v '\.spec\.' | sed 's/^i-lucide-//' | sort -u || true)"
+if [[ -z "$ICON_NAMES" ]]; then
+  echo "FAIL: could not collect icon names from admin/src at $REF" >&2
+  fail=1
+else
+  BUNDLE_JS="$(git archive "$REF" public/admin/assets 2>/dev/null | tar -xO 2>/dev/null || true)"
+  missing=()
+  while IFS= read -r name; do
+    if ! grep -q "\"$name\":{\"" <<< "$BUNDLE_JS"; then
+      missing+=("$name")
+    fi
+  done <<< "$ICON_NAMES"
+  if [[ "${#missing[@]}" -ne 0 ]]; then
+    echo "FAIL: ${#missing[@]} referenced icon(s) are not embedded in the baked bundle (would be fetched remotely and blocked by CSP):" >&2
+    printf '  i-lucide-%s\n' "${missing[@]}" | head -30 >&2
+    fail=1
+  else
+    echo "ok: every referenced lucide icon is embedded ($(wc -l <<< "$ICON_NAMES" | tr -d ' ') icons)"
+  fi
+fi
+
 if [[ "$fail" -ne 0 ]]; then
   echo "verify-dist-archive: FAILED for $REF" >&2
   exit 1

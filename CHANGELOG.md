@@ -8,6 +8,12 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Fixed
+- **Every admin icon is embedded; none is fetched from api.iconify.design.** beta.13 bundled
+  the icons named in `.vue` files but the scan's default globs skip `.ts`, so the 28 icons
+  named only in the module registries (`src/registry/*.ts`: analytics, code-xml, settings,
+  wrench …) were still requested from the Iconify API at runtime and blocked by the admin's
+  `connect-src 'self'` policy — blank icons in production. The scan now covers `.ts`, and
+  `scripts/verify-dist-archive` refuses a release whose baked bundle lacks any referenced icon.
 - **The first admin really has full access.** Aegis seeds the install roles with its own 15
   permissions only; Thallo's packs seed theirs by migration and Thallo's core catalog
   (`content.manage`, `content.publish`, `content.routes`, `tenant.*.manage`, `billing.manage`)

@@ -69,7 +69,13 @@ export default defineConfig(({ mode }) => {
         colorMode: false, // Disable color mode support
         icon: {
           clientBundle: {
-            scan: true
+            // Embed every icon the admin references so nothing is fetched from api.iconify.design
+            // at runtime (the admin's CSP is connect-src 'self'). The scan's default globs cover
+            // .vue/.jsx/.tsx only — the module registries under src/registry/*.ts and other .ts
+            // modules name icons too, so .ts must be scanned or those icons are fetched remotely.
+            scan: {
+              globInclude: ['**/*.{vue,ts,jsx,tsx,md,mdc,mdx,yml,yaml}']
+            }
           }
         },
 
