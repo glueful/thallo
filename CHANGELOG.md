@@ -7,6 +7,23 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.14] - 2026-09-08 — Developer Preview
+
+The first admin can actually administer: the install roles now hold the whole permission
+catalog, every admin icon ships inside the bundle, the health report names its findings, and a
+fresh install's switchboard and sample `.env` describe what is really on. No schema changes;
+beta.13 installs upgrade in place.
+
+### Upgrade Notes
+- **Existing installs: run `php glueful thallo:provision` once after updating.** It grants the
+  install roles the full catalog (the 403s on form submissions, the audit log and analytics for
+  the first admin) and rebuilds the caches. `thallo:create-admin` and the web setup do the same
+  for new installs.
+- **`.env` copied from an earlier sample:** set `API_USE_PREFIX=false` (Thallo mounts everything
+  under `/v1`; the old sample's `/api` prefix left the login route unreachable), then
+  `php glueful route:cache:clear`.
+- Framework 1.83.1 is required (repinned).
+
 ### Fixed
 - **Every admin icon is embedded; none is fetched from api.iconify.design.** beta.13 bundled
   the icons named in `.vue` files but the scan's default globs skip `.ts`, so the 28 icons
@@ -29,6 +46,10 @@ as the next release, never a mutated tag.
   non-taxonomy type, and singularizes properly (Categories → Category).
 
 ### Changed
+- **Sample `.env`.** `API_USE_PREFIX=false` so framework routes (login, blobs) sit under `/v1`
+  like everything else; `CSP_HEADER` ships as a permissive policy in report-only mode
+  (`CSP_REPORT_ONLY=true`), so nothing is blocked and the production recommendation is quiet;
+  the users lookup/list endpoints are on.
 - **Framework 1.83.1.** Production recommendations are logged once per boot cache instead of
   on every request, and a recommendation no longer degrades the config health check — so a
   thallo.dev-style host with an empty `CSP_HEADER` stops filling the error log and reports
