@@ -58,20 +58,53 @@ final class InstallRoleGrants
         $this->extensions->aggregatePermissionCatalog();
         $registry = $container->get(PermissionRegistry::class);
 
-        $provider = $container->has('permission.manager')
-            ? $container->get('permission.manager')->getProvider()
-            : null;
-        if (!$provider instanceof PermissionCatalogSyncInterface) {
-            throw new \RuntimeException(
-                'No persistent RBAC provider with catalog sync is active — enable glueful/aegis and run migrations.'
-            );
-        }
+        $provider = $this->syncCapableProvider();
 
         $permissions = array_map(static fn ($p): array => $p->toArray(), $registry->permissions());
         $roles = array_map(static fn ($r): array => $r->toArray(), $registry->roles());
         $provider->syncCatalog(array_values($permissions), array_values($roles));
 
         return count($permissions);
+    }
+
+    /**
+     * The active RBAC provider — activated here when boot skipped it. Aegis decides at BOOT
+     * whether to activate (the RBAC tables must already exist), and `thallo:provision` runs the
+     * migrations that create them in the same process, so on a fresh install the provider is
+     * registered in the container but not yet active. Resolve and activate it, exactly as the
+     * extension's own boot would once the tables exist.
+     */
+    private function syncCapableProvider(): PermissionCatalogSyncInterface
+    {
+        $container = $this->context->getContainer();
+        $manager = $container->has('permission.manager') ? $container->get('permission.manager') : null;
+
+        $active = $manager?->getProvider();
+        if ($active instanceof PermissionCatalogSyncInterface) {
+            return $active;
+        }
+
+        $aegis = 'Glueful\\Extensions\\Aegis\\AegisPermissionProvider';
+        if ($manager !== null && class_exists($aegis) && $container->has($aegis)) {
+            $provider = $container->get($aegis);
+            if ($provider instanceof PermissionCatalogSyncInterface) {
+                $rbac = (array) config($this->context, 'rbac', []);
+                $manager->registerProviders(['rbac' => $provider]);
+                $manager->setProvider($provider, [
+                    'cache_enabled' => $rbac['permissions']['cache_enabled'] ?? true,
+                    'cache_ttl' => $rbac['permissions']['cache_ttl'] ?? 3600,
+                    'cache_prefix' => $rbac['permissions']['cache_prefix'] ?? 'rbac:',
+                    'enable_hierarchy' => $rbac['roles']['inherit_permissions'] ?? true,
+                    'enable_inheritance' => $rbac['permissions']['inheritance_enabled'] ?? true,
+                    'max_hierarchy_depth' => $rbac['roles']['max_hierarchy_depth'] ?? 10,
+                ]);
+                return $provider;
+            }
+        }
+
+        throw new \RuntimeException(
+            'No persistent RBAC provider with catalog sync is available — enable glueful/aegis and run migrations.'
+        );
     }
 
     /**
@@ -106,8 +139,8 @@ final class InstallRoleGrants
 
         if ($granted > 0) {
             // role_permissions was written directly — cached decisions are stale.
-            $provider = $this->context->getContainer()->get('permission.manager')->getProvider();
-            if ($provider !== null && method_exists($provider, 'invalidateAllCache')) {
+            $provider = $this->syncCapableProvider();
+            if (method_exists($provider, 'invalidateAllCache')) {
                 $provider->invalidateAllCache();
             }
         }

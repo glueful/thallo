@@ -7,6 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **`thallo:provision` grants the install roles on a fresh install.** Aegis decides at boot
+  whether to activate its permission provider (the RBAC tables must already exist) and provision
+  runs the migrations that create them in the same process, so the grant step found no active
+  provider and printed "Install role grants skipped (No persistent RBAC provider …)". The grantor
+  now activates the provider itself, the way the extension's boot would once the tables exist.
+
 ## [1.0.0-beta.14] - 2026-09-08 — Developer Preview
 
 The first admin can actually administer: the install roles now hold the whole permission
