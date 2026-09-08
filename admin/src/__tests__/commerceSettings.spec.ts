@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
+import { switchRootByTestId } from './support/switch'
 import { ref } from 'vue'
 import type {
   CommerceShippingZone,
@@ -1716,8 +1717,7 @@ describe('InvoicesPanel', () => {
     await flushPromises()
 
     await wrapper.find('[data-test="invoices-footer-input"]').setValue('Thank you for your business.')
-    wrapper
-      .findComponent<{ $emit: (e: string, v: boolean) => void }>('[data-test="invoices-toggle-sku"]')
+    switchRootByTestId(wrapper, 'invoices-toggle-sku')
       .vm.$emit('update:modelValue', false)
     selectRootByTestId(wrapper, 'invoices-paper-preset').vm.$emit('update:modelValue', 'thermal_80')
     await flushPromises()
@@ -1894,9 +1894,7 @@ describe('EmailsPanel', () => {
     const wrapper = mountEmails()
     await flushPromises()
 
-    const toggle = wrapper.findComponent<{ $emit: (e: string, v: boolean) => void }>(
-      '[data-test="emails-toggle-order_paid"]',
-    )
+    const toggle = switchRootByTestId(wrapper, 'emails-toggle-order_paid')
     toggle.vm.$emit('update:modelValue', false)
     await flushPromises()
 
@@ -1915,7 +1913,7 @@ describe('EmailsPanel', () => {
     const wrapper = mountEmails(false)
     await flushPromises()
 
-    const toggle = wrapper.findComponent('[data-test="emails-toggle-order_paid"]')
+    const toggle = switchRootByTestId(wrapper, 'emails-toggle-order_paid')
     expect(toggle.attributes('disabled')).toBeDefined()
   })
 })

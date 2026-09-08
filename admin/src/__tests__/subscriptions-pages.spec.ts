@@ -10,6 +10,7 @@ import type {
   WorkspaceDetail,
 } from '@/queries/subscriptionsBilling'
 import { ApiError } from '@/api/errors'
+import { switchRootByTestId } from './support/switch'
 
 // Task 11 (thallo-subscriptions Phase B): page/component-level coverage for the Plans and Billing
 // admin pages, mirroring `commerceReviews.spec.ts`'s established mount idiom -- the query module is
@@ -548,9 +549,7 @@ describe('subscriptions/billing page', () => {
 
 describe('subscriptions/billing page: self-serve checkout switch', () => {
   function selfServeSwitch(wrapper: ReturnType<typeof mountPage>) {
-    return wrapper.findComponent<{ $emit: (e: string, v: boolean) => void; modelValue: boolean }>(
-      '[data-test="self-serve-switch"]',
-    )
+    return switchRootByTestId(wrapper, 'self-serve-switch')
   }
 
   // `findComponent` resolves reka-ui's inner `SwitchRoot`, which does not declare `disabled` as
