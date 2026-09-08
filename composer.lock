@@ -494,16 +494,16 @@
         },
         {
             "name": "glueful/audit",
-            "version": "v1.4.0",
+            "version": "v1.4.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/audit.git",
-                "reference": "5aed90322951688937f43172812bef637752e9e4"
+                "reference": "d7ec101c7b1b4990a6c79a31d2fefa6e0598d2ed"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/audit/zipball/5aed90322951688937f43172812bef637752e9e4",
-                "reference": "5aed90322951688937f43172812bef637752e9e4",
+                "url": "https://api.github.com/repos/glueful/audit/zipball/d7ec101c7b1b4990a6c79a31d2fefa6e0598d2ed",
+                "reference": "d7ec101c7b1b4990a6c79a31d2fefa6e0598d2ed",
                 "shasum": ""
             },
             "require": {
@@ -523,7 +523,7 @@
             "extra": {
                 "glueful": {
                     "name": "Audit",
-                    "version": "1.4.0",
+                    "version": "1.4.1",
                     "provider": "Glueful\\Extensions\\Audit\\AuditServiceProvider",
                     "requires": {
                         "glueful": ">=1.79.0",
@@ -575,9 +575,9 @@
             ],
             "support": {
                 "issues": "https://github.com/glueful/audit/issues",
-                "source": "https://github.com/glueful/audit/tree/v1.4.0"
+                "source": "https://github.com/glueful/audit/tree/v1.4.1"
             },
-            "time": "2026-08-18T01:35:12+00:00"
+            "time": "2026-09-08T18:38:16+00:00"
         },
         {
             "name": "glueful/commerce",

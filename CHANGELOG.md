@@ -7,6 +7,10 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **glueful/audit 1.4.1.** The audit log lists newest first even for rows that share a second
+  (a login, a first-run setup burst): the insertion id now breaks `occurred_at` ties.
+
 ## [1.0.0-beta.15] - 2026-09-08 — Developer Preview
 
 A fresh install works end to end: `thallo:provision` from the sample `.env` with real credentials
