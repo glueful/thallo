@@ -1977,7 +1977,8 @@ final class ThalloServiceProvider extends ServiceProvider
     {
         $context = $container->get(ApplicationContext::class);
         // Requested state comes LIVE from the one system-scoped switchboard
-        // (CapabilityStateStore: canonical key → legacy search row → config map → enabled),
+        // (CapabilityStateStore: canonical key → legacy search row → config map → null, and the
+        // registry lets an untouched switch follow its engine),
         // memoized inside the registry for this boot — a switchboard write lands on the next
         // request, after the per-boot memo is gone. The store itself fails soft to config on
         // pre-provision boots, so this factory stays safe during CLI boots before the system
@@ -1987,7 +1988,7 @@ final class ThalloServiceProvider extends ServiceProvider
         return new DefaultCapabilityRegistry(
             [],
             new ExtensionCapabilityAvailabilityResolver($context),
-            static fn (string $id): bool => $switchboard->requested($id),
+            static fn (string $id): ?bool => $switchboard->explicit($id),
         );
     }
 

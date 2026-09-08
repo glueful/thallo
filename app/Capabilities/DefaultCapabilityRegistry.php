@@ -11,11 +11,16 @@ use Thallo\Contracts\Capability\CapabilityRegistry;
 
 /**
  * In-memory capability registry. Packs register their Capability during boot; the host's
- * switchboard ($overrides, the `thallo.capabilities` config map keyed by full capability id)
- * decides which installed capabilities are REQUESTED (absent id => requested; `false` =>
- * disabled), and the owner-availability resolver decides which are AVAILABLE. EFFECTIVE
- * enabled — what isEnabled()/enabled() report and every gate consumes — is requested AND
- * available (spec B3), so a capability whose engine cannot back it fails closed everywhere.
+ * switchboard ($overrides, the `thallo.capabilities` config map keyed by full capability id, or
+ * the live store) decides which installed capabilities are REQUESTED (`false` => disabled,
+ * `true` => requested), and the owner-availability resolver decides which are AVAILABLE.
+ * An UNTOUCHED switch (no explicit answer anywhere) FOLLOWS THE ENGINE: it reads on when the
+ * owning engine is available and off when it is not — so a fresh install shows a tier-2 pack
+ * (Commerce) or the enforcement-owned tenancy switch as plainly Off rather than
+ * "on, engine unavailable", and enabling the engine (extensions browser, Workspaces flow) is
+ * the opt-in that turns the capability on. EFFECTIVE enabled — what isEnabled()/enabled()
+ * report and every gate consumes — is requested AND available (spec B3), so a capability whose
+ * engine cannot back it fails closed everywhere.
  *
  * Availability is memoized for the registry's lifetime (one request or CLI boot): repeated
  * provider gates must not repeat ledger queries. Direct construction without a resolver stays
@@ -35,8 +40,9 @@ final class DefaultCapabilityRegistry implements CapabilityRegistry
 
     /**
      * @param array<string,bool> $overrides Full-capability-id => enabled flag.
-     * @param (\Closure(string): bool)|null $requestedState Live requested-state source (the
-     *        switchboard); when set it REPLACES the static overrides map. Memoized per registry
+     * @param (\Closure(string): ?bool)|null $requestedState Live requested-state source (the
+     *        switchboard); when set it REPLACES the static overrides map. `null` means "no
+     *        explicit answer" and the switch follows the engine. Memoized per registry
      *        lifetime, so repeated gates cost one lookup per capability per boot.
      */
     public function __construct(
@@ -78,10 +84,19 @@ final class DefaultCapabilityRegistry implements CapabilityRegistry
         if (!isset($this->capabilities[$id])) {
             return false;
         }
-        if ($this->requestedState !== null) {
-            return $this->requested[$id] ??= ($this->requestedState)($id);
+        return $this->requested[$id] ??= $this->resolveRequested($id);
+    }
+
+    private function resolveRequested(string $id): bool
+    {
+        $explicit = $this->requestedState !== null
+            ? ($this->requestedState)($id)
+            : ($this->overrides[$id] ?? null);
+        if ($explicit !== null) {
+            return $explicit === true;
         }
-        return ($this->overrides[$id] ?? true) === true;
+        // Untouched switch: follow the engine (see the class docblock).
+        return $this->availability($id)->available;
     }
 
     public function availability(string $id): CapabilityAvailability

@@ -11,8 +11,10 @@ use Thallo\Contracts\Settings\SystemChannel;
  * The ONE system-scoped capability switchboard (spec B3): requested state lives in the unscoped
  * system channel under `capability.<full-id>.enabled`, so a flip is a single row visible to
  * every tenant and every boot. Read order: canonical system key → the legacy `search_enabled`
- * system key (for `thallo.search` only) → the deploy-time `thallo.capabilities` config map →
- * default true. Reads fail SOFT to config before the system table exists (this runs during
+ * system key (for `thallo.search` only) → the deploy-time `thallo.capabilities` config map.
+ * explicit() reports null when none of those answers, so the registry can let an untouched
+ * switch follow its engine; requested() keeps the historical default of true for callers that
+ * need a plain bool. Reads fail SOFT to config before the system table exists (this runs during
  * every boot, including pre-provision CLI); writes fail EXPLICITLY — a switchboard write that
  * cannot persist must never report success, so every write reads itself back. The first
  * successful `thallo.search` write deletes the legacy key: one authority, not two.
@@ -31,6 +33,12 @@ final class CapabilityStateStore
 
     public function requested(string $id): bool
     {
+        return $this->explicit($id) ?? true;
+    }
+
+    /** The explicit switchboard answer (stored row → legacy row → config map), or null if none. */
+    public function explicit(string $id): ?bool
+    {
         try {
             $raw = $this->system->get(self::PREFIX . $id . '.enabled');
             if ($raw !== null) {
@@ -46,7 +54,10 @@ final class CapabilityStateStore
             // Pre-provision boot (system table absent, DB unreachable): the config map stands.
         }
         $map = (array) config($this->context, 'thallo.capabilities', []);
-        return ($map[$id] ?? true) === true;
+        if (!array_key_exists($id, $map)) {
+            return null;
+        }
+        return $map[$id] === true;
     }
 
     public function put(string $id, bool $enabled): void

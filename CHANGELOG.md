@@ -7,6 +7,19 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **An untouched capability switch follows its engine.** The switchboard defaulted every
+  capability to requested, so a fresh install showed Commerce and Multi-tenancy switched on
+  with a "Requested · engine unavailable" warning — on-looking rows for features that are not
+  active. With no explicit answer (no stored row, no `thallo.capabilities` config entry) a
+  capability is now requested only while its owning engine is available: tier-2 packs read
+  plainly Off until the extension is enabled from the extensions browser, and the tenancy
+  switch reads Off until the Workspaces flow enables enforcement. An explicit switchboard
+  choice still outranks the engine. Existing installs that never touched a switch see the same
+  rows as a fresh install.
+- **"Storefront accounts" is now "Accounts"** in the capabilities switchboard, described as the
+  site's visitor accounts — it is not a commerce feature.
+
 ## [1.0.0-beta.13] - 2026-09-08 — Developer Preview
 
 Admin icons ship inside the bundle, and the browser first-run works on a production host:

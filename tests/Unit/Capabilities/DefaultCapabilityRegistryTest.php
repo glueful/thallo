@@ -56,4 +56,66 @@ final class DefaultCapabilityRegistryTest extends TestCase
         $reg->register(new Capability('thallo.forms'));
         self::assertTrue($reg->isEnabled('thallo.forms'));
     }
+
+    public function testAnUntouchedSwitchFollowsTheEngine(): void
+    {
+        $resolver = new class implements \Thallo\Contracts\Capability\CapabilityAvailabilityResolver {
+            public function resolve(Capability $capability): \Thallo\Contracts\Capability\CapabilityAvailability
+            {
+                return $capability->owningPackage === null
+                    ? \Thallo\Contracts\Capability\CapabilityAvailability::available()
+                    : \Thallo\Contracts\Capability\CapabilityAvailability::unavailable('engine not enabled');
+            }
+        };
+        $reg = new DefaultCapabilityRegistry([], $resolver); // nothing on the switchboard
+        $reg->register(new Capability('thallo.render'));
+        $reg->register(new Capability('thallo.commerce', owningPackage: 'acme/commerce'));
+
+        self::assertTrue($reg->isRequestedEnabled('thallo.render'), 'engine available => untouched switch reads on');
+        self::assertFalse(
+            $reg->isRequestedEnabled('thallo.commerce'),
+            'engine unavailable => an untouched switch reads OFF, not "requested but unavailable"'
+        );
+        self::assertFalse($reg->isEnabled('thallo.commerce'));
+    }
+
+    public function testAnExplicitRequestOutranksTheEngineDefault(): void
+    {
+        $resolver = new class implements \Thallo\Contracts\Capability\CapabilityAvailabilityResolver {
+            public function resolve(Capability $capability): \Thallo\Contracts\Capability\CapabilityAvailability
+            {
+                return \Thallo\Contracts\Capability\CapabilityAvailability::unavailable('engine not enabled');
+            }
+        };
+        $reg = new DefaultCapabilityRegistry(['thallo.commerce' => true], $resolver);
+        $reg->register(new Capability('thallo.commerce', owningPackage: 'acme/commerce'));
+
+        self::assertTrue($reg->isRequestedEnabled('thallo.commerce'), 'the operator asked for it');
+        self::assertFalse($reg->isEnabled('thallo.commerce'), 'still ineffective while the engine is down');
+    }
+
+    public function testALiveSwitchboardAnsweringNullFallsBackToTheEngine(): void
+    {
+        $resolver = new class implements \Thallo\Contracts\Capability\CapabilityAvailabilityResolver {
+            public function resolve(Capability $capability): \Thallo\Contracts\Capability\CapabilityAvailability
+            {
+                return $capability->id === 'thallo.commerce'
+                    ? \Thallo\Contracts\Capability\CapabilityAvailability::unavailable('engine not enabled')
+                    : \Thallo\Contracts\Capability\CapabilityAvailability::available();
+            }
+        };
+        $seen = [];
+        $reg = new DefaultCapabilityRegistry([], $resolver, static function (string $id) use (&$seen): ?bool {
+            $seen[] = $id;
+            return $id === 'thallo.forms' ? false : null; // forms explicitly off; the rest untouched
+        });
+        $reg->register(new Capability('thallo.forms'));
+        $reg->register(new Capability('thallo.render'));
+        $reg->register(new Capability('thallo.commerce', owningPackage: 'acme/commerce'));
+
+        self::assertFalse($reg->isRequestedEnabled('thallo.forms'));
+        self::assertTrue($reg->isRequestedEnabled('thallo.render'));
+        self::assertFalse($reg->isRequestedEnabled('thallo.commerce'));
+        self::assertSame(['thallo.forms', 'thallo.render', 'thallo.commerce'], $seen, 'one switchboard lookup each');
+    }
 }
