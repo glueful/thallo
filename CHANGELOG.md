@@ -29,6 +29,14 @@ messages; beta.12 installs upgrade in place.
   icons blank. `@iconify-json/lucide` is a dev dependency; the scan bundles the lucide icons the
   admin uses and the runtime fetch is no longer attempted.
 
+### Removed
+- **`CSP_HEADER` is gone from `.env.example`.** Framework 1.83.0 (repinned here) makes the
+  variable real: a non-empty value is sent verbatim as `Content-Security-Policy` on every
+  response that does not set its own. Thallo's rendered site is not written for a blanket policy
+  (inline colour-mode resolver, theme assets, headless media), so the sample no longer suggests
+  one. Operators who want a CSP can still set `CSP_HEADER` — the admin's own document policy
+  keeps precedence — and audit it first with `CSP_REPORT_ONLY=true`.
+
 ## [1.0.0-beta.12] - 2026-09-08 — Developer Preview
 
 First-run and admin housekeeping on beta.11: provision mints `SETUP_TOKEN`, and the admin moves
