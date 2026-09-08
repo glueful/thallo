@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.13] - 2026-09-08 — Developer Preview
+
+Admin icons ship inside the bundle, and the browser first-run works on a production host:
+provision prints a one-time setup link. No schema or API changes beyond the setup gate's
+messages; beta.12 installs upgrade in place.
+
 ### Changed
 - **The browser first-run is a link.** Provision prints `<BASE_URL>/admin/setup?st=<SETUP_TOKEN>`;
   the setup page reads the token once, drops it from the address bar, and sends it back as the
@@ -14,10 +20,6 @@ as the next release, never a mutated tag.
   `.env`, so the link is single-use on top of the endpoint's own 409 lock. Re-running provision
   prints the link again; the production 403 says so. Local zero-config setup (no token, not
   production) is unchanged.
-
-## [1.0.0-beta.13] - 2026-09-08 — Developer Preview
-
-Admin icons ship inside the bundle. No schema or API changes; beta.12 installs upgrade in place.
 
 ### Fixed
 - **Admin icons are embedded in the build instead of fetched from the Iconify API.** The Vite
