@@ -8,6 +8,13 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Fixed
+- **Pack permission seeds migrate the database they are handed.** Seven seed migrations opened
+  their own `new Connection()`, which reads the live environment — on a fresh `create-project`
+  that is the sample's placeholder user, and provision failed at migrate with "role
+  your_database_user does not exist" whenever the real credentials were typed at the prompt.
+  They now use `$schema->getConnection()`, and a unit test refuses any migration that opens its
+  own connection. Pairs with framework 1.83.2, which also publishes the written credentials to
+  the provisioning process for third-party migrations (Aegis's role seed).
 - **`thallo:provision` grants the install roles on a fresh install.** Aegis decides at boot
   whether to activate its permission provider (the RBAC tables must already exist) and provision
   runs the migrations that create them in the same process, so the grant step found no active
