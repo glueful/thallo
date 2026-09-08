@@ -154,7 +154,10 @@ final class CapabilityAvailabilityTest extends TestCase
         $registry->register(new Capability('thallo.render'));
         $registry->register($this->owned()); // requested (no override) but unavailable
 
-        self::assertTrue($registry->isRequestedEnabled('thallo.search'), 'the switchboard says on');
+        self::assertFalse(
+            $registry->isRequestedEnabled('thallo.search'),
+            'an untouched switch follows the engine: unavailable => reads OFF'
+        );
         self::assertFalse($registry->availability('thallo.search')->available);
         self::assertFalse($registry->isEnabled('thallo.search'), 'effective = requested AND available');
         self::assertSame(

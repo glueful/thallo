@@ -116,8 +116,8 @@ final class AccountServiceProvider extends ServiceProvider
         $registry = app($context, CapabilityRegistry::class);
         $registry->register(new Capability(
             'thallo.accounts',
-            label: 'Storefront accounts',
-            description: 'Themed registration, sign-in and account pages for storefront visitors.',
+            label: 'Accounts',
+            description: 'Registration, sign-in and account pages for visitors of the site.',
             owningPackage: 'glueful/users',
         ));
 

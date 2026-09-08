@@ -39,13 +39,8 @@ final class HealthAdminController
         $report = HealthService::getOverallHealth($this->context);
 
         $checks = [];
-        /** @var array<string,mixed> $check */
         foreach ((array) ($report['checks'] ?? []) as $name => $check) {
-            $checks[] = [
-                'name' => (string) $name,
-                'status' => is_array($check) ? (string) ($check['status'] ?? 'unknown') : 'unknown',
-                'message' => is_array($check) ? (string) ($check['message'] ?? '') : '',
-            ];
+            $checks[] = self::shapeCheck((string) $name, $check);
         }
 
         $root = base_path($this->context, '');
@@ -65,5 +60,32 @@ final class HealthAdminController
                 'checks' => $checks,
             ],
         ], 'Health retrieved.');
+    }
+
+    /**
+     * One framework check as the admin shows it: name/status/message, plus the check's detail
+     * lists (`issues`, `warnings`, `recommendations`) when present — the message alone
+     * ("Configuration warnings detected") tells the operator nothing they can act on.
+     *
+     * @return array{name:string,status:string,message:string,issues?:list<string>,warnings?:list<string>,recommendations?:list<string>}
+     */
+    public static function shapeCheck(string $name, mixed $check): array
+    {
+        if (!is_array($check)) {
+            return ['name' => $name, 'status' => 'unknown', 'message' => ''];
+        }
+
+        $shaped = [
+            'name' => $name,
+            'status' => (string) ($check['status'] ?? 'unknown'),
+            'message' => (string) ($check['message'] ?? ''),
+        ];
+        foreach (['issues', 'warnings', 'recommendations'] as $list) {
+            if (isset($check[$list]) && is_array($check[$list])) {
+                $shaped[$list] = array_values(array_filter($check[$list], 'is_string'));
+            }
+        }
+
+        return $shaped;
     }
 }

@@ -154,7 +154,10 @@ final class CapabilityAdminApiTest extends AppTestCase
         self::assertTrue($byId['test.fake']['available']);
         self::assertTrue($byId['test.fake']['effective']);
 
-        self::assertTrue($byId['test.owned']['requested'], 'requested stays on — only availability fails');
+        self::assertFalse(
+            $byId['test.owned']['requested'],
+            'an untouched switch follows the engine: unavailable => the row reads Off, not On'
+        );
         self::assertFalse($byId['test.owned']['available']);
         self::assertFalse($byId['test.owned']['effective']);
         self::assertSame('acme/engine', $byId['test.owned']['owning_package']);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Setup\Console;
 
+use App\Setup\InstallRoleGrants;
 use App\Setup\Doctor\Check;
 use App\Setup\Doctor\Doctor;
 use App\Setup\PgsqlDatabaseConfigFactory;
@@ -123,6 +124,21 @@ final class ProvisionCommand extends BaseCommand
         // SETUP_TOKEN gates the unauthenticated first-run POST /admin/setup in production
         // (X-Setup-Token header). Minted here exactly like the other keys: only when empty.
         $setupToken = self::ensureSetupToken($env);
+
+        // Install roles: persist the declared permission catalog and grant superuser (all) and
+        // administrator (all but system.config) every row — idempotent, so a pack added on
+        // upgrade reaches the install roles on the next provision run.
+        try {
+            $grants = $this->getContainer()->get(InstallRoleGrants::class)->apply();
+            $this->line(sprintf(
+                'Install roles granted: superuser +%d, administrator +%d (%d permissions declared).',
+                $grants->granted['superuser'] ?? 0,
+                $grants->granted['administrator'] ?? 0,
+                $grants->declared,
+            ));
+        } catch (\Throwable $e) {
+            $this->warning('Install role grants skipped (' . $e->getMessage() . ').');
+        }
 
         // Production boot refuses live extension discovery, so the compiled extension cache
         // must exist before the next `php glueful` call — rebuild it from the provisioned state.

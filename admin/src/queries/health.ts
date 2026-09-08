@@ -8,6 +8,10 @@ export interface HealthCheck {
   name: string
   status: string
   message: string
+  /** Present only when the framework check carries detail (the config check). */
+  issues?: string[]
+  warnings?: string[]
+  recommendations?: string[]
 }
 
 export interface Health {

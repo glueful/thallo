@@ -68,6 +68,15 @@ final class CapabilityStateStoreTest extends AppTestCase
         self::assertTrue($this->store()->requested('test.unheard.of'));
     }
 
+    public function testExplicitReportsNullWhenNothingAnswersSoTheRegistryCanFollowTheEngine(): void
+    {
+        self::assertNull($this->store()->explicit('test.unheard.of'), 'no row, no legacy, no config => null');
+        self::assertFalse($this->store()->explicit('thallo.search'), 'the config map is an explicit answer');
+
+        $this->store()->put('test.unheard.of', true);
+        self::assertTrue($this->store()->explicit('test.unheard.of'), 'a stored row is an explicit answer');
+    }
+
     public function testWriteReadsBackAndPersistsUnderTheCanonicalKey(): void
     {
         $this->store()->put('thallo.analytics', false);

@@ -251,12 +251,13 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
 
             $registry = $container->get(CapabilityRegistry::class);
 
-            // Still registered and still REQUESTED -- the switchboard was never touched...
+            // Still registered; the switchboard was never touched, so the untouched switch
+            // follows the engine and reads OFF (a fresh install must not show tier-2 switches on)...
             $ids = array_map(static fn ($c): string => $c->id, $registry->all());
             self::assertContains('thallo.subscriptions', $ids);
-            self::assertTrue(
+            self::assertFalse(
                 $registry->isRequestedEnabled('thallo.subscriptions'),
-                'the switchboard still says on -- only availability changed',
+                'an untouched switch follows the engine: disabled engine => reads off',
             );
 
             // ...but the OWNER is disabled, so availability fails with the package + remedy...

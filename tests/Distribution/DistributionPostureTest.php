@@ -74,6 +74,22 @@ final class DistributionPostureTest extends TestCase
         self::assertNotContains('Glueful\Extensions\Tenancy\TenancyServiceProvider', $enabled);
     }
 
+    public function testTierTwoAndEnforcementSwitchesReadOffInAFreshInstall(): void
+    {
+        $registry = self::$context->getContainer()->get(\Thallo\Contracts\Capability\CapabilityRegistry::class);
+
+        foreach (['thallo.commerce', 'thallo.tenancy'] as $id) {
+            self::assertFalse($registry->availability($id)->available, "{$id}: engine is not enabled here");
+            self::assertFalse(
+                $registry->isRequestedEnabled($id),
+                "{$id}: an untouched switch must read OFF in a fresh install, not on-with-a-warning"
+            );
+            self::assertFalse($registry->isEnabled($id));
+        }
+
+        self::assertTrue($registry->isEnabled('thallo.subscriptions'), 'the bundled billing engine is on');
+    }
+
     public function testCommerceSurfacesAreAbsentNotBroken(): void
     {
         $app = new \Glueful\Application(self::$context);

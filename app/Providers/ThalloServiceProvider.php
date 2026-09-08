@@ -7,6 +7,7 @@ namespace App\Providers;
 use App\Capabilities\CapabilityStateStore;
 use App\Capabilities\DefaultCapabilityRegistry;
 use App\Capabilities\ExtensionCapabilityAvailabilityResolver;
+use App\Setup\InstallRoleGrants;
 use App\Setup\SetupService;
 use App\Content\Delivery\DeliveryRepository;
 use App\Content\Delivery\EngineMediaUrlResolver;
@@ -275,6 +276,7 @@ use Thallo\Collections\Events\CollectionRowDeleted;
 use Thallo\Collections\Events\CollectionRowUpdated;
 use Thallo\Collections\Events\CollectionUpdated;
 use Glueful\Extensions\ServiceProvider;
+use Glueful\Permissions\Catalog\Permission;
 use Glueful\Support\FieldSelection\Projector;
 use Psr\Container\ContainerInterface;
 use Psr\Log\LoggerInterface;
@@ -602,6 +604,11 @@ final class ThalloServiceProvider extends ServiceProvider
         return [
             SetupService::class => [
                 'class'    => SetupService::class,
+                'shared'   => true,
+                'autowire' => true,
+            ],
+            InstallRoleGrants::class => [
+                'class'    => InstallRoleGrants::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
@@ -1977,7 +1984,8 @@ final class ThalloServiceProvider extends ServiceProvider
     {
         $context = $container->get(ApplicationContext::class);
         // Requested state comes LIVE from the one system-scoped switchboard
-        // (CapabilityStateStore: canonical key → legacy search row → config map → enabled),
+        // (CapabilityStateStore: canonical key → legacy search row → config map → null, and the
+        // registry lets an untouched switch follow its engine),
         // memoized inside the registry for this boot — a switchboard write lands on the next
         // request, after the per-boot memo is gone. The store itself fails soft to config on
         // pre-provision boots, so this factory stays safe during CLI boots before the system
@@ -1987,7 +1995,7 @@ final class ThalloServiceProvider extends ServiceProvider
         return new DefaultCapabilityRegistry(
             [],
             new ExtensionCapabilityAvailabilityResolver($context),
-            static fn (string $id): bool => $switchboard->requested($id),
+            static fn (string $id): ?bool => $switchboard->explicit($id),
         );
     }
 
@@ -2065,6 +2073,29 @@ final class ThalloServiceProvider extends ServiceProvider
             $container->get(RouteRepository::class),
             $container->get(ContentTypeRepository::class),
         );
+    }
+
+    /**
+     * Thallo's capability catalog, declared to the framework's permission registry so
+     * `permissions:sync` (and {@see InstallRoleGrants}) persist it into the RBAC provider.
+     * Without this, content.manage and friends existed only in {@see CapabilityCatalog} and a
+     * route gated on them was a hard 403 for every user, superuser included.
+     *
+     * @return list<Permission>
+     */
+    public function permissions(): array
+    {
+        $declared = [];
+        foreach ((new CapabilityCatalog())->all() as $slug => $meta) {
+            $declared[] = Permission::define($slug)
+                ->label($meta['label'])
+                ->description($meta['label'])
+                ->category($meta['group'])
+                ->resource(explode('.', $slug)[0])
+                ->managedBy('glueful/thallo');
+        }
+
+        return $declared;
     }
 
     public function boot(ApplicationContext $context): void

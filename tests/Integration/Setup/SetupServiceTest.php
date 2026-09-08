@@ -58,6 +58,21 @@ final class SetupServiceTest extends AppTestCase
         return $this->container()->get(SystemChannel::class);
     }
 
+    public function testInstallGrantsTheFirstAdminTheFullCatalog(): void
+    {
+        $svc = $this->service();
+        $svc->install('Acme', 'first@example.com', 'Sup3r-secret-pass!', 'en');
+
+        $user = $this->connection()->table('users')->where(['email' => 'first@example.com'])->first();
+        self::assertNotNull($user);
+        $uuid = (string) ($user['uuid'] ?? '');
+
+        $authority = new \App\Content\Authorization\PermissionAuthority($this->appContext());
+        foreach (['content.manage', 'audit.view', 'analytics.read', 'system.config'] as $slug) {
+            self::assertTrue($authority->can($uuid, $slug, '*', []), "first admin can {$slug}");
+        }
+    }
+
     public function testIsInstalledReturnsFalseOnFreshInstall(): void
     {
         self::assertFalse($this->service()->isInstalled());
