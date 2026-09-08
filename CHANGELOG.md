@@ -7,6 +7,18 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.13] - 2026-09-08 — Developer Preview
+
+Admin icons ship inside the bundle. No schema or API changes; beta.12 installs upgrade in place.
+
+### Fixed
+- **Admin icons are embedded in the build instead of fetched from the Iconify API.** The Vite
+  plugin's `icon.clientBundle.scan` only embeds icons from an INSTALLED collection, and the admin
+  had none, so every icon was resolved at runtime from `api.iconify.design` — which the admin's
+  document Content-Security-Policy (`connect-src 'self'`, framework 1.82.2) now blocks, leaving
+  icons blank. `@iconify-json/lucide` is a dev dependency; the scan bundles the lucide icons the
+  admin uses and the runtime fetch is no longer attempted.
+
 ## [1.0.0-beta.12] - 2026-09-08 — Developer Preview
 
 First-run and admin housekeeping on beta.11: provision mints `SETUP_TOKEN`, and the admin moves
