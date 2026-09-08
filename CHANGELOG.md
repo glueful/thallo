@@ -7,6 +7,23 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.15] - 2026-09-08 — Developer Preview
+
+A fresh install works end to end: `thallo:provision` from the sample `.env` with real credentials
+typed at the prompt migrates, grants the install roles the whole catalog, and hands off to the
+setup link; the first admin can administer everything. Proven by provisioning a clean database
+from the archive. No schema changes; beta.14 installs upgrade in place.
+
+### Upgrade Notes
+- **beta.14 installs: run `php glueful thallo:provision` once after updating.** beta.14's grant
+  step skipped itself on the server; this one applies the grants.
+- Framework 1.83.2 is required (repinned).
+
+### Changed
+- **Framework 1.83.2.** The Installer publishes freshly written database credentials to the
+  provisioning process, so third-party migrations that open their own connection (Aegis's role
+  seed) see the real database on a fresh install.
+
 ### Fixed
 - **Pack permission seeds migrate the database they are handed.** Seven seed migrations opened
   their own `new Connection()`, which reads the live environment — on a fresh `create-project`
