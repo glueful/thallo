@@ -15,6 +15,7 @@ use Glueful\Installer\EnvWriter;
 use Glueful\Installer\Installer;
 use Glueful\Installer\InstallOptions;
 use Glueful\Installer\InstallStep;
+use Glueful\Security\RandomStringGenerator;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
@@ -119,6 +120,10 @@ final class ProvisionCommand extends BaseCommand
             return self::FAILURE;
         }
 
+        // SETUP_TOKEN gates the unauthenticated first-run POST /admin/setup in production
+        // (X-Setup-Token header). Minted here exactly like the other keys: only when empty.
+        $setupToken = self::ensureSetupToken($env);
+
         // Production boot refuses live extension discovery, so the compiled extension cache
         // must exist before the next `php glueful` call — rebuild it from the provisioned state.
         try {
@@ -141,8 +146,25 @@ final class ProvisionCommand extends BaseCommand
         foreach (self::nextSteps($env->get('BASE_URL')) as $step) {
             $this->line('  ' . $step);
         }
+        $this->line('  Setup token (SETUP_TOKEN in .env; the web setup sends it as X-Setup-Token): ' . $setupToken);
         $this->line('');
         return self::SUCCESS;
+    }
+
+    /**
+     * Mint SETUP_TOKEN when .env has none — the same rule the framework Installer applies to
+     * APP_KEY/JWT_KEY/TOKEN_SALT (generated when empty, never overwritten).
+     */
+    public static function ensureSetupToken(EnvWriter $env): string
+    {
+        $current = (string) ($env->get('SETUP_TOKEN') ?? '');
+        if ($current !== '') {
+            return $current;
+        }
+        $token = RandomStringGenerator::generate(40);
+        $env->set('SETUP_TOKEN', $token);
+
+        return $token;
     }
 
     /**

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
+import { switchRootByTestId } from './support/switch'
 import { ref } from 'vue'
 import type { GeneralSettings } from '@/queries/generalSettings'
 
@@ -179,9 +180,7 @@ describe('general settings page — site logo', () => {
 
     // Hydrated OFF (the server default); flip it on and save. USwitch renders a
     // switch button, not an input — drive it via v-model like the other specs.
-    const toggle = wrapper.findComponent<{ $emit: (e: string, v: boolean) => void }>(
-      '[data-test="search-enabled"]',
-    )
+    const toggle = switchRootByTestId(wrapper, 'search-enabled')
     expect(toggle.exists()).toBe(true)
     toggle.vm.$emit('update:modelValue', true)
     await flushPromises()

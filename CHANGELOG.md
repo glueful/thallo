@@ -7,6 +7,22 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.12] - 2026-09-08 — Developer Preview
+
+First-run and admin housekeeping on beta.11: provision mints `SETUP_TOKEN`, and the admin moves
+to Nuxt UI 4.11. No schema or API changes; beta.11 installs upgrade in place.
+
+### Changed
+- **Admin: Nuxt UI 4.11.1.** The Vite plugin's `icon` option is typed correctly upstream, so the
+  local cast is gone. The switch component's render tree changed; the admin tests that drive
+  switches now resolve them through the rendered `<button role="switch">`.
+- **`SETUP_TOKEN` is minted by provision and listed in `.env.example`.** The unauthenticated
+  first-run `POST /admin/setup` is gated by it in production (sent as the `X-Setup-Token`
+  header); until now nothing generated or documented it, so a production host answered
+  "First-run setup is disabled" with no hint where the value came from. Provision now mints it
+  exactly like `APP_KEY`/`JWT_KEY`/`TOKEN_SALT` (only when empty, never overwritten) and prints
+  it at the end.
+
 ## [1.0.0-beta.11] - 2026-09-07 — Developer Preview
 
 A lock-only release on beta.10: framework 1.82.3 serves the admin's HTML document with a
