@@ -78,6 +78,23 @@ final class InstallRoleGrantsTest extends AppTestCase
         }
     }
 
+    public function testActivatesTheRbacProviderWhenBootSkippedIt(): void
+    {
+        // thallo:provision runs migrations in-process; Aegis decides at BOOT whether to activate
+        // its provider (RBAC tables must already exist), so on a fresh install the process that
+        // just created the tables has no active provider. The grantor must activate it itself.
+        $manager = $this->container()->get('permission.manager');
+        $manager->clearProvider();
+        self::assertNull($manager->getProvider(), 'precondition: no active provider');
+        $this->revokeFromSuperuser('content.manage');
+
+        $report = $this->grants()->apply();
+
+        self::assertNotNull($manager->getProvider(), 'the grantor activated the RBAC provider');
+        self::assertGreaterThanOrEqual(1, $report->granted['superuser']);
+        self::assertContains('content.manage', $this->roleSlugs('superuser'));
+    }
+
     public function testASecondRunGrantsNothingNew(): void
     {
         $this->grants()->apply();
