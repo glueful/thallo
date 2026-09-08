@@ -2,3 +2,5 @@ allowBuilds:
   esbuild: false
   maplibre-gl: false
   vue-demi: false
+minimumReleaseAgeExclude:
+  - '@nuxt/ui@4.11.1'
