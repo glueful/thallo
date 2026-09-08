@@ -8,6 +8,10 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Changed
+- **Framework 1.83.1.** Production recommendations are logged once per boot cache instead of
+  on every request, and a recommendation no longer degrades the config health check — so a
+  thallo.dev-style host with an empty `CSP_HEADER` stops filling the error log and reports
+  `ok` health.
 - **The admin health report says what is wrong.** `GET /v1/admin/health` flattened every
   framework check to name/status/message, so "Configuration warnings detected" reached the
   operator with no way to learn which setting. Each check now carries its `issues`, `warnings`
