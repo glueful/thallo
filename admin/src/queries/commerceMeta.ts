@@ -1,3 +1,4 @@
+import { toValue, type MaybeRefOrGetter } from 'vue'
 import { useQuery } from '@pinia/colada'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
@@ -43,6 +44,15 @@ export async function fetchCommerceMeta(): Promise<CommerceMeta> {
   }
 }
 
-export function useCommerceMeta() {
-  return useQuery({ key: qk.commerceMeta(), query: fetchCommerceMeta })
+/**
+ * `enabled` (default true) lets a caller that only holds the query for gating — the entry
+ * editor's commerce panel gate — keep it idle while the commerce capability is off, so an
+ * install without Commerce never requests /commerce/meta.
+ */
+export function useCommerceMeta(options: { enabled?: MaybeRefOrGetter<boolean> } = {}) {
+  return useQuery({
+    key: qk.commerceMeta(),
+    query: fetchCommerceMeta,
+    enabled: () => (options.enabled === undefined ? true : toValue(options.enabled)),
+  })
 }
