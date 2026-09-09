@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Content\Console;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\StarterBlockTypes;
+use App\Content\Blocks\StarterBlockTypeSeeder;
 use Glueful\Console\BaseCommand;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -55,21 +54,16 @@ final class SeedBlockTypesCommand extends BaseCommand
 
     private function seedCurrent(): int
     {
-        /** @var BlockTypeRepository $repo */
-        $repo = $this->getService(BlockTypeRepository::class);
-        $created = 0;
-        $skipped = 0;
-        foreach (StarterBlockTypes::definitions() as $definition) {
-            if ($repo->findBySlug($definition['slug']) !== null) {
-                $this->line("skipped {$definition['slug']} (exists)");
-                $skipped++;
-                continue;
-            }
-            $repo->create($definition);
-            $this->line("created {$definition['slug']}");
-            $created++;
+        // The seeder covers the fixed library AND pack contributions (BlockTypeKind), the same
+        // set install and provision seed — a pack's starter blocks were previously invisible here.
+        $report = $this->getService(StarterBlockTypeSeeder::class)->seedMissing();
+        foreach ($report['created'] as $slug) {
+            $this->line("created {$slug}");
         }
-        $this->success("Created {$created}, skipped {$skipped}.");
+        foreach ($report['skipped'] as $slug) {
+            $this->line("skipped {$slug} (exists)");
+        }
+        $this->success(sprintf('Created %d, skipped %d.', count($report['created']), count($report['skipped'])));
         return self::SUCCESS;
     }
 }

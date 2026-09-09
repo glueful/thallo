@@ -8,6 +8,13 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Fixed
+- **A fresh install gets the whole starter block library.** Setup seeded content types, settings
+  and regions but not block types, so an instance had only the 16 slugs migration 021 (re)seeded
+  — no rich text, hero, image, heading, CTA, gallery, video, pricing, HTML … — until someone ran
+  `thallo:blocks:seed`, which nothing mentioned. Setup now seeds the full library (fixed set plus
+  pack contributions), and `thallo:provision` seeds any starter block type an installed
+  single-store instance lacks, never touching existing rows — so beta.16 installs are completed
+  by the next provision run, and a starter added in a later release lands on upgrade.
 - **"Set as homepage" says why it refused, and no longer offers what it would refuse.** The
   homepage check needs a published locale AND a saved route (slug); the Pages list shows only
   the first, so a page reading "published" could still be turned down with "must be a published

@@ -911,6 +911,11 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            \App\Content\Blocks\StarterBlockTypeSeeder::class => [
+                'class' => \App\Content\Blocks\StarterBlockTypeSeeder::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             FilterCompiler::class => [
                 'class' => FilterCompiler::class,
                 'shared' => true,

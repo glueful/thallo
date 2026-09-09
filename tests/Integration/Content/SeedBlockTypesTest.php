@@ -7,6 +7,7 @@ namespace App\Tests\Integration\Content;
 use App\Content\Blocks\BlockTypeRepository;
 use App\Content\Blocks\StarterBlockTypes;
 use App\Content\Console\SeedBlockTypesCommand;
+use App\Content\Starter\Kinds\BlockTypeKind;
 use App\Tests\Support\AppTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -29,7 +30,9 @@ final class SeedBlockTypesTest extends AppTestCase
     {
         $tester = $this->runSeed();
         $repo = new BlockTypeRepository($this->connection());
-        $expected = count(StarterBlockTypes::definitions()); // not a literal (spec §8)
+        // The seeded set is the whole starter library: the fixed definitions PLUS pack
+        // contributions (BlockTypeKind), the same set install and provision seed. Not a literal.
+        $expected = count($this->container()->get(BlockTypeKind::class)->definitions());
         self::assertCount($expected, $repo->all());
         self::assertSame(0, $tester->getStatusCode());
         self::assertStringContainsString("Created {$expected}, skipped 0.", $tester->getDisplay());
@@ -47,7 +50,8 @@ final class SeedBlockTypesTest extends AppTestCase
         // carry the Nuxt UI shapes; container declares value constraints.
         // blog_posts (blog-posts spec): dynamic listing of published posts as cards.
         // modern-blocks spec §2/§3: animated_text (Content) + gallery (Media) added.
-        self::assertSame(46, $expected);
+        self::assertSame(46, count(StarterBlockTypes::definitions()));
+        self::assertGreaterThanOrEqual(46, $expected, 'contributions only ever add to the fixed library');
         // Style block (style-block spec §3): scoped accent/neutral re-skin + class hook.
         $style = $repo->findBySlug('style');
         self::assertSame('Layout', $style['category']);
@@ -197,7 +201,7 @@ final class SeedBlockTypesTest extends AppTestCase
         $repo->setActive((string) $repo->findBySlug('rich_text')['uuid'], false);
 
         $tester = $this->runSeed();
-        $expected = count(StarterBlockTypes::definitions());
+        $expected = count($this->container()->get(BlockTypeKind::class)->definitions());
         self::assertStringContainsString("Created 0, skipped {$expected}.", $tester->getDisplay());
         self::assertStringContainsString('skipped hero (exists)', $tester->getDisplay());
 
