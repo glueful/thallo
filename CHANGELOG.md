@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **Framework 1.83.3.** The production container is compiled once, atomically, under a name
+  signed by its definitions — no more per-request rewrites of `CompiledContainer.runtime.php`,
+  half-written files falling back to the runtime container, or stale OPcache copies surviving a
+  deploy. The old runtime artifact is pruned on the first boot.
+
 ### Fixed
 - **A fresh install gets the whole starter block library.** Setup seeded content types, settings
   and regions but not block types, so an instance had only the 16 slugs migration 021 (re)seeded
