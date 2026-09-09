@@ -156,4 +156,47 @@ final class DoctorTest extends TestCase
 
         self::assertSame(Check::OK, $checks['keys']->status);
     }
+
+    // ── asset routing probe ────────────────────────────────────────────────────
+
+    public function testAssetRoutingWarnsWhenTheWebServerAnswers404ForAPhpServedAsset(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\nBASE_URL=https://thallo.dev\n");
+        $probed = [];
+        $doctor = new Doctor($dir, '8.3.0', ['pdo_pgsql'], static function (string $url) use (&$probed): ?int {
+            $probed[] = $url;
+            return 404;
+        });
+
+        $check = $this->byName($doctor->preflight())['asset-routing'];
+
+        self::assertSame(Check::WARN, $check->status);
+        self::assertStringContainsString('/theme-assets/', $check->message);
+        self::assertStringContainsString('docs/production.md', $check->message);
+        self::assertSame(['https://thallo.dev/theme-assets/site.css?t=default'], $probed);
+    }
+
+    public function testAssetRoutingIsOkWhenThePhpServedAssetIsReachable(): void
+    {
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\nBASE_URL=https://thallo.dev\n");
+        $doctor = new Doctor($dir, '8.3.0', ['pdo_pgsql'], static fn (string $url): ?int => 200);
+
+        self::assertSame(Check::OK, $this->byName($doctor->preflight())['asset-routing']->status);
+    }
+
+    public function testAssetRoutingIsSkippedForLocalHostsAndUnreachableServers(): void
+    {
+        $local = $this->tempProjectWithEnv("APP_ENV=development\nBASE_URL=http://localhost:8000\n");
+        $calls = 0;
+        $doctor = new Doctor($local, '8.3.0', ['pdo_pgsql'], static function () use (&$calls): ?int {
+            $calls++;
+            return 404;
+        });
+        self::assertArrayNotHasKey('asset-routing', $this->byName($doctor->preflight()));
+        self::assertSame(0, $calls, 'a local BASE_URL is never probed');
+
+        $public = $this->tempProjectWithEnv("APP_ENV=production\nBASE_URL=https://thallo.dev\n");
+        $doctor = new Doctor($public, '8.3.0', ['pdo_pgsql'], static fn (string $url): ?int => null);
+        self::assertArrayNotHasKey('asset-routing', $this->byName($doctor->preflight()), 'unreachable => no verdict');
+    }
 }

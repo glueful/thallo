@@ -131,6 +131,10 @@ final class PreviewAnnotationTest extends AppTestCase
         }
         self::assertSame($token, $set['thallo_preview']->getValue());
         self::assertSame('1', ($set['thallo_preview_canvas'] ?? null)?->getValue());
+        // The support assets are injected under the proxied /_thallo/ prefix (see
+        // PreviewAssetsUnderProxiedPrefixTest), never at the root where static-file rules eat them.
+        self::assertStringContainsString('href="/_thallo/preview.css?v=', (string) $canvas->getContent());
+        self::assertStringContainsString('src="/_thallo/preview-bridge.js?v=', (string) $canvas->getContent());
 
         // A review load does NOT — and actively expires a stale canvas cookie, so
         // switching Design -> review in the same browser drops the annotations.
@@ -184,18 +188,21 @@ final class PreviewAnnotationTest extends AppTestCase
         // Exactly one stylesheet link + one bridge script, each with the mtime
         // cache-buster (the assets serve max-age=86400 — without ?v=, bridge
         // changes would ship a day late to any browser that already previewed).
-        self::assertSame(1, (int) preg_match_all('#<link rel="stylesheet" href="/_preview\.css\?v=\d+">#', $html));
         self::assertSame(
             1,
-            (int) preg_match_all('#<script src="/_preview-bridge\.js\?v=\d+" defer></script>#', $html),
+            (int) preg_match_all('#<link rel="stylesheet" href="/_thallo/preview\.css\?v=\d+">#', $html),
+        );
+        self::assertSame(
+            1,
+            (int) preg_match_all('#<script src="/_thallo/preview-bridge\.js\?v=\d+" defer></script>#', $html),
         );
         // Injected BEFORE </body>, not appended after the document.
         self::assertSame(1, (int) preg_match_all('#defer></script></body>#', $html));
 
         // Live HTML: neither.
         $live = $this->handle(Request::create('/page/inject', 'GET'));
-        self::assertStringNotContainsString('/_preview.css', (string) $live->getContent());
-        self::assertStringNotContainsString('/_preview-bridge.js', (string) $live->getContent());
+        self::assertStringNotContainsString('/_thallo/preview.css', (string) $live->getContent());
+        self::assertStringNotContainsString('/_thallo/preview-bridge.js', (string) $live->getContent());
     }
 
     public function testInjectionAppendsWhenBodyTagIsAbsentAndSkipsNonHtml(): void
@@ -219,13 +226,13 @@ final class PreviewAnnotationTest extends AppTestCase
 
     public function testStaticSupportRoutesServeCacheableAssets(): void
     {
-        $css = $this->handle(Request::create('/_preview.css', 'GET'));
+        $css = $this->handle(Request::create('/_thallo/preview.css', 'GET'));
         self::assertSame(200, $css->getStatusCode());
         self::assertStringContainsString('text/css', (string) $css->headers->get('Content-Type'));
         self::assertStringContainsString('max-age=86400', (string) $css->headers->get('Cache-Control'));
         self::assertStringContainsString('.thallo-preview-block { display: contents; }', (string) $css->getContent());
 
-        $js = $this->handle(Request::create('/_preview-bridge.js', 'GET'));
+        $js = $this->handle(Request::create('/_thallo/preview-bridge.js', 'GET'));
         self::assertSame(200, $js->getStatusCode());
         self::assertStringContainsString('javascript', (string) $js->headers->get('Content-Type'));
         self::assertStringContainsString('thallo:canvas-hello', (string) $js->getContent());

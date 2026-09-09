@@ -21,11 +21,16 @@ final class Doctor
     private const MIN_PHP = '8.3.0';
     private const REQUIRED_EXTENSIONS = ['pdo_pgsql'];
 
-    /** @param list<string> $loadedExtensions */
+    /**
+     * @param list<string> $loadedExtensions
+     * @param (\Closure(string): ?int)|null $httpProbe GET a URL, return the final HTTP status or
+     *        null when unreachable; defaults to a short-timeout stream request. Injected for tests.
+     */
     public function __construct(
         private readonly string $basePath,
         private readonly string $phpVersion,
         private readonly array $loadedExtensions,
+        private readonly ?\Closure $httpProbe = null,
     ) {
     }
 
@@ -48,6 +53,10 @@ final class Doctor
         $checks[] = $this->writableStorageCheck();
         $checks[] = $this->keysCheck();
         $environment = $this->environmentCheck();
+        $assetRouting = $this->assetRoutingCheck();
+        if ($assetRouting !== null) {
+            $checks[] = $assetRouting;
+        }
         if ($environment !== null) {
             $checks[] = $environment;
         }
@@ -118,6 +127,63 @@ final class Doctor
             "APP_ENV={$appEnv} but BASE_URL points at a public host ({$host}) — set APP_ENV=production"
             . ' (php glueful system:production) before going live.',
         );
+    }
+
+    /**
+     * `/theme-assets/*` and `/_thallo/*` are served by PHP, not from disk. A web-server rule that
+     * serves every `.css`/`.js`/`.woff2` URL straight from the document root (CloudPanel's and many
+     * nginx templates) answers them with 404 and the rendered site and the designer load unstyled.
+     * Probe one theme asset on the public BASE_URL; a 404 is that misconfiguration. Null when
+     * there is no public BASE_URL to probe or the host is unreachable from here (no verdict).
+     */
+    private function assetRoutingCheck(): ?Check
+    {
+        $env = $this->basePath . '/.env';
+        if (!is_file($env)) {
+            return null;
+        }
+        $base = rtrim((string) ((new EnvWriter($env))->get('BASE_URL') ?? ''), '/');
+        $host = (string) (parse_url($base, PHP_URL_HOST) ?? '');
+        if ($host === '' || $this->isLocalHost($host)) {
+            return null;
+        }
+
+        $url = $base . '/theme-assets/site.css?t=default';
+        $status = ($this->httpProbe ?? self::defaultHttpProbe(...))($url);
+        if ($status === null) {
+            return null;
+        }
+        if ($status === 404) {
+            return Check::warn(
+                'asset-routing',
+                "{$base}/theme-assets/site.css answers 404 — the web server is serving /theme-assets/* and "
+                . '/_thallo/* from disk instead of passing them to PHP; the site and the designer will load '
+                . 'unstyled. Add the location rule for those two prefixes above the static-file rule '
+                . '(docs/production.md, "PHP-served asset paths").',
+            );
+        }
+
+        return Check::ok('asset-routing', 'PHP-served asset paths reach PHP.');
+    }
+
+    private static function defaultHttpProbe(string $url): ?int
+    {
+        $context = stream_context_create([
+            'http' => ['method' => 'GET', 'timeout' => 4, 'ignore_errors' => true, 'follow_location' => 1],
+            'ssl' => ['verify_peer' => true],
+        ]);
+        $headers = @get_headers($url, true, $context);
+        if ($headers === false) {
+            return null;
+        }
+        // With redirects followed, get_headers() reports every status line; the last one is final.
+        $status = null;
+        foreach ($headers as $key => $value) {
+            if (is_int($key) && is_string($value) && preg_match('#^HTTP/\S+\s+(\d{3})#', $value, $m) === 1) {
+                $status = (int) $m[1];
+            }
+        }
+        return $status;
     }
 
     private function isLocalHost(string $host): bool
