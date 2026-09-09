@@ -105,9 +105,11 @@ final class ContentTypeKind extends AbstractStarterKind
     private function payloads(): array
     {
         return [
+            // body is optional: a page must be publishable with a title alone (a landing page
+            // composed in the designer, a placeholder, a stub) — the first-run Publish must not 422.
             $this->payload('pages', 'Pages', 'Generic static pages (e.g. About, Contact).', true, true, [
                 ['name' => 'title', 'type' => 'string', 'required' => true],
-                ['name' => 'body', 'type' => 'blocks', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
             ]),
             $this->payload('category', 'Categories', 'Groups posts into browsable archives.', true, false, [
                 ['name' => 'title', 'type' => 'string', 'required' => true],
@@ -117,7 +119,7 @@ final class ContentTypeKind extends AbstractStarterKind
                 ['name' => 'title', 'type' => 'string', 'required' => true],
                 ['name' => 'excerpt', 'type' => 'text'],
                 ['name' => 'cover', 'type' => 'asset'],
-                ['name' => 'body', 'type' => 'blocks', 'required' => true],
+                ['name' => 'body', 'type' => 'blocks'],
                 [
                     'name' => 'categories', 'type' => 'reference', 'reference_type' => 'category',
                     'multiple' => true, 'filterable' => true,

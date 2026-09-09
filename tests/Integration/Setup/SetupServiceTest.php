@@ -176,7 +176,9 @@ final class SetupServiceTest extends AppTestCase
         self::assertSame('string', $byName['title']['type']);
         self::assertTrue((bool) ($byName['title']['required'] ?? false));
         self::assertSame('blocks', $byName['body']['type']);
-        self::assertTrue((bool) ($byName['body']['required'] ?? false));
+        // Optional: a page must be publishable with a title alone (a landing page composed in the
+        // designer, a placeholder, a redirect-style stub) — the first-run Publish must not 422.
+        self::assertFalse((bool) ($byName['body']['required'] ?? false));
 
         // Renderable out of the box: pages are publicly delivered AND mounted
         // at root (/about, not /page/about).
@@ -190,6 +192,11 @@ final class SetupServiceTest extends AppTestCase
         self::assertNotNull($posts, 'fresh install must seed the "post" content type');
         self::assertSame('Posts', $posts['name']);
         self::assertTrue((bool) $posts['public_delivery']);
+        $postFields = [];
+        foreach ($posts['schema'] as $field) {
+            $postFields[$field['name']] = $field;
+        }
+        self::assertFalse((bool) ($postFields['body']['required'] ?? false), 'a post body is optional too');
         self::assertFalse((bool) $posts['mount_at_root']);
         self::assertSame(
             ['title', 'excerpt', 'cover', 'body', 'categories'],
