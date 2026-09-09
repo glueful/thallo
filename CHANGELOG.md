@@ -7,6 +7,21 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.16] - 2026-09-09 — Developer Preview
+
+The first admin can publish: a refused publish explains itself, empty required fields are marked
+where they are, a bypass holder is never trapped by their own submission, and the designer's
+support assets live under the one proxied prefix pair. No schema changes; beta.15 installs
+upgrade in place.
+
+### Upgrade Notes
+- **Web server:** every PHP-served asset now sits under `/theme-assets/*` or `/_thallo/*`. If
+  your vhost serves `.css`/`.js`/`.woff2` from disk, the location rule for those two prefixes
+  must sit above that rule (docs/production.md); `php glueful thallo:provision` now warns
+  (`asset-routing`) when it does not.
+- Seeded Pages/Posts on existing installs keep a required `body`; make it optional on the
+  content type in the admin if you want the fresh-install behaviour.
+
 ### Fixed
 - **Canvas preview assets are served under `/_thallo/`.** The preview injected `/_preview.css`
   and `/_preview-bridge.js` at the site root; a web-server rule that serves every `.css`/`.js`
