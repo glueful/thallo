@@ -20,6 +20,7 @@ env:
     tests/Integration/Account
     tests/Integration/Analytics
     tests/Integration/Authority
+    tests/Integration/Blocks
     tests/Integration/Capabilities
     tests/Integration/Collections
     tests/Integration/Console
