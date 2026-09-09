@@ -58,6 +58,24 @@ final class SetupServiceTest extends AppTestCase
         return $this->container()->get(SystemChannel::class);
     }
 
+    public function testInstallSeedsTheWholeStarterBlockLibrary(): void
+    {
+        // A fresh install used to get only the 16 slugs migration 021 (re)seeded; the other 30 —
+        // rich_text, hero, image, heading, cta … — landed only via `thallo:blocks:seed`, which
+        // nothing in the install flow ran and no doc mentioned.
+        $this->service()->install('Acme', 'blocks@example.com', 'Sup3r-secret-pass!', 'en');
+
+        $kind = $this->container()->get(\App\Content\Starter\Kinds\BlockTypeKind::class);
+        $expected = count($kind->definitions());
+        $slugs = array_column($this->connection()->table('block_types')->select(['slug'])->get(), 'slug');
+
+        self::assertGreaterThanOrEqual(40, $expected, 'sanity: the starter library is the full one');
+        self::assertCount($expected, $slugs);
+        foreach (['rich_text', 'hero', 'image', 'heading', 'cta', 'html', 'section'] as $slug) {
+            self::assertContains($slug, $slugs);
+        }
+    }
+
     public function testInstallGrantsTheFirstAdminTheFullCatalog(): void
     {
         $svc = $this->service();

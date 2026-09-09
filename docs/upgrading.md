@@ -4,11 +4,18 @@
 
 ```bash
 composer update \
-  && php glueful migrate:run \
+  && php glueful thallo:provision \
   && php glueful migrate:verify
-# clear compiled state — REQUIRED, not optional:
-php glueful extensions:cache   # or your cache-clear entry point
-rm -rf storage/cache/container_*.php storage/cache/routes_*.php
+```
+
+`thallo:provision` on an installed instance runs the pending migrations, grants the install
+roles any permission a new pack declared, seeds any starter block type the instance lacks
+(existing rows are never touched), rebuilds the extension cache, and warns (`asset-routing`)
+when the web server serves `/theme-assets/*` or `/_thallo/*` from disk. Then reload PHP-FPM
+so OPcache drops the previous release's classes:
+
+```bash
+sudo systemctl reload php8.4-fpm   # or the PHP-FPM restart for the site in your panel
 ```
 
 **The `&&` chaining is part of the contract**: `migrate:run` applies what is

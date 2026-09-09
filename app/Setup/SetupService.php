@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Setup;
 
+use App\Content\Starter\Kinds\BlockTypeKind;
 use App\Content\Starter\Kinds\ContentTypeKind;
 use App\Content\Starter\Kinds\RegionKind;
 use App\Content\Starter\Kinds\SettingKind;
@@ -36,6 +37,7 @@ final class SetupService
         private readonly RegionKind $regions,
         private readonly SingleStoreTenant $singleStore,
         private readonly InstallRoleGrants $roleGrants,
+        private readonly BlockTypeKind $blockTypes,
     ) {
     }
 
@@ -115,7 +117,10 @@ final class SetupService
 
             $tenantUuid = $this->singleStore->ensure('default', $siteName, $userUuid);
             $seed = new SeedContext($tenantUuid, $siteName, $locale, $userUuid);
-            foreach ([$this->contentTypes, $this->settings, $this->regions] as $kind) {
+            // Block types included: without them a fresh instance had only the 16 slugs
+            // migration 021 (re)seeded, and the rest of the starter library (rich_text, hero,
+            // image …) waited for a `thallo:blocks:seed` nobody was told to run.
+            foreach ([$this->contentTypes, $this->settings, $this->regions, $this->blockTypes] as $kind) {
                 foreach ($kind->definitions() as $definition) {
                     $kind->apply($definition, $seed);
                 }

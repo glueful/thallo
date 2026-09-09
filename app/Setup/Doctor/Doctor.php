@@ -159,7 +159,7 @@ final class Doctor
                 "{$base}/theme-assets/site.css answers 404 — the web server is serving /theme-assets/* and "
                 . '/_thallo/* from disk instead of passing them to PHP; the site and the designer will load '
                 . 'unstyled. Add the location rule for those two prefixes above the static-file rule '
-                . '(docs/production.md, "PHP-served asset paths").',
+                . '(docs/production.md, "PHP-served asset paths (web server)").',
             );
         }
 

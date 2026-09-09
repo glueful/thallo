@@ -7,6 +7,42 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.17] - 2026-09-09 — Developer Preview
+
+A fresh install gets the whole starter block library, a refused homepage says why, the
+production container is compiled once instead of on every request, and the docs carry the
+web-server block that makes PHP-served assets work. No schema changes; beta.16 installs upgrade
+in place.
+
+### Upgrade Notes
+- **Run `php glueful thallo:provision` once after updating, then reload PHP-FPM.** Provision
+  seeds the starter block types a beta.16 install is missing (30 of 46) and grants the install
+  roles any new permission; the FPM reload drops the previous release's OPcache copies. This is
+  now the documented upgrade sequence (docs/upgrading.md).
+- Framework 1.83.3 is required (repinned).
+
+### Changed
+- **Framework 1.83.3.** The production container is compiled once, atomically, under a name
+  signed by its definitions — no more per-request rewrites of `CompiledContainer.runtime.php`,
+  half-written files falling back to the runtime container, or stale OPcache copies surviving a
+  deploy. The old runtime artifact is pruned on the first boot.
+
+### Fixed
+- **A fresh install gets the whole starter block library.** Setup seeded content types, settings
+  and regions but not block types, so an instance had only the 16 slugs migration 021 (re)seeded
+  — no rich text, hero, image, heading, CTA, gallery, video, pricing, HTML … — until someone ran
+  `thallo:blocks:seed`, which nothing mentioned. Setup now seeds the full library (fixed set plus
+  pack contributions), and `thallo:provision` seeds any starter block type an installed
+  single-store instance lacks, never touching existing rows — so beta.16 installs are completed
+  by the next provision run, and a starter added in a later release lands on upgrade.
+- **"Set as homepage" says why it refused, and no longer offers what it would refuse.** The
+  homepage check needs a published locale AND a saved route (slug); the Pages list shows only
+  the first, so a page reading "published" could still be turned down with "must be a published
+  entry of a publicly delivered content type" and nothing else. The 422 now names the failing
+  condition ("published in locale "en" but has no route yet — save a slug in the Publishing
+  panel", "not published in locale "en"", "content type "category" is not publicly delivered"),
+  and the editor's house button stays disabled with a matching tooltip until both hold.
+
 ## [1.0.0-beta.16] - 2026-09-09 — Developer Preview
 
 The first admin can publish: a refused publish explains itself, empty required fields are marked

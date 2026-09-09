@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { homepageButtonState } from '@/utils/homepageButton'
 import { computed, ref, watch } from 'vue'
 import { useRoutes, useSaveRoute } from '@/queries/routes'
 import { usePublish } from '@/queries/publish'
@@ -121,6 +122,11 @@ async function onThemePreview() {
 const { data: generalSettings } = useGeneralSettings()
 const { save: saveSettings } = useGeneralSettingsMutations()
 const isHomepage = computed(() => generalSettings.value?.homepage_entry === props.uuid)
+// The server refuses a published locale with no saved route, and the list cannot show that —
+// gate the button on both so the request is never sent for a page it would refuse.
+const homepageButton = computed(() =>
+  homepageButtonState({ published: isPublished.value, hasRoute: savedSlug.value !== '' }),
+)
 async function onSetHomepage() {
   try {
     await saveSettings.mutateAsync({ homepage_entry: props.uuid })
@@ -216,17 +222,14 @@ function toggleSchedule(): void {
           @click="onThemePreview"
         />
       </UTooltip>
-      <UTooltip
-        v-if="!isHomepage"
-        :text="isPublished ? 'Set as homepage' : 'Publish first to set as homepage'"
-      >
+      <UTooltip v-if="!isHomepage" :text="homepageButton.tooltip">
         <UButton
           color="neutral"
           variant="ghost"
           icon="i-lucide-house"
           aria-label="Set as homepage"
           data-test="set-homepage"
-          :disabled="!isPublished"
+          :disabled="!homepageButton.enabled"
           :loading="saveSettings.isLoading.value"
           @click="onSetHomepage"
         />

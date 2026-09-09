@@ -40,6 +40,8 @@ final class GeneralSettingsController
         /** Soft-bound (theme-setting spec §1): null = render pack absent, theme is inert. */
         private readonly ?PreviewThemeValidator $themeValidator = null,
         private readonly ?EventService $events = null,
+        /** Names the failing homepage condition; the resolver above stays the authority. */
+        private readonly ?\App\Content\Delivery\HomepageEligibility $homepageEligibility = null,
     ) {
     }
 
@@ -171,8 +173,9 @@ final class GeneralSettingsController
             && ($this->resolver === null
                 || ($this->resolver->resolveEntry($input->homepage_entry)['kind'] ?? null) !== 'content')
         ) {
-            $errors['homepage_entry'] =
-                'must be a published entry of a publicly delivered content type';
+            $reason = $this->homepageEligibility?->reasonNotEligible($input->homepage_entry);
+            $errors['homepage_entry'] = 'must be a published entry of a publicly delivered content type'
+                . ($reason !== null ? " — {$reason}" : '');
         }
 
         // Theme (theme-setting spec §1): write-time validation — you cannot

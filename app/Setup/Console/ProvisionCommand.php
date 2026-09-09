@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Setup\Console;
 
+use App\Content\Blocks\StarterBlockTypeSeeder;
 use App\Setup\InstallRoleGrants;
+use App\Setup\SetupService;
 use App\Setup\Doctor\Check;
 use App\Setup\Doctor\Doctor;
 use App\Setup\PgsqlDatabaseConfigFactory;
@@ -22,6 +24,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Psr\Container\ContainerInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Thallo\Tenancy\System\SystemFlags;
 
 use function base_path;
 
@@ -138,6 +141,27 @@ final class ProvisionCommand extends BaseCommand
             ));
         } catch (\Throwable $e) {
             $this->warning('Install role grants skipped (' . $e->getMessage() . ').');
+        }
+
+        // Starter block types: seed any the library has that this instance lacks (a starter
+        // added on upgrade; an instance that only ever received migration 021's subset).
+        // Existing rows are never touched. Only once installed — the fresh-install seed runs
+        // inside setup — and only single-store: with workspaces on, run `thallo:blocks:seed --all`.
+        try {
+            $setup = $this->getContainer()->get(SetupService::class);
+            $flags = $this->getContainer()->get(SystemFlags::class);
+            if ($setup->isInstalled() && !$flags->tenancyEnabled()) {
+                $blocks = $this->getContainer()->get(StarterBlockTypeSeeder::class)->seedMissing();
+                $this->line(sprintf(
+                    'Starter block types: created %d, already present %d.',
+                    count($blocks['created']),
+                    count($blocks['skipped']),
+                ));
+            } elseif ($setup->isInstalled()) {
+                $this->line('Starter block types: workspaces are on — run `php glueful thallo:blocks:seed --all`.');
+            }
+        } catch (\Throwable $e) {
+            $this->warning('Starter block types not seeded (' . $e->getMessage() . ').');
         }
 
         // Production boot refuses live extension discovery, so the compiled extension cache
