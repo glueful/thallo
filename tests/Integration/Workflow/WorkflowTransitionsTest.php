@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Integration\Workflow;
 
+use App\Tests\Integration\Workflow\Concerns\GrantsPermissions;
 use App\Tests\Support\AppTestCase;
 use Thallo\Workflow\IllegalTransition;
 use Thallo\Workflow\WorkflowForbidden;
@@ -11,6 +12,8 @@ use Thallo\Workflow\WorkflowService;
 
 final class WorkflowTransitionsTest extends AppTestCase
 {
+    use GrantsPermissions;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -68,6 +71,19 @@ final class WorkflowTransitionsTest extends AppTestCase
         $this->svc()->submit('entryaaa0004', 'en', 'author000001', null);
         $this->expectException(WorkflowForbidden::class);
         $this->svc()->approve('entryaaa0004', 'en', 'author000001', null);
+    }
+
+    public function testABypassHolderMayApproveTheirOwnSubmission(): void
+    {
+        // The self-review rule protects nothing against someone who can publish directly; applying
+        // it to them only traps an admin who submitted anyway on their own page.
+        $this->grantPermission('bypass000001', 'workflow.bypass');
+        $this->svc()->submit('entryaaa0009', 'en', 'bypass000001', null);
+
+        $state = $this->svc()->approve('entryaaa0009', 'en', 'bypass000001', null);
+
+        self::assertSame('approved', $state['state']);
+        self::assertSame('bypass000001', $state['reviewed_by']);
     }
 
     public function testWithdrawRules(): void

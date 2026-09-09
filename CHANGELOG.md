@@ -7,6 +7,50 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.16] - 2026-09-09 — Developer Preview
+
+The first admin can publish: a refused publish explains itself, empty required fields are marked
+where they are, a bypass holder is never trapped by their own submission, and the designer's
+support assets live under the one proxied prefix pair. No schema changes; beta.15 installs
+upgrade in place.
+
+### Upgrade Notes
+- **Web server:** every PHP-served asset now sits under `/theme-assets/*` or `/_thallo/*`. If
+  your vhost serves `.css`/`.js`/`.woff2` from disk, the location rule for those two prefixes
+  must sit above that rule (docs/production.md); `php glueful thallo:provision` now warns
+  (`asset-routing`) when it does not.
+- Seeded Pages/Posts on existing installs keep a required `body`; make it optional on the
+  content type in the admin if you want the fresh-install behaviour.
+
+### Fixed
+- **Canvas preview assets are served under `/_thallo/`.** The preview injected `/_preview.css`
+  and `/_preview-bridge.js` at the site root; a web-server rule that serves every `.css`/`.js`
+  URL from disk answered 404 even on a host that had proxied the documented prefixes, so the
+  designer loaded unstyled and without its bridge. Every PHP-served asset now lives under the
+  documented `/theme-assets/*` + `/_thallo/*` pair.
+- **`thallo:provision` and `thallo:doctor` warn when the web server eats PHP-served assets.**
+  A new `asset-routing` check probes one theme asset on a public `BASE_URL`; a 404 names the
+  misconfiguration and the docs row that fixes it, instead of an unstyled site being the first sign.
+- **A bypass holder may approve their own submission.** The self-review rule protects nothing
+  against someone who can publish directly; applying it to them only trapped an admin who had
+  submitted their own page.
+- **A refused publish says why.** A review-gated publish now reads "Needs a review before
+  publishing" with the next step, and a forbidden one names `content.publish`, instead of a
+  bare "Couldn't publish".
+- **Required-field misses are marked inline.** A 422 on save now highlights each failing field
+  under the editor ("body is required") instead of a toast that read as a failed save.
+- **No commerce request on installs without Commerce.** The entry editor's commerce panel gate
+  fetched `/v1/admin/commerce/meta` on every entry page regardless of the capability (gate
+  hooks run before the capability filter); the query now stays idle while `thallo.commerce` is off.
+
+### Changed
+- **Seeded Pages and Posts no longer require a body.** A page must be publishable with a title
+  alone (a landing page composed in the designer, a placeholder); the first-run Publish must
+  not 422. Existing installs keep the schema they were seeded with — make `body` optional on the
+  content type in the admin if you want the same.
+- **glueful/audit 1.4.1.** The audit log lists newest first even for rows that share a second
+  (a login, a first-run setup burst): the insertion id now breaks `occurred_at` ties.
+
 ## [1.0.0-beta.15] - 2026-09-08 — Developer Preview
 
 A fresh install works end to end: `thallo:provision` from the sample `.env` with real credentials

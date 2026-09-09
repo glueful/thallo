@@ -4,7 +4,11 @@ import type { FieldDef } from '@/fields/types'
 import type { BlockType } from '@/queries/blockTypes'
 import { fieldComponent } from '@/fields/registry'
 
-defineProps<{ schema: FieldDef[] }>()
+defineProps<{
+  schema: FieldDef[]
+  /** Server-side validation messages keyed by field name (ApiError.fieldErrors), shown under each field. */
+  errors?: Record<string, string>
+}>()
 // The draft's field values, keyed by field name. We reassign (not mutate in place) on each field
 // change so defineModel emits update:modelValue with the full record.
 const model = defineModel<Record<string, unknown>>({ required: true })
@@ -88,14 +92,21 @@ defineExpose({
 
 <template>
   <div class="space-y-4">
-    <component
-      :is="fieldComponent(field.type)"
-      v-for="field in schema"
-      :key="field.name"
-      :ref="(el: Element | ComponentPublicInstance | null) => trackField(field.name, field.type, el)"
-      :model-value="model[field.name]"
-      :field="field"
-      @update:model-value="(v: unknown) => (model = { ...model, [field.name]: v })"
-    />
+    <div v-for="field in schema" :key="field.name">
+      <component
+        :is="fieldComponent(field.type)"
+        :ref="(el: Element | ComponentPublicInstance | null) => trackField(field.name, field.type, el)"
+        :model-value="model[field.name]"
+        :field="field"
+        @update:model-value="(v: unknown) => (model = { ...model, [field.name]: v })"
+      />
+      <p
+        v-if="errors?.[field.name]"
+        class="mt-1 text-xs text-error"
+        :data-test="`field-error-${field.name}`"
+      >
+        {{ field.label || field.name }} {{ errors[field.name] }}
+      </p>
+    </div>
   </div>
 </template>

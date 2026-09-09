@@ -3,6 +3,7 @@ import { computed, toValue, type MaybeRefOrGetter, type Ref } from 'vue'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
 import { qk } from './keys'
+import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useCommerceMeta } from './commerceMeta'
 import { fetchProducts, type CommerceProduct } from './commerceCatalog'
 
@@ -249,8 +250,15 @@ export function useCommerceLinkMutations() {
  * which is orthogonal to whether the extension is installed/enabled at all.
  */
 export function useCommerceLinkGate(): Readonly<Ref<'ready' | 'hidden' | 'loading'>> {
-  const { data, status } = useCommerceMeta()
+  // The registry runs every panel's gate hook before it filters by capability (composables
+  // cannot be called conditionally), so THIS hook must keep the meta query idle while the
+  // capability is off — otherwise every entry page on a no-commerce install requests
+  // /commerce/meta and fails. The capability still decides visibility in the registry.
+  const caps = useCapabilitiesStore()
+  const commerceOn = () => caps.isEnabled('thallo.commerce')
+  const { data, status } = useCommerceMeta({ enabled: commerceOn })
   return computed<'ready' | 'hidden' | 'loading'>(() => {
+    if (!commerceOn()) return 'hidden'
     if (status.value === 'pending') return 'loading'
     if (status.value === 'error') return 'hidden'
     return data.value?.can_view ? 'ready' : 'hidden'

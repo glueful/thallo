@@ -11,6 +11,7 @@ import { runtimeConfig } from '@/runtime/config'
 import type { FieldDef } from '@/fields/types'
 import FieldEditor from '@/components/FieldEditor.vue'
 import { ApiError, apiErrorCode, apiErrorDetails } from '@/api/errors'
+import { publishFailureNotice } from '@/utils/publishNotice'
 import { useNotify } from '@/composables/useNotify'
 import PublishPanel from './components/PublishPanel.vue'
 import SeoPanel from './components/SeoPanel.vue'
@@ -190,6 +191,9 @@ const { data: draft, status: draftStatus } = useDraft(uuid, () => locale.value)
 // Local editable copy, seeded from the loaded draft. lock_version is echoed back on save for
 // optimistic concurrency. Re-seeds whenever the loaded draft changes (including on locale switch).
 const fields = ref<Record<string, unknown>>({})
+// Server-side validation messages from the last failed save, keyed by field name; cleared on
+// the next successful save so a fixed field stops showing its error.
+const fieldErrors = ref<Record<string, string>>({})
 const lockVersion = ref(0)
 watch(
   draft,
@@ -219,6 +223,12 @@ async function onPublish() {
     await publish.mutateAsync('publish')
     success(isPublished.value ? 'Updated' : 'Published')
   } catch (e) {
+    // A review-gated or forbidden publish is a state, not a fault — say what to do next.
+    const notice = publishFailureNotice(e)
+    if (notice) {
+      warning(notice.title, notice.description)
+      return
+    }
     notifyError(e, 'Couldn’t publish')
   }
 }
@@ -226,9 +236,16 @@ async function onPublish() {
 async function onSave(): Promise<boolean> {
   try {
     await save.mutateAsync({ fields: fields.value, lock_version: lockVersion.value })
+    fieldErrors.value = {}
     success('Draft saved')
     return true
   } catch (e: unknown) {
+    if (e instanceof ApiError && e.status === 422 && Object.keys(e.fieldErrors).length > 0) {
+      // Required/invalid fields: mark them inline rather than reporting a failed save.
+      fieldErrors.value = e.fieldErrors
+      warning('Fix the highlighted fields', 'The draft was not saved.')
+      return false
+    }
     if (e instanceof ApiError && e.status === 409) {
       if (apiErrorCode(e) === 'BLOCK_MIGRATION_IN_PROGRESS') {
         const blockType = String(apiErrorDetails(e)?.block_type ?? 'a block type')
@@ -367,7 +384,7 @@ async function onSave(): Promise<boolean> {
             <div v-if="draftStatus === 'pending'" class="space-y-3">
               <USkeleton v-for="n in 4" :key="n" class="h-10" />
             </div>
-            <FieldEditor v-else v-model="fields" :schema="schema" />
+            <FieldEditor v-else v-model="fields" :schema="schema" :errors="fieldErrors" />
           </UCard>
         </div>
 
