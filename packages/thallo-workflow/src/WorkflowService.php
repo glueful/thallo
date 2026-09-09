@@ -6,6 +6,7 @@ namespace Thallo\Workflow;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Events\EventService;
+use Glueful\Permissions\PermissionManager;
 use Thallo\Workflow\Events\ChangesRequested;
 use Thallo\Workflow\Events\ReviewApproved;
 use Thallo\Workflow\Events\ReviewSubmitted;
@@ -23,6 +24,7 @@ final class WorkflowService
         private readonly ApplicationContext $context,
         private readonly WorkflowStateRepository $states,
         private readonly EventService $events,
+        private readonly ?PermissionManager $permissions = null,
     ) {
     }
 
@@ -65,7 +67,11 @@ final class WorkflowService
     public function approve(string $entryUuid, string $locale, string $actor, ?string $note): array
     {
         $row = $this->requireState($entryUuid, $locale, 'in_review', 'approve');
-        $allowSelf = (bool) config($this->context, 'workflow.allow_self_review', false);
+        // The self-review rule exists so review means a second pair of eyes. It protects nothing
+        // against a bypass holder, who could have published directly; applying it to them only
+        // traps an admin who submitted anyway on their own page.
+        $allowSelf = (bool) config($this->context, 'workflow.allow_self_review', false)
+            || $this->holdsBypass($actor, $locale);
         if (!$allowSelf && (string) ($row['submitted_by'] ?? '') === $actor) {
             throw new WorkflowForbidden('The submitter cannot approve their own submission.');
         }
@@ -154,5 +160,12 @@ final class WorkflowService
             'reviewed_by' => null,
             'reviewed_at' => null,
         ]);
+    }
+
+    /** Same check as WorkflowPublishGate: the resource mirrors RequirePermission's locale routes. */
+    private function holdsBypass(string $actor, string $locale): bool
+    {
+        return $this->permissions !== null
+            && $this->permissions->can($actor, 'workflow.bypass', "locale:{$locale}", []);
     }
 }

@@ -42,7 +42,8 @@ final class WorkflowServiceProvider extends ServiceProvider implements DeclaresL
                 'class' => WorkflowStateRepository::class, 'shared' => true, 'autowire' => true,
             ],
             WorkflowService::class => [
-                'class' => WorkflowService::class, 'shared' => true, 'autowire' => true,
+                'shared' => true,
+                'factory' => [self::class, 'makeWorkflowService'],
             ],
             WorkflowPublishGate::class => [
                 'shared' => true,
@@ -57,6 +58,16 @@ final class WorkflowServiceProvider extends ServiceProvider implements DeclaresL
                 'factory' => [self::class, 'makeWorkflowController'],
             ],
         ];
+    }
+
+    public static function makeWorkflowService(ContainerInterface $container): WorkflowService
+    {
+        return new WorkflowService(
+            $container->get(ApplicationContext::class),
+            $container->get(WorkflowStateRepository::class),
+            $container->get(EventService::class),
+            self::resolvePermissionManager($container),
+        );
     }
 
     public static function makeWorkflowController(ContainerInterface $container): WorkflowController
