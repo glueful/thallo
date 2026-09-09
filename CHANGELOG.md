@@ -7,6 +7,15 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **"Set as homepage" says why it refused, and no longer offers what it would refuse.** The
+  homepage check needs a published locale AND a saved route (slug); the Pages list shows only
+  the first, so a page reading "published" could still be turned down with "must be a published
+  entry of a publicly delivered content type" and nothing else. The 422 now names the failing
+  condition ("published in locale "en" but has no route yet — save a slug in the Publishing
+  panel", "not published in locale "en"", "content type "category" is not publicly delivered"),
+  and the editor's house button stays disabled with a matching tooltip until both hold.
+
 ## [1.0.0-beta.16] - 2026-09-09 — Developer Preview
 
 The first admin can publish: a refused publish explains itself, empty required fields are marked

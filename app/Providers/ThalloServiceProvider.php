@@ -906,6 +906,11 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            \App\Content\Delivery\HomepageEligibility::class => [
+                'class' => \App\Content\Delivery\HomepageEligibility::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             FilterCompiler::class => [
                 'class' => FilterCompiler::class,
                 'shared' => true,
