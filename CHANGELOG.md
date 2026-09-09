@@ -7,6 +7,20 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.17] - 2026-09-09 — Developer Preview
+
+A fresh install gets the whole starter block library, a refused homepage says why, the
+production container is compiled once instead of on every request, and the docs carry the
+web-server block that makes PHP-served assets work. No schema changes; beta.16 installs upgrade
+in place.
+
+### Upgrade Notes
+- **Run `php glueful thallo:provision` once after updating, then reload PHP-FPM.** Provision
+  seeds the starter block types a beta.16 install is missing (30 of 46) and grants the install
+  roles any new permission; the FPM reload drops the previous release's OPcache copies. This is
+  now the documented upgrade sequence (docs/upgrading.md).
+- Framework 1.83.3 is required (repinned).
+
 ### Changed
 - **Framework 1.83.3.** The production container is compiled once, atomically, under a name
   signed by its definitions — no more per-request rewrites of `CompiledContainer.runtime.php`,
