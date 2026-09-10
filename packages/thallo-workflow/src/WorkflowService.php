@@ -29,10 +29,14 @@ final class WorkflowService
     }
 
     /**
+     * @param string|null $actor The requesting user: `can_bypass` says whether THEY hold
+     *        workflow.bypass for the locale (they publish directly, so the editor drops
+     *        "Submit for review" for them). Null = unknown actor = false.
      * @return array{state:string, submitted_by:?string, submitted_at:?string,
-     *   reviewed_by:?string, reviewed_at:?string, history: list<array<string,mixed>>}
+     *   reviewed_by:?string, reviewed_at:?string, history: list<array<string,mixed>>,
+     *   can_bypass: bool}
      */
-    public function overview(string $entryUuid, string $locale): array
+    public function overview(string $entryUuid, string $locale, ?string $actor = null): array
     {
         $row = $this->states->find($entryUuid, $locale) ?? [];
         return [
@@ -42,6 +46,7 @@ final class WorkflowService
             'reviewed_by' => isset($row['reviewed_by']) ? (string) $row['reviewed_by'] : null,
             'reviewed_at' => isset($row['reviewed_at']) ? (string) $row['reviewed_at'] : null,
             'history' => $this->states->history($entryUuid, $locale),
+            'can_bypass' => $actor !== null && $this->holdsBypass($actor, $locale),
         ];
     }
 

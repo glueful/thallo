@@ -25,6 +25,8 @@ export interface WorkflowState {
   reviewed_by: string | null
   reviewed_at: string | null
   history: WorkflowTransitionRow[]
+  /** Whether the requesting user holds workflow.bypass for this locale (publishes directly). */
+  can_bypass?: boolean
 }
 
 export interface WorkflowQueueItem {

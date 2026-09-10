@@ -11,6 +11,22 @@ as the next release, never a mutated tag.
 - **Search on Settings › Block types.** A search box filters the cards by label, slug or
   description as you type; an empty result says what was searched for.
 
+### Fixed
+- **The admin ships the whole lucide icon set.** The block picker, block cards and Settings ›
+  Block types showed blank icons for 20 starter block types (accordion, blog posts, call to
+  action, …): icon names on block types are data — seeded from PHP or chosen in the icon
+  picker — and reach the admin through the API, so the build's source scan could never see
+  them and the browser fell back to api.iconify.design, which the CSP blocks. The build now
+  embeds every lucide icon (~90KB gzipped, cached with the bundle), and the release gate
+  requires it.
+- **Publish saves the route.** The editor's Publish/Update button now saves the slug shown in
+  the Publishing panel (the title suggestion on a new page, or an edit) before publishing, so
+  a page never goes live without a URL; a failed route save stops the publish.
+- **No "Submit for review" for direct publishers.** The review overview reports whether the
+  requesting user holds `workflow.bypass` (`can_bypass`); the Review section hides for them
+  while nothing is in review, and never offers Submit — reviewer actions on a submission are
+  unchanged.
+
 ### Changed
 - **A pack's starter blocks seed themselves when its capability turns on.** The first request
   after Commerce or Accounts is switched on creates that pack's missing block types — no

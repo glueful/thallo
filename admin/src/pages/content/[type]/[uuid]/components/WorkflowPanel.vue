@@ -15,6 +15,15 @@ const mutations = useWorkflowMutations(props.uuid, props.locale)
 
 const state = computed<WorkflowStateName>(() => data.value?.state ?? 'draft')
 
+// A bypass holder publishes directly from the navbar, so "Submit for review" is never their
+// action: they see this section only when a submission needs a reviewer (or carries their
+// requested changes), never for a bare draft — which is what every published page returns to.
+const canBypass = computed(() => data.value?.can_bypass === true)
+const visible = computed(() => !canBypass.value || state.value !== 'draft')
+const canSubmit = computed(
+  () => !canBypass.value && (state.value === 'draft' || state.value === 'changes_requested'),
+)
+
 const STATE_LABEL: Record<WorkflowStateName, string> = {
   draft: 'Draft',
   in_review: 'In review',
@@ -68,7 +77,7 @@ async function confirmRequestChanges() {
 <template>
   <!-- A SECTION, not a card: the parent slots this into the Publishing card so review
        state and publish state share one editorial box. -->
-  <div v-if="enabled" data-test="workflow-panel">
+  <div v-if="enabled && visible" data-test="workflow-panel">
     <div class="flex items-center justify-between">
       <span class="text-sm font-medium">Review</span>
       <UBadge :color="STATE_COLOR[state]" variant="subtle" data-test="workflow-state">
@@ -86,7 +95,7 @@ async function confirmRequestChanges() {
 
     <div class="mt-4 flex flex-wrap gap-2">
       <UButton
-        v-if="state === 'draft' || state === 'changes_requested'"
+        v-if="canSubmit"
         size="sm"
         data-test="workflow-submit"
         :loading="mutations.submit.isLoading.value"

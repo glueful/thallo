@@ -70,6 +70,25 @@ async function onSaveRoute() {
 }
 
 // ── Publish / unpublish (state-aware: one primary action at a time) ────────
+/**
+ * The editor's navbar Publish pins the SAVED draft — and the route this panel shows. A slug
+ * still unsaved in the input (the title-derived suggestion on a new page, or an edit) is
+ * saved first, so the page never goes live without a URL. Returns false when the save failed
+ * (already reported), so the caller stops short of publishing.
+ */
+async function saveRouteIfDirty(): Promise<boolean> {
+  if (!slugDirty.value || slug.value.trim() === '') return true
+  try {
+    await saveRoute.mutateAsync(slug.value)
+    savedSlug.value = slug.value
+    return true
+  } catch (e) {
+    notifyError(e, 'Couldn’t save route')
+    return false
+  }
+}
+defineExpose({ saveRouteIfDirty })
+
 const publish = usePublish(props.uuid, props.locale, props.type)
 async function onPublish(action: 'publish' | 'unpublish') {
   try {

@@ -1,4 +1,5 @@
 import { fileURLToPath, URL } from 'node:url'
+import { icons as lucide } from '@iconify-json/lucide'
 
 import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
@@ -69,13 +70,19 @@ export default defineConfig(({ mode }) => {
         colorMode: false, // Disable color mode support
         icon: {
           clientBundle: {
-            // Embed every icon the admin references so nothing is fetched from api.iconify.design
-            // at runtime (the admin's CSP is connect-src 'self'). The scan's default globs cover
-            // .vue/.jsx/.tsx only — the module registries under src/registry/*.ts and other .ts
-            // modules name icons too, so .ts must be scanned or those icons are fetched remotely.
+            // Embed the WHOLE lucide set (~1.9k icons, ~90KB gzipped) so nothing is ever fetched
+            // from api.iconify.design at runtime — the admin's CSP is connect-src 'self', so a
+            // missing icon renders blank. A source scan cannot be complete here: block types,
+            // content types and other rows carry icon names chosen in the admin's icon picker
+            // or seeded from PHP, and reach the SPA as API data the build never sees (beta.17
+            // shipped 20 seeded block-type icons blank that way).
+            icons: Object.keys(lucide.icons).map((name) => `i-lucide-${name}`),
+            // The default 256KB ceiling assumes a scanned subset; the full set is deliberate.
+            sizeLimitKb: 0,
+            // Still scan admin source: any non-lucide icon a component names is embedded too.
             scan: {
               globInclude: ['**/*.{vue,ts,jsx,tsx,md,mdc,mdx,yml,yaml}']
-            }
+            },
           }
         },
 
