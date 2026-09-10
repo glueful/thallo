@@ -179,22 +179,51 @@ final class ShopBlocksTest extends AppTestCase
     // B. Capability gate + registration
     // ==================================================================
 
-    public function testCapabilityDisabledMeansNoShopBlockTypesAreContributed(): void
+    public function testCapabilityDisabledKeepsTheContributorButHidesItsBlocksFromTheListing(): void
     {
         $this->flags()->forget('tenancy.schema_state');
         $this->flags()->forget('tenancy.default_tenant_uuid');
+
+        // Rows seeded while the capability was ON — plus an admin-made type — stay in the table.
+        $repo = new BlockTypeRepository($this->connection());
+        $repo->create([
+            'slug' => ShopBlockTypesContributor::SLUG_PRODUCT_GRID,
+            'label' => 'Product grid',
+            'schema' => [['name' => 'source', 'type' => 'string']],
+        ]);
+        $repo->create(['slug' => 'hero', 'label' => 'Hero', 'schema' => [['name' => 'title', 'type' => 'string']]]);
 
         $disabledApp = self::bootAppWithConfigOverride('thallo', [
             'capabilities' => ['thallo.commerce' => false],
         ]);
 
-        $registry = $disabledApp->getContainer()->get(StarterBlockTypeRegistry::class);
-        self::assertCount(0, array_filter(
-            $registry->all(),
-            static fn (object $c): bool => $c instanceof ShopBlockTypesContributor,
-        ));
+        try {
+            $container = $disabledApp->getContainer();
+            // The contribution is DECLARED regardless of the switch (so the app knows which rows
+            // are the pack's); every definition is tagged with the capability that gates it.
+            self::assertCount(1, array_filter(
+                $container->get(StarterBlockTypeRegistry::class)->all(),
+                static fn (object $c): bool => $c instanceof ShopBlockTypesContributor,
+            ));
+            foreach ((new ShopBlockTypesContributor())->blockTypeDefinitions() as $definition) {
+                self::assertSame('thallo.commerce', $definition->requiresCapability);
+            }
 
-        self::resetSharedRepositoryConnection();
+            $kind = $container->get(\App\Content\Starter\Kinds\BlockTypeKind::class);
+            self::assertContains(ShopBlockTypesContributor::SLUG_PRODUCT_GRID, $kind->hiddenSlugs());
+
+            // Settings › Block types lists only what the site can render right now.
+            $response = $container->get(\App\Content\Http\Controllers\BlockTypeController::class)
+                ->index(Request::create('/block-types'));
+            $listed = (array) json_decode((string) $response->getContent(), true);
+            self::assertSame(['hero'], array_column($listed['data']['block_types'], 'slug'));
+            self::assertNotNull(
+                $repo->findBySlug(ShopBlockTypesContributor::SLUG_PRODUCT_GRID),
+                'hidden from the listing, never deleted',
+            );
+        } finally {
+            self::resetSharedRepositoryConnection();
+        }
     }
 
     public function testProviderBootPerformsZeroTenantDataWritesForBlockTypes(): void

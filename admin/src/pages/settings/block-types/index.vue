@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useBlockTypes, useBlockTypeMutations, type BlockType } from '@/queries/blockTypes'
 import { useNotify } from '@/composables/useNotify'
 
@@ -9,6 +9,18 @@ const { success, error: notifyError } = useNotify()
 const { data: blockTypes, status } = useBlockTypes()
 const { setActive } = useBlockTypeMutations()
 
+// Client-side search over label, slug and description (the list is small and already
+// loaded in full). Case-insensitive substring match; empty = everything.
+const search = ref('')
+const filteredBlockTypes = computed<BlockType[]>(() => {
+  const term = search.value.trim().toLowerCase()
+  const all = blockTypes.value ?? []
+  if (term === '') return all
+  return all.filter((t) =>
+    [t.label, t.slug, t.description ?? ''].some((s) => s.toLowerCase().includes(term)),
+  )
+})
+
 // Group the flat list into category sections (like the block picker's own grouping).
 // Known categories lead in a curated order; any others follow alphabetically, and
 // uncategorized block types collect under "Other" at the end. Order within a group
@@ -16,7 +28,7 @@ const { setActive } = useBlockTypeMutations()
 const CATEGORY_ORDER = ['Layout', 'Content', 'Media', 'Items']
 const groupedBlockTypes = computed<{ category: string; items: BlockType[] }[]>(() => {
   const groups = new Map<string, BlockType[]>()
-  for (const t of blockTypes.value ?? []) {
+  for (const t of filteredBlockTypes.value) {
     const key = t.category?.trim() || 'Other'
     ;(groups.get(key) ?? groups.set(key, []).get(key)!).push(t)
   }
@@ -46,6 +58,13 @@ async function toggleActive(slug: string, active: boolean) {
     <template #header>
       <UDashboardNavbar title="Block types">
         <template #right>
+          <UInput
+            v-model="search"
+            icon="i-lucide-search"
+            placeholder="Search block types…"
+            class="w-64"
+            data-test="block-type-search"
+          />
           <UButton icon="i-lucide-plus" to="/settings/block-types/new" data-test="new-block-type">
             New block type
           </UButton>
@@ -62,6 +81,13 @@ async function toggleActive(slug: string, active: boolean) {
         icon="i-lucide-blocks"
         title="No block types yet"
         description="Block types are reusable schemas that blocks fields compose into pages."
+      />
+      <UEmpty
+        v-else-if="!filteredBlockTypes.length"
+        icon="i-lucide-search-x"
+        title="No block types match"
+        :description="`Nothing has “${search.trim()}” in its label, slug or description.`"
+        data-test="block-type-search-empty"
       />
       <!-- Grouped by category; each card leads with a visual header panel (enlarged
            icon), then label/slug/description. Responsive 1 → 2 → 3 → 4; inactive dim. -->

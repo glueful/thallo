@@ -127,9 +127,17 @@ final class AccountServiceProvider extends ServiceProvider
         // where the capability turned OFF (a boot where the gated branch below does not run).
         $this->reconcileCapabilityState($context, $registry->isEnabled('thallo.accounts'));
 
-        // Routes, templates and the block type register only while the capability is ENABLED. The
-        // framework's /auth/* APIs and the session-cookie transport are never gated by it — this
-        // switch controls Thallo's product surface, not global identity infrastructure.
+        // The starter block types are DECLARED regardless of the switch: every definition carries
+        // `requiresCapability: thallo.accounts`, and the app applies the gate — seeding them only
+        // while the capability is on, hiding their rows from Settings › Block types (never
+        // deleting them) while it is off. Declaring unconditionally is what lets the app know
+        // which rows are this pack's when the capability is off. Registration never writes.
+        $container = $context->getContainer();
+        $this->registerAccountBlockTypeContributor($container);
+
+        // Routes and templates register only while the capability is ENABLED. The framework's
+        // /auth/* APIs and the session-cookie transport are never gated by it — this switch
+        // controls Thallo's product surface, not global identity infrastructure.
         if (!$registry->isEnabled('thallo.accounts')) {
             return;
         }
@@ -140,16 +148,13 @@ final class AccountServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(__DIR__ . '/../routes/admin-routes.php');
 
         // Without this the routes exist and every render throws a Twig loader error — the pack would
-        // look wired and 500 on first request. Soft-guarded: thallo-render may be absent.
-        $container = $context->getContainer();
+        // look wired and 500 on first request. Soft-guarded: thallo-render may be absent. The
+        // templates stay gated, so a stored account block falls to the missing-template fallback
+        // while the capability is off.
         if ($container->has(RenderContributionRegistry::class)) {
             $container->get(RenderContributionRegistry::class)
                 ->registerTemplatePaths(new AccountTemplatePathContributor());
         }
-
-        // Capability-boundary pin: account block types register only while enabled, so a stored
-        // block falls to the missing-template fallback when the capability is off.
-        $this->registerAccountBlockTypeContributor($container);
     }
 
     private function registerAccountBlockTypeContributor(ContainerInterface $container): void

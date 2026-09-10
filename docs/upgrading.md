@@ -18,6 +18,12 @@ so OPcache drops the previous release's classes:
 sudo systemctl reload php8.4-fpm   # or the PHP-FPM restart for the site in your panel
 ```
 
+Switching a pack's capability on (Settings › Capabilities, e.g. Commerce or Accounts) needs no
+command: the first request afterwards seeds that pack's starter block types, skipping any slug
+that already exists. Switching it off keeps the rows but drops them from Settings › Block types
+and the block picker until it is on again. With workspaces on, seed each workspace with
+`php glueful thallo:blocks:seed --all` instead.
+
 **The `&&` chaining is part of the contract**: `migrate:run` applies what is
 genuinely new, and `migrate:verify` confirms every declared migration source is
 Ready afterwards — a non-zero exit anywhere stops the sequence.

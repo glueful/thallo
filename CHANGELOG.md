@@ -7,6 +7,25 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **Search on Settings › Block types.** A search box filters the cards by label, slug or
+  description as you type; an empty result says what was searched for.
+
+### Changed
+- **A pack's starter blocks seed themselves when its capability turns on.** The first request
+  after Commerce or Accounts is switched on creates that pack's missing block types — no
+  `thallo:provision` or `thallo:blocks:seed` run. Existing rows are never touched. A system flag
+  records which capabilities were seeded, so it happens once per switch-on. Single-store only:
+  with workspaces on, `thallo:blocks:seed --all` / `thallo:tenant:sync --kind=block_type` remain
+  the per-workspace path.
+- **A disabled pack's block types leave the listing, not the table.** Settings › Block types and
+  the block picker omit Commerce (and Accounts) block types while the capability is off; their
+  rows and any content using them are kept, and they reappear when it is on again. Starter
+  block-type definitions carry the capability that gates them
+  (`StarterBlockTypeDefinition::$requiresCapability`, new optional field), and packs now declare
+  their contributions unconditionally — the app applies the switch, seeding a gated definition
+  only while its capability is on.
+
 ## [1.0.0-beta.17] - 2026-09-09 — Developer Preview
 
 A fresh install gets the whole starter block library, a refused homepage says why, the
