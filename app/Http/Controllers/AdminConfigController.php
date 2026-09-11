@@ -39,7 +39,7 @@ final class AdminConfigController
             . 'works across installs.',
         tags: ['Thallo Setup'],
     )]
-    #[ApiResponse(200, description: 'Runtime config: apiBase, sitePreviewUrl, defaultLocale, installed.')]
+    #[ApiResponse(200, description: 'Runtime config: apiBase, sitePreviewUrl, defaultLocale, installed, apiDocsPath.')]
     public function config(): JsonResponse
     {
         $payload = [
@@ -48,6 +48,9 @@ final class AdminConfigController
             'defaultLocale' => app($this->context, GeneralSettings::class)->defaultLocale(),
             // Whether first-run setup has run. The SPA boot guard routes to /setup when false.
             'installed' => $this->setup->isInstalled(),
+            // The framework's API reference path (API_DOCS_PATH, default /api-docs): the sidebar's
+            // "API Reference" link is built from it, same-origin.
+            'apiDocsPath' => \Glueful\Support\Documentation\ApiDocsPath::resolve($this->context),
         ];
 
         // No-store: install config can change without a rebuild; the SPA must read it fresh.

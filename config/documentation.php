@@ -16,11 +16,23 @@ return [
     |--------------------------------------------------------------------------
     |
     | Controls whether API documentation is enabled. Enabled in all
-    | environments (the admin's API Reference links to /docs/); set
+    | environments (the admin's API Reference links to it); set
     | API_DOCS_ENABLED=false to turn it off, e.g. in production.
     |
     */
     'enabled' => env('API_DOCS_ENABLED', true),
+
+    /*
+    |--------------------------------------------------------------------------
+    | URL path of the API reference
+    |--------------------------------------------------------------------------
+    |
+    | Where the reference UI and its openapi.json are served. Default /api-docs:
+    | /docs is the site's own documentation (delivered by Thallo), never the
+    | framework's. The render pack reserves this prefix from page slugs.
+    |
+    */
+    'route_prefix' => env('API_DOCS_PATH', '/api-docs'),
 
     /*
     |--------------------------------------------------------------------------

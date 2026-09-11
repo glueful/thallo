@@ -97,6 +97,18 @@ final class RenderPipelineTest extends AppTestCase
         self::assertStringContainsString('text/html', (string) $res->headers->get('Content-Type'));
     }
 
+    public function testTheApiReferencePathIsReservedAndDocsIsNot(): void
+    {
+        // Framework 1.84 moved the API reference to /api-docs so /docs belongs to the site's own
+        // documentation: the render catch-all must never shadow the reference, and must be free
+        // to serve a page at /docs.
+        $reserved = $this->container()->get(\Thallo\Render\ReservedPaths::class);
+        self::assertTrue($reserved->isReserved('api-docs'));
+        self::assertTrue($reserved->isReserved('api-docs/openapi.json'));
+        self::assertFalse($reserved->isReserved('docs'));
+        self::assertFalse($reserved->isReserved('docs/getting-started'));
+    }
+
     public function testHomepageStandaloneMode(): void
     {
         $res = $this->handle(Request::create('/', 'GET'));
