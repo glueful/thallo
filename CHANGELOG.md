@@ -7,7 +7,16 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.19] - 2026-09-11 — Developer Preview
+
+The Site › Regions preview renders again in production, publishing confirms with one toast,
+and the review divider no longer dangles for direct publishers. No schema changes; beta.18
+installs upgrade in place.
+
 ### Upgrade Notes
+- The documented sequence applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes.
 - Framework 1.83.4 is required (repinned): the regions preview iframe was blocked by the
   admin document's Content Security Policy (no `frame-src`, so a `blob:` preview document was
   refused); 1.83.4 allows a mounted SPA to frame itself and its own blobs.
