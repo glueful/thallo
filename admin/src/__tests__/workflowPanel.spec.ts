@@ -154,6 +154,20 @@ describe('WorkflowPanel', () => {
     expect(wrapper.find('[data-test="workflow-submit"]').exists()).toBe(false)
   })
 
+  // The separator that divides the review section from the publishing controls belongs to
+  // the section itself, so it never dangles under Unpublish when the section is hidden.
+  it('carries its own separator, present exactly when the section renders', async () => {
+    stateData.value = wf('draft')
+    let wrapper = mountPanel()
+    await flushPromises()
+    expect(wrapper.find('[data-test="workflow-separator"]').exists()).toBe(true)
+
+    stateData.value = wf('draft', [], true)
+    wrapper = mountPanel()
+    await flushPromises()
+    expect(wrapper.find('[data-test="workflow-separator"]').exists()).toBe(false)
+  })
+
   it('approved shows only the badge', async () => {
     stateData.value = wf('approved')
     const wrapper = mountPanel()

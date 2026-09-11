@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **One toast per publish.** Publish/Update in the editor and the design canvas now reports a
+  single "Published" (or "Updated") toast; the draft and route saves it performs stay silent,
+  while their failures still report. Save draft on its own still confirms.
+- **No stray divider under Unpublish.** The line between the publishing controls and the
+  Review section now belongs to the Review section, so it disappears with it (a direct
+  publisher on a bare draft saw an empty rule).
+
 ## [1.0.0-beta.18] - 2026-09-11 — Developer Preview
 
 Block-type icons render again, a pack's starter blocks arrive the moment its capability is

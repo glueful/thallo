@@ -17,6 +17,10 @@ vi.mock('@/queries/preview', () => ({ mintPreviewData: mintMock, applyPreview: a
 
 const draft = ref<{ fields: Record<string, unknown>; lock_version: number } | null>(null)
 const { saveMock } = vi.hoisted(() => ({ saveMock: vi.fn() }))
+const publishMock = vi.hoisted(() => vi.fn())
+vi.mock('@/queries/publish', () => ({
+  usePublish: () => ({ mutateAsync: publishMock, isLoading: ref(false) }),
+}))
 vi.mock('@/queries/drafts', () => ({
   useDraft: () => ({ data: draft }),
   useSaveDraft: () => ({ mutateAsync: saveMock, isLoading: ref(false) }),
@@ -240,6 +244,25 @@ describe('canvas page', () => {
     expect(saveMock).toHaveBeenCalledWith(expect.objectContaining({ lock_version: 3 }))
     expect(mintMock).toHaveBeenCalledTimes(1) // mount only — save never re-mints
     expect(wrapper.find('[data-test="canvas-iframe"]').element).toBe(before) // no reload
+    wrapper.unmount()
+  })
+
+  it('Publish on a dirty canvas saves silently and shows a single Published toast', async () => {
+    mintMock.mockResolvedValue({ token: 't1', themeUrl: 'https://site.test/_preview/tok1' })
+    saveMock.mockResolvedValue(undefined)
+    publishMock.mockReset().mockResolvedValue(undefined)
+    const wrapper = mountPage()
+    await flushPromises()
+    bridge.callbacks.textChanged?.('prose0000003', 'body', { html: '<p>edited</p>' })
+    await flushPromises()
+
+    await wrapper.find('[data-test="canvas-publish"]').trigger('click')
+    await flushPromises()
+
+    expect(saveMock).toHaveBeenCalledTimes(1)
+    expect(publishMock).toHaveBeenCalledWith('publish')
+    expect(notify.success).toHaveBeenCalledTimes(1)
+    expect(notify.success).toHaveBeenCalledWith('Published')
     wrapper.unmount()
   })
 
