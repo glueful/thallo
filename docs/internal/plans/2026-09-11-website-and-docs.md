@@ -1,6 +1,6 @@
 # Thallo website and documentation, built on Thallo
 
-Status: design approved in outline (2026-09-11); phase 1 not started.
+Status: design approved (2026-09-11); phase 1 not started.
 Owner: Michael Tawiah Sowah. Charter: `docs/internal/DISTRIBUTION.md` (decision 8 and the
 website-from-tag gate bind this plan).
 
@@ -24,7 +24,18 @@ Thallo or the framework, never worked around in the site.
    and indexes them. The admin is not where reference material is written.
 4. **Deploys come from the tag** (charter). A deploy script checks out `vX.Y.Z-beta.N`, installs,
    provisions, imports the docs and warms caches. Nothing is ever deployed from the dev checkout.
-5. **Latest docs only** for the Developer Preview. Per-version docs are a post-Beta question.
+5. **Latest docs only** for the Developer Preview. Per-version docs are a post-Beta question;
+   if they come, they fit under the same path (`/docs/1.0/...`).
+6. **Docs live at `/docs` on thallo.dev, not a subdomain** (decided 2026-09-11). One install,
+   one route prefix, one sitemap, one search index, shared header/footer regions. A subdomain
+   would mean a second install kept in step with the tag, or the first production use of
+   workspaces on the site that gates the Beta promotion; workspaces get dogfooded on a
+   lower-stakes site. Routes are a prefix, so the subdomain door stays open.
+7. **The landing page shows the running version through a shortcode, nothing else live**
+   (decided 2026-09-11). A `thallo:version` shortcode rendered from the install's own version
+   is correct by construction on every deploy — a page that says beta.18 the week beta.19
+   ships undermines "deployed from the tag". Block counts, pack counts and similar trivia stay
+   out; all other copy is hand-written and changed deliberately per release.
 
 Alternatives rejected: docs authored in the admin (loses git review and tag alignment; makes
 "from the tag" meaningless for docs); docs on Nuxt Content like the Glueful docs (fastest, proves
@@ -71,6 +82,9 @@ three steps"), capability tabs, CTA, footer. Log every block or template need as
 fix it in the library. Expected first gap: a **code block** with language label and copy button
 for the `composer create-project` line (rich text has no code highlighting; `html` is the only
 escape hatch and ships deactivated).
+
+Second expected gap: the **`thallo:version` shortcode** (decision 7) for the "install beta.N"
+line, registered by the app and rendered through the existing shortcode block.
 
 Done when: the homepage is published from the admin with no `html` block and no custom template,
 and every gap found is either fixed or filed in `docs/internal/OUTSTANDING.md`.
@@ -142,6 +156,7 @@ website-from-tag gate; `DISTRIBUTION.md`'s checklist is ticked in the same commi
 | Area | Gap | Where it lands |
 |---|---|---|
 | Blocks | Code block with language + copy | starter block library + theme template |
+| Shortcodes | `thallo:version` renders the running install's version | app shortcode registry |
 | Importer | Upsert by slug, routes, redirects on rename, CLI, dry run | thallo-importers |
 | Render | `entry/doc.twig` layout: sidebar from content tree, TOC, prev/next | default theme |
 | Render | Heading ids and code fences preserved from markdown | render pipeline |
@@ -151,8 +166,5 @@ website-from-tag gate; `DISTRIBUTION.md`'s checklist is ticked in the same commi
 
 ## Open questions
 
-- Domain layout: `/docs` on thallo.dev (assumed) versus `docs.thallo.dev` on a second workspace.
-  The single-path layout needs no tenancy; the subdomain would be the first real use of
-  workspaces on the site.
-- Whether the landing page should show live data (latest release version, block count) via a
-  small shortcode, or stay static copy edited per release.
+None at present. The domain layout and live-data questions were decided on 2026-09-11 (decisions
+6 and 7).
