@@ -26,6 +26,9 @@ final class AdminConfigApiTest extends AppTestCase
         self::assertArrayHasKey('installed', $body);
         self::assertSame('/v1/admin', $body['apiBase']);
         self::assertIsBool($body['installed']);
+        // The framework's API reference path (API_DOCS_PATH, default /api-docs): the sidebar's
+        // "API Reference" link is built from it, same-origin, never a hardcoded host.
+        self::assertSame('/api-docs', $body['apiDocsPath']);
     }
 
     public function testConfigRouteIsRegisteredUnauthenticated(): void

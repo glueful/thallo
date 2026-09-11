@@ -139,7 +139,7 @@
     "phpcs": "vendor/bin/phpcs",
     "phpcbf": "vendor/bin/phpcbf",
     "boundaries": "php scripts/check-pack-boundaries.php",
-    "docs:openapi": "php glueful generate:openapi -f --clean",
+    "docs:openapi": "php glueful generate:openapi -f --clean --ui",
     "ci": [
       "@phpcs",
       "@test"

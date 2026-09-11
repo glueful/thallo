@@ -16,3 +16,23 @@ describe('core module declaration', () => {
     expect(utilities).toEqual([])
   })
 })
+
+describe('core module: Developers › API Reference', () => {
+  it('links to the running site\'s API-docs path from runtime config, never a hardcoded host', async () => {
+    const { runtimeConfig } = await import('@/runtime/config')
+    const { coreModule: core } = await import('@/registry/coreModule')
+    const developers = (core.nav?.main ?? []).find((i) => i.label === 'Developers')
+    const link = (developers?.children ?? []).find((c) => c.label === 'API Reference')
+
+    expect(link).toBeDefined()
+    expect(link!.to).toBe(runtimeConfig.apiDocsPath)
+
+    // Read at render time: a value loaded after the module was imported still wins.
+    runtimeConfig.apiDocsPath = '/reference'
+    expect(link!.to).toBe('/reference')
+    expect(String(link!.to)).not.toContain('thallodev')
+    // A same-origin PATH must still leave the SPA: the reference is served by PHP.
+    expect(link!.external).toBe(true)
+    expect(link!.target).toBe('_blank')
+  })
+})

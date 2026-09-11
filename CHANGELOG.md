@@ -7,6 +7,18 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Upgrade Notes
+- Framework 1.84.0 is required (repinned). **The framework's API reference moved from `/docs`
+  to `/api-docs`** (`API_DOCS_PATH`), so `/docs` now belongs to the site — Thallo will deliver
+  its own documentation there. The regenerated reference page ships in this release; links to
+  `/docs/` for the API need updating, or set `API_DOCS_PATH=/docs`.
+
+### Fixed
+- **The admin's "API Reference" link works.** It pointed at a hardcoded (and misspelled) host;
+  it now opens the running site's API reference at the configured path, delivered through
+  `/admin/config` as `apiDocsPath`.
+- The render pack reserves `/api-docs` from page slugs and no longer needs `/docs`.
+
 ## [1.0.0-beta.19] - 2026-09-11 — Developer Preview
 
 The Site › Regions preview renders again in production, publishing confirms with one toast,

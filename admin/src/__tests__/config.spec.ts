@@ -9,6 +9,7 @@ describe('runtime config loader', () => {
           sitePreviewUrl: 'https://x/preview',
           defaultLocale: 'en',
           installed: true,
+          apiDocsPath: '/api-docs',
         }),
         { status: 200 },
       ),
@@ -22,5 +23,17 @@ describe('runtime config loader', () => {
     expect(cfg.apiBase).toBe('/v1/admin')
     expect(cfg.sitePreviewUrl).toBe('https://x/preview')
     expect(cfg.installed).toBe(true)
+    expect(cfg.apiDocsPath).toBe('/api-docs')
+  })
+
+  it('falls back to the framework default API-docs path when the backend omits it', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ apiBase: '/v1/admin', installed: true }), { status: 200 }),
+      ),
+    )
+    const { loadRuntimeConfig } = await import('@/runtime/config')
+    expect((await loadRuntimeConfig()).apiDocsPath).toBe('/api-docs')
   })
 })

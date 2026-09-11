@@ -2571,7 +2571,7 @@
                 "description": "Unauthenticated bootstrap config the admin SPA fetches at startup: `apiBase`, `sitePreviewUrl`, `defaultLocale`, and whether first-run setup has completed (`installed`). A plain JSON document (no `data` envelope) so one compiled bundle works across installs.",
                 "responses": {
                     "200": {
-                        "description": "Runtime config: apiBase, sitePreviewUrl, defaultLocale, installed."
+                        "description": "Runtime config: apiBase, sitePreviewUrl, defaultLocale, installed, apiDocsPath."
                     },
                     "500": {
                         "description": "Unexpected server error.",
@@ -38350,6 +38350,7 @@
                         "BearerAuth": []
                     }
                 ],
+                "description": "A pack's block types (Commerce, Accounts) are listed only while its capability is on; their rows are kept, not deleted, while it is off.",
                 "responses": {
                     "200": {
                         "description": "All block types, active first.",
@@ -42051,6 +42052,309 @@
                                 }
                             }
                         }
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/capabilities\/manage": {
+            "get": {
+                "operationId": "getV1AdminCapabilitiesManage",
+                "summary": "List all registered capabilities with switchboard state",
+                "tags": [
+                    "Capabilities"
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Every registered capability with requested, availability (reason\/remedy) and effective state. Operator-only: requires the `system.access` permission.",
+                "responses": {
+                    "200": {
+                        "description": "All registered capabilities with management state."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "\/v1\/admin\/capabilities\/{id}": {
+            "put": {
+                "operationId": "putV1AdminCapabilitiesById",
+                "summary": "Enable or disable a capability",
+                "tags": [
+                    "Capabilities"
+                ],
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "description": "",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Persists the requested state in the system-scoped switchboard. Disable is always allowed; enable refuses 409 while the owning engine cannot back the capability. Operator-only: requires the `system.access` permission.",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application\/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "required": [
+                                    "enabled"
+                                ]
+                            },
+                            "example": {
+                                "enabled": true
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Requested state persisted (read back before reporting)."
+                    },
+                    "401": {
+                        "description": "Unauthenticated.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Unexpected server error.",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean"
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "error": {
+                                            "type": "object",
+                                            "properties": {
+                                                "code": {
+                                                    "type": "integer"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string"
+                                                },
+                                                "request_id": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Validation failed",
+                        "content": {
+                            "application\/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "message": {
+                                            "type": "string"
+                                        },
+                                        "errors": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "success",
+                                        "message",
+                                        "errors"
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "No such registered capability."
+                    },
+                    "409": {
+                        "description": "Enable refused: the owning engine cannot back it."
                     }
                 }
             }
@@ -72812,7 +73116,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Removes the extension from config\/extensions.php and recompiles the cache. Dev only. Requires the `system.access` permission.",
+                "description": "Disables the extension through the shared schema executor (never any schema change \u2014 tables and data are preserved). Requires the `system.access` permission.",
                 "responses": {
                     "200": {
                         "description": "Extension disabled."
@@ -72912,6 +73216,9 @@
                                 }
                             }
                         }
+                    },
+                    "409": {
+                        "description": "Refused (protected\/unwritable\/lock) or the operation failed."
                     }
                 }
             }
@@ -72928,10 +73235,10 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Adds the extension to config\/extensions.php and recompiles the cache. Dev only. Requires the `system.access` permission.",
+                "description": "Migrates the extension schema first, then enables it \u2014 the shared schema executor serializes the whole operation and records its truthful outcome. Requires the `system.access` permission.",
                 "responses": {
                     "200": {
-                        "description": "Extension enabled."
+                        "description": "Extension enabled (a stale provider cache carries a warning)."
                     },
                     "401": {
                         "description": "Unauthenticated.",
@@ -73028,6 +73335,9 @@
                                 }
                             }
                         }
+                    },
+                    "409": {
+                        "description": "Refused (protected\/unwritable\/lock) or the operation failed."
                     }
                 }
             }
@@ -84072,7 +84382,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "State row (draft default) + recent history."
+                        "description": "State row (draft default) + recent history; `can_bypass` is whether the requesting user holds workflow.bypass for the locale."
                     },
                     "401": {
                         "description": "Unauthenticated.",

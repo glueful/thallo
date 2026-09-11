@@ -1,5 +1,6 @@
 import type { NavigationMenuItem } from '@nuxt/ui'
 import type { AdminModule, SettingsAnchor } from './adminModules'
+import { runtimeConfig } from '@/runtime/config'
 
 // The first-party (core) admin nav, registered as an always-on module (no `requires`).
 // Pack modules register their own nav with a `requires` capability id elsewhere.
@@ -67,7 +68,14 @@ const main: (NavigationMenuItem | SettingsAnchor)[] = [
       {
         label: 'API Reference',
         icon: 'i-lucide-book-open',
-        to: 'https://thallodev.dev/docs/',
+        // Same-origin, at the framework's configured API-docs path. A getter: runtime config is
+        // loaded after this module is imported, so the value is read when the menu renders.
+        get to() {
+          return runtimeConfig.apiDocsPath
+        },
+        // A same-origin path would otherwise be treated as an SPA route: the reference is a
+        // PHP-served page, so force a real navigation.
+        external: true,
         target: '_blank',
       },
       {

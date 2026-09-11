@@ -16,8 +16,8 @@ return [
     // Smart environment-aware debug default (false in production, true otherwise)
     'debug' => (bool) env('APP_DEBUG', env('APP_ENV') !== 'production'),
 
-    // API documentation enabled in all environments (admin API Reference links to /docs/);
-    // set API_DOCS_ENABLED=false to turn it off, e.g. in production.
+    // API documentation enabled in all environments (the admin's API Reference links to it at
+    // API_DOCS_PATH, default /api-docs); set API_DOCS_ENABLED=false to turn it off.
     'api_docs_enabled' => env('API_DOCS_ENABLED', true),
 
     // Smart environment-aware development mode
@@ -68,7 +68,10 @@ return [
     'urls' => [
         'base' => env('BASE_URL', 'http://localhost'),
         'cdn' => rtrim(env('BASE_URL', 'http://localhost'), '/') . '/storage/cdn/',
-        'docs' => rtrim(env('BASE_URL', 'http://localhost'), '/') . '/docs/',
+        // The API reference's address: BASE_URL + API_DOCS_PATH (default /api-docs; /docs is
+        // the site's own documentation).
+        'docs' => rtrim(env('BASE_URL', 'http://localhost'), '/')
+            . \Glueful\Support\Documentation\ApiDocsPath::normalize((string) env('API_DOCS_PATH', '/api-docs')) . '/',
     ],
 
     // Performance Settings

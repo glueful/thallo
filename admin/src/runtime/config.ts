@@ -5,6 +5,8 @@ export interface RuntimeConfig {
   sitePreviewUrl: string
   defaultLocale: string
   installed: boolean
+  /** The framework's API reference path (API_DOCS_PATH), same-origin; default /api-docs. */
+  apiDocsPath: string
 }
 
 // Filled by loadRuntimeConfig() before app.mount (main.ts). Exported as a mutable singleton so the
@@ -14,6 +16,7 @@ export const runtimeConfig: RuntimeConfig = {
   sitePreviewUrl: '',
   defaultLocale: 'en',
   installed: false,
+  apiDocsPath: '/api-docs',
 }
 
 async function fetchConfig(url: string): Promise<Partial<RuntimeConfig>> {
@@ -28,13 +31,14 @@ function applyConfig(data: Partial<RuntimeConfig>): void {
     sitePreviewUrl: data.sitePreviewUrl ?? runtimeConfig.sitePreviewUrl,
     defaultLocale: data.defaultLocale ?? runtimeConfig.defaultLocale,
     installed: Boolean(data.installed),
+    apiDocsPath: data.apiDocsPath ?? runtimeConfig.apiDocsPath,
   })
 }
 
 export async function loadRuntimeConfig(): Promise<RuntimeConfig> {
   // The admin SPA is served same-origin by the PHP app (serveFrontend at /admin), so /admin/config —
   // the backend's dynamic runtime-config route — is fetched relative. It returns the live values the
-  // SPA needs at boot: apiBase, sitePreviewUrl, defaultLocale, and installed.
+  // SPA needs at boot: apiBase, sitePreviewUrl, defaultLocale, installed and apiDocsPath.
   applyConfig(await fetchConfig('/admin/config'))
   return runtimeConfig
 }
