@@ -44,19 +44,30 @@ must_not_contain_prefix "docs/internal/"
 # The dogfood dev overlay never ships — fresh installs get the trimmed base posture.
 must_not_contain_prefix "config/development/"
 
-# Every icon the admin references must be EMBEDDED in the baked bundle. The admin's document
-# CSP is connect-src 'self', so an icon the build did not embed is fetched from
-# api.iconify.design at runtime and blocked — blank icons in production (beta.13 shipped 28 of
-# them: the scan's default globs skipped the .ts module registries). Icon names come from the
-# SPA source at $REF (export-ignored, so read through git, not the archive); the embedded
-# collection serialises each icon as "<name>":{"width"…/"body"….
-ICON_NAMES="$(git grep -hoE 'i-lucide-[a-z0-9-]+' "$REF" -- 'admin/src/*.ts' 'admin/src/*.vue' \
-  | grep -v '\.spec\.' | sed 's/^i-lucide-//' | sort -u || true)"
+# The baked bundle must EMBED the whole lucide set. The admin's document CSP is connect-src
+# 'self', so an icon the build did not embed is fetched from api.iconify.design at runtime and
+# blocked — a blank icon in production. A source scan can never be complete: block/content
+# types carry icon names chosen in the admin's icon picker or seeded from PHP, reaching the
+# SPA as API data (beta.13 shipped 28 blank icons from unscanned .ts; beta.17 shipped 20 from
+# seeded block types). The embedded collection serialises each icon as "<name>":{"width"…/
+# "body"…: first a floor on the count (lucide has ~1.9k icons; a scanned subset is a few
+# hundred), then every name the sources reference, as a second, specific check.
+LUCIDE_FLOOR=1800
+BUNDLE_JS="$(git archive "$REF" public/admin/assets 2>/dev/null | tar -xO 2>/dev/null || true)"
+EMBEDDED_COUNT="$(grep -oE '"[a-z0-9-]+":\{"(width|height|body|left|top)' <<< "$BUNDLE_JS" | sort -u | wc -l | tr -d ' ')"
+if [[ "$EMBEDDED_COUNT" -lt "$LUCIDE_FLOOR" ]]; then
+  echo "FAIL: the baked bundle embeds $EMBEDDED_COUNT icons; the whole lucide set (>= $LUCIDE_FLOOR) must be embedded (admin/vite.config.ts icon.clientBundle)" >&2
+  fail=1
+else
+  echo "ok: the baked bundle embeds the lucide set ($EMBEDDED_COUNT icons)"
+fi
+ICON_NAMES="$(git grep -hoE 'i-lucide-[a-z0-9-]+' "$REF" -- \
+    'admin/src/*.ts' 'admin/src/*.vue' 'app/*.php' 'packages/*.php' ':(exclude)*/tests/*' \
+  | sed 's/^i-lucide-//' | sort -u || true)"
 if [[ -z "$ICON_NAMES" ]]; then
   echo "FAIL: could not collect icon names from admin/src at $REF" >&2
   fail=1
 else
-  BUNDLE_JS="$(git archive "$REF" public/admin/assets 2>/dev/null | tar -xO 2>/dev/null || true)"
   missing=()
   while IFS= read -r name; do
     if ! grep -q "\"$name\":{\"" <<< "$BUNDLE_JS"; then

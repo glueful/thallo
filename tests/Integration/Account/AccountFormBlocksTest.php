@@ -133,6 +133,35 @@ final class AccountFormBlocksTest extends AppTestCase
         }
     }
 
+    public function testTheContributorStaysDeclaredWhileOffAndItsBlocksAreGatedByTheCapability(): void
+    {
+        foreach ((new AccountBlockTypesContributor())->blockTypeDefinitions() as $definition) {
+            self::assertSame('thallo.accounts', $definition->requiresCapability);
+        }
+
+        $off = self::bootAppWithConfigOverride('thallo', [
+            'capabilities' => ['thallo.accounts' => false],
+        ]);
+
+        try {
+            $container = $off->getContainer();
+            self::assertCount(1, array_filter(
+                $container->get(\Thallo\Contracts\Starter\StarterBlockTypeRegistry::class)->all(),
+                static fn (object $c): bool => $c instanceof AccountBlockTypesContributor,
+            ), 'declared regardless of the switch, so the app knows which rows are the pack\'s');
+
+            $kind = $container->get(\App\Content\Starter\Kinds\BlockTypeKind::class);
+            self::assertContains('login-form', $kind->hiddenSlugs());
+            self::assertNotContains(
+                'login-form',
+                array_map(static fn ($d) => $d->definitionKey, $kind->definitions()),
+                'a gated definition is not seeded while its capability is off',
+            );
+        } finally {
+            self::resetSharedRepositoryConnection();
+        }
+    }
+
     // --- account-forms.js runtime (Task 3), evaluated in node against a stub DOM --------------
 
     public function testFormsRuntimeInjectsReturnToRegistersOnceAndSkipsPlainForms(): void

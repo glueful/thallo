@@ -27,13 +27,18 @@ vi.mock('@/composables/useNotify', () => ({
 
 import WorkflowPanel from '@/pages/content/[type]/[uuid]/components/WorkflowPanel.vue'
 
-const wf = (state: WorkflowState['state'], history: WorkflowState['history'] = []): WorkflowState => ({
+const wf = (
+  state: WorkflowState['state'],
+  history: WorkflowState['history'] = [],
+  canBypass = false,
+): WorkflowState => ({
   state,
   submitted_by: null,
   submitted_at: null,
   reviewed_by: null,
   reviewed_at: null,
   history,
+  can_bypass: canBypass,
 })
 
 const mountPanel = () =>
@@ -105,6 +110,48 @@ describe('WorkflowPanel', () => {
     expect(wrapper.find('[data-test="workflow-state"]').text()).toBe('Changes requested')
     expect(wrapper.find('[data-test="workflow-last-note"]').text()).toBe('fix the headline')
     expect(wrapper.find('[data-test="workflow-submit"]').exists()).toBe(true)
+  })
+
+  // A bypass holder publishes directly (the navbar Publish button), so "Submit for review"
+  // is never their action — and a bare draft has nothing for them to review at all.
+  it('hides the whole section from a bypass holder while the draft is not in review', async () => {
+    stateData.value = wf('draft', [], true)
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="workflow-panel"]').exists()).toBe(false)
+  })
+
+  it('still shows a bypass holder the reviewer actions on a submission', async () => {
+    stateData.value = wf('in_review', [], true)
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="workflow-approve"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="workflow-request-changes"]').exists()).toBe(true)
+    expect(wrapper.find('[data-test="workflow-submit"]').exists()).toBe(false)
+  })
+
+  it('shows a bypass holder the requested changes without a Submit button', async () => {
+    stateData.value = wf(
+      'changes_requested',
+      [
+        {
+          from_state: 'in_review',
+          to_state: 'changes_requested',
+          action: 'request_changes',
+          actor_uuid: 'rev-1',
+          note: 'fix the headline',
+          created_at: null,
+        },
+      ],
+      true,
+    )
+    const wrapper = mountPanel()
+    await flushPromises()
+
+    expect(wrapper.find('[data-test="workflow-last-note"]').text()).toBe('fix the headline')
+    expect(wrapper.find('[data-test="workflow-submit"]').exists()).toBe(false)
   })
 
   it('approved shows only the badge', async () => {

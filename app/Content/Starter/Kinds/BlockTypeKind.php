@@ -13,15 +13,23 @@ use App\Content\Starter\SeedContext;
 use App\Content\Starter\StarterApplyResult;
 use App\Content\Starter\StarterDefinition;
 use Glueful\Database\Connection;
+use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Contracts\Starter\StarterBlockTypeDefinition;
 use Thallo\Contracts\Starter\StarterBlockTypeRegistry;
 
 final class BlockTypeKind extends AbstractStarterKind
 {
+    /**
+     * @param CapabilityRegistry|null $capabilities Applies each contribution's
+     *        {@see StarterBlockTypeDefinition::$requiresCapability}: a gated definition is part
+     *        of {@see definitions()} only while its capability is on, and is reported by
+     *        {@see hiddenSlugs()} while it is off. Without a registry nothing is gated.
+     */
     public function __construct(
         private readonly BlockTypeRepository $blocks,
         private readonly Connection $db,
         private readonly ?StarterBlockTypeRegistry $contributors = null,
+        private readonly ?CapabilityRegistry $capabilities = null,
     ) {
     }
 
@@ -41,10 +49,75 @@ final class BlockTypeKind extends AbstractStarterKind
             );
         }, StarterBlockTypes::definitions());
 
-        $definitions = [...$fixed, ...$this->contributedDefinitions()];
-        $this->assertNoDuplicates($definitions);
+        $contributions = $this->contributions();
+        // Duplicates are checked over EVERY contribution, gated or not: a pack colliding with
+        // the fixed library is a configuration error whatever its switch says today.
+        $this->assertNoDuplicates([...$fixed, ...array_column($contributions, 'definition')]);
 
+        $enabled = [];
+        foreach ($contributions as $contribution) {
+            if ($this->isOn($contribution['capability'])) {
+                $enabled[] = $contribution['definition'];
+            }
+        }
+
+        return [...$fixed, ...$enabled];
+    }
+
+    /**
+     * Slugs of contributed block types whose capability is currently off. Their rows (seeded
+     * while the capability was on) stay in the table — an admin's edits and the content that
+     * references them survive the switch — but Settings › Block types and the picker leave
+     * them out until the capability is on again.
+     *
+     * @return list<string>
+     */
+    public function hiddenSlugs(): array
+    {
+        $hidden = [];
+        foreach ($this->contributions() as $contribution) {
+            if (!$this->isOn($contribution['capability'])) {
+                $hidden[] = $contribution['definition']->definitionKey;
+            }
+        }
+        return $hidden;
+    }
+
+    /**
+     * Every contribution gated by `$capability`, whatever its current state — what the first
+     * boot after that capability turns on seeds.
+     *
+     * @return list<StarterDefinition>
+     */
+    public function contributionsFor(string $capability): array
+    {
+        $definitions = [];
+        foreach ($this->contributions() as $contribution) {
+            if ($contribution['capability'] === $capability) {
+                $definitions[] = $contribution['definition'];
+            }
+        }
         return $definitions;
+    }
+
+    /** @return list<string> distinct capability ids that gate at least one contribution */
+    public function gatedCapabilities(): array
+    {
+        $capabilities = [];
+        foreach ($this->contributions() as $contribution) {
+            if ($contribution['capability'] !== null) {
+                $capabilities[$contribution['capability']] = true;
+            }
+        }
+        return array_keys($capabilities);
+    }
+
+    private function isOn(?string $capability): bool
+    {
+        if ($capability === null || $this->capabilities === null) {
+            return true;
+        }
+        return $this->capabilities->isEnabled($capability);
     }
 
     public function fingerprint(StarterDefinition $definition): string
@@ -108,23 +181,31 @@ final class BlockTypeKind extends AbstractStarterKind
     }
 
     /**
-     * Converted contributed definitions, in registration/contributor order. Each contributor's
-     * VOs are validated and converted to the internal {@see StarterDefinition} shape BEFORE this
-     * method returns — nothing here or downstream (TenantSeeder/StarterSync) writes to storage
-     * until the full fixed+contributed set has been assembled and passed the duplicate check in
-     * {@see definitions()}.
+     * Converted contributed definitions, in registration/contributor order, each paired with the
+     * capability that gates it (null = ungated). Each contributor's VOs are validated and
+     * converted to the internal {@see StarterDefinition} shape BEFORE this method returns —
+     * nothing here or downstream (TenantSeeder/StarterSync) writes to storage until the full
+     * fixed+contributed set has been assembled and passed the duplicate check in
+     * {@see definitions()}. The capability is kept beside the definition, not in its payload:
+     * the payload is fingerprinted for drift detection and mirrors the row exactly.
      *
-     * @return list<StarterDefinition>
+     * @return list<array{definition: StarterDefinition, capability: ?string}>
      */
-    private function contributedDefinitions(): array
+    private function contributions(): array
     {
-        $definitions = [];
+        $contributions = [];
         foreach ($this->contributors?->all() ?? [] as $contributor) {
             foreach ($contributor->blockTypeDefinitions() as $definition) {
-                $definitions[] = $this->convert($definition);
+                $capability = $definition->requiresCapability === null
+                    ? null
+                    : trim($definition->requiresCapability);
+                $contributions[] = [
+                    'definition' => $this->convert($definition),
+                    'capability' => $capability === '' ? null : $capability,
+                ];
             }
         }
-        return $definitions;
+        return $contributions;
     }
 
     private function convert(StarterBlockTypeDefinition $definition): StarterDefinition

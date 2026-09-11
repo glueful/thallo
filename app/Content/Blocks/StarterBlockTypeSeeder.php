@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Content\Blocks;
 
 use App\Content\Starter\Kinds\BlockTypeKind;
+use App\Content\Starter\StarterDefinition;
 
 /**
  * Seeds every starter block type — the fixed library ({@see StarterBlockTypes}) plus pack
@@ -27,9 +28,21 @@ final class StarterBlockTypeSeeder
     /** @return array{created: list<string>, skipped: list<string>} slugs, in library order */
     public function seedMissing(): array
     {
+        return $this->seedMissingAmong($this->kind->definitions());
+    }
+
+    /**
+     * The same additive seed over a chosen subset — e.g. one pack's contributions on the first
+     * boot after its capability turns on ({@see ContributedBlockTypeReconciler}).
+     *
+     * @param list<StarterDefinition> $definitions
+     * @return array{created: list<string>, skipped: list<string>}
+     */
+    public function seedMissingAmong(array $definitions): array
+    {
         $created = [];
         $skipped = [];
-        foreach ($this->kind->definitions() as $definition) {
+        foreach ($definitions as $definition) {
             $slug = $definition->definitionKey;
             if ($this->blocks->findBySlug($slug) !== null) {
                 $skipped[] = $slug;

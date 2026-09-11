@@ -96,10 +96,14 @@ final class WorkflowController
     }
 
     #[ApiOperation(summary: 'Review state + history for an entry/locale', tags: ['Thallo Workflow'])]
-    #[ApiResponse(200, description: 'State row (draft default) + recent history.')]
+    #[ApiResponse(
+        200,
+        description: 'State row (draft default) + recent history; `can_bypass` is whether the '
+            . 'requesting user holds workflow.bypass for the locale.',
+    )]
     public function show(Request $request, string $uuid, string $locale): Response
     {
-        return Response::success($this->workflow->overview($uuid, $locale));
+        return Response::success($this->workflow->overview($uuid, $locale, $this->actor($request)));
     }
 
     #[ApiOperation(summary: 'Review queue (in_review submissions)', tags: ['Thallo Workflow'])]

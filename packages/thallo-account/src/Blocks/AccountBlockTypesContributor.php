@@ -45,6 +45,7 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
         return [
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-account:auth-state',
+                requiresCapability: 'thallo.accounts',
                 slug: 'auth-state',
                 label: 'Account state',
                 icon: 'i-lucide-user-round',
@@ -67,6 +68,7 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
             ),
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-account:login-form',
+                requiresCapability: 'thallo.accounts',
                 slug: 'login-form',
                 label: 'Sign-in form',
                 icon: 'i-lucide-log-in',
@@ -83,6 +85,7 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
             ),
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-account:register-form',
+                requiresCapability: 'thallo.accounts',
                 slug: 'register-form',
                 label: 'Registration form',
                 icon: 'i-lucide-user-plus',
@@ -95,6 +98,7 @@ final class AccountBlockTypesContributor implements StarterBlockTypeContributor
             ),
             new StarterBlockTypeDefinition(
                 sourceId: 'thallo-account:forgot-password-form',
+                requiresCapability: 'thallo.accounts',
                 slug: 'forgot-password-form',
                 label: 'Password reset request',
                 icon: 'i-lucide-key-round',

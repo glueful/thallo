@@ -13,6 +13,7 @@ use App\Content\Http\DTOs\Responses\BlockTypes\BlockTypeListData;
 use App\Content\Http\DTOs\Responses\BlockTypes\BlockTypeResultData;
 use App\Content\Http\DTOs\UpdateBlockTypeData;
 use App\Content\Schema\SchemaParseException;
+use App\Content\Starter\Kinds\BlockTypeKind;
 use App\Http\DTOs\ErrorResponse;
 use Glueful\Http\Response;
 use Glueful\Routing\Attributes\ApiOperation;
@@ -32,14 +33,28 @@ final class BlockTypeController
         private readonly BlockTypeRepository $blockTypes,
         private readonly BlockUsageScanner $usageScanner,
         private readonly BlockMigrationRepository $blockMigrations,
+        private readonly BlockTypeKind $starters,
     ) {
     }
 
-    #[ApiOperation(summary: 'List block types', tags: ['Thallo Admin'])]
+    #[ApiOperation(
+        summary: 'List block types',
+        description: 'A pack\'s block types (Commerce, Accounts) are listed only while its capability '
+            . 'is on; their rows are kept, not deleted, while it is off.',
+        tags: ['Thallo Admin'],
+    )]
     #[ApiResponse(200, schema: BlockTypeListData::class, description: 'All block types, active first.')]
     public function index(Request $request): Response
     {
-        return Response::success(['block_types' => $this->blockTypes->all()], 'Block types retrieved.');
+        $hidden = $this->starters->hiddenSlugs();
+        $listed = $hidden === []
+            ? $this->blockTypes->all()
+            : array_values(array_filter(
+                $this->blockTypes->all(),
+                static fn (array $row): bool => !in_array((string) $row['slug'], $hidden, true),
+            ));
+
+        return Response::success(['block_types' => $listed], 'Block types retrieved.');
     }
 
     #[ApiOperation(

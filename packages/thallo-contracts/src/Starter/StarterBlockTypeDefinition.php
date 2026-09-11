@@ -24,6 +24,12 @@ final readonly class StarterBlockTypeDefinition
         public string $category,
         public ?string $description,
         public array $schema,
+        /**
+         * Capability id (e.g. `thallo.commerce`) this block type belongs to, or null for an
+         * ungated contribution. A gated definition is seeded only while the capability is on
+         * and is hidden from the block-type listing (never deleted) while it is off.
+         */
+        public ?string $requiresCapability = null,
     ) {
     }
 }

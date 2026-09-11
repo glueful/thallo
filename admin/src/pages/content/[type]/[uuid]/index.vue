@@ -217,8 +217,12 @@ const isPublished = computed(() => {
   const summary = (entryLocales.value ?? []).find((s) => s.locale === locale.value)
   return summary ? localeStatus(summary).key === 'published' : false
 })
+const publishPanel = ref<InstanceType<typeof PublishPanel> | null>(null)
 async function onPublish() {
   if (!(await onSave())) return // never publish past a failed save
+  // The route shown in the Publishing panel is part of what "publish" means: an unsaved slug
+  // (the title suggestion on a new page) is saved first, or the page goes live with no URL.
+  if (!(await publishPanel.value?.saveRouteIfDirty() ?? true)) return
   try {
     await publish.mutateAsync('publish')
     success(isPublished.value ? 'Updated' : 'Published')
@@ -403,6 +407,7 @@ async function onSave(): Promise<boolean> {
               data-test="editor-side-tabs"
             />
             <PublishPanel
+              ref="publishPanel"
               v-show="sideTab === 'publishing'"
               :key="`${uuid}-${locale}`"
               :uuid="uuid"

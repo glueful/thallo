@@ -230,6 +230,7 @@ use App\Content\Services\PublishService;
 use App\Content\Sanitization\TipTapHtmlSanitizer;
 use App\Content\Validation\FieldValidator;
 use Glueful\Bootstrap\ApplicationContext;
+use Glueful\Bootstrap\RequestLifecycle;
 use Glueful\Cache\CacheStore;
 use Thallo\Contracts\Authoring\ContentWriter;
 use Thallo\Contracts\Authorization\PermissionRequirementAuthority as PermissionRequirementAuthorityContract;
@@ -913,6 +914,11 @@ final class ThalloServiceProvider extends ServiceProvider
             ],
             \App\Content\Blocks\StarterBlockTypeSeeder::class => [
                 'class' => \App\Content\Blocks\StarterBlockTypeSeeder::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            \App\Content\Blocks\ContributedBlockTypeReconciler::class => [
+                'class' => \App\Content\Blocks\ContributedBlockTypeReconciler::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -2149,6 +2155,26 @@ final class ThalloServiceProvider extends ServiceProvider
         }
 
         $this->registerEventListeners($context);
+
+        // A pack's starter block types appear on the first request after its capability turns
+        // on — no provision or seed command. Hooked per request rather than run here: the packs
+        // declare their contributions in their OWN boot, which may come after this one. Never
+        // fails a request: seeding is a convenience, and `thallo:provision` remains the repair.
+        if ($container->has(RequestLifecycle::class)) {
+            $container->get(RequestLifecycle::class)->onBeginRequest(
+                static function () use ($container): void {
+                    try {
+                        $container->get(\App\Content\Blocks\ContributedBlockTypeReconciler::class)->reconcile();
+                    } catch (\Throwable $e) {
+                        if ($container->has(LoggerInterface::class)) {
+                            $container->get(LoggerInterface::class)->warning(
+                                'Starter block types not reconciled: ' . $e->getMessage(),
+                            );
+                        }
+                    }
+                },
+            );
+        }
 
         EditorialFieldTypes::register(app($context, FieldTypeRegistry::class));
 

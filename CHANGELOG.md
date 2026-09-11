@@ -7,6 +7,58 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.18] - 2026-09-11 — Developer Preview
+
+Block-type icons render again, a pack's starter blocks arrive the moment its capability is
+switched on and leave the listing when it is switched off, publishing saves the page's route,
+direct publishers no longer see a review prompt, and Settings › Block types is searchable. No
+schema changes; beta.17 installs upgrade in place.
+
+### Upgrade Notes
+- The documented sequence still applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. Provision heals any starter block type the instance lacks; nothing else is required.
+- Switching Commerce or Accounts on now seeds that pack's block types on the next request;
+  switching it off hides them (rows kept). No command either way on a single-store install.
+- Pack authors: `StarterBlockTypeDefinition` gained an optional `requiresCapability` argument.
+  A contribution that sets it is seeded only while that capability is on and hidden while it
+  is off; contributors should now be registered unconditionally and rely on that field.
+
+### Added
+- **Search on Settings › Block types.** A search box filters the cards by label, slug or
+  description as you type; an empty result says what was searched for.
+
+### Fixed
+- **The admin ships the whole lucide icon set.** The block picker, block cards and Settings ›
+  Block types showed blank icons for 20 starter block types (accordion, blog posts, call to
+  action, …): icon names on block types are data — seeded from PHP or chosen in the icon
+  picker — and reach the admin through the API, so the build's source scan could never see
+  them and the browser fell back to api.iconify.design, which the CSP blocks. The build now
+  embeds every lucide icon (~90KB gzipped, cached with the bundle), and the release gate
+  requires it.
+- **Publish saves the route.** The editor's Publish/Update button now saves the slug shown in
+  the Publishing panel (the title suggestion on a new page, or an edit) before publishing, so
+  a page never goes live without a URL; a failed route save stops the publish.
+- **No "Submit for review" for direct publishers.** The review overview reports whether the
+  requesting user holds `workflow.bypass` (`can_bypass`); the Review section hides for them
+  while nothing is in review, and never offers Submit — reviewer actions on a submission are
+  unchanged.
+
+### Changed
+- **A pack's starter blocks seed themselves when its capability turns on.** The first request
+  after Commerce or Accounts is switched on creates that pack's missing block types — no
+  `thallo:provision` or `thallo:blocks:seed` run. Existing rows are never touched. A system flag
+  records which capabilities were seeded, so it happens once per switch-on. Single-store only:
+  with workspaces on, `thallo:blocks:seed --all` / `thallo:tenant:sync --kind=block_type` remain
+  the per-workspace path.
+- **A disabled pack's block types leave the listing, not the table.** Settings › Block types and
+  the block picker omit Commerce (and Accounts) block types while the capability is off; their
+  rows and any content using them are kept, and they reappear when it is on again. Starter
+  block-type definitions carry the capability that gates them
+  (`StarterBlockTypeDefinition::$requiresCapability`, new optional field), and packs now declare
+  their contributions unconditionally — the app applies the switch, seeding a gated definition
+  only while its capability is on.
+
 ## [1.0.0-beta.17] - 2026-09-09 — Developer Preview
 
 A fresh install gets the whole starter block library, a refused homepage says why, the
