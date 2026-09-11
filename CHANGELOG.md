@@ -7,7 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Upgrade Notes
+- Framework 1.83.4 is required (repinned): the regions preview iframe was blocked by the
+  admin document's Content Security Policy (no `frame-src`, so a `blob:` preview document was
+  refused); 1.83.4 allows a mounted SPA to frame itself and its own blobs.
+
 ### Fixed
+- **Site › Regions preview renders again.** The header/footer preview showed nothing in
+  production — see the framework note above; no Thallo code changed.
 - **One toast per publish.** Publish/Update in the editor and the design canvas now reports a
   single "Published" (or "Updated") toast; the draft and route saves it performs stay silent,
   while their failures still report. Save draft on its own still confirms.
