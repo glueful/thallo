@@ -7,6 +7,23 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.18] - 2026-09-11 — Developer Preview
+
+Block-type icons render again, a pack's starter blocks arrive the moment its capability is
+switched on and leave the listing when it is switched off, publishing saves the page's route,
+direct publishers no longer see a review prompt, and Settings › Block types is searchable. No
+schema changes; beta.17 installs upgrade in place.
+
+### Upgrade Notes
+- The documented sequence still applies (docs/upgrading.md): `composer update`, then
+  `php glueful thallo:provision`, then reload PHP-FPM so OPcache drops the previous release's
+  classes. Provision heals any starter block type the instance lacks; nothing else is required.
+- Switching Commerce or Accounts on now seeds that pack's block types on the next request;
+  switching it off hides them (rows kept). No command either way on a single-store install.
+- Pack authors: `StarterBlockTypeDefinition` gained an optional `requiresCapability` argument.
+  A contribution that sets it is seeded only while that capability is on and hidden while it
+  is off; contributors should now be registered unconditionally and rely on that field.
+
 ### Added
 - **Search on Settings › Block types.** A search box filters the cards by label, slug or
   description as you type; an empty result says what was searched for.
