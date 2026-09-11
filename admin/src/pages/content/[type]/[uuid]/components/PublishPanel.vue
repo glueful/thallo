@@ -340,7 +340,6 @@ function toggleSchedule(): void {
            two) but stays its own component — the parent slots it in when the pack is
            enabled. -->
       <template v-if="$slots.default">
-        <USeparator />
         <slot />
       </template>
     </div>

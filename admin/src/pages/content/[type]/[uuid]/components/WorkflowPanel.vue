@@ -78,6 +78,9 @@ async function confirmRequestChanges() {
   <!-- A SECTION, not a card: the parent slots this into the Publishing card so review
        state and publish state share one editorial box. -->
   <div v-if="enabled && visible" data-test="workflow-panel">
+    <!-- The divider from the publishing controls is this section's own, so it never
+         dangles under Unpublish when the section is hidden. -->
+    <USeparator class="mb-5" data-test="workflow-separator" />
     <div class="flex items-center justify-between">
       <span class="text-sm font-medium">Review</span>
       <UBadge :color="STATE_COLOR[state]" variant="subtle" data-test="workflow-state">

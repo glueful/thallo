@@ -26,9 +26,8 @@ vi.mock('@/queries/entries', () => ({
   useCreateLocaleDraft: () => ({ mutateAsync: vi.fn(), isLoading: ref(false) }),
 }))
 vi.mock('@/queries/locales', () => ({ useLocales: () => ({ data: ref([]) }) }))
-vi.mock('@/composables/useNotify', () => ({
-  useNotify: () => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }),
-}))
+const notify = vi.hoisted(() => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn() }))
+vi.mock('@/composables/useNotify', () => ({ useNotify: () => notify }))
 vi.mock('@/runtime/config', () => ({
   runtimeConfig: { defaultLocale: 'en', apiBase: '/v1/admin' },
 }))
@@ -74,6 +73,7 @@ describe('entry editor: navbar Publish', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     calls.length = 0
+    notify.success.mockReset()
     saveDraft.mockReset().mockImplementation(async () => {
       calls.push('save')
     })
@@ -94,6 +94,29 @@ describe('entry editor: navbar Publish', () => {
     await flushPromises()
 
     expect(calls).toEqual(['save', 'route', 'publish'])
+  })
+
+  // One action, one toast: the draft and route saves that publishing implies stay silent.
+  it('shows a single Published toast, not one per implied save', async () => {
+    const wrapper = factory()
+    await flushPromises()
+
+    await wrapper.find('[data-test="navbar-publish"]').trigger('click')
+    await flushPromises()
+
+    expect(notify.success).toHaveBeenCalledTimes(1)
+    expect(notify.success).toHaveBeenCalledWith('Published')
+  })
+
+  it('Save draft on its own still confirms with its toast', async () => {
+    const wrapper = factory()
+    await flushPromises()
+
+    await wrapper.find('[data-test="save-draft"]').trigger('click')
+    await flushPromises()
+
+    expect(notify.success).toHaveBeenCalledTimes(1)
+    expect(notify.success).toHaveBeenCalledWith('Draft saved')
   })
 
   it('does not publish when the route could not be saved', async () => {

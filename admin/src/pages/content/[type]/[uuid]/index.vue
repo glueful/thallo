@@ -219,7 +219,8 @@ const isPublished = computed(() => {
 })
 const publishPanel = ref<InstanceType<typeof PublishPanel> | null>(null)
 async function onPublish() {
-  if (!(await onSave())) return // never publish past a failed save
+  // One action, one toast: the saves publishing implies stay silent; failures still report.
+  if (!(await onSave({ quiet: true }))) return // never publish past a failed save
   // The route shown in the Publishing panel is part of what "publish" means: an unsaved slug
   // (the title suggestion on a new page) is saved first, or the page goes live with no URL.
   if (!(await publishPanel.value?.saveRouteIfDirty() ?? true)) return
@@ -237,11 +238,11 @@ async function onPublish() {
   }
 }
 
-async function onSave(): Promise<boolean> {
+async function onSave({ quiet = false }: { quiet?: boolean } = {}): Promise<boolean> {
   try {
     await save.mutateAsync({ fields: fields.value, lock_version: lockVersion.value })
     fieldErrors.value = {}
-    success('Draft saved')
+    if (!quiet) success('Draft saved')
     return true
   } catch (e: unknown) {
     if (e instanceof ApiError && e.status === 422 && Object.keys(e.fieldErrors).length > 0) {

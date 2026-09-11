@@ -612,11 +612,11 @@ async function applyWorking(): Promise<void> {
 // tree, and the server clears the stash — no re-mint, no reload on success.
 const saving = ref(false)
 
-async function saveDraftOnly(): Promise<boolean> {
+async function saveDraftOnly({ quiet = false }: { quiet?: boolean } = {}): Promise<boolean> {
   saving.value = true
   try {
     await save.mutateAsync({ fields: fields.value, lock_version: lockVersion.value })
-    success('Draft saved')
+    if (!quiet) success('Draft saved')
     return true
   } catch (e: unknown) {
     reloadStage() // discard optimistic mirrors — the stage falls back to last-applied truth
@@ -652,7 +652,8 @@ const isPublished = computed(() => {
   return summary ? localeStatus(summary).key === 'published' : false
 })
 async function onPublish(): Promise<void> {
-  if (dirty.value && !(await saveDraftOnly())) return
+  // One action, one toast: the save publishing implies stays silent; failures still report.
+  if (dirty.value && !(await saveDraftOnly({ quiet: true }))) return
   try {
     await publish.mutateAsync('publish')
     success(isPublished.value ? 'Updated' : 'Published')
