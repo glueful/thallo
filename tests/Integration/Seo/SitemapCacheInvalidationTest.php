@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Seo;
+namespace Thallo\Core\Tests\Integration\Seo;
 
-use App\Content\Events\EntryPublished;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 use Thallo\Seo\Cache\SitemapCache;
 

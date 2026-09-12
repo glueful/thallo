@@ -200,7 +200,7 @@ git commit -m "feat(contracts): SeoHeadResolver seam + SeoMetaChanged event"
 **Files:**
 - Modify: `packages/thallo-seo/src/Http/Controllers/AdminSeoMetaController.php`
 - Create: `app/Content/Pipeline/Listeners/SeoMetaChangedListener.php`
-- Modify: `app/Providers/ThalloServiceProvider.php` (`registerEventListeners()` map +
+- Modify: `app/Providers/CoreServiceProvider.php` (`registerEventListeners()` map +
   the listener's service registration — mirror how `PurgeCdnListener` is registered)
 - Test: extend the test class covering seo admin meta (find it:
   `grep -rln "AdminSeoMetaController\|seo_meta" tests/Integration/Seo`) + a purge test
@@ -325,7 +325,7 @@ plus the listener's service registration and `use` import in the provider's styl
 Run: `set -o pipefail && vendor/bin/phpunit tests/Integration/Seo tests/Integration/Pipeline 2>&1 | tail -4`
 
 ```bash
-git add packages/thallo-seo app/Content/Pipeline/Listeners/SeoMetaChangedListener.php app/Providers/ThalloServiceProvider.php tests/Integration/Seo
+git add packages/thallo-seo app/Content/Pipeline/Listeners/SeoMetaChangedListener.php app/Providers/CoreServiceProvider.php tests/Integration/Seo
 git commit -m "feat(seo): SeoMetaChanged dispatch + local/edge purge listener"
 ```
 
@@ -335,7 +335,7 @@ git commit -m "feat(seo): SeoMetaChanged dispatch + local/edge purge listener"
 
 **Files:**
 - Create: `app/Content/Seo/EngineSeoHeadProvider.php`
-- Modify: `app/Providers/ThalloServiceProvider.php` (bind
+- Modify: `app/Providers/CoreServiceProvider.php` (bind
   `SeoHeadResolver::class => ['factory' => [self::class, 'makeSeoHeadProvider'], 'shared' => true]`
   + the factory method, matching the provider's factory idiom)
 - Test: `tests/Integration/Seo/SeoHeadProviderTest.php` (new)
@@ -526,7 +526,7 @@ per `CanonicalProjector::slugFor`, `findByUuid` array per its other callers; adj
 casts, never the algorithm. The `CanonicalProjector` import is `App\Content\Seo\` —
 same namespace, no `use` needed.)
 
-Factory in `ThalloServiceProvider` (match its factory idiom):
+Factory in `CoreServiceProvider` (match its factory idiom):
 
 ```php
     public static function makeSeoHeadProvider(ContainerInterface $container): \App\Content\Seo\EngineSeoHeadProvider
@@ -550,7 +550,7 @@ Factory in `ThalloServiceProvider` (match its factory idiom):
 Run: `set -o pipefail && vendor/bin/phpunit tests/Integration/Seo/SeoHeadProviderTest.php tests/Integration/Seo 2>&1 | tail -4`
 
 ```bash
-git add app/Content/Seo/EngineSeoHeadProvider.php app/Providers/ThalloServiceProvider.php tests/Integration/Seo/SeoHeadProviderTest.php
+git add app/Content/Seo/EngineSeoHeadProvider.php app/Providers/CoreServiceProvider.php tests/Integration/Seo/SeoHeadProviderTest.php
 git commit -m "feat(seo): EngineSeoHeadProvider - composed head behind the contract"
 ```
 

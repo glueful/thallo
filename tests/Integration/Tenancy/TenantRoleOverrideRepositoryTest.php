@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Content\Authorization\RoleOverrideException;
-use App\Content\Authorization\TenantRoleOverrideRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Authorization\RoleOverrideException;
+use Thallo\Core\Content\Authorization\TenantRoleOverrideRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class TenantRoleOverrideRepositoryTest extends AppTestCase
 {

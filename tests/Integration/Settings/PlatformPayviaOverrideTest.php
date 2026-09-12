@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Settings;
+namespace Thallo\Core\Tests\Integration\Settings;
 
-use App\Settings\LegacyPlatformPaymentSettingsReader;
-use App\Settings\LegacyPlatformPaymentSettingsRepository;
-use App\Settings\PlatformPaymentSettingsStore;
-use App\Settings\PlatformPayviaSettingsOverride;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Settings\LegacyPlatformPaymentSettingsReader;
+use Thallo\Core\Settings\LegacyPlatformPaymentSettingsRepository;
+use Thallo\Core\Settings\PlatformPaymentSettingsStore;
+use Thallo\Core\Settings\PlatformPayviaSettingsOverride;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Encryption\EncryptionService;
 use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;

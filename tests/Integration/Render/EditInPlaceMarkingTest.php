@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\EngineBlockEditableFieldResolver;
-use App\Content\Preview\PreviewMinter;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\EngineBlockEditableFieldResolver;
+use Thallo\Core\Content\Preview\PreviewMinter;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Render\Http\Controllers\RenderController;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -96,17 +96,17 @@ final class EditInPlaceMarkingTest extends AppTestCase
         self::assertStringContainsString('data-thallo-edit-field="body"', $preview);
 
         // LIVE render: publish, request the public path, assert NO marking.
-        $version = (new \App\Content\Services\PublishService(
+        $version = (new \Thallo\Core\Content\Services\PublishService(
             $this->appContext(),
             $entries,
-            new \App\Content\Repositories\VersionRepository($this->connection()),
+            new \Thallo\Core\Content\Repositories\VersionRepository($this->connection()),
             $types,
-            new \App\Content\Validation\FieldValidator(
+            new \Thallo\Core\Content\Validation\FieldValidator(
                 $this->connection(),
                 $this->appContext(),
                 new BlockTypeRepository($this->connection()),
             ),
-            new \App\Content\Repositories\ReferenceProjectionRepository($this->connection()),
+            new \Thallo\Core\Content\Repositories\ReferenceProjectionRepository($this->connection()),
         ))->publish($entry, 'en', 'user00000001');
         self::assertNotSame('', $version);
         $live = $this->handle(Request::create('/page/eip-page', 'GET'));
@@ -252,17 +252,17 @@ final class EditInPlaceMarkingTest extends AppTestCase
         // Publish so the live route serves it.
         $types = new ContentTypeRepository($this->connection());
         $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
-        (new \App\Content\Services\PublishService(
+        (new \Thallo\Core\Content\Services\PublishService(
             $this->appContext(),
             $entries,
-            new \App\Content\Repositories\VersionRepository($this->connection()),
+            new \Thallo\Core\Content\Repositories\VersionRepository($this->connection()),
             $types,
-            new \App\Content\Validation\FieldValidator(
+            new \Thallo\Core\Content\Validation\FieldValidator(
                 $this->connection(),
                 $this->appContext(),
                 new BlockTypeRepository($this->connection()),
             ),
-            new \App\Content\Repositories\ReferenceProjectionRepository($this->connection()),
+            new \Thallo\Core\Content\Repositories\ReferenceProjectionRepository($this->connection()),
         ))->publish($entry, 'en', 'user00000001');
 
         $live = (string) $this->handle(Request::create('/page/et-live', 'GET'))->getContent();

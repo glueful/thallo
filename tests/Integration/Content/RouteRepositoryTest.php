@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Repositories\RouteRepository;
-use App\Content\Seo\RedirectRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Seo\RedirectRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class RouteRepositoryTest extends AppTestCase
 {

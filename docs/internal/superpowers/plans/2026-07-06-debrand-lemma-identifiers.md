@@ -50,7 +50,7 @@ Root app: glueful/lemma → glueful/thallo
 ### B. Other class / interface renames (Rule C — drop redundant `Lemma`, product root = `Thallo`)
 
 ```
-App\Providers\LemmaServiceProvider                    → App\Providers\ThalloServiceProvider   (names the product → Thallo)
+App\Providers\LemmaServiceProvider                    → App\Providers\CoreServiceProvider   (names the product → Thallo)
 Glueful\Lemma\Contracts\Context\LemmaContext          → Thallo\Contracts\Context\Context       (namespace already scopes it)
 App\Content\Context\EngineLemmaContext                → App\Content\Context\EngineContext
 App\Content\ImportExport\LemmaContentExporter         → App\Content\ImportExport\ContentExporter
@@ -164,7 +164,7 @@ Brand literal (Rule C):
 - Root `composer.json`: `name`, `repositories` path entries, `require` of the 9 packages, `scripts` (test DB name), `description`.
 - Root `config/lemma.php` → `config/thallo.php`; 4 package configs → bare-capability files/keys; `config/extensions.php` provider FQCNs; `config/schedule.php`, `config/documentation.php` refs.
 - `database/migrations/*Lemma*` + `database/dependent-migrations/004_*` classes/files; one rename migration.
-- `routes/lemma_*.php` → `routes/*.php` + `App\Providers\ThalloServiceProvider` route/middleware/command wiring.
+- `routes/lemma_*.php` → `routes/*.php` + `App\Providers\CoreServiceProvider` route/middleware/command wiring.
 - `admin/src/**` (~10 files with `lemma-*`) CSS/components/protocol/const.
 - `.env.example`, tracked docs.
 
@@ -259,10 +259,10 @@ git mv packages/thallo-collections/src/LemmaCollectionsServiceProvider.php packa
 perl -pi -e 's/\bLemmaCollectionsServiceProvider\b/CollectionsServiceProvider/g' $(git grep -rl LemmaCollectionsServiceProvider)
 ```
 Do the same for `LemmaAnalyticsServiceProvider`, `LemmaImportersServiceProvider`, `LemmaNavigationServiceProvider`, `LemmaRenderServiceProvider`, `LemmaSearchServiceProvider`, `LemmaSeoServiceProvider`, `LemmaWorkflowServiceProvider` → drop `Lemma`.
-- [ ] **Step 2:** App root provider `App\Providers\LemmaServiceProvider` → `ThalloServiceProvider` (class + `app/Providers/LemmaServiceProvider.php`); update `bootstrap/app.php` / `config/app.php` / `config/extensions.php` registrations.
+- [ ] **Step 2:** App root provider `App\Providers\LemmaServiceProvider` → `CoreServiceProvider` (class + `app/Providers/LemmaServiceProvider.php`); update `bootstrap/app.php` / `config/app.php` / `config/extensions.php` registrations.
 ```bash
-git mv app/Providers/LemmaServiceProvider.php app/Providers/ThalloServiceProvider.php
-perl -pi -e 's/\bLemmaServiceProvider\b/ThalloServiceProvider/g' $(git grep -rl 'LemmaServiceProvider')
+git mv app/Providers/LemmaServiceProvider.php app/Providers/CoreServiceProvider.php
+perl -pi -e 's/\bLemmaServiceProvider\b/CoreServiceProvider/g' $(git grep -rl 'LemmaServiceProvider')
 ```
 - [ ] **Step 3:** Remaining classes (interface, context impl, importer/exporter, middleware class):
 ```bash
@@ -287,7 +287,7 @@ php glueful list >/dev/null && echo "CLI boots"
 Expected: only `*Lemma*` migration class names remain; suite matches baseline.
 - [ ] **Step 6:** Commit.
 ```bash
-git commit -am "classes: drop Lemma from providers/middleware/context/importers/tests; app provider → ThalloServiceProvider"
+git commit -am "classes: drop Lemma from providers/middleware/context/importers/tests; app provider → CoreServiceProvider"
 ```
 
 ---
@@ -358,7 +358,7 @@ git commit -am "db: strip lemma_ from the 7 tables + fidx_ index prefix (+ renam
 ```bash
 git mv config/lemma.php config/thallo.php
 perl -pi -e "s/config\\(([^,]+),\\s*'lemma\\./config(\$1, 'thallo./g; s/'lemma\\.'/'thallo.'/g" $(git grep -rl "'lemma\\." -- '*.php')
-# also update App\Providers\ThalloServiceProvider where it loads/merges the core 'lemma' config tree → 'thallo'
+# also update App\Providers\CoreServiceProvider where it loads/merges the core 'lemma' config tree → 'thallo'
 ```
 - [ ] **Step 2:** Package config files + `mergeConfig` keys → bare capability (matches existing `analytics.php`).
 ```bash
@@ -424,7 +424,7 @@ git commit -am "cli: rename lemma:* → thallo:* (+ render:theme:clone; refresh 
 
 ### Task 6: Route files + middleware aliases + provider wiring
 
-**Files:** `routes/lemma_*.php`, alias registrations in `App\Providers\ThalloServiceProvider`, every `->middleware('lemma_…')`, `config/documentation.php` doc stubs.
+**Files:** `routes/lemma_*.php`, alias registrations in `App\Providers\CoreServiceProvider`, every `->middleware('lemma_…')`, `config/documentation.php` doc stubs.
 
 - [ ] **Step 1:** Rename route files + update loaders.
 ```bash
@@ -441,7 +441,7 @@ perl -pi -e 's/lemma_admin_spa/admin_spa/g; s/lemma_admin/admin/g; s/lemma_conte
 perl -pi -e 's/\blemma_permission\b/content_permission/g; s/\blemma_delivery_access\b/delivery_access/g' \
   $(git grep -rl 'lemma_permission\|lemma_delivery_access' -- '*.php')
 ```
-Confirm the alias registrations in `App\Providers\ThalloServiceProvider` (`'alias' => ['content_permission']`, `['delivery_access']`) match.
+Confirm the alias registrations in `App\Providers\CoreServiceProvider` (`'alias' => ['content_permission']`, `['delivery_access']`) match.
 - [ ] **Step 3:** Verify routes register + test.
 ```bash
 git grep -n "lemma_admin\|lemma_content\|lemma_permission\|lemma_delivery_access" -- '*.php'   # expect: no output

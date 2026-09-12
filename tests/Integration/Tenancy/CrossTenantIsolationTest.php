@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ScheduleRepository;
-use App\Tests\Support\TenantOracleTestCase;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ScheduleRepository;
+use Thallo\Core\Tests\Support\TenantOracleTestCase;
 use Glueful\Extensions\Contracts\Tenancy\TenantContextRequiredException;
 use Thallo\Analytics\Facts\AnalyticsFact;
 use Thallo\Analytics\Facts\AnalyticsRecorder;

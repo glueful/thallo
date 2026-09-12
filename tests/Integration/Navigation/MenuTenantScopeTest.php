@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Navigation;
+namespace Thallo\Core\Tests\Integration\Navigation;
 
-use App\Tests\Support\TenantOracleTestCase;
+use Thallo\Core\Tests\Support\TenantOracleTestCase;
 use Thallo\Navigation\MenuRepository;
 
 final class MenuTenantScopeTest extends TenantOracleTestCase

@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Settings;
+namespace Thallo\Core\Tests\Integration\Settings;
 
-use App\Settings\SettingsStore;
-use App\Settings\SystemKeyReconciler;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Settings\SettingsStore;
+use Thallo\Core\Settings\SystemKeyReconciler;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Contracts\Settings\SystemChannel;
 
 /**
  * Task 1 — settings system/site split with verified data-move.
  *
- * System keys (see {@see \App\Settings\SystemKeys}) live in the unscoped system channel
+ * System keys (see {@see \Thallo\Core\Settings\SystemKeys}) live in the unscoped system channel
  * ({@see \Thallo\Tenancy\System\SystemFlags}); everything else stays in the soon-to-be-scoped
  * `settings` table. The reconciler moves legacy system-key rows out of `settings` with
  * channel-wins precedence and verify-before-delete, idempotently.

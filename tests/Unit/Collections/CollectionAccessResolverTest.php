@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Collections;
+namespace Thallo\Core\Tests\Unit\Collections;
 
 use Glueful\Auth\AuthenticationManager;
 use Glueful\Auth\JwtAuthenticationProvider;

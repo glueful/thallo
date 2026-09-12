@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Schema;
+namespace Thallo\Core\Tests\Unit\Schema;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;

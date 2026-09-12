@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Pipeline;
+namespace Thallo\Core\Tests\Integration\Pipeline;
 
-use App\Content\Events\EntryPublished;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Services\PublishService;
-use App\Content\Validation\ValidationException;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\ValidationException;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 
 /**
@@ -82,7 +82,7 @@ final class AfterCommitDispatchTest extends AppTestCase
             function (EntryPublished $e) use (&$committedAt): void {
                 // When the listener runs the publication pin is already persisted —
                 // proving the dispatch happened after the commit, not before/within.
-                $committedAt = (new \App\Content\Repositories\VersionRepository($this->connection()))
+                $committedAt = (new \Thallo\Core\Content\Repositories\VersionRepository($this->connection()))
                     ->findPublication($this->entry, 'en');
             }
         );

@@ -3,7 +3,7 @@ import { authFetch } from '@/api/authFetch'
 import { runtimeConfig } from '@/runtime/config'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 
-// Operator capability switchboard (App\Http\Controllers\CapabilityAdminController::manage/update,
+// Operator capability switchboard (Thallo\Core\Http\Controllers\CapabilityAdminController::manage/update,
 // under /v1/admin/capabilities). Requires system.access — ordinary workspace admins keep only the
 // auth-only discovery feed (useCapabilitiesStore). A flip lands on the NEXT request (the server
 // registry memoizes per boot), so mutations converge the capabilities store instead of assuming

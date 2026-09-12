@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Content\Http\RequirePermission;
-use App\Http\Middleware\AdminTenantBindingMiddleware;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Http\RequirePermission;
+use Thallo\Core\Http\Middleware\AdminTenantBindingMiddleware;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;
@@ -27,13 +27,13 @@ use Symfony\Component\HttpFoundation\Request;
  *  - `content_permission` decisions (the bulk of this matrix) are driven by resolving the REAL,
  *    production-wired middleware straight from the container (`container()->get('content_permission')`
  *    -- the SAME instance `Router::resolveMiddleware()` uses, wired with the real
- *    `CapabilityCatalog` implication source, per {@see \App\Providers\ThalloServiceProvider::
+ *    `CapabilityCatalog` implication source, per {@see \Thallo\Core\Providers\CoreServiceProvider::
  *    makeRequirePermission()}), then invoked directly with a hand-built `Request` carrying the
  *    post-auth `'user'` attribute array (never `'auth.user'`, which only an optional enricher
  *    populates) and, for API-key cases, the `auth_method`/`api_key_scopes` attributes a real
  *    api_key-authenticated request would carry. This mirrors
- *    {@see \App\Tests\Integration\Http\RequirePermissionAnyOfTest} and
- *    {@see \App\Tests\Integration\Http\LocaleRbacApiTest}'s identical, established convention --
+ *    {@see \Thallo\Core\Tests\Integration\Http\RequirePermissionAnyOfTest} and
+ *    {@see \Thallo\Core\Tests\Integration\Http\LocaleRbacApiTest}'s identical, established convention --
  *    the test harness cannot mint bearer JWTs, so a full-kernel dispatch for a JWT-authenticated
  *    principal is not available; testing the REAL authority directly against REAL seeded Aegis
  *    RBAC is the established substitute.
@@ -46,8 +46,8 @@ use Symfony\Component\HttpFoundation\Request;
  *    {@see AdminTenantBindingMiddleware::selectTenant()} (a pure decision function, no I/O): the
  *    default test harness's `admin_tenant_binding` stays an inert passthrough for a full-kernel
  *    dispatch until full tenant resolution is armed
- *    ({@see \App\Tests\Integration\Tenancy\AdminTenantBindingMiddlewareTest}), matching
- *    {@see \App\Tests\Integration\Commerce\TenantResolutionModesTest}'s identical mode-(c)
+ *    ({@see \Thallo\Core\Tests\Integration\Tenancy\AdminTenantBindingMiddlewareTest}), matching
+ *    {@see \Thallo\Core\Tests\Integration\Commerce\TenantResolutionModesTest}'s identical mode-(c)
  *    self-skip (`THALLO_TENANCY_DEV_LINK=1`) -- so this pins the real production decision without
  *    that heavier, opt-in setup.
  *

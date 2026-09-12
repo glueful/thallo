@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Http;
+namespace Thallo\Core\Tests\Unit\Http;
 
-use App\Content\Authorization\PermissionRequirementAuthority;
-use App\Content\Http\RequirePermission;
+use Thallo\Core\Content\Authorization\PermissionRequirementAuthority;
+use Thallo\Core\Content\Http\RequirePermission;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
 use PHPUnit\Framework\TestCase;

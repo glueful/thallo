@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Console;
+namespace Thallo\Core\Tests\Integration\Console;
 
-use App\Setup\Console\DoctorCommand;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Setup\Console\DoctorCommand;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**

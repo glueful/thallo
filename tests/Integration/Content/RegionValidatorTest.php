@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\StarterBlockTypes;
-use App\Content\Regions\RegionValidator;
-use App\Content\Validation\FieldValidator;
-use App\Content\Validation\ValidationException;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypes;
+use Thallo\Core\Content\Regions\RegionValidator;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Content\Validation\ValidationException;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class RegionValidatorTest extends AppTestCase
 {

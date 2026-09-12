@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Commerce\Http\Routing\AdminRouteCatalog;
@@ -40,7 +40,7 @@ use Thallo\Commerce\Http\AdminMountAllowlist;
  * not just declared. The harness cannot mint bearer JWTs (see LocaleRbacApiTest's docblock), so
  * the credential is a real X-API-Key header — ApiKeyAuthenticationProvider's real
  * authentication path — for a user seeded with the `administrator` RBAC role, which already
- * holds `commerce.manage` (see database/dependent-migrations/014_GrantCommercePermissionsToAdministrator.php);
+ * holds `commerce.manage` (see core/database/dependent-migrations/014_GrantCommercePermissionsToAdministrator.php);
  * PermissionRequirementAuthority requires BOTH a matching key scope AND a live RBAC grant for
  * API-key requests (candidate-wise intersection), so the key also carries the `commerce.manage`
  * scope directly.

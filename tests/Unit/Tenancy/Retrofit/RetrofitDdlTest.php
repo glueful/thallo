@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy\Retrofit;
+namespace Thallo\Core\Tests\Unit\Tenancy\Retrofit;
 
 use PHPUnit\Framework\TestCase;
 use Thallo\Tenancy\Retrofit\PostgresRetrofitDdl;

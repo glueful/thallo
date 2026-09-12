@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Pipeline;
+namespace Thallo\Core\Tests\Integration\Pipeline;
 
-use App\Content\Events\EntryPublished;
-use App\Content\Pipeline\Listeners\PurgeCdnListener;
-use App\Content\Pipeline\Listeners\ReindexSearchListener;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Content\Pipeline\Listeners\PurgeCdnListener;
+use Thallo\Core\Content\Pipeline\Listeners\ReindexSearchListener;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
 use Thallo\Contracts\Search\ContentReindexer;
-use App\Content\Services\PublishService;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\RecordingContentReindexer;
-use App\Tests\Support\RecordingEdgeCache;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RecordingContentReindexer;
+use Thallo\Core\Tests\Support\RecordingEdgeCache;
 use Glueful\Cache\Contracts\EdgeCacheInterface;
 use Glueful\Cache\NullEdgeCache;
 use Thallo\Search\Index\NullContentReindexer;

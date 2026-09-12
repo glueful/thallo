@@ -256,7 +256,7 @@ return [
     |
     */
     'errors' => [
-        'schema'   => env('API_DOCS_ERROR_SCHEMA', \App\Http\DTOs\ErrorResponse::class),
+        'schema'   => env('API_DOCS_ERROR_SCHEMA', \Thallo\Core\Http\DTOs\ErrorResponse::class),
         'envelope' => false,
         'always'   => [500],
         'descriptions' => [

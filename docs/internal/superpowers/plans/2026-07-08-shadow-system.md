@@ -507,7 +507,7 @@ git add app/Content/Blocks/StarterBlockTypes.php packages/thallo-render/themes/d
 
 **Files:**
 - Create: `app/Content/Console/SyncBlockTypesCommand.php`
-- Modify: `app/Providers/ThalloServiceProvider.php` (register the command — service def + `commands([...])` list + `use` import)
+- Modify: `app/Providers/CoreServiceProvider.php` (register the command — service def + `commands([...])` list + `use` import)
 - Test: `tests/Integration/Content/SyncBlockTypesTest.php` (create)
 
 **Interfaces:**
@@ -706,7 +706,7 @@ final class SyncBlockTypesCommand extends BaseCommand
 
 - [ ] **Step 4: Register the command**
 
-In `app/Providers/ThalloServiceProvider.php`: add `use App\Content\Console\SyncBlockTypesCommand;` near the other console `use`s; add a service definition mirroring `SeedBlockTypesCommand`'s:
+In `app/Providers/CoreServiceProvider.php`: add `use App\Content\Console\SyncBlockTypesCommand;` near the other console `use`s; add a service definition mirroring `SeedBlockTypesCommand`'s:
 
 ```php
             SyncBlockTypesCommand::class => [
@@ -725,9 +725,9 @@ Expected: PASS (both).
 
 - [ ] **Step 6: phpcs + stage (hold)**
 
-Run: `vendor/bin/phpcs app/Content/Console/SyncBlockTypesCommand.php app/Providers/ThalloServiceProvider.php tests/Integration/Content/SyncBlockTypesTest.php` → 0 errors.
+Run: `vendor/bin/phpcs app/Content/Console/SyncBlockTypesCommand.php app/Providers/CoreServiceProvider.php tests/Integration/Content/SyncBlockTypesTest.php` → 0 errors.
 ```bash
-git add app/Content/Console/SyncBlockTypesCommand.php app/Providers/ThalloServiceProvider.php tests/Integration/Content/SyncBlockTypesTest.php
+git add app/Content/Console/SyncBlockTypesCommand.php app/Providers/CoreServiceProvider.php tests/Integration/Content/SyncBlockTypesTest.php
 ```
 
 ### ✋ PHASE 2 CHECKPOINT — hold for user
@@ -791,7 +791,7 @@ Run:
 ```bash
 vendor/bin/phpcs app/Content/Blocks/StarterBlockTypes.php \
   app/Content/Console/SyncBlockTypesCommand.php \
-  app/Providers/ThalloServiceProvider.php \
+  app/Providers/CoreServiceProvider.php \
   tests/Integration/Render/ShadowTokensTest.php \
   tests/Integration/Render/StyleBlockRenderTest.php \
   tests/Integration/Render/BlockLibraryRenderTest.php \

@@ -23,7 +23,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../vendor/autoload.php';
 
-use App\Signup\SignupCoordinator;
+use Thallo\Core\Signup\SignupCoordinator;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Framework;

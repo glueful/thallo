@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Repositories\ScheduleRepository;
-use App\Content\Scheduling\ScheduleRunner;
-use App\Tests\Support\TenantOracleTestCase;
+use Thallo\Core\Content\Repositories\ScheduleRepository;
+use Thallo\Core\Content\Scheduling\ScheduleRunner;
+use Thallo\Core\Tests\Support\TenantOracleTestCase;
 
 final class ScheduleRunnerTenantScopeTest extends TenantOracleTestCase
 {

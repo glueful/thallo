@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Pipeline;
+namespace Thallo\Core\Tests\Integration\Pipeline;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Services\PublishService;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\RecordingWebhookDispatcher;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RecordingWebhookDispatcher;
 use Glueful\Api\Webhooks\WebhookDispatcher;
 
 /**
  * Proves the webhook-dispatch listener (V1_DESIGN §5) wired in
- * ThalloServiceProvider::boot() forwards content events to the core WebhookDispatcher
+ * CoreServiceProvider::boot() forwards content events to the core WebhookDispatcher
  * with the FROZEN event name + the identity-only payload.
  *
  * Thallo builds no webhook infra: it calls the core

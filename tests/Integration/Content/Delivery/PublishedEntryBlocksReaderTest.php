@@ -2,25 +2,25 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content\Delivery;
+namespace Thallo\Core\Tests\Integration\Content\Delivery;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Delivery\DeliveryItemShaper;
-use App\Content\Delivery\DeliveryRepository;
-use App\Content\Delivery\EnginePublishedEntryBlocksReader;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Services\PublishService;
-use App\Content\Validation\FieldValidator;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Delivery\DeliveryItemShaper;
+use Thallo\Core\Content\Delivery\DeliveryRepository;
+use Thallo\Core\Content\Delivery\EnginePublishedEntryBlocksReader;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Contracts\Content\EntryExistenceReader;
 
 /**
  * Commerce-Slice-2 Fix B: {@see EnginePublishedEntryBlocksReader} — the route-INDEPENDENT,
  * tenant-scoped, published-only entry read {@see \Thallo\Render\EntryBlocksRenderer} composes.
- * Unlike {@see \App\Content\Delivery\EnginePublicRouteResolver::resolveEntry()} (which this
+ * Unlike {@see \Thallo\Core\Content\Delivery\EnginePublicRouteResolver::resolveEntry()} (which this
  * reader deliberately does NOT call), an entry with zero `entry_routes` rows still resolves
  * here — that is the entire point of this seam. Every fail-closed reason is exercised
  * independently: missing, soft-deleted, cross-tenant, non-public-delivery type, and

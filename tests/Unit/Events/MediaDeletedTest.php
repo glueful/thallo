@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Events;
+namespace Thallo\Core\Tests\Unit\Events;
 
-use App\Events\MediaDeleted;
+use Thallo\Core\Events\MediaDeleted;
 use Glueful\Extensions\Audit\Contracts\AuditableEvent;
 use PHPUnit\Framework\TestCase;
 

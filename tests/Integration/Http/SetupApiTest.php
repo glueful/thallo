@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Http\Controllers\AdminConfigController;
-use App\Http\Controllers\SetupController;
-use App\Content\Http\DTOs\Requests\SetupData;
-use App\Setup\SetupService;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Http\Controllers\AdminConfigController;
+use Thallo\Core\Http\Controllers\SetupController;
+use Thallo\Core\Content\Http\DTOs\Requests\SetupData;
+use Thallo\Core\Setup\SetupService;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Users\Repositories\UserRepository;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
@@ -100,7 +100,7 @@ final class SetupApiTest extends AppTestCase
 
         // Default chrome regions seeded (global-regions spec §9): header is
         // logo + navigation(main), footer carries the site name as rich_text.
-        $regions = $this->container()->get(\App\Content\Regions\RegionRepository::class);
+        $regions = $this->container()->get(\Thallo\Core\Content\Regions\RegionRepository::class);
         $header = $regions->find('header');
         self::assertNotNull($header);
         self::assertSame(['logo', 'navigation'], array_column($header['blocks'], 'type'));

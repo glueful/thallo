@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Audit\Contracts\AuditRecorderInterface;
 use Glueful\Extensions\Audit\Support\AuditEntry;
 use Glueful\Extensions\Commerce\Events\LatePaymentRejected;
@@ -35,7 +35,7 @@ use Thallo\Commerce\Payments\LatePaymentVisibilityListener;
  *
  * `security` is the category because it is one of the categories the shipped filter dropdown
  * offers (`admin/src/queries/audit.ts`) and it is the one this app already uses for custody facts
- * (`App\Support\TenancyLifecycleAudit`). A category outside that list would file the entry where
+ * (`Thallo\Core\Support\TenancyLifecycleAudit`). A category outside that list would file the entry where
  * an operator cannot filter for it.
  *
  * ## Why the de-dupe key is the payment reference

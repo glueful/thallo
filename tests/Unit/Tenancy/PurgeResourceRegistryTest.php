@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy;
+namespace Thallo\Core\Tests\Unit\Tenancy;
 
 use Glueful\Bootstrap\ApplicationContext;
 use PHPUnit\Framework\TestCase;

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Support\RoleAssignmentException;
-use App\Support\UserRoleAssignmentPolicy;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Support\RoleAssignmentException;
+use Thallo\Core\Support\UserRoleAssignmentPolicy;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Helpers\Utils;
 

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Http\Controllers\ApiKeyAdminController;
-use App\Http\DTOs\RotateApiKeyData;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Http\Controllers\ApiKeyAdminController;
+use Thallo\Core\Http\DTOs\RotateApiKeyData;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Thallo\Tenancy\ApiKeyBinding\TenantApiKeyBindingRepository;
 

@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Content\Starter\StarterDefinitions;
-use App\Content\Starter\StarterProvenanceRepository;
-use App\Content\Starter\StarterSeedFailpoint;
-use App\Content\Starter\StarterTransaction;
-use App\Content\Starter\TenantSeeder;
-use App\Settings\GeneralSettings;
-use App\Settings\SettingsStore;
-use App\Tests\Support\RetrofittedTenantTestCase;
+use Thallo\Core\Content\Starter\StarterDefinitions;
+use Thallo\Core\Content\Starter\StarterProvenanceRepository;
+use Thallo\Core\Content\Starter\StarterSeedFailpoint;
+use Thallo\Core\Content\Starter\StarterTransaction;
+use Thallo\Core\Content\Starter\TenantSeeder;
+use Thallo\Core\Settings\GeneralSettings;
+use Thallo\Core\Settings\SettingsStore;
+use Thallo\Core\Tests\Support\RetrofittedTenantTestCase;
 use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;
 use Glueful\Extensions\Contracts\Tenancy\TenantProvisioningRunner;
 use Glueful\Helpers\Utils;

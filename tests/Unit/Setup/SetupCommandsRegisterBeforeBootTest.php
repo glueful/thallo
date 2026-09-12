@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Setup;
+namespace Thallo\Core\Tests\Unit\Setup;
 
-use App\Providers\ThalloServiceProvider;
-use App\Setup\Console\CreateAdminCommand;
-use App\Setup\Console\DoctorCommand;
-use App\Setup\Console\ProvisionCommand;
+use Thallo\Core\Providers\CoreServiceProvider;
+use Thallo\Core\Setup\Console\CreateAdminCommand;
+use Thallo\Core\Setup\Console\DoctorCommand;
+use Thallo\Core\Setup\Console\ProvisionCommand;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\ServiceProvider;
 use PHPUnit\Framework\TestCase;
@@ -39,7 +39,7 @@ final class SetupCommandsRegisterBeforeBootTest extends TestCase
         };
         $context = new ApplicationContext(dirname(__DIR__, 3), 'testing');
 
-        (new ThalloServiceProvider($container))->register($context);
+        (new CoreServiceProvider($container))->register($context);
 
         $deferred = ServiceProvider::flushDeferredCommands();
         foreach ([DoctorCommand::class, ProvisionCommand::class, CreateAdminCommand::class] as $command) {

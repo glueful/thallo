@@ -10,7 +10,7 @@ $defaultHosts = array_values(array_filter(array_map(
 
 return [
     'membership' => [
-        'role_authority' => App\Content\Authorization\ThalloMembershipRoleAuthority::class,
+        'role_authority' => Thallo\Core\Content\Authorization\ThalloMembershipRoleAuthority::class,
     ],
     'role_matrix' => [
         'owner' => [

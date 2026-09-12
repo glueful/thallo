@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\Migration\BlockMigrationRepository;
-use App\Content\Blocks\Migration\BlockMigrationService;
-use App\Content\Schema\SchemaParseException;
-use App\Content\Services\ActiveMigrationException;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\Migration\BlockMigrationRepository;
+use Thallo\Core\Content\Blocks\Migration\BlockMigrationService;
+use Thallo\Core\Content\Schema\SchemaParseException;
+use Thallo\Core\Content\Services\ActiveMigrationException;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class BlockMigrationServiceTest extends AppTestCase
 {

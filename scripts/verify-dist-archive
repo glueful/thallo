@@ -35,8 +35,10 @@ must_not_contain_prefix() {
   fi
 }
 
-# The baked admin bundle IS the shipped admin (decision 9).
-must_contain "public/admin/index.html"
+# The baked admin bundle IS the shipped admin (decision 9); it lives in core/resources/admin and
+# thallo:provision publishes a copy into public/admin, which is derived output and never ships.
+must_contain "core/resources/admin/index.html"
+must_not_contain_prefix "public/admin/"
 # The SPA source toolchain never ships.
 must_not_contain_prefix "admin/"
 # Internal engineering record never ships.
@@ -53,7 +55,7 @@ must_not_contain_prefix "config/development/"
 # "body"…: first a floor on the count (lucide has ~1.9k icons; a scanned subset is a few
 # hundred), then every name the sources reference, as a second, specific check.
 LUCIDE_FLOOR=1800
-BUNDLE_JS="$(git archive "$REF" public/admin/assets 2>/dev/null | tar -xO 2>/dev/null || true)"
+BUNDLE_JS="$(git archive "$REF" core/resources/admin/assets 2>/dev/null | tar -xO 2>/dev/null || true)"
 EMBEDDED_COUNT="$(grep -oE '"[a-z0-9-]+":\{"(width|height|body|left|top)' <<< "$BUNDLE_JS" | sort -u | wc -l | tr -d ' ')"
 if [[ "$EMBEDDED_COUNT" -lt "$LUCIDE_FLOOR" ]]; then
   echo "FAIL: the baked bundle embeds $EMBEDDED_COUNT icons; the whole lucide set (>= $LUCIDE_FLOOR) must be embedded (admin/vite.config.ts icon.clientBundle)" >&2
@@ -62,7 +64,7 @@ else
   echo "ok: the baked bundle embeds the lucide set ($EMBEDDED_COUNT icons)"
 fi
 ICON_NAMES="$(git grep -hoE 'i-lucide-[a-z0-9-]+' "$REF" -- \
-    'admin/src/*.ts' 'admin/src/*.vue' 'app/*.php' 'packages/*.php' ':(exclude)*/tests/*' \
+    'admin/src/*.ts' 'admin/src/*.vue' 'core/src/*.php' 'packages/*.php' ':(exclude)*/tests/*' \
   | sed 's/^i-lucide-//' | sort -u || true)"
 if [[ -z "$ICON_NAMES" ]]; then
   echo "FAIL: could not collect icon names from admin/src at $REF" >&2

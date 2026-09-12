@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Delivery\EngineEntryListReader;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\PublishedReferenceRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Services\PublishService;
-use App\Content\Validation\FieldValidator;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Delivery\EngineEntryListReader;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\PublishedReferenceRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Helpers\Utils;
 use Thallo\Contracts\Delivery\EntryListReader;
 

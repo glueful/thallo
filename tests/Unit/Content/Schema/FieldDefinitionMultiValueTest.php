@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content\Schema;
+namespace Thallo\Core\Tests\Unit\Content\Schema;
 
-use App\Content\Schema\FieldDefinition;
-use App\Content\Schema\SchemaParseException;
+use Thallo\Core\Content\Schema\FieldDefinition;
+use Thallo\Core\Content\Schema\SchemaParseException;
 use PHPUnit\Framework\TestCase;
 
 final class FieldDefinitionMultiValueTest extends TestCase

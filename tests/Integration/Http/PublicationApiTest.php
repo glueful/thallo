@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Content\Http\Controllers\PublicationController;
-use App\Content\Http\DTOs\RollbackData;
-use App\Content\Localization\ContentLocaleService;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Services\PublishService;
-use App\Content\Validation\FieldValidator;
-use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Http\Controllers\PublicationController;
+use Thallo\Core\Content\Http\DTOs\RollbackData;
+use Thallo\Core\Content\Localization\ContentLocaleService;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Tests\Support\FakeLocaleManager;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;
 use Glueful\Validation\ValidationException;
@@ -76,7 +76,10 @@ final class PublicationApiTest extends AppTestCase
         self::assertSame(200, $resp->getStatusCode());
         self::assertNotNull((new VersionRepository($this->connection()))->findPublication($this->entry, 'en'));
         $data = json_decode((string) $resp->getContent(), true)['data'];
-        self::assertDataMatchesDtoShape($data, \App\Content\Http\DTOs\Responses\Publication\VersionResultData::class);
+        self::assertDataMatchesDtoShape(
+            $data,
+            \Thallo\Core\Content\Http\DTOs\Responses\Publication\VersionResultData::class,
+        );
     }
 
     public function testPublishRejectsDisabledLocale(): void
@@ -111,7 +114,7 @@ final class PublicationApiTest extends AppTestCase
         // version_uuid + version number — not publish's bare {version_uuid}.
         self::assertDataMatchesDtoShape(
             $data,
-            \App\Content\Http\DTOs\Responses\Publication\RollbackResultData::class,
+            \Thallo\Core\Content\Http\DTOs\Responses\Publication\RollbackResultData::class,
         );
     }
 

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Blocks\Migration\BlockMigrationRepository;
-use App\Tests\Support\TenantOracleTestCase;
+use Thallo\Core\Content\Blocks\Migration\BlockMigrationRepository;
+use Thallo\Core\Tests\Support\TenantOracleTestCase;
 
 final class MigrationTenantScopeTest extends TenantOracleTestCase
 {

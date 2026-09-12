@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Contracts;
+namespace Thallo\Core\Tests\Unit\Contracts;
 
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Schema\FieldDefinition;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\FieldDefinition;
 use Thallo\Contracts\Schema\ContentSchemaReader;
 use Thallo\Contracts\Schema\FieldDescriptor;
 use PHPUnit\Framework\TestCase;

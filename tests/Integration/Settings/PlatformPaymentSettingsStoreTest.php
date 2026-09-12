@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Settings;
+namespace Thallo\Core\Tests\Integration\Settings;
 
-use App\Settings\PlatformPaymentSettingsStore;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Settings\PlatformPaymentSettingsStore;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Encryption\EncryptionService;
 use Thallo\Contracts\Settings\SystemChannel;
 use Thallo\Tenancy\System\SystemFlags;

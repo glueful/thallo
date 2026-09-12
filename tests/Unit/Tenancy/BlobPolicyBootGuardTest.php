@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy;
+namespace Thallo\Core\Tests\Unit\Tenancy;
 
-use App\Providers\ThalloServiceProvider;
+use Thallo\Core\Providers\CoreServiceProvider;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
 use RuntimeException;
@@ -16,7 +16,7 @@ final class BlobPolicyBootGuardTest extends TestCase
         $container = $this->createMock(ContainerInterface::class);
         $container->expects(self::never())->method('has');
 
-        ThalloServiceProvider::assertBlobPolicyReady($container, false);
+        CoreServiceProvider::assertBlobPolicyReady($container, false);
         self::addToAssertionCount(1);
     }
 
@@ -26,6 +26,6 @@ final class BlobPolicyBootGuardTest extends TestCase
         $container->method('has')->willReturn(false);
 
         $this->expectException(RuntimeException::class);
-        ThalloServiceProvider::assertBlobPolicyReady($container, true);
+        CoreServiceProvider::assertBlobPolicyReady($container, true);
     }
 }

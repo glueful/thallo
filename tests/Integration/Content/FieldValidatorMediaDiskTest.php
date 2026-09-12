@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Validation\FieldValidator;
-use App\Content\Validation\ValidationException;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Content\Validation\ValidationException;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class FieldValidatorMediaDiskTest extends AppTestCase
 {
@@ -50,13 +50,17 @@ final class FieldValidatorMediaDiskTest extends AppTestCase
     public function testStrictReferenceValidationRejectsDanglingTargetButAcceptsExistingEntry(): void
     {
         // A real entry to point at, and a soft-deleted one that must not satisfy the reference.
-        $types = new \App\Content\Repositories\ContentTypeRepository($this->connection());
+        $types = new \Thallo\Core\Content\Repositories\ContentTypeRepository($this->connection());
         $type = $types->create([
             'slug' => 'refs-target',
             'name' => 'Refs Target',
             'schema' => [['name' => 'title', 'type' => 'string', 'required' => true]],
         ]);
-        $entries = new \App\Content\Repositories\EntryRepository($this->connection(), $this->appContext(), $types);
+        $entries = new \Thallo\Core\Content\Repositories\EntryRepository(
+            $this->connection(),
+            $this->appContext(),
+            $types,
+        );
         $live = $entries->createEntry($type, 'en', 1, 'user00000001');
         $deleted = $entries->createEntry($type, 'en', 1, 'user00000001');
         $entries->softDelete($deleted);

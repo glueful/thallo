@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Render\RenderContextExtension;
 
 /** Per-block-asset gzip budgets (modern-blocks spec §5): 3,072 bytes each; raising

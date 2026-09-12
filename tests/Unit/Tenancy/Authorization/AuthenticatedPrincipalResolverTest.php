@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy\Authorization;
+namespace Thallo\Core\Tests\Unit\Tenancy\Authorization;
 
-use App\Content\Authorization\AuthenticatedPrincipalResolver;
+use Thallo\Core\Content\Authorization\AuthenticatedPrincipalResolver;
 use Glueful\Auth\UserIdentity;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;

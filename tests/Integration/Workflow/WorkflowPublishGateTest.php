@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Workflow;
+namespace Thallo\Core\Tests\Integration\Workflow;
 
-use App\Capabilities\DefaultCapabilityRegistry;
-use App\Content\Services\PublishService;
-use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Integration\Workflow\Concerns\GrantsPermissions;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Capabilities\DefaultCapabilityRegistry;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Tests\Integration\Workflow\Concerns\GrantsPermissions;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Contracts\Authoring\PublishBlocked;
 use Thallo\Contracts\Capability\Capability;
 use Thallo\Workflow\WorkflowPublishGate;

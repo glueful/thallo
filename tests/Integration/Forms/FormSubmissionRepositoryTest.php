@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Forms;
+namespace Thallo\Core\Tests\Integration\Forms;
 
-use App\Content\Forms\FormSubmission;
-use App\Content\Forms\FormSubmissionRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Forms\FormSubmission;
+use Thallo\Core\Content\Forms\FormSubmissionRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class FormSubmissionRepositoryTest extends AppTestCase
 {

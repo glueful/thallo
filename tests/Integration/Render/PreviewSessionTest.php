@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Content\Http\Controllers\PreviewController;
-use App\Content\Http\DTOs\MintPreviewData;
-use App\Content\Localization\ContentLocaleService;
-use App\Content\Preview\PreviewMinter;
-use App\Content\Preview\PreviewReader;
-use App\Content\Preview\PreviewWorkingCopyStore;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Http\Controllers\PreviewController;
+use Thallo\Core\Content\Http\DTOs\MintPreviewData;
+use Thallo\Core\Content\Localization\ContentLocaleService;
+use Thallo\Core\Content\Preview\PreviewMinter;
+use Thallo\Core\Content\Preview\PreviewReader;
+use Thallo\Core\Content\Preview\PreviewWorkingCopyStore;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Tests\Support\FakeLocaleManager;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
 use Thallo\Contracts\Delivery\PreviewSessionVerifier;
 use Symfony\Component\HttpFoundation\Request;
@@ -663,9 +663,9 @@ final class PreviewSessionTest extends AppTestCase
 
         // Publish the SAME entry: published status + the live-path link appear.
         $types = new ContentTypeRepository($this->connection());
-        (new \App\Content\Repositories\RouteRepository($this->connection()))
+        (new \Thallo\Core\Content\Repositories\RouteRepository($this->connection()))
             ->assign($entry, (string) $types->findBySlug('blog')['uuid'], 'en', 'bar-draft');
-        $this->container()->get(\App\Content\Services\PublishService::class)
+        $this->container()->get(\Thallo\Core\Content\Services\PublishService::class)
             ->publish($entry, 'en', 'user00000001');
         $token = $this->container()->get(PreviewMinter::class)->mint($entry, 'en');
         $html = (string) $controller
@@ -676,7 +676,7 @@ final class PreviewSessionTest extends AppTestCase
 
         // The DB setting (Settings -> General / setup-populated) beats the
         // RENDER_ADMIN_URL deploy fallback the suite env provides.
-        $this->container()->get(\App\Settings\GeneralSettings::class)
+        $this->container()->get(\Thallo\Core\Settings\GeneralSettings::class)
             ->save(['admin_url' => 'https://other-admin.test']);
         $html = (string) $controller
             ->preview(Request::create("/_preview/{$token}", 'GET'), $token)

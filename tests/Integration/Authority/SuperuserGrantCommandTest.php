@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Authority;
+namespace Thallo\Core\Tests\Integration\Authority;
 
-use App\Setup\Console\SuperuserGrantCommand;
-use App\Support\RoleAuthority;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Setup\Console\SuperuserGrantCommand;
+use Thallo\Core\Support\RoleAuthority;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Helpers\Utils;
 use Symfony\Component\Console\Tester\CommandTester;
 

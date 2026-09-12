@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Contracts;
+namespace Thallo\Core\Tests\Unit\Contracts;
 
 use Thallo\Contracts\Search\ContentReindexer;
 use PHPUnit\Framework\TestCase;

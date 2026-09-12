@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Workflow;
+namespace Thallo\Core\Tests\Integration\Workflow;
 
-use App\Content\Events\EntryPublished;
-use App\Content\Events\EntryUpdated;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Content\Events\EntryUpdated;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 use Thallo\Workflow\WorkflowService;
 

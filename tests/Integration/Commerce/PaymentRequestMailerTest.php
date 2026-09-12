@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\RecordingRichEmailChannel;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RecordingRichEmailChannel;
 use Glueful\Extensions\Contracts\Email\EmailTemplateRegistry;
 use Glueful\Notifications\Contracts\Notifiable;
 use Glueful\Notifications\Contracts\NotificationChannel;
@@ -330,9 +330,9 @@ final class PaymentRequestMailerTest extends AppTestCase
         $this->store()->putMany(['thallo-commerce.email.payment_request.enabled' => '1']);
     }
 
-    private function store(): \App\Settings\SettingsStore
+    private function store(): \Thallo\Core\Settings\SettingsStore
     {
-        return $this->container()->get(\App\Settings\SettingsStore::class);
+        return $this->container()->get(\Thallo\Core\Settings\SettingsStore::class);
     }
 
     /** @return array<string,int> */

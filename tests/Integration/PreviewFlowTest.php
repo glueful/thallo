@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration;
+namespace Thallo\Core\Tests\Integration;
 
-use App\Content\Preview\PreviewToken;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Preview\PreviewToken;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Helpers\Utils;
 use Glueful\Permissions\PermissionManager;
@@ -38,7 +38,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  * published) is INVISIBLE to the public delivery API (404) but visible through preview.
  * Preview is the only draft door; delivery can't see drafts.
  *
- * Unlike the controller-level {@see \App\Tests\Integration\Http\PreviewApiTest} (which news
+ * Unlike the controller-level {@see \Thallo\Core\Tests\Integration\Http\PreviewApiTest} (which news
  * up the controller directly), this is the genuine kernel round-trip: routing, the `auth`
  * middleware + API-key provider, the `content_permission` RBAC gate, and the public rate-limited
  * read path all run.
@@ -123,9 +123,9 @@ final class PreviewFlowTest extends AppTestCase
         // controller from the override container directly (established precedent).
         $app = self::bootAppWithConfigOverride('thallo', ['capabilities' => ['thallo.render' => false]]);
         $controller = $app->getContainer()
-            ->get(\App\Content\Http\Controllers\PreviewController::class);
+            ->get(\Thallo\Core\Content\Http\Controllers\PreviewController::class);
         $res = $controller->mint(
-            new \App\Content\Http\DTOs\MintPreviewData(),
+            new \Thallo\Core\Content\Http\DTOs\MintPreviewData(),
             \Symfony\Component\HttpFoundation\Request::create('/'),
             $uuid,
             'en',
@@ -283,7 +283,7 @@ final class PreviewFlowTest extends AppTestCase
     }
 
     /**
-     * The preview-token signing key, derived exactly as App\Content\Preview\ResolvesPreviewKey
+     * The preview-token signing key, derived exactly as Thallo\Core\Content\Preview\ResolvesPreviewKey
      * does (config app.key, decode a base64: prefix to raw bytes), so a hand-minted token
      * verifies against what PreviewReader expects.
      */

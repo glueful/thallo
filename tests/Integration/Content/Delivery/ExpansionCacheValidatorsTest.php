@@ -2,30 +2,30 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content\Delivery;
+namespace Thallo\Core\Tests\Integration\Content\Delivery;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Delivery\DeliveryRepository;
-use App\Content\Delivery\FilterCompiler;
-use App\Content\Delivery\ReferenceResolver;
-use App\Content\Delivery\SortCompiler;
-use App\Content\Http\Controllers\DeliveryController;
-use App\Content\Http\DTOs\Requests\Delivery\DeliveryListQuery;
-use App\Content\Http\DTOs\Requests\Delivery\DeliveryShowQuery;
-use App\Content\Http\DeliveryEtag;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Seo\CanonicalProjector;
-use App\Content\Seo\PathRenderer;
-use App\Content\Seo\RedirectRepository;
-use App\Content\Seo\RouteResolver;
-use App\Content\Services\PublishService;
-use App\Content\Validation\FieldValidator;
-use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Delivery\DeliveryRepository;
+use Thallo\Core\Content\Delivery\FilterCompiler;
+use Thallo\Core\Content\Delivery\ReferenceResolver;
+use Thallo\Core\Content\Delivery\SortCompiler;
+use Thallo\Core\Content\Http\Controllers\DeliveryController;
+use Thallo\Core\Content\Http\DTOs\Requests\Delivery\DeliveryListQuery;
+use Thallo\Core\Content\Http\DTOs\Requests\Delivery\DeliveryShowQuery;
+use Thallo\Core\Content\Http\DeliveryEtag;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Seo\CanonicalProjector;
+use Thallo\Core\Content\Seo\PathRenderer;
+use Thallo\Core\Content\Seo\RedirectRepository;
+use Thallo\Core\Content\Seo\RouteResolver;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Tests\Support\FakeLocaleManager;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Http\Response;
 use Glueful\Support\FieldSelection\Projector;
 use Glueful\Validation\RequestDataHydrator;
@@ -84,7 +84,7 @@ final class ExpansionCacheValidatorsTest extends AppTestCase
                 new RedirectRepository($this->connection()),
                 $routes,
                 $types,
-                new \App\Content\Seo\CanonicalPathBuilder(
+                new \Thallo\Core\Content\Seo\CanonicalPathBuilder(
                     $paths,
                     $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
                 ),
@@ -93,7 +93,7 @@ final class ExpansionCacheValidatorsTest extends AppTestCase
                 $repo,
                 $routes,
                 $types,
-                new \App\Content\Seo\CanonicalPathBuilder(
+                new \Thallo\Core\Content\Seo\CanonicalPathBuilder(
                     $paths,
                     $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
                 ),

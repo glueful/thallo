@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Delivery\EngineMediaVariantUrlResolver;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Delivery\EngineMediaVariantUrlResolver;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 /**
  * Storefront-performance spec §3: the batch variant resolver's three pinned outcomes,

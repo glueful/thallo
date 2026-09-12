@@ -14,13 +14,13 @@ Tenancy has two providers with different lifecycles:
   insert stamping.
 
 For upgrades to `glueful/tenancy` 2.0.0 or later, ensure the control-plane provider appears before
-`App\Providers\ThalloServiceProvider`:
+`App\Providers\CoreServiceProvider`:
 
 ```php
 return [
     'enabled' => [
         'Glueful\\Extensions\\Tenancy\\TenancyControlPlaneProvider',
-        'App\\Providers\\ThalloServiceProvider',
+        'App\\Providers\\CoreServiceProvider',
     ],
 ];
 ```

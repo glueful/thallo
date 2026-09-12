@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Settings\SettingsStore;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Settings\SettingsStore;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Commerce\Support\CommerceSettings;
 use Glueful\Extensions\Commerce\Support\CommerceSettingsOverride;
 use Thallo\Commerce\Settings\SettingsStoreCommerceOverride;
 
 /**
  * Store-settings spec §3.3: the REAL container chain — pack factory →
- * SettingsStoreCommerceOverride → App\Settings\SettingsStore → `settings` rows — reaches
+ * SettingsStoreCommerceOverride → Thallo\Core\Settings\SettingsStore → `settings` rows — reaches
  * Commerce's CommerceSettings reads, with the contract's null-never-throw fallbacks.
  */
 final class CommerceSettingsOverrideTest extends AppTestCase

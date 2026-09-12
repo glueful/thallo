@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Commerce\Catalog\CatalogService;
 use Glueful\Http\Exceptions\Client\NotFoundException;
@@ -23,7 +23,7 @@ use Thallo\Tenancy\System\SystemFlags;
  * TenantResolutionModesTest's identical convention in this same directory) and is flipped
  * live per call, so a single test can simulate two tenants by changing the default between
  * calls. `entries.tenant_uuid` does not exist pre-retrofit (see
- * `App\Tests\Support\TenantOracleTestCase`'s identical stand-in technique) — this class adds it
+ * `Thallo\Core\Tests\Support\TenantOracleTestCase`'s identical stand-in technique) — this class adds it
  * transiently for its own run and drops it in tearDown, so the shared app_test schema other
  * suites see is untouched.
  */

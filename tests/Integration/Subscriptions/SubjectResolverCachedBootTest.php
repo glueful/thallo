@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Subscriptions;
+namespace Thallo\Core\Tests\Integration\Subscriptions;
 
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\BootsFromExtensionProviderCache;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\BootsFromExtensionProviderCache;
 use Glueful\Extensions\Subscriptions\Contracts\SubjectResolverInterface;
 use Glueful\Extensions\Subscriptions\Resolution\DefaultSubjectResolver;
 use Glueful\Extensions\Subscriptions\SubscriptionService;

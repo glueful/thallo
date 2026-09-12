@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Subscriptions;
+namespace Thallo\Core\Tests\Integration\Subscriptions;
 
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\NoCancellationCapabilityGateway;
-use App\Tests\Support\RecordingSubscriptionLifecycleGateway;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\NoCancellationCapabilityGateway;
+use Thallo\Core\Tests\Support\RecordingSubscriptionLifecycleGateway;
 use Glueful\Auth\UserIdentity;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Container\Container;

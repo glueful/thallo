@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Migrations;
+namespace Thallo\Core\Tests\Unit\Migrations;
 
 use PHPUnit\Framework\TestCase;
 

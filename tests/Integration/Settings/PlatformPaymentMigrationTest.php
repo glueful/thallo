@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Settings;
+namespace Thallo\Core\Tests\Integration\Settings;
 
-use App\Settings\Console\MigratePlatformPaymentCredentialsCommand;
-use App\Settings\LegacyPlatformPaymentSettingsReader;
-use App\Settings\LegacyPlatformPaymentSettingsRepository;
-use App\Settings\PlatformPaymentSettingsStore;
-use App\Settings\PlatformPayviaSettingsOverride;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\ScriptedSystemChannel;
+use Thallo\Core\Settings\Console\MigratePlatformPaymentCredentialsCommand;
+use Thallo\Core\Settings\LegacyPlatformPaymentSettingsReader;
+use Thallo\Core\Settings\LegacyPlatformPaymentSettingsRepository;
+use Thallo\Core\Settings\PlatformPaymentSettingsStore;
+use Thallo\Core\Settings\PlatformPayviaSettingsOverride;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\ScriptedSystemChannel;
 use Glueful\Encryption\EncryptionService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Tester\CommandTester;

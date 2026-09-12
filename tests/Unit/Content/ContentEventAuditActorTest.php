@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content;
+namespace Thallo\Core\Tests\Unit\Content;
 
-use App\Content\Events\EntryCreated;
+use Thallo\Core\Content\Events\EntryCreated;
 use PHPUnit\Framework\TestCase;
 
 /**

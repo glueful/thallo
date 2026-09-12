@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Contracts\Billing\PlanCheckoutUrlResolver;
 use Thallo\Contracts\Delivery\EntryTargetResolver;
@@ -22,7 +22,7 @@ use Twig\Environment;
  * and a malformed/absent key all degrade IDENTICALLY — the CTA falls back to the
  * authored `button_url`, byte-identical to a pricing_plan block with no `plan_key` at
  * all. Capability-off and engine-off are proven directly against the real resolver
- * binding in {@see \App\Tests\Integration\Subscriptions\PlanCheckoutUrlResolverTest};
+ * binding in {@see \Thallo\Core\Tests\Integration\Subscriptions\PlanCheckoutUrlResolverTest};
  * from the TEMPLATE's point of view every one of those reasons is simply "the resolver
  * answered null", so this suite exercises that outcome once via a stub and separately
  * proves the unbound-resolver and malformed/absent-key gates, which are genuinely

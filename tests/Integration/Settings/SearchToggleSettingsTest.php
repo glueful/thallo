@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Settings;
+namespace Thallo\Core\Tests\Integration\Settings;
 
-use App\Http\Controllers\GeneralSettingsController;
-use App\Http\DTOs\UpdateGeneralSettingsData;
-use App\Providers\ThalloServiceProvider;
-use App\Settings\GeneralSettings;
-use App\Settings\SettingsStore;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Http\Controllers\GeneralSettingsController;
+use Thallo\Core\Http\DTOs\UpdateGeneralSettingsData;
+use Thallo\Core\Providers\CoreServiceProvider;
+use Thallo\Core\Settings\GeneralSettings;
+use Thallo\Core\Settings\SettingsStore;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Routing\RouteCache;
 use Thallo\Contracts\Capability\Capability;
@@ -20,7 +20,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * The Settings › General search switch (search-toggle): a stored `search_enabled` row —
  * a SYSTEM key, readable before tenant resolution — overrides the deploy-time
- * `thallo.capabilities` map inside ThalloServiceProvider::makeCapabilityRegistry(), so the
+ * `thallo.capabilities` map inside CoreServiceProvider::makeCapabilityRegistry(), so the
  * admin toggle takes effect on the next request with no restart and no `.env` edit.
  */
 final class SearchToggleSettingsTest extends AppTestCase
@@ -67,7 +67,7 @@ final class SearchToggleSettingsTest extends AppTestCase
     public function testRegistryOverlayReflectsTheStoredRow(): void
     {
         $register = function (): bool {
-            $registry = ThalloServiceProvider::makeCapabilityRegistry($this->container());
+            $registry = CoreServiceProvider::makeCapabilityRegistry($this->container());
             $registry->register(new Capability('thallo.search', label: 'Search', description: 'test'));
 
             return $registry->isEnabled('thallo.search');

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy\Retrofit;
+namespace Thallo\Core\Tests\Integration\Tenancy\Retrofit;
 
-use App\Tests\Support\RetrofitHarnessTestCase;
+use Thallo\Core\Tests\Support\RetrofitHarnessTestCase;
 use Thallo\Tenancy\Retrofit\AdditiveRetrofit;
 use Thallo\Tenancy\Retrofit\DefaultTenant;
 use Thallo\Tenancy\Retrofit\RetrofitProgress;

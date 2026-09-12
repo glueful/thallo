@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration;
+namespace Thallo\Core\Tests\Integration;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Seo\RedirectRepository;
-use App\Content\Services\PublishService;
-use App\Content\Validation\FieldValidator;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Seo\RedirectRepository;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Helpers\Utils;
 use Symfony\Component\HttpFoundation\Request;
@@ -21,7 +21,7 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
 /**
  * End-to-end delivery flow through the REAL application kernel.
  *
- * Unlike the controller-level {@see \App\Tests\Integration\Http\DeliveryApiTest} (which
+ * Unlike the controller-level {@see \Thallo\Core\Tests\Integration\Http\DeliveryApiTest} (which
  * news up the controller with the repositories), this test drives a genuine HTTP request
  * through {@see AppTestCase::handle()} (the same entry point as public/index.php) so the
  * full pipeline is exercised: routing (routes/content.php), optional API-key

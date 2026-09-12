@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Signup;
+namespace Thallo\Core\Tests\Unit\Signup;
 
-use App\Signup\SignupException;
-use App\Signup\VerifiedAccountActivator;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Signup\SignupException;
+use Thallo\Core\Signup\VerifiedAccountActivator;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Users\Repositories\UserRepository;
 
 /**
@@ -64,7 +64,7 @@ final class VerifiedAccountActivatorTest extends AppTestCase
         $email = (string) ($overrides['email'] ?? 'shopper@example.test');
         $this->createdEmails[] = $email;
 
-        return $this->container()->get(\App\Signup\SignupIntentRepository::class)->create(array_merge([
+        return $this->container()->get(\Thallo\Core\Signup\SignupIntentRepository::class)->create(array_merge([
             'origin' => 'anonymous',
             'email' => $email,
             'username' => $email,
@@ -125,7 +125,7 @@ final class VerifiedAccountActivatorTest extends AppTestCase
 
     private function signupIntentStatus(string $uuid): ?string
     {
-        $intent = $this->container()->get(\App\Signup\SignupIntentRepository::class)->find($uuid);
+        $intent = $this->container()->get(\Thallo\Core\Signup\SignupIntentRepository::class)->find($uuid);
 
         return $intent === null ? null : (string) $intent['status'];
     }

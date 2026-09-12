@@ -45,7 +45,7 @@ priority tier, with thallo-commerce explicitly `loadAfter` the commerce extensio
 | Thallo\Search | Inert until the `thallo.search` capability is switched on |
 | Thallo\Subscriptions | Active by default — the `thallo.subscriptions` capability is enabled unless explicitly set to `false` in `config/thallo.php` (absent key ⇒ the switch follows its engine, the `DefaultCapabilityRegistry` rule every capability gets — and this engine ships enabled). Its engine (`glueful/subscriptions`) ships enabled in `config/extensions.php` unlike Commerce's tier-2 posture — the "bundled engine enabled by default" consistency rule (design spec §1). Workspace self-serve checkout (`/v1/admin/billing/*`) is gated by `billing.manage`, a per-workspace, role-delegable authority — deliberately disjoint from the platform's `tenancy.manage`/`tenancy.access_any` (a platform-only operator is never granted it, and vice versa) — so enabling the capability never hands checkout/cancel control to platform operators who happen to hold tenancy authority |
 | Thallo\Tenancy | App-side tenancy integration, inert until enforcement |
-| Tenancy **control plane** (`TenancyControlPlaneProvider`) + `App\Providers\ThalloServiceProvider` | Same list, registered first — must pre-exist so workspaces can be enabled later |
+| Tenancy **control plane** (`TenancyControlPlaneProvider`) + `App\Providers\CoreServiceProvider` | Same list, registered first — must pre-exist so workspaces can be enabled later |
 
 **Tier 1 — Core extensions, shipped and enabled.** The `config/extensions.php` allow-list in
 a fresh install:
@@ -120,9 +120,9 @@ extensions-browser-managed, never statically listed.
    public docs alone; → `1.0.0` when Beta has run clean.
 9. **The admin SPA distribution shape is constrained by Packagist** (2026-08-15): dists come
    from `git archive` of the tag — there is no post-archive hook — so the RELEASE COMMIT
-   ITSELF must contain the built `public/admin` (force-added past the gitignore by the release
+   ITSELF must contain the built `core/resources/admin` (force-added past the gitignore by the release
    script) while `/admin` source stays export-ignored. As of this amendment that machinery
-   DOES NOT EXIST: `public/admin` is gitignored with zero tracked files, so a
+   DOES NOT EXIST: `core/resources/admin` is gitignored with zero tracked files, so a
    `create-project --prefer-dist` today ships NO admin at all (source export-ignored, build
    absent from the tag tree) even though the `.gitattributes` comment promises otherwise.
    Hard launch blocker — see the checklist's release-bake gate.
@@ -177,8 +177,8 @@ Execute top-to-bottom when we decide to ship. Each item is small; the point is n
 - [ ] **Seed content**: default theme, starter block types (contributor already ships),
       decide on a sample entry/homepage.
 - [ ] **Admin SPA release bake (HARD GATE — machinery missing, see decision 9):** script the
-      release step (`pnpm build` → `git add -f public/admin` → release commit), then verify
-      `git archive <tag> | tar -t` contains `public/admin/index.html` and does NOT contain
+      release step (`pnpm build` → `git add -f core/resources/admin` → release commit), then verify
+      `git archive <tag> | tar -t` contains `core/resources/admin/index.html` and does NOT contain
       `admin/`; a `create-project` from the tag must serve the admin. The SPA item stays open
       until this workflow exists and has been exercised on a real tag.
 - [ ] **Strip dogfood-only files from the distributed artifact**: `docs/superpowers/`,

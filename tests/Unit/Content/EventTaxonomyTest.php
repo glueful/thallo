@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content;
+namespace Thallo\Core\Tests\Unit\Content;
 
-use App\Content\Events\AssetAttached;
-use App\Content\Events\AssetDetached;
-use App\Content\Events\BaseContentEvent;
-use App\Content\Events\BaseEntryEvent;
-use App\Content\Events\BaseModelEvent;
-use App\Content\Events\EntryCreated;
-use App\Content\Events\EntryDeleted;
-use App\Content\Events\EntryPublished;
-use App\Content\Events\EntryUnpublished;
-use App\Content\Events\EntryUpdated;
-use App\Content\Events\ModelCreated;
-use App\Content\Events\ModelDeleted;
-use App\Content\Events\ModelUpdated;
+use Thallo\Core\Content\Events\AssetAttached;
+use Thallo\Core\Content\Events\AssetDetached;
+use Thallo\Core\Content\Events\BaseContentEvent;
+use Thallo\Core\Content\Events\BaseEntryEvent;
+use Thallo\Core\Content\Events\BaseModelEvent;
+use Thallo\Core\Content\Events\EntryCreated;
+use Thallo\Core\Content\Events\EntryDeleted;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Content\Events\EntryUnpublished;
+use Thallo\Core\Content\Events\EntryUpdated;
+use Thallo\Core\Content\Events\ModelCreated;
+use Thallo\Core\Content\Events\ModelDeleted;
+use Thallo\Core\Content\Events\ModelUpdated;
 use Glueful\Extensions\Audit\Contracts\AuditableEvent;
 use PHPUnit\Framework\TestCase;
 

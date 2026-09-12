@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Collections;
+namespace Thallo\Core\Tests\Integration\Collections;
 
-use App\Collections\Audit\CollectionRowAuditEvent;
-use App\Collections\Audit\CollectionSchemaAuditEvent;
+use Thallo\Core\Collections\Audit\CollectionRowAuditEvent;
+use Thallo\Core\Collections\Audit\CollectionSchemaAuditEvent;
 use Glueful\Events\EventService;
 use Thallo\Collections\Data\Actor;
 use Thallo\Collections\Events\CollectionCreated;
@@ -16,7 +16,7 @@ use Thallo\Collections\Events\CollectionUpdated;
 
 /**
  * Proves the App audit listener is wired to the pack's pure CollectionRow* events: dispatching one
- * through the app EventService triggers CollectionAuditListener (registered in ThalloServiceProvider),
+ * through the app EventService triggers CollectionAuditListener (registered in CoreServiceProvider),
  * which bridges it to a CollectionRowAuditEvent — the AuditableEvent the Audit extension records.
  */
 final class CollectionAuditWiringTest extends CollectionsTestCase

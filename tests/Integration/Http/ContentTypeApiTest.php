@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Content\Http\Controllers\ContentTypeController;
-use App\Content\Http\DTOs\CreateContentTypeData;
-use App\Content\Http\DTOs\UpdateContentTypeSchemaData;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Http\Controllers\ContentTypeController;
+use Thallo\Core\Content\Http\DTOs\CreateContentTypeData;
+use Thallo\Core\Content\Http\DTOs\UpdateContentTypeSchemaData;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;
 use Glueful\Validation\ValidationException;
@@ -49,16 +49,16 @@ final class ContentTypeApiTest extends AppTestCase
         $data = json_decode((string) $resp->getContent(), true)['data'];
         self::assertDataMatchesDtoShape(
             $data,
-            \App\Content\Http\DTOs\Responses\ContentTypes\ContentTypeResultData::class
+            \Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\ContentTypeResultData::class
         );
         self::assertDataMatchesDtoShape(
             $data['content_type'],
-            \App\Content\Http\DTOs\Responses\ContentTypes\ContentTypeData::class
+            \Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\ContentTypeData::class
         );
         foreach ($data['content_type']['schema'] as $field) {
             self::assertDataMatchesDtoShape(
                 $field,
-                \App\Content\Http\DTOs\Responses\ContentTypes\FieldSchemaData::class,
+                \Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\FieldSchemaData::class,
                 exact: false   // toArray() omits falsy keys
             );
         }
@@ -79,13 +79,13 @@ final class ContentTypeApiTest extends AppTestCase
         $data = json_decode((string) $resp->getContent(), true)['data'];
         self::assertDataMatchesDtoShape(
             $data,
-            \App\Content\Http\DTOs\Responses\ContentTypes\ContentTypeListData::class
+            \Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\ContentTypeListData::class
         );
         self::assertNotEmpty($data['content_types']);
         foreach ($data['content_types'] as $item) {
             self::assertDataMatchesDtoShape(
                 $item,
-                \App\Content\Http\DTOs\Responses\ContentTypes\ContentTypeData::class
+                \Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\ContentTypeData::class
             );
         }
     }
@@ -158,16 +158,16 @@ final class ContentTypeApiTest extends AppTestCase
         $data = json_decode((string) $resp->getContent(), true)['data'];
         self::assertDataMatchesDtoShape(
             $data,
-            \App\Content\Http\DTOs\Responses\ContentTypes\ContentTypeResultData::class
+            \Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\ContentTypeResultData::class
         );
         self::assertDataMatchesDtoShape(
             $data['content_type'],
-            \App\Content\Http\DTOs\Responses\ContentTypes\ContentTypeData::class
+            \Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\ContentTypeData::class
         );
         foreach ($data['content_type']['schema'] as $field) {
             self::assertDataMatchesDtoShape(
                 $field,
-                \App\Content\Http\DTOs\Responses\ContentTypes\FieldSchemaData::class,
+                \Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\FieldSchemaData::class,
                 exact: false
             );
         }
@@ -185,7 +185,7 @@ final class ContentTypeApiTest extends AppTestCase
             new Request(),
         );
         $resp = $this->controller()->update(
-            $this->hydrate(\App\Content\Http\DTOs\UpdateContentTypeData::class, [
+            $this->hydrate(\Thallo\Core\Content\Http\DTOs\UpdateContentTypeData::class, [
                 'public_delivery' => true,
                 'description' => 'Now public',
             ]),
@@ -200,13 +200,13 @@ final class ContentTypeApiTest extends AppTestCase
 
         // Empty name -> 422; unknown slug -> 404.
         $bad = $this->controller()->update(
-            $this->hydrate(\App\Content\Http\DTOs\UpdateContentTypeData::class, ['name' => '  ']),
+            $this->hydrate(\Thallo\Core\Content\Http\DTOs\UpdateContentTypeData::class, ['name' => '  ']),
             new Request(),
             'landing',
         );
         self::assertSame(422, $bad->getStatusCode());
         $missing = $this->controller()->update(
-            $this->hydrate(\App\Content\Http\DTOs\UpdateContentTypeData::class, ['public_delivery' => true]),
+            $this->hydrate(\Thallo\Core\Content\Http\DTOs\UpdateContentTypeData::class, ['public_delivery' => true]),
             new Request(),
             'nope',
         );
@@ -232,7 +232,7 @@ final class ContentTypeApiTest extends AppTestCase
         self::assertTrue($row['mount_at_root']);
 
         $resp = $this->controller()->update(
-            $this->hydrate(\App\Content\Http\DTOs\UpdateContentTypeData::class, ['mount_at_root' => false]),
+            $this->hydrate(\Thallo\Core\Content\Http\DTOs\UpdateContentTypeData::class, ['mount_at_root' => false]),
             new Request(),
             'pages',
         );
@@ -266,16 +266,16 @@ final class ContentTypeApiTest extends AppTestCase
         $data = json_decode((string) $resp->getContent(), true)['data'];
         self::assertDataMatchesDtoShape(
             $data,
-            \App\Content\Http\DTOs\Responses\ContentTypes\ContentTypeResultData::class
+            \Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\ContentTypeResultData::class
         );
         self::assertDataMatchesDtoShape(
             $data['content_type'],
-            \App\Content\Http\DTOs\Responses\ContentTypes\ContentTypeData::class
+            \Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\ContentTypeData::class
         );
         foreach ($data['content_type']['schema'] as $field) {
             self::assertDataMatchesDtoShape(
                 $field,
-                \App\Content\Http\DTOs\Responses\ContentTypes\FieldSchemaData::class,
+                \Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\FieldSchemaData::class,
                 exact: false
             );
         }

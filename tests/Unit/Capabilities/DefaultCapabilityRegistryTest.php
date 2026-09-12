@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Capabilities;
+namespace Thallo\Core\Tests\Unit\Capabilities;
 
-use App\Capabilities\DefaultCapabilityRegistry;
+use Thallo\Core\Capabilities\DefaultCapabilityRegistry;
 use Thallo\Contracts\Capability\Capability;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use PHPUnit\Framework\TestCase;

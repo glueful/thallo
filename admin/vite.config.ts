@@ -28,8 +28,9 @@ export default defineConfig(({ mode }) => {
     // must resolve under /admin/ and deep-link routing uses the HTML5 history fallback there.
     base: '/admin/',
     build: {
-      // Compiled bundle ships as public/admin/ (baked into release tags; gitignored in dev).
-      outDir: fileURLToPath(new URL('../public/admin', import.meta.url)),
+      // Compiled bundle ships as core/resources/admin/ (baked into release tags; gitignored in
+      // dev). thallo:provision publishes a copy into public/admin for the web server.
+      outDir: fileURLToPath(new URL('../core/resources/admin', import.meta.url)),
       emptyOutDir: true,
     },
     server: isDevelopment

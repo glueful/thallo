@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\StarterBlockTypes;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Validation\FieldValidator;
-use App\Content\Validation\ValidationException;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypes;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Content\Validation\ValidationException;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\ThemeLocator;
 use Thallo\Render\TwigFactory;
@@ -225,7 +225,7 @@ final class BlockLibraryRenderTest extends AppTestCase
             ]);
             return $uuid;
         };
-        $store = $this->container()->get(\App\Settings\SettingsStore::class);
+        $store = $this->container()->get(\Thallo\Core\Settings\SettingsStore::class);
         $render = fn(): string => $this->render([
             ['id' => 'l1', 'type' => 'logo', 'data' => ['link_home' => true]],
         ]);

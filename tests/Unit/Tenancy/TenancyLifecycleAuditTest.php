@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy;
+namespace Thallo\Core\Tests\Unit\Tenancy;
 
-use App\Support\TenancyLifecycleAudit;
+use Thallo\Core\Support\TenancyLifecycleAudit;
 use Glueful\Extensions\Audit\Contracts\AuditRecorderInterface;
 use Glueful\Extensions\Audit\Support\AuditEntry;
 use PHPUnit\Framework\TestCase;

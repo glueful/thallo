@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Support;
+namespace Thallo\Core\Tests\Support;
 
-use App\Http\Controllers\ExtensionAdminController;
+use Thallo\Core\Http\Controllers\ExtensionAdminController;
 use Glueful\Extensions\Schema\ExtensionSchemaExecutor;
 use Glueful\Extensions\Schema\ReadinessState;
 

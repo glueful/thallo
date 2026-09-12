@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Setup;
+namespace Thallo\Core\Tests\Unit\Setup;
 
-use App\Http\Controllers\SetupController;
-use App\Setup\Console\ProvisionCommand;
+use Thallo\Core\Http\Controllers\SetupController;
+use Thallo\Core\Setup\Console\ProvisionCommand;
 use Glueful\Installer\EnvWriter;
 use PHPUnit\Framework\TestCase;
 

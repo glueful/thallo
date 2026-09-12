@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Support;
+namespace Thallo\Core\Tests\Unit\Support;
 
-use App\Support\ReadmeRenderer;
+use Thallo\Core\Support\ReadmeRenderer;
 use PHPUnit\Framework\TestCase;
 
 /**

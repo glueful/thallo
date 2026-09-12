@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy\Enablement;
+namespace Thallo\Core\Tests\Unit\Tenancy\Enablement;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Bootstrap\ConfigurationLoader;
-use App\Tests\Support\SpySchemaExecutor;
-use App\Tests\Support\TestableExtensionActivation;
+use Thallo\Core\Tests\Support\SpySchemaExecutor;
+use Thallo\Core\Tests\Support\TestableExtensionActivation;
 use Glueful\Container\Container;
 use Glueful\Extensions\EnabledProviders;
 use Glueful\Extensions\ExtensionManager;

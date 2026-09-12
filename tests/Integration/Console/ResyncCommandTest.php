@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Console;
+namespace Thallo\Core\Tests\Integration\Console;
 
-use App\Content\Console\ResyncCommand;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Console\ResyncCommand;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
 use Thallo\Contracts\Search\ContentReindexer;
-use App\Content\Services\PublishService;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\RecordingArrayCache;
-use App\Tests\Support\RecordingContentReindexer;
-use App\Tests\Support\RecordingWebhookDispatcher;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RecordingArrayCache;
+use Thallo\Core\Tests\Support\RecordingContentReindexer;
+use Thallo\Core\Tests\Support\RecordingWebhookDispatcher;
 use Glueful\Api\Webhooks\WebhookDispatcher;
 use Symfony\Component\Console\Tester\CommandTester;
 

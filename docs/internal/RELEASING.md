@@ -19,7 +19,7 @@
        scripts/release-bake
 
 2. **Create the release commit** (version identity per the repo's conventions + the baked
-   `public/admin` the script staged):
+   `core/resources/admin` the script staged):
 
        git commit -m "Release vX.Y.Z-beta.N — <name>"
 
@@ -27,7 +27,8 @@
 
        scripts/verify-dist-archive
 
-   Green means: `public/admin/index.html` ships; `admin/`, `docs/internal/`,
+   Green means: `core/resources/admin/index.html` ships (and `public/admin/` does not — it is
+   what `thallo:provision` publishes on the install); `admin/`, `docs/internal/`,
    `config/development/` do not.
 
 4. **Tag (annotated) and push** — human step:
@@ -51,7 +52,7 @@
 
 ## After the release
 
-- `git rm -r --cached public/admin` is NOT needed — the gitignore keeps daily builds
+- `git rm -r --cached core/resources/admin` is NOT needed — the gitignore keeps daily builds
   untracked; the next release's bake re-stages fresh output. If a stale baked bundle ever
   shows as modified on dev, that means a release commit was merged back — rebuild and re-bake
   at the next release rather than hand-editing.

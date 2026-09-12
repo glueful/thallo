@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Seo;
+namespace Thallo\Core\Tests\Integration\Seo;
 
-use App\Content\Seo\RedirectRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Seo\RedirectRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class RedirectRepositoryTest extends AppTestCase
 {

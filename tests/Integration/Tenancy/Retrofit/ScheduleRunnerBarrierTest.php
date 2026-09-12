@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy\Retrofit;
+namespace Thallo\Core\Tests\Integration\Tenancy\Retrofit;
 
-use App\Content\Scheduling\ScheduleRunner;
-use App\Tests\Support\RetrofitHarnessTestCase;
+use Thallo\Core\Content\Scheduling\ScheduleRunner;
+use Thallo\Core\Tests\Support\RetrofitHarnessTestCase;
 use Thallo\Tenancy\Retrofit\RetrofitInProgressException;
 use Thallo\Tenancy\Retrofit\RetrofitMaintenanceGuard;
 

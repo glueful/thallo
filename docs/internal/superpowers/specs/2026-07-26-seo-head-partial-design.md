@@ -129,7 +129,7 @@ This applies at BOTH render sites — the homepage render and the entry's own pa
 the entry path correctly declares `/` as its canonical instead of competing with it.
 All other entries get `og.type = 'article'` and the `CanonicalProjector` output.
 
-Binding: `ThalloServiceProvider::services()` binds
+Binding: `CoreServiceProvider::services()` binds
 `SeoHeadResolver::class => EngineSeoHeadProvider` (factory, shared). No capability gate —
 thallo-seo is an always-loaded module with no capability, and the contract is always
 present; render still soft-binds (§3) so a host without the app wiring degrades cleanly.
@@ -204,7 +204,7 @@ through the SAME listener pipeline content events use:
 - The existing content-event listeners read content-event shapes and would silently
   ignore this event — so the app gains ONE dedicated listener,
   `App\Content\Pipeline\Listeners\SeoMetaChangedListener`, registered for it in
-  `ThalloServiceProvider::registerEventListeners()`. It performs both halves itself via
+  `CoreServiceProvider::registerEventListeners()`. It performs both halves itself via
   the same services the content listeners use: drops the internal cache tag
   `thallo:entry:{entryUuid}`, and purges the same surrogate tag through
   `EdgeCacheInterface` with `PurgeCdnListener`'s exact disabled-skip discipline

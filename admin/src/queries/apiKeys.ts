@@ -3,7 +3,7 @@ import { toValue, type MaybeRefOrGetter } from 'vue'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
 
-// ── API keys (App\Http\Controllers\ApiKeyAdminController, /v1/admin/api-keys) ────────────────────
+// ── API keys (Thallo\Core\Http\Controllers\ApiKeyAdminController, /v1/admin/api-keys) ────────────────────
 //
 // Calls go through the typed `client` (openapi-fetch): paths, query params and request bodies are
 // validated against the generated schema. Responses come back in the `{ success, message, data }`

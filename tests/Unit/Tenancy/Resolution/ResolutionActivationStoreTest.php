@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy\Resolution;
+namespace Thallo\Core\Tests\Unit\Tenancy\Resolution;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use RuntimeException;
 use Thallo\Tenancy\Resolution\ResolutionActivationStep;
 use Thallo\Tenancy\Resolution\ResolutionActivationStore;

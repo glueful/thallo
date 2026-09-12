@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Content\Http\Controllers\MigrationController;
-use App\Content\Http\DTOs\MigrationData;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\MigrationRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Http\Controllers\MigrationController;
+use Thallo\Core\Content\Http\DTOs\MigrationData;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\MigrationRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -99,8 +99,8 @@ final class MigrationApiTest extends AppTestCase
         $otherUuid = $this->repo()->recordAndFlip(
             $other,
             1,
-            new \App\Content\Schema\Migration\MigrationOpSet([
-                new \App\Content\Schema\Migration\RenameField('title', 'heading'),
+            new \Thallo\Core\Content\Schema\Migration\MigrationOpSet([
+                new \Thallo\Core\Content\Schema\Migration\RenameField('title', 'heading'),
             ]),
             [['name' => 'heading', 'type' => 'string']],
             0,

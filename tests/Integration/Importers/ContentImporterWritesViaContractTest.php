@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Importers;
+namespace Thallo\Core\Tests\Integration\Importers;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Importers\CsvContentImporter;
 
 final class ContentImporterWritesViaContractTest extends AppTestCase
@@ -41,9 +41,9 @@ final class ContentImporterWritesViaContractTest extends AppTestCase
         );
         $joined = implode(',', $paramTypes);
         self::assertStringContainsString('Thallo\\Contracts\\Authoring\\ContentWriter', $joined);
-        self::assertStringNotContainsString('App\\Content\\Repositories\\EntryRepository', $joined);
-        self::assertStringNotContainsString('App\\Content\\Services\\PublishService', $joined);
-        self::assertStringNotContainsString('App\\Content\\Validation\\FieldValidator', $joined);
+        self::assertStringNotContainsString('Thallo\\Core\\Content\\Repositories\\EntryRepository', $joined);
+        self::assertStringNotContainsString('Thallo\\Core\\Content\\Services\\PublishService', $joined);
+        self::assertStringNotContainsString('Thallo\\Core\\Content\\Validation\\FieldValidator', $joined);
     }
 
     public function testEveryAdapterUsesTheCapabilityGuardTrait(): void
@@ -64,11 +64,11 @@ final class ContentImporterWritesViaContractTest extends AppTestCase
         foreach ($this->adapters() as $cls) {
             $src = (string) file_get_contents((new \ReflectionClass($cls))->getFileName());
             // Mirror the authoritative guard in scripts/check-pack-boundaries.php — the
-            // [^\w] class must include a leading backslash so a bare FQCN (\App\Foo) is caught.
+            // [^\w] class must include a leading backslash so a bare FQCN (\Thallo\Core\Foo) is caught.
             self::assertDoesNotMatchRegularExpression(
-                '/(^|[^\\w])App\\\\/m',
+                '/(^|[^\\w])Thallo\\Core\\\\/m',
                 $src,
-                "{$cls} must not reference App\\",
+                "{$cls} must not reference Thallo\\Core\\",
             );
         }
     }

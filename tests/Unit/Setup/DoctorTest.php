@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Setup;
+namespace Thallo\Core\Tests\Unit\Setup;
 
-use App\Setup\Doctor\Check;
-use App\Setup\Doctor\Doctor;
+use Thallo\Core\Setup\Doctor\Check;
+use Thallo\Core\Setup\Doctor\Doctor;
 use Glueful\Installer\ConnectionTester;
 use Glueful\Installer\DatabaseConfig;
 use PHPUnit\Framework\TestCase;

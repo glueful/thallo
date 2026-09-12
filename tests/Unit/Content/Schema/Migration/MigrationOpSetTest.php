@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content\Schema\Migration;
+namespace Thallo\Core\Tests\Unit\Content\Schema\Migration;
 
-use App\Content\Schema\Migration\DeleteField;
-use App\Content\Schema\Migration\MigrationCollisionException;
-use App\Content\Schema\Migration\MigrationOpSet;
-use App\Content\Schema\Migration\RenameField;
+use Thallo\Core\Content\Schema\Migration\DeleteField;
+use Thallo\Core\Content\Schema\Migration\MigrationCollisionException;
+use Thallo\Core\Content\Schema\Migration\MigrationOpSet;
+use Thallo\Core\Content\Schema\Migration\RenameField;
 use PHPUnit\Framework\TestCase;
 
 final class MigrationOpSetTest extends TestCase

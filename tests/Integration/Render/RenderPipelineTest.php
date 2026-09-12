@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Helpers\Utils;
 use Thallo\Navigation\MenuRepository;
@@ -150,12 +150,12 @@ final class RenderPipelineTest extends AppTestCase
     public function testGoneRendersErrorTemplateWith410(): void
     {
         $this->seedBilingualPublishedEntry();
-        $types = $this->container()->get(\App\Content\Repositories\ContentTypeRepository::class);
-        $entries = $this->container()->get(\App\Content\Repositories\EntryRepository::class);
+        $types = $this->container()->get(\Thallo\Core\Content\Repositories\ContentTypeRepository::class);
+        $entries = $this->container()->get(\Thallo\Core\Content\Repositories\EntryRepository::class);
         $typeUuid = (string) $types->findBySlug('blog')['uuid'];
         $draft = $entries->createEntry($typeUuid, 'en', 1, 'user00000001');
         $entries->saveDraft($draft, 'en', ['title' => 'Draft'], 1, 0, 'user00000001');
-        (new \App\Content\Seo\RedirectRepository($this->connection()))->create([
+        (new \Thallo\Core\Content\Seo\RedirectRepository($this->connection()))->create([
             'content_type_uuid' => $typeUuid,
             'locale' => 'en',
             'source_slug' => 'moved-away',
@@ -176,12 +176,12 @@ final class RenderPipelineTest extends AppTestCase
         // page's Cache-Tag must carry the TARGET's entry tag, byte-identical to
         // InvalidateCacheTagsListener's purge string, so a republish of the target
         // reaches this cached page (spec §4).
-        (new \App\Content\Blocks\BlockTypeRepository($this->connection()))->create([
+        (new \Thallo\Core\Content\Blocks\BlockTypeRepository($this->connection()))->create([
             'slug' => 'related',
             'label' => 'Related',
             'schema' => [['name' => 'post', 'type' => 'reference']],
         ]);
-        $types = $this->container()->get(\App\Content\Repositories\ContentTypeRepository::class);
+        $types = $this->container()->get(\Thallo\Core\Content\Repositories\ContentTypeRepository::class);
         $type = $types->create([
             'slug' => 'page',
             'name' => 'Page',
@@ -191,20 +191,24 @@ final class RenderPipelineTest extends AppTestCase
                 ['name' => 'sections', 'type' => 'blocks'],
             ],
         ]);
-        $entries = new \App\Content\Repositories\EntryRepository($this->connection(), $this->appContext(), $types);
-        $publish = new \App\Content\Services\PublishService(
+        $entries = new \Thallo\Core\Content\Repositories\EntryRepository(
+            $this->connection(),
+            $this->appContext(),
+            $types,
+        );
+        $publish = new \Thallo\Core\Content\Services\PublishService(
             $this->appContext(),
             $entries,
-            new \App\Content\Repositories\VersionRepository($this->connection()),
+            new \Thallo\Core\Content\Repositories\VersionRepository($this->connection()),
             $types,
-            new \App\Content\Validation\FieldValidator(
+            new \Thallo\Core\Content\Validation\FieldValidator(
                 $this->connection(),
                 $this->appContext(),
-                new \App\Content\Blocks\BlockTypeRepository($this->connection()),
+                new \Thallo\Core\Content\Blocks\BlockTypeRepository($this->connection()),
             ),
-            new \App\Content\Repositories\ReferenceProjectionRepository($this->connection()),
+            new \Thallo\Core\Content\Repositories\ReferenceProjectionRepository($this->connection()),
         );
-        $routes = new \App\Content\Repositories\RouteRepository($this->connection());
+        $routes = new \Thallo\Core\Content\Repositories\RouteRepository($this->connection());
 
         // The blocks field is named `sections`, NOT `body`: the reference theme's
         // entry.twig echoes fields.body as text, and echoing an array 500s.
@@ -240,12 +244,12 @@ final class RenderPipelineTest extends AppTestCase
      */
     private function seedPresentationEntry(array $fields, string $slug): string
     {
-        (new \App\Content\Blocks\BlockTypeRepository($this->connection()))->create([
+        (new \Thallo\Core\Content\Blocks\BlockTypeRepository($this->connection()))->create([
             'slug' => 'quote',
             'label' => 'Quote',
             'schema' => [['name' => 'text', 'type' => 'text']],
         ]);
-        $types = $this->container()->get(\App\Content\Repositories\ContentTypeRepository::class);
+        $types = $this->container()->get(\Thallo\Core\Content\Repositories\ContentTypeRepository::class);
         $type = $types->create([
             'slug' => 'pages',
             'name' => 'Pages',
@@ -255,22 +259,27 @@ final class RenderPipelineTest extends AppTestCase
                 ['name' => 'body', 'type' => 'blocks'],
             ],
         ]);
-        $entries = new \App\Content\Repositories\EntryRepository($this->connection(), $this->appContext(), $types);
-        $publish = new \App\Content\Services\PublishService(
+        $entries = new \Thallo\Core\Content\Repositories\EntryRepository(
+            $this->connection(),
+            $this->appContext(),
+            $types,
+        );
+        $publish = new \Thallo\Core\Content\Services\PublishService(
             $this->appContext(),
             $entries,
-            new \App\Content\Repositories\VersionRepository($this->connection()),
+            new \Thallo\Core\Content\Repositories\VersionRepository($this->connection()),
             $types,
-            new \App\Content\Validation\FieldValidator(
+            new \Thallo\Core\Content\Validation\FieldValidator(
                 $this->connection(),
                 $this->appContext(),
-                new \App\Content\Blocks\BlockTypeRepository($this->connection()),
+                new \Thallo\Core\Content\Blocks\BlockTypeRepository($this->connection()),
             ),
-            new \App\Content\Repositories\ReferenceProjectionRepository($this->connection()),
+            new \Thallo\Core\Content\Repositories\ReferenceProjectionRepository($this->connection()),
         );
         $entry = $entries->createEntry($type, 'en', 1, 'user00000001');
         $entries->saveDraft($entry, 'en', $fields, 1, 0, 'user00000001');
-        (new \App\Content\Repositories\RouteRepository($this->connection()))->assign($entry, $type, 'en', $slug);
+        (new \Thallo\Core\Content\Repositories\RouteRepository($this->connection()))
+            ->assign($entry, $type, 'en', $slug);
         $publish->publish($entry, 'en', 'user00000001');
         return $entry;
     }
@@ -410,7 +419,7 @@ final class RenderPipelineTest extends AppTestCase
 
         // Env configured, DB set: DB wins.
         $app = self::bootAppWithConfigOverride('render', ['homepage_entry' => $envHome]);
-        $app->getContainer()->get(\App\Settings\SettingsStore::class)
+        $app->getContainer()->get(\Thallo\Core\Settings\SettingsStore::class)
             ->putMany(['homepage_entry' => $dbHome]);
         $controller = $app->getContainer()
             ->get(\Thallo\Render\Http\Controllers\RenderController::class);
@@ -418,7 +427,7 @@ final class RenderPipelineTest extends AppTestCase
         self::assertStringContainsString('DB Home', $home());
 
         // Clear (forget the row): env fallback ACTUALLY changes the render.
-        $app->getContainer()->get(\App\Settings\GeneralSettings::class)
+        $app->getContainer()->get(\Thallo\Core\Settings\GeneralSettings::class)
             ->save(['homepage_entry' => '']);
         self::assertStringContainsString('Hello', $home());
 
@@ -438,7 +447,7 @@ final class RenderPipelineTest extends AppTestCase
         // request, logs, and falls back — never a runtime 500.
         $envHome = $this->seedBilingualPublishedEntry();
         $app = self::bootAppWithConfigOverride('render', ['homepage_entry' => $envHome]);
-        $app->getContainer()->get(\App\Settings\SettingsStore::class)
+        $app->getContainer()->get(\Thallo\Core\Settings\SettingsStore::class)
             ->putMany(['homepage_entry' => 'gone00000000']); // simulates a later-deleted entry
         $controller = $app->getContainer()
             ->get(\Thallo\Render\Http\Controllers\RenderController::class);
@@ -456,9 +465,9 @@ final class RenderPipelineTest extends AppTestCase
     public function testHomepageSettingWriteTimeValidation(): void
     {
         $published = $this->seedPresentationEntry(['title' => 'Settable'], 'settable');
-        $controller = $this->container()->get(\App\Http\Controllers\GeneralSettingsController::class);
+        $controller = $this->container()->get(\Thallo\Core\Http\Controllers\GeneralSettingsController::class);
         $hydrate = fn(array $body) => (new \Glueful\Validation\RequestDataHydrator())
-            ->hydrate(\App\Http\DTOs\UpdateGeneralSettingsData::class, $body, [], []);
+            ->hydrate(\Thallo\Core\Http\DTOs\UpdateGeneralSettingsData::class, $body, [], []);
 
         // Unknown uuid -> 422.
         $bad = $controller->update($hydrate(['homepage_entry' => 'missing000000']));
@@ -478,7 +487,7 @@ final class RenderPipelineTest extends AppTestCase
             json_decode((string) $cleared->getContent(), true)['data']['settings']['homepage_entry'],
         );
         self::assertNull(
-            $this->container()->get(\App\Settings\SettingsStore::class)->get('homepage_entry'),
+            $this->container()->get(\Thallo\Core\Settings\SettingsStore::class)->get('homepage_entry'),
         );
     }
 
@@ -486,9 +495,9 @@ final class RenderPipelineTest extends AppTestCase
     {
         // Site-identity spec §1: site_favicon + site_logo_dark thread through the
         // DTO, controller save map, and effective settings.
-        $controller = $this->container()->get(\App\Http\Controllers\GeneralSettingsController::class);
+        $controller = $this->container()->get(\Thallo\Core\Http\Controllers\GeneralSettingsController::class);
         $hydrate = fn(array $body) => (new \Glueful\Validation\RequestDataHydrator())
-            ->hydrate(\App\Http\DTOs\UpdateGeneralSettingsData::class, $body, [], []);
+            ->hydrate(\Thallo\Core\Http\DTOs\UpdateGeneralSettingsData::class, $body, [], []);
 
         $res = $controller->update($hydrate([
             'site_favicon' => 'favic0000001',
@@ -499,7 +508,7 @@ final class RenderPipelineTest extends AppTestCase
         self::assertSame('favic0000001', $settings['site_favicon']);
         self::assertSame('dark00000001', $settings['site_logo_dark']);
 
-        $general = $this->container()->get(\App\Settings\GeneralSettings::class);
+        $general = $this->container()->get(\Thallo\Core\Settings\GeneralSettings::class);
         self::assertSame('favic0000001', $general->siteFavicon());
         self::assertSame('dark00000001', $general->siteLogoDark());
     }
@@ -516,9 +525,9 @@ final class RenderPipelineTest extends AppTestCase
 
     public function testThemeSettingRoundTripAndValidation(): void
     {
-        $controller = $this->container()->get(\App\Http\Controllers\GeneralSettingsController::class);
+        $controller = $this->container()->get(\Thallo\Core\Http\Controllers\GeneralSettingsController::class);
         $hydrate = fn(array $body) => (new \Glueful\Validation\RequestDataHydrator())
-            ->hydrate(\App\Http\DTOs\UpdateGeneralSettingsData::class, $body, [], []);
+            ->hydrate(\Thallo\Core\Http\DTOs\UpdateGeneralSettingsData::class, $body, [], []);
 
         // Unknown theme -> 422 (the validator is bound; only 'default' exists here).
         self::assertSame(422, $controller->update($hydrate(['theme' => 'nope']))->getStatusCode());
@@ -526,7 +535,7 @@ final class RenderPipelineTest extends AppTestCase
         // 'default' is always valid; round-trips as the STORED override.
         $ok = $controller->update($hydrate(['theme' => 'default']));
         self::assertSame(200, $ok->getStatusCode());
-        $general = $this->container()->get(\App\Settings\GeneralSettings::class);
+        $general = $this->container()->get(\Thallo\Core\Settings\GeneralSettings::class);
         self::assertSame('default', $general->themeOverride());
 
         // Explicit '' clears the row -> env fallback; the RAW override reads null.
@@ -600,7 +609,7 @@ final class RenderPipelineTest extends AppTestCase
     public function testFaviconLinkObeysTheMediaPredicate(): void
     {
         $this->seedBilingualPublishedEntry();
-        $store = $this->container()->get(\App\Settings\SettingsStore::class);
+        $store = $this->container()->get(\Thallo\Core\Settings\SettingsStore::class);
 
         // Unset: no link tag at all.
         self::assertStringNotContainsString('rel="icon"', $this->renderHello());
@@ -621,7 +630,7 @@ final class RenderPipelineTest extends AppTestCase
     public function testDarkLogoPairRendersOnlyWhenTheVariantIsSet(): void
     {
         $this->seedBilingualPublishedEntry();
-        $store = $this->container()->get(\App\Settings\SettingsStore::class);
+        $store = $this->container()->get(\Thallo\Core\Settings\SettingsStore::class);
         $light = $this->seedBlob();
         $store->putMany(['site_logo' => $light]);
 
@@ -646,21 +655,21 @@ final class RenderPipelineTest extends AppTestCase
     {
         // Reserved system keys (spec §5a): [a-z][a-z0-9_]* already forbids a
         // leading underscore — this test PINS that as the reservation policy.
-        $types = $this->container()->get(\App\Content\Repositories\ContentTypeRepository::class);
-        $this->expectException(\App\Content\Schema\SchemaParseException::class);
-        \App\Content\Schema\ContentTypeSchema::fromArray([
+        $types = $this->container()->get(\Thallo\Core\Content\Repositories\ContentTypeRepository::class);
+        $this->expectException(\Thallo\Core\Content\Schema\SchemaParseException::class);
+        \Thallo\Core\Content\Schema\ContentTypeSchema::fromArray([
             ['name' => '_presentation', 'type' => 'string'],
         ]);
     }
 
     public function testInvalidPresentationValuesFailValidation(): void
     {
-        $validator = new \App\Content\Validation\FieldValidator(
+        $validator = new \Thallo\Core\Content\Validation\FieldValidator(
             $this->connection(),
             $this->appContext(),
-            new \App\Content\Blocks\BlockTypeRepository($this->connection()),
+            new \Thallo\Core\Content\Blocks\BlockTypeRepository($this->connection()),
         );
-        $schema = \App\Content\Schema\ContentTypeSchema::fromArray([
+        $schema = \Thallo\Core\Content\Schema\ContentTypeSchema::fromArray([
             ['name' => 'title', 'type' => 'string'],
         ]);
         // Valid vocabulary passes and is PRESERVED in the cleaned payload.
@@ -673,12 +682,12 @@ final class RenderPipelineTest extends AppTestCase
         try {
             $validator->validate($schema, ['title' => 'T', '_presentation' => ['layout' => 'sideways']]);
             self::fail('expected ValidationException');
-        } catch (\App\Content\Validation\ValidationException) {
+        } catch (\Thallo\Core\Content\Validation\ValidationException) {
         }
         try {
             $validator->validate($schema, ['title' => 'T', '_presentation' => ['sparkles' => true]]);
             self::fail('expected ValidationException');
-        } catch (\App\Content\Validation\ValidationException) {
+        } catch (\Thallo\Core\Content\Validation\ValidationException) {
         }
 
         // Chrome keys (global-regions spec §7): 'default' | 'hidden' only —
@@ -691,7 +700,7 @@ final class RenderPipelineTest extends AppTestCase
         try {
             $validator->validate($schema, ['title' => 'T', '_presentation' => ['footer' => 'variant:mini']]);
             self::fail('expected ValidationException');
-        } catch (\App\Content\Validation\ValidationException) {
+        } catch (\Thallo\Core\Content\Validation\ValidationException) {
         }
     }
 }

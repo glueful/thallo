@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy\Cache;
+namespace Thallo\Core\Tests\Unit\Tenancy\Cache;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
 use Thallo\Tenancy\Cache\TenantHostCachePurger;
 

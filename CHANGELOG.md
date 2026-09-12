@@ -7,7 +7,22 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- **Thallo's application now lives under `core/`, namespace `Thallo\Core`.** `app/`, `routes/`
+  and `database/migrations/` at the root are the operator's own (empty on a fresh install);
+  Thallo loads its routes, migrations (under the historical ledger sources `app` and
+  `app:dependent` — nothing re-runs), config defaults (`core/config`, overridable key by key
+  from `config/`) and the admin bundle (`core/resources/admin`) through its core provider,
+  `Thallo\Core\Providers\CoreServiceProvider`. `thallo:provision` publishes a copy of the
+  bundle into `public/admin` so the web server keeps serving it from disk. This is phase 2 of
+  making Thallo Composer-updatable (docs/internal decision 10); the package itself is still
+  installed with `create-project` in this release.
+
 ### Upgrade Notes
+- If you customised any file under `app/`, `routes/` or `database/migrations/` of a previous
+  release, those directories are now yours and start empty: re-apply customisations only
+  through overrides in `config/` and your own files under those directories. After deploying,
+  `thallo:provision` reports zero pending migrations and publishes the admin bundle.
 - **`composer update` does not upgrade Thallo.** A `create-project` install is Composer's root
   package, which Composer never rewrites: `composer update` moves the framework and the packs
   and leaves Thallo at the version you installed (beta.20 on thallo.dev proved it — framework

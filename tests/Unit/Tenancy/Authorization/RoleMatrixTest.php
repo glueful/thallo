@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy\Authorization;
+namespace Thallo\Core\Tests\Unit\Tenancy\Authorization;
 
-use App\Content\Authorization\RoleMatrix;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Authorization\RoleMatrix;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class RoleMatrixTest extends AppTestCase
 {

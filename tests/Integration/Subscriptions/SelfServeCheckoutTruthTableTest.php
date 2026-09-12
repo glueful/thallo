@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Subscriptions;
+namespace Thallo\Core\Tests\Integration\Subscriptions;
 
-use App\Content\Authorization\CapabilityCatalog;
-use App\Content\Authorization\EffectiveRoleMatrix;
-use App\Content\Authorization\OperatorBypass;
-use App\Content\Authorization\PermissionAuthority;
-use App\Content\Authorization\PermissionRequirementAuthority;
-use App\Content\Authorization\TenantMembershipRoleReader;
-use App\Content\Authorization\TenantRoleOverrideRepository;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\RecordingSubscriptionCheckoutGateway;
-use App\Tests\Support\RecordingSubscriptionLifecycleGateway;
+use Thallo\Core\Content\Authorization\CapabilityCatalog;
+use Thallo\Core\Content\Authorization\EffectiveRoleMatrix;
+use Thallo\Core\Content\Authorization\OperatorBypass;
+use Thallo\Core\Content\Authorization\PermissionAuthority;
+use Thallo\Core\Content\Authorization\PermissionRequirementAuthority;
+use Thallo\Core\Content\Authorization\TenantMembershipRoleReader;
+use Thallo\Core\Content\Authorization\TenantRoleOverrideRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RecordingSubscriptionCheckoutGateway;
+use Thallo\Core\Tests\Support\RecordingSubscriptionLifecycleGateway;
 use Glueful\Application;
 use Glueful\Auth\UserIdentity;
 use Glueful\Bootstrap\ApplicationContext;

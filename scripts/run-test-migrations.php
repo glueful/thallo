@@ -61,7 +61,9 @@ fwrite(STDOUT, sprintf(
     var_export($database, true)
 ));
 
-$manager = new MigrationManager($root . '/database/migrations', null, $context);
+// Thallo's own migrations live under core/ (the MAIN 'app' lane, as config app.paths.migrations
+// points there); the root database/migrations is the operator's.
+$manager = new MigrationManager($root . '/core/database/migrations', null, $context);
 $frameworkMigrations = $root . '/vendor/glueful/framework/migrations';
 $frameworkSources = [
     'auth' => 'glueful/framework',
@@ -192,7 +194,7 @@ if (is_dir($root . '/vendor/glueful/tenancy/migrations')) {
     );
 }
 $manager->addMigrationPath(
-    $root . '/database/dependent-migrations',
+    $root . '/core/database/dependent-migrations',
     MigrationPriority::DEPENDENT,
     'app:dependent'
 );

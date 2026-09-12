@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy\Retrofit;
+namespace Thallo\Core\Tests\Integration\Tenancy\Retrofit;
 
-use App\Tests\Support\RetrofitHarnessTestCase;
+use Thallo\Core\Tests\Support\RetrofitHarnessTestCase;
 use PDO;
 use Thallo\Tenancy\Retrofit\RetrofitDdlFactory;
 use Thallo\Tenancy\Retrofit\UniquenessPreflight;

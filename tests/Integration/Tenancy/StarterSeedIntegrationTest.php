@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Settings\SettingsStore;
-use App\Tests\Support\RetrofittedTenantTestCase;
+use Thallo\Core\Settings\SettingsStore;
+use Thallo\Core\Tests\Support\RetrofittedTenantTestCase;
 use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;
 use Thallo\Tenancy\Contracts\TenantSeedRepair;
 

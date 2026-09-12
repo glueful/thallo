@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Seo;
+namespace Thallo\Core\Tests\Integration\Seo;
 
-use App\Content\Delivery\DeliveryRepository;
-use App\Content\Delivery\EngineContentDeliveryReader;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Seo\CanonicalProjector;
-use App\Content\Seo\PathRenderer;
-use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Delivery\DeliveryRepository;
+use Thallo\Core\Content\Delivery\EngineContentDeliveryReader;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Seo\CanonicalProjector;
+use Thallo\Core\Content\Seo\PathRenderer;
+use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class EnumeratePublishedForSitemapTest extends AppTestCase
 {
@@ -20,7 +20,7 @@ final class EnumeratePublishedForSitemapTest extends AppTestCase
     private function reader(): EngineContentDeliveryReader
     {
         $paths = new PathRenderer('/{locale}/{type}/{slug}', 'https://site.test', 'en');
-        $builder = new \App\Content\Seo\CanonicalPathBuilder(
+        $builder = new \Thallo\Core\Content\Seo\CanonicalPathBuilder(
             $paths,
             $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
         );

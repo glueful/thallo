@@ -2,7 +2,7 @@ import { useQuery } from '@pinia/colada'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
 
-// ── System health (App\Http\Controllers\HealthAdminController, /v1/admin/health) ──────────────────
+// ── System health (Thallo\Core\Http\Controllers\HealthAdminController, /v1/admin/health) ──────────────────
 
 export interface HealthCheck {
   name: string

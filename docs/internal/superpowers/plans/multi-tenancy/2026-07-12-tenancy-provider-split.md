@@ -229,7 +229,7 @@ In `config/serviceproviders.php`:
 return [
     'enabled' => [
         'Glueful\\Extensions\\Tenancy\\TenancyControlPlaneProvider',
-        'App\\Providers\\ThalloServiceProvider',
+        'App\\Providers\\CoreServiceProvider',
     ],
 ];
 ```

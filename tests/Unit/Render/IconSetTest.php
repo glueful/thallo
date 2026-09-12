@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Render;
+namespace Thallo\Core\Tests\Unit\Render;
 
 use Thallo\Render\Templates\IconSet;
 use PHPUnit\Framework\TestCase;

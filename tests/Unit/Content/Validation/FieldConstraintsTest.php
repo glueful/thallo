@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content\Validation;
+namespace Thallo\Core\Tests\Unit\Content\Validation;
 
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Schema\SchemaParseException;
-use App\Content\Validation\FieldValidator;
-use App\Content\Validation\ValidationException;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\SchemaParseException;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Content\Validation\ValidationException;
 use PHPUnit\Framework\TestCase;
 
 /**

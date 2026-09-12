@@ -34,7 +34,7 @@ cannot flip in a minor while beta.2's `^1.78.3` constraint can resolve 1.80.
 
 **Recon facts this plan is built on** (verified 2026-08-18 against the dev database and the
 working tree): live ledger sources and their receipt counts are
-`app` 21, `app:dependent` 11 (registered by `app/Providers/ThalloServiceProvider.php` with an
+`app` 21, `app:dependent` 11 (registered by `app/Providers/CoreServiceProvider.php` with an
 explicit source), `migrations` 3 (thallo-render's bare `loadMigrationsFrom(__DIR__.'/../migrations')`
 — basename-derived source at DEFAULT priority), and `thallo-analytics` 4, `thallo-collections` 3,
 `thallo-commerce` 5, `thallo-navigation` 3, `thallo-seo` 2, `thallo-tenancy` 6,
@@ -420,7 +420,7 @@ resolver evidence per Plan 2's rule.
 - [ ] **Step 1 — closed inventory:** boot on framework 1.80 with Thallo's strict policy and assert every installed package
   with `extra.glueful` declares descriptors or explicit `none`, every descriptor source/path is
   registered exactly once, `undeclaredGluefulPackages()` is empty, and `app:dependent` remains a
-  legacy source owned only by the root-app `ThalloServiceProvider`.
+  legacy source owned only by the root-app `CoreServiceProvider`.
 - [ ] **Step 2 — enable matrix:** for each first-party extension, prove disabled means its
   `on_enable` files are absent from `globalSources()`; executor enable applies only pending core +
   target files and marks state last; disable preserves tables; re-enable catches up. Tenancy is

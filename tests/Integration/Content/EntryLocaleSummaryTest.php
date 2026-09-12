@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Http\DTOs\Responses\Entries\EntryLocaleScheduleData;
-use App\Content\Repositories\EntryRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Http\DTOs\Responses\Entries\EntryLocaleScheduleData;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class EntryLocaleSummaryTest extends AppTestCase
 {

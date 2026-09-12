@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Collections;
+namespace Thallo\Core\Tests\Unit\Collections;
 
-use App\Content\Schema\FieldTypes\DefaultFieldTypeRegistry;
+use Thallo\Core\Content\Schema\FieldTypes\DefaultFieldTypeRegistry;
 use Thallo\Contracts\Schema\FieldTypeDefinition;
 use PHPUnit\Framework\TestCase;
 

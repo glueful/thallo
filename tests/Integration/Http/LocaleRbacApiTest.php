@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Content\Http\RequirePermission;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Http\RequirePermission;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\UserIdentity;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;

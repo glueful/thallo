@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Collections;
+namespace Thallo\Core\Tests\Integration\Collections;
 
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;

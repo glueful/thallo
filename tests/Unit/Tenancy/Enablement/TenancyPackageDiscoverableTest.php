@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy\Enablement;
+namespace Thallo\Core\Tests\Unit\Tenancy\Enablement;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\PackageManifest;
 
 final class TenancyPackageDiscoverableTest extends AppTestCase

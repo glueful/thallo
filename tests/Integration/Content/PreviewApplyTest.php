@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\Migration\BlockMigrationService;
-use App\Content\Http\Controllers\EntryController;
-use App\Content\Http\DTOs\ApplyPreviewData;
-use App\Content\Preview\PreviewMinter;
-use App\Content\Preview\PreviewToken;
-use App\Content\Preview\PreviewWorkingCopyStore;
-use App\Content\Preview\ResolvesPreviewKey;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\Migration\BlockMigrationService;
+use Thallo\Core\Content\Http\Controllers\EntryController;
+use Thallo\Core\Content\Http\DTOs\ApplyPreviewData;
+use Thallo\Core\Content\Preview\PreviewMinter;
+use Thallo\Core\Content\Preview\PreviewToken;
+use Thallo\Core\Content\Preview\PreviewWorkingCopyStore;
+use Thallo\Core\Content\Preview\ResolvesPreviewKey;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 /**

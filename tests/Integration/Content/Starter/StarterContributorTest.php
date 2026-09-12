@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content\Starter;
+namespace Thallo\Core\Tests\Integration\Content\Starter;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Schema\SchemaParseException;
-use App\Content\Starter\DefaultStarterContributorRegistry;
-use App\Content\Starter\Kinds\ContentTypeKind;
-use App\Content\Starter\StarterDefinition;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Schema\SchemaParseException;
+use Thallo\Core\Content\Starter\DefaultStarterContributorRegistry;
+use Thallo\Core\Content\Starter\Kinds\ContentTypeKind;
+use Thallo\Core\Content\Starter\StarterDefinition;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Database\Connection;
 use Thallo\Contracts\Starter\StarterContentTypeContributor;
 use Thallo\Contracts\Starter\StarterContentTypeDefinition;
@@ -23,7 +23,7 @@ use Thallo\Contracts\Starter\StarterContributorRegistry;
  * shared process boot's container (which other suites rely on staying empty for byte-parity).
  *
  * Tenant-provisioning (TenantSeeder) and `thallo:tenant:sync` coverage for this seam lives in
- * {@see \App\Tests\Integration\Content\Starter\StarterContributorTenancyTest} — that harness
+ * {@see \Thallo\Core\Tests\Integration\Content\Starter\StarterContributorTenancyTest} — that harness
  * requires the opt-in Postgres retrofit machinery (THALLO_TENANCY_DEV_LINK=1), same as its
  * siblings StarterSeedIntegrationTest/StarterSyncIntegrationTest.
  */

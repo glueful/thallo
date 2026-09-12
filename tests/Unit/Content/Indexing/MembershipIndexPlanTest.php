@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content\Indexing;
+namespace Thallo\Core\Tests\Unit\Content\Indexing;
 
-use App\Content\Indexing\FilterIndexPlanner;
-use App\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Indexing\FilterIndexPlanner;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
 use PHPUnit\Framework\TestCase;
 
 final class MembershipIndexPlanTest extends TestCase

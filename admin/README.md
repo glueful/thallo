@@ -59,8 +59,8 @@ src/
 This SPA is mounted by the Thallo app via the framework's `serveFrontend()` seam and talks to the
 admin API. A few contracts must hold for the build to drop into a Thallo instance:
 
-- **Build output → the Thallo app's `public/admin/`** (what `serveFrontend('/admin', …)` serves).
-  Set `build.outDir` accordingly (e.g. `../public/admin`). *(not wired yet — default is `dist/`)*
+- **Build output → `core/resources/admin/`** (what `serveFrontend('/admin', …)` serves;
+  `thallo:provision` publishes a copy into `public/admin/` for the web server).
 - **Base path `/admin/`** — the bundle is served under `/admin`, so assets must resolve there.
   Set Vite `base: '/admin/'` (the router already uses `import.meta.env.BASE_URL`).
   *(not wired yet — default is `/`)*
