@@ -44,7 +44,9 @@ the mirrors. Nobody commits to a mirror.
        scripts/release-split vX.Y.Z-beta.N
 
 5. **Push** — human step. The script printed the 15 pushes (mirror `main` + the tag); run them,
-   or re-run with `--push`. Also tag and push the dev repo itself for history:
+   or re-run with `--push`. Re-running is safe: a mirror that already publishes the tag at the
+   same commit receives only `main`, a failed mirror never stops the others, and the summary
+   names what did not land. Also tag and push the dev repo itself for history:
 
        scripts/release-split --push vX.Y.Z-beta.N
        git tag -a vX.Y.Z-beta.N -m "vX.Y.Z-beta.N — <name>" && git push origin dev vX.Y.Z-beta.N
