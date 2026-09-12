@@ -97,6 +97,17 @@ return [
             'retry_attempts' => 1,
         ],
         [
+            'name' => 'update_check',
+            'schedule' => '0 4 * * *',
+            'handler_class' => \Thallo\Core\Updates\UpdateCheckJob::class,
+            'parameters' => [],
+            'description' => 'Ask Packagist whether a newer glueful/thallo-core is published (the update notice)',
+            'enabled' => env('UPDATE_CHECK_ENABLED', true),
+            'queue' => $maintenanceQueue,
+            'timeout' => 60,
+            'retry_attempts' => 0,
+        ],
+        [
             'name' => 'signup_intent_sweep',
             'schedule' => '15 2 * * *',
             'handler_class' => \Thallo\Core\Signup\SignupIntentSweepJob::class,
