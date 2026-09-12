@@ -127,6 +127,31 @@ extensions-browser-managed, never statically listed.
    absent from the tag tree) even though the `.gitattributes` comment promises otherwise.
    Hard launch blocker — see the checklist's release-bake gate.
 
+10. **Thallo becomes a Composer-updatable package before Beta** (2026-09-12). Dogfooding
+    beta.20 on thallo.dev showed that `composer update` on a `create-project` install moves the
+    framework and the packs but never Thallo itself: the application is the ROOT package, and
+    Composer manages only `vendor/`. The published upgrade guide claimed otherwise. Decision:
+    move the application — `app/`, routes, config defaults, migrations, the baked admin bundle,
+    the `packages/thallo-*` modules — into a package (working name `glueful/thallo-core`) that
+    lives in `vendor/`, and reduce the `create-project` template to a thin skeleton (public
+    entrypoint, `.env.example`, `storage/`, theme overrides, `composer.json`) that rarely
+    changes — the `statamic/statamic` + `statamic/cms` shape, and the framework's own
+    api-skeleton shape. `composer update` then upgrades Thallo for real, and an update NOTICE
+    in the admin (below) becomes honest. Until the split ships, the documented upgrade path is
+    a git checkout of the tag (or a fresh `create-project` with `.env` and `storage/` carried
+    across); `docs/upgrading.md` says so from beta.21. The split is a Beta-gate item: "install
+    from the public docs alone" includes upgrading. Design and plan:
+    `docs/internal/plans/2026-09-12-composer-updatable-thallo.md`.
+11. **An update notice in the admin, never an in-place updater** (2026-09-12). Once decision
+    10 ships, a daily scheduled check reads the newest stable `glueful/thallo-core` from
+    Packagist's public API (no install identifier, no telemetry; `UPDATE_CHECK_ENABLED=false`
+    turns it off) and stores it in the system flags; `/admin/config` exposes
+    `update: {current, latest, notesUrl}` and administrators see a dismissible badge/card with
+    the changelog link and the upgrade command. The upgrade itself stays a server-side command
+    (`composer update && php glueful thallo:provision`) run by the deploy user — Composer must
+    not run under the web worker. A managed/hosted edition may add a button later; the
+    self-hosted product does not.
+
 ## 4. Distribution-time checklist
 
 Execute top-to-bottom when we decide to ship. Each item is small; the point is not to forget any.
@@ -158,11 +183,20 @@ Execute top-to-bottom when we decide to ship. Each item is small; the point is n
       until this workflow exists and has been exercised on a real tag.
 - [ ] **Strip dogfood-only files from the distributed artifact**: `docs/superpowers/`,
       `.superpowers/`, local scripts that assume sibling repos (`../extensions` dev-links).
-- [ ] **README + upgrade story**: create-project instructions, how updates arrive
-      (composer update vs template re-pull), extension install guide. Upgrade instructions
-      MUST include clearing compiled containers on every `composer update` — the
+- [ ] **README + upgrade story**: create-project instructions, how updates arrive, extension
+      install guide. RESOLVED IN PRINCIPLE by decisions 10–11 (2026-09-12): `composer update`
+      does NOT update a `create-project` root package — beta.20 on thallo.dev proved it — so
+      (a) `docs/upgrading.md` documents the git-checkout-of-the-tag path from beta.21, and
+      (b) the package split makes `composer update` the real upgrade before Beta. Upgrade
+      instructions MUST include clearing compiled containers on every upgrade — the
       stale-compiled-container failure class was hit twice during development (seam-fallback
       dead code; payment-service guards, which now fail loud by design).
+- [ ] **Package split (decision 10)**: `glueful/thallo-core` published; `create-project`
+      template reduced to the skeleton; a beta.N install upgrades to beta.N+1 with
+      `composer update && php glueful thallo:provision` and nothing else; the clean-machine
+      gate exercises install AND upgrade.
+- [ ] **Update notice (decision 11)**: scheduled Packagist check, `update` in `/admin/config`,
+      admin badge/card, `UPDATE_CHECK_ENABLED` switch; depends on the split.
 - [ ] **Versioning**: the app template gets its own versioned releases; pin extension
       constraints to published versions (standing rule: publish dependencies first).
 - [ ] **Security defaults audit**: production env posture (HTTPS, docs off, installer off),
