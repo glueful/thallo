@@ -74,8 +74,9 @@ listed per capability in [docs/production.md](docs/production.md).
 - [Known limitations](docs/limitations.md)
 - [Upgrading](docs/upgrading.md)
 
-Thallo's own code lives in `core/`; `app/`, `routes/` and `database/migrations/` at the root are
-yours and start empty.
+Thallo's own code is the `glueful/thallo-core` package (this repository's `core/`, published
+with the packs at every release); `app/`, `routes/` and `database/migrations/` in an install are
+yours and start empty. Upgrade with `composer update && php glueful thallo:provision`.
 - [Security policy](SECURITY.md)
 
 ## Support

@@ -1,7 +1,7 @@
 # Composer-updatable Thallo: the package split and the update notice
 
-Status: decided in principle (charter decisions 10 and 11, 2026-09-12); design draft, not
-started. Owner: Michael Tawiah Sowah. Binds to `docs/internal/DISTRIBUTION.md`.
+Status: phases 2 and 3 implemented on `dev` (2026-09-12); beta.21 is the first split release;
+phase 4 (update notice) next. Owner: Michael Tawiah Sowah. Binds to `docs/internal/DISTRIBUTION.md`.
 
 ## Why
 
