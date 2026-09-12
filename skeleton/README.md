@@ -9,11 +9,13 @@ here; Thallo itself is installed by Composer as `glueful/thallo-core` and upgrad
 composer create-project --prefer-dist glueful/thallo my-site
 cd my-site
 php glueful thallo:doctor          # PHP, extensions, paths, database reachability
-php glueful thallo:provision       # database + keys + migrations + admin bundle
+php glueful thallo:provision       # database + keys + migrations + admin bundle + API reference
 ```
 
-Provision prints the link to create the first admin in your browser (or run
-`php glueful thallo:create-admin`).
+or the same through the launcher: `./thallo doctor`, `./thallo provision`, or `./thallo setup`
+for provision followed by the first admin. Provision prints the link to create the first admin
+in your browser (or run `php glueful thallo:create-admin`). The API reference is served at
+`/api-docs`, generated into `docs/` by provision from your install's own routes.
 
 ## Upgrade
 

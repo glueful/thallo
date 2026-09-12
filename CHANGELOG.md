@@ -7,6 +7,23 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- `thallo:provision` generates the API reference: `docs/openapi.json` and the `/api-docs` UI,
+  from the install's live routes, refreshed on every provision (what `php glueful
+  generate:openapi -f --ui` writes). An install from the template answered 404 at `/api-docs`
+  before: the docs route serves those two files, and only the development repository had them.
+- The install template ships the `thallo` launcher beside `glueful`: `./thallo setup`,
+  `./thallo doctor`, `./thallo provision`, `./thallo create-admin`, and every other command
+  passed through to the console.
+
+### Changed
+- `scripts/release-split` is idempotent and resumable: a local split tag that already names
+  the split head is kept (an annotated tag is a new object each time it is written, which a
+  mirror that holds it rejects), a mirror that already publishes the tag receives only `main`,
+  a mirror publishing it at another commit is refused, and every mirror is pushed before the
+  summary names what did not land. The runbook pushes the mirrors before the development
+  repository's own tag.
+
 ## [1.0.0-beta.21] - 2026-09-12 — Developer Preview
 
 Thallo becomes a Composer package. `composer create-project glueful/thallo` installs a thin

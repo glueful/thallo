@@ -67,9 +67,12 @@ fi
 [[ "$DRY" -eq 1 ]] || env_summary "$SCRATCH/.env"
 run_in "$SCRATCH" $PHP glueful migrate:status
 
-echo "+ assert: public/admin/index.html published, no operator code, nothing pending"
+echo "+ assert: public/admin/index.html published, docs/openapi.json generated, no operator code, nothing pending"
 if [[ "$DRY" -eq 0 ]]; then
   test -f "$SCRATCH/public/admin/index.html" || { echo "FAIL: admin bundle was not published" >&2; exit 1; }
+  test -f "$SCRATCH/docs/openapi.json" || { echo "FAIL: API reference (docs/openapi.json) was not generated" >&2; exit 1; }
+  test -f "$SCRATCH/docs/index.html" || { echo "FAIL: API reference UI (docs/index.html) was not generated" >&2; exit 1; }
+  test -x "$SCRATCH/thallo" || { echo "FAIL: the thallo launcher is missing from the template" >&2; exit 1; }
   test -z "$(ls "$SCRATCH/app"/*.php 2>/dev/null)" || { echo "FAIL: skeleton app/ holds PHP" >&2; exit 1; }
   (cd "$SCRATCH" && $PHP glueful migrate:status | grep -q "Pending: 0") || { echo "FAIL: pending migrations after provision" >&2; exit 1; }
   test -f "$SCRATCH/vendor/glueful/thallo-core/composer.json" || { echo "FAIL: thallo-core not installed" >&2; exit 1; }

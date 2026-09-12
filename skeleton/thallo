@@ -1,0 +1,64 @@
+#!/usr/bin/env sh
+':' <<'__NOT_PHP__'
+<?php
+// sh/PHP polyglot guard. `sh` treats the block above as a no-op heredoc and skips it; running
+// this file with PHP by mistake (`php thallo`) lands here and prints a hint instead of dumping
+// the whole script. (PHP ignores the `#!` shebang, so only the harmless `: <<...` line shows.)
+fwrite(STDERR, "thallo is a shell launcher — run it as './thallo <command>', not 'php thallo'.\n");
+exit(1);
+// __halt_compiler() stops PHP tokenizing here, so the sh code below is never parsed.
+__halt_compiler();
+__NOT_PHP__
+# thallo — branded operator front door for a Thallo instance.
+# A thin sh launcher that forwards to the app's own `php glueful` console (which owns the real
+# thallo:provision / thallo:create-admin / thallo:doctor commands). Run it as `./thallo <command>`.
+set -e
+
+# Resolve this script's real location, following symlinks, so `thallo` can be symlinked onto
+# $PATH (e.g. /usr/local/bin/thallo) and still find its sibling `glueful`. macOS has no
+# `readlink -f`, so walk the symlink chain portably.
+SOURCE="$0"
+while [ -h "$SOURCE" ]; do
+  link_dir="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  case "$SOURCE" in
+    /*) ;;                       # absolute target — use as-is
+    *) SOURCE="$link_dir/$SOURCE" ;;  # relative target — resolve against the link's dir
+  esac
+done
+DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+PHP="${PHP:-php}"
+GLUEFUL="$DIR/glueful"
+
+# Present the console as "Thallo" (the entry script reads this) — so `thallo` shows the Thallo
+# brand while bare `php glueful` keeps showing "Glueful CLI".
+export CONSOLE_NAME="Thallo"
+
+cmd="${1:-}"
+[ "$#" -gt 0 ] && shift || true
+
+# `thallo` is a transparent front end for the app's `php glueful` console: every command passes
+# straight through (so a dev gets the FULL framework console — colour and all), with two extras —
+# the `setup` orchestration verb, and bare-name shortcuts for the branded setup commands.
+# Every word is quoted so a $DIR (or any arg) containing spaces is passed intact.
+case "$cmd" in
+  "")
+    # No command → the full, colourised framework command list (all namespaces).
+    exec "$PHP" "$GLUEFUL" list
+    ;;
+  setup)
+    # The interactive front door: run the two setup layers as TWO processes. Layer 2
+    # (create-admin) MUST be a fresh boot so its container-bound DB connection reflects the
+    # .env that Layer 1 (provision) just wrote.
+    "$PHP" "$GLUEFUL" thallo:provision && exec "$PHP" "$GLUEFUL" thallo:create-admin
+    ;;
+  doctor | provision | create-admin)
+    # Branded shortcuts: a bare setup verb maps to its `thallo:` command.
+    exec "$PHP" "$GLUEFUL" "thallo:$cmd" "$@"
+    ;;
+  *)
+    # Everything else passes straight through to the full framework console — including any
+    # `thallo:*`, `migrate:run`, `cache:clear`, `--help`, `list`, etc.
+    exec "$PHP" "$GLUEFUL" "$cmd" "$@"
+    ;;
+esac
