@@ -850,16 +850,16 @@
         },
         {
             "name": "glueful/framework",
-            "version": "v1.85.1",
+            "version": "v1.85.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/glueful/framework.git",
-                "reference": "1e67ecfe343756bd80c098619d182aae4ed9bd3e"
+                "reference": "4912654ca9fb72d694891a10b5583287e3ee281f"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/glueful/framework/zipball/1e67ecfe343756bd80c098619d182aae4ed9bd3e",
-                "reference": "1e67ecfe343756bd80c098619d182aae4ed9bd3e",
+                "url": "https://api.github.com/repos/glueful/framework/zipball/4912654ca9fb72d694891a10b5583287e3ee281f",
+                "reference": "4912654ca9fb72d694891a10b5583287e3ee281f",
                 "shasum": ""
             },
             "require": {
@@ -956,7 +956,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-09-12T06:07:00+00:00"
+            "time": "2026-09-12T08:14:00+00:00"
         },
         {
             "name": "glueful/i18n",

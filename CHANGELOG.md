@@ -12,7 +12,7 @@ as the next release, never a mutated tag.
 Thallo becomes a Composer package. `composer create-project glueful/thallo` installs a thin
 template whose `vendor/` holds `glueful/thallo-core` and the thirteen capability packs, and
 `composer update && php glueful thallo:provision` is every upgrade from here on. Existing
-installs move once; their databases need nothing. Framework 1.85.1 required.
+installs move once; their databases need nothing. Framework 1.85.2 required.
 
 ### Upgrade Notes
 - **Installs created before this release move once to the template.** `create-project` beside
@@ -24,8 +24,9 @@ installs move once; their databases need nothing. Framework 1.85.1 required.
 - Customisations made inside Thallo's own files under a previous release's `app/`, `routes/` or
   `database/migrations/` are not carried by an upgrade; those directories are now yours and
   start empty, so re-apply such changes as overrides in `config/` and your own files there.
-- Framework 1.85.1 is required (repinned): `previous_sources` on migration descriptors and its
-  `migrate:run` adoption fix.
+- Framework 1.85.2 is required (repinned): `previous_sources` on migration descriptors, its
+  `migrate:run` adoption fix, and `env()` reading the real process environment (a CI job or
+  container that exports `DB_*` no longer sends a fresh install's first connections to sqlite).
 
 ### Changed
 - **Thallo is a Composer package.** The application — `core/` in the development repository,
