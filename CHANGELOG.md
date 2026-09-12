@@ -7,6 +7,13 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- Health reports a **Scheduler** check: the scheduled-publishing runner leaves a heartbeat in
+  the system flags every tick, and the check is ok while it is recent, a warning naming the
+  cron line (`* * * * * php /path/to/site/glueful queue:scheduler run`) when it is stale or
+  has never happened. A missing cron entry is now visible in the admin instead of showing up
+  as publishing that never fires.
+
 ### Changed
 - The documented install command carries `--stability=beta` (`create-project` defaults to
   stable, and Thallo is beta-only), and `./thallo update-check` maps to `thallo:update:check`.
