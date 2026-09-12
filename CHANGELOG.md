@@ -7,53 +7,44 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
-### Changed
-- **Thallo is a Composer package.** `composer create-project glueful/thallo` now installs a thin
-  template (the `skeleton/` of this repo) whose `vendor/` holds `glueful/thallo-core` — the
-  application — and the 13 capability packs, all published at the same version. From this
-  release on, `composer update && php glueful thallo:provision` upgrades Thallo. Thallo's
-  migration lanes are declared by the core package's manifest and adopt the rows every earlier
-  database recorded under `app` / `app:dependent` (framework 1.85 `previous_sources`), so
-  nothing re-runs and nothing looks pending after the move. The release is fifteen artifacts
-  (`scripts/release-split`), each verified (`scripts/verify-dist-archive`) and the template is
-  installed against the local packages in CI (`scripts/skeleton-smoke`).
+## [1.0.0-beta.21] - 2026-09-12 — Developer Preview
+
+Thallo becomes a Composer package. `composer create-project glueful/thallo` installs a thin
+template whose `vendor/` holds `glueful/thallo-core` and the thirteen capability packs, and
+`composer update && php glueful thallo:provision` is every upgrade from here on. Existing
+installs move once; their databases need nothing. Framework 1.85.1 required.
 
 ### Upgrade Notes
-- **Installs created before this release move once to the template**: `create-project` beside
+- **Installs created before this release move once to the template.** `create-project` beside
   the old site, carry `.env`, `storage/`, theme overrides and any code of your own across,
-  provision, switch the document root. The database needs nothing — the ledger is adopted.
-  Exact steps in `docs/upgrading.md`. After that, `composer update && php glueful
-  thallo:provision` is every upgrade.
-- Framework 1.85.1 is required (repinned).
+  provision, switch the document root. The database needs nothing: Thallo's migrations were
+  recorded under `app` / `app:dependent` and are adopted under the core package's lanes
+  (framework 1.85 `previous_sources`) — nothing re-runs, nothing looks pending. Exact steps in
+  `docs/upgrading.md`.
+- Customisations made inside Thallo's own files under a previous release's `app/`, `routes/` or
+  `database/migrations/` are not carried by an upgrade; those directories are now yours and
+  start empty, so re-apply such changes as overrides in `config/` and your own files there.
+- Framework 1.85.1 is required (repinned): `previous_sources` on migration descriptors and its
+  `migrate:run` adoption fix.
 
 ### Changed
-- **Thallo's application now lives under `core/`, namespace `Thallo\Core`.** `app/`, `routes/`
-  and `database/migrations/` at the root are the operator's own (empty on a fresh install);
-  Thallo loads its routes, migrations (under the historical ledger sources `app` and
-  `app:dependent` — nothing re-runs), config defaults (`core/config`, overridable key by key
-  from `config/`) and the admin bundle (`core/resources/admin`) through its core provider,
-  `Thallo\Core\Providers\CoreServiceProvider`. `thallo:provision` publishes a copy of the
-  bundle into `public/admin` so the web server keeps serving it from disk. This is phase 2 of
-  making Thallo Composer-updatable (docs/internal decision 10); the package itself is still
-  installed with `create-project` in this release.
-
-### Upgrade Notes
-- If you customised any file under `app/`, `routes/` or `database/migrations/` of a previous
-  release, those directories are now yours and start empty: re-apply customisations only
-  through overrides in `config/` and your own files under those directories. After deploying,
-  `thallo:provision` reports zero pending migrations and publishes the admin bundle.
-- **`composer update` does not upgrade Thallo.** A `create-project` install is Composer's root
-  package, which Composer never rewrites: `composer update` moves the framework and the packs
-  and leaves Thallo at the version you installed (beta.20 on thallo.dev proved it — framework
-  1.84.0 with the beta.19 admin). The upgrade is deploying the next tag. `docs/upgrading.md` is
-  rewritten around that, and the new `scripts/deploy-site <tag>` does it in one command
-  (releases/ + shared/ + current layout, atomic switch, provision, cache clears, FPM reload,
-  doctor; rollback by re-pointing `current`). A Composer-updatable Thallo (the application as
-  a package) is on the road to Beta.
+- **Thallo is a Composer package.** The application — `core/` in the development repository,
+  namespace `Thallo\Core` — is published as `glueful/thallo-core`, a library with a Glueful
+  manifest declaring its provider and its two migration lanes; the packs are published at the
+  same version and pinned to it. The template (`skeleton/`) ships only the operator's tree:
+  entry points, config overrides, `app/`, `routes/`, `database/migrations/`, `themes/`,
+  `storage/`. Thallo loads its routes, migrations, config defaults and the admin bundle from
+  `vendor/glueful/thallo-core`; `thallo:provision` publishes the bundle into `public/admin` so
+  the web server keeps serving it from disk.
+- **The release is fifteen artifacts.** `scripts/release-split` subtree-splits the core, the
+  template and the packs to read-only mirror repositories and tags them together;
+  `scripts/verify-dist-archive` checks every artifact from the release commit;
+  `scripts/skeleton-smoke` installs the template against the local packages (also in CI).
 
 ### Added
-- **`scripts/deploy-site`** — deploy a site from a release tag; refuses branches and commits;
-  `--dry-run` prints every step.
+- **`scripts/deploy-site`** — the website's deploy-from-tag: checks out this repository at a
+  release tag (a complete, lock-pinned install) into a `releases/` + `shared/` + `current`
+  layout with instant rollback; refuses branches and commits; `--dry-run` prints every step.
 
 ## [1.0.0-beta.20] - 2026-09-11 — Developer Preview
 
