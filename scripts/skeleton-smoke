@@ -13,6 +13,8 @@ DRY=0; [[ "${1:-}" == "--dry-run" ]] && DRY=1
 SCRATCH="$(mktemp -d /tmp/thallo-skeleton-XXXXXX)"
 run() { echo "+ $*"; [[ "$DRY" -eq 1 ]] || "$@"; }
 run_in() { local d="$1"; shift; echo "+ (cd $d && $*)"; [[ "$DRY" -eq 1 ]] || (cd "$d" && "$@"); }
+PHP="${PHP:-php}"   # e.g. PHP="php -d error_log=/dev/stderr" to see boot warnings that error_log would otherwise hide
+env_summary() { echo "+ .env: $(grep -E "^(APP_ENV|DB_DRIVER|DB_POOLING_ENABLED|DB_PGSQL_HOST|DB_PGSQL_DATABASE|DB_PGSQL_USERNAME)=" "$1" | tr "\n" " ")"; }
 cleanup() { [[ "$DRY" -eq 1 ]] || rm -rf "$SCRATCH"; }
 trap cleanup EXIT
 
@@ -53,15 +55,23 @@ fi
 echo "+ reset the test database"
 [[ "$DRY" -eq 1 ]] || (cd "$ROOT" && DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/reset-test-db.php)
 
-run_in "$SCRATCH" php glueful thallo:doctor
-run_in "$SCRATCH" php glueful thallo:provision --no-interaction
-run_in "$SCRATCH" php glueful migrate:status
+[[ "$DRY" -eq 1 ]] || env_summary "$SCRATCH/.env"
+run_in "$SCRATCH" $PHP glueful thallo:doctor
+echo "+ (cd $SCRATCH && $PHP glueful thallo:provision --no-interaction)   # a skipped role grant fails the smoke"
+if [[ "$DRY" -eq 0 ]]; then
+  (cd "$SCRATCH" && $PHP glueful thallo:provision --no-interaction) | tee "$SCRATCH/provision.log"
+  if grep -q "grants skipped" "$SCRATCH/provision.log"; then
+    echo "FAIL: provision skipped the install role grants (see above)" >&2; exit 1
+  fi
+fi
+[[ "$DRY" -eq 1 ]] || env_summary "$SCRATCH/.env"
+run_in "$SCRATCH" $PHP glueful migrate:status
 
 echo "+ assert: public/admin/index.html published, no operator code, nothing pending"
 if [[ "$DRY" -eq 0 ]]; then
   test -f "$SCRATCH/public/admin/index.html" || { echo "FAIL: admin bundle was not published" >&2; exit 1; }
   test -z "$(ls "$SCRATCH/app"/*.php 2>/dev/null)" || { echo "FAIL: skeleton app/ holds PHP" >&2; exit 1; }
-  (cd "$SCRATCH" && php glueful migrate:status | grep -q "Pending: 0") || { echo "FAIL: pending migrations after provision" >&2; exit 1; }
+  (cd "$SCRATCH" && $PHP glueful migrate:status | grep -q "Pending: 0") || { echo "FAIL: pending migrations after provision" >&2; exit 1; }
   test -f "$SCRATCH/vendor/glueful/thallo-core/composer.json" || { echo "FAIL: thallo-core not installed" >&2; exit 1; }
 fi
 echo "== skeleton-smoke: OK =="

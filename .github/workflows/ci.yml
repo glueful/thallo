@@ -270,4 +270,7 @@ jobs:
         run: composer install --no-interaction --prefer-dist
 
       - name: Skeleton smoke
+        # error_log to stderr: boot warnings the smoke's PHP processes would otherwise hide.
+        env:
+          PHP: php -d error_log=/dev/stderr
         run: timeout --signal=KILL 900 composer test:skeleton
