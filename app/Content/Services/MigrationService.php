@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Services;
+namespace Thallo\Core\Content\Services;
 
-use App\Content\Jobs\RunBackfillJob;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\MigrationRepository;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Schema\Migration\DeleteField;
-use App\Content\Schema\Migration\MigrationOpSet;
-use App\Content\Schema\Migration\RenameField;
-use App\Content\Schema\SchemaParseException;
+use Thallo\Core\Content\Jobs\RunBackfillJob;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\MigrationRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\Migration\DeleteField;
+use Thallo\Core\Content\Schema\Migration\MigrationOpSet;
+use Thallo\Core\Content\Schema\Migration\RenameField;
+use Thallo\Core\Content\Schema\SchemaParseException;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Queue\QueueManager;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Regions;
+namespace Thallo\Core\Content\Regions;
 
 /**
  * Chrome policy as code (global-regions spec §4/§6): which blocks a region may

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Schema\Migration;
+namespace Thallo\Core\Content\Schema\Migration;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\MigrationRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\MigrationRepository;
 
 final class SchemaProjector
 {

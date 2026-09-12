@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Forms;
+namespace Thallo\Core\Content\Forms;
 
 use Psr\Log\LoggerInterface;
 use Throwable;

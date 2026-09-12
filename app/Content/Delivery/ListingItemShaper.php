@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Seo\CanonicalPathBuilder;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Seo\CanonicalPathBuilder;
 use Glueful\Database\Connection;
 use Glueful\Support\FieldSelection\FieldSelector;
 use Symfony\Component\HttpFoundation\Request;

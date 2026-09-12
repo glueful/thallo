@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Repositories;
+namespace Thallo\Core\Content\Repositories;
 
-use App\Content\Seo\RedirectRepository;
+use Thallo\Core\Content\Seo\RedirectRepository;
 use Glueful\Database\Connection;
 
 final class RouteRepository

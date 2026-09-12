@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\Controllers;
+namespace Thallo\Core\Content\Http\Controllers;
 
-use App\Content\Delivery\DeliveryRepository;
-use App\Content\Http\DTOs\CreateRedirectData;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Seo\RedirectRepository;
-use App\Http\DTOs\ErrorResponse;
+use Thallo\Core\Content\Delivery\DeliveryRepository;
+use Thallo\Core\Content\Http\DTOs\CreateRedirectData;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Seo\RedirectRepository;
+use Thallo\Core\Http\DTOs\ErrorResponse;
 use Glueful\Http\Response;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;

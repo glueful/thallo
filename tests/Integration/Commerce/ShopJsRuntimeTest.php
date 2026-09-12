@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 /**
  * Executable coverage for `shop.js` (storefront-rendering spec §10 / task-11 brief). Mirrors
- * {@see \App\Tests\Integration\Render\ColorModeRuntimeTest}'s Node + hand-stubbed-DOM pattern —
+ * {@see \Thallo\Core\Tests\Integration\Render\ColorModeRuntimeTest}'s Node + hand-stubbed-DOM pattern —
  * no jsdom/vitest harness exists in this repo — but the DOM stub here is a real (if minimal)
  * element/document tree with a tiny attribute-selector matcher, since shop.js discovers its
  * forms/regions via `querySelector(All)`, not via parameters passed in.

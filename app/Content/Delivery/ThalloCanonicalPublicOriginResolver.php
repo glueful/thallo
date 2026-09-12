@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
@@ -13,7 +13,7 @@ use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
 use Thallo\Tenancy\System\SystemFlags;
 
 /**
- * The ONE trusted-origin algorithm (task 6). {@see \App\Content\Media\TenantBlobPublicUrlProvider}
+ * The ONE trusted-origin algorithm (task 6). {@see \Thallo\Core\Content\Media\TenantBlobPublicUrlProvider}
  * delegates its host-selection precedence to {@see originForTenant()} — no other code may
  * duplicate it.
  *

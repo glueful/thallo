@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Forms\Spam;
+namespace Thallo\Core\Content\Forms\Spam;
 
 /**
  * The outcome of a spam-guard check (form-block spec §8). A reject carries a machine

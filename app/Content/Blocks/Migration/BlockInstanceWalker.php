@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Blocks\Migration;
+namespace Thallo\Core\Content\Blocks\Migration;
 
-use App\Content\Blocks\BlockDepth;
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Schema\Migration\MigrationOpSet;
+use Thallo\Core\Content\Blocks\BlockDepth;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\Migration\MigrationOpSet;
 
 /**
  * The ONE structural walk over block instances inside entry fields — shared by the

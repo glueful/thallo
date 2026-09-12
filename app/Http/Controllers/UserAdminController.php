@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Http\DTOs\CreateUserData;
-use App\Http\DTOs\ErrorResponse;
-use App\Http\DTOs\UpdateUserData;
+use Thallo\Core\Http\DTOs\CreateUserData;
+use Thallo\Core\Http\DTOs\ErrorResponse;
+use Thallo\Core\Http\DTOs\UpdateUserData;
 use Glueful\Auth\PasswordHasher;
-use App\Support\ActorHelper;
-use App\Support\AuthorityAudit;
-use App\Support\AuthorityContinuityGuard;
-use App\Support\AuthorityMutator;
-use App\Support\RoleAssignmentException;
-use App\Support\UserRoleAssignmentPolicy;
+use Thallo\Core\Support\ActorHelper;
+use Thallo\Core\Support\AuthorityAudit;
+use Thallo\Core\Support\AuthorityContinuityGuard;
+use Thallo\Core\Support\AuthorityMutator;
+use Thallo\Core\Support\RoleAssignmentException;
+use Thallo\Core\Support\UserRoleAssignmentPolicy;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Aegis\Models\Role;

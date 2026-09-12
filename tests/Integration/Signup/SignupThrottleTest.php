@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Signup;
+namespace Thallo\Core\Tests\Integration\Signup;
 
-use App\Signup\SignupThrottle;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Signup\SignupThrottle;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class SignupThrottleTest extends AppTestCase
 {

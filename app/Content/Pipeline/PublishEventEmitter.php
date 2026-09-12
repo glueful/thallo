@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Pipeline;
+namespace Thallo\Core\Content\Pipeline;
 
-use App\Content\Events\BaseContentEvent;
+use Thallo\Core\Content\Events\BaseContentEvent;
 use Glueful\Auth\Contracts\UserProviderInterface;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Events\EventService;

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
-use App\Content\Blocks\BlockDepth;
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Blocks\BlockDepth;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
 use Glueful\Support\FieldSelection\FieldSelector;
 
 /**

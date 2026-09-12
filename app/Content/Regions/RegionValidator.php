@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Regions;
+namespace Thallo\Core\Content\Regions;
 
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Validation\FieldValidator;
-use App\Content\Validation\ValidationException;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Content\Validation\ValidationException;
 
 /**
  * Region save validation (global-regions spec §4/§6): the blocks list runs the

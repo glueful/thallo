@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs\Responses;
+namespace Thallo\Core\Http\DTOs\Responses;
 
 use Glueful\Http\Contracts\ResponseData;
 
 /**
  * Doc-only shape of the system health report
- * ({@see \App\Http\Controllers\HealthAdminController::show()}) — the framework health checks plus
+ * ({@see \Thallo\Core\Http\Controllers\HealthAdminController::show()}) — the framework health checks plus
  * runtime/system info.
  */
 final class HealthData implements ResponseData

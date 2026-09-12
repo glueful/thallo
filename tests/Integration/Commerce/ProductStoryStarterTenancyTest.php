@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\RetrofittedTenantTestCase;
+use Thallo\Core\Tests\Support\RetrofittedTenantTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 use Thallo\Commerce\Starter\ProductStoryContributor;
 use Thallo\Tenancy\Console\TenantSyncCommand;
@@ -12,10 +12,10 @@ use Thallo\Tenancy\Contracts\TenantSeedRepair;
 
 /**
  * Task 11 — the tenant-provisioning/sync half of the starter "Product story" content-type
- * contribution (design spec §9); {@see \App\Tests\Integration\Commerce\ProductStoryStarterTest}
+ * contribution (design spec §9); {@see \Thallo\Core\Tests\Integration\Commerce\ProductStoryStarterTest}
  * covers the capability gate, boot() write-safety, and the end-to-end linkage, none of which
  * need real multi-tenant infrastructure. Mirrors
- * {@see \App\Tests\Integration\Content\Starter\StarterContributorTenancyTest} (Task 5's own
+ * {@see \Thallo\Core\Tests\Integration\Content\Starter\StarterContributorTenancyTest} (Task 5's own
  * equivalent split) with ONE structural difference: T5's stub 'event' contributor has no
  * production wiring, so that test registers it manually in `setUpBeforeClass()`. This pack's
  * real {@see \Thallo\Commerce\CommerceIntegrationServiceProvider::boot()} ALREADY registers

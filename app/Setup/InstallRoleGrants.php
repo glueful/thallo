@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Setup;
+namespace Thallo\Core\Setup;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;

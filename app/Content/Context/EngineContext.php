@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Context;
+namespace Thallo\Core\Content\Context;
 
-use App\Content\Localization\ContentLocaleService;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Seo\CanonicalPathBuilder;
-use App\Settings\GeneralSettings;
+use Thallo\Core\Content\Localization\ContentLocaleService;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Seo\CanonicalPathBuilder;
+use Thallo\Core\Settings\GeneralSettings;
 use Thallo\Contracts\Context\Context;
 
 final class EngineContext implements Context

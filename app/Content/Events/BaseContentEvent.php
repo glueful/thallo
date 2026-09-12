@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Events;
+namespace Thallo\Core\Content\Events;
 
 use Glueful\Events\Contracts\BaseEvent;
 use Glueful\Extensions\Audit\Contracts\AuditableEvent;

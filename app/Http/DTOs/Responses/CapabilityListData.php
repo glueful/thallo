@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs\Responses;
+namespace Thallo\Core\Http\DTOs\Responses;
 
 use Glueful\Http\Contracts\ResponseData;
 
 /**
  * Doc-only envelope for the capabilities response
- * ({@see \App\Http\Controllers\CapabilityAdminController::index()}).
+ * ({@see \Thallo\Core\Http\Controllers\CapabilityAdminController::index()}).
  */
 final class CapabilityListData implements ResponseData
 {

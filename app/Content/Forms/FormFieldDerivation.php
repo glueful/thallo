@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Forms;
+namespace Thallo\Core\Content\Forms;
 
 /**
  * Derives the normalized field list (form-block spec §3) from the contact-preset block

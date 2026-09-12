@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Pipeline\Listeners;
+namespace Thallo\Core\Content\Pipeline\Listeners;
 
-use App\Content\Events\AssetAttached;
-use App\Content\Events\AssetDetached;
+use Thallo\Core\Content\Events\AssetAttached;
+use Thallo\Core\Content\Events\AssetDetached;
 use Glueful\Bootstrap\ApplicationContext;
 
 /**

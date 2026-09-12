@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Settings\GeneralSettings;
-use App\Setup\SetupService;
+use Thallo\Core\Settings\GeneralSettings;
+use Thallo\Core\Setup\SetupService;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;

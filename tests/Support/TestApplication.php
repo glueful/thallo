@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Support;
+namespace Thallo\Core\Tests\Support;
 
 use Glueful\Application;
 use Glueful\Framework;
@@ -22,7 +22,7 @@ use Glueful\Routing\RouteManifest;
  * router: loadRoutesFrom() sees the file as "already loaded" and returns before registering it.
  *
  * The full `composer test` run mixes the framework-booting Feature test
- * ({@see \App\Tests\TestCase}) with the AppTestCase suites. When these booted independently,
+ * ({@see \Thallo\Core\Tests\TestCase}) with the AppTestCase suites. When these booted independently,
  * whichever booted first consumed the one-shot route loaders and the other was left with a
  * router missing all extension routes (collections requests 404'd).
  *

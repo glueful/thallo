@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\Controllers;
+namespace Thallo\Core\Content\Http\Controllers;
 
-use App\Content\Enums\ScheduleAction;
-use App\Content\Http\DTOs\ScheduleData;
-use App\Content\Localization\ContentLocaleService;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ScheduleRepository;
-use App\Http\DTOs\ErrorResponse;
-use App\Support\ActorHelper;
+use Thallo\Core\Content\Enums\ScheduleAction;
+use Thallo\Core\Content\Http\DTOs\ScheduleData;
+use Thallo\Core\Content\Localization\ContentLocaleService;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ScheduleRepository;
+use Thallo\Core\Http\DTOs\ErrorResponse;
+use Thallo\Core\Support\ActorHelper;
 use Glueful\Http\Response;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;

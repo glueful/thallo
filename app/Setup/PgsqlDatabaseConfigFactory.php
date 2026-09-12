@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Setup;
+namespace Thallo\Core\Setup;
 
 use Glueful\Installer\DatabaseConfig;
 use Glueful\Installer\EnvWriter;

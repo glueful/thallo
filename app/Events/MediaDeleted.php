@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Events;
+namespace Thallo\Core\Events;
 
 use Glueful\Events\Contracts\BaseEvent;
 use Glueful\Extensions\Audit\Contracts\AuditableEvent;
@@ -11,7 +11,7 @@ use Glueful\Extensions\Audit\Contracts\AuditableEventDefaults;
 /**
  * Records a media (blob) soft-delete in the audit log.
  *
- * {@see \App\Http\Controllers\MediaAdminController::destroy()} soft-deletes via a raw `blobs`
+ * {@see \Thallo\Core\Http\Controllers\MediaAdminController::destroy()} soft-deletes via a raw `blobs`
  * status update that bypasses BlobRepository's entity events, so the deletion would otherwise go
  * unaudited (uploads are audited because they go through BlobRepository::create()). Dispatching
  * this AuditableEvent records the deletion in the `media` category, attributed to the acting user.

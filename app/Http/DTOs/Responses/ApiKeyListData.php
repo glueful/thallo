@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs\Responses;
+namespace Thallo\Core\Http\DTOs\Responses;
 
 use Glueful\Http\Contracts\ResponseData;
 
 /**
  * Doc-only shape of the API-key list envelope
- * ({@see \App\Http\Controllers\ApiKeyAdminController::index()}).
+ * ({@see \Thallo\Core\Http\Controllers\ApiKeyAdminController::index()}).
  */
 final class ApiKeyListData implements ResponseData
 {

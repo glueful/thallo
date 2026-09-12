@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
-use App\Content\Localization\ContentLocaleService;
-use App\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Localization\ContentLocaleService;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Glueful\Database\Connection;
 
 /**

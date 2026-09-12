@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Blocks;
+namespace Thallo\Core\Content\Blocks;
 
-use App\Content\Blocks\Migration\BlockInstanceWalker;
-use App\Content\Blocks\Migration\BlockMigrationInProgressException;
-use App\Content\Blocks\Migration\BlockMigrationRepository;
-use App\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Blocks\Migration\BlockInstanceWalker;
+use Thallo\Core\Content\Blocks\Migration\BlockMigrationInProgressException;
+use Thallo\Core\Content\Blocks\Migration\BlockMigrationRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
 
 /**
  * The migration write gate (block-migrations spec §3): block instances carry no

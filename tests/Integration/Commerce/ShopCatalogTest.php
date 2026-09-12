@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Services\PublishService;
-use App\Content\Validation\FieldValidator;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\CountingPdoStatement;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\CountingPdoStatement;
 use Glueful\Application;
 use Glueful\Cache\CacheStore;
 use Glueful\Extensions\Commerce\Catalog\AddonService;
@@ -34,7 +34,7 @@ use Thallo\Tenancy\System\SystemFlags;
  * Tenant is driven via mode (b) (widened schema + persisted default tenant, {@see SystemFlags}),
  * mirroring ProductLinkServiceTest/ProductStoryStarterTest's identical convention in this same
  * directory. Unlike those classes, this suite does NOT alter `entries` to add a transient
- * `tenant_uuid` column: {@see \App\Content\Authoring\EngineEntryExistenceReader::exists()} only
+ * `tenant_uuid` column: {@see \Thallo\Core\Content\Authoring\EngineEntryExistenceReader::exists()} only
  * enforces the tenant check when that column is present on the row, so enrichment entries
  * created through the real authoring pipeline (no `tenant_uuid` column) resolve regardless of
  * which product tenant links to them — this suite never needs cross-tenant ENTRY isolation
@@ -238,7 +238,7 @@ final class ShopCatalogTest extends AppTestCase
      * Fix B (Commerce-Slice-2 review): the starter "Product story" content type is route-less
      * in normal editorial use — its canonical URL is the SHOP product page
      * (`/shop/products/{slug}`), so an editor has no reason to ever assign it a route of its
-     * own via {@see \App\Content\Repositories\RouteRepository::assign()}. Before Fix B,
+     * own via {@see \Thallo\Core\Content\Repositories\RouteRepository::assign()}. Before Fix B,
      * `ShopCatalogController::resolveEnrichmentEntry()` resolved the link through
      * `PublicRouteResolver::resolveEntry()`, which requires a live `entry_routes` row and
      * returns `not_found` otherwise — a route-less linked entry's enrichment silently never

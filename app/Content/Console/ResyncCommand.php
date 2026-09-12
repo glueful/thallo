@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Console;
+namespace Thallo\Core\Content\Console;
 
-use App\Content\Delivery\DeliveryRepository;
-use App\Content\Delivery\SortCompiler;
-use App\Content\Events\EntryPublished;
-use App\Content\Pipeline\Listeners\DispatchWebhookListener;
-use App\Content\Pipeline\Listeners\InvalidateCacheTagsListener;
-use App\Content\Pipeline\Listeners\ProjectPublishedReferencesListener;
-use App\Content\Pipeline\Listeners\PurgeCdnListener;
-use App\Content\Pipeline\Listeners\ReindexSearchListener;
-use App\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Delivery\DeliveryRepository;
+use Thallo\Core\Content\Delivery\SortCompiler;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Content\Pipeline\Listeners\DispatchWebhookListener;
+use Thallo\Core\Content\Pipeline\Listeners\InvalidateCacheTagsListener;
+use Thallo\Core\Content\Pipeline\Listeners\ProjectPublishedReferencesListener;
+use Thallo\Core\Content\Pipeline\Listeners\PurgeCdnListener;
+use Thallo\Core\Content\Pipeline\Listeners\ReindexSearchListener;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Glueful\Console\BaseCommand;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Commerce\Events\OrderCanceled;
 use Glueful\Extensions\Commerce\Events\OrderFulfilled;
 use Glueful\Extensions\Commerce\Events\OrderPaid;
@@ -82,7 +82,7 @@ final class CommerceOrderEmailsTest extends AppTestCase
 
     public function testDisabledTemplateSwitchSkipsThatSendOnly(): void
     {
-        $store = $this->container()->get(\App\Settings\SettingsStore::class);
+        $store = $this->container()->get(\Thallo\Core\Settings\SettingsStore::class);
         $store->putMany(['thallo-commerce.email.order_paid.enabled' => '0']);
 
         try {
@@ -215,7 +215,7 @@ final class CommerceOrderEmailsTest extends AppTestCase
 
     /**
      * Primes the (process-shared) ApplicationContext's config cache for the duration of
-     * $callback, then restores it — mirrors {@see \App\Tests\Integration\DeliveryFlowTest::
+     * $callback, then restores it — mirrors {@see \Thallo\Core\Tests\Integration\DeliveryFlowTest::
      * forceDefaultPerPage()}'s established idiom: reflection is the surgical option here because
      * `commerce.order_confirmation` is read LAZILY (only when an event actually fires), so
      * `bootAppWithConfigOverride()`'s temporary override FILE is already restored/deleted by the

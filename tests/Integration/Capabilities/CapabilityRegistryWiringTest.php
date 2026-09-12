@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Capabilities;
+namespace Thallo\Core\Tests\Integration\Capabilities;
 
-use App\Capabilities\DefaultCapabilityRegistry;
-use App\Providers\ThalloServiceProvider;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Capabilities\DefaultCapabilityRegistry;
+use Thallo\Core\Providers\ThalloServiceProvider;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Contracts\Capability\Capability;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 

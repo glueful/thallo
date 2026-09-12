@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Subscriptions;
+namespace Thallo\Core\Tests\Integration\Subscriptions;
 
-use App\Settings\GeneralSettings;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Settings\GeneralSettings;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Contracts\Billing\PlanCheckoutUrlResolver;
 use Thallo\Contracts\Capability\CapabilityRegistry;
@@ -14,11 +14,11 @@ use Thallo\Subscriptions\Bridge\AdminBillingPlanCheckoutUrlResolver;
 /**
  * Task 18 (Phase C, workspace self-serve checkout plan, spec §5.4): the pricing-blocks →
  * billing deep-link bridge's binding + degradation behavior. Companion to {@see
- * \App\Tests\Integration\Render\PricingPlanCheckoutBridgeTest}, which proves the
+ * \Thallo\Core\Tests\Integration\Render\PricingPlanCheckoutBridgeTest}, which proves the
  * TEMPLATE-side consumption of this contract; this suite proves the resolver ITSELF —
  * binding identity, URL shape, and the capability/engine-off null verdicts, using the
- * same real-second-boot idioms {@see \App\Tests\Integration\Subscriptions\EngineGatewayTest}
- * and {@see \App\Tests\Integration\Subscriptions\CapabilityEngineTruthTableTest} establish.
+ * same real-second-boot idioms {@see \Thallo\Core\Tests\Integration\Subscriptions\EngineGatewayTest}
+ * and {@see \Thallo\Core\Tests\Integration\Subscriptions\CapabilityEngineTruthTableTest} establish.
  */
 final class PlanCheckoutUrlResolverTest extends AppTestCase
 {

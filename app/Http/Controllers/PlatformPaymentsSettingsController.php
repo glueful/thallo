@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Settings\PlatformPaymentSettingsStore;
+use Thallo\Core\Settings\PlatformPaymentSettingsStore;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Payvia\Support\PayviaSettingsOverride;
 use Glueful\Http\Response;
@@ -26,7 +26,7 @@ use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
  * and the storage owner (below).
  *
  * READS go through {@see PayviaSettingsOverride} — Task 4's app-owned host settings seam, bound to
- * {@see \App\Settings\PlatformPayviaSettingsOverride} — rather than
+ * {@see \Thallo\Core\Settings\PlatformPayviaSettingsOverride} — rather than
  * {@see PlatformPaymentSettingsStore} directly. During the migration window the override still
  * serves an UNMARKED legacy value when no platform row exists; GET must report exactly that same
  * effective source (platform row, else unmarked legacy, else config/env) so an operator never sees

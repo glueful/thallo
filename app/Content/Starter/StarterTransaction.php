@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Starter;
+namespace Thallo\Core\Content\Starter;
 
 use Glueful\Database\Connection;
 

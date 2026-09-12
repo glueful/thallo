@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\Controllers;
+namespace Thallo\Core\Content\Http\Controllers;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\BlockUsageScanner;
-use App\Content\Blocks\Migration\BlockMigrationRepository;
-use App\Content\Http\DTOs\BlockTypeData;
-use App\Content\Http\DTOs\FieldDefinitionData;
-use App\Content\Http\DTOs\Responses\BlockTypes\BlockTypeListData;
-use App\Content\Http\DTOs\Responses\BlockTypes\BlockTypeResultData;
-use App\Content\Http\DTOs\UpdateBlockTypeData;
-use App\Content\Schema\SchemaParseException;
-use App\Content\Starter\Kinds\BlockTypeKind;
-use App\Http\DTOs\ErrorResponse;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\BlockUsageScanner;
+use Thallo\Core\Content\Blocks\Migration\BlockMigrationRepository;
+use Thallo\Core\Content\Http\DTOs\BlockTypeData;
+use Thallo\Core\Content\Http\DTOs\FieldDefinitionData;
+use Thallo\Core\Content\Http\DTOs\Responses\BlockTypes\BlockTypeListData;
+use Thallo\Core\Content\Http\DTOs\Responses\BlockTypes\BlockTypeResultData;
+use Thallo\Core\Content\Http\DTOs\UpdateBlockTypeData;
+use Thallo\Core\Content\Schema\SchemaParseException;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Http\DTOs\ErrorResponse;
 use Glueful\Http\Response;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;

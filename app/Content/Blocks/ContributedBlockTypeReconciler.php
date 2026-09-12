@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Blocks;
+namespace Thallo\Core\Content\Blocks;
 
-use App\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
 use Thallo\Contracts\Capability\CapabilityRegistry;
 use Thallo\Tenancy\System\SystemFlags;
 

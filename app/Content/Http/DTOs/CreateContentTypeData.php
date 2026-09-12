@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs;
+namespace Thallo\Core\Content\Http\DTOs;
 
 use Glueful\Validation\Attributes\ArrayOf;
 use Glueful\Validation\Attributes\Rule;
@@ -10,7 +10,7 @@ use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Request body for `POST /v1/admin/content-types`
- * ({@see \App\Content\Http\Controllers\ContentTypeController::store()}).
+ * ({@see \Thallo\Core\Content\Http\Controllers\ContentTypeController::store()}).
  *
  * Hydrated by the router (v2): the `slug` shape and the structure of each `schema` field
  * definition are validated here; semantic schema validation (valid types, `filter_type`,

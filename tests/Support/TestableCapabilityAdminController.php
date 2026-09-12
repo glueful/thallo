@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Support;
+namespace Thallo\Core\Tests\Support;
 
-use App\Http\Controllers\CapabilityAdminController;
+use Thallo\Core\Http\Controllers\CapabilityAdminController;
 
 /** Purge-observing seam: counts compiled-route-state clears instead of touching real caches. */
 final class TestableCapabilityAdminController extends CapabilityAdminController

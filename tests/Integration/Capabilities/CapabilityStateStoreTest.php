@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Capabilities;
+namespace Thallo\Core\Tests\Integration\Capabilities;
 
-use App\Capabilities\CapabilityStateStore;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\RecordingSystemChannel;
+use Thallo\Core\Capabilities\CapabilityStateStore;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RecordingSystemChannel;
 use Thallo\Contracts\Settings\SystemChannel;
 
 /**

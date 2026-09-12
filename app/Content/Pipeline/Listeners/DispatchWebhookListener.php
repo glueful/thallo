@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Pipeline\Listeners;
+namespace Thallo\Core\Content\Pipeline\Listeners;
 
-use App\Content\Events\BaseContentEvent;
-use App\Settings\GeneralSettings;
+use Thallo\Core\Content\Events\BaseContentEvent;
+use Thallo\Core\Settings\GeneralSettings;
 use Glueful\Api\Webhooks\Contracts\WebhookDispatcherInterface;
 use Glueful\Api\Webhooks\WebhookDispatcher;
 use Glueful\Bootstrap\ApplicationContext;

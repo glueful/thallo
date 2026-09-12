@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy\Retrofit;
+namespace Thallo\Core\Tests\Integration\Tenancy\Retrofit;
 
-use App\Content\Retention\VersionPruner;
-use App\Tests\Support\RetrofittedTenantTestCase;
+use Thallo\Core\Content\Retention\VersionPruner;
+use Thallo\Core\Tests\Support\RetrofittedTenantTestCase;
 use Thallo\Tenancy\Retrofit\MutationBoundaryLock;
 use Thallo\Tenancy\Retrofit\RetrofitInProgressException;
 

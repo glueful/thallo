@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Indexing;
+namespace Thallo\Core\Content\Indexing;
 
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Indexing\FieldSqlExpression;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Indexing\FieldSqlExpression;
 
 /**
  * Derives the desired Postgres expression indexes for a content type's filterable fields.

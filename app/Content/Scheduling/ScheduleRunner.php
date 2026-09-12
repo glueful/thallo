@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Scheduling;
+namespace Thallo\Core\Content\Scheduling;
 
-use App\Content\Enums\ScheduleAction;
-use App\Content\Enums\ScheduleStatus;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ScheduleRepository;
-use App\Content\Services\PublishService;
-use App\Settings\GeneralSettings;
+use Thallo\Core\Content\Enums\ScheduleAction;
+use Thallo\Core\Content\Enums\ScheduleStatus;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ScheduleRepository;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Settings\GeneralSettings;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;
 use Thallo\Contracts\Tenancy\WriteBarrier;

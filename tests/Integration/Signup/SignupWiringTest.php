@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Signup;
+namespace Thallo\Core\Tests\Integration\Signup;
 
-use App\Http\Controllers\SignupController;
-use App\Http\Controllers\TenantRolesController;
-use App\Signup\SignupChallenge;
-use App\Signup\SignupConfig;
-use App\Signup\SignupCoordinator;
-use App\Signup\SignupIntentRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Http\Controllers\SignupController;
+use Thallo\Core\Http\Controllers\TenantRolesController;
+use Thallo\Core\Signup\SignupChallenge;
+use Thallo\Core\Signup\SignupConfig;
+use Thallo\Core\Signup\SignupCoordinator;
+use Thallo\Core\Signup\SignupIntentRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Contracts\Tenancy\SignupDiagnostics;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Tenancy\System\SystemFlags;

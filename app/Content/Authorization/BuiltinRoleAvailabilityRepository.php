@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Authorization;
+namespace Thallo\Core\Content\Authorization;
 
 use Glueful\Database\Connection;
 

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Content\Http\DTOs\Requests\SetupData;
-use App\Setup\SetupService;
+use Thallo\Core\Content\Http\DTOs\Requests\SetupData;
+use Thallo\Core\Setup\SetupService;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
 use Glueful\Installer\EnvWriter;

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
-use App\Settings\GeneralSettings;
+use Thallo\Core\Settings\GeneralSettings;
 use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Contracts\Delivery\HomepageEntryProvider;
 use Thallo\Contracts\Delivery\PublicRouteResolver;

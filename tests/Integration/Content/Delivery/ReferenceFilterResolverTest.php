@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content\Delivery;
+namespace Thallo\Core\Tests\Integration\Content\Delivery;
 
-use App\Content\Delivery\InvalidFilterException;
-use App\Content\Delivery\ReferenceFilterResolver;
-use App\Content\Schema\FieldDefinition;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Delivery\InvalidFilterException;
+use Thallo\Core\Content\Delivery\ReferenceFilterResolver;
+use Thallo\Core\Content\Schema\FieldDefinition;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class ReferenceFilterResolverTest extends AppTestCase
 {

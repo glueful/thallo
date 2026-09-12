@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\Controllers;
+namespace Thallo\Core\Content\Http\Controllers;
 
-use App\Content\Blocks\Migration\BlockMigrationInProgressException;
-use App\Content\Blocks\Migration\UnknownBlockTypeException;
-use App\Content\Http\DTOs\RollbackData;
-use App\Content\Http\DTOs\Responses\Publication\RollbackResultData;
-use App\Content\Http\DTOs\Responses\Publication\VersionResultData;
-use App\Content\Localization\ContentLocaleService;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Schema\Migration\SchemaProjector;
-use App\Content\Services\PublishService;
-use App\Content\Validation\ValidationException;
-use App\Http\DTOs\ErrorResponse;
-use App\Support\ActorHelper;
+use Thallo\Core\Content\Blocks\Migration\BlockMigrationInProgressException;
+use Thallo\Core\Content\Blocks\Migration\UnknownBlockTypeException;
+use Thallo\Core\Content\Http\DTOs\RollbackData;
+use Thallo\Core\Content\Http\DTOs\Responses\Publication\RollbackResultData;
+use Thallo\Core\Content\Http\DTOs\Responses\Publication\VersionResultData;
+use Thallo\Core\Content\Localization\ContentLocaleService;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Schema\Migration\SchemaProjector;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\ValidationException;
+use Thallo\Core\Http\DTOs\ErrorResponse;
+use Thallo\Core\Support\ActorHelper;
 use Glueful\Auth\UserIdentity;
 use Glueful\Http\Response;
 use Thallo\Contracts\Authoring\PublishBlocked;

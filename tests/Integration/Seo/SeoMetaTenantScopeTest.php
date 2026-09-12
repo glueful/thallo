@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Seo;
+namespace Thallo\Core\Tests\Integration\Seo;
 
-use App\Tests\Support\TenantOracleTestCase;
+use Thallo\Core\Tests\Support\TenantOracleTestCase;
 use Thallo\Seo\Meta\SeoMetaRepository;
 
 final class SeoMetaTenantScopeTest extends TenantOracleTestCase

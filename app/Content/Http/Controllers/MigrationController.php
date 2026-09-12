@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\Controllers;
+namespace Thallo\Core\Content\Http\Controllers;
 
-use App\Content\Http\DTOs\MigrationData;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\MigrationRepository;
-use App\Content\Schema\SchemaParseException;
-use App\Content\Services\ActiveMigrationException;
-use App\Content\Services\MigrationService;
-use App\Http\DTOs\ErrorResponse;
-use App\Support\ActorHelper;
+use Thallo\Core\Content\Http\DTOs\MigrationData;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\MigrationRepository;
+use Thallo\Core\Content\Schema\SchemaParseException;
+use Thallo\Core\Content\Services\ActiveMigrationException;
+use Thallo\Core\Content\Services\MigrationService;
+use Thallo\Core\Http\DTOs\ErrorResponse;
+use Thallo\Core\Support\ActorHelper;
 use Glueful\Http\Response;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;

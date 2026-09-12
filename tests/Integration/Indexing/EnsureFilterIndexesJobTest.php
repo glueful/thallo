@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Indexing;
+namespace Thallo\Core\Tests\Integration\Indexing;
 
-use App\Content\Indexing\EnsureFilterIndexesJob;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Indexing\EnsureFilterIndexesJob;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class EnsureFilterIndexesJobTest extends AppTestCase
 {

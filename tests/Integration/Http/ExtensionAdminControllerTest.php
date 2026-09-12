@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Http\Controllers\ExtensionAdminController;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\SpySchemaExecutor;
-use App\Tests\Support\TestableExtensionAdminController;
+use Thallo\Core\Http\Controllers\ExtensionAdminController;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SpySchemaExecutor;
+use Thallo\Core\Tests\Support\TestableExtensionAdminController;
 use Glueful\Database\Exceptions\LockContentionException;
 use Glueful\Extensions\Schema\ExtensionOperation;
 use Glueful\Extensions\Schema\ExtensionSchemaExecutor;

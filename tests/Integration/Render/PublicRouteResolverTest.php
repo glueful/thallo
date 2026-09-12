@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Seo\RedirectRepository;
-use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Seo\RedirectRepository;
+use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Contracts\Delivery\PublicRouteResolver;
 
 final class PublicRouteResolverTest extends AppTestCase
@@ -94,7 +94,7 @@ final class PublicRouteResolverTest extends AppTestCase
     public function testResolveEntryRoutelessIsNotFound(): void
     {
         $entry = $this->seedBilingualPublishedEntry();
-        $this->container()->get(\App\Content\Repositories\RouteRepository::class)->remove($entry, 'en');
+        $this->container()->get(\Thallo\Core\Content\Repositories\RouteRepository::class)->remove($entry, 'en');
         self::assertSame('not_found', $this->resolver()->resolveEntry($entry)['kind']);
     }
 
@@ -153,8 +153,8 @@ final class PublicRouteResolverTest extends AppTestCase
         // a DB row wins ('' = explicitly none) over the deploy config the
         // suite env provides (RENDER_LISTING_TYPES=blog).
         $this->seedBilingualPublishedEntry();
-        $settings = $this->container()->get(\App\Settings\GeneralSettings::class);
-        $store = $this->container()->get(\App\Settings\SettingsStore::class);
+        $settings = $this->container()->get(\Thallo\Core\Settings\GeneralSettings::class);
+        $store = $this->container()->get(\Thallo\Core\Settings\SettingsStore::class);
         try {
             // Explicit NONE shuts listings off despite the env fallback.
             $settings->save(['listing_types' => []]);
@@ -295,7 +295,7 @@ final class PublicRouteResolverTest extends AppTestCase
             'published_at' => '2026-06-02 01:00:00',
         ]);
         if ($slug !== null) {
-            (new \App\Content\Repositories\RouteRepository($db))
+            (new \Thallo\Core\Content\Repositories\RouteRepository($db))
                 ->assign($entryUuid, $typeUuid, 'en', $slug);
         }
     }
@@ -309,7 +309,7 @@ final class PublicRouteResolverTest extends AppTestCase
      */
     private function seedBlockPagePair(): string
     {
-        (new \App\Content\Blocks\BlockTypeRepository($this->connection()))->create([
+        (new \Thallo\Core\Content\Blocks\BlockTypeRepository($this->connection()))->create([
             'slug' => 'related',
             'label' => 'Related',
             'schema' => [['name' => 'post', 'type' => 'reference']],
@@ -325,19 +325,19 @@ final class PublicRouteResolverTest extends AppTestCase
             ],
         ]);
         $entries = new EntryRepository($this->connection(), $this->appContext(), $types);
-        $publish = new \App\Content\Services\PublishService(
+        $publish = new \Thallo\Core\Content\Services\PublishService(
             $this->appContext(),
             $entries,
-            new \App\Content\Repositories\VersionRepository($this->connection()),
+            new \Thallo\Core\Content\Repositories\VersionRepository($this->connection()),
             $types,
-            new \App\Content\Validation\FieldValidator(
+            new \Thallo\Core\Content\Validation\FieldValidator(
                 $this->connection(),
                 $this->appContext(),
-                new \App\Content\Blocks\BlockTypeRepository($this->connection()),
+                new \Thallo\Core\Content\Blocks\BlockTypeRepository($this->connection()),
             ),
-            new \App\Content\Repositories\ReferenceProjectionRepository($this->connection()),
+            new \Thallo\Core\Content\Repositories\ReferenceProjectionRepository($this->connection()),
         );
-        $routes = new \App\Content\Repositories\RouteRepository($this->connection());
+        $routes = new \Thallo\Core\Content\Repositories\RouteRepository($this->connection());
 
         $target = $entries->createEntry($type, 'en', 1, 'user00000001');
         $entries->saveDraft($target, 'en', ['title' => 'T', 'body' => []], 1, 0, 'user00000001');

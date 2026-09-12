@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs\Responses\BlockTypes;
+namespace Thallo\Core\Content\Http\DTOs\Responses\BlockTypes;
 
-use App\Content\Http\DTOs\Responses\ContentTypes\FieldSchemaData;
+use Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\FieldSchemaData;
 use Glueful\Http\Contracts\ResponseData;
 use Glueful\Validation\Attributes\ArrayOf;
 

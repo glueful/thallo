@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Settings\Console;
+namespace Thallo\Core\Settings\Console;
 
-use App\Settings\LegacyPlatformPaymentSettingsReader;
-use App\Settings\LegacyPlatformPaymentSettingsRepository;
-use App\Settings\PlatformPaymentSettingsStore;
-use App\Settings\PlatformPayviaSettingsOverride;
+use Thallo\Core\Settings\LegacyPlatformPaymentSettingsReader;
+use Thallo\Core\Settings\LegacyPlatformPaymentSettingsRepository;
+use Thallo\Core\Settings\PlatformPaymentSettingsStore;
+use Thallo\Core\Settings\PlatformPayviaSettingsOverride;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Console\BaseCommand;
 use Psr\Container\ContainerInterface;

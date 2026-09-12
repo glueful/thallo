@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Blocks\Migration;
+namespace Thallo\Core\Content\Blocks\Migration;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Schema\Migration\MigrationOpSet;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Schema\Migration\MigrationOpSet;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;

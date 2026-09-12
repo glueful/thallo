@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\Controllers\Concerns;
+namespace Thallo\Core\Content\Http\Controllers\Concerns;
 
-use App\Content\Http\DTOs\Requests\Delivery\DeliveryListQuery;
-use App\Settings\GeneralSettings;
+use Thallo\Core\Content\Http\DTOs\Requests\Delivery\DeliveryListQuery;
+use Thallo\Core\Settings\GeneralSettings;
 use Symfony\Component\HttpFoundation\Request;
 
 use function app;
@@ -24,7 +24,7 @@ trait HandlesDeliveryReads
     /**
      * The request's granted API-key scopes, or null when the request carries no API key
      * (anonymous). Threaded into reference expansion so a referenced non-public type is
-     * gated by the same rule as the URL type ({@see \App\Content\Delivery\DeliveryVisibility}).
+     * gated by the same rule as the URL type ({@see \Thallo\Core\Content\Delivery\DeliveryVisibility}).
      *
      * @return list<string>|null
      */

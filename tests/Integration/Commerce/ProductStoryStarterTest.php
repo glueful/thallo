@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Starter\DefaultStarterContributorRegistry;
-use App\Content\Starter\Kinds\ContentTypeKind;
-use App\Content\Starter\StarterDefinition;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Starter\DefaultStarterContributorRegistry;
+use Thallo\Core\Content\Starter\Kinds\ContentTypeKind;
+use Thallo\Core\Content\Starter\StarterDefinition;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Commerce\Catalog\CatalogService;
 use Thallo\Commerce\Links\ProductLinkService;
 use Thallo\Commerce\Starter\ProductStoryContributor;
@@ -26,11 +26,11 @@ use Thallo\Tenancy\System\SystemFlags;
  * The genuinely tenancy-shaped coverage — fresh-tenant provisioning creates `product-story`, and
  * `thallo:tenant:sync --all --kind=content_type` adopts it into a pre-existing tenant
  * idempotently — needs `TenantSeeder`/`TenantSyncCommand` against a REAL widened schema and
- * therefore lives in {@see \App\Tests\Integration\Commerce\ProductStoryStarterTenancyTest}
+ * therefore lives in {@see \Thallo\Core\Tests\Integration\Commerce\ProductStoryStarterTenancyTest}
  * (opt-in Postgres retrofit machinery, THALLO_TENANCY_DEV_LINK=1), mirroring exactly how Task 5
- * split {@see \App\Tests\Integration\Content\Starter\StarterContributorTest} (this file's
+ * split {@see \Thallo\Core\Tests\Integration\Content\Starter\StarterContributorTest} (this file's
  * counterpart) from
- * {@see \App\Tests\Integration\Content\Starter\StarterContributorTenancyTest}.
+ * {@see \Thallo\Core\Tests\Integration\Content\Starter\StarterContributorTenancyTest}.
  */
 final class ProductStoryStarterTest extends AppTestCase
 {

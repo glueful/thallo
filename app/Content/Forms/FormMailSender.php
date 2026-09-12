@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Forms;
+namespace Thallo\Core\Content\Forms;
 
 /**
  * The narrow email seam for form notifications (form-block spec §10). Kept deliberately

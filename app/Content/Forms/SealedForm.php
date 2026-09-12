@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Forms;
+namespace Thallo\Core\Content\Forms;
 
 /** One-pass render result: the sealed token plus the descriptor it sealed (form-block spec §4/§6). */
 final class SealedForm

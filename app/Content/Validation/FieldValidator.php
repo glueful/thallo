@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Validation;
+namespace Thallo\Core\Content\Validation;
 
-use App\Content\Blocks\BlockDepth;
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Sanitization\TipTapHtmlSanitizer;
+use Thallo\Core\Content\Blocks\BlockDepth;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Sanitization\TipTapHtmlSanitizer;
 use Thallo\Contracts\Content\RichHtmlSanitizer;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Schema\FieldDefinition;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\FieldDefinition;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Helpers\Utils;

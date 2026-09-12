@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Setup\Doctor;
+namespace Thallo\Core\Setup\Doctor;
 
 use Glueful\Installer\ConnectionTester;
 use Glueful\Installer\DatabaseConfig;

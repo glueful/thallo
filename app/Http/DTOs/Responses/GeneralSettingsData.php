@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs\Responses;
+namespace Thallo\Core\Http\DTOs\Responses;
 
 use Glueful\Http\Contracts\ResponseData;
 
 /**
  * Doc-only shape of the instance General settings
- * ({@see \App\Http\Controllers\GeneralSettingsController}). Effective values read from `.env` with
+ * ({@see \Thallo\Core\Http\Controllers\GeneralSettingsController}). Effective values read from `.env` with
  * the config defaults as fallback.
  */
 final class GeneralSettingsData implements ResponseData

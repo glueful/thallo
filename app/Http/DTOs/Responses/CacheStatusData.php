@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs\Responses;
+namespace Thallo\Core\Http\DTOs\Responses;
 
 use Glueful\Http\Contracts\ResponseData;
 
 /**
- * Doc-only cache status ({@see \App\Http\Controllers\CacheAdminController::show()}).
+ * Doc-only cache status ({@see \Thallo\Core\Http\Controllers\CacheAdminController::show()}).
  */
 final class CacheStatusData implements ResponseData
 {

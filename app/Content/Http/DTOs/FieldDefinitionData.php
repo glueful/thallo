@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs;
+namespace Thallo\Core\Content\Http\DTOs;
 
 use Glueful\Validation\Attributes\ArrayOf;
 use Glueful\Validation\Attributes\Rule;
@@ -14,7 +14,7 @@ use Glueful\Validation\Contracts\RequestData;
  * Hydrated as the element type of {@see CreateContentTypeData::$schema} /
  * {@see UpdateContentTypeSchemaData::$schema} via `#[ArrayOf(self::class)]`, and reflected
  * into the OpenAPI request-body `items`. Mirrors the *input* shape of the domain object
- * {@see \App\Content\Schema\FieldDefinition} field-for-field (snake_case keys matching the
+ * {@see \Thallo\Core\Content\Schema\FieldDefinition} field-for-field (snake_case keys matching the
  * JSON) so the round-trip back to an array via {@see toArray()} loses nothing. The DTO only
  * validates that the structure is well-formed; the semantic schema rules (valid type,
  * `filter_type` required when `filterable`, non-empty `enum`) stay in
@@ -69,7 +69,7 @@ final class FieldDefinitionData implements RequestData
     }
 
     /**
-     * Back to the raw array shape consumed by {@see \App\Content\Schema\FieldDefinition::fromArray()}.
+     * Back to the raw array shape consumed by {@see \Thallo\Core\Content\Schema\FieldDefinition::fromArray()}.
      *
      * @return array<string,mixed>
      */

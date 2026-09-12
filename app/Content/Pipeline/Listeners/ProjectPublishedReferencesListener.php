@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Pipeline\Listeners;
+namespace Thallo\Core\Content\Pipeline\Listeners;
 
-use App\Content\Events\EntryDeleted;
-use App\Content\Events\EntryPublished;
-use App\Content\Events\EntryUnpublished;
-use App\Content\Repositories\PublishedReferenceRepository;
+use Thallo\Core\Content\Events\EntryDeleted;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Content\Events\EntryUnpublished;
+use Thallo\Core\Content\Repositories\PublishedReferenceRepository;
 
 /**
  * Maintains the published-reference projection (term-archives/facets spec §1) on the

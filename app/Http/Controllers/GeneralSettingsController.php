@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Http\DTOs\Responses\GeneralSettingsResultData;
-use App\Http\DTOs\UpdateGeneralSettingsData;
-use App\Settings\GeneralSettings;
+use Thallo\Core\Http\DTOs\Responses\GeneralSettingsResultData;
+use Thallo\Core\Http\DTOs\UpdateGeneralSettingsData;
+use Thallo\Core\Settings\GeneralSettings;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Events\EventService;
 use Glueful\Http\Response;
@@ -36,12 +36,12 @@ final class GeneralSettingsController
         private readonly GeneralSettings $settings,
         private readonly ApplicationContext $context,
         private readonly ?\Thallo\Contracts\Delivery\PublicRouteResolver $resolver = null,
-        private readonly ?\App\Content\Repositories\ContentTypeRepository $contentTypes = null,
+        private readonly ?\Thallo\Core\Content\Repositories\ContentTypeRepository $contentTypes = null,
         /** Soft-bound (theme-setting spec §1): null = render pack absent, theme is inert. */
         private readonly ?PreviewThemeValidator $themeValidator = null,
         private readonly ?EventService $events = null,
         /** Names the failing homepage condition; the resolver above stays the authority. */
-        private readonly ?\App\Content\Delivery\HomepageEligibility $homepageEligibility = null,
+        private readonly ?\Thallo\Core\Content\Delivery\HomepageEligibility $homepageEligibility = null,
     ) {
     }
 

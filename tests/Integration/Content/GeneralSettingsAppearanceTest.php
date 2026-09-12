@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Http\Controllers\GeneralSettingsController;
-use App\Http\DTOs\UpdateGeneralSettingsData;
-use App\Settings\GeneralSettings;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Http\Controllers\GeneralSettingsController;
+use Thallo\Core\Http\DTOs\UpdateGeneralSettingsData;
+use Thallo\Core\Settings\GeneralSettings;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class GeneralSettingsAppearanceTest extends AppTestCase
 {

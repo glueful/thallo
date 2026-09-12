@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs;
+namespace Thallo\Core\Content\Http\DTOs;
 
 use Glueful\Validation\Attributes\Rule;
 use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Request body for `POST /v1/admin/entries/{uuid}/rollback/{locale}`
- * ({@see \App\Content\Http\Controllers\PublicationController::rollback()}).
+ * ({@see \Thallo\Core\Content\Http\Controllers\PublicationController::rollback()}).
  *
  * Hydrated by the router (v2): a missing/blank `version_uuid` fails here with a standard 422.
  * Whether the version belongs to this entry+locale is a domain rule that stays in the

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Blocks;
+namespace Thallo\Core\Tests\Integration\Blocks;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\StarterBlockTypeSeeder;
-use App\Content\Starter\Kinds\BlockTypeKind;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 /**
  * Seeds every starter block type (the fixed library plus pack contributions) that is not in the

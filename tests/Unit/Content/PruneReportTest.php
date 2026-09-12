@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content;
+namespace Thallo\Core\Tests\Unit\Content;
 
-use App\Content\Retention\PruneReport;
+use Thallo\Core\Content\Retention\PruneReport;
 use PHPUnit\Framework\TestCase;
 
 final class PruneReportTest extends TestCase

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Account;
+namespace Thallo\Core\Account;
 
 use Glueful\Auth\Contracts\UserProviderInterface;
 use Thallo\Contracts\Account\StorefrontAccountIdentityReader;

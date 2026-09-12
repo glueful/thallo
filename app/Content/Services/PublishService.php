@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Services;
+namespace Thallo\Core\Content\Services;
 
-use App\Content\Blocks\BlockMigrationGate;
-use App\Content\Blocks\BlockRestoreProjector;
-use App\Content\Events\EntryPublished;
-use App\Content\Events\EntryUnpublished;
-use App\Content\Pipeline\PublishEventEmitter;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Schema\Migration\SchemaProjector;
-use App\Content\Validation\FieldValidator;
+use Thallo\Core\Content\Blocks\BlockMigrationGate;
+use Thallo\Core\Content\Blocks\BlockRestoreProjector;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Content\Events\EntryUnpublished;
+use Thallo\Core\Content\Pipeline\PublishEventEmitter;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Schema\Migration\SchemaProjector;
+use Thallo\Core\Content\Validation\FieldValidator;
 use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Contracts\Authoring\PublishGate;
 

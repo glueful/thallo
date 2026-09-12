@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
 /**
  * Opaque, stateless pagination cursor.

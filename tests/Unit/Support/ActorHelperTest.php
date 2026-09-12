@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Support;
+namespace Thallo\Core\Tests\Unit\Support;
 
-use App\Support\ActorHelper;
+use Thallo\Core\Support\ActorHelper;
 use Glueful\Auth\UserIdentity;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;

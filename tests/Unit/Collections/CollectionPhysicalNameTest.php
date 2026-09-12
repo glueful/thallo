@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Collections;
+namespace Thallo\Core\Tests\Unit\Collections;
 
 use PHPUnit\Framework\TestCase;
 use Thallo\Collections\Schema\CollectionPhysicalName;

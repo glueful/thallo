@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Content\Http\Controllers\EntryController;
-use App\Content\Http\DTOs\CreateEntryData;
-use App\Content\Http\DTOs\Requests\EntryListQuery;
-use App\Content\Http\DTOs\SaveDraftData;
-use App\Content\Localization\ContentLocaleService;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Schema\Migration\SchemaProjector;
-use App\Content\Services\PublishService;
-use App\Content\Validation\FieldValidator;
-use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Http\Controllers\EntryController;
+use Thallo\Core\Content\Http\DTOs\CreateEntryData;
+use Thallo\Core\Content\Http\DTOs\Requests\EntryListQuery;
+use Thallo\Core\Content\Http\DTOs\SaveDraftData;
+use Thallo\Core\Content\Localization\ContentLocaleService;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Schema\Migration\SchemaProjector;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Tests\Support\FakeLocaleManager;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;
@@ -146,10 +146,10 @@ final class EntryListApiTest extends AppTestCase
         $this->newEntryWithTitle('Home');
         $resp = $this->controller()->index($this->listQuery(['type' => 'page']));
         $data = json_decode((string) $resp->getContent(), true)['data'];
-        self::assertDataMatchesDtoShape($data, \App\Content\Http\DTOs\Responses\Entries\EntryListData::class);
+        self::assertDataMatchesDtoShape($data, \Thallo\Core\Content\Http\DTOs\Responses\Entries\EntryListData::class);
         self::assertDataMatchesDtoShape(
             $data['entries'][0],
-            \App\Content\Http\DTOs\Responses\Entries\EntryListItemData::class,
+            \Thallo\Core\Content\Http\DTOs\Responses\Entries\EntryListItemData::class,
         );
     }
 

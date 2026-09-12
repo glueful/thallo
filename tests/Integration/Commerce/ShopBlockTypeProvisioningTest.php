@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\RetrofittedTenantTestCase;
+use Thallo\Core\Tests\Support\RetrofittedTenantTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 use Thallo\Commerce\Starter\ShopBlockTypesContributor;
 use Thallo\Tenancy\Console\TenantSyncCommand;
@@ -12,10 +12,10 @@ use Thallo\Tenancy\Contracts\TenantSeedRepair;
 
 /**
  * Task 11 (storefront-rendering spec §5.2/§10) — the tenant-provisioning/sync half of the 4
- * starter shop block types; {@see \App\Tests\Integration\Commerce\ShopBlocksTest} covers the
+ * starter shop block types; {@see \Thallo\Core\Tests\Integration\Commerce\ShopBlocksTest} covers the
  * capability gate, boot() write-safety, schema/definition shape, and everything else that needs
  * no real multi-tenant retrofit harness. Mirrors
- * {@see \App\Tests\Integration\Commerce\ProductStoryStarterTenancyTest}'s identical split for the
+ * {@see \Thallo\Core\Tests\Integration\Commerce\ProductStoryStarterTenancyTest}'s identical split for the
  * identical reason (Task 6/11 Slice-1 precedent) — opt-in via THALLO_TENANCY_DEV_LINK=1, the
  * WHOLE class self-skips otherwise (RetrofitHarnessTestCase::setUpBeforeClass()).
  *

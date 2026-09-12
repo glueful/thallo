@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Repositories;
+namespace Thallo\Core\Content\Repositories;
 
-use App\Content\Enums\ScheduleAction;
-use App\Content\Enums\ScheduleStatus;
+use Thallo\Core\Content\Enums\ScheduleAction;
+use Thallo\Core\Content\Enums\ScheduleStatus;
 use Glueful\Database\Connection;
 use Glueful\Helpers\Utils;
 use Thallo\Contracts\Tenancy\WriteBarrier;

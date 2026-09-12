@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Scripts;
+namespace Thallo\Core\Tests\Unit\Scripts;
 
 use PHPUnit\Framework\TestCase;
 

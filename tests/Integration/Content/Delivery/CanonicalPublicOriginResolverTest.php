@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content\Delivery;
+namespace Thallo\Core\Tests\Integration\Content\Delivery;
 
-use App\Content\Delivery\ThalloCanonicalPublicOriginResolver;
-use App\Content\Media\TenantBlobPublicUrlProvider;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Delivery\ThalloCanonicalPublicOriginResolver;
+use Thallo\Core\Content\Media\TenantBlobPublicUrlProvider;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
 use Glueful\Extensions\Contracts\Tenancy\FullTenantResolutionReadiness;
@@ -20,7 +20,7 @@ use Thallo\Tenancy\System\SystemFlags;
  * {@see TenantBlobPublicUrlProvider}'s pre-refactor host-selection precedence (default tenant ->
  * first configured default host; else first verified+active custom domain; else active tenant
  * slug + base domain; else throw). Exercised as a unit-style suite with a fake
- * {@see CurrentTenantResolver} (mirroring {@see \App\Tests\Integration\Commerce\TenantResolutionModesTest}'s
+ * {@see CurrentTenantResolver} (mirroring {@see \Thallo\Core\Tests\Integration\Commerce\TenantResolutionModesTest}'s
  * mode-c pattern) — no THALLO_TENANCY_DEV_LINK needed; every assertion here runs in the default
  * `composer test` suite.
  */

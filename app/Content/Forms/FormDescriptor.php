@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Forms;
+namespace Thallo\Core\Content\Forms;
 
 /** The sealed payload (form-block spec §4). form_key groups submissions; recipient never leaves the seal. */
 final class FormDescriptor

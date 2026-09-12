@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Content\Http\Controllers\PreviewController;
+use Thallo\Core\Content\Http\Controllers\PreviewController;
 use Glueful\Routing\Router;
 
 /** @var Router $router */

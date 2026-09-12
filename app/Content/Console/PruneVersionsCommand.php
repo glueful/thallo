@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Console;
+namespace Thallo\Core\Content\Console;
 
-use App\Content\Retention\InvalidRetentionPolicyException;
-use App\Content\Retention\RetentionPolicy;
-use App\Content\Retention\VersionPruner;
+use Thallo\Core\Content\Retention\InvalidRetentionPolicyException;
+use Thallo\Core\Content\Retention\RetentionPolicy;
+use Thallo\Core\Content\Retention\VersionPruner;
 use Glueful\Console\BaseCommand;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;

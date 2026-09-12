@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Seo;
+namespace Thallo\Core\Content\Seo;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
 use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Contracts\Delivery\CanonicalPublicOriginResolver;
 use Thallo\Contracts\Delivery\HomepageEntryProvider;

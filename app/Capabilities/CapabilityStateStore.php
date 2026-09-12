@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Capabilities;
+namespace Thallo\Core\Capabilities;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Contracts\Settings\SystemChannel;

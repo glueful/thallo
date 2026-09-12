@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Routing;
+namespace Thallo\Core\Tests\Integration\Routing;
 
-use App\Content\Http\Controllers\ContentTypeController;
-use App\Content\Http\Controllers\EntryController;
-use App\Content\Http\DTOs\AssignRouteData;
-use App\Content\Http\DTOs\CreateContentTypeData;
-use App\Content\Http\DTOs\UpdateContentTypeData;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Routing\RootMountGuard;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Http\Controllers\ContentTypeController;
+use Thallo\Core\Content\Http\Controllers\EntryController;
+use Thallo\Core\Content\Http\DTOs\AssignRouteData;
+use Thallo\Core\Content\Http\DTOs\CreateContentTypeData;
+use Thallo\Core\Content\Http\DTOs\UpdateContentTypeData;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Routing\RootMountGuard;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;

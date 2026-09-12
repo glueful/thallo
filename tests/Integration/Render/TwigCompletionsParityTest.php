@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
 use PHPUnit\Framework\TestCase;
 use Thallo\Render\Templates\TemplatePolicy;

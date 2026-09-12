@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Enums\ScheduleAction;
-use App\Content\Enums\ScheduleStatus;
-use App\Content\Events\EntryPublished;
-use App\Content\Events\EntryUnpublished;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ScheduleRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Scheduling\ScheduleRunner;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Enums\ScheduleAction;
+use Thallo\Core\Content\Enums\ScheduleStatus;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Content\Events\EntryUnpublished;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ScheduleRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Scheduling\ScheduleRunner;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 
 final class ScheduleRunnerTest extends AppTestCase
@@ -48,7 +48,8 @@ final class ScheduleRunnerTest extends AppTestCase
     public function testUnpublishScheduleFires(): void
     {
         $entry = $this->entry(['title' => 'V1']);
-        $this->container()->get(\App\Content\Services\PublishService::class)->publish($entry, 'en', 'user00000001');
+        $this->container()->get(\Thallo\Core\Content\Services\PublishService::class)
+            ->publish($entry, 'en', 'user00000001');
         $row = $this->due($entry, ScheduleAction::Unpublish);
         $captured = $this->spyEvents();
 

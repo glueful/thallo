@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs;
+namespace Thallo\Core\Content\Http\DTOs;
 
 use Glueful\Validation\Attributes\Rule;
 use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Request body for `PATCH /v1/admin/content-types/{slug}`
- * ({@see \App\Content\Http\Controllers\ContentTypeController::update()}).
+ * ({@see \Thallo\Core\Content\Http\Controllers\ContentTypeController::update()}).
  *
  * NON-SCHEMA metadata only (schema edits have their own endpoint; the slug is
  * immutable). null = unchanged. The headline field is `public_delivery`,

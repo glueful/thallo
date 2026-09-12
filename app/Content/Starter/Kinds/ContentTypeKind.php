@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Starter\Kinds;
+namespace Thallo\Core\Content\Starter\Kinds;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Schema\SchemaParseException;
-use App\Content\Starter\AbstractStarterKind;
-use App\Content\Starter\Fingerprint;
-use App\Content\Starter\SeedContext;
-use App\Content\Starter\StarterApplyResult;
-use App\Content\Starter\StarterDefinition;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\SchemaParseException;
+use Thallo\Core\Content\Starter\AbstractStarterKind;
+use Thallo\Core\Content\Starter\Fingerprint;
+use Thallo\Core\Content\Starter\SeedContext;
+use Thallo\Core\Content\Starter\StarterApplyResult;
+use Thallo\Core\Content\Starter\StarterDefinition;
 use Glueful\Database\Connection;
 use Thallo\Contracts\Starter\StarterContentTypeDefinition;
 use Thallo\Contracts\Starter\StarterContributorRegistry;

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Content\Console\SeedBlockTypesCommand;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Validation\FieldValidator;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Console\SeedBlockTypesCommand;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\ThemeLocator;

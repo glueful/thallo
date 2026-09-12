@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Signup\MemberSignupService;
-use App\Signup\SignupChallenge;
-use App\Signup\SignupConfig;
-use App\Signup\SignupCoordinator;
-use App\Signup\SignupException;
-use App\Signup\SignupRolePolicy;
-use App\Signup\SignupTelemetry;
-use App\Signup\WorkspaceSignupService;
-use App\Support\ActorHelper;
+use Thallo\Core\Signup\MemberSignupService;
+use Thallo\Core\Signup\SignupChallenge;
+use Thallo\Core\Signup\SignupConfig;
+use Thallo\Core\Signup\SignupCoordinator;
+use Thallo\Core\Signup\SignupException;
+use Thallo\Core\Signup\SignupRolePolicy;
+use Thallo\Core\Signup\SignupTelemetry;
+use Thallo\Core\Signup\WorkspaceSignupService;
+use Thallo\Core\Support\ActorHelper;
 use Glueful\Http\Response;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Tenancy\Tenant\SingleStoreTenant;

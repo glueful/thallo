@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Pipeline;
+namespace Thallo\Core\Tests\Integration\Pipeline;
 
-use App\Content\Events\AssetAttached;
-use App\Content\Events\AssetDetached;
-use App\Content\Events\EntryUpdated;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Support\OptimisticLockException;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Events\AssetAttached;
+use Thallo\Core\Content\Events\AssetDetached;
+use Thallo\Core\Content\Events\EntryUpdated;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Support\OptimisticLockException;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 
 /**

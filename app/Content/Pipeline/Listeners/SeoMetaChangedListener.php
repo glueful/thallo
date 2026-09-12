@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Pipeline\Listeners;
+namespace Thallo\Core\Content\Pipeline\Listeners;
 
 use Glueful\Cache\CacheStore;
 use Glueful\Cache\Contracts\EdgeCacheInterface;

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Pipeline\Listeners;
+namespace Thallo\Core\Content\Pipeline\Listeners;
 
-use App\Content\Events\BaseEntryEvent;
+use Thallo\Core\Content\Events\BaseEntryEvent;
 use Thallo\Contracts\Search\ContentReindexer;
 use Psr\Container\ContainerInterface;
 

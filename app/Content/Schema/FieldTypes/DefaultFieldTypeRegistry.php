@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Schema\FieldTypes;
+namespace Thallo\Core\Content\Schema\FieldTypes;
 
 use Thallo\Contracts\Schema\FieldTypeDefinition;
 use Thallo\Contracts\Schema\FieldTypeRegistry;

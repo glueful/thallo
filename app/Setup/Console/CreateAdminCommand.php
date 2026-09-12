@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Setup\Console;
+namespace Thallo\Core\Setup\Console;
 
-use App\Setup\SetupService;
+use Thallo\Core\Setup\SetupService;
 use Glueful\Console\BaseCommand;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;

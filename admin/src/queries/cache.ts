@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
 
-// ── Cache (App\Http\Controllers\CacheAdminController, /v1/admin/cache) ─────────────────────────────
+// ── Cache (Thallo\Core\Http\Controllers\CacheAdminController, /v1/admin/cache) ─────────────────────────────
 
 export interface CacheStat {
   key: string

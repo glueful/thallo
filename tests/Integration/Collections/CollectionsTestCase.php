@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Collections;
+namespace Thallo\Core\Tests\Integration\Collections;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Users\Repositories\UserRepository;
 use Thallo\Tenancy\System\SystemFlags;
 use Thallo\Tenancy\Tenant\SingleStoreTenant;

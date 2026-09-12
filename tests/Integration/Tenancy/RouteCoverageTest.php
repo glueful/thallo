@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Routing\Route;
 use Glueful\Routing\Router;
 
@@ -120,6 +120,6 @@ final class RouteCoverageTest extends AppTestCase
     private static function isThalloOwned(?string $class): bool
     {
         return $class !== null
-            && (str_starts_with($class, 'App\\') || str_starts_with($class, 'Thallo\\'));
+            && (str_starts_with($class, 'Thallo\\Core\\') || str_starts_with($class, 'Thallo\\'));
     }
 }

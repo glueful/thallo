@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Support;
+namespace Thallo\Core\Content\Support;
 
 final class OptimisticLockException extends \RuntimeException
 {

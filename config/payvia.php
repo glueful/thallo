@@ -21,7 +21,7 @@ declare(strict_types=1);
  *
  * That is not a payments-settings problem, it is a payvia problem: with an empty gateway map,
  * `PayviaSettings::gateways()` returns nothing, `GatewayManager` can resolve no driver at all, and
- * `App\Settings\PlatformPayviaSettingsOverride`'s config-gated whitelist correctly refuses every
+ * `Thallo\Core\Settings\PlatformPayviaSettingsOverride`'s config-gated whitelist correctly refuses every
  * `payvia.gateways.{id}.*` key — so platform credentials would resolve nowhere in production while
  * every test (live-discovery boots) stayed green.
  *
@@ -38,7 +38,7 @@ declare(strict_types=1);
  * NEVER PUT A LITERAL SECRET IN THIS FILE. The credential entries below are `env()` references
  * only — they preserve payvia's env fallback so it behaves identically in both boot modes. Runtime
  * gateway credentials are edited through the platform Settings → Payments surface and stored
- * ENCRYPTED in the unscoped system channel (`App\Settings\PlatformPaymentSettingsStore`); the
+ * ENCRYPTED in the unscoped system channel (`Thallo\Core\Settings\PlatformPaymentSettingsStore`); the
  * override consults that store FIRST and only falls through to these config/env values when no
  * platform value is set.
  */

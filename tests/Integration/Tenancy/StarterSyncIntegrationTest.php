@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Content\Regions\RegionRepository;
-use App\Tests\Support\RetrofittedTenantTestCase;
+use Thallo\Core\Content\Regions\RegionRepository;
+use Thallo\Core\Tests\Support\RetrofittedTenantTestCase;
 use Thallo\Tenancy\Contracts\TenantSeedRepair;
 use Thallo\Tenancy\Contracts\TenantStarterSync;
 

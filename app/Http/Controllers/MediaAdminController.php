@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Events\MediaDeleted;
+use Thallo\Core\Events\MediaDeleted;
 use Glueful\Auth\Contracts\UserProviderInterface;
 use Glueful\Auth\UserIdentity;
 use Glueful\Bootstrap\ApplicationContext;
@@ -24,7 +24,7 @@ use Thallo\Tenancy\System\SystemFlags;
  * SPA needs — a paginated, type-filtered, searchable list — plus Thallo's CMS sidecars:
  *  - media_meta  (alt text / caption / tags), edited via {@see update()};
  *  - media_usage (which entries reference a blob), surfaced via {@see usage()} and maintained by
- *    {@see \App\Content\Pipeline\Listeners\MediaUsageProjector} off the asset events.
+ *    {@see \Thallo\Core\Content\Pipeline\Listeners\MediaUsageProjector} off the asset events.
  *
  * Gated by `content.view` (read) / `content.manage` (write) — see routes/admin.php.
  */

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Seo\CanonicalPathBuilder;
-use App\Content\Seo\CanonicalProjector;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Seo\CanonicalPathBuilder;
+use Thallo\Core\Content\Seo\CanonicalProjector;
 use Thallo\Contracts\Delivery\ContentDeliveryReader;
 
 /**

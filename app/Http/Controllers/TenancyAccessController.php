@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Content\Authorization\AuthenticatedPrincipalResolver;
-use App\Content\Authorization\OperatorBypass;
-use App\Content\Authorization\PermissionAuthority;
-use App\Content\Authorization\EffectiveRoleMatrix;
-use App\Content\Authorization\TenantMembershipRoleReader;
+use Thallo\Core\Content\Authorization\AuthenticatedPrincipalResolver;
+use Thallo\Core\Content\Authorization\OperatorBypass;
+use Thallo\Core\Content\Authorization\PermissionAuthority;
+use Thallo\Core\Content\Authorization\EffectiveRoleMatrix;
+use Thallo\Core\Content\Authorization\TenantMembershipRoleReader;
 use Glueful\Http\Response;
 use Symfony\Component\HttpFoundation\Request;
 

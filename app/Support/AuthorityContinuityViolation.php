@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Support;
+namespace Thallo\Core\Support;
 
 /** Internal violation carried out of a rolled-back authority transaction. */
 final class AuthorityContinuityViolation extends \RuntimeException

@@ -2,26 +2,26 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content\Delivery;
+namespace Thallo\Core\Tests\Integration\Content\Delivery;
 
-use App\Content\Delivery\DeliveryItemShaper;
-use App\Content\Delivery\DeliveryRepository;
-use App\Content\Delivery\FilterCompiler;
-use App\Content\Delivery\ReferenceFilterResolver;
-use App\Content\Delivery\ReferenceResolver;
-use App\Content\Delivery\SortCompiler;
-use App\Content\Http\Controllers\TaxonomyController;
-use App\Content\Http\DeliveryEtag;
-use App\Content\Http\DTOs\Requests\Delivery\DeliveryFacetsQuery;
-use App\Content\Http\DTOs\Requests\Delivery\DeliveryListQuery;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\PublishedReferenceRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Seo\CanonicalProjector;
-use App\Content\Seo\PathRenderer;
-use App\Content\Seo\RedirectRepository;
-use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Delivery\DeliveryItemShaper;
+use Thallo\Core\Content\Delivery\DeliveryRepository;
+use Thallo\Core\Content\Delivery\FilterCompiler;
+use Thallo\Core\Content\Delivery\ReferenceFilterResolver;
+use Thallo\Core\Content\Delivery\ReferenceResolver;
+use Thallo\Core\Content\Delivery\SortCompiler;
+use Thallo\Core\Content\Http\Controllers\TaxonomyController;
+use Thallo\Core\Content\Http\DeliveryEtag;
+use Thallo\Core\Content\Http\DTOs\Requests\Delivery\DeliveryFacetsQuery;
+use Thallo\Core\Content\Http\DTOs\Requests\Delivery\DeliveryListQuery;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\PublishedReferenceRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Seo\CanonicalProjector;
+use Thallo\Core\Content\Seo\PathRenderer;
+use Thallo\Core\Content\Seo\RedirectRepository;
+use Thallo\Core\Tests\Support\FakeLocaleManager;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Support\FieldSelection\Projector;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;
@@ -89,7 +89,7 @@ final class TermFacetsArchiveTest extends AppTestCase
             $repo,
             $routes,
             $types,
-            new \App\Content\Seo\CanonicalPathBuilder(
+            new \Thallo\Core\Content\Seo\CanonicalPathBuilder(
                 $paths,
                 $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
             ),

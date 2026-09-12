@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Content\Http\Controllers\DeliveryController;
-use App\Content\Http\Controllers\TaxonomyController;
+use Thallo\Core\Content\Http\Controllers\DeliveryController;
+use Thallo\Core\Content\Http\Controllers\TaxonomyController;
 use Glueful\Routing\Router;
 
 /** @var Router $router */

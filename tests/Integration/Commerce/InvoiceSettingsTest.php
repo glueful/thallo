@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Content\Media\TenantBlobPolicy;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Media\TenantBlobPolicy;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Commerce\Catalog\VariantRepository;
 use Glueful\Extensions\Commerce\Tenancy\CommerceTenantResolution;

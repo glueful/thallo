@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Middleware;
+namespace Thallo\Core\Http\Middleware;
 
-use App\Content\Authorization\AuthenticatedPrincipalResolver;
-use App\Content\Authorization\PermissionAuthority;
+use Thallo\Core\Content\Authorization\AuthenticatedPrincipalResolver;
+use Thallo\Core\Content\Authorization\PermissionAuthority;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Contracts\Tenancy\FullTenantResolutionReadiness;
 use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;

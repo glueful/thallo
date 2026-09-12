@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
 
-// ── Scheduled tasks (App\Http\Controllers\ScheduledTasksController, /v1/admin/scheduled-tasks) ─────
+// ── Scheduled tasks (Thallo\Core\Http\Controllers\ScheduledTasksController, /v1/admin/scheduled-tasks) ─────
 
 export interface ScheduledTask {
   name: string

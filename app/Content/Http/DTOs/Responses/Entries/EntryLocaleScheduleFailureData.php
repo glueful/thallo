@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs\Responses\Entries;
+namespace Thallo\Core\Content\Http\DTOs\Responses\Entries;
 
 use Glueful\Http\Contracts\ResponseData;
 
 /**
  * Doc-only schema holder: mirrors the `last_failure` sub-object that
- * {@see \App\Content\Repositories\EntryRepository::emptyScheduleSummary()} populates from
+ * {@see \Thallo\Core\Content\Repositories\EntryRepository::emptyScheduleSummary()} populates from
  * the most-recent `failed` row in `entry_schedules`. NEVER constructed at runtime — it
  * exists only so the OpenAPI generator can reflect a typed schema for the `last_failure`
  * key nested inside the `scheduled` block of a locale summary item. `run_at` is typed as

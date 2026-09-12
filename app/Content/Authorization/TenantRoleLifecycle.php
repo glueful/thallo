@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Authorization;
+namespace Thallo\Core\Content\Authorization;
 
-use App\Signup\SignupConfig;
+use Thallo\Core\Signup\SignupConfig;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Tenancy\Membership\MembershipRoleAuthority;

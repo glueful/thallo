@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Support\ActorHelper;
-use App\Support\RoleAuthority;
+use Thallo\Core\Support\ActorHelper;
+use Thallo\Core\Support\RoleAuthority;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Contracts\Tenancy\TenantDomainAdministration;
 use Glueful\Http\Response;

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Setup\Console;
+namespace Thallo\Core\Setup\Console;
 
-use App\Support\AuthorityAudit;
-use App\Support\AuthorityContinuityGuard;
-use App\Support\AuthorityMutator;
+use Thallo\Core\Support\AuthorityAudit;
+use Thallo\Core\Support\AuthorityContinuityGuard;
+use Thallo\Core\Support\AuthorityMutator;
 use Glueful\Console\BaseCommand;
 use Glueful\Extensions\Users\Repositories\UserRepository;
 use Symfony\Component\Console\Attribute\AsCommand;

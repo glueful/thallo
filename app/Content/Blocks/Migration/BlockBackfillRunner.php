@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Blocks\Migration;
+namespace Thallo\Core\Content\Blocks\Migration;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Schema\Migration\MigrationOpSet;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\Migration\MigrationOpSet;
 use Glueful\Cache\CacheStore;
 use Glueful\Database\Connection;
 use Psr\Container\ContainerInterface;

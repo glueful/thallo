@@ -2,50 +2,50 @@
 
 declare(strict_types=1);
 
-namespace App\Providers;
+namespace Thallo\Core\Providers;
 
-use App\Capabilities\CapabilityStateStore;
-use App\Capabilities\DefaultCapabilityRegistry;
-use App\Capabilities\ExtensionCapabilityAvailabilityResolver;
-use App\Setup\InstallRoleGrants;
-use App\Setup\SetupService;
-use App\Content\Delivery\DeliveryRepository;
-use App\Content\Delivery\EngineMediaUrlResolver;
-use App\Content\Delivery\EngineMediaVariantUrlResolver;
-use App\Content\Delivery\FilterCompiler;
-use App\Content\Delivery\ReferenceFilterResolver;
-use App\Content\Delivery\ReferenceResolver;
-use App\Content\Delivery\SortCompiler;
-use App\Content\Delivery\ThalloCanonicalPublicOriginResolver;
-use App\Content\Forms\DefaultFormSealer;
-use App\Content\Forms\FormFieldDerivation;
-use App\Content\Forms\FormMailSender;
-use App\Content\Forms\FormNotifier;
-use App\Content\Forms\FormSubmissionRepository;
-use App\Content\Forms\Spam\DefaultFormGuard;
-use App\Content\Forms\Spam\FormSubmissionGuard;
-use App\Content\Media\TenantBlobPolicy;
-use App\Content\Media\TenantBlobPublicUrlProvider;
-use App\Content\Media\TenantBlobRouteMiddlewareProvider;
-use App\Content\Authorization\OperatorBypass;
-use App\Content\Authorization\AuthenticatedPrincipalResolver;
-use App\Content\Authorization\PermissionAuthority;
-use App\Content\Authorization\CapabilityCatalog;
-use App\Content\Authorization\BuiltinRoleAvailabilityRepository;
-use App\Content\Authorization\EffectiveRoleEvaluator;
-use App\Content\Authorization\EffectiveRoleMatrix;
-use App\Content\Authorization\PermissionImplicationSource;
-use App\Content\Authorization\PermissionRequirementAuthority;
-use App\Content\Authorization\PolicyManifest;
-use App\Content\Authorization\RolePolicyDiagnostics;
-use App\Content\Authorization\RoleMatrix;
-use App\Content\Authorization\TenantMembershipRoleReader;
-use App\Content\Authorization\TenantRoleOverrideRepository;
-use App\Content\Authorization\TenantRolePolicyMutator;
-use App\Content\Authorization\TenantRoleRepository;
-use App\Content\Authorization\TenantRoleLifecycle;
-use App\Content\Authorization\ThalloMembershipRoleAuthority;
-use App\Http\Middleware\AdminTenantBindingMiddleware;
+use Thallo\Core\Capabilities\CapabilityStateStore;
+use Thallo\Core\Capabilities\DefaultCapabilityRegistry;
+use Thallo\Core\Capabilities\ExtensionCapabilityAvailabilityResolver;
+use Thallo\Core\Setup\InstallRoleGrants;
+use Thallo\Core\Setup\SetupService;
+use Thallo\Core\Content\Delivery\DeliveryRepository;
+use Thallo\Core\Content\Delivery\EngineMediaUrlResolver;
+use Thallo\Core\Content\Delivery\EngineMediaVariantUrlResolver;
+use Thallo\Core\Content\Delivery\FilterCompiler;
+use Thallo\Core\Content\Delivery\ReferenceFilterResolver;
+use Thallo\Core\Content\Delivery\ReferenceResolver;
+use Thallo\Core\Content\Delivery\SortCompiler;
+use Thallo\Core\Content\Delivery\ThalloCanonicalPublicOriginResolver;
+use Thallo\Core\Content\Forms\DefaultFormSealer;
+use Thallo\Core\Content\Forms\FormFieldDerivation;
+use Thallo\Core\Content\Forms\FormMailSender;
+use Thallo\Core\Content\Forms\FormNotifier;
+use Thallo\Core\Content\Forms\FormSubmissionRepository;
+use Thallo\Core\Content\Forms\Spam\DefaultFormGuard;
+use Thallo\Core\Content\Forms\Spam\FormSubmissionGuard;
+use Thallo\Core\Content\Media\TenantBlobPolicy;
+use Thallo\Core\Content\Media\TenantBlobPublicUrlProvider;
+use Thallo\Core\Content\Media\TenantBlobRouteMiddlewareProvider;
+use Thallo\Core\Content\Authorization\OperatorBypass;
+use Thallo\Core\Content\Authorization\AuthenticatedPrincipalResolver;
+use Thallo\Core\Content\Authorization\PermissionAuthority;
+use Thallo\Core\Content\Authorization\CapabilityCatalog;
+use Thallo\Core\Content\Authorization\BuiltinRoleAvailabilityRepository;
+use Thallo\Core\Content\Authorization\EffectiveRoleEvaluator;
+use Thallo\Core\Content\Authorization\EffectiveRoleMatrix;
+use Thallo\Core\Content\Authorization\PermissionImplicationSource;
+use Thallo\Core\Content\Authorization\PermissionRequirementAuthority;
+use Thallo\Core\Content\Authorization\PolicyManifest;
+use Thallo\Core\Content\Authorization\RolePolicyDiagnostics;
+use Thallo\Core\Content\Authorization\RoleMatrix;
+use Thallo\Core\Content\Authorization\TenantMembershipRoleReader;
+use Thallo\Core\Content\Authorization\TenantRoleOverrideRepository;
+use Thallo\Core\Content\Authorization\TenantRolePolicyMutator;
+use Thallo\Core\Content\Authorization\TenantRoleRepository;
+use Thallo\Core\Content\Authorization\TenantRoleLifecycle;
+use Thallo\Core\Content\Authorization\ThalloMembershipRoleAuthority;
+use Thallo\Core\Http\Middleware\AdminTenantBindingMiddleware;
 use Glueful\Encryption\EncryptionService;
 use Glueful\Extensions\Audit\Contracts\AuditRecorderInterface;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;
@@ -65,170 +65,170 @@ use Glueful\Extensions\Tenancy\Events\DomainRevoked;
 use Glueful\Extensions\Tenancy\Membership\MembershipRoleAuthority;
 use Thallo\Contracts\Content\FormSealer;
 use Thallo\Tenancy\Reverification\DomainReverificationAuditListener;
-use App\Content\Console\PruneVersionsCommand;
-use App\Content\Console\PolicyManifestCommand;
-use App\Content\Console\RetireAccountLinkCommand;
-use App\Content\Console\RunBlockBackfillCommand;
-use App\Content\Console\SeedBlockTypesCommand;
-use App\Content\Console\SyncBlockTypesCommand;
-use App\Content\Console\ResyncCommand;
-use App\Content\Console\RunBackfillCommand;
-use App\Content\Console\RunDueSchedulesCommand;
-use App\Setup\Console\CreateAdminCommand;
-use App\Setup\Console\DoctorCommand;
-use App\Setup\Console\ProvisionCommand;
-use App\Setup\Console\SuperuserGrantCommand;
-use App\Setup\Console\SuperuserTransferCommand;
-use App\Settings\Console\MigratePlatformPaymentCredentialsCommand;
-use App\Content\Backfill\BackfillRunner;
-use App\Content\Indexing\FilterIndexJobDispatcher;
-use App\Http\Controllers\AdminConfigController;
-use App\Http\Controllers\AssignableRolesController;
-use App\Http\Controllers\ApiKeyAdminController;
-use App\Http\Controllers\CacheAdminController;
-use App\Http\Controllers\CapabilityAdminController;
-use App\Http\Controllers\ExtensionAdminController;
-use App\Http\Controllers\FormSubmissionsController;
-use App\Http\Controllers\FormSubmitController;
-use App\Http\Controllers\GeneralSettingsController;
-use App\Http\Controllers\HealthAdminController;
-use App\Http\Controllers\IconInventoryController;
-use App\Http\Controllers\ImportExportController;
-use App\Http\Controllers\MediaAdminController;
-use App\Http\Controllers\PlatformPaymentsSettingsController;
-use App\Http\Controllers\RegionAdminController;
-use App\Http\Controllers\ScheduledTasksController;
-use App\Http\Controllers\TenancyAccessController;
-use App\Http\Controllers\UserAdminController;
-use App\Http\Controllers\TenantHostCooldownController;
-use App\Http\Controllers\TenantRolesController;
-use App\Http\Controllers\SignupController;
-use App\Signup\ContinuationTokens;
-use App\Signup\CustomerSignupService;
-use App\Signup\DefaultSignupDiagnostics;
-use App\Signup\MemberSignupService;
-use App\Signup\NullSignupChallenge;
-use App\Signup\RejectingSignupChallenge;
-use App\Signup\SignupChallenge;
-use App\Signup\SignupConfig;
-use App\Signup\SignupCoordinator;
-use App\Signup\SignupIntentRepository;
-use App\Signup\SignupMailSender;
-use App\Signup\VerifiedAccountActivator;
-use App\Signup\SignupRolePolicy;
-use App\Signup\SignupTelemetry;
-use App\Signup\SignupThrottle;
-use App\Signup\SignupVerifier;
-use App\Signup\WorkspaceSignupService;
+use Thallo\Core\Content\Console\PruneVersionsCommand;
+use Thallo\Core\Content\Console\PolicyManifestCommand;
+use Thallo\Core\Content\Console\RetireAccountLinkCommand;
+use Thallo\Core\Content\Console\RunBlockBackfillCommand;
+use Thallo\Core\Content\Console\SeedBlockTypesCommand;
+use Thallo\Core\Content\Console\SyncBlockTypesCommand;
+use Thallo\Core\Content\Console\ResyncCommand;
+use Thallo\Core\Content\Console\RunBackfillCommand;
+use Thallo\Core\Content\Console\RunDueSchedulesCommand;
+use Thallo\Core\Setup\Console\CreateAdminCommand;
+use Thallo\Core\Setup\Console\DoctorCommand;
+use Thallo\Core\Setup\Console\ProvisionCommand;
+use Thallo\Core\Setup\Console\SuperuserGrantCommand;
+use Thallo\Core\Setup\Console\SuperuserTransferCommand;
+use Thallo\Core\Settings\Console\MigratePlatformPaymentCredentialsCommand;
+use Thallo\Core\Content\Backfill\BackfillRunner;
+use Thallo\Core\Content\Indexing\FilterIndexJobDispatcher;
+use Thallo\Core\Http\Controllers\AdminConfigController;
+use Thallo\Core\Http\Controllers\AssignableRolesController;
+use Thallo\Core\Http\Controllers\ApiKeyAdminController;
+use Thallo\Core\Http\Controllers\CacheAdminController;
+use Thallo\Core\Http\Controllers\CapabilityAdminController;
+use Thallo\Core\Http\Controllers\ExtensionAdminController;
+use Thallo\Core\Http\Controllers\FormSubmissionsController;
+use Thallo\Core\Http\Controllers\FormSubmitController;
+use Thallo\Core\Http\Controllers\GeneralSettingsController;
+use Thallo\Core\Http\Controllers\HealthAdminController;
+use Thallo\Core\Http\Controllers\IconInventoryController;
+use Thallo\Core\Http\Controllers\ImportExportController;
+use Thallo\Core\Http\Controllers\MediaAdminController;
+use Thallo\Core\Http\Controllers\PlatformPaymentsSettingsController;
+use Thallo\Core\Http\Controllers\RegionAdminController;
+use Thallo\Core\Http\Controllers\ScheduledTasksController;
+use Thallo\Core\Http\Controllers\TenancyAccessController;
+use Thallo\Core\Http\Controllers\UserAdminController;
+use Thallo\Core\Http\Controllers\TenantHostCooldownController;
+use Thallo\Core\Http\Controllers\TenantRolesController;
+use Thallo\Core\Http\Controllers\SignupController;
+use Thallo\Core\Signup\ContinuationTokens;
+use Thallo\Core\Signup\CustomerSignupService;
+use Thallo\Core\Signup\DefaultSignupDiagnostics;
+use Thallo\Core\Signup\MemberSignupService;
+use Thallo\Core\Signup\NullSignupChallenge;
+use Thallo\Core\Signup\RejectingSignupChallenge;
+use Thallo\Core\Signup\SignupChallenge;
+use Thallo\Core\Signup\SignupConfig;
+use Thallo\Core\Signup\SignupCoordinator;
+use Thallo\Core\Signup\SignupIntentRepository;
+use Thallo\Core\Signup\SignupMailSender;
+use Thallo\Core\Signup\VerifiedAccountActivator;
+use Thallo\Core\Signup\SignupRolePolicy;
+use Thallo\Core\Signup\SignupTelemetry;
+use Thallo\Core\Signup\SignupThrottle;
+use Thallo\Core\Signup\SignupVerifier;
+use Thallo\Core\Signup\WorkspaceSignupService;
 use Thallo\Contracts\Tenancy\SignupDiagnostics;
-use App\Support\AuthorityAudit;
-use App\Support\AuthorityContinuityGuard;
-use App\Support\AuthorityMutator;
-use App\Support\RoleAuthority;
-use App\Support\UserRoleAssignmentPolicy;
-use App\Support\TenancyLifecycleAudit;
+use Thallo\Core\Support\AuthorityAudit;
+use Thallo\Core\Support\AuthorityContinuityGuard;
+use Thallo\Core\Support\AuthorityMutator;
+use Thallo\Core\Support\RoleAuthority;
+use Thallo\Core\Support\UserRoleAssignmentPolicy;
+use Thallo\Core\Support\TenancyLifecycleAudit;
 use Thallo\Contracts\Tenancy\TenancyLifecycleAudit as TenancyLifecycleAuditContract;
 use Thallo\Contracts\Tenancy\RolePolicyDiagnostics as RolePolicyDiagnosticsContract;
-use App\Settings\GeneralSettings;
-use App\Settings\SettingsStore;
-use App\Settings\SystemKeyReconciler;
+use Thallo\Core\Settings\GeneralSettings;
+use Thallo\Core\Settings\SettingsStore;
+use Thallo\Core\Settings\SystemKeyReconciler;
 use Thallo\Contracts\Settings\SystemKeyReconciler as SystemKeyReconcilerContract;
-use App\Content\Http\Controllers\BlockMigrationController;
-use App\Content\Http\Controllers\BlockTypeController;
-use App\Content\Http\Controllers\ContentTypeController;
-use App\Http\Controllers\SetupController;
-use App\Content\Http\Controllers\DeliveryController;
-use App\Content\Http\Controllers\EntryController;
-use App\Content\Http\Controllers\LocaleAdminController;
-use App\Content\Http\Controllers\MigrationController;
-use App\Content\Http\Controllers\PreviewController;
-use App\Content\Http\Controllers\PublicationController;
-use App\Content\Http\Controllers\RedirectController;
-use App\Content\Http\Controllers\ScheduleController;
-use App\Content\Http\Controllers\TaxonomyController;
-use App\Content\ImportExport\ContentExporter;
-use App\Content\ImportExport\ContentImporter;
-use App\Content\Http\DeliveryEtag;
-use App\Content\Events\EntryCreated;
-use App\Content\Events\EntryDeleted;
-use App\Content\Events\EntryPublished;
-use App\Content\Events\EntryUnpublished;
-use App\Content\Events\EntryUpdated;
-use App\Content\Events\ModelCreated;
-use App\Content\Events\ModelDeleted;
-use App\Content\Events\ModelUpdated;
-use App\Content\Http\DeliveryAccessMiddleware;
-use App\Content\Http\OptionalApiKeyAuthMiddleware;
-use App\Content\Http\RequirePermission;
-use App\Content\Localization\ContentLocaleService;
-use App\Content\Events\AssetAttached;
-use App\Content\Events\AssetDetached;
-use App\Analytics\AnalyticsBridgeListener;
-use App\Collections\Audit\CollectionAuditListener;
-use App\Content\Pipeline\Listeners\DispatchWebhookListener;
-use App\Content\Pipeline\Listeners\InvalidateCacheTagsListener;
-use App\Content\Pipeline\Listeners\ProjectPublishedReferencesListener;
-use App\Content\Pipeline\Listeners\PurgeCdnListener;
-use App\Content\Pipeline\Listeners\MediaUsageProjector;
-use App\Content\Pipeline\Listeners\ReindexSearchListener;
-use App\Content\Pipeline\Listeners\SeoMetaChangedListener;
+use Thallo\Core\Content\Http\Controllers\BlockMigrationController;
+use Thallo\Core\Content\Http\Controllers\BlockTypeController;
+use Thallo\Core\Content\Http\Controllers\ContentTypeController;
+use Thallo\Core\Http\Controllers\SetupController;
+use Thallo\Core\Content\Http\Controllers\DeliveryController;
+use Thallo\Core\Content\Http\Controllers\EntryController;
+use Thallo\Core\Content\Http\Controllers\LocaleAdminController;
+use Thallo\Core\Content\Http\Controllers\MigrationController;
+use Thallo\Core\Content\Http\Controllers\PreviewController;
+use Thallo\Core\Content\Http\Controllers\PublicationController;
+use Thallo\Core\Content\Http\Controllers\RedirectController;
+use Thallo\Core\Content\Http\Controllers\ScheduleController;
+use Thallo\Core\Content\Http\Controllers\TaxonomyController;
+use Thallo\Core\Content\ImportExport\ContentExporter;
+use Thallo\Core\Content\ImportExport\ContentImporter;
+use Thallo\Core\Content\Http\DeliveryEtag;
+use Thallo\Core\Content\Events\EntryCreated;
+use Thallo\Core\Content\Events\EntryDeleted;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Content\Events\EntryUnpublished;
+use Thallo\Core\Content\Events\EntryUpdated;
+use Thallo\Core\Content\Events\ModelCreated;
+use Thallo\Core\Content\Events\ModelDeleted;
+use Thallo\Core\Content\Events\ModelUpdated;
+use Thallo\Core\Content\Http\DeliveryAccessMiddleware;
+use Thallo\Core\Content\Http\OptionalApiKeyAuthMiddleware;
+use Thallo\Core\Content\Http\RequirePermission;
+use Thallo\Core\Content\Localization\ContentLocaleService;
+use Thallo\Core\Content\Events\AssetAttached;
+use Thallo\Core\Content\Events\AssetDetached;
+use Thallo\Core\Analytics\AnalyticsBridgeListener;
+use Thallo\Core\Collections\Audit\CollectionAuditListener;
+use Thallo\Core\Content\Pipeline\Listeners\DispatchWebhookListener;
+use Thallo\Core\Content\Pipeline\Listeners\InvalidateCacheTagsListener;
+use Thallo\Core\Content\Pipeline\Listeners\ProjectPublishedReferencesListener;
+use Thallo\Core\Content\Pipeline\Listeners\PurgeCdnListener;
+use Thallo\Core\Content\Pipeline\Listeners\MediaUsageProjector;
+use Thallo\Core\Content\Pipeline\Listeners\ReindexSearchListener;
+use Thallo\Core\Content\Pipeline\Listeners\SeoMetaChangedListener;
 use Thallo\Contracts\Seo\SeoMetaChanged;
-use App\Content\Blocks\BlockMigrationGate;
-use App\Content\Blocks\BlockRestoreProjector;
-use App\Content\Blocks\EngineBlockEditableFieldResolver;
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\BlockUsageScanner;
-use App\Content\Blocks\Migration\BlockBackfillRunner;
-use App\Content\Regions\EngineRegionReader;
-use App\Content\Regions\RegionRepository;
-use App\Content\Regions\RegionValidator;
-use App\Content\Blocks\Migration\BlockInstanceWalker;
-use App\Content\Blocks\Migration\BlockMigrationRepository;
-use App\Content\Blocks\Migration\BlockMigrationService;
-use App\Content\Pipeline\PublishEventEmitter;
-use App\Content\Preview\EnginePreviewSessionVerifier;
-use App\Content\Preview\PreviewMinter;
-use App\Content\Preview\PreviewReader;
-use App\Content\Preview\PreviewWorkingCopyStore;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\MigrationRepository;
-use App\Content\Repositories\PublishedReferenceRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Repositories\ScheduleRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Retention\VersionPruner;
-use App\Content\Schema\Migration\SchemaProjector;
-use App\Content\Scheduling\ScheduleRunner;
-use App\Content\Seo\CanonicalProjector;
-use App\Content\Seo\EngineSeoHeadProvider;
-use App\Content\Routing\RootMountGuard;
-use App\Content\Seo\CanonicalPathBuilder;
-use App\Settings\EngineAdminUrlProvider;
-use App\Settings\EngineSiteFaviconProvider;
-use App\Settings\EngineThemeAppearanceProvider;
-use App\Settings\EngineThemeSettingProvider;
-use App\Settings\EngineSiteLogoProvider;
-use App\Content\Seo\PathRenderer;
-use App\Content\Seo\RedirectRepository;
-use App\Content\Seo\RouteResolver;
-use App\Content\Services\MigrationService;
-use App\Content\Authoring\EngineContentWriter;
-use App\Content\Authoring\EngineDraftSummaryReader;
-use App\Content\Authoring\EngineEntryExistenceReader;
-use App\Content\Delivery\EngineEntryTargetResolver;
-use App\Content\Context\EngineContext;
-use App\Content\Delivery\EngineContentDeliveryReader;
-use App\Content\Delivery\EngineEntryListReader;
-use App\Content\Delivery\EngineFacetCountsReader;
-use App\Content\Delivery\EngineIndexableContentReader;
-use App\Content\Delivery\EnginePublishedEntryBlocksReader;
-use App\Content\Schema\FieldTypes\DefaultFieldTypeRegistry;
-use App\Content\Schema\FieldTypes\EditorialFieldTypes;
-use App\Content\Services\PublishService;
-use App\Content\Sanitization\TipTapHtmlSanitizer;
-use App\Content\Validation\FieldValidator;
+use Thallo\Core\Content\Blocks\BlockMigrationGate;
+use Thallo\Core\Content\Blocks\BlockRestoreProjector;
+use Thallo\Core\Content\Blocks\EngineBlockEditableFieldResolver;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\BlockUsageScanner;
+use Thallo\Core\Content\Blocks\Migration\BlockBackfillRunner;
+use Thallo\Core\Content\Regions\EngineRegionReader;
+use Thallo\Core\Content\Regions\RegionRepository;
+use Thallo\Core\Content\Regions\RegionValidator;
+use Thallo\Core\Content\Blocks\Migration\BlockInstanceWalker;
+use Thallo\Core\Content\Blocks\Migration\BlockMigrationRepository;
+use Thallo\Core\Content\Blocks\Migration\BlockMigrationService;
+use Thallo\Core\Content\Pipeline\PublishEventEmitter;
+use Thallo\Core\Content\Preview\EnginePreviewSessionVerifier;
+use Thallo\Core\Content\Preview\PreviewMinter;
+use Thallo\Core\Content\Preview\PreviewReader;
+use Thallo\Core\Content\Preview\PreviewWorkingCopyStore;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\MigrationRepository;
+use Thallo\Core\Content\Repositories\PublishedReferenceRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Repositories\ScheduleRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Retention\VersionPruner;
+use Thallo\Core\Content\Schema\Migration\SchemaProjector;
+use Thallo\Core\Content\Scheduling\ScheduleRunner;
+use Thallo\Core\Content\Seo\CanonicalProjector;
+use Thallo\Core\Content\Seo\EngineSeoHeadProvider;
+use Thallo\Core\Content\Routing\RootMountGuard;
+use Thallo\Core\Content\Seo\CanonicalPathBuilder;
+use Thallo\Core\Settings\EngineAdminUrlProvider;
+use Thallo\Core\Settings\EngineSiteFaviconProvider;
+use Thallo\Core\Settings\EngineThemeAppearanceProvider;
+use Thallo\Core\Settings\EngineThemeSettingProvider;
+use Thallo\Core\Settings\EngineSiteLogoProvider;
+use Thallo\Core\Content\Seo\PathRenderer;
+use Thallo\Core\Content\Seo\RedirectRepository;
+use Thallo\Core\Content\Seo\RouteResolver;
+use Thallo\Core\Content\Services\MigrationService;
+use Thallo\Core\Content\Authoring\EngineContentWriter;
+use Thallo\Core\Content\Authoring\EngineDraftSummaryReader;
+use Thallo\Core\Content\Authoring\EngineEntryExistenceReader;
+use Thallo\Core\Content\Delivery\EngineEntryTargetResolver;
+use Thallo\Core\Content\Context\EngineContext;
+use Thallo\Core\Content\Delivery\EngineContentDeliveryReader;
+use Thallo\Core\Content\Delivery\EngineEntryListReader;
+use Thallo\Core\Content\Delivery\EngineFacetCountsReader;
+use Thallo\Core\Content\Delivery\EngineIndexableContentReader;
+use Thallo\Core\Content\Delivery\EnginePublishedEntryBlocksReader;
+use Thallo\Core\Content\Schema\FieldTypes\DefaultFieldTypeRegistry;
+use Thallo\Core\Content\Schema\FieldTypes\EditorialFieldTypes;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Sanitization\TipTapHtmlSanitizer;
+use Thallo\Core\Content\Validation\FieldValidator;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Bootstrap\RequestLifecycle;
 use Glueful\Cache\CacheStore;
@@ -343,7 +343,7 @@ final class ThalloServiceProvider extends ServiceProvider
 
     /**
      * Storefront account contracts, implemented by the app over the signup pipeline and the users
-     * extension. The account PACK consumes only these interfaces, never `App\Signup`.
+     * extension. The account PACK consumes only these interfaces, never `Thallo\Core\Signup`.
      *
      * @return array<string, array<string, mixed>>
      */
@@ -357,11 +357,11 @@ final class ThalloServiceProvider extends ServiceProvider
 
         return [
             \Thallo\Contracts\Account\StorefrontAccountRegistration::class =>
-                $bind(\App\Account\AppStorefrontAccountRegistration::class),
+                $bind(\Thallo\Core\Account\AppStorefrontAccountRegistration::class),
             \Thallo\Contracts\Account\StorefrontAccountRecovery::class =>
-                $bind(\App\Account\AppStorefrontAccountRecovery::class),
+                $bind(\Thallo\Core\Account\AppStorefrontAccountRecovery::class),
             \Thallo\Contracts\Account\AccountNavigationRegistry::class =>
-                $bind(\App\Account\InMemoryAccountNavigationRegistry::class),
+                $bind(\Thallo\Core\Account\InMemoryAccountNavigationRegistry::class),
         ];
     }
 
@@ -658,23 +658,23 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared'   => true,
                 'autowire' => true,
             ],
-            \App\Content\Delivery\DeliveryItemShaper::class => [
-                'class'    => \App\Content\Delivery\DeliveryItemShaper::class,
+            \Thallo\Core\Content\Delivery\DeliveryItemShaper::class => [
+                'class'    => \Thallo\Core\Content\Delivery\DeliveryItemShaper::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
-            \App\Content\Delivery\ListingItemShaper::class => [
-                'class'    => \App\Content\Delivery\ListingItemShaper::class,
+            \Thallo\Core\Content\Delivery\ListingItemShaper::class => [
+                'class'    => \Thallo\Core\Content\Delivery\ListingItemShaper::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
             \Thallo\Contracts\Delivery\HomepageEntryProvider::class => [
-                'class'    => \App\Content\Delivery\EngineHomepageEntryProvider::class,
+                'class'    => \Thallo\Core\Content\Delivery\EngineHomepageEntryProvider::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
             \Thallo\Contracts\Delivery\PublicRouteResolver::class => [
-                'class'    => \App\Content\Delivery\EnginePublicRouteResolver::class,
+                'class'    => \Thallo\Core\Content\Delivery\EnginePublicRouteResolver::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
@@ -716,7 +716,7 @@ final class ThalloServiceProvider extends ServiceProvider
                 'autowire' => true,
             ],
             \Thallo\Contracts\Schema\ContentTypeReader::class => [
-                'class'    => \App\Content\Schema\EngineContentTypeReader::class,
+                'class'    => \Thallo\Core\Content\Schema\EngineContentTypeReader::class,
                 'shared'   => true,
                 'autowire' => true,
             ],
@@ -749,45 +749,47 @@ final class ThalloServiceProvider extends ServiceProvider
 
         return [
             \Thallo\Contracts\Starter\StarterContributorRegistry::class => $autowired(
-                \App\Content\Starter\DefaultStarterContributorRegistry::class
+                \Thallo\Core\Content\Starter\DefaultStarterContributorRegistry::class
             ),
             \Thallo\Contracts\Starter\StarterBlockTypeRegistry::class => $autowired(
-                \App\Content\Starter\DefaultStarterBlockTypeRegistry::class
+                \Thallo\Core\Content\Starter\DefaultStarterBlockTypeRegistry::class
             ),
-            \App\Content\Starter\Kinds\ContentTypeKind::class => $autowired(
-                \App\Content\Starter\Kinds\ContentTypeKind::class
+            \Thallo\Core\Content\Starter\Kinds\ContentTypeKind::class => $autowired(
+                \Thallo\Core\Content\Starter\Kinds\ContentTypeKind::class
             ),
-            \App\Content\Starter\Kinds\BlockTypeKind::class => $autowired(
-                \App\Content\Starter\Kinds\BlockTypeKind::class
+            \Thallo\Core\Content\Starter\Kinds\BlockTypeKind::class => $autowired(
+                \Thallo\Core\Content\Starter\Kinds\BlockTypeKind::class
             ),
-            \App\Content\Starter\Kinds\SettingKind::class => $autowired(
-                \App\Content\Starter\Kinds\SettingKind::class
+            \Thallo\Core\Content\Starter\Kinds\SettingKind::class => $autowired(
+                \Thallo\Core\Content\Starter\Kinds\SettingKind::class
             ),
-            \App\Content\Starter\Kinds\RegionKind::class => $autowired(
-                \App\Content\Starter\Kinds\RegionKind::class
+            \Thallo\Core\Content\Starter\Kinds\RegionKind::class => $autowired(
+                \Thallo\Core\Content\Starter\Kinds\RegionKind::class
             ),
-            \App\Content\Starter\Kinds\NavigationMenuKind::class => $autowired(
-                \App\Content\Starter\Kinds\NavigationMenuKind::class
+            \Thallo\Core\Content\Starter\Kinds\NavigationMenuKind::class => $autowired(
+                \Thallo\Core\Content\Starter\Kinds\NavigationMenuKind::class
             ),
-            \App\Content\Starter\Kinds\HomepageEntryKind::class => $autowired(
-                \App\Content\Starter\Kinds\HomepageEntryKind::class
+            \Thallo\Core\Content\Starter\Kinds\HomepageEntryKind::class => $autowired(
+                \Thallo\Core\Content\Starter\Kinds\HomepageEntryKind::class
             ),
-            \App\Content\Starter\StarterProvenanceRepository::class => $autowired(
-                \App\Content\Starter\StarterProvenanceRepository::class
+            \Thallo\Core\Content\Starter\StarterProvenanceRepository::class => $autowired(
+                \Thallo\Core\Content\Starter\StarterProvenanceRepository::class
             ),
-            \App\Content\Starter\StarterTransaction::class => $autowired(
-                \App\Content\Starter\StarterTransaction::class
+            \Thallo\Core\Content\Starter\StarterTransaction::class => $autowired(
+                \Thallo\Core\Content\Starter\StarterTransaction::class
             ),
-            \App\Content\Starter\StarterDefinitions::class => [
+            \Thallo\Core\Content\Starter\StarterDefinitions::class => [
                 'factory' => [self::class, 'makeStarterDefinitions'],
                 'shared' => true,
             ],
-            \App\Content\Starter\TenantSeeder::class => $autowired(
-                \App\Content\Starter\TenantSeeder::class
+            \Thallo\Core\Content\Starter\TenantSeeder::class => $autowired(
+                \Thallo\Core\Content\Starter\TenantSeeder::class
             ),
-            \App\Content\Starter\StarterSync::class => $autowired(\App\Content\Starter\StarterSync::class),
-            \App\Content\Starter\DefaultStarterCoverageCheck::class => $autowired(
-                \App\Content\Starter\DefaultStarterCoverageCheck::class
+            \Thallo\Core\Content\Starter\StarterSync::class => $autowired(
+                \Thallo\Core\Content\Starter\StarterSync::class
+            ),
+            \Thallo\Core\Content\Starter\DefaultStarterCoverageCheck::class => $autowired(
+                \Thallo\Core\Content\Starter\DefaultStarterCoverageCheck::class
             ),
             \Thallo\Tenancy\Contracts\TenantSeedActivator::class => [
                 'factory' => [self::class, 'makeTenantSeeder'],
@@ -805,7 +807,7 @@ final class ThalloServiceProvider extends ServiceProvider
                 'factory' => [self::class, 'makeStarterCoverageCheck'],
                 'shared' => true,
             ],
-            \App\Content\Starter\RawPdoWriteAudit::class => [
+            \Thallo\Core\Content\Starter\RawPdoWriteAudit::class => [
                 'factory' => [self::class, 'makeRawPdoWriteAudit'],
                 'shared' => true,
             ],
@@ -818,38 +820,38 @@ final class ThalloServiceProvider extends ServiceProvider
 
     public static function makeStarterDefinitions(
         ContainerInterface $container
-    ): \App\Content\Starter\StarterDefinitions {
-        return new \App\Content\Starter\StarterDefinitions(
-            $container->get(\App\Content\Starter\Kinds\ContentTypeKind::class),
-            $container->get(\App\Content\Starter\Kinds\BlockTypeKind::class),
-            $container->get(\App\Content\Starter\Kinds\SettingKind::class),
-            $container->get(\App\Content\Starter\Kinds\RegionKind::class),
-            $container->get(\App\Content\Starter\Kinds\NavigationMenuKind::class),
-            $container->get(\App\Content\Starter\Kinds\HomepageEntryKind::class),
+    ): \Thallo\Core\Content\Starter\StarterDefinitions {
+        return new \Thallo\Core\Content\Starter\StarterDefinitions(
+            $container->get(\Thallo\Core\Content\Starter\Kinds\ContentTypeKind::class),
+            $container->get(\Thallo\Core\Content\Starter\Kinds\BlockTypeKind::class),
+            $container->get(\Thallo\Core\Content\Starter\Kinds\SettingKind::class),
+            $container->get(\Thallo\Core\Content\Starter\Kinds\RegionKind::class),
+            $container->get(\Thallo\Core\Content\Starter\Kinds\NavigationMenuKind::class),
+            $container->get(\Thallo\Core\Content\Starter\Kinds\HomepageEntryKind::class),
         );
     }
 
-    public static function makeTenantSeeder(ContainerInterface $container): \App\Content\Starter\TenantSeeder
+    public static function makeTenantSeeder(ContainerInterface $container): \Thallo\Core\Content\Starter\TenantSeeder
     {
-        return $container->get(\App\Content\Starter\TenantSeeder::class);
+        return $container->get(\Thallo\Core\Content\Starter\TenantSeeder::class);
     }
 
-    public static function makeStarterSync(ContainerInterface $container): \App\Content\Starter\StarterSync
+    public static function makeStarterSync(ContainerInterface $container): \Thallo\Core\Content\Starter\StarterSync
     {
-        return $container->get(\App\Content\Starter\StarterSync::class);
+        return $container->get(\Thallo\Core\Content\Starter\StarterSync::class);
     }
 
     public static function makeStarterCoverageCheck(
         ContainerInterface $container
     ): \Thallo\Tenancy\Contracts\StarterCoverageCheck {
-        return $container->get(\App\Content\Starter\DefaultStarterCoverageCheck::class);
+        return $container->get(\Thallo\Core\Content\Starter\DefaultStarterCoverageCheck::class);
     }
 
     public static function makeRawPdoWriteAudit(
         ContainerInterface $container
-    ): \App\Content\Starter\RawPdoWriteAudit {
+    ): \Thallo\Core\Content\Starter\RawPdoWriteAudit {
         $context = $container->get(\Glueful\Bootstrap\ApplicationContext::class);
-        return new \App\Content\Starter\RawPdoWriteAudit(base_path($context));
+        return new \Thallo\Core\Content\Starter\RawPdoWriteAudit(base_path($context));
     }
 
     /**
@@ -907,18 +909,18 @@ final class ThalloServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
-            \App\Content\Delivery\HomepageEligibility::class => [
-                'class' => \App\Content\Delivery\HomepageEligibility::class,
+            \Thallo\Core\Content\Delivery\HomepageEligibility::class => [
+                'class' => \Thallo\Core\Content\Delivery\HomepageEligibility::class,
                 'shared' => true,
                 'autowire' => true,
             ],
-            \App\Content\Blocks\StarterBlockTypeSeeder::class => [
-                'class' => \App\Content\Blocks\StarterBlockTypeSeeder::class,
+            \Thallo\Core\Content\Blocks\StarterBlockTypeSeeder::class => [
+                'class' => \Thallo\Core\Content\Blocks\StarterBlockTypeSeeder::class,
                 'shared' => true,
                 'autowire' => true,
             ],
-            \App\Content\Blocks\ContributedBlockTypeReconciler::class => [
-                'class' => \App\Content\Blocks\ContributedBlockTypeReconciler::class,
+            \Thallo\Core\Content\Blocks\ContributedBlockTypeReconciler::class => [
+                'class' => \Thallo\Core\Content\Blocks\ContributedBlockTypeReconciler::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -1418,7 +1420,7 @@ final class ThalloServiceProvider extends ServiceProvider
                 // Task 8 (admin-commerce-area plan, slice 3): aliased to the neutral
                 // Thallo\Contracts\Authorization\PermissionRequirementAuthority contract so a
                 // first-party pack (e.g. thallo-commerce's `/meta` endpoint) can depend on the
-                // SAME shared instance without referencing this `App\` namespace directly — packs
+                // SAME shared instance without referencing this `Thallo\Core\` namespace directly — packs
                 // may not depend on the engine app. The alias belongs on THIS (the concrete)
                 // definition, not a separate binding for the contract — mirrors
                 // packSlugLifecycleAuthorityDefinition()'s identical reasoning in
@@ -1755,8 +1757,8 @@ final class ThalloServiceProvider extends ServiceProvider
             // unscoped SystemChannel for payvia.* gateway credentials — SystemChannel and
             // EncryptionService both autowire (constructor injection only, no container lookups
             // inside the class itself).
-            \App\Settings\PlatformPaymentSettingsStore::class => [
-                'class' => \App\Settings\PlatformPaymentSettingsStore::class,
+            \Thallo\Core\Settings\PlatformPaymentSettingsStore::class => [
+                'class' => \Thallo\Core\Settings\PlatformPaymentSettingsStore::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -1766,13 +1768,13 @@ final class ThalloServiceProvider extends ServiceProvider
             // enumeration/verification/pruning. $table is left at its 'settings' default here
             // (autowiring never supplies a scalar); tests that need an isolated temporary table
             // construct the repository directly instead of resolving it from the container.
-            \App\Settings\LegacyPlatformPaymentSettingsRepository::class => [
-                'class' => \App\Settings\LegacyPlatformPaymentSettingsRepository::class,
+            \Thallo\Core\Settings\LegacyPlatformPaymentSettingsRepository::class => [
+                'class' => \Thallo\Core\Settings\LegacyPlatformPaymentSettingsRepository::class,
                 'shared' => true,
                 'autowire' => true,
             ],
-            \App\Settings\LegacyPlatformPaymentSettingsReader::class => [
-                'class' => \App\Settings\LegacyPlatformPaymentSettingsReader::class,
+            \Thallo\Core\Settings\LegacyPlatformPaymentSettingsReader::class => [
+                'class' => \Thallo\Core\Settings\LegacyPlatformPaymentSettingsReader::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -1798,7 +1800,7 @@ final class ThalloServiceProvider extends ServiceProvider
             // the payvia EXTENSION only stops payvia's code from running — it never consults an
             // override it isn't there to read.
             \Glueful\Extensions\Payvia\Support\PayviaSettingsOverride::class => [
-                'class' => \App\Settings\PlatformPayviaSettingsOverride::class,
+                'class' => \Thallo\Core\Settings\PlatformPayviaSettingsOverride::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -1815,14 +1817,14 @@ final class ThalloServiceProvider extends ServiceProvider
             // Store-settings spec §3.3: thallo-commerce's pack-owned storage contract, satisfied
             // by SettingsStore rows (pack-defines/app-provides — the EngineMediaUrlResolver shape).
             \Thallo\Commerce\Settings\CommerceSettingsStore::class => [
-                'class' => \App\Settings\CommerceSettingsBridge::class,
+                'class' => \Thallo\Core\Settings\CommerceSettingsBridge::class,
                 'shared' => true,
                 'autowire' => true,
             ],
             // Public-account-surface plan Task 3: thallo-account's redirect-settings contract,
             // satisfied by SettingsStore rows (same pack-defines/app-provides shape as commerce).
             \Thallo\Account\Settings\AccountSettingsStore::class => [
-                'class' => \App\Settings\AccountSettingsBridge::class,
+                'class' => \Thallo\Core\Settings\AccountSettingsBridge::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -1830,14 +1832,14 @@ final class ThalloServiceProvider extends ServiceProvider
             // (JWT claims carry no email) — a thin read over the users extension's
             // UserProviderInterface binding; fail-soft to anonymous on any lookup failure.
             \Thallo\Contracts\Account\StorefrontAccountIdentityReader::class => [
-                'class' => \App\Account\AppStorefrontAccountIdentityReader::class,
+                'class' => \Thallo\Core\Account\AppStorefrontAccountIdentityReader::class,
                 'shared' => true,
                 'autowire' => true,
             ],
             // Published site pages as convenience redirect targets (public-account-surface plan
             // Task 4, phase 2): pack-defines / app-provides over the delivery layer.
             \Thallo\Contracts\Delivery\PublishedPageDirectory::class => [
-                'class' => \App\Content\Delivery\PublishedPageDirectoryBridge::class,
+                'class' => \Thallo\Core\Content\Delivery\PublishedPageDirectoryBridge::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -2164,7 +2166,7 @@ final class ThalloServiceProvider extends ServiceProvider
             $container->get(RequestLifecycle::class)->onBeginRequest(
                 static function () use ($container): void {
                     try {
-                        $container->get(\App\Content\Blocks\ContributedBlockTypeReconciler::class)->reconcile();
+                        $container->get(\Thallo\Core\Content\Blocks\ContributedBlockTypeReconciler::class)->reconcile();
                     } catch (\Throwable $e) {
                         if ($container->has(LoggerInterface::class)) {
                             $container->get(LoggerInterface::class)->warning(

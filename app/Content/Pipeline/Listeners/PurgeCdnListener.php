@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Pipeline\Listeners;
+namespace Thallo\Core\Content\Pipeline\Listeners;
 
-use App\Content\Events\BaseEntryEvent;
-use App\Content\Events\BaseModelEvent;
-use App\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Events\BaseEntryEvent;
+use Thallo\Core\Content\Events\BaseModelEvent;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Glueful\Cache\Contracts\EdgeCacheInterface;
 use Psr\Container\ContainerInterface;
 

@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\StarterBlockTypes;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypes;
 use Glueful\Database\Migrations\MigrationInterface;
 use Glueful\Database\Schema\Builders\SchemaBuilder;
 use Glueful\Database\Schema\Interfaces\SchemaBuilderInterface;

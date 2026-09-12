@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Setup\Console;
+namespace Thallo\Core\Setup\Console;
 
-use App\Setup\Doctor\Check;
-use App\Setup\Doctor\Doctor;
-use App\Setup\PgsqlDatabaseConfigFactory;
+use Thallo\Core\Setup\Doctor\Check;
+use Thallo\Core\Setup\Doctor\Doctor;
+use Thallo\Core\Setup\PgsqlDatabaseConfigFactory;
 use Glueful\Console\BaseCommand;
 use Glueful\Installer\ConnectionTester;
 use Glueful\Installer\EnvWriter;

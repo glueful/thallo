@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Schema;
+namespace Thallo\Core\Tests\Integration\Schema;
 
-use App\Capabilities\ExtensionCapabilityAvailabilityResolver;
-use App\Http\Controllers\CapabilityAdminController;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Capabilities\ExtensionCapabilityAvailabilityResolver;
+use Thallo\Core\Http\Controllers\CapabilityAdminController;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Database\Migrations\MigrationManager;

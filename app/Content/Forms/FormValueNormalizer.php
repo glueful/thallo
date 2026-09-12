@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Forms;
+namespace Thallo\Core\Content\Forms;
 
 /**
  * Validates + normalizes raw request input against the sealed FieldDef[] (form-block

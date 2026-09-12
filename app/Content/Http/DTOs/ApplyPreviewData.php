@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs;
+namespace Thallo\Core\Content\Http\DTOs;
 
 use Glueful\Validation\Attributes\Rule;
 use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Request body for `POST /v1/admin/entries/{uuid}/preview/{locale}/apply`
- * ({@see \App\Content\Http\Controllers\EntryController::applyPreview()}).
+ * ({@see \Thallo\Core\Content\Http\Controllers\EntryController::applyPreview()}).
  *
  * `token` is the preview session's HMAC token — the controller verifies it and
  * binds it to the route's entry+locale before anything else. `fields` stays a

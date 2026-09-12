@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Preview;
+namespace Thallo\Core\Content\Preview;
 
 /**
  * Raised when a verified preview token names a draft or version that does not

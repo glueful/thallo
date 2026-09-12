@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryCache } from '@pinia/colada'
 import { client } from '@/api/client'
 import { toApiError } from '@/api/errors'
 
-// ── General settings (App\Http\Controllers\GeneralSettingsController, /v1/admin/settings/general) ──
+// ── General settings (Thallo\Core\Http\Controllers\GeneralSettingsController, /v1/admin/settings/general) ──
 //
 // Instance settings persisted as env keys in .env. Calls go through the typed `client`; the
 // `{ success, message, data: { settings } }` envelope is unwrapped to the flat settings object.

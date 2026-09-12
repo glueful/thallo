@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content;
+namespace Thallo\Core\Tests\Unit\Content;
 
-use App\Content\Http\DTOs\FieldDefinitionData;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Schema\SchemaParseException;
+use Thallo\Core\Content\Http\DTOs\FieldDefinitionData;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\SchemaParseException;
 use PHPUnit\Framework\TestCase;
 
 final class BlocksFieldSchemaTest extends TestCase

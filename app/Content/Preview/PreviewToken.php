@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Preview;
+namespace Thallo\Core\Content\Preview;
 
 /**
  * An opaque, HMAC-signed capability bound to exactly one {entry, locale, ?version}

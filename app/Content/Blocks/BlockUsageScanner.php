@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Blocks;
+namespace Thallo\Core\Content\Blocks;
 
-use App\Content\Blocks\Migration\BlockInstanceWalker;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Blocks\Migration\BlockInstanceWalker;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
 use Glueful\Database\Connection;
 
 /**

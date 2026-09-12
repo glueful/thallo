@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Repositories;
+namespace Thallo\Core\Content\Repositories;
 
-use App\Content\Events\AssetAttached;
-use App\Content\Events\AssetDetached;
-use App\Content\Events\EntryCreated;
-use App\Content\Events\EntryDeleted;
-use App\Content\Events\EntryUpdated;
-use App\Content\Localization\LocaleFieldSeeder;
-use App\Content\Pipeline\PublishEventEmitter;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Support\OptimisticLockException;
+use Thallo\Core\Content\Events\AssetAttached;
+use Thallo\Core\Content\Events\AssetDetached;
+use Thallo\Core\Content\Events\EntryCreated;
+use Thallo\Core\Content\Events\EntryDeleted;
+use Thallo\Core\Content\Events\EntryUpdated;
+use Thallo\Core\Content\Localization\LocaleFieldSeeder;
+use Thallo\Core\Content\Pipeline\PublishEventEmitter;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Support\OptimisticLockException;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Helpers\Utils;

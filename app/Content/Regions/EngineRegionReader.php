@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Regions;
+namespace Thallo\Core\Content\Regions;
 
 use Thallo\Contracts\Content\RegionReader;
 

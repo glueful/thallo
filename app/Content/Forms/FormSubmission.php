@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Forms;
+namespace Thallo\Core\Content\Forms;
 
 /**
  * A stored form submission (form-block spec §6/§7). `fieldsSnapshot` is the sealed

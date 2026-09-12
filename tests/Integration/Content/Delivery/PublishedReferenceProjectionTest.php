@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content\Delivery;
+namespace Thallo\Core\Tests\Integration\Content\Delivery;
 
-use App\Content\Console\ResyncCommand;
-use App\Content\Events\EntryDeleted;
-use App\Content\Events\EntryPublished;
-use App\Content\Events\EntryUnpublished;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\PublishedReferenceRepository;
-use App\Content\Schema\Migration\SchemaProjector;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Console\ResyncCommand;
+use Thallo\Core\Content\Events\EntryDeleted;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Content\Events\EntryUnpublished;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\PublishedReferenceRepository;
+use Thallo\Core\Content\Schema\Migration\SchemaProjector;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 use Symfony\Component\Console\Tester\CommandTester;
 

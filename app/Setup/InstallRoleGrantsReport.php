@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Setup;
+namespace Thallo\Core\Setup;
 
 /** Outcome of one {@see InstallRoleGrants::apply()} run. */
 final class InstallRoleGrantsReport

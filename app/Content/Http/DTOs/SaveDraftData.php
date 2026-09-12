@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs;
+namespace Thallo\Core\Content\Http\DTOs;
 
 use Glueful\Validation\Attributes\Rule;
 use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Request body for `PUT /v1/admin/entries/{uuid}/draft/{locale}`
- * ({@see \App\Content\Http\Controllers\EntryController::saveDraft()}).
+ * ({@see \Thallo\Core\Content\Http\Controllers\EntryController::saveDraft()}).
  *
  * Hydrated by the router (v2). `fields` is a dynamic content map (arbitrary keys/values keyed
  * by the content type's field names) so it stays a bare `array` — no `#[ArrayOf]`; the per-field
- * semantic validation against the schema is the controller's {@see \App\Content\Validation\FieldValidator}
+ * semantic validation against the schema is the controller's {@see \Thallo\Core\Content\Validation\FieldValidator}
  * (a failure → 422). `lock_version` uses `numeric` (not `integer`) so a JSON number or numeric
  * string is accepted and coerced to int, matching the controller's previous `(int)` tolerance; a
  * stale value still trips the repository's optimistic-lock CAS → 409.

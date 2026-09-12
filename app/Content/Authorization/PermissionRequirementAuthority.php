@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Authorization;
+namespace Thallo\Core\Content\Authorization;
 
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Bootstrap\ApplicationContext;
@@ -32,7 +32,7 @@ use Thallo\Contracts\Authorization\PermissionRequirementAuthority as PermissionR
  * Implements the neutral {@see PermissionRequirementAuthorityContract} (Task 8,
  * admin-commerce-area plan slice 3) so a first-party pack (e.g. thallo-commerce's `/meta`
  * endpoint) can depend on the SAME effective-permission decision without referencing this
- * `App\` namespace directly — packs may not depend on the engine app. `ThalloServiceProvider`
+ * `Thallo\Core\` namespace directly — packs may not depend on the engine app. `ThalloServiceProvider`
  * binds the contract to THIS shared instance (see `makePermissionRequirementAuthority()`), so
  * the contract and the `content_permission` route middleware can never disagree.
  */

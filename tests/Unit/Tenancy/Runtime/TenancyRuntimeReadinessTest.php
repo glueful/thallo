@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy\Runtime;
+namespace Thallo\Core\Tests\Unit\Tenancy\Runtime;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Contracts\Tenancy\TenantRuntimeReadiness;
 
 final class TenancyRuntimeReadinessTest extends AppTestCase

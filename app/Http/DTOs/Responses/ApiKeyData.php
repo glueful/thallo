@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs\Responses;
+namespace Thallo\Core\Http\DTOs\Responses;
 
 use Glueful\Http\Contracts\ResponseData;
 
 /**
  * Doc-only shape of one API key as presented by
- * {@see \App\Http\Controllers\ApiKeyAdminController}. `key_prefix` is the public, non-secret part of
+ * {@see \Thallo\Core\Http\Controllers\ApiKeyAdminController}. `key_prefix` is the public, non-secret part of
  * the key; the plaintext is never included here (only on create/rotate).
  *
  * @param list<string> $scopes

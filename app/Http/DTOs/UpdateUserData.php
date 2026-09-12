@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs;
+namespace Thallo\Core\Http\DTOs;
 
 use Glueful\Validation\Attributes\Rule;
 use Glueful\Validation\Contracts\RequestData;
 
 /**
- * Request body for `PATCH /v1/admin/users/{uuid}` ({@see \App\Http\Controllers\UserAdminController::update()}).
+ * Request body for `PATCH /v1/admin/users/{uuid}` ({@see \Thallo\Core\Http\Controllers\UserAdminController::update()}).
  *
  * Every field is optional (partial update) — only the supplied keys are changed. Password is NOT
  * editable here (it has its own audited reset flow). `role_slugs` is nullable on purpose: omit it to

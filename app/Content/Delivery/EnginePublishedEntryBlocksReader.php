@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
 use Glueful\Support\FieldSelection\FieldSelector;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Contracts\Content\EntryExistenceReader;

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Content\Repositories\EntryRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Commerce\Catalog\CatalogService;
 use Glueful\Extensions\Commerce\Events\ProductDeleted;
@@ -91,7 +91,7 @@ final class LinkLifecycleTest extends AppTestCase
      * so its own `db()->transaction()` opens a REAL top-level transaction rather than a
      * savepoint -- confirmed by tracing {@see \Glueful\Database\Transaction\TransactionManager
      * ::commit()} (sets the level back to 0 BEFORE running after-commit callbacks) and
-     * {@see \App\Content\Pipeline\PublishEventEmitter::emitAfterCommit()} (immediate dispatch
+     * {@see \Thallo\Core\Content\Pipeline\PublishEventEmitter::emitAfterCommit()} (immediate dispatch
      * when not in a transaction).
      */
     public function testEntryDeletedFiresAtTransactionLevelZero(): void

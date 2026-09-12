@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Starter;
+namespace Thallo\Core\Content\Starter;
 
 abstract class AbstractStarterKind implements StarterKind
 {

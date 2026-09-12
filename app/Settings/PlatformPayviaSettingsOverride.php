@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Settings;
+namespace Thallo\Core\Settings;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Payvia\Support\PayviaSettingsOverride;

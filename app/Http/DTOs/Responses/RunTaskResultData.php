@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs\Responses;
+namespace Thallo\Core\Http\DTOs\Responses;
 
 use Glueful\Http\Contracts\ResponseData;
 
 /**
  * Doc-only result of queuing a task to run now
- * ({@see \App\Http\Controllers\ScheduledTasksController::run()}). `job_id` is the queued job id.
+ * ({@see \Thallo\Core\Http\Controllers\ScheduledTasksController::run()}). `job_id` is the queued job id.
  */
 final class RunTaskResultData implements ResponseData
 {

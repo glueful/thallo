@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Console;
+namespace Thallo\Core\Content\Console;
 
-use App\Content\Blocks\Migration\BlockBackfillRunner;
+use Thallo\Core\Content\Blocks\Migration\BlockBackfillRunner;
 use Glueful\Console\BaseCommand;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Retention;
+namespace Thallo\Core\Content\Retention;
 
 final class InvalidRetentionPolicyException extends \InvalidArgumentException
 {

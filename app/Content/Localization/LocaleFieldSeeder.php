@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Localization;
+namespace Thallo\Core\Content\Localization;
 
-use App\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
 
 /**
  * Computes the initial field map for a new locale variant from a source locale.

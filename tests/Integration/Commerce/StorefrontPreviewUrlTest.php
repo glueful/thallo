@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Commerce\Shop\StorefrontPreviewUrlBuilder;
 
@@ -15,7 +15,7 @@ use Thallo\Commerce\Shop\StorefrontPreviewUrlBuilder;
  * independent origin authority) and {@see \Thallo\Commerce\Shop\ShopUrlGenerator} (the
  * `/`-prefixed relative shop paths).
  *
- * Runs single-store (enforcement off — the default test boot; {@see App\Tests\Support\AppTestCase}
+ * Runs single-store (enforcement off — the default test boot; {@see Thallo\Core\Tests\Support\AppTestCase}
  * / config/testing/extensions.php strips the enforcement provider), so `currentOrigin()` always
  * takes the `app.urls.base` fallback. The expected origin is derived FROM that config value
  * directly (never hardcoded) so this suite can never silently drift from the resolver it composes.
@@ -84,7 +84,7 @@ final class StorefrontPreviewUrlTest extends AppTestCase
     /**
      * Independently re-derives the expected single-store origin from `app.urls.base` —
      * deliberately NOT by calling the resolver/builder under test (that would be tautological).
-     * Mirrors {@see \App\Content\Delivery\ThalloCanonicalPublicOriginResolver::normalizedBase()}.
+     * Mirrors {@see \Thallo\Core\Content\Delivery\ThalloCanonicalPublicOriginResolver::normalizedBase()}.
      */
     private function expectedOrigin(): string
     {

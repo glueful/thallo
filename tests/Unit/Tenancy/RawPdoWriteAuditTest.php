@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy;
+namespace Thallo\Core\Tests\Unit\Tenancy;
 
-use App\Content\Starter\RawPdoWriteAudit;
+use Thallo\Core\Content\Starter\RawPdoWriteAudit;
 use PHPUnit\Framework\TestCase;
 
 final class RawPdoWriteAuditTest extends TestCase

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs\Responses\ContentTypes;
+namespace Thallo\Core\Content\Http\DTOs\Responses\ContentTypes;
 
-use App\Content\Enums\FieldType;
+use Thallo\Core\Content\Enums\FieldType;
 use Glueful\Http\Contracts\ResponseData;
 use Glueful\Validation\Attributes\ArrayOf;
 
@@ -15,7 +15,7 @@ use Glueful\Validation\Attributes\ArrayOf;
  * typed schema for each field definition.
  *
  * Field types are chosen to drive the generated schema, not to match the PHP wire type:
- * `type` is a {@see \App\Content\Enums\FieldType} enum so the reflector emits an
+ * `type` is a {@see \Thallo\Core\Content\Enums\FieldType} enum so the reflector emits an
  * `enum:` constraint in the generated spec (the wire value is the backing string).
  * Most optional fields (`required`, `localized`, `filterable`, `filter_type`, `enum`) are
  * absent when falsy — `ContentTypeSchema::toArray()` omits them — so callers should treat

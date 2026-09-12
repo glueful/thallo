@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Media;
+namespace Thallo\Core\Content\Media;
 
 use Glueful\Uploader\Contracts\BlobRouteAction;
 use Glueful\Uploader\Contracts\BlobRouteMiddlewareProvider;

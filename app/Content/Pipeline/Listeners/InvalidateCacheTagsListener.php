@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Pipeline\Listeners;
+namespace Thallo\Core\Content\Pipeline\Listeners;
 
-use App\Content\Events\BaseEntryEvent;
-use App\Content\Events\BaseModelEvent;
-use App\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Events\BaseEntryEvent;
+use Thallo\Core\Content\Events\BaseModelEvent;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Glueful\Cache\CacheStore;
 use Psr\Container\ContainerInterface;
 
 /**
  * Purges the delivery layer's surrogate cache keys when content changes (V1_DESIGN §5).
  *
- * The delivery API (App\Content\Http\DeliveryEtag::cacheTag) tags every response with
+ * The delivery API (Thallo\Core\Content\Http\DeliveryEtag::cacheTag) tags every response with
  * `thallo:entry:{uuid}` for each member entry plus `thallo:type:{slug}` for the type. This
  * listener invalidates the SAME strings so a publish/unpublish/delete/model change drops
  * the stale cache. A byte-for-byte match is essential — a mismatch silently serves stale

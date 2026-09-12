@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Pipeline;
+namespace Thallo\Core\Tests\Integration\Pipeline;
 
-use App\Content\Events\AssetAttached;
-use App\Content\Events\AssetDetached;
-use App\Content\Events\EntryCreated;
-use App\Content\Events\EntryDeleted;
-use App\Content\Events\EntryPublished;
-use App\Content\Events\EntryUnpublished;
-use App\Content\Events\EntryUpdated;
-use App\Content\Events\ModelCreated;
-use App\Content\Events\ModelDeleted;
-use App\Content\Events\ModelUpdated;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Events\AssetAttached;
+use Thallo\Core\Content\Events\AssetDetached;
+use Thallo\Core\Content\Events\EntryCreated;
+use Thallo\Core\Content\Events\EntryDeleted;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Content\Events\EntryUnpublished;
+use Thallo\Core\Content\Events\EntryUpdated;
+use Thallo\Core\Content\Events\ModelCreated;
+use Thallo\Core\Content\Events\ModelDeleted;
+use Thallo\Core\Content\Events\ModelUpdated;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 
 /**

@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\Controllers;
+namespace Thallo\Core\Content\Http\Controllers;
 
-use App\Content\Http\DTOs\MintPreviewData;
-use App\Content\Http\DTOs\Responses\Preview\PreviewMintData;
-use App\Content\Http\DTOs\Responses\Preview\PreviewResultData;
-use App\Content\Localization\ContentLocaleService;
-use App\Content\Preview\PreviewMinter;
-use App\Content\Preview\PreviewNotFoundException;
-use App\Content\Preview\PreviewReader;
-use App\Content\Preview\PreviewTokenException;
-use App\Http\DTOs\ErrorResponse;
+use Thallo\Core\Content\Http\DTOs\MintPreviewData;
+use Thallo\Core\Content\Http\DTOs\Responses\Preview\PreviewMintData;
+use Thallo\Core\Content\Http\DTOs\Responses\Preview\PreviewResultData;
+use Thallo\Core\Content\Localization\ContentLocaleService;
+use Thallo\Core\Content\Preview\PreviewMinter;
+use Thallo\Core\Content\Preview\PreviewNotFoundException;
+use Thallo\Core\Content\Preview\PreviewReader;
+use Thallo\Core\Content\Preview\PreviewTokenException;
+use Thallo\Core\Http\DTOs\ErrorResponse;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
 use Thallo\Contracts\Capability\CapabilityRegistry;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Retention;
+namespace Thallo\Core\Content\Retention;
 
 use Glueful\Database\Connection;
 use Psr\Log\LoggerInterface;

@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs;
+namespace Thallo\Core\Http\DTOs;
 
 use Glueful\Validation\Attributes\Rule;
 use Glueful\Validation\Contracts\RequestData;
 
 /**
- * Request body for `POST /v1/admin/users` ({@see \App\Http\Controllers\UserAdminController::store()}).
+ * Request body for `POST /v1/admin/users` ({@see \Thallo\Core\Http\Controllers\UserAdminController::store()}).
  *
  * Hydrated + format-validated by the router. Uniqueness (email/username already taken) is a domain
  * check the controller runs against the user store (→ 422). `role_slugs` are assigned via Aegis after

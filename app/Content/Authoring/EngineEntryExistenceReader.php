@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Authoring;
+namespace Thallo\Core\Content\Authoring;
 
-use App\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
 use Thallo\Contracts\Content\EntryExistenceReader;
 
 /**

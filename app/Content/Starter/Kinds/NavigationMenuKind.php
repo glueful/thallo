@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Starter\Kinds;
+namespace Thallo\Core\Content\Starter\Kinds;
 
-use App\Content\Starter\AbstractStarterKind;
-use App\Content\Starter\Fingerprint;
-use App\Content\Starter\SeedContext;
-use App\Content\Starter\StarterApplyResult;
-use App\Content\Starter\StarterDefinition;
+use Thallo\Core\Content\Starter\AbstractStarterKind;
+use Thallo\Core\Content\Starter\Fingerprint;
+use Thallo\Core\Content\Starter\SeedContext;
+use Thallo\Core\Content\Starter\StarterApplyResult;
+use Thallo\Core\Content\Starter\StarterDefinition;
 use Glueful\Database\Connection;
 use Glueful\Helpers\Utils;
 

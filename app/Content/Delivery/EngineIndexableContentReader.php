@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
-use App\Content\Seo\CanonicalPathBuilder;
+use Thallo\Core\Content\Seo\CanonicalPathBuilder;
 use Thallo\Contracts\Search\IndexableContent;
 use Thallo\Contracts\Search\IndexableContentReader;
 use Thallo\Contracts\Search\IndexablePage;

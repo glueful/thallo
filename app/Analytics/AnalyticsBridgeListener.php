@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Analytics;
+namespace Thallo\Core\Analytics;
 
-use App\Content\Events\BaseEntryEvent;
-use App\Content\Events\EntryCreated;
-use App\Content\Events\EntryDeleted;
-use App\Content\Events\EntryPublished;
-use App\Content\Events\EntryUnpublished;
-use App\Content\Events\EntryUpdated;
+use Thallo\Core\Content\Events\BaseEntryEvent;
+use Thallo\Core\Content\Events\EntryCreated;
+use Thallo\Core\Content\Events\EntryDeleted;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Content\Events\EntryUnpublished;
+use Thallo\Core\Content\Events\EntryUpdated;
 use Glueful\Events\Contracts\BaseEvent;
 use Thallo\Analytics\Facts\AnalyticsFact;
 use Thallo\Analytics\Facts\AnalyticsRecorder;

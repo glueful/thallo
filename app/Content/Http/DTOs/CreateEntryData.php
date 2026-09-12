@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs;
+namespace Thallo\Core\Content\Http\DTOs;
 
 use Glueful\Validation\Attributes\Rule;
 use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Request body for `POST /v1/admin/entries`
- * ({@see \App\Content\Http\Controllers\EntryController::store()}).
+ * ({@see \Thallo\Core\Content\Http\Controllers\EntryController::store()}).
  *
  * Hydrated by the router (v2): the flat `content_type`/`locale` scalars are validated here.
  * The content-type-exists check stays in the controller (unknown slug → 422).

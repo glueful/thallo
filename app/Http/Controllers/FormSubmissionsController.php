@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Content\Forms\FormSubmission;
-use App\Content\Forms\FormSubmissionRepository;
+use Thallo\Core\Content\Forms\FormSubmission;
+use Thallo\Core\Content\Forms\FormSubmissionRepository;
 use Glueful\Http\Response;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs;
+namespace Thallo\Core\Content\Http\DTOs;
 
 use Glueful\Validation\Attributes\ArrayOf;
 use Glueful\Validation\Attributes\Rule;
@@ -10,7 +10,7 @@ use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Request body for `PATCH /v1/admin/content-types/{slug}/schema`
- * ({@see \App\Content\Http\Controllers\ContentTypeController::updateSchema()}).
+ * ({@see \Thallo\Core\Content\Http\Controllers\ContentTypeController::updateSchema()}).
  *
  * Hydrated by the router (v2): each field definition's structure is validated here;
  * semantic schema validation stays in the repository (`SchemaParseException` → 422).

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;
@@ -29,7 +29,7 @@ use Thallo\Tenancy\System\SystemFlags;
  * Mirrors {@see AdminAuthorizationMatrixTest}'s established convention: the controller is
  * resolved directly from the container and driven with a hand-built `Request` carrying the
  * post-auth `'user'` attribute array (never `'auth.user'`) — the harness cannot mint bearer JWTs,
- * so probing the REAL {@see \App\Content\Authorization\PermissionRequirementAuthority} against
+ * so probing the REAL {@see \Thallo\Core\Content\Authorization\PermissionRequirementAuthority} against
  * REAL seeded Aegis RBAC (rather than going through the full kernel) is the established
  * substitute. `commerce.view`/`commerce.manage` permission rows already exist (the pack's own
  * seed migration); this class only seeds roles/grants/users.

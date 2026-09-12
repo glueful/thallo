@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Content\Regions\RegionDefinitions;
-use App\Content\Regions\RegionRepository;
-use App\Content\Regions\RegionValidator;
-use App\Content\Validation\ValidationException;
-use App\Http\DTOs\PreviewRegionsData;
-use App\Http\DTOs\UpdateRegionData;
+use Thallo\Core\Content\Regions\RegionDefinitions;
+use Thallo\Core\Content\Regions\RegionRepository;
+use Thallo\Core\Content\Regions\RegionValidator;
+use Thallo\Core\Content\Validation\ValidationException;
+use Thallo\Core\Http\DTOs\PreviewRegionsData;
+use Thallo\Core\Http\DTOs\UpdateRegionData;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Events\EventService;
 use Glueful\Http\Response;

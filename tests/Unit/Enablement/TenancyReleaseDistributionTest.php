@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Enablement;
+namespace Thallo\Core\Tests\Unit\Enablement;
 
 use PHPUnit\Framework\TestCase;
 

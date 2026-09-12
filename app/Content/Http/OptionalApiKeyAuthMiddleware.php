@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http;
+namespace Thallo\Core\Content\Http;
 
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Auth\Contracts\UserProviderInterface;

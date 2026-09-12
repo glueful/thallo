@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
-use App\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Glueful\Database\Connection;
 use Thallo\Contracts\Delivery\ReferenceTargetResolver;
 use Thallo\Contracts\Schema\FieldDescriptor;

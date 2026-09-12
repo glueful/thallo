@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs\Requests\Delivery;
+namespace Thallo\Core\Content\Http\DTOs\Requests\Delivery;
 
 use Glueful\Validation\Attributes\FromQuery;
 use Glueful\Validation\Attributes\Rule;
@@ -10,7 +10,7 @@ use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Query parameters for `GET /v1/content/{type}`
- * ({@see \App\Content\Http\Controllers\DeliveryController::index()}).
+ * ({@see \Thallo\Core\Content\Http\Controllers\DeliveryController::index()}).
  *
  * Hydrated by the router from the query string. `$filter` carries the nested bracket
  * array (`filter[field][op]=value`) untouched — a `#[Rule('array')]` with no

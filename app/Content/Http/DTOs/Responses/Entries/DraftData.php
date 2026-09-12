@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs\Responses\Entries;
+namespace Thallo\Core\Content\Http\DTOs\Responses\Entries;
 
 use Glueful\Http\Contracts\ResponseData;
 
 /**
  * Doc-only schema holder: mirrors the raw `entry_drafts` row that
- * {@see \App\Content\Repositories\EntryRepository::findDraft()} returns after JSON-decoding
+ * {@see \Thallo\Core\Content\Repositories\EntryRepository::findDraft()} returns after JSON-decoding
  * the `fields` column. NEVER constructed at runtime — it exists only so the OpenAPI
  * generator can reflect a typed schema for the `draft` key inside the success envelope.
  * `fields` is typed as `object` because it is a freeform per-content-type map whose

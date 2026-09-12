@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
 /**
  * Thrown for a malformed filter: an operator not allowed for the field's filter_type,

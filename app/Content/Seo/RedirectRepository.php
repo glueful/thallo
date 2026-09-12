@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Seo;
+namespace Thallo\Core\Content\Seo;
 
 use Glueful\Database\Connection;
 use Glueful\Helpers\Utils;

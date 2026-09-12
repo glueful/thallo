@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Blocks\Migration;
+namespace Thallo\Core\Content\Blocks\Migration;
 
 /**
  * Restore blocker (block-migrations spec §5): the version being restored contains

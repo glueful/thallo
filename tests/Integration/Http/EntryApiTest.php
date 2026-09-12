@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Content\Http\Controllers\EntryController;
-use App\Content\Http\DTOs\AssignRouteData;
-use App\Content\Http\DTOs\CopyLocaleData;
-use App\Content\Http\DTOs\CreateEntryData;
-use App\Content\Http\DTOs\SaveDraftData;
-use App\Content\Enums\ScheduleAction;
-use App\Content\Localization\ContentLocaleService;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Repositories\ScheduleRepository;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Validation\FieldValidator;
-use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Http\Controllers\EntryController;
+use Thallo\Core\Content\Http\DTOs\AssignRouteData;
+use Thallo\Core\Content\Http\DTOs\CopyLocaleData;
+use Thallo\Core\Content\Http\DTOs\CreateEntryData;
+use Thallo\Core\Content\Http\DTOs\SaveDraftData;
+use Thallo\Core\Content\Enums\ScheduleAction;
+use Thallo\Core\Content\Localization\ContentLocaleService;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Repositories\ScheduleRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Tests\Support\FakeLocaleManager;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;
@@ -123,9 +123,18 @@ final class EntryApiTest extends AppTestCase
             new Request(),
         );
         $data = json_decode((string) $resp->getContent(), true)['data'];
-        self::assertDataMatchesDtoShape($data, \App\Content\Http\DTOs\Responses\Entries\EntryCreateResultData::class);
-        self::assertDataMatchesDtoShape($data['entry'], \App\Content\Http\DTOs\Responses\Entries\EntryData::class);
-        self::assertDataMatchesDtoShape($data['draft'], \App\Content\Http\DTOs\Responses\Entries\DraftData::class);
+        self::assertDataMatchesDtoShape(
+            $data,
+            \Thallo\Core\Content\Http\DTOs\Responses\Entries\EntryCreateResultData::class,
+        );
+        self::assertDataMatchesDtoShape(
+            $data['entry'],
+            \Thallo\Core\Content\Http\DTOs\Responses\Entries\EntryData::class,
+        );
+        self::assertDataMatchesDtoShape(
+            $data['draft'],
+            \Thallo\Core\Content\Http\DTOs\Responses\Entries\DraftData::class,
+        );
     }
 
     public function testShowResponseMatchesDtoShape(): void
@@ -134,8 +143,11 @@ final class EntryApiTest extends AppTestCase
         $resp = $this->controller()->show(new Request(), $uuid);
         self::assertSame(200, $resp->getStatusCode());
         $data = json_decode((string) $resp->getContent(), true)['data'];
-        self::assertDataMatchesDtoShape($data, \App\Content\Http\DTOs\Responses\Entries\EntryResultData::class);
-        self::assertDataMatchesDtoShape($data['entry'], \App\Content\Http\DTOs\Responses\Entries\EntryData::class);
+        self::assertDataMatchesDtoShape($data, \Thallo\Core\Content\Http\DTOs\Responses\Entries\EntryResultData::class);
+        self::assertDataMatchesDtoShape(
+            $data['entry'],
+            \Thallo\Core\Content\Http\DTOs\Responses\Entries\EntryData::class,
+        );
     }
 
     public function testGetDraftResponseMatchesDtoShape(): void
@@ -144,8 +156,11 @@ final class EntryApiTest extends AppTestCase
         $resp = $this->controller()->getDraft(new Request(), $uuid, 'en');
         self::assertSame(200, $resp->getStatusCode());
         $data = json_decode((string) $resp->getContent(), true)['data'];
-        self::assertDataMatchesDtoShape($data, \App\Content\Http\DTOs\Responses\Entries\DraftResultData::class);
-        self::assertDataMatchesDtoShape($data['draft'], \App\Content\Http\DTOs\Responses\Entries\DraftData::class);
+        self::assertDataMatchesDtoShape($data, \Thallo\Core\Content\Http\DTOs\Responses\Entries\DraftResultData::class);
+        self::assertDataMatchesDtoShape(
+            $data['draft'],
+            \Thallo\Core\Content\Http\DTOs\Responses\Entries\DraftData::class,
+        );
     }
 
     public function testSaveDraftResponseMatchesDtoShape(): void
@@ -159,8 +174,11 @@ final class EntryApiTest extends AppTestCase
         );
         self::assertSame(200, $resp->getStatusCode());
         $data = json_decode((string) $resp->getContent(), true)['data'];
-        self::assertDataMatchesDtoShape($data, \App\Content\Http\DTOs\Responses\Entries\DraftResultData::class);
-        self::assertDataMatchesDtoShape($data['draft'], \App\Content\Http\DTOs\Responses\Entries\DraftData::class);
+        self::assertDataMatchesDtoShape($data, \Thallo\Core\Content\Http\DTOs\Responses\Entries\DraftResultData::class);
+        self::assertDataMatchesDtoShape(
+            $data['draft'],
+            \Thallo\Core\Content\Http\DTOs\Responses\Entries\DraftData::class,
+        );
     }
 
     public function testSaveDraftRejectsStaleLockWith409(): void
@@ -323,19 +341,20 @@ final class EntryApiTest extends AppTestCase
             'fr',
         );
 
-        $publisher = $this->container()->get(\App\Content\Services\PublishService::class);
+        $publisher = $this->container()->get(\Thallo\Core\Content\Services\PublishService::class);
 
         $errors = [];
         try {
             $publisher->publish($uuid, 'fr', 'user00000001');
             self::fail('publishing a draft missing a required localized field must throw');
-        } catch (\App\Content\Validation\ValidationException $e) {
+        } catch (\Thallo\Core\Content\Validation\ValidationException $e) {
             $errors = $e->errors();
         }
 
         self::assertArrayHasKey('title', $errors, 'required localized field left empty blocks publish');
         self::assertNull(
-            (new \App\Content\Repositories\VersionRepository($this->connection()))->findPublication($uuid, 'fr'),
+            (new \Thallo\Core\Content\Repositories\VersionRepository($this->connection()))
+                ->findPublication($uuid, 'fr'),
             'a validation-failed publish creates no publication row'
         );
     }

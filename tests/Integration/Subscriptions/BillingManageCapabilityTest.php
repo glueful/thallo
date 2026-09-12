@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Subscriptions;
+namespace Thallo\Core\Tests\Integration\Subscriptions;
 
-use App\Content\Authorization\CapabilityCatalog;
-use App\Content\Authorization\EffectiveRoleMatrix;
-use App\Content\Authorization\OperatorBypass;
-use App\Content\Authorization\AuthenticatedPrincipalResolver;
-use App\Content\Authorization\PermissionAuthority;
-use App\Content\Authorization\TenantMembershipRoleReader;
-use App\Content\Authorization\TenantRoleOverrideRepository;
-use App\Http\Controllers\TenancyAccessController;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Authorization\CapabilityCatalog;
+use Thallo\Core\Content\Authorization\EffectiveRoleMatrix;
+use Thallo\Core\Content\Authorization\OperatorBypass;
+use Thallo\Core\Content\Authorization\AuthenticatedPrincipalResolver;
+use Thallo\Core\Content\Authorization\PermissionAuthority;
+use Thallo\Core\Content\Authorization\TenantMembershipRoleReader;
+use Thallo\Core\Content\Authorization\TenantRoleOverrideRepository;
+use Thallo\Core\Http\Controllers\TenancyAccessController;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\UserIdentity;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
@@ -37,13 +37,13 @@ use Symfony\Component\HttpFoundation\Request;
  * The access-endpoint cases build {@see TenancyAccessController} directly from the SHARED
  * `AppTestCase` boot's real `PermissionAuthority`/`EffectiveRoleMatrix`/`OperatorBypass` (all
  * process-wired, real Aegis + real role-matrix/override storage against the app_test DB --
- * the same idiom {@see \App\Tests\Integration\Commerce\AdminAuthorizationMatrixTest} and
- * {@see \App\Tests\Integration\Subscriptions\CapabilityEngineTruthTableTest} use), paired with
+ * the same idiom {@see \Thallo\Core\Tests\Integration\Commerce\AdminAuthorizationMatrixTest} and
+ * {@see \Thallo\Core\Tests\Integration\Subscriptions\CapabilityEngineTruthTableTest} use), paired with
  * a hand-built {@see TenantMembershipRoleReader} fed a fake {@see CurrentTenantResolver} fixed
  * to a per-test synthetic tenant uuid -- mirroring
- * {@see \App\Tests\Unit\Tenancy\Authorization\TenantMembershipRoleReaderTest}'s established
+ * {@see \Thallo\Core\Tests\Unit\Tenancy\Authorization\TenantMembershipRoleReaderTest}'s established
  * convention. This avoids the heavier, opt-in `THALLO_TENANCY_DEV_LINK=1` retrofit harness
- * ({@see \App\Tests\Support\RetrofittedTenantTestCase}) entirely -- that harness is skipped by
+ * ({@see \Thallo\Core\Tests\Support\RetrofittedTenantTestCase}) entirely -- that harness is skipped by
  * default and unnecessary here since nothing under test needs real query-scoping enforcement.
  */
 final class BillingManageCapabilityTest extends AppTestCase

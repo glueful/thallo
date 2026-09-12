@@ -8,7 +8,7 @@ use Glueful\Bootstrap\ApplicationContext;
 
 /**
  * The ONE trusted-origin algorithm packs compose public URLs against — the shared seam
- * {@see \App\Content\Media\TenantBlobPublicUrlProvider} delegates its host-selection precedence
+ * {@see \Thallo\Core\Content\Media\TenantBlobPublicUrlProvider} delegates its host-selection precedence
  * to (task 6). Origins are derived only from configured/verified tenant records or the app's own
  * configured base URL — never from the incoming request's `Host` header — so a hostile `Host`
  * can never spoof a canonical origin.

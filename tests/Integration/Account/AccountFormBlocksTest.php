@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Account;
+namespace Thallo\Core\Tests\Integration\Account;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Account\Blocks\AccountBlockTypesContributor;
 
 /**
@@ -150,7 +150,7 @@ final class AccountFormBlocksTest extends AppTestCase
                 static fn (object $c): bool => $c instanceof AccountBlockTypesContributor,
             ), 'declared regardless of the switch, so the app knows which rows are the pack\'s');
 
-            $kind = $container->get(\App\Content\Starter\Kinds\BlockTypeKind::class);
+            $kind = $container->get(\Thallo\Core\Content\Starter\Kinds\BlockTypeKind::class);
             self::assertContains('login-form', $kind->hiddenSlugs());
             self::assertNotContains(
                 'login-form',

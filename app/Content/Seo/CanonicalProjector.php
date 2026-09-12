@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Seo;
+namespace Thallo\Core\Content\Seo;
 
-use App\Content\Delivery\DeliveryRepository;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Delivery\DeliveryRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
 
 final class CanonicalProjector
 {

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs;
+namespace Thallo\Core\Http\DTOs;
 
 use Glueful\Validation\Attributes\Rule;
 use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Request body for `POST /v1/admin/api-keys`
- * ({@see \App\Http\Controllers\ApiKeyAdminController::store()}).
+ * ({@see \Thallo\Core\Http\Controllers\ApiKeyAdminController::store()}).
  *
  * Hydrated + format-validated by the router. The key is minted for the calling admin; `expires_at`
  * is parsed by the controller (any strtotime-understood date).

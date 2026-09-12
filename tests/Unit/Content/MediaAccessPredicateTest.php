@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content;
+namespace Thallo\Core\Tests\Unit\Content;
 
-use App\Content\Delivery\EngineMediaUrlResolver;
+use Thallo\Core\Content\Delivery\EngineMediaUrlResolver;
 use PHPUnit\Framework\TestCase;
 
 final class MediaAccessPredicateTest extends TestCase

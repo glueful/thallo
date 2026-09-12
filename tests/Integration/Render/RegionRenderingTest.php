@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Content\Regions\RegionRepository;
-use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Regions\RegionRepository;
+use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\ThemeLocator;
@@ -135,8 +135,8 @@ final class RegionRenderingTest extends AppTestCase
             ]);
         }
         // Block types for the navigation block.
-        $repo = new \App\Content\Blocks\BlockTypeRepository($this->connection());
-        foreach (\App\Content\Blocks\StarterBlockTypes::definitions() as $definition) {
+        $repo = new \Thallo\Core\Content\Blocks\BlockTypeRepository($this->connection());
+        foreach (\Thallo\Core\Content\Blocks\StarterBlockTypes::definitions() as $definition) {
             if ($repo->findBySlug($definition['slug']) === null) {
                 $repo->create($definition);
             }
@@ -144,20 +144,20 @@ final class RegionRenderingTest extends AppTestCase
         // Bilingual entry: en /blog/hello (collapsed), fr /fr/blog/bonjour (prefixed).
         $entry = $this->seedBilingualPublishedEntry();
         // Root-mounted type + entry: /landing-page.
-        $types = new \App\Content\Repositories\ContentTypeRepository($this->connection());
+        $types = new \Thallo\Core\Content\Repositories\ContentTypeRepository($this->connection());
         $rootType = $types->create([
             'slug' => 'rootpages', 'name' => 'Root pages',
             'public_delivery' => true, 'mount_at_root' => true,
             'schema' => [['name' => 'title', 'type' => 'string', 'required' => true]],
         ]);
-        $entries = new \App\Content\Repositories\EntryRepository(
+        $entries = new \Thallo\Core\Content\Repositories\EntryRepository(
             $this->connection(),
             $this->appContext(),
             $types,
         );
         $rootEntry = $entries->createEntry($rootType, 'en', 1, 'user00000001');
         $entries->saveDraft($rootEntry, 'en', ['title' => 'Landing'], 1, 0, 'user00000001');
-        (new \App\Content\Repositories\RouteRepository($this->connection()))
+        (new \Thallo\Core\Content\Repositories\RouteRepository($this->connection()))
             ->assign($rootEntry, $rootType, 'en', 'landing-page');
         $this->publishSvc()->publish($rootEntry, 'en', 'user00000001');
 
@@ -226,8 +226,8 @@ final class RegionRenderingTest extends AppTestCase
             ]]],
         ], [], null);
         // The block types must exist for blocks() to render them.
-        $repo = new \App\Content\Blocks\BlockTypeRepository($this->connection());
-        foreach (\App\Content\Blocks\StarterBlockTypes::definitions() as $definition) {
+        $repo = new \Thallo\Core\Content\Blocks\BlockTypeRepository($this->connection());
+        foreach (\Thallo\Core\Content\Blocks\StarterBlockTypes::definitions() as $definition) {
             if ($repo->findBySlug($definition['slug']) === null) {
                 $repo->create($definition);
             }

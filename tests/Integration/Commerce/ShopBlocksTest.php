@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Starter\DefaultStarterBlockTypeRegistry;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Starter\DefaultStarterBlockTypeRegistry;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Extensions\Commerce\Catalog\CatalogService;
 use Glueful\Helpers\Utils;
@@ -27,8 +27,8 @@ use Thallo\Tenancy\System\SystemFlags;
  * Task 11 (storefront-rendering spec §5.2/§10) + storefront-v1 Task 8 (spec §5): the 5 shop
  * block types (`wishlist-link` joined the four originals) + their templates + fingerprinted
  * asset serving, plus the structural parity gate between `_product_card.twig` and shop.js's
- * `buildProductCard()`. {@see \App\Tests\Integration\Commerce\ShopJsRuntimeTest} covers
- * `shop.js`'s executable JS contract; {@see \App\Tests\Integration\Commerce\ShopBlockTypeProvisioningTest}
+ * `buildProductCard()`. {@see \Thallo\Core\Tests\Integration\Commerce\ShopJsRuntimeTest} covers
+ * `shop.js`'s executable JS contract; {@see \Thallo\Core\Tests\Integration\Commerce\ShopBlockTypeProvisioningTest}
  * covers the DEV_LINK-gated fresh-tenant provisioning + `thallo:tenant:sync` adoption (mirrors
  * the ProductStoryStarterTest/ProductStoryStarterTenancyTest split for the identical reason: none
  * of the coverage here needs a real multi-tenant retrofit harness).
@@ -209,11 +209,11 @@ final class ShopBlocksTest extends AppTestCase
                 self::assertSame('thallo.commerce', $definition->requiresCapability);
             }
 
-            $kind = $container->get(\App\Content\Starter\Kinds\BlockTypeKind::class);
+            $kind = $container->get(\Thallo\Core\Content\Starter\Kinds\BlockTypeKind::class);
             self::assertContains(ShopBlockTypesContributor::SLUG_PRODUCT_GRID, $kind->hiddenSlugs());
 
             // Settings › Block types lists only what the site can render right now.
-            $response = $container->get(\App\Content\Http\Controllers\BlockTypeController::class)
+            $response = $container->get(\Thallo\Core\Content\Http\Controllers\BlockTypeController::class)
                 ->index(Request::create('/block-types'));
             $listed = (array) json_decode((string) $response->getContent(), true);
             self::assertSame(['hero'], array_column($listed['data']['block_types'], 'slug'));

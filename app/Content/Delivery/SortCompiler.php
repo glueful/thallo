@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
-use App\Content\Indexing\FieldSqlExpression;
-use App\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Indexing\FieldSqlExpression;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
 
 /**
  * Compiles `?sort=field:dir` into a deterministic `ORDER BY` over the delivery query.

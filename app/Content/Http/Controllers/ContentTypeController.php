@@ -2,25 +2,25 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\Controllers;
+namespace Thallo\Core\Content\Http\Controllers;
 
-use App\Content\Events\ModelCreated;
-use App\Content\Events\ModelDeleted;
-use App\Content\Events\ModelUpdated;
-use App\Content\Indexing\EnsureFilterIndexesJob;
-use App\Content\Indexing\FilterIndexJobDispatcher;
-use App\Content\Pipeline\PublishEventEmitter;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Routing\RootMountGuard;
-use App\Content\Http\DTOs\CreateContentTypeData;
-use App\Content\Http\DTOs\FieldDefinitionData;
-use App\Content\Http\DTOs\UpdateContentTypeData;
-use App\Content\Http\DTOs\UpdateContentTypeSchemaData;
-use App\Content\Schema\SchemaParseException;
-use App\Content\Http\DTOs\Responses\ContentTypes\ContentTypeListData;
-use App\Content\Http\DTOs\Responses\ContentTypes\ContentTypeResultData;
-use App\Http\DTOs\ErrorResponse;
-use App\Support\ActorHelper;
+use Thallo\Core\Content\Events\ModelCreated;
+use Thallo\Core\Content\Events\ModelDeleted;
+use Thallo\Core\Content\Events\ModelUpdated;
+use Thallo\Core\Content\Indexing\EnsureFilterIndexesJob;
+use Thallo\Core\Content\Indexing\FilterIndexJobDispatcher;
+use Thallo\Core\Content\Pipeline\PublishEventEmitter;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Routing\RootMountGuard;
+use Thallo\Core\Content\Http\DTOs\CreateContentTypeData;
+use Thallo\Core\Content\Http\DTOs\FieldDefinitionData;
+use Thallo\Core\Content\Http\DTOs\UpdateContentTypeData;
+use Thallo\Core\Content\Http\DTOs\UpdateContentTypeSchemaData;
+use Thallo\Core\Content\Schema\SchemaParseException;
+use Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\ContentTypeListData;
+use Thallo\Core\Content\Http\DTOs\Responses\ContentTypes\ContentTypeResultData;
+use Thallo\Core\Http\DTOs\ErrorResponse;
+use Thallo\Core\Support\ActorHelper;
 use Glueful\Auth\UserIdentity;
 use Glueful\Http\Response;
 use Glueful\Routing\Attributes\ApiOperation;

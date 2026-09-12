@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy;
+namespace Thallo\Core\Tests\Unit\Tenancy;
 
-use App\Content\Authorization\RoleMatrix;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Authorization\RoleMatrix;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Routing\Route;
 use Glueful\Routing\Router;
 
@@ -25,7 +25,7 @@ final class RouteInventoryTest extends AppTestCase
             }
 
             // `content_permission:a,b` is an any-of requirement (RequirePermission comma-splits
-            // it into per-candidate alternatives, see App\Content\Http\RequirePermission) — each
+            // it into per-candidate alternatives, see Thallo\Core\Content\Http\RequirePermission) — each
             // candidate is classified individually in tenancy.role_matrix (which only ever holds
             // real, single CapabilityCatalog slugs, never a composite comma-joined string).
             $candidates = array_values(array_filter(array_map('trim', explode(',', $requirement))));
@@ -86,6 +86,6 @@ final class RouteInventoryTest extends AppTestCase
     {
         $handler = $route->getHandler();
         $class = is_array($handler) && is_string($handler[0] ?? null) ? $handler[0] : null;
-        return $class !== null && (str_starts_with($class, 'App\\') || str_starts_with($class, 'Thallo\\'));
+        return $class !== null && (str_starts_with($class, 'Thallo\\Core\\') || str_starts_with($class, 'Thallo\\'));
     }
 }

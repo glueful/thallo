@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Http\Controllers\DeliveryController;
-use App\Content\Http\DTOs\Requests\Delivery\DeliveryShowQuery;
-use App\Content\Http\Controllers\EntryController;
-use App\Content\Http\Controllers\PublicationController;
-use App\Content\Preview\PreviewMinter;
-use App\Content\Preview\PreviewReader;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Services\MigrationService;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Http\Controllers\DeliveryController;
+use Thallo\Core\Content\Http\DTOs\Requests\Delivery\DeliveryShowQuery;
+use Thallo\Core\Content\Http\Controllers\EntryController;
+use Thallo\Core\Content\Http\Controllers\PublicationController;
+use Thallo\Core\Content\Preview\PreviewMinter;
+use Thallo\Core\Content\Preview\PreviewReader;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Services\MigrationService;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 final class ReadProjectionTest extends AppTestCase

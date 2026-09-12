@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Workflow\Concerns;
+namespace Thallo\Core\Tests\Integration\Workflow\Concerns;
 
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Helpers\Utils;

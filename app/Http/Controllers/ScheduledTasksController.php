@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Http\DTOs\ErrorResponse;
-use App\Http\DTOs\Responses\RunTaskResultData;
-use App\Http\DTOs\Responses\ScheduledTaskListData;
+use Thallo\Core\Http\DTOs\ErrorResponse;
+use Thallo\Core\Http\DTOs\Responses\RunTaskResultData;
+use Thallo\Core\Http\DTOs\Responses\ScheduledTaskListData;
 use Cron\CronExpression;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Setup\Console;
+namespace Thallo\Core\Setup\Console;
 
-use App\Content\Blocks\StarterBlockTypeSeeder;
-use App\Setup\InstallRoleGrants;
-use App\Setup\SetupService;
-use App\Setup\Doctor\Check;
-use App\Setup\Doctor\Doctor;
-use App\Setup\PgsqlDatabaseConfigFactory;
+use Thallo\Core\Content\Blocks\StarterBlockTypeSeeder;
+use Thallo\Core\Setup\InstallRoleGrants;
+use Thallo\Core\Setup\SetupService;
+use Thallo\Core\Setup\Doctor\Check;
+use Thallo\Core\Setup\Doctor\Doctor;
+use Thallo\Core\Setup\PgsqlDatabaseConfigFactory;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Console\BaseCommand;
 use Glueful\Extensions\ExtensionManager;
@@ -221,7 +221,8 @@ final class ProvisionCommand extends BaseCommand
         }
         $link = $origin . '/admin/setup';
         if ($setupToken !== null && $setupToken !== '') {
-            $link .= '?' . \App\Http\Controllers\SetupController::TOKEN_QUERY_PARAM . '=' . rawurlencode($setupToken);
+            $link .= '?' . \Thallo\Core\Http\Controllers\SetupController::TOKEN_QUERY_PARAM
+                . '=' . rawurlencode($setupToken);
         }
 
         return [

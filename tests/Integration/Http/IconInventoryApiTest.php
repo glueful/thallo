@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Http\Controllers\IconInventoryController;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Http\Controllers\IconInventoryController;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 final class IconInventoryApiTest extends AppTestCase

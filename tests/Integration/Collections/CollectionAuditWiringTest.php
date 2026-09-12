@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Collections;
+namespace Thallo\Core\Tests\Integration\Collections;
 
-use App\Collections\Audit\CollectionRowAuditEvent;
-use App\Collections\Audit\CollectionSchemaAuditEvent;
+use Thallo\Core\Collections\Audit\CollectionRowAuditEvent;
+use Thallo\Core\Collections\Audit\CollectionSchemaAuditEvent;
 use Glueful\Events\EventService;
 use Thallo\Collections\Data\Actor;
 use Thallo\Collections\Events\CollectionCreated;

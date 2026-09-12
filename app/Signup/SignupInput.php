@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Signup;
+namespace Thallo\Core\Signup;
 
 use Glueful\DTOs\EmailDTO;
 use Glueful\DTOs\UsernameDTO;

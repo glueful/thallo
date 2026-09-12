@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content\Indexing;
+namespace Thallo\Core\Tests\Unit\Content\Indexing;
 
-use App\Content\Indexing\FieldSqlExpression;
+use Thallo\Core\Content\Indexing\FieldSqlExpression;
 use PHPUnit\Framework\TestCase;
 
 final class MembershipArrayExpressionTest extends TestCase

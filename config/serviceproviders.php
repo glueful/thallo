@@ -25,7 +25,7 @@ return [
         // the engine, nor in any register(), which never runs on cached production boots).
         'Thallo\\Subscriptions\\EnginePreemptionServiceProvider',
         'Glueful\\Extensions\\Tenancy\\TenancyControlPlaneProvider',
-        'App\\Providers\\ThalloServiceProvider',
+        'Thallo\\Core\\Providers\\ThalloServiceProvider',
         // Thallo modules — pre-conversion relative order preserved (Search, previously
         // disabled-by-absence, slots alphabetically; its capability default is OFF).
         'Thallo\\Account\\AccountServiceProvider',

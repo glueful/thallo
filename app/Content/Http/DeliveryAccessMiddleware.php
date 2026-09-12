@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http;
+namespace Thallo\Core\Content\Http;
 
-use App\Content\Delivery\DeliveryVisibility;
-use App\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Delivery\DeliveryVisibility;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Glueful\Http\Response;
 use Glueful\Routing\RouteMiddleware;
 use Symfony\Component\HttpFoundation\Request;

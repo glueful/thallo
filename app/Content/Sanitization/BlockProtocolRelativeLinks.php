@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Sanitization;
+namespace Thallo\Core\Content\Sanitization;
 
 use Symfony\Component\HtmlSanitizer\HtmlSanitizerConfig;
 use Symfony\Component\HtmlSanitizer\Visitor\AttributeSanitizer\AttributeSanitizerInterface;

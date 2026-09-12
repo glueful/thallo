@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs\Responses\Entries;
+namespace Thallo\Core\Content\Http\DTOs\Responses\Entries;
 
 use Glueful\Http\Contracts\ResponseData;
 
 /**
  * Doc-only schema holder: mirrors the `scheduled` sub-object that
- * {@see \App\Content\Repositories\EntryRepository::emptyScheduleSummary()} assembles from
+ * {@see \Thallo\Core\Content\Repositories\EntryRepository::emptyScheduleSummary()} assembles from
  * `entry_schedules` rows. NEVER constructed at runtime — it exists only so the OpenAPI
  * generator can reflect a typed schema for the `scheduled` key inside each locale summary
  * item. `publish` and `unpublish` are typed as `?string` (not `?\DateTimeInterface`)

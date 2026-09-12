@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
-use App\Content\Indexing\FieldSqlExpression;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Schema\FieldDefinition;
-use App\Content\Validation\FieldValidator;
+use Thallo\Core\Content\Indexing\FieldSqlExpression;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\FieldDefinition;
+use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Contracts\Delivery\ReferenceTargetResolver;
 
 /**

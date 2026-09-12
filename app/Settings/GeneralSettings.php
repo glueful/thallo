@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Settings;
+namespace Thallo\Core\Settings;
 
 use Glueful\Bootstrap\ApplicationContext;
 
@@ -58,7 +58,7 @@ final class GeneralSettings
     public function __construct(
         private readonly ApplicationContext $context,
         private readonly SettingsStore $store,
-        private readonly \App\Capabilities\CapabilityStateStore $capabilityState,
+        private readonly \Thallo\Core\Capabilities\CapabilityStateStore $capabilityState,
     ) {
     }
 

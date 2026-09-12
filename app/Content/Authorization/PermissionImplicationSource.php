@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Authorization;
+namespace Thallo\Core\Content\Authorization;
 
 /**
  * Declarative permission-implication data (spec §4.2): which held grants satisfy a

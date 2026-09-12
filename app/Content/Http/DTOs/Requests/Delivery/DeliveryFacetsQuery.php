@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs\Requests\Delivery;
+namespace Thallo\Core\Content\Http\DTOs\Requests\Delivery;
 
 use Glueful\Validation\Attributes\FromQuery;
 use Glueful\Validation\Attributes\Rule;
@@ -10,7 +10,7 @@ use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Query parameters for `GET /v1/content/{type}/facets`
- * ({@see \App\Content\Http\Controllers\TaxonomyController::facets()}).
+ * ({@see \Thallo\Core\Content\Http\Controllers\TaxonomyController::facets()}).
  */
 final class DeliveryFacetsQuery implements RequestData
 {

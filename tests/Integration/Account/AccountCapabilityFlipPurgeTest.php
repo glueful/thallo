@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Account;
+namespace Thallo\Core\Tests\Integration\Account;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
 use Glueful\Cache\Contracts\EdgeCacheInterface;
 use Thallo\Account\CapabilityFlipPurge;
@@ -13,7 +13,7 @@ use Thallo\Account\CapabilityFlipPurge;
  * The capability-flip reconciler, unit-tested directly against the suite's real tagged cache — that
  * is where the flip logic lives. Toggling a capability inside a booted application proves nothing:
  * routes and contributors are registered at boot, so flipping the registry afterwards changes
- * neither. Mirrors the commerce suite's own {@see \App\Tests\Integration\Commerce\CapabilityFlipPurgeTest}.
+ * neither. Mirrors the commerce suite's own {@see \Thallo\Core\Tests\Integration\Commerce\CapabilityFlipPurgeTest}.
  */
 final class AccountCapabilityFlipPurgeTest extends AppTestCase
 {

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\StarterBlockTypes;
-use App\Content\Regions\RegionRepository;
-use App\Http\Controllers\RegionAdminController;
-use App\Http\DTOs\UpdateRegionData;
-use App\Tests\Support\AppTestCase;
-use App\Content\Validation\ValidationException;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypes;
+use Thallo\Core\Content\Regions\RegionRepository;
+use Thallo\Core\Http\Controllers\RegionAdminController;
+use Thallo\Core\Http\DTOs\UpdateRegionData;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Validation\ValidationException;
 use Glueful\Validation\RequestDataHydrator;
 
 final class RegionAdminApiTest extends AppTestCase
@@ -32,10 +32,10 @@ final class RegionAdminApiTest extends AppTestCase
         return (new RequestDataHydrator())->hydrate(UpdateRegionData::class, $body);
     }
 
-    private function previewDto(array $body): \App\Http\DTOs\PreviewRegionsData
+    private function previewDto(array $body): \Thallo\Core\Http\DTOs\PreviewRegionsData
     {
-        /** @var \App\Http\DTOs\PreviewRegionsData */
-        return (new RequestDataHydrator())->hydrate(\App\Http\DTOs\PreviewRegionsData::class, $body);
+        /** @var \Thallo\Core\Http\DTOs\PreviewRegionsData */
+        return (new RequestDataHydrator())->hydrate(\Thallo\Core\Http\DTOs\PreviewRegionsData::class, $body);
     }
 
     public function testIndexExposesBothRegionsWithPalettes(): void

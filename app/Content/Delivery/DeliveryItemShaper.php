@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Schema\Migration\SchemaProjector;
-use App\Content\Seo\CanonicalProjector;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\Migration\SchemaProjector;
+use Thallo\Core\Content\Seo\CanonicalProjector;
 use Glueful\Support\FieldSelection\FieldSelector;
 use Glueful\Support\FieldSelection\Projector;
 use Symfony\Component\HttpFoundation\Request;

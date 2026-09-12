@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Account;
+namespace Thallo\Core\Account;
 
-use App\Signup\CustomerSignupService;
-use App\Signup\SignupCoordinator;
+use Thallo\Core\Signup\CustomerSignupService;
+use Thallo\Core\Signup\SignupCoordinator;
 use Psr\Log\LoggerInterface;
 use Thallo\Contracts\Account\RegistrationResult;
 use Thallo\Contracts\Account\StorefrontAccountRegistration;
 
 /**
  * Storefront registration over the app's signup pipeline. This is the ONE class allowed to name
- * `App\Signup`; the account pack consumes the contract and never imports it.
+ * `Thallo\Core\Signup`; the account pack consumes the contract and never imports it.
  */
 final class AppStorefrontAccountRegistration implements StorefrontAccountRegistration
 {

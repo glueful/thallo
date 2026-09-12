@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Account;
+namespace Thallo\Core\Tests\Integration\Account;
 
-use App\Settings\SettingsStore;
-use App\Signup\SignupIntentRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Settings\SettingsStore;
+use Thallo\Core\Signup\SignupIntentRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\AuthenticationService;
 use Glueful\Auth\Contracts\TwoFactorServiceInterface;
 use Glueful\Auth\Session\LoginOrchestrator;

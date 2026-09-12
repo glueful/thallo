@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Capabilities;
+namespace Thallo\Core\Capabilities;
 
 use Thallo\Contracts\Capability\Capability;
 use Thallo\Contracts\Capability\CapabilityAvailability;

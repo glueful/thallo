@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Content\Forms\FieldDef;
-use App\Content\Forms\FormDescriptor;
-use App\Content\Forms\FormNotifier;
-use App\Content\Forms\FormSubmission;
-use App\Content\Forms\FormSubmissionRepository;
-use App\Content\Forms\FormValueNormalizer;
-use App\Content\Forms\Spam\FormSubmissionGuard;
+use Thallo\Core\Content\Forms\FieldDef;
+use Thallo\Core\Content\Forms\FormDescriptor;
+use Thallo\Core\Content\Forms\FormNotifier;
+use Thallo\Core\Content\Forms\FormSubmission;
+use Thallo\Core\Content\Forms\FormSubmissionRepository;
+use Thallo\Core\Content\Forms\FormValueNormalizer;
+use Thallo\Core\Content\Forms\Spam\FormSubmissionGuard;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;

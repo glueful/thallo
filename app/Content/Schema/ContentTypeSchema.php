@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Schema;
+namespace Thallo\Core\Content\Schema;
 
 use Thallo\Contracts\Schema\ContentSchemaReader;
 

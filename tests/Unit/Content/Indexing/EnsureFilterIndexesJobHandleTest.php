@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content\Indexing;
+namespace Thallo\Core\Tests\Unit\Content\Indexing;
 
-use App\Content\Indexing\EnsureFilterIndexesJob;
-use App\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Indexing\EnsureFilterIndexesJob;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;

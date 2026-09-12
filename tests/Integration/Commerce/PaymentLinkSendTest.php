@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\RecordingRichEmailChannel;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RecordingRichEmailChannel;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Commerce\Contracts\PaymentLinkPublicUrlProvider;
 use Glueful\Extensions\Commerce\Orders\OrderRepository;
@@ -1050,8 +1050,8 @@ final class PaymentLinkSendTest extends AppTestCase
         };
     }
 
-    private function store(): \App\Settings\SettingsStore
+    private function store(): \Thallo\Core\Settings\SettingsStore
     {
-        return $this->container()->get(\App\Settings\SettingsStore::class);
+        return $this->container()->get(\Thallo\Core\Settings\SettingsStore::class);
     }
 }

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Setup;
+namespace Thallo\Core\Setup;
 
-use App\Content\Starter\Kinds\BlockTypeKind;
-use App\Content\Starter\Kinds\ContentTypeKind;
-use App\Content\Starter\Kinds\RegionKind;
-use App\Content\Starter\Kinds\SettingKind;
-use App\Content\Starter\SeedContext;
-use App\Settings\SystemKeys;
-use App\Support\AuthorityMutator;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Content\Starter\Kinds\ContentTypeKind;
+use Thallo\Core\Content\Starter\Kinds\RegionKind;
+use Thallo\Core\Content\Starter\Kinds\SettingKind;
+use Thallo\Core\Content\Starter\SeedContext;
+use Thallo\Core\Settings\SystemKeys;
+use Thallo\Core\Support\AuthorityMutator;
 use Glueful\Auth\PasswordHasher;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Users\Repositories\UserRepository;

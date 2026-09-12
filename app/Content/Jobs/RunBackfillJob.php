@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Jobs;
+namespace Thallo\Core\Content\Jobs;
 
-use App\Content\Backfill\BackfillRunner;
+use Thallo\Core\Content\Backfill\BackfillRunner;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Queue\Job;
 

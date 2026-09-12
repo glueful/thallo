@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Retention;
+namespace Thallo\Core\Content\Retention;
 
 /**
  * Mutable accumulator returned by VersionPruner and printed by the command.

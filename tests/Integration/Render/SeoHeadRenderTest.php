@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Content\Preview\PreviewMinter;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Preview\PreviewMinter;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\Templates\TemplatePolicy;
@@ -199,7 +199,7 @@ final class SeoHeadRenderTest extends AppTestCase
         // at the entry's own path.
         $entry = $this->seedBilingualPublishedEntry();
         $this->metaRepo()->upsert($entry, 'en', ['description' => 'Home description']);
-        $this->container()->get(\App\Settings\SettingsStore::class)
+        $this->container()->get(\Thallo\Core\Settings\SettingsStore::class)
             ->putMany(['homepage_entry' => $entry]);
 
         try {
@@ -213,7 +213,7 @@ final class SeoHeadRenderTest extends AppTestCase
                 'the homepage must never canonicalize to the entry path',
             );
         } finally {
-            $this->container()->get(\App\Settings\SettingsStore::class)->forget('homepage_entry');
+            $this->container()->get(\Thallo\Core\Settings\SettingsStore::class)->forget('homepage_entry');
         }
     }
 

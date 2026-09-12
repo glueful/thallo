@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs;
+namespace Thallo\Core\Http\DTOs;
 
 use Glueful\Validation\Attributes\FromQuery;
 use Glueful\Validation\Attributes\Rule;
 use Glueful\Validation\Contracts\RequestData;
 
 /**
- * Query parameters for the API-key list ({@see \App\Http\Controllers\ApiKeyAdminController::index()}).
+ * Query parameters for the API-key list ({@see \Thallo\Core\Http\Controllers\ApiKeyAdminController::index()}).
  * The router hydrates this from the query string; page/per_page clamping stays in the controller.
  */
 final class ApiKeyListQuery implements RequestData

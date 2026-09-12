@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Blocks;
+namespace Thallo\Core\Content\Blocks;
 
-use App\Content\Blocks\Migration\BlockInstanceWalker;
-use App\Content\Blocks\Migration\BlockMigrationRepository;
-use App\Content\Blocks\Migration\UnknownBlockTypeException;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Schema\Migration\MigrationOpSet;
+use Thallo\Core\Content\Blocks\Migration\BlockInstanceWalker;
+use Thallo\Core\Content\Blocks\Migration\BlockMigrationRepository;
+use Thallo\Core\Content\Blocks\Migration\UnknownBlockTypeException;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\Migration\MigrationOpSet;
 
 /**
  * One-shot restore projection (block-migrations spec §5): a version created

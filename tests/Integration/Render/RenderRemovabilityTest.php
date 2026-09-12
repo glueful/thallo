@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Bootstrap\ApplicationContext;
 use Symfony\Component\HttpFoundation\Request;
@@ -65,7 +65,7 @@ final class RenderRemovabilityTest extends AppTestCase
             }
             $src = (string) file_get_contents($file->getPathname());
             self::assertDoesNotMatchRegularExpression(
-                '/(^|[^\\w])App\\\\/m',
+                '/(^|[^\\w])Thallo\\Core\\\\/m',
                 $src,
                 "{$file->getPathname()} must not reference the app engine namespace (pack boundary)",
             );

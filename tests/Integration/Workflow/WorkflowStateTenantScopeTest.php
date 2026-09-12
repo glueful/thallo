@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Workflow;
+namespace Thallo\Core\Tests\Integration\Workflow;
 
-use App\Tests\Support\TenantOracleTestCase;
+use Thallo\Core\Tests\Support\TenantOracleTestCase;
 use Thallo\Workflow\WorkflowStateRepository;
 
 final class WorkflowStateTenantScopeTest extends TenantOracleTestCase

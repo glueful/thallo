@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Media;
+namespace Thallo\Core\Content\Media;
 
-use App\Content\Delivery\ThalloCanonicalPublicOriginResolver;
+use Thallo\Core\Content\Delivery\ThalloCanonicalPublicOriginResolver;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Contracts\Tenancy\FullTenantResolutionReadiness;

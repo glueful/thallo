@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Settings;
+namespace Thallo\Core\Settings;
 
 /**
  * Registry of the settings keys that belong to the unscoped system channel

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Collections;
+namespace Thallo\Core\Tests\Integration\Collections;
 
 use Thallo\Collections\Repositories\CollectionDefinitionRepository;
 use Thallo\Collections\Schema\AccessPolicy;

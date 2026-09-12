@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Events;
+namespace Thallo\Core\Content\Events;
 
 /**
  * Fired when an asset is attached to an entry.

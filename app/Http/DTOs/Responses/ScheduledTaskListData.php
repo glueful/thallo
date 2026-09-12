@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs\Responses;
+namespace Thallo\Core\Http\DTOs\Responses;
 
 use Glueful\Http\Contracts\ResponseData;
 
-/** Doc-only list envelope ({@see \App\Http\Controllers\ScheduledTasksController::index()}). */
+/** Doc-only list envelope ({@see \Thallo\Core\Http\Controllers\ScheduledTasksController::index()}). */
 final class ScheduledTaskListData implements ResponseData
 {
     /** @param list<ScheduledTaskData> $tasks */

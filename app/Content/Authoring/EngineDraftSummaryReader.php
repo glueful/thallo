@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Authoring;
+namespace Thallo\Core\Content\Authoring;
 
 use Glueful\Database\Connection;
 use Thallo\Contracts\Authoring\DraftSummaryReader;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Indexing;
+namespace Thallo\Core\Content\Indexing;
 
 /**
  * The single source of truth for the per-filter-type JSONB SQL expression.

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Schema;
+namespace Thallo\Core\Content\Schema;
 
-use App\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Thallo\Contracts\Schema\ContentSchemaReader;
 use Thallo\Contracts\Schema\ContentTypeReader;
 

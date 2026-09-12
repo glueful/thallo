@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Support;
+namespace Thallo\Core\Tests\Support;
 
-use App\Capabilities\ExtensionCapabilityAvailabilityResolver;
+use Thallo\Core\Capabilities\ExtensionCapabilityAvailabilityResolver;
 use Glueful\Extensions\Schema\ReadinessState;
 
 /** Scripted collaborators: candidates / enabled providers / readiness are plain data here. */

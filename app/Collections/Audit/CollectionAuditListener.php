@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Collections\Audit;
+namespace Thallo\Core\Collections\Audit;
 
 use Glueful\Events\EventService;
 use Thallo\Collections\Events\CollectionCreated;

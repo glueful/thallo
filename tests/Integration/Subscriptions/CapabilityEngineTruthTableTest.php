@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Subscriptions;
+namespace Thallo\Core\Tests\Integration\Subscriptions;
 
-use App\Http\Controllers\CapabilityAdminController;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Http\Controllers\CapabilityAdminController;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Bootstrap\ApplicationContext;
@@ -171,9 +171,9 @@ final class CapabilityEngineTruthTableTest extends AppTestCase
             // must omit it from the ENABLED list.
             $capabilitiesController = new CapabilityAdminController(
                 $registry,
-                new \App\Capabilities\CapabilityStateStore(
+                new \Thallo\Core\Capabilities\CapabilityStateStore(
                     $disabledApp,
-                    new \App\Tests\Support\RecordingSystemChannel()
+                    new \Thallo\Core\Tests\Support\RecordingSystemChannel()
                 ),
                 $disabledApp,
             );

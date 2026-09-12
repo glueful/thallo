@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Schema;
+namespace Thallo\Core\Content\Schema;
 
 use Thallo\Contracts\Schema\FieldDescriptor;
 
@@ -55,7 +55,7 @@ final class FieldDefinition implements FieldDescriptor
         /**
          * Opt-in hard server-side enforcement of `blockTypes` (default false preserves the
          * historical picker-only behavior for every existing field). Valid only on `blocks`
-         * fields; ignored/false for every other type. See {@see \App\Content\Validation\
+         * fields; ignored/false for every other type. See {@see \Thallo\Core\Content\Validation\
          * FieldValidator::validateBlocks()}.
          */
         public readonly bool $enforceBlockTypes = false,

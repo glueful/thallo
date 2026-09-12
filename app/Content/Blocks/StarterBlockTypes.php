@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Blocks;
+namespace Thallo\Core\Content\Blocks;
 
 use Thallo\Render\Theme\ThemeColors;
 

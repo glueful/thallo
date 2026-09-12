@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Providers;
+namespace Thallo\Core\Tests\Unit\Providers;
 
 use PHPUnit\Framework\TestCase;
 
@@ -19,7 +19,7 @@ final class ProviderServicesAreCompilableTest extends TestCase
     public static function providers(): iterable
     {
         $classes = [
-            \App\Providers\ThalloServiceProvider::class,
+            \Thallo\Core\Providers\ThalloServiceProvider::class,
             \Thallo\Account\AccountServiceProvider::class,
             \Thallo\Analytics\AnalyticsServiceProvider::class,
             \Thallo\Collections\CollectionsServiceProvider::class,

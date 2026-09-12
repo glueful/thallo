@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests;
+namespace Thallo\Core\Tests;
 
-use App\Tests\Support\TestApplication;
+use Thallo\Core\Tests\Support\TestApplication;
 use Glueful\Testing\TestCase as FrameworkTestCase;
 
 abstract class TestCase extends FrameworkTestCase

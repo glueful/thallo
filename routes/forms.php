@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\FormSubmitController;
+use Thallo\Core\Http\Controllers\FormSubmitController;
 use Glueful\Routing\Router;
 
 /** @var Router $router */

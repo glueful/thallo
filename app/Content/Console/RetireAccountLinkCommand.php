@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Console;
+namespace Thallo\Core\Content\Console;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\BlockUsageScanner;
-use App\Content\Regions\RegionDefinitions;
-use App\Content\Regions\RegionRepository;
-use App\Content\Starter\StarterProvenanceRepository;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\BlockUsageScanner;
+use Thallo\Core\Content\Regions\RegionDefinitions;
+use Thallo\Core\Content\Regions\RegionRepository;
+use Thallo\Core\Content\Starter\StarterProvenanceRepository;
 use Glueful\Console\BaseCommand;
 use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;
 use Symfony\Component\Console\Attribute\AsCommand;

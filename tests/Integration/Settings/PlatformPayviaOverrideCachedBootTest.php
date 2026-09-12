@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Settings;
+namespace Thallo\Core\Tests\Integration\Settings;
 
-use App\Providers\ThalloServiceProvider;
-use App\Settings\PlatformPaymentSettingsStore;
-use App\Settings\PlatformPayviaSettingsOverride;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\BootsFromExtensionProviderCache;
+use Thallo\Core\Providers\ThalloServiceProvider;
+use Thallo\Core\Settings\PlatformPaymentSettingsStore;
+use Thallo\Core\Settings\PlatformPayviaSettingsOverride;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\BootsFromExtensionProviderCache;
 use Glueful\Encryption\EncryptionService;
 use Glueful\Extensions\Payvia\Support\PayviaSettings;
 use Glueful\Extensions\Payvia\Support\PayviaSettingsOverride;

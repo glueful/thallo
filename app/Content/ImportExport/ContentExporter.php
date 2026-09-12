@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\ImportExport;
+namespace Thallo\Core\Content\ImportExport;
 
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\ImportExport\Contracts\ExporterInterface;

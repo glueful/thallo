@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs\Responses;
+namespace Thallo\Core\Http\DTOs\Responses;
 
 use Glueful\Http\Contracts\ResponseData;
 
 /**
- * Doc-only shape of a single-key response ({@see \App\Http\Controllers\ApiKeyAdminController::show()}).
+ * Doc-only shape of a single-key response ({@see \Thallo\Core\Http\Controllers\ApiKeyAdminController::show()}).
  */
 final class ApiKeyResultData implements ResponseData
 {

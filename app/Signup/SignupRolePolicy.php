@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Signup;
+namespace Thallo\Core\Signup;
 
-use App\Content\Authorization\CapabilityCatalog;
-use App\Content\Authorization\EffectiveRoleMatrix;
-use App\Content\Authorization\ThalloMembershipRoleAuthority;
+use Thallo\Core\Content\Authorization\CapabilityCatalog;
+use Thallo\Core\Content\Authorization\EffectiveRoleMatrix;
+use Thallo\Core\Content\Authorization\ThalloMembershipRoleAuthority;
 use Glueful\Bootstrap\ApplicationContext;
 
 final class SignupRolePolicy

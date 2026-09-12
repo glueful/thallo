@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Settings;
+namespace Thallo\Core\Settings;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Contracts\Settings\SystemChannel;
 
 /**
  * Thin key/value store over the `settings` table — the runtime-mutable instance settings
- * (set at install by {@see \App\Setup\SetupService} and edited from Settings › General).
+ * (set at install by {@see \Thallo\Core\Setup\SetupService} and edited from Settings › General).
  *
  * Unlike `.env`, rows are shared across every app instance and apply on the next request with no
  * restart. Rows are loaded once per instance (the service is container-shared, so once per request)

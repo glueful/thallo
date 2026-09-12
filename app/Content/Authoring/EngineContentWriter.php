@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Authoring;
+namespace Thallo\Core\Content\Authoring;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Services\PublishService;
-use App\Content\Validation\FieldValidator;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Contracts\Authoring\ContentWriter;
 
 /**

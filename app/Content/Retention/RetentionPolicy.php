@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Retention;
+namespace Thallo\Core\Content\Retention;
 
 /**
  * Validated version-retention policy. A null dimension is disabled; any configured

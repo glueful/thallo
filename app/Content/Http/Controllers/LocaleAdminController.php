@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\Controllers;
+namespace Thallo\Core\Content\Http\Controllers;
 
-use App\Content\Http\DTOs\Responses\Entries\LocaleUsageData;
-use App\Content\Repositories\EntryRepository;
-use App\Http\DTOs\ErrorResponse;
+use Thallo\Core\Content\Http\DTOs\Responses\Entries\LocaleUsageData;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Http\DTOs\ErrorResponse;
 use Glueful\Http\Response;
 use Glueful\Routing\Attributes\ApiOperation;
 use Glueful\Routing\Attributes\ApiResponse;

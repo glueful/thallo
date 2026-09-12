@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs\Responses\Entries;
+namespace Thallo\Core\Content\Http\DTOs\Responses\Entries;
 
 use Glueful\Http\Contracts\ResponseData;
 use Glueful\Validation\Attributes\ArrayOf;

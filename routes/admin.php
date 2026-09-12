@@ -2,35 +2,35 @@
 
 declare(strict_types=1);
 
-use App\Content\Http\Controllers\BlockMigrationController;
-use App\Content\Http\Controllers\BlockTypeController;
-use App\Content\Http\Controllers\ContentTypeController;
-use App\Content\Http\Controllers\EntryController;
-use App\Content\Http\Controllers\LocaleAdminController;
-use App\Content\Http\Controllers\MigrationController;
-use App\Content\Http\Controllers\PreviewController;
-use App\Content\Http\Controllers\PublicationController;
-use App\Content\Http\Controllers\RedirectController;
-use App\Content\Http\Controllers\ScheduleController;
-use App\Http\Controllers\ApiKeyAdminController;
-use App\Http\Controllers\AssignableRolesController;
-use App\Http\Controllers\CacheAdminController;
-use App\Http\Controllers\CapabilityAdminController;
-use App\Http\Controllers\ExtensionAdminController;
-use App\Http\Controllers\FormSubmissionsController;
-use App\Http\Controllers\GeneralSettingsController;
-use App\Http\Controllers\HealthAdminController;
-use App\Http\Controllers\IconInventoryController;
-use App\Http\Controllers\ImportExportController;
-use App\Http\Controllers\MediaAdminController;
-use App\Http\Controllers\PlatformPaymentsSettingsController;
-use App\Http\Controllers\RegionAdminController;
-use App\Http\Controllers\ScheduledTasksController;
-use App\Http\Controllers\TenancyAccessController;
-use App\Http\Controllers\UserAdminController;
-use App\Http\Controllers\TenantHostCooldownController;
-use App\Http\Controllers\TenantRolesController;
-use App\Http\Controllers\SignupController;
+use Thallo\Core\Content\Http\Controllers\BlockMigrationController;
+use Thallo\Core\Content\Http\Controllers\BlockTypeController;
+use Thallo\Core\Content\Http\Controllers\ContentTypeController;
+use Thallo\Core\Content\Http\Controllers\EntryController;
+use Thallo\Core\Content\Http\Controllers\LocaleAdminController;
+use Thallo\Core\Content\Http\Controllers\MigrationController;
+use Thallo\Core\Content\Http\Controllers\PreviewController;
+use Thallo\Core\Content\Http\Controllers\PublicationController;
+use Thallo\Core\Content\Http\Controllers\RedirectController;
+use Thallo\Core\Content\Http\Controllers\ScheduleController;
+use Thallo\Core\Http\Controllers\ApiKeyAdminController;
+use Thallo\Core\Http\Controllers\AssignableRolesController;
+use Thallo\Core\Http\Controllers\CacheAdminController;
+use Thallo\Core\Http\Controllers\CapabilityAdminController;
+use Thallo\Core\Http\Controllers\ExtensionAdminController;
+use Thallo\Core\Http\Controllers\FormSubmissionsController;
+use Thallo\Core\Http\Controllers\GeneralSettingsController;
+use Thallo\Core\Http\Controllers\HealthAdminController;
+use Thallo\Core\Http\Controllers\IconInventoryController;
+use Thallo\Core\Http\Controllers\ImportExportController;
+use Thallo\Core\Http\Controllers\MediaAdminController;
+use Thallo\Core\Http\Controllers\PlatformPaymentsSettingsController;
+use Thallo\Core\Http\Controllers\RegionAdminController;
+use Thallo\Core\Http\Controllers\ScheduledTasksController;
+use Thallo\Core\Http\Controllers\TenancyAccessController;
+use Thallo\Core\Http\Controllers\UserAdminController;
+use Thallo\Core\Http\Controllers\TenantHostCooldownController;
+use Thallo\Core\Http\Controllers\TenantRolesController;
+use Thallo\Core\Http\Controllers\SignupController;
 use Glueful\Api\Webhooks\Http\Controllers\WebhookController;
 use Glueful\Routing\Router;
 
@@ -491,7 +491,7 @@ $router->group(['prefix' => '/v1/admin'], function (Router $router): void {
     // replacing thallo-commerce's retired `/v1/admin/commerce/payments` (commerce-owned
     // SettingsStore -> app-owned PlatformPaymentSettingsStore, commerce.manage ->
     // tenancy.manage). Gateway credentials are platform/installation-level infrastructure
-    // (see App\Settings\PlatformPaymentSettingsStore's own docblock), so this sits at the
+    // (see Thallo\Core\Settings\PlatformPaymentSettingsStore's own docblock), so this sits at the
     // platform-operator authority tier — the same `['auth', 'tenant_system',
     // 'content_permission:tenancy.manage']` group thallo-subscriptions' admin surface uses —
     // never gated by any pack capability.

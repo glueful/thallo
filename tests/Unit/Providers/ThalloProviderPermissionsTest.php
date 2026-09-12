@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Providers;
+namespace Thallo\Core\Tests\Unit\Providers;
 
-use App\Content\Authorization\CapabilityCatalog;
-use App\Providers\ThalloServiceProvider;
+use Thallo\Core\Content\Authorization\CapabilityCatalog;
+use Thallo\Core\Providers\ThalloServiceProvider;
 use Glueful\Permissions\Catalog\Permission;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;

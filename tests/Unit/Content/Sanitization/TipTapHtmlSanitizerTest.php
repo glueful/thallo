@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content\Sanitization;
+namespace Thallo\Core\Tests\Unit\Content\Sanitization;
 
-use App\Content\Sanitization\TipTapHtmlSanitizer;
+use Thallo\Core\Content\Sanitization\TipTapHtmlSanitizer;
 use PHPUnit\Framework\TestCase;
 
 final class TipTapHtmlSanitizerTest extends TestCase

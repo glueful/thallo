@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\PublishedReferenceRepository;
-use App\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\PublishedReferenceRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
 use Thallo\Contracts\Delivery\FacetCountsReader;
 
 /**

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Authority;
+namespace Thallo\Core\Tests\Integration\Authority;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class AuthorityRolesMigrationTest extends AppTestCase
 {

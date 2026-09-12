@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Content\Repositories\EntryRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Commerce\Catalog\CatalogService;
@@ -146,7 +146,7 @@ final class InertnessTest extends AppTestCase
     }
 
     // ------------------------------------------------------------------
-    // pack fully absent: proven by construction (no App\ references)
+    // pack fully absent: proven by construction (no Thallo\Core\ references)
     // ------------------------------------------------------------------
 
     public function testPackSourceHasNoAppNamespaceReferences(): void
@@ -176,14 +176,18 @@ final class InertnessTest extends AppTestCase
                 }
                 $lines = file((string) $file->getPathname()) ?: [];
                 foreach ($lines as $lineNumber => $line) {
-                    if (preg_match('/(^|[^\w])App\\\\/', $line) === 1) {
+                    if (preg_match('/(^|[^\w])Thallo\\Core\\\\/', $line) === 1) {
                         $violations[] = $sub . '/' . $file->getFilename() . ':' . ($lineNumber + 1)
                             . ' — ' . trim($line);
                     }
                 }
             }
         }
-        self::assertSame([], $violations, "thallo-commerce references App\\:\n - " . implode("\n - ", $violations));
+        self::assertSame(
+            [],
+            $violations,
+            "thallo-commerce references Thallo\\Core\\:\n - " . implode("\n - ", $violations),
+        );
 
         // Authoritative signal: the repo-wide boundaries script (composer run boundaries),
         // which this pack's composer.json/src/routes are already part of.

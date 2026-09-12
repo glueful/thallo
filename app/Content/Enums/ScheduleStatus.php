@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Enums;
+namespace Thallo\Core\Content\Enums;
 
 enum ScheduleStatus: string
 {

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Repositories;
+namespace Thallo\Core\Content\Repositories;
 
-use App\Content\Schema\Migration\MigrationOpSet;
+use Thallo\Core\Content\Schema\Migration\MigrationOpSet;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
 use Glueful\Database\Connection;
 use Thallo\Contracts\Delivery\MediaUrlBatchResolver;

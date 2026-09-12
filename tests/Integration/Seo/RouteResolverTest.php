@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Seo;
+namespace Thallo\Core\Tests\Integration\Seo;
 
-use App\Content\Delivery\DeliveryRepository;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Seo\PathRenderer;
-use App\Content\Seo\RedirectRepository;
-use App\Content\Seo\RouteResolver;
-use App\Content\Services\PublishService;
-use App\Content\Validation\FieldValidator;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Delivery\DeliveryRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Seo\PathRenderer;
+use Thallo\Core\Content\Seo\RedirectRepository;
+use Thallo\Core\Content\Seo\RouteResolver;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class RouteResolverTest extends AppTestCase
 {
@@ -156,7 +156,7 @@ final class RouteResolverTest extends AppTestCase
             $this->redirects,
             $this->routes,
             $this->types,
-            new \App\Content\Seo\CanonicalPathBuilder(
+            new \Thallo\Core\Content\Seo\CanonicalPathBuilder(
                 new PathRenderer('/{locale}/{type}/{slug}'),
                 $this->container()->get(\Glueful\Extensions\I18n\Contracts\LocaleManagerInterface::class),
             )

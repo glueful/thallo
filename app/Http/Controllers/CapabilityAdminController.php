@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Capabilities\CapabilityStateStore;
-use App\Http\DTOs\Responses\CapabilityListData;
-use App\Http\DTOs\UpdateCapabilityStateData;
+use Thallo\Core\Capabilities\CapabilityStateStore;
+use Thallo\Core\Http\DTOs\Responses\CapabilityListData;
+use Thallo\Core\Http\DTOs\UpdateCapabilityStateData;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
 use Glueful\Routing\Attributes\ApiOperation;

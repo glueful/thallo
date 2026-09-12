@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Starter;
+namespace Thallo\Core\Content\Starter;
 
-use App\Settings\SettingsStore;
+use Thallo\Core\Settings\SettingsStore;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;
 use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;

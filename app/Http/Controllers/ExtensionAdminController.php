@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Support\ReadmeRenderer;
+use Thallo\Core\Support\ReadmeRenderer;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Exceptions\LockContentionException;
 use Glueful\Extensions\EnabledProviders;

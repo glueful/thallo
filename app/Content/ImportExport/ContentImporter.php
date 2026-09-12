@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\ImportExport;
+namespace Thallo\Core\Content\ImportExport;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;

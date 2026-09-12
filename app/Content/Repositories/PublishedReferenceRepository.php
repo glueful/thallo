@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Repositories;
+namespace Thallo\Core\Content\Repositories;
 
-use App\Content\Delivery\InvalidFilterException;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Schema\FieldDefinition;
-use App\Content\Schema\Migration\SchemaProjector;
+use Thallo\Core\Content\Delivery\InvalidFilterException;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\FieldDefinition;
+use Thallo\Core\Content\Schema\Migration\SchemaProjector;
 use Glueful\Database\Connection;
 
 /**

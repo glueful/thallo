@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Content\Authorization\AuthenticatedPrincipalResolver;
-use App\Content\Authorization\BuiltinRoleAvailabilityRepository;
-use App\Content\Authorization\CapabilityCatalog;
-use App\Content\Authorization\EffectiveRoleMatrix;
-use App\Content\Authorization\PermissionAuthority;
-use App\Content\Authorization\RoleMatrix;
-use App\Content\Authorization\RoleOverrideException;
-use App\Content\Authorization\TenantMembershipRoleReader;
-use App\Content\Authorization\TenantRoleOverrideRepository;
-use App\Content\Authorization\TenantRolePolicyMutator;
-use App\Content\Authorization\TenantRoleRepository;
-use App\Content\Authorization\TenantRoleLifecycle;
-use App\Content\Authorization\TenantRoleLifecycleException;
-use App\Content\Authorization\ThalloMembershipRoleAuthority;
+use Thallo\Core\Content\Authorization\AuthenticatedPrincipalResolver;
+use Thallo\Core\Content\Authorization\BuiltinRoleAvailabilityRepository;
+use Thallo\Core\Content\Authorization\CapabilityCatalog;
+use Thallo\Core\Content\Authorization\EffectiveRoleMatrix;
+use Thallo\Core\Content\Authorization\PermissionAuthority;
+use Thallo\Core\Content\Authorization\RoleMatrix;
+use Thallo\Core\Content\Authorization\RoleOverrideException;
+use Thallo\Core\Content\Authorization\TenantMembershipRoleReader;
+use Thallo\Core\Content\Authorization\TenantRoleOverrideRepository;
+use Thallo\Core\Content\Authorization\TenantRolePolicyMutator;
+use Thallo\Core\Content\Authorization\TenantRoleRepository;
+use Thallo\Core\Content\Authorization\TenantRoleLifecycle;
+use Thallo\Core\Content\Authorization\TenantRoleLifecycleException;
+use Thallo\Core\Content\Authorization\ThalloMembershipRoleAuthority;
 use Glueful\Http\Response;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Tenancy\System\SystemFlags;

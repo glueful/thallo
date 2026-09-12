@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Account;
+namespace Thallo\Core\Account;
 
 use Thallo\Contracts\Account\AccountNavigationItem;
 use Thallo\Contracts\Account\AccountNavigationRegistry;

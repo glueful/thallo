@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Indexing;
+namespace Thallo\Core\Content\Indexing;
 
-use App\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Contracts\Tenancy\TenantContextRunner;

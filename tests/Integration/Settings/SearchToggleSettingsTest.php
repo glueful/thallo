@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Settings;
+namespace Thallo\Core\Tests\Integration\Settings;
 
-use App\Http\Controllers\GeneralSettingsController;
-use App\Http\DTOs\UpdateGeneralSettingsData;
-use App\Providers\ThalloServiceProvider;
-use App\Settings\GeneralSettings;
-use App\Settings\SettingsStore;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Http\Controllers\GeneralSettingsController;
+use Thallo\Core\Http\DTOs\UpdateGeneralSettingsData;
+use Thallo\Core\Providers\ThalloServiceProvider;
+use Thallo\Core\Settings\GeneralSettings;
+use Thallo\Core\Settings\SettingsStore;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Routing\RouteCache;
 use Thallo\Contracts\Capability\Capability;

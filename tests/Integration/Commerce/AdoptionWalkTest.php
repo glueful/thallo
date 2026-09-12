@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Starter\DefaultStarterContributorRegistry;
-use App\Content\Starter\Kinds\ContentTypeKind;
-use App\Tests\Support\RecordingExtensionActivation;
-use App\Tests\Support\RetrofitHarnessTestCase;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Starter\DefaultStarterContributorRegistry;
+use Thallo\Core\Content\Starter\Kinds\ContentTypeKind;
+use Thallo\Core\Tests\Support\RecordingExtensionActivation;
+use Thallo\Core\Tests\Support\RetrofitHarnessTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Commerce\Catalog\CatalogReader;

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Validation;
+namespace Thallo\Core\Content\Validation;
 
 use Thallo\Contracts\Authoring\ValidationFailed;
 

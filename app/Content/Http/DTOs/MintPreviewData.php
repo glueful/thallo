@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs;
+namespace Thallo\Core\Content\Http\DTOs;
 
 use Glueful\Validation\Attributes\Rule;
 use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Request body for `POST /v1/admin/entries/{uuid}/preview/{locale}`
- * ({@see \App\Content\Http\Controllers\PreviewController::mint()}).
+ * ({@see \Thallo\Core\Content\Http\Controllers\PreviewController::mint()}).
  *
  * Hydrated by the router (v2). `version_uuid` is optional: an absent value means "mint a token
  * for the current draft"; a present value pins a historical version (existence is validated by

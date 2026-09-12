@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Blocks\Migration;
+namespace Thallo\Core\Content\Blocks\Migration;
 
 /**
  * The write gate's signal (block-migrations spec §3): the entry being saved or

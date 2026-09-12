@@ -57,7 +57,7 @@ export function useUploadMedia() {
   })
 }
 
-// ── Media library (App\Http\Controllers\MediaAdminController, /v1/admin/media) ──────────────────
+// ── Media library (Thallo\Core\Http\Controllers\MediaAdminController, /v1/admin/media) ──────────────────
 
 export interface MediaItem {
   uuid: string

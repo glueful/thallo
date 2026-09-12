@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Routing;
+namespace Thallo\Core\Content\Routing;
 
-use App\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;

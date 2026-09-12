@@ -22,7 +22,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../vendor/autoload.php';
 
-use App\Tests\Support\RecordingSubscriptionCheckoutGateway;
+use Thallo\Core\Tests\Support\RecordingSubscriptionCheckoutGateway;
 use Glueful\Auth\UserIdentity;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Payvia\GatewayManager;

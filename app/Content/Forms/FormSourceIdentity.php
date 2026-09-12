@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Forms;
+namespace Thallo\Core\Content\Forms;
 
 /** Source-scoped identity for form_key (form-block spec §5): first match wins, deterministic tail. */
 final class FormSourceIdentity

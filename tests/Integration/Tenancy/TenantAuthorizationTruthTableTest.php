@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Content\Authorization\OperatorBypass;
-use App\Content\Authorization\EffectiveRoleMatrix;
-use App\Content\Authorization\TenantMembershipRoleReader;
-use App\Content\Http\RequirePermission;
-use App\Tests\Support\RetrofittedTenantTestCase;
+use Thallo\Core\Content\Authorization\OperatorBypass;
+use Thallo\Core\Content\Authorization\EffectiveRoleMatrix;
+use Thallo\Core\Content\Authorization\TenantMembershipRoleReader;
+use Thallo\Core\Content\Http\RequirePermission;
+use Thallo\Core\Tests\Support\RetrofittedTenantTestCase;
 use Glueful\Auth\UserIdentity;
 use Glueful\Extensions\Audit\Contracts\AuditRecorderInterface;
 use Glueful\Extensions\Audit\Support\AuditEntry;

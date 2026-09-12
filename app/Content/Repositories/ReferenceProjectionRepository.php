@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Repositories;
+namespace Thallo\Core\Content\Repositories;
 
-use App\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
 use Glueful\Database\Connection;
 
 /**

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Http\DTOs\ClearCacheData;
-use App\Http\DTOs\Responses\CacheStatusResultData;
+use Thallo\Core\Http\DTOs\ClearCacheData;
+use Thallo\Core\Http\DTOs\Responses\CacheStatusResultData;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Cache\CacheStore;
 use Glueful\Http\Response;

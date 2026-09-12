@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Navigation;
+namespace Thallo\Core\Tests\Integration\Navigation;
 
-use App\Content\Repositories\EntryRepository;
-use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Navigation\Http\Controllers\MenuController;
 use Thallo\Navigation\Http\Controllers\NavigationAdminController;
 use Glueful\Validation\ValidationException;
@@ -109,7 +109,7 @@ final class NavigationApiTest extends AppTestCase
         // Seed a bilingual entry, then unpublish fr: the SAME item must badge published
         // for ?locale=en and unpublished for ?locale=fr.
         $entry = $this->seedBilingualPublishedEntry();
-        $this->container()->get(\App\Content\Services\PublishService::class)->unpublish($entry, 'fr');
+        $this->container()->get(\Thallo\Core\Content\Services\PublishService::class)->unpublish($entry, 'fr');
 
         $this->admin()->create($this->req(['slug' => 'main', 'name' => 'Main']));
         $this->admin()->replaceItems($this->req([
@@ -168,7 +168,7 @@ final class NavigationApiTest extends AppTestCase
         }
 
         // Unpublished target is ACCEPTED (editors build menus while content is in draft).
-        $types = $this->container()->get(\App\Content\Repositories\ContentTypeRepository::class);
+        $types = $this->container()->get(\Thallo\Core\Content\Repositories\ContentTypeRepository::class);
         $entries = $this->container()->get(EntryRepository::class);
         $typeUuid = (string) $types->findBySlug('blog')['uuid'];
         $draft = $entries->createEntry($typeUuid, 'en', 1, 'user00000001');

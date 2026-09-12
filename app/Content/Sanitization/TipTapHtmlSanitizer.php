@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Sanitization;
+namespace Thallo\Core\Content\Sanitization;
 
 use Thallo\Contracts\Content\RichHtmlSanitizer;
 use Symfony\Component\HtmlSanitizer\HtmlSanitizer;

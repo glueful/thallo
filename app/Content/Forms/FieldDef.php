@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Forms;
+namespace Thallo\Core\Content\Forms;
 
 /** Normalized form field — the single source of truth for render/validation/storage. */
 final class FieldDef

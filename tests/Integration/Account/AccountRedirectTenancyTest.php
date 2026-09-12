@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Account;
+namespace Thallo\Core\Tests\Integration\Account;
 
-use App\Settings\SettingsStore;
-use App\Tests\Support\RetrofittedTenantTestCase;
+use Thallo\Core\Settings\SettingsStore;
+use Thallo\Core\Tests\Support\RetrofittedTenantTestCase;
 use Thallo\Account\Settings\AccountSettingsStore;
 
 /**

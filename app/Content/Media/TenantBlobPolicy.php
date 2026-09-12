@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Media;
+namespace Thallo\Core\Content\Media;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;

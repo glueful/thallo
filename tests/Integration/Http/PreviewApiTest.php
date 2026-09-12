@@ -2,27 +2,27 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Content\Http\Controllers\PreviewController;
-use App\Content\Http\DTOs\MintPreviewData;
-use App\Content\Http\DTOs\Responses\Preview\PreviewData;
-use App\Content\Http\DTOs\Responses\Preview\PreviewMintData;
-use App\Content\Http\DTOs\Responses\Preview\PreviewResultData;
-use App\Content\Localization\ContentLocaleService;
-use App\Content\Preview\PreviewMinter;
-use App\Content\Preview\PreviewNotFoundException;
-use App\Content\Preview\PreviewReader;
-use App\Content\Preview\PreviewToken;
-use App\Content\Preview\PreviewTokenException;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Services\PublishService;
-use App\Content\Validation\FieldValidator;
-use App\Tests\Support\FakeLocaleManager;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Http\Controllers\PreviewController;
+use Thallo\Core\Content\Http\DTOs\MintPreviewData;
+use Thallo\Core\Content\Http\DTOs\Responses\Preview\PreviewData;
+use Thallo\Core\Content\Http\DTOs\Responses\Preview\PreviewMintData;
+use Thallo\Core\Content\Http\DTOs\Responses\Preview\PreviewResultData;
+use Thallo\Core\Content\Localization\ContentLocaleService;
+use Thallo\Core\Content\Preview\PreviewMinter;
+use Thallo\Core\Content\Preview\PreviewNotFoundException;
+use Thallo\Core\Content\Preview\PreviewReader;
+use Thallo\Core\Content\Preview\PreviewToken;
+use Thallo\Core\Content\Preview\PreviewTokenException;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Tests\Support\FakeLocaleManager;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;
 use Symfony\Component\HttpFoundation\Request;

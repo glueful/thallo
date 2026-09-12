@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content\Starter;
+namespace Thallo\Core\Tests\Integration\Content\Starter;
 
-use App\Tests\Support\RetrofittedTenantTestCase;
+use Thallo\Core\Tests\Support\RetrofittedTenantTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 use Thallo\Contracts\Starter\StarterContentTypeContributor;
 use Thallo\Contracts\Starter\StarterContentTypeDefinition;
@@ -14,10 +14,10 @@ use Thallo\Tenancy\Contracts\TenantSeedRepair;
 
 /**
  * Task 5 — the tenant-provisioning/sync half of the starter content-type contributor seam
- * ({@see \App\Tests\Integration\Content\Starter\StarterContributorTest} covers the pure
+ * ({@see \Thallo\Core\Tests\Integration\Content\Starter\StarterContributorTest} covers the pure
  * conversion/validation logic and DI wiring). Extends the same opt-in Postgres retrofit harness
- * as its siblings {@see \App\Tests\Integration\Tenancy\StarterSeedIntegrationTest} and
- * {@see \App\Tests\Integration\Tenancy\StarterSyncIntegrationTest} — TenantSeeder/StarterSync are
+ * as its siblings {@see \Thallo\Core\Tests\Integration\Tenancy\StarterSeedIntegrationTest} and
+ * {@see \Thallo\Core\Tests\Integration\Tenancy\StarterSyncIntegrationTest} — TenantSeeder/StarterSync are
  * only meaningfully exercisable against a real widened multi-tenant schema (THALLO_TENANCY_DEV_LINK=1);
  * the class self-skips otherwise, matching those two.
  *

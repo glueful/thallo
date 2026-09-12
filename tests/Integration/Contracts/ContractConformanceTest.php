@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Contracts;
+namespace Thallo\Core\Tests\Integration\Contracts;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Contracts\Authoring\ContentWriter;
 use Thallo\Contracts\Context\Context;
 use Thallo\Contracts\Delivery\ContentDeliveryReader;

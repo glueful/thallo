@@ -6,7 +6,7 @@ namespace Thallo\Contracts\Account;
 
 /**
  * Storefront customer registration, as the account pack consumes it. Implemented by the app over
- * its signup pipeline; the pack never imports `App\Signup`.
+ * its signup pipeline; the pack never imports `Thallo\Core\Signup`.
  */
 interface StorefrontAccountRegistration
 {

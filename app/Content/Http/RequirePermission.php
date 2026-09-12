@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http;
+namespace Thallo\Core\Content\Http;
 
-use App\Content\Authorization\PermissionRequirementAuthority;
+use Thallo\Core\Content\Authorization\PermissionRequirementAuthority;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Http\Response;
 use Glueful\Routing\RouteMiddleware;

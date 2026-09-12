@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Http\DTOs;
+namespace Thallo\Core\Http\DTOs;
 
 use Glueful\Validation\Attributes\Rule;
 use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Request body for `PUT /v1/admin/settings/general`
- * ({@see \App\Http\Controllers\GeneralSettingsController::update()}).
+ * ({@see \Thallo\Core\Http\Controllers\GeneralSettingsController::update()}).
  *
  * Partial update — every field is optional; only non-null fields are written to `.env`. Hydrated +
  * format-validated by the router; cross-field rules (max ≥ default, clamping) stay in the controller.

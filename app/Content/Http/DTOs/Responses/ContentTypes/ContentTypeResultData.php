@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs\Responses\ContentTypes;
+namespace Thallo\Core\Content\Http\DTOs\Responses\ContentTypes;
 
 use Glueful\Http\Contracts\ResponseData;
 

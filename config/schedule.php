@@ -81,7 +81,7 @@ return [
         [
             'name' => 'schedules_run',
             'schedule' => '* * * * *',
-            'handler_class' => \App\Content\Jobs\RunDueSchedulesJob::class,
+            'handler_class' => \Thallo\Core\Content\Jobs\RunDueSchedulesJob::class,
             'parameters' => [],
             'description' => 'Fire due scheduled publish/unpublish actions',
         ],
@@ -99,7 +99,7 @@ return [
         [
             'name' => 'signup_intent_sweep',
             'schedule' => '15 2 * * *',
-            'handler_class' => \App\Signup\SignupIntentSweepJob::class,
+            'handler_class' => \Thallo\Core\Signup\SignupIntentSweepJob::class,
             'parameters' => [],
             'description' => 'Remove expired and sanitized public-signup intents',
             'enabled' => env('SIGNUP_SWEEP_ENABLED', true),

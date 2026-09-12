@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs\Requests;
+namespace Thallo\Core\Content\Http\DTOs\Requests;
 
 use Glueful\Validation\Attributes\FromQuery;
 use Glueful\Validation\Attributes\Rule;
@@ -10,7 +10,7 @@ use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Query parameters for the draft-inclusive admin entry list
- * ({@see \App\Content\Http\Controllers\EntryController::index()}). The router hydrates this from
+ * ({@see \Thallo\Core\Content\Http\Controllers\EntryController::index()}). The router hydrates this from
  * the query string; the required-`type` rule fails hydration (→ 422) BEFORE the controller runs.
  * Int clamping for page/perPage stays in the controller.
  */

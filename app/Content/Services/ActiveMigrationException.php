@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Services;
+namespace Thallo\Core\Content\Services;
 
 final class ActiveMigrationException extends \RuntimeException
 {

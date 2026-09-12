@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Jobs;
+namespace Thallo\Core\Content\Jobs;
 
-use App\Content\Scheduling\ScheduleRunner;
+use Thallo\Core\Content\Scheduling\ScheduleRunner;
 use Glueful\Queue\Job;
 
 /**

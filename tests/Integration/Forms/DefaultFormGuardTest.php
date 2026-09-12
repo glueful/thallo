@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Forms;
+namespace Thallo\Core\Tests\Integration\Forms;
 
-use App\Content\Forms\FieldDef;
-use App\Content\Forms\FormDescriptor;
-use App\Content\Forms\Spam\DefaultFormGuard;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Forms\FieldDef;
+use Thallo\Core\Content\Forms\FormDescriptor;
+use Thallo\Core\Content\Forms\Spam\DefaultFormGuard;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 final class DefaultFormGuardTest extends AppTestCase

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Localization;
+namespace Thallo\Core\Content\Localization;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;

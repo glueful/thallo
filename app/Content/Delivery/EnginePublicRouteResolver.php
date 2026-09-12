@@ -2,18 +2,18 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Delivery;
+namespace Thallo\Core\Content\Delivery;
 
-use App\Content\Preview\PreviewNotFoundException;
-use App\Content\Preview\PreviewReader;
-use App\Content\Preview\PreviewTokenException;
-use App\Content\Preview\PreviewWorkingCopyStore;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\PublishedReferenceRepository;
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Seo\CanonicalPathBuilder;
-use App\Content\Seo\RouteResolver;
+use Thallo\Core\Content\Preview\PreviewNotFoundException;
+use Thallo\Core\Content\Preview\PreviewReader;
+use Thallo\Core\Content\Preview\PreviewTokenException;
+use Thallo\Core\Content\Preview\PreviewWorkingCopyStore;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\PublishedReferenceRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Seo\CanonicalPathBuilder;
+use Thallo\Core\Content\Seo\RouteResolver;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
@@ -55,7 +55,7 @@ final class EnginePublicRouteResolver implements PublicRouteResolver
         /** Loop C working-copy stash; null = no ephemeral overlay (minimal wiring). */
         private readonly ?PreviewWorkingCopyStore $workingCopies = null,
         /** Listing allowlist DB setting; null = config-only (minimal wiring). */
-        private readonly ?\App\Settings\GeneralSettings $settings = null,
+        private readonly ?\Thallo\Core\Settings\GeneralSettings $settings = null,
     ) {
     }
 

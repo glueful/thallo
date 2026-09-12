@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Http\DTOs\Requests\Delivery;
+namespace Thallo\Core\Content\Http\DTOs\Requests\Delivery;
 
 use Glueful\Validation\Attributes\FromQuery;
 use Glueful\Validation\Attributes\Rule;
@@ -10,7 +10,7 @@ use Glueful\Validation\Contracts\RequestData;
 
 /**
  * Query parameters for `GET /v1/content/{type}/{slugOrUuid}`
- * ({@see \App\Content\Http\Controllers\DeliveryController::show()}).
+ * ({@see \Thallo\Core\Content\Http\Controllers\DeliveryController::show()}).
  *
  * Hydrated by the router from the query string. The requested locale seeds the i18n
  * fallback chain; when omitted it defaults to the i18n default locale.

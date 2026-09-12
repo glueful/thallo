@@ -2,21 +2,21 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace Thallo\Core\Http\Controllers;
 
-use App\Http\DTOs\ApiKeyListQuery;
-use App\Http\DTOs\CreateApiKeyData;
-use App\Http\DTOs\ErrorResponse;
-use App\Http\DTOs\Responses\ApiKeyCreatedData;
-use App\Http\DTOs\Responses\ApiKeyListData;
-use App\Http\DTOs\Responses\ApiKeyResultData;
-use App\Http\DTOs\Responses\ApiKeyRotatedData;
-use App\Http\DTOs\RotateApiKeyData;
-use App\Http\DTOs\UpdateApiKeyScopesData;
-use App\Http\DTOs\UpdateApiKeyTenantData;
+use Thallo\Core\Http\DTOs\ApiKeyListQuery;
+use Thallo\Core\Http\DTOs\CreateApiKeyData;
+use Thallo\Core\Http\DTOs\ErrorResponse;
+use Thallo\Core\Http\DTOs\Responses\ApiKeyCreatedData;
+use Thallo\Core\Http\DTOs\Responses\ApiKeyListData;
+use Thallo\Core\Http\DTOs\Responses\ApiKeyResultData;
+use Thallo\Core\Http\DTOs\Responses\ApiKeyRotatedData;
+use Thallo\Core\Http\DTOs\RotateApiKeyData;
+use Thallo\Core\Http\DTOs\UpdateApiKeyScopesData;
+use Thallo\Core\Http\DTOs\UpdateApiKeyTenantData;
 use Glueful\Auth\ApiKey\ApiKey;
 use Glueful\Auth\ApiKey\ApiKeyService;
-use App\Support\ActorHelper;
+use Thallo\Core\Support\ActorHelper;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Http\Response;

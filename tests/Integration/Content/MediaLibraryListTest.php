@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Http\Controllers\MediaAdminController;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Http\Controllers\MediaAdminController;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Helpers\Utils;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
  * The library list must show blobs that have no `media_assets` ownership row.
  *
- * `media_assets` is the tenant ledger, written only by {@see \App\Content\Media\TenantBlobPolicy}
+ * `media_assets` is the tenant ledger, written only by {@see \Thallo\Core\Content\Media\TenantBlobPolicy}
  * when tenancy is on (or in compat mode). With tenancy off, every uploaded blob lacks a ledger row,
  * so an inner join to `media_assets` hid the entire library ("No media"). The list must key its
  * source table off enablement: `blobs` directly when off, `media_assets`-primary when on.

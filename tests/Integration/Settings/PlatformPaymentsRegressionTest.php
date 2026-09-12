@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Settings;
+namespace Thallo\Core\Tests\Integration\Settings;
 
-use App\Settings\Console\MigratePlatformPaymentCredentialsCommand;
-use App\Settings\PlatformPaymentSettingsStore;
-use App\Settings\PlatformPayviaSettingsOverride;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\PlatformCredentialRecordingGateway;
+use Thallo\Core\Settings\Console\MigratePlatformPaymentCredentialsCommand;
+use Thallo\Core\Settings\PlatformPaymentSettingsStore;
+use Thallo\Core\Settings\PlatformPayviaSettingsOverride;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\PlatformCredentialRecordingGateway;
 use Glueful\Auth\UserIdentity;
 use Glueful\Container\Container;
 use Glueful\Encryption\EncryptionService;
@@ -61,8 +61,8 @@ use Thallo\Tenancy\System\SystemFlags;
  *
  * Ambient "workspace context" for the two checkout consumers is Thallo's own single-store mode:
  * a persisted `tenancy.default_tenant_uuid` — the SAME flag
- * {@see \App\Tests\Integration\Commerce\ShopCheckoutTest} and
- * {@see \App\Tests\Integration\Subscriptions\SelfServeCheckoutTruthTableTest} already drive their
+ * {@see \Thallo\Core\Tests\Integration\Commerce\ShopCheckoutTest} and
+ * {@see \Thallo\Core\Tests\Integration\Subscriptions\SelfServeCheckoutTruthTableTest} already drive their
  * own checkouts through, and the flag {@see \Thallo\Tenancy\Tenant\SingleStoreTenant::resolve()}
  * (subscriptions) actually consults in this app. This file deliberately does NOT also set
  * `tenancy.schema_state=widened`: `settings` is itself a retrofit-OWNED table

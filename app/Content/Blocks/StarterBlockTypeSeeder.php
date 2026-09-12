@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Blocks;
+namespace Thallo\Core\Content\Blocks;
 
-use App\Content\Starter\Kinds\BlockTypeKind;
-use App\Content\Starter\StarterDefinition;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Content\Starter\StarterDefinition;
 
 /**
  * Seeds every starter block type — the fixed library ({@see StarterBlockTypes}) plus pack

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Blocks;
+namespace Thallo\Core\Tests\Integration\Blocks;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\ContributedBlockTypeReconciler;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\ContributedBlockTypeReconciler;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Commerce\Starter\ShopBlockTypesContributor;
 use Thallo\Tenancy\System\SystemFlags;

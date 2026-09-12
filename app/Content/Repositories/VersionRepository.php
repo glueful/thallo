@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Repositories;
+namespace Thallo\Core\Content\Repositories;
 
 use Glueful\Database\Connection;
 use Glueful\Helpers\Utils;

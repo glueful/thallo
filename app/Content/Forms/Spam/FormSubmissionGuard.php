@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Forms\Spam;
+namespace Thallo\Core\Content\Forms\Spam;
 
-use App\Content\Forms\FormDescriptor;
+use Thallo\Core\Content\Forms\FormDescriptor;
 use Symfony\Component\HttpFoundation\Request;
 
 /**

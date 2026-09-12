@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Setup;
+namespace Thallo\Core\Tests\Integration\Setup;
 
-use App\Setup\InstallRoleGrants;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Setup\InstallRoleGrants;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;
 use Glueful\Extensions\Aegis\Repositories\RolePermissionRepository;
 use Glueful\Extensions\Aegis\Repositories\RoleRepository;

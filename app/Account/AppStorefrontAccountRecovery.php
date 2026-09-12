@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Account;
+namespace Thallo\Core\Account;
 
 use Glueful\Auth\Interfaces\SessionStoreInterface;
 use Glueful\Auth\PasswordHasher;

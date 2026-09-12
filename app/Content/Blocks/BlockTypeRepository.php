@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Blocks;
+namespace Thallo\Core\Content\Blocks;
 
-use App\Content\Schema\ContentTypeSchema;
-use App\Content\Schema\SchemaParseException;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Schema\SchemaParseException;
 use Glueful\Database\Connection;
 use Glueful\Helpers\Utils;
 

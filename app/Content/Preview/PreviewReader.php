@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Preview;
+namespace Thallo\Core\Content\Preview;
 
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Schema\Migration\SchemaProjector;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Schema\Migration\SchemaProjector;
 use Glueful\Bootstrap\ApplicationContext;
 
 /**

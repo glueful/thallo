@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Extensions\Commerce\Catalog\CatalogService;
 use Glueful\Helpers\Utils;
@@ -525,7 +525,7 @@ final class ProductLinkApiTest extends AppTestCase
 
     /**
      * Independently re-derives the expected single-store origin from `app.urls.base` -- mirrors
-     * {@see \App\Tests\Integration\Commerce\StorefrontPreviewUrlTest}'s identical helper (that
+     * {@see \Thallo\Core\Tests\Integration\Commerce\StorefrontPreviewUrlTest}'s identical helper (that
      * class's own tenancy-mode-free setup makes it unreachable from here without duplicating it).
      */
     private function expectedOrigin(): string

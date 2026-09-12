@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Content\Preview;
+namespace Thallo\Core\Content\Preview;
 
 use Glueful\Cache\CacheStore;
 use Glueful\Bootstrap\ApplicationContext;

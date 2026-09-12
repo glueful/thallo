@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Signup;
+namespace Thallo\Core\Tests\Integration\Signup;
 
-use App\Signup\SignupIntentRepository;
-use App\Signup\SignupCoordinator;
-use App\Signup\SignupException;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Signup\SignupIntentRepository;
+use Thallo\Core\Signup\SignupCoordinator;
+use Thallo\Core\Signup\SignupException;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Security\OTP;
 
 final class SignupIntentRepositoryTest extends AppTestCase

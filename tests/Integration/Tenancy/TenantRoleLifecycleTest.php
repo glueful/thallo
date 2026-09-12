@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Content\Authorization\EffectiveRoleMatrix;
-use App\Content\Authorization\TenantRoleLifecycle;
-use App\Content\Authorization\TenantRoleLifecycleException;
-use App\Content\Authorization\TenantRolePolicyMutator;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Authorization\EffectiveRoleMatrix;
+use Thallo\Core\Content\Authorization\TenantRoleLifecycle;
+use Thallo\Core\Content\Authorization\TenantRoleLifecycleException;
+use Thallo\Core\Content\Authorization\TenantRolePolicyMutator;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;
 use Glueful\Helpers\Utils;
 

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Search;
+namespace Thallo\Core\Tests\Unit\Search;
 
 use Thallo\Contracts\Schema\ContentSchemaReader;
 use Thallo\Contracts\Schema\ContentTypeReader;

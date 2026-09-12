@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Support;
+namespace Thallo\Core\Support;
 
 /**
  * Raised by {@see UserRoleAssignmentPolicy} when a role-assignment request is not permitted.

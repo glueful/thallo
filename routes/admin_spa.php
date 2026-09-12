@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\AdminConfigController;
-use App\Http\Controllers\SetupController;
+use Thallo\Core\Http\Controllers\AdminConfigController;
+use Thallo\Core\Http\Controllers\SetupController;
 use Glueful\Routing\Router;
 
 /** @var Router $router */
