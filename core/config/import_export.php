@@ -12,7 +12,7 @@
 
 declare(strict_types=1);
 
-$root = dirname(__DIR__);
+$root = dirname(__DIR__, 2); // the repo root (this file lives in core/config)
 
 return [
     'routes_enabled' => true,
