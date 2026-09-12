@@ -21,6 +21,44 @@ A tier-1 install (the fresh default) needs only the **Core** rows.
 | `logging.sensitive_paths` | Recommended | Committed defaults cover the payment-link paths; if you mount the app under a base path, register prefixed templates too. Reverse-proxy/CDN access logs are outside the app — see the redaction recipes in `packages/thallo-commerce/README.md`. |
 | Signup cleanup / domain reverification / update check | Via the scheduler cron | Jobs in `config/schedule.php`, run by the scheduler cron above — no extra cron entries. |
 
+### Running the scheduler and the queue
+
+Two long-lived pieces, both plain PHP; nothing else to install with the default
+`QUEUE_CONNECTION=database` (its tables are created by provision).
+
+**The scheduler tick** evaluates `config/schedule.php` and runs the due jobs inside the tick:
+
+```
+* * * * * php /path/to/site/glueful queue:scheduler run >> /path/to/site/storage/logs/scheduler.log 2>&1
+```
+
+**A queue worker** processes jobs the application dispatches (mail, extension operations,
+maintenance). It exits on its memory and job limits, so keep it under a supervisor. A systemd
+unit:
+
+```ini
+[Unit]
+Description=Thallo queue worker
+After=network.target postgresql.service
+
+[Service]
+User=deploy
+WorkingDirectory=/path/to/site
+ExecStart=/usr/bin/php glueful queue:work --queue=default,maintenance --sleep=3 --tries=3 --max-runtime=3600
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Thallo dispatches to `default` and `maintenance`; add a queue name to `--queue` if an extension
+you enable documents its own. Sizing presets (`*_QUEUE_MEMORY`, `*_QUEUE_TIMEOUT`,
+`*_QUEUE_MAX_JOBS`) live in `.env`. A small site that runs no worker can set
+`QUEUE_CONNECTION=sync`: every job then runs inline in the process that dispatched it, at the
+cost of slow work (mail) happening inside a request or a tick. Redis (`QUEUE_CONNECTION=redis`
+plus `REDIS_*`) is optional and only worth it under real load.
+
 
 ## PHP-served asset paths (web server)
 
