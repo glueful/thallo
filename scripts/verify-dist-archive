@@ -62,7 +62,7 @@ else
   echo "ok: the baked bundle embeds the lucide set ($EMBEDDED_COUNT icons)"
 fi
 ICON_NAMES="$(git grep -hoE 'i-lucide-[a-z0-9-]+' "$REF" -- \
-    'admin/src/*.ts' 'admin/src/*.vue' 'app/*.php' 'packages/*.php' ':(exclude)*/tests/*' \
+    'admin/src/*.ts' 'admin/src/*.vue' 'core/src/*.php' 'packages/*.php' ':(exclude)*/tests/*' \
   | sed 's/^i-lucide-//' | sort -u || true)"
 if [[ -z "$ICON_NAMES" ]]; then
   echo "FAIL: could not collect icon names from admin/src at $REF" >&2

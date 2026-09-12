@@ -32,10 +32,10 @@ final class RawPdoScopingLintTest extends TestCase
         'packages/thallo-navigation/src/MenuRepository.php',
         'packages/thallo-analytics/src/Facts/AnalyticsRecorder.php',
         'packages/thallo-workflow/src/WorkflowStateRepository.php',
-        'app/Content/Blocks/Migration/BlockMigrationRepository.php',
-        'app/Content/Repositories/MigrationRepository.php',
-        'app/Content/Media/TenantBlobPolicy.php',
-        'app/Content/Authorization/TenantRoleOverrideRepository.php',
+        'core/src/Content/Blocks/Migration/BlockMigrationRepository.php',
+        'core/src/Content/Repositories/MigrationRepository.php',
+        'core/src/Content/Media/TenantBlobPolicy.php',
+        'core/src/Content/Authorization/TenantRoleOverrideRepository.php',
     ];
 
     /**
@@ -52,15 +52,15 @@ final class RawPdoScopingLintTest extends TestCase
      */
     private const SYSTEM_READERS = [
         'packages/thallo-analytics/src/Query/AnalyticsQuery.php',
-        'app/Content/Repositories/VersionRepository.php',
+        'core/src/Content/Repositories/VersionRepository.php',
         'packages/thallo-render/src/Templates/TemplateRepository.php',
         'packages/thallo-collections/src/Data/RowRepository.php',
         'packages/thallo-tenancy/src/Retrofit/SchemaIntrospector.php',
         'packages/thallo-tenancy/src/Retrofit/UniquenessPreflight.php',
         'packages/thallo-tenancy/src/Enablement/EnablementLock.php',
         'packages/thallo-tenancy/src/Retrofit/MutationBoundaryLock.php',
-        'app/Support/AuthorityContinuityGuard.php',
-        'app/Support/RoleAuthority.php',
+        'core/src/Support/AuthorityContinuityGuard.php',
+        'core/src/Support/RoleAuthority.php',
         // Purge handlers/job use raw PDO for explicitly scoped reads; destructive writes are
         // builder-based inside PurgeJob's outer WriteBarrier::runWritable() system boundary.
         'packages/thallo-tenancy/src/Purge/Handlers/MediaPurgeHandler.php',
@@ -91,8 +91,8 @@ final class RawPdoScopingLintTest extends TestCase
      * no per-row tenant predicate by design). MUST gate every raw mutation behind assertWritable().
      */
     private const SYSTEM_WRITERS = [
-        'app/Content/Repositories/ScheduleRepository.php',
-        'app/Content/Retention/VersionPruner.php',
+        'core/src/Content/Repositories/ScheduleRepository.php',
+        'core/src/Content/Retention/VersionPruner.php',
     ];
 
     /**
@@ -101,7 +101,7 @@ final class RawPdoScopingLintTest extends TestCase
      * three-part proof in ThalloTenantTables; still MUST gate every raw mutation behind assertWritable().
      */
     private const GLOBAL_BY_PROOF = [
-        'app/Content/Indexing/EnsureFilterIndexesJob.php',
+        'core/src/Content/Indexing/EnsureFilterIndexesJob.php',
     ];
 
     /** Dynamic collection tables are isolated by validated, tenant-derived physical names. */
@@ -149,13 +149,13 @@ final class RawPdoScopingLintTest extends TestCase
             'slug = ? AND tenant_uuid = ?',   // reorderMenus (critical)
             'i.tenant_uuid = m.tenant_uuid',  // listMenus join scoping
         ],
-        'app/Content/Blocks/Migration/BlockMigrationRepository.php' => [
+        'core/src/Content/Blocks/Migration/BlockMigrationRepository.php' => [
             ' AND tenant_uuid = :tenant',
         ],
-        'app/Content/Repositories/MigrationRepository.php' => [
+        'core/src/Content/Repositories/MigrationRepository.php' => [
             ' AND tenant_uuid = :tenant',
         ],
-        'app/Content/Media/TenantBlobPolicy.php' => [
+        'core/src/Content/Media/TenantBlobPolicy.php' => [
             'runWritable(',
             'ON CONFLICT (blob_uuid) DO NOTHING',
         ],
@@ -167,14 +167,14 @@ final class RawPdoScopingLintTest extends TestCase
         'packages/thallo-navigation/src/MenuRepository.php' => 3,
         'packages/thallo-analytics/src/Facts/AnalyticsRecorder.php' => 2,
         'packages/thallo-workflow/src/WorkflowStateRepository.php' => 1,
-        'app/Content/Blocks/Migration/BlockMigrationRepository.php' => 1,
-        'app/Content/Repositories/MigrationRepository.php' => 1,
-        'app/Content/Repositories/ScheduleRepository.php' => 3,
-        'app/Content/Retention/VersionPruner.php' => 1,
-        'app/Content/Indexing/EnsureFilterIndexesJob.php' => 5,
-        'app/Content/Media/TenantBlobPolicy.php' => 1,
-        'app/Content/Authorization/TenantRolePolicyMutator.php' => 2,
-        'app/Content/Authorization/TenantRoleOverrideRepository.php' => 2,
+        'core/src/Content/Blocks/Migration/BlockMigrationRepository.php' => 1,
+        'core/src/Content/Repositories/MigrationRepository.php' => 1,
+        'core/src/Content/Repositories/ScheduleRepository.php' => 3,
+        'core/src/Content/Retention/VersionPruner.php' => 1,
+        'core/src/Content/Indexing/EnsureFilterIndexesJob.php' => 5,
+        'core/src/Content/Media/TenantBlobPolicy.php' => 1,
+        'core/src/Content/Authorization/TenantRolePolicyMutator.php' => 2,
+        'core/src/Content/Authorization/TenantRoleOverrideRepository.php' => 2,
     ];
 
     public function testEveryScopedRawSiteReferencesTenantUuid(): void
@@ -236,10 +236,10 @@ final class RawPdoScopingLintTest extends TestCase
             dirname(__DIR__, 3) . '/packages/thallo-tenancy/src/ThalloTenantTables.php'
         );
         $repository = (string) file_get_contents(
-            dirname(__DIR__, 3) . '/app/Signup/SignupIntentRepository.php'
+            dirname(__DIR__, 3) . '/core/src/Signup/SignupIntentRepository.php'
         );
         $throttle = (string) file_get_contents(
-            dirname(__DIR__, 3) . '/app/Signup/SignupThrottle.php'
+            dirname(__DIR__, 3) . '/core/src/Signup/SignupThrottle.php'
         );
         foreach (self::SIGNUP_GLOBAL_TABLES as $table) {
             self::assertStringNotContainsString("'{$table}' =>", $tables);

@@ -109,7 +109,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Thallo\\Core\\": "app/"
+      "Thallo\\Core\\": "core/src/"
     }
   },
   "autoload-dev": {

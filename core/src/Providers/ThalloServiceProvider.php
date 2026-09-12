@@ -320,6 +320,13 @@ final class ThalloServiceProvider extends ServiceProvider
     private bool $listenersRegistered = false;
 
     /** @return array<string, array<string, mixed>> */
+    /** Absolute path under core/ (the product's own tree; the repo root is the operator's). */
+    public static function corePath(string $relative = ''): string
+    {
+        $core = dirname(__DIR__, 2);
+        return $relative === '' ? $core : $core . '/' . ltrim($relative, '/');
+    }
+
     public static function services(): array
     {
         return array_merge(
@@ -2126,7 +2133,7 @@ final class ThalloServiceProvider extends ServiceProvider
         // at DEPENDENT priority. Register the seeder in the same tier so it runs after
         // Aegis' lower-numbered migrations instead of before them as an app migration.
         $this->loadMigrationsFrom(
-            dirname(__DIR__, 2) . '/database/dependent-migrations',
+            dirname(__DIR__, 3) . '/database/dependent-migrations',
             MigrationPriority::DEPENDENT,
             'app:dependent'
         );
@@ -2151,7 +2158,7 @@ final class ThalloServiceProvider extends ServiceProvider
         if ((bool) config($context, 'thallo.admin.enabled', true)) {
             $this->serveFrontend(
                 '/admin',
-                (string) config($context, 'thallo.admin.bundle_path', dirname(__DIR__, 2) . '/public/admin'),
+                (string) config($context, 'thallo.admin.bundle_path', dirname(__DIR__, 3) . '/public/admin'),
                 ['name' => 'Thallo Admin'],
             );
         }

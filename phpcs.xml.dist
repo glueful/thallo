@@ -3,7 +3,7 @@
     <description>Thallo coding standard — PSR-12 (matches the Glueful framework and extensions).</description>
 
     <!-- Paths checked when phpcs/phpcbf run with no explicit argument. -->
-    <file>app</file>
+    <file>core</file>
     <file>config</file>
     <file>database</file>
     <file>packages</file>

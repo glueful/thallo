@@ -14,23 +14,23 @@ final class RawPdoWriteAudit implements StaticWriteAudit
         'packages/thallo-navigation/src/MenuRepository.php',
         'packages/thallo-analytics/src/Facts/AnalyticsRecorder.php',
         'packages/thallo-workflow/src/WorkflowStateRepository.php',
-        'app/Content/Blocks/Migration/BlockMigrationRepository.php',
-        'app/Content/Repositories/MigrationRepository.php',
-        'app/Content/Media/TenantBlobPolicy.php',
-        'app/Content/Authorization/TenantRoleOverrideRepository.php',
+        'core/src/Content/Blocks/Migration/BlockMigrationRepository.php',
+        'core/src/Content/Repositories/MigrationRepository.php',
+        'core/src/Content/Media/TenantBlobPolicy.php',
+        'core/src/Content/Authorization/TenantRoleOverrideRepository.php',
     ];
 
     private const SYSTEM_READERS = [
         'packages/thallo-analytics/src/Query/AnalyticsQuery.php',
-        'app/Content/Repositories/VersionRepository.php',
+        'core/src/Content/Repositories/VersionRepository.php',
         'packages/thallo-render/src/Templates/TemplateRepository.php',
         'packages/thallo-collections/src/Data/RowRepository.php',
         'packages/thallo-tenancy/src/Retrofit/SchemaIntrospector.php',
         'packages/thallo-tenancy/src/Retrofit/UniquenessPreflight.php',
         'packages/thallo-tenancy/src/Enablement/EnablementLock.php',
         'packages/thallo-tenancy/src/Retrofit/MutationBoundaryLock.php',
-        'app/Support/AuthorityContinuityGuard.php',
-        'app/Support/RoleAuthority.php',
+        'core/src/Support/AuthorityContinuityGuard.php',
+        'core/src/Support/RoleAuthority.php',
         'packages/thallo-tenancy/src/Purge/Handlers/MediaPurgeHandler.php',
         'packages/thallo-tenancy/src/Purge/Handlers/TablesPurgeHandler.php',
         'packages/thallo-tenancy/src/Purge/PurgeCoordinator.php',
@@ -54,11 +54,11 @@ final class RawPdoWriteAudit implements StaticWriteAudit
     ];
 
     private const SYSTEM_WRITERS = [
-        'app/Content/Repositories/ScheduleRepository.php',
-        'app/Content/Retention/VersionPruner.php',
+        'core/src/Content/Repositories/ScheduleRepository.php',
+        'core/src/Content/Retention/VersionPruner.php',
     ];
 
-    private const GLOBAL_BY_PROOF = ['app/Content/Indexing/EnsureFilterIndexesJob.php'];
+    private const GLOBAL_BY_PROOF = ['core/src/Content/Indexing/EnsureFilterIndexesJob.php'];
 
     private const RETROFIT_ENGINE = [
         'packages/thallo-tenancy/src/Retrofit/AdditiveRetrofit.php',
@@ -73,14 +73,14 @@ final class RawPdoWriteAudit implements StaticWriteAudit
         'packages/thallo-navigation/src/MenuRepository.php' => 3,
         'packages/thallo-analytics/src/Facts/AnalyticsRecorder.php' => 2,
         'packages/thallo-workflow/src/WorkflowStateRepository.php' => 1,
-        'app/Content/Blocks/Migration/BlockMigrationRepository.php' => 1,
-        'app/Content/Repositories/MigrationRepository.php' => 1,
-        'app/Content/Repositories/ScheduleRepository.php' => 3,
-        'app/Content/Retention/VersionPruner.php' => 1,
-        'app/Content/Indexing/EnsureFilterIndexesJob.php' => 5,
-        'app/Content/Media/TenantBlobPolicy.php' => 1,
-        'app/Content/Authorization/TenantRolePolicyMutator.php' => 2,
-        'app/Content/Authorization/TenantRoleOverrideRepository.php' => 2,
+        'core/src/Content/Blocks/Migration/BlockMigrationRepository.php' => 1,
+        'core/src/Content/Repositories/MigrationRepository.php' => 1,
+        'core/src/Content/Repositories/ScheduleRepository.php' => 3,
+        'core/src/Content/Retention/VersionPruner.php' => 1,
+        'core/src/Content/Indexing/EnsureFilterIndexesJob.php' => 5,
+        'core/src/Content/Media/TenantBlobPolicy.php' => 1,
+        'core/src/Content/Authorization/TenantRolePolicyMutator.php' => 2,
+        'core/src/Content/Authorization/TenantRoleOverrideRepository.php' => 2,
     ];
 
     public function __construct(private readonly string $basePath)
@@ -89,7 +89,7 @@ final class RawPdoWriteAudit implements StaticWriteAudit
 
     public function available(): bool
     {
-        return is_dir($this->basePath . '/app') && is_dir($this->basePath . '/packages');
+        return is_dir($this->basePath . '/core/src') && is_dir($this->basePath . '/packages');
     }
 
     public function run(): array
@@ -106,7 +106,7 @@ final class RawPdoWriteAudit implements StaticWriteAudit
             self::RETROFIT_ENGINE,
         );
         $found = [];
-        foreach (['app', 'packages'] as $dir) {
+        foreach (['core/src', 'packages'] as $dir) {
             $iterator = new \RecursiveIteratorIterator(
                 new \RecursiveDirectoryIterator($this->basePath . '/' . $dir),
             );
