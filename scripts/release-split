@@ -42,7 +42,13 @@ fi
 PUSHES=()
 for dir in "${ARTIFACTS[@]}"; do
   name="$(name_of "$dir")"
-  run git subtree split --prefix="$dir" -b "split/$name" --quiet
+  # Deterministic: the same directory history always yields the same split commit, so re-running
+  # (a corrected release, a second machine) refreshes the branch in place.
+  echo "+ git subtree split --prefix=$dir → branch split/$name"
+  if [[ "$DRY" -eq 0 ]]; then
+    commit="$(git subtree split --prefix="$dir" --quiet)"
+    git branch -f "split/$name" "$commit"
+  fi
   run git tag -f -a "split/$name/$TAG" -m "$TAG — $name" "split/$name"
   PUSHES+=("git push split/$name split/$name:refs/heads/main refs/tags/split/$name/$TAG:refs/tags/$TAG")
 done
