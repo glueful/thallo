@@ -1,0 +1,36 @@
+# --- Composer ---
+/vendor/
+/composer.phar
+
+# --- Environment files ---
+/.env
+/.env.*
+!.env.example
+
+# --- IDE / Editor ---
+/.idea/
+/.vscode/
+/*.code-workspace
+
+# --- OS / Misc ---
+.DS_Store
+*.log
+bootstrap/cache/
+
+# --- The admin bundle: published here by `php glueful thallo:provision` from vendor/glueful/thallo-core ---
+/public/admin/
+
+# --- Runtime artifacts ---
+/storage/cache/*
+!/storage/cache/.gitkeep
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/database/*.sqlite
+/storage/import-export/exports/*
+!/storage/import-export/exports/.gitkeep
+/storage/import-export/imports/*
+!/storage/import-export/imports/.gitkeep
+/storage/uploads/*
+!/storage/uploads/.gitkeep
+/storage/framework/*
+!/storage/framework/.gitkeep
