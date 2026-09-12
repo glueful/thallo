@@ -194,3 +194,80 @@ jobs:
               timeout --signal=KILL 900 vendor/bin/phpunit $INTEGRATION_SHARD_B
               ;;
           esac
+
+  # The skeleton smoke: install skeleton/ (what create-project ships) against the LOCAL core and
+  # packs via path repositories, then run the documented first-run sequence against Postgres.
+  # Proves the split without Packagist; the release's clean-machine gate proves it with it.
+  skeleton-smoke:
+    name: skeleton-smoke
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: app_test
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      APP_ENV: testing
+      DB_DRIVER: pgsql
+      DB_PGSQL_HOST: 127.0.0.1
+      DB_PGSQL_PORT: 5432
+      DB_PGSQL_DATABASE: app_test
+      DB_PGSQL_USERNAME: postgres
+      DB_PGSQL_PASSWORD: postgres
+      DB_POOLING_ENABLED: false
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Create the dev .env the smoke reads credentials from
+        run: |
+          cat > .env <<'EOF2'
+          APP_ENV=testing
+          DB_DRIVER=pgsql
+          DB_PGSQL_HOST=127.0.0.1
+          DB_PGSQL_PORT=5432
+          DB_PGSQL_DATABASE=app_test
+          DB_PGSQL_USERNAME=postgres
+          DB_PGSQL_PASSWORD=postgres
+          DB_POOLING_ENABLED=false
+          EOF2
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql
+          coverage: none
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: admin/pnpm-lock.yaml
+
+      - name: Build the admin bundle into core/resources/admin
+        run: cd admin && pnpm install --frozen-lockfile && pnpm run -s build
+
+      - name: Install the dev root (reset-test-db needs its vendor)
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Skeleton smoke
+        run: timeout --signal=KILL 900 composer test:skeleton

@@ -1,84 +1,64 @@
 # Upgrading Thallo
 
-## What `composer update` does — and does not — do
-
-A Thallo site installed with `composer create-project` is Composer's **root package**. Composer
-manages `vendor/` only: `composer update` moves the Glueful framework, the extension engines
-and the capability packs, and **never** Thallo itself — not the admin, not the application
-code, not the migrations. A site created from `1.0.0-beta.19` stays beta.19 no matter how
-often `composer update` runs. (This is the standard behaviour of any `create-project`
-template; a Composer-updatable Thallo is planned — see "Roadmap" below.)
-
-**Upgrading Thallo therefore means deploying the next release tag** and carrying across the
-files that are yours. There are two ways to do that.
-
-## Option A — deploy from the tag with `scripts/deploy-site` (recommended)
-
-The script ships in every release. It checks out exactly one immutable tag into its own
-directory, links your `.env`, `storage/` and theme overrides into it, installs the locked
-dependencies without dev packages, provisions, clears the caches that outlive a release,
-switches the live directory in one step, reloads PHP-FPM and runs the doctor. Rolling back is
-re-pointing the `current` link to a previous release.
-
-Layout (`DEPLOY_ROOT`, for example `/home/thallo/htdocs/thallo.dev`):
-
-```
-releases/<tag>/     one checkout per deployed tag
-shared/.env         your environment — lives here, never inside a release
-shared/storage/     uploads, cache, logs, backups
-shared/themes/      your theme overrides (app-level themes/{name}/)
-current -> releases/<tag>
-```
-
-Point the web server's document root at `current/public`.
-
-### First deploy with this layout (once, from a flat install)
-
-1. Create the layout and move your files into `shared/`:
-
-   ```bash
-   mkdir -p DEPLOY_ROOT/shared DEPLOY_ROOT/releases
-   mv OLD_INSTALL/.env     DEPLOY_ROOT/shared/.env
-   mv OLD_INSTALL/storage  DEPLOY_ROOT/shared/storage
-   mv OLD_INSTALL/themes   DEPLOY_ROOT/shared/themes   # or mkdir if you have no overrides
-   ```
-
-2. Deploy the release you want:
-
-   ```bash
-   DEPLOY_ROOT=/home/thallo/htdocs/thallo.dev OLD_INSTALL/scripts/deploy-site v1.0.0-beta.20
-   ```
-
-3. Change the document root to `DEPLOY_ROOT/current/public` (keep the same server block as
-   before, including the PHP-served asset locations from [production.md](production.md)), reload
-   the web server, and check the site. Delete `OLD_INSTALL` once you are satisfied.
-
-`FPM_RELOAD` defaults to `sudo systemctl reload php8.4-fpm`; set it to the command your panel
-uses, or to `:` if the panel reloads for you. `REPO_URL` defaults to the public repository.
-
-### Every upgrade after that
+## The sequence (from 1.0.0-beta.21 on)
 
 ```bash
-DEPLOY_ROOT=/home/thallo/htdocs/thallo.dev current/scripts/deploy-site v1.0.0-beta.21
+composer update && php glueful thallo:provision
 ```
 
-Run `--dry-run` first to see every step without executing any. The script refuses anything
-that is not a release tag: branches and commits are never deployed.
+then reload PHP-FPM. Thallo is installed as `glueful/thallo-core` in `vendor/` (with the
+capability packs alongside it), so `composer update` moves Thallo the way it moves the framework,
+and `thallo:provision` finishes the job: pending migrations, install-role grants, starter block
+types, the extension cache, and the release's admin bundle published into `public/admin`. Read
+the release's **Upgrade Notes** in [CHANGELOG.md](../CHANGELOG.md) first.
 
-## Option B — fresh `create-project`, carry your files across
+Your own files are never touched by an upgrade: `.env`, `config/` overrides, `app/`, `routes/`,
+`database/migrations/`, `themes/{name}/`, `storage/`, `public/storage/`.
 
-Without git on the server, or for a one-off move:
+## One-time move for installs created before beta.21
 
-```bash
-composer create-project --prefer-dist --no-dev glueful/thallo new-site 1.0.0-beta.20
-cp  old-site/.env        new-site/.env
-rm -rf new-site/storage && cp -R old-site/storage new-site/storage
-cp -R old-site/themes/.  new-site/themes/        # your overrides, if any
-cd new-site && php glueful thallo:provision --no-interaction && php glueful migrate:verify
-php glueful route:cache:clear && php glueful render:cache:clear
-```
+Installs up to `1.0.0-beta.20` were `create-project` root packages: Thallo's code sat in the
+install directory itself, where Composer never updates it. Move once to the new template, then
+the sequence above applies forever:
 
-Then point the document root at `new-site/public` and reload PHP-FPM.
+1. Install the template beside the old site (the version you are moving to):
+
+   ```bash
+   composer create-project --prefer-dist --no-dev glueful/thallo new-site 1.0.0-beta.21
+   ```
+
+2. Carry your files across:
+
+   ```bash
+   cp  old-site/.env                 new-site/.env
+   rm -rf new-site/storage && cp -R old-site/storage new-site/storage
+   cp -R old-site/themes/.           new-site/themes/            # your overrides, if any
+   cp -R old-site/app/. old-site/routes/. old-site/database/migrations/.  \
+         new-site/{app,routes,database/migrations}/               # only if you added your own
+   ```
+
+3. Provision and switch the web server's document root to `new-site/public`:
+
+   ```bash
+   cd new-site && php glueful thallo:provision --no-interaction && php glueful migrate:verify
+   ```
+
+   Provision recognises the database as already migrated: Thallo's migrations were recorded under
+   the old source names (`app`, `app:dependent`) and are adopted under the new ones
+   (`glueful/thallo-core`, `glueful/thallo-core:dependent`) — nothing re-runs. Then reload
+   PHP-FPM and delete `old-site` once the new one serves.
+
+Customisations you made inside Thallo's own files (under the old `app/`, `routes/` or
+`database/migrations/` of a release) were never yours to keep; re-apply them as overrides in the
+paths listed above.
+
+## Deploying the website from a tag
+
+`scripts/deploy-site <tag>` remains the tag-pinned deploy for the Thallo website (charter:
+deploy from the tag, never from a checkout). It checks out this repository at the tag — whose
+tree is a complete, lock-pinned install (the template plus `core/` and the packs as path
+packages) — into a `releases/` + `shared/` + `current` layout with instant rollback. Ordinary
+sites do not need it: `composer update` is their upgrade.
 
 ## What every upgrade must include
 
@@ -130,12 +110,9 @@ hand before upgrading.
   operational obligations — each is listed in the release's Upgrade Notes and reflected in
   [production.md](production.md).
 
-## Roadmap: `composer update` as the upgrade
+## Coming next
 
-Thallo's application is moving into a package (`glueful/thallo-core`) that lives in `vendor/`,
-with `create-project` reduced to a thin skeleton. From that release on, `composer update &&
-php glueful thallo:provision` upgrades Thallo for real, and the admin will show a notice when a
-newer version is published. Until then, the two options above are the upgrade path.
+The admin will show a notice when a newer Thallo is published (charter decision 11).
 
 ## Extensions
 

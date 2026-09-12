@@ -17,8 +17,10 @@ foreach (glob($root . '/packages/*/composer.json') ?: [] as $manifest) {
         continue; // the contracts package itself is exempt
     }
     $deps = array_merge($json['require'] ?? [], $json['require-dev'] ?? []);
-    if (array_key_exists('glueful/thallo', $deps)) {
-        $violations[] = "{$name} depends on glueful/thallo (forbidden — use glueful/thallo-contracts)";
+    foreach (['glueful/thallo', 'glueful/thallo-dev', 'glueful/thallo-core'] as $forbidden) {
+        if (array_key_exists($forbidden, $deps)) {
+            $violations[] = "{$name} depends on {$forbidden} (forbidden — use glueful/thallo-contracts)";
+        }
     }
 }
 // Source-level boundary: no first-party pack (except the contracts package) may reference Thallo\Core\*.

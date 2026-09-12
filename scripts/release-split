@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+#
+# Publish the split (docs/internal/RELEASING.md). From the release commit on the dev repo:
+#   1. pin skeleton/composer.json to this release's core ("glueful/thallo-core": "^X.Y.Z-beta.N")
+#      and commit it (the release commit must already carry the baked bundle and the changelog);
+#   2. `git subtree split` each published directory onto a local branch split/<name>;
+#   3. tag each split branch as split/<name>/<tag> (git tags are repo-global, so each artifact's
+#      tag gets its own local name and is pushed to the mirror AS <tag>);
+#   4. print the 15 pushes (mirror remotes are named split/<name>); run them with --push.
+#
+# Usage: scripts/release-split [--dry-run] [--push] vX.Y.Z[-beta.N]
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$ROOT"
+DRY=0; PUSH=0; TAG=""
+for a in "$@"; do case "$a" in --dry-run) DRY=1 ;; --push) PUSH=1 ;; *) TAG="$a" ;; esac; done
+if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+  echo "release-split: '$TAG' is not a release tag (expected vX.Y.Z or vX.Y.Z-beta.N)." >&2
+  exit 2
+fi
+VERSION="${TAG#v}"
+
+ARTIFACTS=(core skeleton)
+for p in packages/thallo-*; do ARTIFACTS+=("$p"); done
+name_of() { case "$1" in core) echo thallo-core ;; skeleton) echo thallo-skeleton ;; *) basename "$1" ;; esac; }
+run() { echo "+ $*"; [[ "$DRY" -eq 1 ]] || "$@"; }
+
+echo "== release-split $TAG ($([[ "$DRY" -eq 1 ]] && echo 'dry run' || echo 'local splits + tags')) =="
+if [[ "$DRY" -eq 0 && -n "$(git status --porcelain)" ]]; then
+  echo "release-split: refusing to run on a dirty tree." >&2
+  exit 1
+fi
+
+echo "+ skeleton/composer.json → \"glueful/thallo-core\": \"^$VERSION\""
+if [[ "$DRY" -eq 0 ]]; then
+  php -r '$f=$argv[1];$j=json_decode(file_get_contents($f),true,512,JSON_THROW_ON_ERROR);$j["require"]["glueful/thallo-core"]="^".$argv[2];file_put_contents($f,json_encode($j,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES)."\n");' skeleton/composer.json "$VERSION"
+  if [[ -n "$(git status --porcelain skeleton/composer.json)" ]]; then
+    git add skeleton/composer.json
+    git commit -q -m "chore(skeleton): require glueful/thallo-core ^$VERSION"
+  fi
+fi
+
+PUSHES=()
+for dir in "${ARTIFACTS[@]}"; do
+  name="$(name_of "$dir")"
+  run git subtree split --prefix="$dir" -b "split/$name" --quiet
+  run git tag -f -a "split/$name/$TAG" -m "$TAG — $name" "split/$name"
+  PUSHES+=("git push split/$name split/$name:refs/heads/main refs/tags/split/$name/$TAG:refs/tags/$TAG")
+done
+
+echo "== pushes (mirrors receive branch main + tag $TAG) =="
+for cmd in "${PUSHES[@]}"; do
+  echo "+ $cmd"
+  if [[ "$PUSH" -eq 1 && "$DRY" -eq 0 ]]; then
+    bash -c "$cmd"
+  fi
+done
+[[ "$PUSH" -eq 1 && "$DRY" -eq 0 ]] && echo "== release-split: pushed $TAG to ${#PUSHES[@]} mirrors ==" || echo "== release-split: done locally; run the pushes above (or re-run with --push) =="

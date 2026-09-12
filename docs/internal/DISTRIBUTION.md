@@ -113,6 +113,9 @@ extensions-browser-managed, never statically listed.
    sequence; the audience is developers. Revisit at Beta.
 7. **All 13 `packages/thallo-*` modules stay path-local** (2026-08-15). Publish one only when
    another application consumes it or it needs independent versioning.
+   **AMENDED 2026-09-12 (decision 10):** the consumer that forces publication is Thallo's own
+   core in `vendor/`. Every pack is published on Packagist at the release version; ledger sources
+   and package names are unchanged, `version` fields are gone, inter-pack pins are `self.version`.
 8. **Versioning + immutability** (2026-08-15): the app tags `v1.0.0-beta.N` (semver
    pre-release; Packagist and `create-project` handle it). Tags are IMMUTABLE — corrections
    become `beta.N+1`, never a mutated tag. Promotion arc: Developer Preview → Beta after the
@@ -141,7 +144,10 @@ extensions-browser-managed, never statically listed.
     a git checkout of the tag (or a fresh `create-project` with `.env` and `storage/` carried
     across); `docs/upgrading.md` says so from beta.21. The split is a Beta-gate item: "install
     from the public docs alone" includes upgrading. Design and plan:
-    `docs/internal/plans/2026-09-12-composer-updatable-thallo.md`.
+    `docs/internal/plans/2026-09-12-composer-updatable-thallo.md`. **Status:** phase 2 (core/
+    layout) and phase 3 (`core/composer.json` as `glueful/thallo-core`, `skeleton/`, the split
+    release tooling, `previous_sources` in framework 1.85) are on `dev`; beta.21 is the first
+    split release.
 11. **An update notice in the admin, never an in-place updater** (2026-09-12). Once decision
     10 ships, a daily scheduled check reads the newest stable `glueful/thallo-core` from
     Packagist's public API (no install identifier, no telemetry; `UPDATE_CHECK_ENABLED=false`
@@ -194,7 +200,10 @@ Execute top-to-bottom when we decide to ship. Each item is small; the point is n
 - [ ] **Package split (decision 10)**: `glueful/thallo-core` published; `create-project`
       template reduced to the skeleton; a beta.N install upgrades to beta.N+1 with
       `composer update && php glueful thallo:provision` and nothing else; the clean-machine
-      gate exercises install AND upgrade.
+      gate exercises install AND upgrade. Code complete on `dev` (2026-09-12: `core/composer.json`,
+      `skeleton/`, `scripts/release-split`, per-artifact `verify-dist-archive`,
+      `scripts/skeleton-smoke` in CI); the 15 mirror repositories exist; ticks when beta.21 is
+      published and the install+upgrade gate passes.
 - [ ] **Update notice (decision 11)**: scheduled Packagist check, `update` in `/admin/config`,
       admin badge/card, `UPDATE_CHECK_ENABLED` switch; depends on the split.
 - [ ] **Versioning**: the app template gets its own versioned releases; pin extension

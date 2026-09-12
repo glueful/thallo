@@ -61,9 +61,21 @@ fwrite(STDOUT, sprintf(
     var_export($database, true)
 ));
 
-// Thallo's own migrations live under core/ (the MAIN 'app' lane, as config app.paths.migrations
-// points there); the root database/migrations is the operator's.
-$manager = new MigrationManager($root . '/core/database/migrations', null, $context);
+// The root database/migrations is the operator's ('app'); Thallo's lanes are the thallo-core
+// manifest's, registered here exactly as the manifest declares them (previous_sources included).
+$manager = new MigrationManager($root . '/database/migrations', null, $context);
+$manager->addMigrationPath(
+    $root . '/core/database/migrations',
+    MigrationPriority::DEFAULT,
+    'glueful/thallo-core',
+    ['app']
+);
+$manager->addMigrationPath(
+    $root . '/core/database/dependent-migrations',
+    MigrationPriority::DEPENDENT,
+    'glueful/thallo-core:dependent',
+    ['app:dependent']
+);
 $frameworkMigrations = $root . '/vendor/glueful/framework/migrations';
 $frameworkSources = [
     'auth' => 'glueful/framework',
@@ -193,11 +205,6 @@ if (is_dir($root . '/vendor/glueful/tenancy/migrations')) {
         'glueful/tenancy'
     );
 }
-$manager->addMigrationPath(
-    $root . '/core/database/dependent-migrations',
-    MigrationPriority::DEPENDENT,
-    'app:dependent'
-);
 
 $pending = $manager->getPendingMigrations();
 
