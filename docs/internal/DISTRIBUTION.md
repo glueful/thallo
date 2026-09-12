@@ -151,12 +151,18 @@ extensions-browser-managed, never statically listed.
 11. **An update notice in the admin, never an in-place updater** (2026-09-12). Once decision
     10 ships, a daily scheduled check reads the newest stable `glueful/thallo-core` from
     Packagist's public API (no install identifier, no telemetry; `UPDATE_CHECK_ENABLED=false`
-    turns it off) and stores it in the system flags; `/admin/config` exposes
-    `update: {current, latest, notesUrl}` and administrators see a dismissible badge/card with
-    the changelog link and the upgrade command. The upgrade itself stays a server-side command
-    (`composer update && php glueful thallo:provision`) run by the deploy user — Composer must
-    not run under the web worker. A managed/hosted edition may add a button later; the
+    turns it off) and stores it in the system flags; administrators see a dismissible badge/card
+    with the changelog link and the upgrade command. The upgrade itself stays a server-side
+    command (`composer update && php glueful thallo:provision`) run by the deploy user — Composer
+    must not run under the web worker. A managed/hosted edition may add a button later; the
     self-hosted product does not.
+    **Amended 2026-09-12 (shipped in beta.22):** the status is served by the authenticated,
+    operator-only `GET /v1/admin/update-status` (`system.access`), not by `/admin/config` as
+    first written — `/admin/config` is read before login, and an anonymous endpoint that
+    reveals the installed version is a fingerprint. The check compares against the install's
+    own stability: a pre-release install is offered newer pre-releases and stable, a stable
+    install only stable. "Current" is what Composer installed, read at request time, so the
+    notice clears as soon as the upgrade has run.
 
 ## 4. Distribution-time checklist
 

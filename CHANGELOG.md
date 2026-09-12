@@ -8,6 +8,16 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Added
+- **The update notice** (charter decision 11). Once a day the install asks Packagist's public
+  metadata for the newest published `glueful/thallo-core` it may move to — a plain GET, no
+  install identifier — and keeps the answer in the system flags. Administrators with
+  `system.access` see a dismissible card on Home and an **Update** badge on Utilities → Health,
+  both with the release notes link and `composer update && php glueful thallo:provision`; the
+  Health page shows the installed and newest versions; `GET /v1/admin/update-status` serves the
+  same to the API. A pre-release install is offered newer pre-releases and stable, a stable
+  install only stable; the notice clears the moment the upgrade has run. `UPDATE_CHECK_ENABLED=false`
+  turns it off; `php glueful thallo:update:check [--force]` shows it on the command line. Never an
+  updater: Composer runs as the deploy user, not under the web worker.
 - `thallo:provision` generates the API reference: `docs/openapi.json` and the `/api-docs` UI,
   from the install's live routes, refreshed on every provision (what `php glueful
   generate:openapi -f --ui` writes). An install from the template answered 404 at `/api-docs`
