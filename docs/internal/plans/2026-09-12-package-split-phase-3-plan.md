@@ -4,7 +4,7 @@
 
 **Goal:** `composer create-project glueful/thallo` installs a thin skeleton whose `vendor/` holds `glueful/thallo-core` and the 13 packs, so `composer update && php glueful thallo:provision` upgrades Thallo — with every existing database's migration ledger still matching.
 
-**Architecture:** The dev repo stays one monorepo. `core/` becomes the `glueful/thallo-core` Composer package (a library with a Glueful manifest: provider + migration descriptors), the 13 `packages/thallo-*` directories become published packages of the same version, and a new `skeleton/` directory is exactly what `create-project` ships. A framework feature (`legacy_sources` on migration descriptors, 1.85.0) lets thallo-core's lanes adopt the rows every database recorded under `app` / `app:dependent`. One release script subtree-splits the 15 package directories to read-only mirror repositories and tags them together; the dist gate runs per artifact; a skeleton smoke installs the skeleton against the local packages.
+**Architecture:** The dev repo stays one monorepo. `core/` becomes the `glueful/thallo-core` Composer package (a library with a Glueful manifest: provider + migration descriptors), the 13 `packages/thallo-*` directories become published packages of the same version, and a new `skeleton/` directory is exactly what `create-project` ships. A framework feature (`previous_sources` on migration descriptors, 1.85.0) lets thallo-core's lanes adopt the rows every database recorded under `app` / `app:dependent`. One release script subtree-splits the 15 package directories to read-only mirror repositories and tags them together; the dist gate runs per artifact; a skeleton smoke installs the skeleton against the local packages.
 
 **Tech Stack:** PHP 8.4, Glueful framework 1.85 (`MigrationDescriptor`, `PackageManifest`, `MigrationManager`), Composer path repositories + `self.version`, `git subtree split`, PHPUnit 10, bash, GitHub Actions.
 
@@ -14,7 +14,7 @@
 
 - Branch `package-split-3` off `dev`; merge `--no-ff` at the end. `dev` stays releasable.
 - Gates before every commit: `composer phpcs`, `composer boundaries`, the task's suites; the FULL suite (`COMPOSER_PROCESS_TIMEOUT=0 composer test`, alone on the test DB) at Tasks 2, 3 and 6; `composer test:distribution` and the new `scripts/skeleton-smoke` at Tasks 4 and 6; admin gates at Task 6.
-- **Ledger names never change for the operator.** After this phase a beta.20 database shows zero pending migrations; the mechanism is `legacy_sources`, never a manual ledger rewrite.
+- **Ledger names never change for the operator.** After this phase a beta.20 database shows zero pending migrations; the mechanism is `previous_sources`, never a manual ledger rewrite.
 - **Packs keep their package names** (`glueful/thallo-<name>`), their ledger sources and their manifests; they are published, not folded into core (charter decision 7 amended: the consumer that forces publication is Thallo's own core in `vendor/`).
 - One version for everything: core, skeleton and packs are tagged `vX.Y.Z-beta.N` together; core requires each pack at `self.version`; the skeleton pins `glueful/thallo-core` at `^X.Y.Z-beta.N` and the release script bumps it.
 - No `version` field in any published `composer.json` (Packagist derives versions from tags; the dev root resolves path packages as `dev-*` under `minimum-stability: dev` + `prefer-stable`).
@@ -43,16 +43,16 @@ Expected: `Pending: 0`.
 
 ---
 
-### Task 1: Framework 1.85.0 — `legacy_sources` on migration descriptors
+### Task 1: Framework 1.85.0 — `previous_sources` on migration descriptors
 
 **Repo:** `/Users/michaeltawiahsowah/Sites/glueful/framework` (release per `.claude/skills/release/SKILL.md`, re-read it; codename after Alnitak is **Alphard**; minor: new manifest key).
 
 **Files:**
-- Modify: `src/Extensions/Schema/MigrationDescriptor.php` (new `legacySources` field), `src/Extensions/PackageManifest.php` (parse `legacy_sources`), `src/Database/Migrations/MigrationManager.php` (`addMigrationPath(..., array $legacySources = [])`, alias-aware applied check, adoption), `src/Extensions/Schema/MigrationManagerFactory.php` if it maps descriptors → paths.
+- Modify: `src/Extensions/Schema/MigrationDescriptor.php` (new `previousSources` field), `src/Extensions/PackageManifest.php` (parse `previous_sources`), `src/Database/Migrations/MigrationManager.php` (`addMigrationPath(..., array $previousSources = [])`, alias-aware applied check, adoption), `src/Extensions/Schema/MigrationManagerFactory.php` if it maps descriptors → paths.
 - Test: `tests/Unit/Database/Migrations/LegacySourcesTest.php`, `tests/Unit/Extensions/PackageManifestLegacySourcesTest.php`.
 
 **Interfaces:**
-- Produces: manifest row key `legacy_sources: list<string>`; `MigrationDescriptor::$legacySources`; `MigrationManager::addMigrationPath(string $path, int $priority, ?string $source = null, array $legacySources = [])`; a lane's pending computation treats a row recorded under any legacy source (same file basename) as applied; `migrate:run` first rewrites such rows to the lane's current source (adoption), so `migrate:verify`/`status` report the lane whole.
+- Produces: manifest row key `previous_sources: list<string>`; `MigrationDescriptor::$previousSources`; `MigrationManager::addMigrationPath(string $path, int $priority, ?string $source = null, array $previousSources = [])`; a lane's pending computation treats a row recorded under any previous source (same file basename) as applied; `migrate:run` first rewrites such rows to the lane's current source (adoption), so `migrate:verify`/`status` report the lane whole.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -69,8 +69,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A package that takes over migrations previously recorded under another source (an app that
- * became a package; a package that renamed) declares the old names as legacy_sources: rows the
- * ledger holds under a legacy source count as applied for the lane, and the first run adopts
+ * became a package; a package that renamed) declares the old names as previous_sources: rows the
+ * ledger holds under a previous source count as applied for the lane, and the first run adopts
  * them under the current name — so nothing re-runs and nothing looks pending.
  */
 final class LegacySourcesTest extends TestCase
@@ -130,11 +130,11 @@ final class PackageManifestLegacySourcesTest extends TestCase
             'name' => 'glueful/thing-core', 'type' => 'library',
             'extra' => ['glueful' => ['migrations' => [[
                 'id' => 'default', 'path' => 'database/migrations', 'priority' => 'default', 'mode' => 'core',
-                'legacy_sources' => ['app'],
+                'previous_sources' => ['app'],
             ]]]],
         ])['glueful/thing-core'][0];
 
-        self::assertSame(['app'], $descriptor->legacySources);
+        self::assertSame(['app'], $descriptor->previousSources);
     }
 
     public function testAnInvalidLegacySourceIsRejected(): void
@@ -144,7 +144,7 @@ final class PackageManifestLegacySourcesTest extends TestCase
             'name' => 'glueful/thing-core', 'type' => 'library',
             'extra' => ['glueful' => ['migrations' => [[
                 'id' => 'default', 'path' => 'database/migrations', 'priority' => 'default', 'mode' => 'core',
-                'legacy_sources' => 'app',
+                'previous_sources' => 'app',
             ]]]],
         ]);
     }
@@ -156,13 +156,13 @@ The `descriptorsFor()` helper builds a `PackageManifest` over an in-memory `inst
 - [ ] **Step 2: Run them to verify they fail**
 
 Run: `cd /Users/michaeltawiahsowah/Sites/glueful/framework && vendor/bin/phpunit tests/Unit/Database/Migrations/LegacySourcesTest.php tests/Unit/Extensions/PackageManifestLegacySourcesTest.php`
-Expected: FAIL — unknown named argument / `legacySources` undefined property / the aliased row pending.
+Expected: FAIL — unknown named argument / `previousSources` undefined property / the aliased row pending.
 
 - [ ] **Step 3: Implement**
 
-`MigrationDescriptor`: add `public readonly array $legacySources = []` as the last constructor parameter; validate each entry with the same regex the source names satisfy (`/^[a-z0-9][a-z0-9_\-\/.:]*$/`) and reject the lane's own `source()`.
+`MigrationDescriptor`: add `public readonly array $previousSources = []` as the last constructor parameter; validate each entry with the same regex the source names satisfy (`/^[a-z0-9][a-z0-9_\-\/.:]*$/`) and reject the lane's own `source()`.
 
-`PackageManifest` (descriptor parsing loop): read `$row['legacy_sources'] ?? []`; it must be a list of strings, else `DescriptorValidationException("Package {$name}: legacy_sources must be a list of source names")`; pass to the constructor.
+`PackageManifest` (descriptor parsing loop): read `$row['previous_sources'] ?? []`; it must be a list of strings, else `DescriptorValidationException("Package {$name}: previous_sources must be a list of source names")`; pass to the constructor.
 
 `MigrationManager`:
 
@@ -170,19 +170,19 @@ Expected: FAIL — unknown named argument / `legacySources` undefined property /
     /** @var list<array{path: string, priority: int, source: string, legacy: list<string>}> */
     private array $additionalMigrationPaths = [];
 
-    public function addMigrationPath(string $path, int $priority, ?string $source = null, array $legacySources = []): void
+    public function addMigrationPath(string $path, int $priority, ?string $source = null, array $previousSources = []): void
     {
         // ...existing resolution of $source...
-        $this->additionalMigrationPaths[] = ['path' => $path, 'priority' => $priority, 'source' => $source, 'legacy' => array_values($legacySources)];
+        $this->additionalMigrationPaths[] = ['path' => $path, 'priority' => $priority, 'source' => $source, 'legacy' => array_values($previousSources)];
     }
 
     public function registerDescriptor(MigrationDescriptor $descriptor, string $absolutePath): void
     {
-        $this->addMigrationPath($absolutePath, $descriptor->priority, $descriptor->source(), $descriptor->legacySources);
+        $this->addMigrationPath($absolutePath, $descriptor->priority, $descriptor->source(), $descriptor->previousSources);
         // ...existing descriptorSources bookkeeping...
     }
 
-    /** True when $file is recorded under $source OR under any of the lane's legacy sources. */
+    /** True when $file is recorded under $source OR under any of the lane's previous sources. */
     private function isApplied(array $lane, string $basename, array $appliedKeys): bool
     {
         if (in_array($this->sourceKey($lane['source'], $basename), $appliedKeys, true)) {
@@ -197,12 +197,12 @@ Expected: FAIL — unknown named argument / `legacySources` undefined property /
     }
 ```
 
-Use `isApplied()` in `pendingForSources()` and in `getPendingMigrations()` wherever `sourceKey($src['source'], basename)` is compared today (`allSources()` entries must carry `legacy` — the main app entry gets `[]`).
+Use `isApplied()` in `pendingForSources()` and in `getPendingMigrations()` wherever `sourceKey($src['source'], basename)` is compared today (`allSources()` entries must carry `previous` — the main app entry gets `[]`).
 
 Adoption, called at the top of `migrateSources()` and `runPending()`-equivalent (whatever `migrate:run` uses):
 
 ```php
-    /** Rewrite ledger rows recorded under a lane's legacy sources to the lane's current source. */
+    /** Rewrite ledger rows recorded under a lane's previous sources to the lane's current source. */
     private function adoptLegacySources(): void
     {
         foreach ($this->allSources() as $lane) {
@@ -227,7 +227,7 @@ Expected: all green.
 
 - [ ] **Step 5: Release 1.85.0 — Alphard (the release skill's file map: CHANGELOG with Upgrade Notes "new optional manifest key; no behaviour change without it", Version.php, ROADMAP, docs releases.md + app.config.ts, api-skeleton composer.json), commit fix + release + companions; the user tags/pushes/publishes.**
 
-- [ ] **Step 6: Back in Thallo, repin** (`composer update glueful/framework`, lock moves only the framework), full suite, commit `chore(deps): framework 1.85.0 — legacy_sources on migration descriptors`.
+- [ ] **Step 6: Back in Thallo, repin** (`composer update glueful/framework`, lock moves only the framework), full suite, commit `chore(deps): framework 1.85.0 — previous_sources on migration descriptors`.
 
 ---
 
@@ -235,11 +235,11 @@ Expected: all green.
 
 **Files:**
 - Create: `core/composer.json`, `core/README.md`, `core/LICENSE` (copy of the root's).
-- Modify: `composer.json` (root: name `glueful/thallo-dev`, path repo `core`, require `glueful/thallo-core: "*"`, `minimum-stability: dev`, keep `prefer-stable: true`, drop the direct `glueful/thallo-*` requires — core requires them; keep the 13 path repositories); every `packages/*/composer.json` (remove `"version"`, inter-pack requires → `"self.version"`); `core/src/Providers/CoreServiceProvider.php` (drop the two `loadMigrationsFrom` calls for core lanes — descriptors own them now; keep the operator's root `database/migrations` registration under `app`); `config/app.php` (`paths.migrations` back to `$basePath . '/database/migrations'`); `scripts/run-test-migrations.php` (register the two core lanes with their NEW sources and legacy aliases); `scripts/check-pack-boundaries.php` (the "depends on glueful/thallo" rule must also forbid `glueful/thallo-core` and `glueful/thallo-dev`).
+- Modify: `composer.json` (root: name `glueful/thallo-dev`, path repo `core`, require `glueful/thallo-core: "*"`, `minimum-stability: dev`, keep `prefer-stable: true`, drop the direct `glueful/thallo-*` requires — core requires them; keep the 13 path repositories); every `packages/*/composer.json` (remove `"version"`, inter-pack requires → `"self.version"`); `core/src/Providers/CoreServiceProvider.php` (drop the two `loadMigrationsFrom` calls for core lanes — descriptors own them now; keep the operator's root `database/migrations` registration under `app`); `config/app.php` (`paths.migrations` back to `$basePath . '/database/migrations'`); `scripts/run-test-migrations.php` (register the two core lanes with their NEW sources and previous-source aliases); `scripts/check-pack-boundaries.php` (the "depends on glueful/thallo" rule must also forbid `glueful/thallo-core` and `glueful/thallo-dev`).
 - Test: `tests/Integration/Setup/CoreMigrationSourcesTest.php` (rewritten), `tests/Unit/Support/CorePackageTest.php` (new).
 
 **Interfaces:**
-- Produces: package `glueful/thallo-core` (type `library`, PSR-4 `Thallo\Core\` → `src/`), manifest `extra.glueful.provider = Thallo\Core\Providers\CoreServiceProvider`, migration lanes `glueful/thallo-core` (default priority, `database/migrations`, `legacy_sources: ["app"]`) and `glueful/thallo-core:dependent` (dependent priority, `database/dependent-migrations`, `legacy_sources: ["app:dependent"]`); the dev root resolves it as `dev-*` from `core/`.
+- Produces: package `glueful/thallo-core` (type `library`, PSR-4 `Thallo\Core\` → `src/`), manifest `extra.glueful.provider = Thallo\Core\Providers\CoreServiceProvider`, migration lanes `glueful/thallo-core` (default priority, `database/migrations`, `previous_sources: ["app"]`) and `glueful/thallo-core:dependent` (dependent priority, `database/dependent-migrations`, `previous_sources: ["app:dependent"]`); the dev root resolves it as `dev-*` from `core/`.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -270,9 +270,9 @@ final class CorePackageTest extends TestCase
         self::assertSame('Thallo\\Core\\Providers\\CoreServiceProvider', $core['extra']['glueful']['provider']);
 
         $lanes = array_column($core['extra']['glueful']['migrations'], null, 'id');
-        self::assertSame(['app'], $lanes['default']['legacy_sources']);
+        self::assertSame(['app'], $lanes['default']['previous_sources']);
         self::assertSame('database/migrations', $lanes['default']['path']);
-        self::assertSame(['app:dependent'], $lanes['dependent']['legacy_sources']);
+        self::assertSame(['app:dependent'], $lanes['dependent']['previous_sources']);
         self::assertSame('dependent', $lanes['dependent']['priority']);
     }
 
@@ -323,7 +323,7 @@ Rewrite `tests/Integration/Setup/CoreMigrationSourcesTest.php`:
         $pdo = $this->connection()->getPDO();
         $pdo->exec("UPDATE migrations SET source = 'app' WHERE migration = '017_CreateBlockTypesTable.php'");
         $manager = $this->container()->get(MigrationManager::class);
-        self::assertSame([], $manager->getPendingMigrations(), 'a legacy row counts as applied');
+        self::assertSame([], $manager->getPendingMigrations(), 'a previously-recorded row counts as applied');
         $pdo->exec("UPDATE migrations SET source = 'glueful/thallo-core' WHERE migration = '017_CreateBlockTypesTable.php'");
     }
 ```
@@ -383,8 +383,8 @@ Expected: FAIL — `core/composer.json` missing.
       "provider": "Thallo\\Core\\Providers\\CoreServiceProvider",
       "requires": { "glueful": ">=1.85.0", "extensions": [] },
       "migrations": [
-        { "id": "default", "path": "database/migrations", "priority": "default", "mode": "core", "legacy_sources": ["app"] },
-        { "id": "dependent", "path": "database/dependent-migrations", "priority": "dependent", "mode": "core", "legacy_sources": ["app:dependent"] }
+        { "id": "default", "path": "database/migrations", "priority": "default", "mode": "core", "previous_sources": ["app"] },
+        { "id": "dependent", "path": "database/dependent-migrations", "priority": "dependent", "mode": "core", "previous_sources": ["app:dependent"] }
       ]
     }
   },
@@ -400,7 +400,7 @@ ls -la vendor/glueful/thallo-core        # a symlink to ../../core
 composer dump-autoload -q
 ```
 
-`CoreServiceProvider::boot()`: delete the two `loadMigrationsFrom(self::corePath(...))` calls; keep `$this->loadMigrationsFrom(base_path($context, 'database/migrations'), MigrationPriority::DEFAULT, 'app')` with its comment reworded: "the operator's own migrations; Thallo's lanes are declared by core/composer.json's manifest (with legacy_sources for pre-split ledgers)".
+`CoreServiceProvider::boot()`: delete the two `loadMigrationsFrom(self::corePath(...))` calls; keep `$this->loadMigrationsFrom(base_path($context, 'database/migrations'), MigrationPriority::DEFAULT, 'app')` with its comment reworded: "the operator's own migrations; Thallo's lanes are declared by core/composer.json's manifest (with previous_sources for pre-split ledgers)".
 
 `config/app.php`: `'migrations' => $basePath . '/database/migrations',` with the comment "the operator's; Thallo's lanes come from the thallo-core manifest".
 
@@ -419,7 +419,7 @@ and remove the old dependent line.
 
 ```bash
 composer test:migrate 2>&1 | tail -2                        # fresh test DB: lanes under the NEW names
-php glueful migrate:status | grep -E "Total|Completed|Pending"   # the DEV database: still Pending: 0 (legacy alias)
+php glueful migrate:status | grep -E "Total|Completed|Pending"   # the DEV database: still Pending: 0 (previous-source alias)
 php glueful migrate:run 2>&1 | tail -2 && php glueful migrate:verify 2>&1 | grep -E "thallo-core|app\b"   # adoption: rows now under glueful/thallo-core
 vendor/bin/phpunit tests/Unit/Support tests/Integration/Setup tests/Integration/Authority && composer phpcs && composer boundaries
 COMPOSER_PROCESS_TIMEOUT=0 composer test
@@ -430,7 +430,7 @@ Expected: all green; the dev database's ledger shows the same totals as `/tmp/le
 - [ ] **Step 5: Commit**
 
 ```bash
-git add -A && git commit -m "feat(core): glueful/thallo-core is a Composer package; lanes declared by manifest with legacy_sources; packs at self.version"
+git add -A && git commit -m "feat(core): glueful/thallo-core is a Composer package; lanes declared by manifest with previous_sources; packs at self.version"
 ```
 
 ---
