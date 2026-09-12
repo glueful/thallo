@@ -1,35 +1,34 @@
 {
-    "name": "glueful/thallo-account",
-    "description": "Storefront customer accounts for Thallo — themed registration, sign-in and account pages, as a removable capability pack.",
-    "type": "library",
-    "license": "MIT",
-    "authors": [
-        {
-            "name": "Michael Tawiah Sowah",
-            "email": "michael@glueful.dev"
-        }
-    ],
-    "version": "0.1.0",
-    "require": {
-        "php": "^8.3",
-        "glueful/thallo-contracts": "*",
-        "glueful/thallo-render": "*",
-        "glueful/framework": "^1.74.0"
-    },
-    "autoload": {
-        "psr-4": {
-            "Thallo\\Account\\": "src/"
-        }
-    },
-    "extra": {
-        "glueful": {
-            "provider": "Thallo\\Account\\AccountServiceProvider",
-            "requires": {
-                "glueful": ">=1.79.0",
-                "extensions": []
-            },
-            "migrations": "none"
-        }
-    },
-    "minimum-stability": "stable"
+  "name": "glueful/thallo-account",
+  "description": "Storefront customer accounts for Thallo — themed registration, sign-in and account pages, as a removable capability pack.",
+  "type": "library",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Michael Tawiah Sowah",
+      "email": "michael@glueful.dev"
+    }
+  ],
+  "require": {
+    "php": "^8.3",
+    "glueful/thallo-contracts": "self.version",
+    "glueful/thallo-render": "self.version",
+    "glueful/framework": "^1.74.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Thallo\\Account\\": "src/"
+    }
+  },
+  "extra": {
+    "glueful": {
+      "provider": "Thallo\\Account\\AccountServiceProvider",
+      "requires": {
+        "glueful": ">=1.79.0",
+        "extensions": []
+      },
+      "migrations": "none"
+    }
+  },
+  "minimum-stability": "stable"
 }

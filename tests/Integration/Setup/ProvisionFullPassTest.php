@@ -86,7 +86,7 @@ final class ProvisionFullPassTest extends TestCase
         file_put_contents(
             $base . '/config/app.php',
             "<?php\nreturn ['paths' => ['migrations' => "
-                . var_export($root . '/core/database/migrations', true) . "]];\n"
+                . var_export($root . '/database/migrations', true) . "]];\n"
         );
         // The REAL enabled extension list (no testing shield): provision must cover every
         // enabled engine's schema, tenancy included.

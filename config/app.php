@@ -57,10 +57,8 @@ return [
         'database_json_definitions' => $basePath . '/docs/json-definitions/database',
         'project_extensions' => $basePath . '/extensions',
         'archives' => $basePath . '/storage/archives',
-        // Thallo's own migrations (source 'app'): the MAIN lane, so a fresh provision applies
-        // them in its first pass. The operator's database/migrations is registered by the core
-        // provider at boot (same source) and applied by migrate:run / the create-admin catch-up.
-        'migrations' => $basePath . '/core/database/migrations',
+        // The operator's own migrations. Thallo's lanes are declared by the thallo-core manifest.
+        'migrations' => $basePath . '/database/migrations',
         'app_events' => $basePath . '/app/Events',
         'app_listeners' => $basePath . '/app/Events/Listeners',
     ],

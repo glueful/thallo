@@ -55,7 +55,8 @@ final class TenancyPackageDiscoverableTest extends AppTestCase
     public function testGluefulTenancyIsAProductionDependency(): void
     {
         $composer = json_decode(
-            (string) file_get_contents(dirname(__DIR__, 4) . '/composer.json'),
+            // glueful/thallo-core is the package that requires glueful/tenancy for every install.
+            (string) file_get_contents(dirname(__DIR__, 4) . '/core/composer.json'),
             true,
             flags: JSON_THROW_ON_ERROR,
         );

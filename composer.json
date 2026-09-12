@@ -1,5 +1,5 @@
 {
-  "name": "glueful/thallo",
+  "name": "glueful/thallo-dev",
   "description": "Thallo — a hybrid CMS and canonical content source, built on the Glueful framework.",
   "type": "project",
   "keywords": [
@@ -21,87 +21,57 @@
   "repositories": [
     {
       "type": "path",
-      "url": "packages/thallo-account"
+      "url": "core",
+      "options": {
+        "symlink": true,
+        "reference": "none",
+        "versions": {
+          "glueful/thallo-core": "1.0.0",
+          "glueful/thallo-account": "1.0.0",
+          "glueful/thallo-analytics": "1.0.0",
+          "glueful/thallo-collections": "1.0.0",
+          "glueful/thallo-commerce": "1.0.0",
+          "glueful/thallo-contracts": "1.0.0",
+          "glueful/thallo-importers": "1.0.0",
+          "glueful/thallo-navigation": "1.0.0",
+          "glueful/thallo-render": "1.0.0",
+          "glueful/thallo-search": "1.0.0",
+          "glueful/thallo-seo": "1.0.0",
+          "glueful/thallo-subscriptions": "1.0.0",
+          "glueful/thallo-tenancy": "1.0.0",
+          "glueful/thallo-workflow": "1.0.0"
+        }
+      }
     },
     {
       "type": "path",
-      "url": "packages/thallo-analytics"
-    },
-    {
-      "type": "path",
-      "url": "packages/thallo-collections"
-    },
-    {
-      "type": "path",
-      "url": "packages/thallo-commerce"
-    },
-    {
-      "type": "path",
-      "url": "packages/thallo-contracts"
-    },
-    {
-      "type": "path",
-      "url": "packages/thallo-importers"
-    },
-    {
-      "type": "path",
-      "url": "packages/thallo-navigation"
-    },
-    {
-      "type": "path",
-      "url": "packages/thallo-render"
-    },
-    {
-      "type": "path",
-      "url": "packages/thallo-search"
-    },
-    {
-      "type": "path",
-      "url": "packages/thallo-seo"
-    },
-    {
-      "type": "path",
-      "url": "packages/thallo-subscriptions"
-    },
-    {
-      "type": "path",
-      "url": "packages/thallo-tenancy"
-    },
-    {
-      "type": "path",
-      "url": "packages/thallo-workflow"
+      "url": "packages/*",
+      "options": {
+        "symlink": true,
+        "reference": "none",
+        "versions": {
+          "glueful/thallo-core": "1.0.0",
+          "glueful/thallo-account": "1.0.0",
+          "glueful/thallo-analytics": "1.0.0",
+          "glueful/thallo-collections": "1.0.0",
+          "glueful/thallo-commerce": "1.0.0",
+          "glueful/thallo-contracts": "1.0.0",
+          "glueful/thallo-importers": "1.0.0",
+          "glueful/thallo-navigation": "1.0.0",
+          "glueful/thallo-render": "1.0.0",
+          "glueful/thallo-search": "1.0.0",
+          "glueful/thallo-seo": "1.0.0",
+          "glueful/thallo-subscriptions": "1.0.0",
+          "glueful/thallo-tenancy": "1.0.0",
+          "glueful/thallo-workflow": "1.0.0"
+        }
+      }
     }
   ],
   "require": {
     "php": "^8.3",
-    "glueful/aegis": "^1.15",
-    "glueful/audit": "^1.4",
-    "glueful/commerce": "^1.13",
-    "glueful/email-notification": "^1.13",
     "glueful/framework": "^1.80",
-    "glueful/i18n": "^1.2",
-    "glueful/import-export": "^1.2",
-    "glueful/media": "^1.2",
-    "glueful/meilisearch": "^1.7",
-    "glueful/payvia": "^2.8",
-    "glueful/subscriptions": "^2.3",
-    "glueful/tenancy": "^2.1",
-    "glueful/thallo-account": "*",
-    "glueful/thallo-analytics": "*",
-    "glueful/thallo-collections": "*",
-    "glueful/thallo-commerce": "*",
-    "glueful/thallo-contracts": "*",
-    "glueful/thallo-importers": "*",
-    "glueful/thallo-navigation": "*",
-    "glueful/thallo-render": "*",
-    "glueful/thallo-search": "*",
-    "glueful/thallo-seo": "*",
-    "glueful/thallo-subscriptions": "*",
-    "glueful/thallo-tenancy": "*",
-    "glueful/thallo-workflow": "*",
-    "glueful/users": "^2.4",
-    "league/commonmark": "^2.8",
-    "symfony/brevo-mailer": "^8.1"
+    "glueful/thallo-core": "*"
   },
   "require-dev": {
     "phpunit/phpunit": "^10.5",
