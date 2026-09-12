@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Tenancy\Purge\PurgeRunRepository;
 
 /**
@@ -79,7 +79,7 @@ final class PurgeStallReportingTest extends AppTestCase
      */
     public function testCustomizedStartersDoNotBlockDisableButOrphanedSourcesDo(): void
     {
-        $check = $this->container()->get(\App\Content\Starter\DefaultStarterCoverageCheck::class);
+        $check = $this->container()->get(\Thallo\Core\Content\Starter\DefaultStarterCoverageCheck::class);
         $pdo = $this->connection()->getPDO();
 
         // Self-contained: plant one row per divergent state (this DB carries no synced

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Delivery\EngineMediaUrlResolver;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Delivery\EngineMediaUrlResolver;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Helpers\Utils;
 
 final class MediaUrlResolverTest extends AppTestCase

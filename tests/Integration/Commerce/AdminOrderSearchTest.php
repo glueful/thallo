@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Database\QueryBuilder;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
@@ -37,7 +37,7 @@ use Thallo\Commerce\Orders\AdminOrderSearchQuery;
  *    ThalloCommerceTenantResolution} mode (a)), so every kernel-driven fixture below seeds
  *    `tenant_uuid => ''` to match what the controller will actually resolve.
  *
- * The suite's real database driver is PostgreSQL ({@see \App\Tests\Support\AppTestCase}'s own
+ * The suite's real database driver is PostgreSQL ({@see \Thallo\Core\Tests\Support\AppTestCase}'s own
  * `phpunit.xml`, `DB_DRIVER=pgsql`) — the `q` literal-escape assertions below exercise that
  * driver for real; SQLite is not part of this repository's CI matrix.
  */

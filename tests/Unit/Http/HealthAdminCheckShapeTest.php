@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Http;
+namespace Thallo\Core\Tests\Unit\Http;
 
-use App\Http\Controllers\HealthAdminController;
+use Thallo\Core\Http\Controllers\HealthAdminController;
 use PHPUnit\Framework\TestCase;
 
 /**

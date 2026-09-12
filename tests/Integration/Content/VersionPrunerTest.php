@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Preview\PreviewMinter;
-use App\Content\Preview\PreviewNotFoundException;
-use App\Content\Preview\PreviewReader;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Retention\RetentionPolicy;
-use App\Content\Retention\VersionPruner;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Preview\PreviewMinter;
+use Thallo\Core\Content\Preview\PreviewNotFoundException;
+use Thallo\Core\Content\Preview\PreviewReader;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Retention\RetentionPolicy;
+use Thallo\Core\Content\Retention\VersionPruner;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class VersionPrunerTest extends AppTestCase
 {

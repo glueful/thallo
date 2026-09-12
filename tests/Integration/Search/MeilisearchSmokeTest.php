@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Search;
+namespace Thallo\Core\Tests\Integration\Search;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Meilisearch\Indexing\IndexManager;
 use Thallo\Contracts\Schema\ContentSchemaReader;
 use Thallo\Contracts\Schema\FieldDescriptor;

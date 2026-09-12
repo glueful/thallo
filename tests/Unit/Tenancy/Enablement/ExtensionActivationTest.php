@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy\Enablement;
+namespace Thallo\Core\Tests\Unit\Tenancy\Enablement;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Bootstrap\ConfigurationLoader;
-use App\Tests\Support\SpySchemaExecutor;
-use App\Tests\Support\TestableExtensionActivation;
+use Thallo\Core\Tests\Support\SpySchemaExecutor;
+use Thallo\Core\Tests\Support\TestableExtensionActivation;
 use Glueful\Container\Container;
 use Glueful\Extensions\EnabledProviders;
 use Glueful\Extensions\ExtensionManager;
@@ -52,7 +52,7 @@ final class ExtensionActivationTest extends AppTestCase
 
         $activation->activate();
 
-        self::assertContains(ExtensionActivation::PROVIDER, require $cache);
+        self::assertContains(ExtensionActivation::PROVIDER, ExtensionManager::readCacheFile($cache)['providers']);
     }
 
     public function testDeactivateRepairsStaleCacheWhenProviderIsAlreadyAbsent(): void
@@ -65,7 +65,7 @@ final class ExtensionActivationTest extends AppTestCase
 
         $activation->deactivate();
 
-        self::assertNotContains(ExtensionActivation::PROVIDER, require $cache);
+        self::assertNotContains(ExtensionActivation::PROVIDER, ExtensionManager::readCacheFile($cache)['providers']);
     }
 
     public function testActivateCacheCarriesAppModulesAlongsideTheExtension(): void
@@ -80,7 +80,7 @@ final class ExtensionActivationTest extends AppTestCase
 
         $activation->activate();
 
-        $cached = require $cache;
+        $cached = ExtensionManager::readCacheFile($cache)['providers'];
         self::assertContains(ExtensionActivation::PROVIDER, $cached);
         self::assertContains(
             'Thallo\\Render\\RenderServiceProvider',
@@ -98,7 +98,7 @@ final class ExtensionActivationTest extends AppTestCase
 
         $activation->deactivate();
 
-        $cached = require $cache;
+        $cached = ExtensionManager::readCacheFile($cache)['providers'];
         self::assertNotContains(ExtensionActivation::PROVIDER, $cached);
         self::assertContains(
             'Thallo\\Render\\RenderServiceProvider',

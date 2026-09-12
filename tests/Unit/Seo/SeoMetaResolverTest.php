@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Seo;
+namespace Thallo\Core\Tests\Unit\Seo;
 
 use Thallo\Contracts\Delivery\ContentDeliveryReader;
 use Thallo\Seo\Meta\SeoMetaResolver;

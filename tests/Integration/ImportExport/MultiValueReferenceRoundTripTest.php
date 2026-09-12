@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\ImportExport;
+namespace Thallo\Core\Tests\Integration\ImportExport;
 
-use App\Content\ImportExport\ContentImporter;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\ImportExport\ContentImporter;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\ImportExport\Support\ImportBatch;
 use Glueful\Extensions\ImportExport\Support\ImportContext;
 use Glueful\Extensions\ImportExport\Support\ImportOptions;

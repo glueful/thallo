@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Settings;
+namespace Thallo\Core\Tests\Integration\Settings;
 
-use App\Settings\SettingsStore;
-use App\Settings\SystemKeys;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\RecordingSystemChannel;
+use Thallo\Core\Settings\SettingsStore;
+use Thallo\Core\Settings\SystemKeys;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RecordingSystemChannel;
 
 /**
  * Task 1 (platform-payments-settings spec §2) — SystemKeys prefix routing.

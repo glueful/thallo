@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Backfill\BackfillRunner;
-use App\Content\Indexing\EnsureFilterIndexesJob;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\MigrationRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Schema\Migration\MigrationOpSet;
-use App\Content\Services\MigrationService;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Backfill\BackfillRunner;
+use Thallo\Core\Content\Indexing\EnsureFilterIndexesJob;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\MigrationRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Schema\Migration\MigrationOpSet;
+use Thallo\Core\Content\Services\MigrationService;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class BackfillRunnerTest extends AppTestCase
 {

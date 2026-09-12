@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Support;
+namespace Thallo\Core\Tests\Support;
 
 use Glueful\Application;
 use Glueful\Bootstrap\ApplicationContext;
@@ -173,7 +173,7 @@ abstract class AppTestCase extends TestCase
         // The SettingsStore singleton memoises settings rows per process:
         // the truncation above just deleted rows its cache may still hold (or a
         // prior test's install wrote rows a later warm read would resurrect).
-        $this->container()->get(\App\Settings\SettingsStore::class)->clearCache();
+        $this->container()->get(\Thallo\Core\Settings\SettingsStore::class)->clearCache();
 
         // System-global tenancy flags (varchar `key` PK — no integer id): a prior test that
         // ENABLED tenancy must never leave scoping on for an unrelated test (that would arm the
@@ -188,7 +188,7 @@ abstract class AppTestCase extends TestCase
         // a prior test that warmed it through container-resolved services (render
         // resolver, validator, …) would poison this test's registry when fixtures
         // create types through FRESH repo instances. Reset the singleton per test.
-        $this->container()->get(\App\Content\Blocks\BlockTypeRepository::class)->resetSchemaMemo();
+        $this->container()->get(\Thallo\Core\Content\Blocks\BlockTypeRepository::class)->resetSchemaMemo();
     }
 
     protected function appContext(): ApplicationContext

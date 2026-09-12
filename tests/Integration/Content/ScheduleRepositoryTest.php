@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Enums\ScheduleAction;
-use App\Content\Repositories\ScheduleRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Enums\ScheduleAction;
+use Thallo\Core\Content\Repositories\ScheduleRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class ScheduleRepositoryTest extends AppTestCase
 {
@@ -146,7 +146,12 @@ final class ScheduleRepositoryTest extends AppTestCase
         $row = $repo->schedule('e1abcdefghij', 'en', ScheduleAction::Publish, '2020-01-01T00:00:00Z', null);
         $claimed = $repo->claimDuePending(10, 'tok-a')[0];
 
-        $repo->markOutcome((int) $claimed['id'], \App\Content\Enums\ScheduleStatus::Failed, 'invalid draft', 'tok-a');
+        $repo->markOutcome(
+            (int) $claimed['id'],
+            \Thallo\Core\Content\Enums\ScheduleStatus::Failed,
+            'invalid draft',
+            'tok-a',
+        );
 
         $stored = $repo->find($row['uuid']);
         self::assertSame('failed', $stored['status']);
@@ -161,12 +166,12 @@ final class ScheduleRepositoryTest extends AppTestCase
         $claimed = $repo->claimDuePending(10, 'owner-run')[0];
 
         // A different run (e.g. after a stale-lease reclaim) must not be able to finalise this row.
-        $repo->markOutcome((int) $claimed['id'], \App\Content\Enums\ScheduleStatus::Done, null, 'other-run');
+        $repo->markOutcome((int) $claimed['id'], \Thallo\Core\Content\Enums\ScheduleStatus::Done, null, 'other-run');
 
         self::assertSame('processing', $repo->find($row['uuid'])['status'], 'wrong-token outcome must no-op');
 
         // The owning run still can.
-        $repo->markOutcome((int) $claimed['id'], \App\Content\Enums\ScheduleStatus::Done, null, 'owner-run');
+        $repo->markOutcome((int) $claimed['id'], \Thallo\Core\Content\Enums\ScheduleStatus::Done, null, 'owner-run');
         self::assertSame('done', $repo->find($row['uuid'])['status']);
     }
 
@@ -184,7 +189,7 @@ final class ScheduleRepositoryTest extends AppTestCase
 
         // The original run's outcome write finds no matching processing row → no-op; the row stays
         // pending (re-claimable), so it can't be double-finalised.
-        $repo->markOutcome((int) $claimed['id'], \App\Content\Enums\ScheduleStatus::Done, null, 'owner-run');
+        $repo->markOutcome((int) $claimed['id'], \Thallo\Core\Content\Enums\ScheduleStatus::Done, null, 'owner-run');
         self::assertSame('pending', $repo->find($row['uuid'])['status']);
     }
 

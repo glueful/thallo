@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content;
+namespace Thallo\Core\Tests\Unit\Content;
 
-use App\Content\Delivery\Cursor;
+use Thallo\Core\Content\Delivery\Cursor;
 use PHPUnit\Framework\TestCase;
 
 final class CursorTest extends TestCase

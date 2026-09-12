@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Seo;
+namespace Thallo\Core\Tests\Integration\Seo;
 
-use App\Content\Delivery\DeliveryRepository;
-use App\Content\Delivery\ThalloCanonicalPublicOriginResolver;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Seo\CanonicalPathBuilder;
-use App\Content\Seo\CanonicalProjector;
-use App\Content\Seo\EngineSeoHeadProvider;
-use App\Content\Seo\PathRenderer;
-use App\Settings\SettingsStore;
-use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Delivery\DeliveryRepository;
+use Thallo\Core\Content\Delivery\ThalloCanonicalPublicOriginResolver;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Seo\CanonicalPathBuilder;
+use Thallo\Core\Content\Seo\CanonicalProjector;
+use Thallo\Core\Content\Seo\EngineSeoHeadProvider;
+use Thallo\Core\Content\Seo\PathRenderer;
+use Thallo\Core\Settings\SettingsStore;
+use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
 use Thallo\Contracts\Delivery\ContentDeliveryReader;
@@ -28,7 +28,7 @@ use Thallo\Tenancy\System\SystemFlags;
  * Task 4 (seo-head spec §2): {@see EngineSeoHeadProvider} composes the pack
  * {@see SeoMetaResolver} + {@see CanonicalProjector} + the trusted-origin resolver into
  * the SeoHeadResolver wire shape. The origin fixture mirrors
- * {@see \App\Tests\Integration\Content\Delivery\CanonicalPublicOriginResolverTest}'s
+ * {@see \Thallo\Core\Tests\Integration\Content\Delivery\CanonicalPublicOriginResolverTest}'s
  * single-store idiom: a fresh context with `app.urls.base` merged, read by the REAL
  * {@see ThalloCanonicalPublicOriginResolver} (enforcement off) — a non-absolute base makes
  * it throw, which the provider must fail-soft to "no absolute URLs at all".

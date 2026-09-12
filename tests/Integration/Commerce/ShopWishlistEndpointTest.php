@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\CountingPdoStatement;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\CountingPdoStatement;
 use Glueful\Cache\CacheStore;
 use Glueful\Extensions\Commerce\Catalog\CatalogService;
 use Symfony\Component\HttpFoundation\Request;
@@ -204,7 +204,7 @@ final class ShopWishlistEndpointTest extends AppTestCase
             ->where('uuid', '=', $orphaned)
             ->update(['seller_uuid' => 'nosellerhere']);
 
-        $store = $this->container()->get(\App\Settings\SettingsStore::class);
+        $store = $this->container()->get(\Thallo\Core\Settings\SettingsStore::class);
         $store->putMany(['commerce.marketplace.enabled' => '1']);
         $store->clearCache();
 

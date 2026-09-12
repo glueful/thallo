@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Search;
+namespace Thallo\Core\Tests\Integration\Search;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Contracts\Schema\ContentTypeReader;
 use Thallo\Search\Engine\SearchBackend;
 use Thallo\Search\Http\SearchController;

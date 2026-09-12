@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Distribution;
+namespace Thallo\Core\Tests\Distribution;
 
 use Glueful\Framework;
 use Glueful\Routing\RouteManifest;

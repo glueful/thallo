@@ -1,0 +1,40 @@
+{
+    "name": "glueful/thallo",
+    "description": "Thallo \u2014 a Glueful-based CMS. The install template: the application ships as glueful/thallo-core in vendor/.",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Michael Tawiah Sowah",
+            "email": "michael@glueful.dev"
+        }
+    ],
+    "require": {
+        "php": "^8.3",
+        "glueful/thallo-core": "^1.0.0-beta.21"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/"
+        }
+    },
+    "scripts": {
+        "glueful": "php glueful",
+        "serve": "php glueful serve",
+        "migrate": "php glueful migrate:run",
+        "key:generate": "php glueful generate:key",
+        "post-create-project-cmd": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
+            "@php glueful extensions:cache"
+        ]
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        },
+        "sort-packages": true,
+        "optimize-autoloader": true
+    },
+    "minimum-stability": "beta",
+    "prefer-stable": true
+}

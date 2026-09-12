@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Delivery\EngineMediaUrlResolver;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\CountingPdoStatement;
+use Thallo\Core\Content\Delivery\EngineMediaUrlResolver;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\CountingPdoStatement;
 use Thallo\Contracts\Delivery\MediaUrlBatchResolver;
 use Thallo\Contracts\Delivery\MediaUrlResolver;
 

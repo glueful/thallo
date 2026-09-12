@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Schema\ContentTypeSchema;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 /**
  * Verifies that the new multi-value schema attributes (`multiple`, `max_items`,

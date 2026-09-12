@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Settings;
+namespace Thallo\Core\Tests\Integration\Settings;
 
-use App\Settings\Console\MigratePlatformPaymentCredentialsCommand;
-use App\Settings\PlatformPaymentSettingsStore;
-use App\Settings\PlatformPayviaSettingsOverride;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\PlatformCredentialRecordingGateway;
+use Thallo\Core\Settings\Console\MigratePlatformPaymentCredentialsCommand;
+use Thallo\Core\Settings\PlatformPaymentSettingsStore;
+use Thallo\Core\Settings\PlatformPayviaSettingsOverride;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\PlatformCredentialRecordingGateway;
 use Glueful\Auth\UserIdentity;
 use Glueful\Container\Container;
 use Glueful\Encryption\EncryptionService;
@@ -61,8 +61,8 @@ use Thallo\Tenancy\System\SystemFlags;
  *
  * Ambient "workspace context" for the two checkout consumers is Thallo's own single-store mode:
  * a persisted `tenancy.default_tenant_uuid` — the SAME flag
- * {@see \App\Tests\Integration\Commerce\ShopCheckoutTest} and
- * {@see \App\Tests\Integration\Subscriptions\SelfServeCheckoutTruthTableTest} already drive their
+ * {@see \Thallo\Core\Tests\Integration\Commerce\ShopCheckoutTest} and
+ * {@see \Thallo\Core\Tests\Integration\Subscriptions\SelfServeCheckoutTruthTableTest} already drive their
  * own checkouts through, and the flag {@see \Thallo\Tenancy\Tenant\SingleStoreTenant::resolve()}
  * (subscriptions) actually consults in this app. This file deliberately does NOT also set
  * `tenancy.schema_state=widened`: `settings` is itself a retrofit-OWNED table
@@ -73,7 +73,7 @@ use Thallo\Tenancy\System\SystemFlags;
  * therefore resolves the sentinel `''` tenant internally (mode (a), "clean install") for its own
  * catalog/cart/order partitioning here, which is irrelevant to the payments seam under test. The
  * REAL `settings` table in this installation is pre-retrofit (no `tenant_uuid` column — see
- * `database/migrations/013_CreateSettingsTable.php`), so a hostile row planted there directly
+ * `core/database/migrations/013_CreateSettingsTable.php`), so a hostile row planted there directly
  * (mirroring `PlatformPayviaOverrideTest::testPlatformCredentialsWinUnderAHostileAmbientWorkspace`)
  * is exactly the row the temporary legacy compatibility reader would otherwise treat as the
  * unscoped candidate for ANY ambient workspace — the same shape a hostile per-workspace admin's
@@ -415,7 +415,7 @@ final class PlatformPaymentsRegressionTest extends AppTestCase
         // Deliberately does NOT set `tenancy.schema_state=widened`: `settings` is a
         // retrofit-OWNED table (`ThalloTenantTables::all()['settings']`, backfill 'rebuild'),
         // and this installation's REAL `settings` table has never actually been rebuilt with a
-        // `tenant_uuid` column (`database/migrations/013_CreateSettingsTable.php` — matches the
+        // `tenant_uuid` column (`core/database/migrations/013_CreateSettingsTable.php` — matches the
         // pre-retrofit shape this file's hostile-row fixtures rely on). Claiming 'widened' without
         // that physical rebuild makes the tenancy retrofit write-barrier stamp every INSERT into
         // `settings` with a `tenant_uuid` column that does not exist, which is a DB error, not a

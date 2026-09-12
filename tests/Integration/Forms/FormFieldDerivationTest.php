@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Forms;
+namespace Thallo\Core\Tests\Integration\Forms;
 
-use App\Content\Forms\FormFieldDerivation;
+use Thallo\Core\Content\Forms\FormFieldDerivation;
 use PHPUnit\Framework\TestCase;
 
 final class FormFieldDerivationTest extends TestCase

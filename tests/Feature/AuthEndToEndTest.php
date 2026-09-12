@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Feature;
+namespace Thallo\Core\Tests\Feature;
 
-use App\Tests\Support\InMemoryUserProvider;
-use App\Tests\TestCase;
+use Thallo\Core\Tests\Support\InMemoryUserProvider;
+use Thallo\Core\Tests\TestCase;
 use Glueful\Auth\AuthenticationService;
 use Glueful\Auth\IdentityResolver;
 use Glueful\Auth\UserIdentity;

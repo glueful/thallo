@@ -275,7 +275,7 @@ leaving Commerce tenant data behind.
 ## 9. Starter "Product Page" — via a contributor seam
 
 `StarterDefinitions` is currently a fixed app-owned kind list built in
-`ThalloServiceProvider::makeStarterDefinitions()` (verified: six kinds, variadic ctor). It
+`CoreServiceProvider::makeStarterDefinitions()` (verified: six kinds, variadic ctor). It
 gains a **contributor registry** (home: Thallo starter/contracts layer): packs contribute
 `StarterKind`s, and the factory appends discovered contributions to the fixed list. This makes
 the Product Page definition participate automatically in fresh provisioning, future tenant

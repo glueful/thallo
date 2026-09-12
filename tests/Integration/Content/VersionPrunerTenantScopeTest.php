@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Repositories\VersionRepository;
-use App\Content\Retention\RetentionPolicy;
-use App\Content\Retention\VersionPruner;
-use App\Tests\Support\TenantOracleTestCase;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Retention\RetentionPolicy;
+use Thallo\Core\Content\Retention\VersionPruner;
+use Thallo\Core\Tests\Support\TenantOracleTestCase;
 
 final class VersionPrunerTenantScopeTest extends TenantOracleTestCase
 {

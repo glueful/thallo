@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Schema;
+namespace Thallo\Core\Tests\Integration\Schema;
 
-use App\Capabilities\ExtensionCapabilityAvailabilityResolver;
-use App\Http\Controllers\CapabilityAdminController;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Capabilities\ExtensionCapabilityAvailabilityResolver;
+use Thallo\Core\Http\Controllers\CapabilityAdminController;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Database\Migrations\MigrationManager;
@@ -66,11 +66,16 @@ final class SchemaProgramAcceptanceTest extends AppTestCase
             self::assertTrue($manager->hasSource($source), "{$source} must be registered");
         }
 
-        // The permanent app-local lane: registered by the root-app provider at boot, never a
-        // descriptor of any package.
-        self::assertTrue($manager->hasSource('app:dependent'));
-        self::assertNull($inventory->bySource('app:dependent'));
-        self::assertArrayNotHasKey('app:dependent', $sources);
+        // Thallo's dependent lane is a descriptor of glueful/thallo-core now, carrying the name
+        // every earlier database recorded it under as a previous source; the old app-local lane
+        // is no longer registered under its own name.
+        $dependent = $inventory->bySource('glueful/thallo-core:dependent');
+        self::assertNotNull($dependent);
+        self::assertSame(['app:dependent'], $dependent->previousSources);
+        self::assertArrayHasKey('glueful/thallo-core:dependent', $sources);
+        self::assertFalse($manager->hasSource('app:dependent'));
+        // The operator's own root database/migrations remains the framework's main 'app' lane.
+        self::assertTrue($manager->hasSource('app'));
     }
 
     // ── Step 2: enable-state source scoping + tenancy custody ────────────────────

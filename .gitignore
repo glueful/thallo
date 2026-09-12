@@ -23,6 +23,9 @@
 bootstrap/cache/
 
 # --- Admin SPA build (compiled bundle is baked into release tags, not committed in dev) ---
+# The admin bundle: built into core/resources/admin (force-added by the release bake), published
+# into public/admin by thallo:provision. Neither is tracked day to day.
+/core/resources/admin/
 /public/admin/
 
 # --- Runtime artifacts ---

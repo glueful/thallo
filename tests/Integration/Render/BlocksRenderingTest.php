@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Render\RenderContextExtension;
 use Thallo\Render\Templates\DatabaseTemplateLoader;
 use Thallo\Render\Templates\TemplateLinter;
@@ -93,7 +93,7 @@ final class BlocksRenderingTest extends AppTestCase
     public function testOverDeepDataRendersNothingAndTheCounterRecovers(): void
     {
         self::assertSame(
-            \App\Content\Blocks\BlockDepth::MAX,
+            \Thallo\Core\Content\Blocks\BlockDepth::MAX,
             RenderContextExtension::MAX_BLOCK_DEPTH,
         ); // §A2: the surfaces agree
 

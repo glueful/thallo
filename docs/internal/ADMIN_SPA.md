@@ -1,7 +1,8 @@
 # Thallo Admin SPA
 
 The first-party editor for Thallo lives in `admin/` — a Vue 3.5 + Vite 8 + Nuxt UI 4 SPA. Its
-compiled output ships as `public/admin/` and is mounted by the PHP app at `/admin` via the
+compiled output ships as `core/resources/admin/` (published into `public/admin/` by
+`thallo:provision` so the web server serves it from disk) and is mounted by the PHP app at `/admin` via the
 framework `serveFrontend()` seam.
 
 ## Architecture
@@ -37,10 +38,10 @@ pnpm type-check   # vue-tsc
 
 ```bash
 cd admin
-pnpm build        # type-check + vite build → ../public/admin/
+pnpm build        # type-check + vite build → ../core/resources/admin/
 ```
 
-`vite.config.ts` pins `base: '/admin/'` and `build.outDir` to `../public/admin`. `public/admin/` is
+`vite.config.ts` pins `base: '/admin/'` and `build.outDir` to `../core/resources/admin`. `core/resources/admin/` is
 gitignored in dev and baked into release tags; the SPA *source* (`admin/`) is `export-ignore`d from
 the distribution archive (`.gitattributes`).
 

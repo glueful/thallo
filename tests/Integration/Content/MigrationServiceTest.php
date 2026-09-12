@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Jobs\RunBackfillJob;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\MigrationRepository;
-use App\Content\Schema\SchemaParseException;
-use App\Content\Services\ActiveMigrationException;
-use App\Content\Services\MigrationService;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Jobs\RunBackfillJob;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\MigrationRepository;
+use Thallo\Core\Content\Schema\SchemaParseException;
+use Thallo\Core\Content\Services\ActiveMigrationException;
+use Thallo\Core\Content\Services\MigrationService;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class MigrationServiceTest extends AppTestCase
 {

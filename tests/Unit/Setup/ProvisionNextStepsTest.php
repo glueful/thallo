@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Setup;
+namespace Thallo\Core\Tests\Unit\Setup;
 
-use App\Setup\Console\ProvisionCommand;
+use Thallo\Core\Setup\Console\ProvisionCommand;
 use PHPUnit\Framework\TestCase;
 
 /**

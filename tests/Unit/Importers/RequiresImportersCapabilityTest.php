@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Importers;
+namespace Thallo\Core\Tests\Unit\Importers;
 
-use App\Capabilities\DefaultCapabilityRegistry;
+use Thallo\Core\Capabilities\DefaultCapabilityRegistry;
 use Glueful\Http\Exceptions\Client\ForbiddenException;
 use Thallo\Contracts\Capability\Capability;
 use Thallo\Contracts\Capability\CapabilityRegistry;

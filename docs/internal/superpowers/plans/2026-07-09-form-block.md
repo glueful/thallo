@@ -491,7 +491,7 @@ final class DefaultFormSealer implements FormSealer
 
 > **`minSeconds` is a real dependency** (not patched later): it is a constructor param, written straight into the descriptor, so the time-trap is armed on every sealed form from Task 1 onward. The binding (Step 9) passes `config('forms.min_seconds')`; the test factory passes `2` and `FormSealerTest` asserts it.
 
-- [ ] **Step 9: Register `FormSealer` binding in `ThalloServiceProvider`.** Bind `FormSealer::class` → factory building `DefaultFormSealer` with `EncryptionService`, the real `FormFieldDerivation::derive(...)` (Task 2), `config('render...ttl', 3600)`, and `config('forms.*')`. Until Task 2 lands, bind with the in-test-style closure returning `[]` guarded so seal returns null (keeps the app booting).
+- [ ] **Step 9: Register `FormSealer` binding in `CoreServiceProvider`.** Bind `FormSealer::class` → factory building `DefaultFormSealer` with `EncryptionService`, the real `FormFieldDerivation::derive(...)` (Task 2), `config('render...ttl', 3600)`, and `config('forms.*')`. Until Task 2 lands, bind with the in-test-style closure returning `[]` guarded so seal returns null (keeps the app booting).
 
 - [ ] **Step 10: Run tests + phpcs**
 

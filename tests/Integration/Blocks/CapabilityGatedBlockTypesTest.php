@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Blocks;
+namespace Thallo\Core\Tests\Integration\Blocks;
 
-use App\Capabilities\DefaultCapabilityRegistry;
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Starter\DefaultStarterBlockTypeRegistry;
-use App\Content\Starter\Kinds\BlockTypeKind;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Capabilities\DefaultCapabilityRegistry;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Starter\DefaultStarterBlockTypeRegistry;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Database\Connection;
 use Thallo\Contracts\Capability\Capability;
 use Thallo\Contracts\Starter\StarterBlockTypeContributor;

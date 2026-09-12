@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
 use PHPUnit\Framework\TestCase;
 use Thallo\Commerce\Shop\ShopAssetMap;

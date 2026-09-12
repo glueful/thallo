@@ -14,7 +14,7 @@
 - No AI/Anthropic attribution anywhere. `declare(strict_types=1)` + `final class` + constructor DI + `use`-imports.
 - `composer phpcs` clean (warnings = failures, 120-char lines) before a backend task is done.
 - Dev-DB/test-DB migrations + seeds are **local-only**, never committed.
-- Pack services in `TenancyServiceProvider::services()`; app services in `ThalloServiceProvider::services()`; each with a `use` import.
+- Pack services in `TenancyServiceProvider::services()`; app services in `CoreServiceProvider::services()`; each with a `use` import.
 - The retrofit ships **no ambient migration** adding `tenant_uuid` (spec §7.4); never runs on plain `migrate:run`.
 - **Contract-only rule (spec §4):** Thallo/pack code must not import concrete `Glueful\Extensions\Tenancy\*`. Provisioning goes through a neutral contract.
 - **Driver support (retrofit):** PostgreSQL only; the retrofit fail-closes on non-`pgsql` (`UnsupportedRetrofitDriverException`) via `RetrofitDdl`. Thallo v1 is Postgres-only (JSONB, expression indexes, PG CHECK constraints); the inert MySQL dialect has been removed.

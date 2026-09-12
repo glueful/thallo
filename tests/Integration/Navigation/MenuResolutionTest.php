@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Navigation;
+namespace Thallo\Core\Tests\Integration\Navigation;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Helpers\Utils;
 use Thallo\Contracts\Navigation\MenuReader;
 use Thallo\Navigation\MenuRepository;

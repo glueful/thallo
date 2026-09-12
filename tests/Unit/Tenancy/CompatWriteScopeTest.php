@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy;
+namespace Thallo\Core\Tests\Unit\Tenancy;
 
 use PHPUnit\Framework\TestCase;
 use Thallo\Tenancy\Compat\CompatWriteScope;

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 /**
  * Dark mode is a token re-map keyed on html[data-theme="dark"] (color-mode spec §3.3),

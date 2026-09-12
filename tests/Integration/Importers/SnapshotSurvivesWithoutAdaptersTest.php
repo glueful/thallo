@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Importers;
+namespace Thallo\Core\Tests\Integration\Importers;
 
-use App\Content\ImportExport\ContentExporter;
-use App\Content\ImportExport\ContentImporter;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\ImportExport\ContentExporter;
+use Thallo\Core\Content\ImportExport\ContentImporter;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class SnapshotSurvivesWithoutAdaptersTest extends AppTestCase
 {

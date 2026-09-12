@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Support;
+namespace Thallo\Core\Tests\Support;
 
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\ExtensionManager;
@@ -29,8 +29,8 @@ use Glueful\Extensions\ExtensionManager;
  * through `ProviderOrderer::order()`), so it is byte-for-byte what `php glueful extensions:cache`
  * would write. Both the env var and any pre-existing cache file are restored in a `finally`.
  *
- * Consumed by {@see \App\Tests\Integration\Subscriptions\EngineNativeRoutesCachedBootTest} and
- * {@see \App\Tests\Integration\Subscriptions\SubjectResolverCachedBootTest}.
+ * Consumed by {@see \Thallo\Core\Tests\Integration\Subscriptions\EngineNativeRoutesCachedBootTest} and
+ * {@see \Thallo\Core\Tests\Integration\Subscriptions\SubjectResolverCachedBootTest}.
  */
 trait BootsFromExtensionProviderCache
 {

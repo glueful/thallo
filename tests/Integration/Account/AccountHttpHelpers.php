@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Account;
+namespace Thallo\Core\Tests\Integration\Account;
 
 use Glueful\Extensions\Users\Repositories\UserRepository;
 use Symfony\Component\HttpFoundation\Cookie;

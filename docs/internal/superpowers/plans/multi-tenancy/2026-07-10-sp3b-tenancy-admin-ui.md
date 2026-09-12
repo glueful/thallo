@@ -247,7 +247,7 @@ $router->post('/tenancy/resolution/activate', [TenancyResolutionController::clas
 - Test: `tests/Integration/Tenancy/TenantSeedRepairEndpointTest.php`
 
 **Interfaces:**
-- Consumes: `Thallo\Tenancy\Contracts\TenantSeedRepair::repair(string $tenantUuid): void` (returns void; throws `\DomainException` on ineligible tenant / missing owner, `Thallo\Tenancy\StarterSeedException` — extends `\RuntimeException`, carries `public readonly string $definitionLabel` — on a definition failure). Container id `TenantSeedRepair::class`, bound `ThalloServiceProvider.php:597-599`. Eligibility (verified `TenantSeeder.php:36-53`): accepts `provisioning|active`, rejects suspended; requires an active owner.
+- Consumes: `Thallo\Tenancy\Contracts\TenantSeedRepair::repair(string $tenantUuid): void` (returns void; throws `\DomainException` on ineligible tenant / missing owner, `Thallo\Tenancy\StarterSeedException` — extends `\RuntimeException`, carries `public readonly string $definitionLabel` — on a definition failure). Container id `TenantSeedRepair::class`, bound `CoreServiceProvider.php:597-599`. Eligibility (verified `TenantSeeder.php:36-53`): accepts `provisioning|active`, rejects suspended; requires an active owner.
 - Produces: `POST /v1/admin/tenancy/tenants/{uuid}/seed` → `{data:{tenant:{uuid,status:'active'}}}` on success; 422 on `StarterSeedException`/`DomainException`; 503 when the repair binding is unavailable.
 
 - [ ] **Step 1: Write the failing tests**
@@ -374,7 +374,7 @@ public function test_evaluate_still_audits_on_grant(): void
 - Modify: `app/Content/Http/RequirePermission.php` (consume both shared helpers; behavior-preserving extraction)
 - Modify: `packages/thallo-tenancy/src/Runtime/BootstrapDefaultTenantMiddleware.php` (honor an `optional` parameter outside bootstrap-default mode)
 - Modify: `routes/admin.php` (register the soft/optional access route **without** a `content_permission` gate)
-- Modify: `app/Providers/ThalloServiceProvider.php` (register helpers/controller and update the `RequirePermission` factory)
+- Modify: `app/Providers/CoreServiceProvider.php` (register helpers/controller and update the `RequirePermission` factory)
 - Modify: `tests/Integration/Tenancy/RouteCoverageTest.php` (recognize parameterized tenancy markers)
 - Test: `tests/Integration/Tenancy/TenancyAccessEndpointTest.php`
 - Test: `tests/Integration/Tenancy/BootstrapResolutionTest.php` (extend optional-mode coverage)
@@ -554,7 +554,7 @@ required routes retain byte-identical behavior. Update `RouteCoverageTest` to co
 names (`explode(':', $middleware, 2)[0]`) so `tenant_bootstrap:optional` counts as exactly one
 marker, and pin the allowed prefix `['auth','tenant_profile:admin,soft']` for this route.
 
-`ThalloServiceProvider::services()` — register both helpers as shared services, thread them into
+`CoreServiceProvider::services()` — register both helpers as shared services, thread them into
 `makeRequirePermission()`, and register `TenancyAccessController` through an explicit
 `makeTenancyAccessController()` factory that supplies the helpers and nullable SP3a services.
 
@@ -1088,4 +1088,4 @@ All green. Do not substitute a targeted vitest run for these final gates.
 - **Spec coverage:** §2 IA → T11/T12/T13; §3 four endpoints → T2/T3/T4/T6; §4 access probe + no-audit → T5/T6/T16; §5 nav gating → T11/T16; §6 action-driven + migration fix + fresh-boot → T1/T12/T16; §7 stores/queries/header/route-target → T7/T8/T9/T10/T13/T14; §8 refusals/403-recovery/seed-repair → T9/T12/T13/T14/T15; §9 tests → each task + T16.
 - **Type consistency:** `EnablementStatus`/`ResolutionStatus`/`DiagnoseReport`/`TenancyAccess`/`TenantSummary` used identically across T8/T10/T12/T13; `decide()`/`evaluate()` split consistent across T5/T6; `roleFor(Request, userUuid)` (not tenantUuid) honored in T6.
 - **SP3a dependency:** T5/T6 and all matrix/role rendering require SP3a on disk; T1–T4 are SP3a-independent. The branch is not done until SP3a lands.
-- **Standing rules:** every Commit step is SKIPPED (HOLD); Thallo-only, no release chain; no attribution; new controllers registered in `ThalloServiceProvider::services()` (T6).
+- **Standing rules:** every Commit step is SKIPPED (HOLD); Thallo-only, no release chain; no attribution; new controllers registered in `CoreServiceProvider::services()` (T6).

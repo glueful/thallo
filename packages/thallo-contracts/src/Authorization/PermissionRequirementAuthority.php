@@ -9,11 +9,11 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * The single authorization authority for permission REQUIREMENTS (Task 8, admin-commerce-area
  * plan slice 3) — the SAME seam the `content_permission` route middleware evaluates against
- * ({@see \App\Content\Http\RequirePermission}, bound to the concrete
- * {@see \App\Content\Authorization\PermissionRequirementAuthority} in
- * `App\Providers\ThalloServiceProvider`), exposed as a neutral contract so a first-party pack can
+ * ({@see \Thallo\Core\Content\Http\RequirePermission}, bound to the concrete
+ * {@see \Thallo\Core\Content\Authorization\PermissionRequirementAuthority} in
+ * `Thallo\Core\Providers\CoreServiceProvider`), exposed as a neutral contract so a first-party pack can
  * compute the SAME effective-permission decision (e.g. an admin `/meta` endpoint's `can_view`/
- * `can_manage` flags) without depending on the engine app's `App\` namespace directly.
+ * `can_manage` flags) without depending on the engine app's `Thallo\Core\` namespace directly.
  *
  * A route (or an effective-flags endpoint) states a list of required permission alternatives;
  * the request passes when ANY required candidate is satisfied, with implications (e.g.

@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Content\Enums\ScheduleAction;
-use App\Content\Http\Controllers\ScheduleController;
-use App\Content\Http\DTOs\ScheduleData;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ScheduleRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Enums\ScheduleAction;
+use Thallo\Core\Content\Http\Controllers\ScheduleController;
+use Thallo\Core\Content\Http\DTOs\ScheduleData;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ScheduleRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\UserIdentity;
 use Glueful\Validation\Contracts\RequestData;
 use Glueful\Validation\RequestDataHydrator;

@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Capabilities\CapabilityStateStore;
-use App\Capabilities\DefaultCapabilityRegistry;
-use App\Http\Controllers\CapabilityAdminController;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\RecordingSystemChannel;
-use App\Tests\Support\TestableCapabilityAdminController;
+use Thallo\Core\Capabilities\CapabilityStateStore;
+use Thallo\Core\Capabilities\DefaultCapabilityRegistry;
+use Thallo\Core\Http\Controllers\CapabilityAdminController;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RecordingSystemChannel;
+use Thallo\Core\Tests\Support\TestableCapabilityAdminController;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Contracts\Capability\Capability;
 use Thallo\Contracts\Capability\CapabilityAvailability;
@@ -172,7 +172,7 @@ final class CapabilityAdminApiTest extends AppTestCase
 
         $resp = $this->controller($registry)->update(
             'test.not-registered',
-            new \App\Http\DTOs\UpdateCapabilityStateData(enabled: true)
+            new \Thallo\Core\Http\DTOs\UpdateCapabilityStateData(enabled: true)
         );
 
         self::assertSame(404, $resp->getStatusCode());
@@ -187,7 +187,7 @@ final class CapabilityAdminApiTest extends AppTestCase
         $registry->register(new Capability('test.owned', owningPackage: 'acme/engine'));
         $controller = $this->controller($registry);
 
-        $resp = $controller->update('test.owned', new \App\Http\DTOs\UpdateCapabilityStateData(enabled: true));
+        $resp = $controller->update('test.owned', new \Thallo\Core\Http\DTOs\UpdateCapabilityStateData(enabled: true));
 
         self::assertSame(409, $resp->getStatusCode());
         $body = json_decode((string) $resp->getContent(), true);
@@ -205,7 +205,7 @@ final class CapabilityAdminApiTest extends AppTestCase
         $registry->register(new Capability('test.owned', owningPackage: 'acme/engine'));
         $controller = $this->controller($registry);
 
-        $resp = $controller->update('test.owned', new \App\Http\DTOs\UpdateCapabilityStateData(enabled: false));
+        $resp = $controller->update('test.owned', new \Thallo\Core\Http\DTOs\UpdateCapabilityStateData(enabled: false));
 
         self::assertSame(200, $resp->getStatusCode());
         self::assertSame('false', $this->channel->puts['capability.test.owned.enabled'] ?? null);
@@ -223,7 +223,7 @@ final class CapabilityAdminApiTest extends AppTestCase
         $registry->register(new Capability('test.fake'));
         $controller = $this->controller($registry);
 
-        $resp = $controller->update('test.fake', new \App\Http\DTOs\UpdateCapabilityStateData(enabled: true));
+        $resp = $controller->update('test.fake', new \Thallo\Core\Http\DTOs\UpdateCapabilityStateData(enabled: true));
 
         self::assertSame(200, $resp->getStatusCode());
         $data = json_decode((string) $resp->getContent(), true)['data'];

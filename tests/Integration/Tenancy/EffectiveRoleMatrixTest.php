@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Content\Authorization\CapabilityCatalog;
-use App\Content\Authorization\EffectiveRoleEvaluator;
-use App\Content\Authorization\EffectiveRoleMatrix;
-use App\Content\Authorization\RoleMatrix;
-use App\Content\Authorization\TenantRoleOverrideRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Authorization\CapabilityCatalog;
+use Thallo\Core\Content\Authorization\EffectiveRoleEvaluator;
+use Thallo\Core\Content\Authorization\EffectiveRoleMatrix;
+use Thallo\Core\Content\Authorization\RoleMatrix;
+use Thallo\Core\Content\Authorization\TenantRoleOverrideRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Cache\Drivers\ArrayCacheDriver;
 
 final class EffectiveRoleMatrixTest extends AppTestCase

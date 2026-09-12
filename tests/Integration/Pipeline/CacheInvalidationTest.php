@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Pipeline;
+namespace Thallo\Core\Tests\Integration\Pipeline;
 
-use App\Content\Events\ModelUpdated;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Services\PublishService;
-use App\Tests\Support\AppTestCase;
-use App\Tests\Support\RecordingArrayCache;
+use Thallo\Core\Content\Events\ModelUpdated;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\RecordingArrayCache;
 use Glueful\Events\EventService;
 
 /**
  * Proves the cache-tag invalidation listener (V1_DESIGN §5) wired in
- * ThalloServiceProvider::boot() invalidates the SAME surrogate keys the delivery layer
- * emits (App\Content\Http\DeliveryEtag): `thallo:entry:{uuid}` and `thallo:type:{slug}`.
+ * CoreServiceProvider::boot() invalidates the SAME surrogate keys the delivery layer
+ * emits (Thallo\Core\Content\Http\DeliveryEtag): `thallo:entry:{uuid}` and `thallo:type:{slug}`.
  *
  * A byte-for-byte match is the whole point — if delivery tags by slug but the listener
  * invalidates by uuid, caches go stale forever. Entry events carry the content-type

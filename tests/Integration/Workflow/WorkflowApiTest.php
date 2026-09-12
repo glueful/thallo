@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Workflow;
+namespace Thallo\Core\Tests\Integration\Workflow;
 
-use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Workflow\Http\Controllers\WorkflowController;
 use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;

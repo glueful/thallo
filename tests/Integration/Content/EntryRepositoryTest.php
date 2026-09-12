@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Support\OptimisticLockException;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Support\OptimisticLockException;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class EntryRepositoryTest extends AppTestCase
 {
@@ -123,7 +123,7 @@ final class EntryRepositoryTest extends AppTestCase
     }
 
     /**
-     * @return array{0:string,1:\App\Content\Schema\ContentTypeSchema}
+     * @return array{0:string,1:\Thallo\Core\Content\Schema\ContentTypeSchema}
      */
     private function localizedType(): array
     {

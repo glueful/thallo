@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy\Retrofit;
+namespace Thallo\Core\Tests\Integration\Tenancy\Retrofit;
 
-use App\Content\Indexing\EnsureFilterIndexesJob;
-use App\Tests\Support\RetrofitHarnessTestCase;
+use Thallo\Core\Content\Indexing\EnsureFilterIndexesJob;
+use Thallo\Core\Tests\Support\RetrofitHarnessTestCase;
 use Thallo\Tenancy\Retrofit\RetrofitMaintenanceGuard;
 
 /**

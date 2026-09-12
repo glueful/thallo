@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy;
+namespace Thallo\Core\Tests\Unit\Tenancy;
 
-use App\Content\Media\TenantBlobPublicUrlProvider;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Media\TenantBlobPublicUrlProvider;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Contracts\Tenancy\FullTenantResolutionReadiness;
 use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;

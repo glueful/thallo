@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy\Authorization;
+namespace Thallo\Core\Tests\Unit\Tenancy\Authorization;
 
-use App\Content\Authorization\CapabilityCatalog;
-use App\Content\Authorization\PermissionImplicationSource;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Authorization\CapabilityCatalog;
+use Thallo\Core\Content\Authorization\PermissionImplicationSource;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class CapabilityCatalogTest extends AppTestCase
 {

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Search;
+namespace Thallo\Core\Tests\Unit\Search;
 
 use Thallo\Search\Engine\MeilisearchBackend;
 use Thallo\Search\Engine\MeilisearchIndex;

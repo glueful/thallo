@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Tests\Support\TenantOracleTestCase;
+use Thallo\Core\Tests\Support\TenantOracleTestCase;
 
 final class OracleHarnessSmokeTest extends TenantOracleTestCase
 {

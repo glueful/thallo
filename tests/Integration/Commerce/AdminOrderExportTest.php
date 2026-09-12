@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Extensions\Aegis\Repositories\PermissionRepository;

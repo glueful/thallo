@@ -6,11 +6,11 @@ namespace Thallo\Contracts\Starter;
 
 /**
  * A pack's contribution to the starter block-type set — mirrors the fixed definitions
- * {@see \App\Content\Blocks\StarterBlockTypes} ships, but sourced from an installed pack instead
+ * {@see \Thallo\Core\Content\Blocks\StarterBlockTypes} ships, but sourced from an installed pack instead
  * of hard-coded. Pure value object; carries no behavior. The app-owned
- * {@see \App\Content\Starter\Kinds\BlockTypeKind} converts each of these into its internal
+ * {@see \Thallo\Core\Content\Starter\Kinds\BlockTypeKind} converts each of these into its internal
  * StarterDefinition shape, validating scalar fields and the schema (through the same rule
- * {@see \App\Content\Blocks\BlockTypeRepository::assertBlockSchema()} enforces on the fixed set)
+ * {@see \Thallo\Core\Content\Blocks\BlockTypeRepository::assertBlockSchema()} enforces on the fixed set)
  * before any write path can see them.
  */
 final readonly class StarterBlockTypeDefinition

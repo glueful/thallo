@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Content\Delivery\DeliveryRepository;
-use App\Content\Http\Controllers\RedirectController;
-use App\Content\Http\DTOs\CreateRedirectData;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Repositories\VersionRepository;
-use App\Content\Seo\RedirectRepository;
-use App\Content\Services\PublishService;
-use App\Content\Validation\FieldValidator;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Delivery\DeliveryRepository;
+use Thallo\Core\Content\Http\Controllers\RedirectController;
+use Thallo\Core\Content\Http\DTOs\CreateRedirectData;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Content\Seo\RedirectRepository;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Content\Validation\FieldValidator;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 final class RedirectApiTest extends AppTestCase

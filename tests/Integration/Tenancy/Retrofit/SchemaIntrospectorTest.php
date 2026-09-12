@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy\Retrofit;
+namespace Thallo\Core\Tests\Integration\Tenancy\Retrofit;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Tenancy\Retrofit\SchemaIntrospector;
 
 /**

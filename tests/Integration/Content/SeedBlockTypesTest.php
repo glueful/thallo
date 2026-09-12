@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\StarterBlockTypes;
-use App\Content\Console\SeedBlockTypesCommand;
-use App\Content\Starter\Kinds\BlockTypeKind;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypes;
+use Thallo\Core\Content\Console\SeedBlockTypesCommand;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**

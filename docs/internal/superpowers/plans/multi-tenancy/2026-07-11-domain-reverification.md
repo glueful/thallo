@@ -52,7 +52,7 @@
 
 **Thallo — app:**
 - `config/schedule.php` — MODIFY: register the hourly sweep.
-- `app/Providers/ThalloServiceProvider.php` — MODIFY: wire the audit listener via `EventService::addListener`.
+- `app/Providers/CoreServiceProvider.php` — MODIFY: wire the audit listener via `EventService::addListener`.
 - `admin/src/queries/tenantDomains.ts` — MODIFY: tracking fields + reverify mutation.
 - `admin/src/pages/workspaces/[uuid]/domains.vue` — MODIFY: revoked/failure status + reverify action.
 
@@ -1074,7 +1074,7 @@ git add vendor/glueful/tenancy/src/Bridge/ContractTenantDomainAdministration.php
 
 **Files:**
 - Create: `packages/thallo-tenancy/src/Reverification/DomainReverificationAuditListener.php`
-- Modify: `packages/thallo-tenancy/src/TenancyServiceProvider.php` and `app/Providers/ThalloServiceProvider.php` (`registerEventListeners()` — map the three events).
+- Modify: `packages/thallo-tenancy/src/TenancyServiceProvider.php` and `app/Providers/CoreServiceProvider.php` (`registerEventListeners()` — map the three events).
 - Test: `tests/Integration/Tenancy/DomainReverificationTest.php` (append a listener-writes-audit case) or a focused unit test.
 
 **Interfaces:**
@@ -1154,7 +1154,7 @@ final class DomainReverificationAuditListener
 
 - [ ] **Step 4: Register the listener**
 
-In `packages/thallo-tenancy/src/TenancyServiceProvider.php`, register `DomainReverificationAuditListener` with the nullable neutral audit seam. In `app/Providers/ThalloServiceProvider.php` `registerEventListeners()`, add:
+In `packages/thallo-tenancy/src/TenancyServiceProvider.php`, register `DomainReverificationAuditListener` with the nullable neutral audit seam. In `app/Providers/CoreServiceProvider.php` `registerEventListeners()`, add:
 
 ```php
         $events->addListener(DomainReverificationFailed::class, '@' . DomainReverificationAuditListener::class);
@@ -1162,7 +1162,7 @@ In `packages/thallo-tenancy/src/TenancyServiceProvider.php`, register `DomainRev
         $events->addListener(DomainReverified::class, '@' . DomainReverificationAuditListener::class);
 ```
 
-(Add the `use` imports for the three events + the listener at the top of `ThalloServiceProvider.php`, per the provider-use-imports convention.)
+(Add the `use` imports for the three events + the listener at the top of `CoreServiceProvider.php`, per the provider-use-imports convention.)
 
 - [ ] **Step 5: Run the test to verify it passes**
 
@@ -1174,7 +1174,7 @@ Expected: PASS.
 ```bash
 git add packages/thallo-tenancy/src/Reverification/DomainReverificationAuditListener.php \
         packages/thallo-tenancy/src/TenancyServiceProvider.php \
-        app/Providers/ThalloServiceProvider.php \
+        app/Providers/CoreServiceProvider.php \
         tests/Integration/Tenancy/DomainReverificationTest.php
 # HOLD.
 ```

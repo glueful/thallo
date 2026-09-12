@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content;
+namespace Thallo\Core\Tests\Unit\Content;
 
-use App\Content\Preview\PreviewToken;
-use App\Content\Preview\PreviewTokenException;
+use Thallo\Core\Content\Preview\PreviewToken;
+use Thallo\Core\Content\Preview\PreviewTokenException;
 use PHPUnit\Framework\TestCase;
 
 final class PreviewTokenTest extends TestCase

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Settings\SettingsStore;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Settings\SettingsStore;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Http\Response;
 use Glueful\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Request;

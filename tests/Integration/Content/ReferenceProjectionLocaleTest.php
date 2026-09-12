@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Repositories\ReferenceProjectionRepository;
-use App\Content\Schema\ContentTypeSchema;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 /**
  * Regression: the reference projection is keyed per (source entry, locale). Rebuilding or clearing

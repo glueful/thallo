@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Account;
+namespace Thallo\Core\Tests\Integration\Account;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Regions\RegionRepository;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Starter\Kinds\BlockTypeKind;
-use App\Content\Starter\StarterProvenanceRepository;
-use App\Content\Console\RetireAccountLinkCommand;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Regions\RegionRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Content\Starter\StarterProvenanceRepository;
+use Thallo\Core\Content\Console\RetireAccountLinkCommand;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**

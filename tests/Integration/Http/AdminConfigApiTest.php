@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Http;
+namespace Thallo\Core\Tests\Integration\Http;
 
-use App\Http\Controllers\AdminConfigController;
-use App\Setup\SetupService;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Http\Controllers\AdminConfigController;
+use Thallo\Core\Setup\SetupService;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class AdminConfigApiTest extends AppTestCase
 {

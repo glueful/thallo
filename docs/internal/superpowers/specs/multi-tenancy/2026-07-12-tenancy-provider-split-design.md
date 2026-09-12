@@ -93,7 +93,7 @@ and all Thallo orchestration remain Thallo-owned as shipped.
   return [
       'enabled' => [
           'Glueful\\Extensions\\Tenancy\\TenancyControlPlaneProvider',
-          'App\\Providers\\ThalloServiceProvider',
+          'App\\Providers\\CoreServiceProvider',
       ],
   ];
   ```

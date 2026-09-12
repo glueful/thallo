@@ -2,24 +2,24 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Collections;
+namespace Thallo\Core\Tests\Integration\Collections;
 
 use PHPUnit\Framework\TestCase;
 
 /**
- * Proves that the thallo-collections pack source never references the App\ namespace.
+ * Proves that the thallo-collections pack source never references the Thallo\Core\ namespace.
  *
  * Packs must depend only on glueful/framework + glueful/thallo-contracts (and any
- * pack-specific deps). Any reference to App\ would couple the pack to the host
+ * pack-specific deps). Any reference to Thallo\Core\ would couple the pack to the host
  * application and break the composer-install / removability guarantee.
  *
- * The regex `/(^|[^\w])App\\/m` is identical to scripts/check-pack-boundaries.php
+ * The regex `/(^|[^\w])Thallo\\Core\\/m` is identical to scripts/check-pack-boundaries.php
  * so that this test and the CI guard agree on what constitutes a violation.
  */
 final class NoAppReferencesTest extends TestCase
 {
     /**
-     * Every .php file under packages/thallo-collections/src must be free of App\ references.
+     * Every .php file under packages/thallo-collections/src must be free of Thallo\Core\ references.
      * On failure, the assertion message lists every offending file:line pair.
      */
     public function testNoAppReferencesInPackSource(): void
@@ -52,14 +52,14 @@ final class NoAppReferencesTest extends TestCase
 
                 // Quick whole-file check with the same regex as the boundary guard script.
                 // The /m flag makes ^ anchor to the start of each line.
-                if (preg_match('/(^|[^\\w])App\\\\/m', $content) !== 1) {
+                if (preg_match('/(^|[^\\w])Thallo\\Core\\\\/m', $content) !== 1) {
                     continue;
                 }
 
                 // Slow path: find the exact line numbers for the failure message.
                 $relativePath = ltrim(str_replace($packRoot, '', $file->getPathname()), '/\\');
                 foreach (explode("\n", $content) as $lineIndex => $line) {
-                    if (preg_match('/(^|[^\\w])App\\\\/', $line) === 1) {
+                    if (preg_match('/(^|[^\\w])Thallo\\Core\\\\/', $line) === 1) {
                         $violations[] = $relativePath . ':' . ($lineIndex + 1) . ' — ' . trim($line);
                     }
                 }
@@ -69,7 +69,7 @@ final class NoAppReferencesTest extends TestCase
         self::assertSame(
             [],
             $violations,
-            'thallo-collections src/ and routes/ must not reference App\\ namespace (pack boundary violation):'
+            'thallo-collections src/ and routes/ must not reference Thallo\\Core\\ namespace (pack boundary violation):'
                 . "\n  " . implode("\n  ", $violations),
         );
     }

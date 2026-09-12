@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Tests\Support\RetrofittedTenantTestCase;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Tests\Support\RetrofittedTenantTestCase;
 use PDO;
 use Thallo\Workflow\WorkflowStateRepository;
 

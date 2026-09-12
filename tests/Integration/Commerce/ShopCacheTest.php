@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Services\PublishService;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Cache\CacheStore;
 use Glueful\Events\EventService;
 use Glueful\Extensions\Commerce\Catalog\CatalogService;
@@ -310,7 +310,7 @@ final class ShopCacheTest extends AppTestCase
     // ==================================================================
     // Commerce-Slice-2 Fix B: the product-detail cache's entry-uuid tag fold — publishing or
     // changing a route-less linked entry purges the ALREADY-CACHED product-detail page, via the
-    // SAME `thallo:entry:{uuid}` string App\Content\Pipeline\Listeners\InvalidateCacheTagsListener
+    // SAME `thallo:entry:{uuid}` string Thallo\Core\Content\Pipeline\Listeners\InvalidateCacheTagsListener
     // already invalidates on EntryPublished/EntryUpdated/EntryDeleted. Zero new listener code —
     // ShopCatalogController stamps the Cache-Tag response header, ShopPageCache folds it into its
     // own tag set on write (mirrors RenderPageCache's identical fold for RenderController).
@@ -364,7 +364,7 @@ final class ShopCacheTest extends AppTestCase
         self::assertIsArray($this->cache()->get($key), 'precondition: the product-detail page is cached');
 
         $this->connection()->table('entries')->where('uuid', '=', $entryUuid)->update(['status' => 'deleted']);
-        $this->events()->dispatch(new \App\Content\Events\EntryDeleted($entryUuid, $typeUuid));
+        $this->events()->dispatch(new \Thallo\Core\Content\Events\EntryDeleted($entryUuid, $typeUuid));
 
         self::assertNull($this->cache()->get($key), 'deleting the linked entry must purge the cached page');
     }

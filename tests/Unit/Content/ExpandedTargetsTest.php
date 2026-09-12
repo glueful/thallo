@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content;
+namespace Thallo\Core\Tests\Unit\Content;
 
-use App\Content\Delivery\ExpandedTargets;
+use Thallo\Core\Content\Delivery\ExpandedTargets;
 use PHPUnit\Framework\TestCase;
 
 final class ExpandedTargetsTest extends TestCase

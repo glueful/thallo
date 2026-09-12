@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy\Retrofit;
+namespace Thallo\Core\Tests\Integration\Tenancy\Retrofit;
 
-use App\Content\Media\TenantBlobPolicy;
-use App\Http\Controllers\MediaAdminController;
-use App\Tests\Support\RetrofittedTenantTestCase;
+use Thallo\Core\Content\Media\TenantBlobPolicy;
+use Thallo\Core\Http\Controllers\MediaAdminController;
+use Thallo\Core\Tests\Support\RetrofittedTenantTestCase;
 use Glueful\Uploader\Contracts\BlobAccessContext;
 use Glueful\Uploader\Contracts\BlobAction;
 use RuntimeException;

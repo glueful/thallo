@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content\Starter;
+namespace Thallo\Core\Tests\Integration\Content\Starter;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Blocks\StarterBlockTypes;
-use App\Content\Schema\SchemaParseException;
-use App\Content\Starter\DefaultStarterBlockTypeRegistry;
-use App\Content\Starter\Kinds\BlockTypeKind;
-use App\Tests\Support\RetrofittedTenantTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Blocks\StarterBlockTypes;
+use Thallo\Core\Content\Schema\SchemaParseException;
+use Thallo\Core\Content\Starter\DefaultStarterBlockTypeRegistry;
+use Thallo\Core\Content\Starter\Kinds\BlockTypeKind;
+use Thallo\Core\Tests\Support\RetrofittedTenantTestCase;
 use Glueful\Database\Connection;
 use Symfony\Component\Console\Tester\CommandTester;
 use Thallo\Contracts\Starter\StarterBlockTypeContributor;
@@ -20,8 +20,8 @@ use Thallo\Tenancy\Contracts\TenantSeedRepair;
 
 /**
  * Task 6 — starter block-type contributor seam, mirroring task 5's ContentTypeKind precedent
- * ({@see \App\Tests\Integration\Content\Starter\StarterContributorTest} /
- * {@see \App\Tests\Integration\Content\Starter\StarterContributorTenancyTest}) but consolidated
+ * ({@see \Thallo\Core\Tests\Integration\Content\Starter\StarterContributorTest} /
+ * {@see \Thallo\Core\Tests\Integration\Content\Starter\StarterContributorTenancyTest}) but consolidated
  * into a single file per the task-6 brief. Extends the opt-in Postgres retrofit harness
  * (THALLO_TENANCY_DEV_LINK=1) throughout — the pure conversion/validation cases below don't
  * themselves need tenancy machinery, but are grouped here with the provisioning/sync cases for

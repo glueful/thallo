@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Authority;
+namespace Thallo\Core\Tests\Integration\Authority;
 
-use App\Support\RoleAuthority;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Support\RoleAuthority;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Glueful\Helpers\Utils;
 

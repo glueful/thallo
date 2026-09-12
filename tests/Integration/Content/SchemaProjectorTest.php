@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\MigrationRepository;
-use App\Content\Schema\Migration\MigrationOpSet;
-use App\Content\Schema\Migration\RenameField;
-use App\Content\Schema\Migration\SchemaProjector;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\MigrationRepository;
+use Thallo\Core\Content\Schema\Migration\MigrationOpSet;
+use Thallo\Core\Content\Schema\Migration\RenameField;
+use Thallo\Core\Content\Schema\Migration\SchemaProjector;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class SchemaProjectorTest extends AppTestCase
 {

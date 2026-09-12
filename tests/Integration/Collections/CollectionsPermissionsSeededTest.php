@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Collections;
+namespace Thallo\Core\Tests\Integration\Collections;
 
 /**
  * Verifies the pack's 003 migration seeds the collections.* permissions and grants them to the

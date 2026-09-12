@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+#
+# Install the skeleton the way an operator will — from the LOCAL packages. skeleton/ is copied
+# to a scratch directory, path repositories for core/ and packages/* are injected (Packagist is
+# not consulted for Thallo's own packages), and the documented first-run sequence runs against
+# the test database. Proves the split without publishing; the clean-machine gate proves it WITH
+# Packagist after publication.
+#
+# Usage: scripts/skeleton-smoke [--dry-run]     (composer test:skeleton)
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DRY=0; [[ "${1:-}" == "--dry-run" ]] && DRY=1
+SCRATCH="$(mktemp -d /tmp/thallo-skeleton-XXXXXX)"
+run() { echo "+ $*"; [[ "$DRY" -eq 1 ]] || "$@"; }
+run_in() { local d="$1"; shift; echo "+ (cd $d && $*)"; [[ "$DRY" -eq 1 ]] || (cd "$d" && "$@"); }
+PHP="${PHP:-php}"   # e.g. PHP="php -d error_log=/dev/stderr" to see boot warnings that error_log would otherwise hide
+env_summary() { echo "+ .env: $(grep -E "^(APP_ENV|DB_DRIVER|DB_POOLING_ENABLED|DB_PGSQL_HOST|DB_PGSQL_DATABASE|DB_PGSQL_USERNAME)=" "$1" | tr "\n" " ")"; }
+cleanup() { [[ "$DRY" -eq 1 ]] || rm -rf "$SCRATCH"; }
+trap cleanup EXIT
+
+echo "== skeleton-smoke: copy skeleton/ into $SCRATCH =="
+run cp -R "$ROOT/skeleton/." "$SCRATCH/"
+
+if [[ ! -f "$ROOT/core/resources/admin/index.html" ]]; then
+  echo "+ (cd admin && pnpm run -s build)   # core/resources/admin holds no bundle yet"
+  [[ "$DRY" -eq 1 ]] || (cd "$ROOT/admin" && pnpm run -s build)
+fi
+
+echo "+ inject path repositories for core/ and packages/* (versions pinned like the dev root)"
+if [[ "$DRY" -eq 0 ]]; then
+  (cd "$SCRATCH" \
+    && composer config repositories.core path "$ROOT/core" \
+    && composer config repositories.packages path "$ROOT/packages/*" \
+    && composer config minimum-stability dev \
+    && composer config prefer-stable true \
+    && composer require --no-update "glueful/thallo-core:*")
+fi
+run_in "$SCRATCH" composer install --no-dev --no-interaction --prefer-dist --no-progress
+
+echo "+ write .env from .env.example: APP_ENV=testing, the test database (app_test), credentials from the dev .env"
+if [[ "$DRY" -eq 0 ]]; then
+  cp "$SCRATCH/.env.example" "$SCRATCH/.env"
+  for key in DB_PGSQL_HOST DB_PGSQL_PORT DB_PGSQL_USERNAME DB_PGSQL_PASSWORD; do
+    val="$(grep -E "^${key}=" "$ROOT/.env" | head -1 | cut -d= -f2- || true)"
+    if grep -qE "^#? ?${key}=" "$SCRATCH/.env"; then
+      perl -0pi -e "s/^#? ?${key}=.*\$/${key}=${val}/m" "$SCRATCH/.env"
+    else
+      echo "${key}=${val}" >> "$SCRATCH/.env"
+    fi
+  done
+  perl -0pi -e 's/^#? ?DB_PGSQL_DATABASE=.*$/DB_PGSQL_DATABASE=app_test/m; s/^#? ?APP_ENV=.*$/APP_ENV=testing/m; s/^#? ?DB_POOLING_ENABLED=.*$/DB_POOLING_ENABLED=false/m' "$SCRATCH/.env"
+  grep -qE '^DB_POOLING_ENABLED=' "$SCRATCH/.env" || echo 'DB_POOLING_ENABLED=false' >> "$SCRATCH/.env"
+fi
+
+echo "+ reset the test database"
+[[ "$DRY" -eq 1 ]] || (cd "$ROOT" && DB_PGSQL_DATABASE=app_test APP_ENV=testing php scripts/reset-test-db.php)
+
+[[ "$DRY" -eq 1 ]] || env_summary "$SCRATCH/.env"
+run_in "$SCRATCH" $PHP glueful thallo:doctor
+echo "+ (cd $SCRATCH && $PHP glueful thallo:provision --no-interaction)   # a skipped role grant fails the smoke"
+if [[ "$DRY" -eq 0 ]]; then
+  (cd "$SCRATCH" && $PHP glueful thallo:provision --no-interaction) | tee "$SCRATCH/provision.log"
+  if grep -q "grants skipped" "$SCRATCH/provision.log"; then
+    echo "FAIL: provision skipped the install role grants (see above)" >&2; exit 1
+  fi
+fi
+[[ "$DRY" -eq 1 ]] || env_summary "$SCRATCH/.env"
+run_in "$SCRATCH" $PHP glueful migrate:status
+
+echo "+ assert: public/admin/index.html published, no operator code, nothing pending"
+if [[ "$DRY" -eq 0 ]]; then
+  test -f "$SCRATCH/public/admin/index.html" || { echo "FAIL: admin bundle was not published" >&2; exit 1; }
+  test -z "$(ls "$SCRATCH/app"/*.php 2>/dev/null)" || { echo "FAIL: skeleton app/ holds PHP" >&2; exit 1; }
+  (cd "$SCRATCH" && $PHP glueful migrate:status | grep -q "Pending: 0") || { echo "FAIL: pending migrations after provision" >&2; exit 1; }
+  test -f "$SCRATCH/vendor/glueful/thallo-core/composer.json" || { echo "FAIL: thallo-core not installed" >&2; exit 1; }
+fi
+echo "== skeleton-smoke: OK =="

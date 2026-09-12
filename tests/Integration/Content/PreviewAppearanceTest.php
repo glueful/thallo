@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Settings\EngineThemeAppearanceProvider;
-use App\Settings\GeneralSettings;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Settings\EngineThemeAppearanceProvider;
+use Thallo\Core\Settings\GeneralSettings;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Psr\Log\NullLogger;
 use Thallo\Contracts\Delivery\EntryTargetResolver;
 use Thallo\Contracts\Delivery\PreviewSession;

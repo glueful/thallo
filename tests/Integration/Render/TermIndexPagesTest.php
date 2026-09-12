@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Content\Events\EntryPublished;
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\PublishedReferenceRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Events\EntryPublished;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\PublishedReferenceRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 use Glueful\Cache\CacheStore;
 use Thallo\Contracts\Delivery\PublicRouteResolver;

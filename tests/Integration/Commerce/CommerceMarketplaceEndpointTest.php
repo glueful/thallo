@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Commerce\Tenancy\CommerceTenantResolution;
 use Glueful\Http\Exceptions\Client\ConflictException;
 use Glueful\Http\Response;
@@ -40,7 +40,7 @@ final class CommerceMarketplaceEndpointTest extends AppTestCase
         );
         $this->connection()->table('settings')
             ->where(['key' => 'commerce.marketplace.enabled'])->delete();
-        $this->container()->get(\App\Settings\SettingsStore::class)->clearCache();
+        $this->container()->get(\Thallo\Core\Settings\SettingsStore::class)->clearCache();
     }
 
     public function testMasterOffIsReportedHonestlyAndGatesEveryWrite(): void

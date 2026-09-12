@@ -1,90 +1,106 @@
 #!/usr/bin/env bash
 #
-# Dist-archive verification (DISTRIBUTION.md release-bake HARD GATE).
+# Dist-archive verification (DISTRIBUTION.md release HARD GATE) — one check per published artifact.
 #
-# Asserts the tree a tag would ship — `git archive` honors .gitattributes export-ignore, and
-# Packagist dists are exactly this archive. Run against the release commit BEFORE tagging.
+# Packagist dists are `git archive` of each mirror's tag, and each mirror is a subtree split of a
+# directory of this repo, so the archive of `<ref>:<dir>` IS what that artifact ships. This runs
+# BEFORE any split exists (from the release commit) and again after (pass a split branch as ref
+# with `--artifact <name>` if you want to check a mirror branch directly).
 #
-# Usage: scripts/verify-dist-archive [<ref>]   (default: HEAD)
+# Usage: scripts/verify-dist-archive [<ref>]            # every artifact at <ref> (default HEAD)
+#        scripts/verify-dist-archive --artifact core|skeleton|thallo-<pack> [<ref>]
 set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; cd "$ROOT"
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
-
-REF="${1:-HEAD}"
-LISTING="$(git archive "$REF" | tar -t)"
+ONLY=""; REF="HEAD"
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --artifact) ONLY="$2"; shift 2 ;;
+    *) REF="$1"; shift ;;
+  esac
+done
 
 fail=0
+listing_of() { git archive --format=tar "$REF:$1" | tar -t; }
+contains() { grep -qx "$2" <<< "$1"; }
+contains_prefix() { grep -q "^$2" <<< "$1"; }
 
-must_contain() {
-  if ! grep -qx "$1" <<< "$LISTING"; then
-    echo "FAIL: dist archive of $REF is missing: $1" >&2
-    fail=1
+check_core() {
+  local L; L="$(listing_of core)"
+  # The baked admin bundle IS the shipped admin (decision 9): it lives in core/resources/admin and
+  # thallo:provision publishes a copy into the install's public/admin (never shipped by anyone).
+  contains "$L" "resources/admin/index.html" && echo "ok: core ships resources/admin/index.html" || { echo "FAIL: core lacks resources/admin/index.html (run scripts/release-bake first)" >&2; fail=1; }
+  contains "$L" "composer.json" && contains_prefix "$L" "src/" && contains_prefix "$L" "database/migrations/" && echo "ok: core ships composer.json, src/, database/migrations/" || { echo "FAIL: core is missing composer.json, src/ or database/migrations/" >&2; fail=1; }
+  if contains_prefix "$L" "tests/"; then echo "FAIL: core must not ship tests/" >&2; fail=1; else echo "ok: core ships no tests/"; fi
+
+  # The bundle must EMBED the whole lucide set. The admin's document CSP is connect-src 'self',
+  # so an icon the build did not embed is fetched from api.iconify.design at runtime and blocked
+  # — a blank icon in production (beta.13 shipped 28 blank icons from unscanned .ts; beta.17
+  # shipped 20 from seeded block types). First a floor on the count (lucide has ~1.9k icons),
+  # then every name the sources reference.
+  local LUCIDE_FLOOR=1800 BUNDLE_JS EMBEDDED_COUNT ICON_NAMES missing=()
+  BUNDLE_JS="$(git archive --format=tar "$REF:core/resources/admin/assets" 2>/dev/null | tar -xO 2>/dev/null || true)"
+  # (pipefail: a no-match grep must not abort the gate — the count is the finding.)
+  EMBEDDED_COUNT="$( (grep -oE '"[a-z0-9-]+":\{"(width|height|body|left|top)' <<< "$BUNDLE_JS" || true) | sort -u | wc -l | tr -d ' ')"
+  if [[ "$EMBEDDED_COUNT" -lt "$LUCIDE_FLOOR" ]]; then
+    echo "FAIL: the baked bundle embeds $EMBEDDED_COUNT icons; the whole lucide set (>= $LUCIDE_FLOOR) must be embedded (admin/vite.config.ts icon.clientBundle)" >&2; fail=1
   else
-    echo "ok: contains $1"
+    echo "ok: the baked bundle embeds the lucide set ($EMBEDDED_COUNT icons)"
   fi
-}
-
-must_not_contain_prefix() {
-  if grep -q "^$1" <<< "$LISTING"; then
-    echo "FAIL: dist archive of $REF must not contain: $1*" >&2
-    grep "^$1" <<< "$LISTING" | head -3 >&2
-    fail=1
-  else
-    echo "ok: excludes $1*"
-  fi
-}
-
-# The baked admin bundle IS the shipped admin (decision 9).
-must_contain "public/admin/index.html"
-# The SPA source toolchain never ships.
-must_not_contain_prefix "admin/"
-# Internal engineering record never ships.
-must_not_contain_prefix "docs/internal/"
-# The dogfood dev overlay never ships — fresh installs get the trimmed base posture.
-must_not_contain_prefix "config/development/"
-
-# The baked bundle must EMBED the whole lucide set. The admin's document CSP is connect-src
-# 'self', so an icon the build did not embed is fetched from api.iconify.design at runtime and
-# blocked — a blank icon in production. A source scan can never be complete: block/content
-# types carry icon names chosen in the admin's icon picker or seeded from PHP, reaching the
-# SPA as API data (beta.13 shipped 28 blank icons from unscanned .ts; beta.17 shipped 20 from
-# seeded block types). The embedded collection serialises each icon as "<name>":{"width"…/
-# "body"…: first a floor on the count (lucide has ~1.9k icons; a scanned subset is a few
-# hundred), then every name the sources reference, as a second, specific check.
-LUCIDE_FLOOR=1800
-BUNDLE_JS="$(git archive "$REF" public/admin/assets 2>/dev/null | tar -xO 2>/dev/null || true)"
-EMBEDDED_COUNT="$(grep -oE '"[a-z0-9-]+":\{"(width|height|body|left|top)' <<< "$BUNDLE_JS" | sort -u | wc -l | tr -d ' ')"
-if [[ "$EMBEDDED_COUNT" -lt "$LUCIDE_FLOOR" ]]; then
-  echo "FAIL: the baked bundle embeds $EMBEDDED_COUNT icons; the whole lucide set (>= $LUCIDE_FLOOR) must be embedded (admin/vite.config.ts icon.clientBundle)" >&2
-  fail=1
-else
-  echo "ok: the baked bundle embeds the lucide set ($EMBEDDED_COUNT icons)"
-fi
-ICON_NAMES="$(git grep -hoE 'i-lucide-[a-z0-9-]+' "$REF" -- \
-    'admin/src/*.ts' 'admin/src/*.vue' 'app/*.php' 'packages/*.php' ':(exclude)*/tests/*' \
-  | sed 's/^i-lucide-//' | sort -u || true)"
-if [[ -z "$ICON_NAMES" ]]; then
-  echo "FAIL: could not collect icon names from admin/src at $REF" >&2
-  fail=1
-else
-  missing=()
+  ICON_NAMES="$(git grep -hoE 'i-lucide-[a-z0-9-]+' "$REF" -- 'admin/src/*.ts' 'admin/src/*.vue' 'core/src/*.php' 'packages/*.php' ':(exclude)*/tests/*' | sed 's/^i-lucide-//' | sort -u || true)"
   while IFS= read -r name; do
-    if ! grep -q "\"$name\":{\"" <<< "$BUNDLE_JS"; then
-      missing+=("$name")
-    fi
+    [[ -z "$name" ]] && continue
+    grep -q "\"$name\":{\"" <<< "$BUNDLE_JS" || missing+=("$name")
   done <<< "$ICON_NAMES"
   if [[ "${#missing[@]}" -ne 0 ]]; then
-    echo "FAIL: ${#missing[@]} referenced icon(s) are not embedded in the baked bundle (would be fetched remotely and blocked by CSP):" >&2
-    printf '  i-lucide-%s\n' "${missing[@]}" | head -30 >&2
-    fail=1
+    echo "FAIL: ${#missing[@]} referenced icon(s) are not embedded:" >&2; printf '  i-lucide-%s\n' "${missing[@]}" | head -30 >&2; fail=1
   else
     echo "ok: every referenced lucide icon is embedded ($(wc -l <<< "$ICON_NAMES" | tr -d ' ') icons)"
   fi
-fi
+}
+
+check_skeleton() {
+  local L ok=1; L="$(listing_of skeleton)"
+  for f in composer.json public/index.php bootstrap/app.php glueful .env.example README.md LICENSE .gitignore; do
+    if ! contains "$L" "$f"; then echo "FAIL: skeleton lacks $f" >&2; ok=0; fi
+  done
+  for p in core/ packages/ tests/ admin/ docs/ scripts/ vendor/ public/admin/; do
+    if contains_prefix "$L" "$p"; then echo "FAIL: skeleton must not ship $p" >&2; ok=0; fi
+  done
+  if ! git show "$REF:skeleton/composer.json" | grep -q '"glueful/thallo-core": "\^'; then
+    echo "FAIL: skeleton composer.json must require glueful/thallo-core at a ^ version" >&2; ok=0
+  fi
+  if git show "$REF:skeleton/composer.json" | grep -q '"repositories"'; then
+    echo "FAIL: skeleton composer.json must not carry repositories (Packagist only)" >&2; ok=0
+  fi
+  if [[ "$ok" -eq 1 ]]; then echo "ok: skeleton ships the operator's tree only, requiring glueful/thallo-core"; else fail=1; fi
+}
+
+check_pack() {
+  local dir="packages/$1" L; L="$(listing_of "$dir")"
+  if contains "$L" "composer.json" && contains_prefix "$L" "src/"; then
+    echo "ok: $1 ships composer.json + src/"
+  else
+    echo "FAIL: $1 lacks composer.json or src/" >&2; fail=1
+  fi
+  if git show "$REF:$dir/composer.json" | grep -q '"version"'; then
+    echo "FAIL: $1 composer.json must not carry a version field" >&2; fail=1
+  fi
+}
+
+ARTIFACTS=(core skeleton)
+for p in packages/thallo-*; do ARTIFACTS+=("$(basename "$p")"); done
+for a in "${ARTIFACTS[@]}"; do
+  [[ -n "$ONLY" && "$a" != "$ONLY" && "$a" != "thallo-$ONLY" ]] && continue
+  case "$a" in
+    core) check_core ;;
+    skeleton) check_skeleton ;;
+    *) check_pack "$a" ;;
+  esac
+done
 
 if [[ "$fail" -ne 0 ]]; then
   echo "verify-dist-archive: FAILED for $REF" >&2
   exit 1
 fi
-echo "verify-dist-archive: OK for $REF"
+echo "verify-dist-archive: OK for $REF (${#ARTIFACTS[@]} artifacts)"

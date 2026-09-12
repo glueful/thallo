@@ -3,9 +3,10 @@
 # Admin SPA release bake (DISTRIBUTION.md decision 9 — HARD GATE).
 #
 # Packagist dists come from `git archive` of the tag: there is no post-archive hook, so the
-# RELEASE COMMIT ITSELF must contain the built public/admin — which is gitignored in daily
+# RELEASE COMMIT ITSELF must contain the built core/resources/admin — which is gitignored in daily
 # development. This script builds the SPA and force-stages the bundle for the release commit.
-# `/admin` (the source) stays export-ignored; the bundle is what ships.
+# `/admin` (the source) stays export-ignored; the bundle is what ships. thallo:provision publishes
+# a copy into public/admin on each install, so public/ stays the operator's.
 #
 # Usage (from docs/internal/RELEASING.md):
 #   scripts/release-bake        # on a clean tree, immediately before the release commit
@@ -25,14 +26,14 @@ fi
 echo "== release-bake: building the admin SPA =="
 (cd admin && pnpm install --frozen-lockfile && pnpm run -s build)
 
-if [[ ! -f public/admin/index.html ]]; then
-  echo "release-bake: build produced no public/admin/index.html — aborting." >&2
+if [[ ! -f core/resources/admin/index.html ]]; then
+  echo "release-bake: build produced no core/resources/admin/index.html — aborting." >&2
   exit 1
 fi
 
 echo "== release-bake: force-staging the bundle past the gitignore =="
-git add -f public/admin
+git add -f core/resources/admin
 
 STAGED="$(git diff --cached --name-only | wc -l | tr -d ' ')"
-echo "== release-bake: staged $STAGED file(s) under public/admin =="
+echo "== release-bake: staged $STAGED file(s) under core/resources/admin =="
 echo "Next: create the release commit, then run scripts/verify-dist-archive before tagging."

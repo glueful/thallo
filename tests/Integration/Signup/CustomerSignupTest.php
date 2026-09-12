@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Signup;
+namespace Thallo\Core\Tests\Integration\Signup;
 
-use App\Signup\CustomerSignupService;
-use App\Signup\MemberSignupService;
-use App\Signup\SignupCoordinator;
-use App\Signup\SignupException;
-use App\Signup\SignupIntentRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Signup\CustomerSignupService;
+use Thallo\Core\Signup\MemberSignupService;
+use Thallo\Core\Signup\SignupCoordinator;
+use Thallo\Core\Signup\SignupException;
+use Thallo\Core\Signup\SignupIntentRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Security\OTP;
 
 /**
@@ -84,7 +84,7 @@ final class CustomerSignupTest extends AppTestCase
             'value' => 'viewer',
             'updated_at' => gmdate('Y-m-d H:i:s'),
         ]);
-        $this->container()->get(\App\Settings\SettingsStore::class)->clearCache();
+        $this->container()->get(\Thallo\Core\Settings\SettingsStore::class)->clearCache();
         $this->createdEmails[] = $email;
         $intentUuid = $this->container()->get(SignupIntentRepository::class)->create([
             'kind' => 'member',

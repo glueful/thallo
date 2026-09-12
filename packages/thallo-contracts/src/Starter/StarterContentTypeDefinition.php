@@ -6,7 +6,7 @@ namespace Thallo\Contracts\Starter;
 
 /**
  * A pack's contribution to the starter content-type set — mirrors the fixed definitions
- * {@see \App\Content\Starter\Kinds\ContentTypeKind} ships (pages/category/post), but sourced
+ * {@see \Thallo\Core\Content\Starter\Kinds\ContentTypeKind} ships (pages/category/post), but sourced
  * from an installed pack instead of hard-coded. Pure value object; carries no behavior. The
  * app-owned ContentTypeKind converts each of these into its internal StarterDefinition shape,
  * validating scalar fields and the schema before any write path can see them.

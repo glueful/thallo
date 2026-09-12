@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Http\Controllers\TenancyAccessController;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Http\Controllers\TenancyAccessController;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Routing\Route;
 use Glueful\Routing\Router;
 use Symfony\Component\HttpFoundation\Request;

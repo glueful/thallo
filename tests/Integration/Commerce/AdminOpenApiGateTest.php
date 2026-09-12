@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\SharedBootDiagnostics;
 use Glueful\Extensions\Commerce\Http\Routing\AdminRouteCatalog;
 use Thallo\Commerce\Http\AdminMountAllowlist;
 
@@ -199,7 +200,12 @@ final class AdminOpenApiGateTest extends AppTestCase
             $this->router()->getAllRoutes(),
             static fn (array $r): bool => str_starts_with((string) ($r['path'] ?? ''), '/commerce/admin'),
         ));
-        self::assertNotSame([], $native, 'expected native /commerce/admin routes to be registered');
+        self::assertNotSame(
+            [],
+            $native,
+            "expected native /commerce/admin routes to be registered\n"
+                . SharedBootDiagnostics::describe($this->appContext()),
+        );
 
         foreach ($native as $route) {
             $name = $route['name'] ?? null;

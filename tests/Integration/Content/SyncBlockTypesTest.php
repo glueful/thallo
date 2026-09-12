@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Console\SeedBlockTypesCommand;
-use App\Content\Console\SyncBlockTypesCommand;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Console\SeedBlockTypesCommand;
+use Thallo\Core\Content\Console\SyncBlockTypesCommand;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /** Shadow-system plan Task 4: additive sync of evolved starter schemas. */

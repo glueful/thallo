@@ -25,7 +25,7 @@
 **Create (app engine):** `app/Content/Starter/{SeedContext,StarterApplyResult,StarterKind,StarterDefinition,StarterDefinitions,Fingerprint,StarterProvenanceRepository,StarterTransaction,StarterSeedFailpoint,TenantSeeder,StarterSync,SyncReport}.php`, `app/Content/Starter/Kinds/{ContentTypeKind,SettingKind,RegionKind,BlockTypeKind,NavigationMenuKind,HomepageEntryKind}.php`, `database/dependent-migrations/012_CreateStarterProvenanceTable.php`.
 **Create (pack seam):** `packages/thallo-tenancy/src/Contracts/{TenantSeedActivator,TenantSeedRepair,TenantStarterSync}.php` + `StarterSeedException.php`.
 **Create (CLI):** `packages/thallo-tenancy/src/Console/{TenantSeedCommand,TenantSyncCommand,TenantBlockSyncCommand}.php` (pack-owned, contract-only).
-**Modify:** `app/Setup/SetupService.php` (extract content-seeding core), `app/Providers/ThalloServiceProvider.php` (bindings), `packages/thallo-tenancy/src/Http/Controllers/TenantManagementController.php:52-54` + `packages/thallo-tenancy/src/Console/TenantManageCommand.php:57-64` (seed hook), `app/Content/Console/{SeedBlockTypesCommand,SyncBlockTypesCommand}.php` (delegates).
+**Modify:** `app/Setup/SetupService.php` (extract content-seeding core), `app/Providers/CoreServiceProvider.php` (bindings), `packages/thallo-tenancy/src/Http/Controllers/TenantManagementController.php:52-54` + `packages/thallo-tenancy/src/Console/TenantManageCommand.php:57-64` (seed hook), `app/Content/Console/{SeedBlockTypesCommand,SyncBlockTypesCommand}.php` (delegates).
 **Tests:** `tests/Unit/Content/Starter/{FingerprintFreezeTest,StarterTransactionTest,ActorResolutionTest}.php`, `tests/Integration/Tenancy/{StarterSeedTransactionTest,StarterSyncTest,TenantSeedActivationTest,StarterCommandMatrixTest,SeededTenantAcceptanceTest}.php`, `tests/Unit/Tenancy/SeedBoundaryArchitectureTest.php`.
 
 ---
@@ -210,7 +210,7 @@ interface StarterKind
 
 **Files:**
 - Create: `packages/thallo-tenancy/src/Contracts/TenantSeedActivator.php`, `TenantSeedRepair.php`, `StarterSeedException.php`
-- Modify: `app/Content/Starter/TenantSeeder.php` (implements it), `app/Providers/ThalloServiceProvider.php` (bind interface → shared `TenantSeeder`), `packages/thallo-tenancy/src/Http/Controllers/TenantManagementController.php:52-54`, `packages/thallo-tenancy/src/Console/TenantManageCommand.php:57-64`, `packages/thallo-tenancy/src/TenancyServiceProvider.php` (nullable ctor threading)
+- Modify: `app/Content/Starter/TenantSeeder.php` (implements it), `app/Providers/CoreServiceProvider.php` (bind interface → shared `TenantSeeder`), `packages/thallo-tenancy/src/Http/Controllers/TenantManagementController.php:52-54`, `packages/thallo-tenancy/src/Console/TenantManageCommand.php:57-64`, `packages/thallo-tenancy/src/TenancyServiceProvider.php` (nullable ctor threading)
 - Test: `tests/Integration/Tenancy/TenantSeedActivationTest.php`, `tests/Unit/Tenancy/SeedBoundaryArchitectureTest.php`
 
 **Interfaces:**
@@ -305,7 +305,7 @@ with `StarterSeedException` (pack-declared beside the interface, `\RuntimeExcept
 
 **Files:**
 - Create: `packages/thallo-tenancy/src/Contracts/TenantStarterSync.php` (pack-declared structured sync seam), `packages/thallo-tenancy/src/Console/TenantSeedCommand.php`, `TenantSyncCommand.php`, `TenantBlockSyncCommand.php`
-- Modify: `app/Content/Starter/StarterSync.php` (implements `TenantStarterSync`, mapping `SyncReport::toLines()`), `app/Providers/ThalloServiceProvider.php` (bind), `app/Content/Console/SeedBlockTypesCommand.php`, `app/Content/Console/SyncBlockTypesCommand.php`
+- Modify: `app/Content/Starter/StarterSync.php` (implements `TenantStarterSync`, mapping `SyncReport::toLines()`), `app/Providers/CoreServiceProvider.php` (bind), `app/Content/Console/SeedBlockTypesCommand.php`, `app/Content/Console/SyncBlockTypesCommand.php`
 - Test: `tests/Integration/Tenancy/StarterCommandMatrixTest.php`
 
 **Interfaces:**

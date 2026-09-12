@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Migrations;
+namespace Thallo\Core\Tests\Integration\Migrations;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class SchemaTest extends AppTestCase
 {

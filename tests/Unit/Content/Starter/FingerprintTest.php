@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content\Starter;
+namespace Thallo\Core\Tests\Unit\Content\Starter;
 
-use App\Content\Starter\Fingerprint;
+use Thallo\Core\Content\Starter\Fingerprint;
 use PHPUnit\Framework\TestCase;
 
 final class FingerprintTest extends TestCase

@@ -7,6 +7,51 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.21] - 2026-09-12 — Developer Preview
+
+Thallo becomes a Composer package. `composer create-project glueful/thallo` installs a thin
+template whose `vendor/` holds `glueful/thallo-core` and the thirteen capability packs, and
+`composer update && php glueful thallo:provision` is every upgrade from here on. Existing
+installs move once; their databases need nothing. Framework 1.85.3 required.
+
+### Upgrade Notes
+- **Installs created before this release move once to the template.** `create-project` beside
+  the old site, carry `.env`, `storage/`, theme overrides and any code of your own across,
+  provision, switch the document root. The database needs nothing: Thallo's migrations were
+  recorded under `app` / `app:dependent` and are adopted under the core package's lanes
+  (framework 1.85 `previous_sources`) — nothing re-runs, nothing looks pending. Exact steps in
+  `docs/upgrading.md`.
+- Customisations made inside Thallo's own files under a previous release's `app/`, `routes/` or
+  `database/migrations/` are not carried by an upgrade; those directories are now yours and
+  start empty, so re-apply such changes as overrides in `config/` and your own files there.
+- Framework 1.85.3 is required (repinned): `previous_sources` on migration descriptors, its
+  `migrate:run` adoption fix, `env()` reading the real process environment (a CI job or
+  container that exports `DB_*` no longer sends a fresh install's first connections to sqlite),
+  and the boot environment read the same way, with the extension cache stamped for the
+  environment it was compiled under.
+- The bootstrap passes `env('APP_ENV', 'development')` to the framework instead of the `$_ENV`
+  array alone, so an `APP_ENV` the process exports is honoured under PHP's default
+  `variables_order`.
+
+### Changed
+- **Thallo is a Composer package.** The application — `core/` in the development repository,
+  namespace `Thallo\Core` — is published as `glueful/thallo-core`, a library with a Glueful
+  manifest declaring its provider and its two migration lanes; the packs are published at the
+  same version and pinned to it. The template (`skeleton/`) ships only the operator's tree:
+  entry points, config overrides, `app/`, `routes/`, `database/migrations/`, `themes/`,
+  `storage/`. Thallo loads its routes, migrations, config defaults and the admin bundle from
+  `vendor/glueful/thallo-core`; `thallo:provision` publishes the bundle into `public/admin` so
+  the web server keeps serving it from disk.
+- **The release is fifteen artifacts.** `scripts/release-split` subtree-splits the core, the
+  template and the packs to read-only mirror repositories and tags them together;
+  `scripts/verify-dist-archive` checks every artifact from the release commit;
+  `scripts/skeleton-smoke` installs the template against the local packages (also in CI).
+
+### Added
+- **`scripts/deploy-site`** — the website's deploy-from-tag: checks out this repository at a
+  release tag (a complete, lock-pinned install) into a `releases/` + `shared/` + `current`
+  layout with instant rollback; refuses branches and commits; `--dry-run` prints every step.
+
 ## [1.0.0-beta.20] - 2026-09-11 — Developer Preview
 
 The framework's API reference moves to `/api-docs`, freeing `/docs` for the site's own

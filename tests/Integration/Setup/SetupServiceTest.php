@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Setup;
+namespace Thallo\Core\Tests\Integration\Setup;
 
-use App\Setup\SetupService;
-use App\Support\RoleAuthority;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Setup\SetupService;
+use Thallo\Core\Support\RoleAuthority;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
 use Thallo\Contracts\Settings\SystemChannel;
 use Thallo\Tenancy\System\SystemFlags;
@@ -65,7 +65,7 @@ final class SetupServiceTest extends AppTestCase
         // nothing in the install flow ran and no doc mentioned.
         $this->service()->install('Acme', 'blocks@example.com', 'Sup3r-secret-pass!', 'en');
 
-        $kind = $this->container()->get(\App\Content\Starter\Kinds\BlockTypeKind::class);
+        $kind = $this->container()->get(\Thallo\Core\Content\Starter\Kinds\BlockTypeKind::class);
         $expected = count($kind->definitions());
         $slugs = array_column($this->connection()->table('block_types')->select(['slug'])->get(), 'slug');
 
@@ -85,7 +85,7 @@ final class SetupServiceTest extends AppTestCase
         self::assertNotNull($user);
         $uuid = (string) ($user['uuid'] ?? '');
 
-        $authority = new \App\Content\Authorization\PermissionAuthority($this->appContext());
+        $authority = new \Thallo\Core\Content\Authorization\PermissionAuthority($this->appContext());
         foreach (['content.manage', 'audit.view', 'analytics.read', 'system.config'] as $slug) {
             self::assertTrue($authority->can($uuid, $slug, '*', []), "first admin can {$slug}");
         }
@@ -174,7 +174,7 @@ final class SetupServiceTest extends AppTestCase
         // A fresh instance must ship with the seeded "Pages" type so the editorial loop
         // works on day one. It is an ordinary content-type row (status active, not a
         // system type), with the generic title + body schema.
-        $type = (new \App\Content\Repositories\ContentTypeRepository($this->connection()))
+        $type = (new \Thallo\Core\Content\Repositories\ContentTypeRepository($this->connection()))
             ->findBySlug('pages');
 
         self::assertNotNull($type, 'fresh install must seed the "pages" content type');
@@ -205,7 +205,7 @@ final class SetupServiceTest extends AppTestCase
 
         // The companion "Posts" type: publicly delivered, PREFIXED grammar
         // (/post/hello — a blog shape), title/excerpt/cover/body schema.
-        $posts = (new \App\Content\Repositories\ContentTypeRepository($this->connection()))
+        $posts = (new \Thallo\Core\Content\Repositories\ContentTypeRepository($this->connection()))
             ->findBySlug('post');
         self::assertNotNull($posts, 'fresh install must seed the "post" content type');
         self::assertSame('Posts', $posts['name']);
@@ -236,7 +236,7 @@ final class SetupServiceTest extends AppTestCase
         self::assertTrue((bool) ($catField['multiple'] ?? false));
         self::assertTrue((bool) ($catField['filterable'] ?? false));
 
-        $category = (new \App\Content\Repositories\ContentTypeRepository($this->connection()))
+        $category = (new \Thallo\Core\Content\Repositories\ContentTypeRepository($this->connection()))
             ->findBySlug('category');
         self::assertNotNull($category, 'fresh install must seed the "category" content type');
         self::assertTrue((bool) $category['public_delivery']);

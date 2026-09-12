@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\PublishedReferenceRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\PublishedReferenceRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Contracts\Delivery\FacetCountsReader;
 use Thallo\Render\RenderContextExtension;
 use Twig\Environment;

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 /** Shadow-system plan Task 1: the elevation scale + overridable color/strength. */
 final class ShadowTokensTest extends AppTestCase

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Analytics;
+namespace Thallo\Core\Tests\Integration\Analytics;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;

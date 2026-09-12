@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration;
+namespace Thallo\Core\Tests\Integration;
 
-use App\Http\Controllers\ApiKeyAdminController;
-use App\Http\DTOs\UpdateApiKeyScopesData;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Http\Controllers\ApiKeyAdminController;
+use Thallo\Core\Http\DTOs\UpdateApiKeyScopesData;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 
 /**

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Navigation;
+namespace Thallo\Core\Tests\Integration\Navigation;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 /**

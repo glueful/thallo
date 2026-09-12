@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Support;
+namespace Thallo\Core\Tests\Support;
 
 use Glueful\Application;
 use Glueful\Framework;
@@ -22,7 +22,7 @@ use Glueful\Routing\RouteManifest;
  * router: loadRoutesFrom() sees the file as "already loaded" and returns before registering it.
  *
  * The full `composer test` run mixes the framework-booting Feature test
- * ({@see \App\Tests\TestCase}) with the AppTestCase suites. When these booted independently,
+ * ({@see \Thallo\Core\Tests\TestCase}) with the AppTestCase suites. When these booted independently,
  * whichever booted first consumed the one-shot route loaders and the other was left with a
  * router missing all extension routes (collections requests 404'd).
  *
@@ -34,6 +34,17 @@ use Glueful\Routing\RouteManifest;
 final class TestApplication
 {
     private static ?Application $app = null;
+
+    /** Unix time of the shared boot, for {@see SharedBootDiagnostics}. */
+    private static ?int $bootedAt = null;
+
+    /**
+     * On-disk cache files as they stood the instant before the shared boot (path => mtime, or
+     * null when absent), for {@see SharedBootDiagnostics}.
+     *
+     * @var array<string, int|null>
+     */
+    private static array $cacheStateAtBoot = [];
 
     /**
      * Boot the application once per process and return the shared instance.
@@ -50,6 +61,12 @@ final class TestApplication
                 @unlink($file);
             }
 
+            self::$bootedAt = time();
+            foreach (SharedBootDiagnostics::CACHE_FILES as $relative) {
+                $path = $root . '/' . $relative;
+                self::$cacheStateAtBoot[$relative] = is_file($path) ? (int) filemtime($path) : null;
+            }
+
             // Schema is created by `composer test:migrate` before PHPUnit runs.
             self::$app = Framework::create($root)
                 ->withConfigDir($root . '/config')
@@ -58,5 +75,16 @@ final class TestApplication
         }
 
         return self::$app;
+    }
+
+    public static function bootedAt(): ?int
+    {
+        return self::$bootedAt;
+    }
+
+    /** @return array<string, int|null> */
+    public static function cacheStateAtBoot(): array
+    {
+        return self::$cacheStateAtBoot;
     }
 }

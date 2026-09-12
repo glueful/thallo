@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Http\Middleware\AdminTenantBindingMiddleware;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Http\Middleware\AdminTenantBindingMiddleware;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 

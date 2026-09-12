@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Seo;
+namespace Thallo\Core\Tests\Integration\Seo;
 
-use App\Content\Repositories\ContentTypeRepository;
-use App\Content\Repositories\EntryRepository;
-use App\Content\Repositories\RouteRepository;
-use App\Content\Seo\CanonicalProjector;
-use App\Content\Services\PublishService;
-use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Repositories\ContentTypeRepository;
+use Thallo\Core\Content\Repositories\EntryRepository;
+use Thallo\Core\Content\Repositories\RouteRepository;
+use Thallo\Core\Content\Seo\CanonicalProjector;
+use Thallo\Core\Content\Services\PublishService;
+use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Contracts\Delivery\ContentDeliveryReader;
 use Thallo\Contracts\Delivery\EntryTargetResolver;
 use Thallo\Contracts\Search\IndexableContentReader;

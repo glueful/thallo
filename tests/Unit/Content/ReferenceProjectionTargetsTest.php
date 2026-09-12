@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content;
+namespace Thallo\Core\Tests\Unit\Content;
 
-use App\Content\Repositories\ReferenceProjectionRepository;
+use Thallo\Core\Content\Repositories\ReferenceProjectionRepository;
 use PHPUnit\Framework\TestCase;
 
 /**

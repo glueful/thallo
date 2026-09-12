@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content\Localization;
+namespace Thallo\Core\Tests\Unit\Content\Localization;
 
-use App\Content\Localization\LocaleFieldSeeder;
-use App\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Localization\LocaleFieldSeeder;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
 use PHPUnit\Framework\TestCase;
 
 final class LocaleFieldSeederTest extends TestCase

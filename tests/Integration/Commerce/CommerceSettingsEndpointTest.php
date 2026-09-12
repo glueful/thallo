@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Settings\SettingsStore;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Settings\SettingsStore;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Commerce\Catalog\VariantRepository;
 use Glueful\Extensions\Commerce\Tenancy\CommerceTenantResolution;
 use Glueful\Http\Response;

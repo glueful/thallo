@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content\Seo;
+namespace Thallo\Core\Tests\Unit\Content\Seo;
 
-use App\Content\Seo\PathRenderer;
+use Thallo\Core\Content\Seo\PathRenderer;
 use PHPUnit\Framework\TestCase;
 
 final class PathRendererTest extends TestCase

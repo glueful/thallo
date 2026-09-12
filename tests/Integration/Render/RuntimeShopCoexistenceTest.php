@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Render;
+namespace Thallo\Core\Tests\Integration\Render;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 /**
  * Coexistence proof for the theme runtime and shop.js (theme-runtime spec §8 +
  * shopjs-on-runtime adoption): the two independently-delivered behavior layers share ONE
  * document and ONE core registry without duplicate ownership. Mirrors
- * {@see \App\Tests\Integration\Commerce\ShopJsRuntimeTest}'s Node + hand-stubbed-DOM
+ * {@see \Thallo\Core\Tests\Integration\Commerce\ShopJsRuntimeTest}'s Node + hand-stubbed-DOM
  * harness (its Element/Doc/selector stubs, extended with class-selector matching so the
  * runtime's own querySelector calls resolve) and loads BOTH served byte-sources —
  * `packages/thallo-render/runtime/runtime.js` and

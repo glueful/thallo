@@ -44,7 +44,7 @@
 - `app/Support/UserRoleAssignmentPolicy.php` — hardened rules + `mayAdd`/`mayRemove` public API + denial audit.
 - `app/Http/Controllers/UserAdminController.php` — continuity guard in `update()`/`destroy()`; authorize-before-write; success audit.
 - `app/Setup/SetupService.php` — install user gets `superuser` + `administrator`.
-- `app/Providers/ThalloServiceProvider.php` — register `RoleAuthority`, `AuthorityAudit`, `AuthorityContinuityGuard`, `AssignableRolesController`, the two commands (services() + commands()).
+- `app/Providers/CoreServiceProvider.php` — register `RoleAuthority`, `AuthorityAudit`, `AuthorityContinuityGuard`, `AssignableRolesController`, the two commands (services() + commands()).
 - `routes/admin.php` — add the assignable-roles route.
 - `admin/src/queries/users.ts` — add the app-owned assignable-role query.
 - `admin/src/pages/users/components/UserCreateModal.vue` — create-mode assignable roles.
@@ -745,7 +745,7 @@ final class AuthorityAudit
 
 > Verify the `AuditRecorderInterface` / `AuditEntry` namespaces against `app/Content/Authorization/OperatorBypass.php`'s imports before running (they are the proven-correct references). Adjust the two `use` lines if they differ.
 
-- [ ] **Step 5: Register both in `app/Providers/ThalloServiceProvider.php` services()**
+- [ ] **Step 5: Register both in `app/Providers/CoreServiceProvider.php` services()**
 
 Add near the `UserRoleAssignmentPolicy` binding (~:1237). `AuthorityAudit`'s `AuditRecorderInterface` is optional — resolve it softly via a factory so a missing audit binding is null, mirroring how other optional-audit services are built:
 
@@ -786,7 +786,7 @@ Run: `composer phpcs -- app/Support/RoleAuthority.php app/Support/AuthorityAudit
 - [ ] **Step 7: Stage (HELD)**
 
 ```bash
-git add app/Support/RoleAuthority.php app/Support/AuthorityAudit.php app/Providers/ThalloServiceProvider.php tests/Integration/Authority/RoleAuthorityTest.php
+git add app/Support/RoleAuthority.php app/Support/AuthorityAudit.php app/Providers/CoreServiceProvider.php tests/Integration/Authority/RoleAuthorityTest.php
 ```
 
 ---
@@ -1375,7 +1375,7 @@ final class AuthorityContinuityGuard
 }
 ```
 
-- [ ] **Step 5: Register in `ThalloServiceProvider` services()** (beside `RoleAuthority`)
+- [ ] **Step 5: Register in `CoreServiceProvider` services()** (beside `RoleAuthority`)
 
 ```php
             AuthorityContinuityGuard::class => [
@@ -1407,7 +1407,7 @@ Run: `composer phpcs -- app/Support/AuthorityContinuityViolation.php app/Support
 - [ ] **Step 7: Stage (HELD)**
 
 ```bash
-git add app/Support/AuthorityContinuityViolation.php app/Support/AuthorityContinuityGuard.php app/Providers/ThalloServiceProvider.php tests/Integration/Authority/AuthorityContinuityGuardTest.php tests/Integration/Authority/ConnectionParticipationTest.php
+git add app/Support/AuthorityContinuityViolation.php app/Support/AuthorityContinuityGuard.php app/Providers/CoreServiceProvider.php tests/Integration/Authority/AuthorityContinuityGuardTest.php tests/Integration/Authority/ConnectionParticipationTest.php
 ```
 
 ---
@@ -1613,7 +1613,7 @@ Replace `update()`'s mutation section (from the `$account = array_filter(...)` b
 
 - [ ] **Step 6: Update the DI registration if the constructor param count is validated**
 
-`UserAdminController` is `autowire => true` (`ThalloServiceProvider.php:~1233`), so autowire supplies the new deps. No change needed unless a compile-time check requires it — run the container compile in Step 7 to confirm.
+`UserAdminController` is `autowire => true` (`CoreServiceProvider.php:~1233`), so autowire supplies the new deps. No change needed unless a compile-time check requires it — run the container compile in Step 7 to confirm.
 
 - [ ] **Step 7: Run tests, container compile, phpcs**
 
@@ -1708,7 +1708,7 @@ git add app/Setup/SetupService.php tests/Integration/Setup/SetupServiceTest.php
 
 **Files:**
 - Create: `app/Setup/Console/SuperuserGrantCommand.php`
-- Modify: `app/Providers/ThalloServiceProvider.php` (services() + commands())
+- Modify: `app/Providers/CoreServiceProvider.php` (services() + commands())
 - Test: `tests/Integration/Authority/SuperuserGrantCommandTest.php`
 
 **Interfaces:**
@@ -1858,7 +1858,7 @@ final class SuperuserGrantCommand extends BaseCommand
 }
 ```
 
-- [ ] **Step 4: Register in `ThalloServiceProvider`** — services() (beside `CreateAdminCommand`, ~:1397) and the `commands()` list (~:1522):
+- [ ] **Step 4: Register in `CoreServiceProvider`** — services() (beside `CreateAdminCommand`, ~:1397) and the `commands()` list (~:1522):
 
 ```php
             SuperuserGrantCommand::class => [
@@ -1890,7 +1890,7 @@ Run: `composer phpcs -- app/Setup/Console/SuperuserGrantCommand.php tests/Integr
 - [ ] **Step 6: Stage (HELD)**
 
 ```bash
-git add app/Setup/Console/SuperuserGrantCommand.php app/Providers/ThalloServiceProvider.php tests/Integration/Authority/SuperuserGrantCommandTest.php
+git add app/Setup/Console/SuperuserGrantCommand.php app/Providers/CoreServiceProvider.php tests/Integration/Authority/SuperuserGrantCommandTest.php
 ```
 
 ---
@@ -1899,7 +1899,7 @@ git add app/Setup/Console/SuperuserGrantCommand.php app/Providers/ThalloServiceP
 
 **Files:**
 - Create: `app/Setup/Console/SuperuserTransferCommand.php`
-- Modify: `app/Providers/ThalloServiceProvider.php` (services() + commands())
+- Modify: `app/Providers/CoreServiceProvider.php` (services() + commands())
 - Test: `tests/Integration/Authority/SuperuserTransferCommandTest.php`
 
 **Interfaces:**
@@ -2086,7 +2086,7 @@ final class SuperuserTransferCommand extends BaseCommand
 }
 ```
 
-- [ ] **Step 4: Register in `ThalloServiceProvider`** (services() + commands()):
+- [ ] **Step 4: Register in `CoreServiceProvider`** (services() + commands()):
 
 ```php
             SuperuserTransferCommand::class => [
@@ -2118,7 +2118,7 @@ Run: `composer phpcs -- app/Setup/Console/SuperuserTransferCommand.php tests/Int
 - [ ] **Step 6: Stage (HELD)**
 
 ```bash
-git add app/Setup/Console/SuperuserTransferCommand.php app/Providers/ThalloServiceProvider.php tests/Integration/Authority/SuperuserTransferCommandTest.php
+git add app/Setup/Console/SuperuserTransferCommand.php app/Providers/CoreServiceProvider.php tests/Integration/Authority/SuperuserTransferCommandTest.php
 ```
 
 ---
@@ -2127,7 +2127,7 @@ git add app/Setup/Console/SuperuserTransferCommand.php app/Providers/ThalloServi
 
 **Files:**
 - Create: `app/Http/Controllers/AssignableRolesController.php`
-- Modify: `routes/admin.php` (near the users routes, ~:249), `app/Providers/ThalloServiceProvider.php` (services())
+- Modify: `routes/admin.php` (near the users routes, ~:249), `app/Providers/CoreServiceProvider.php` (services())
 - Test: `tests/Integration/Authority/AssignableRolesEndpointTest.php`
 
 **Interfaces:**
@@ -2339,7 +2339,7 @@ final class AssignableRolesController
             ->middleware('content_permission:users.roles.manage');
 ```
 
-Add `use App\Http\Controllers\AssignableRolesController;` at the top of `routes/admin.php`. Register the controller in `ThalloServiceProvider` services() (autowire), beside `UserAdminController`:
+Add `use App\Http\Controllers\AssignableRolesController;` at the top of `routes/admin.php`. Register the controller in `CoreServiceProvider` services() (autowire), beside `UserAdminController`:
 
 ```php
             AssignableRolesController::class => [
@@ -2367,7 +2367,7 @@ Run: `composer phpcs -- app/Http/Controllers/AssignableRolesController.php tests
 - [ ] **Step 6: Stage (HELD)**
 
 ```bash
-git add app/Http/Controllers/AssignableRolesController.php routes/admin.php app/Providers/ThalloServiceProvider.php tests/Integration/Authority/AssignableRolesEndpointTest.php
+git add app/Http/Controllers/AssignableRolesController.php routes/admin.php app/Providers/CoreServiceProvider.php tests/Integration/Authority/AssignableRolesEndpointTest.php
 ```
 
 ---

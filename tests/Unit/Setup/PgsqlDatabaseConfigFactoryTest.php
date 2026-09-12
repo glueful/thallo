@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Setup;
+namespace Thallo\Core\Tests\Unit\Setup;
 
-use App\Setup\PgsqlDatabaseConfigFactory;
+use Thallo\Core\Setup\PgsqlDatabaseConfigFactory;
 use Glueful\Installer\DatabaseConfig;
 use Glueful\Installer\EnvWriter;
 use PHPUnit\Framework\TestCase;

@@ -4,7 +4,7 @@ import { authFetch } from '@/api/authFetch'
 import { runtimeConfig } from '@/runtime/config'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 
-// Extensions admin API (App\Http\Controllers\ExtensionAdminController, under /v1/admin/extensions).
+// Extensions admin API (Thallo\Core\Http\Controllers\ExtensionAdminController, under /v1/admin/extensions).
 // Installed data is local (PackageManifest + the enabled allow-list); Browse proxies Packagist
 // filtered to type=glueful-extension. Enable/disable rewrites config/extensions.php (dev only).
 

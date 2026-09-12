@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Workflow;
+namespace Thallo\Core\Tests\Integration\Workflow;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Application;
 use Glueful\Bootstrap\ApplicationContext;
 use Thallo\Contracts\Authoring\PublishBlocked;
@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
  * Proves thallo-workflow is cleanly disable-able: with thallo.workflow disabled, the boot
  * gate skips routes + listeners entirely (404s, no state mutations), and the publish gate
  * short-circuits so publish behaves as current core. Also guards the pack boundary: no
- * App\ references in packages/thallo-workflow/src.
+ * Thallo\Core\ references in packages/thallo-workflow/src.
  */
 final class WorkflowRemovabilityTest extends AppTestCase
 {
@@ -55,8 +55,8 @@ final class WorkflowRemovabilityTest extends AppTestCase
         // WorkflowPublishGateTest; here we prove the DISABLED APP's own container publishes
         // an unapproved draft without a PublishBlocked (behaves as current core).
         $c = self::$disabledApp->getContainer();
-        $types = $c->get(\App\Content\Repositories\ContentTypeRepository::class);
-        $entries = $c->get(\App\Content\Repositories\EntryRepository::class);
+        $types = $c->get(\Thallo\Core\Content\Repositories\ContentTypeRepository::class);
+        $entries = $c->get(\Thallo\Core\Content\Repositories\EntryRepository::class);
         $type = $types->create([
             'slug' => 'wfoff-post',
             'name' => 'WfOff',
@@ -66,7 +66,7 @@ final class WorkflowRemovabilityTest extends AppTestCase
         $entries->saveDraft($entry, 'en', ['title' => 'V1'], 1, 0, 'nobypass0009');
 
         try {
-            $version = $c->get(\App\Content\Services\PublishService::class)
+            $version = $c->get(\Thallo\Core\Content\Services\PublishService::class)
                 ->publish($entry, 'en', 'nobypass0009');
             self::assertNotSame('', $version);
         } catch (PublishBlocked $e) {
@@ -76,7 +76,7 @@ final class WorkflowRemovabilityTest extends AppTestCase
 
     public function testPackSourceHasNoAppReferences(): void
     {
-        // Mirror scripts/check-pack-boundaries.php: a leading [^\w] catches bare \App\ FQCNs.
+        // Mirror scripts/check-pack-boundaries.php: a leading [^\w] catches bare \Thallo\Core\ FQCNs.
         $root = dirname(__DIR__, 3) . '/packages/thallo-workflow/src';
         $files = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($root));
         $checked = 0;
@@ -86,9 +86,9 @@ final class WorkflowRemovabilityTest extends AppTestCase
             }
             $src = (string) file_get_contents($file->getPathname());
             self::assertDoesNotMatchRegularExpression(
-                '/(^|[^\\w])App\\\\/m',
+                '/(^|[^\\w])Thallo\\Core\\\\/m',
                 $src,
-                "{$file->getPathname()} must not reference App\\ (pack boundary)",
+                "{$file->getPathname()} must not reference Thallo\\Core\\ (pack boundary)",
             );
             $checked++;
         }

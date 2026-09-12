@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Settings;
+namespace Thallo\Core\Tests\Integration\Settings;
 
-use App\Settings\PlatformPayviaSettingsOverride;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Settings\PlatformPayviaSettingsOverride;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Encryption\EncryptionService;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;

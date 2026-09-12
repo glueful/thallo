@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Account;
+namespace Thallo\Core\Tests\Unit\Account;
 
 use PHPUnit\Framework\TestCase;
 use Thallo\Account\AccountReturnPath;

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Schema\SchemaParseException;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Schema\SchemaParseException;
+use Thallo\Core\Tests\Support\AppTestCase;
 
 final class BlockTypeRepositoryTest extends AppTestCase
 {

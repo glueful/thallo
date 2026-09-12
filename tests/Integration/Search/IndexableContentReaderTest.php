@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Search;
+namespace Thallo\Core\Tests\Integration\Search;
 
-use App\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Integration\Seo\Concerns\SeedsPublishedContent;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Contracts\Search\IndexableContentReader;
 
 final class IndexableContentReaderTest extends AppTestCase

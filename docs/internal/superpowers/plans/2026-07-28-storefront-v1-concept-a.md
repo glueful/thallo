@@ -154,7 +154,7 @@ the release exists.
 **Files:**
 - Create: `packages/thallo-contracts/src/Delivery/MediaUrlBatchResolver.php`
 - Modify: `app/Content/Delivery/EngineMediaUrlResolver.php` (implements the batch; `url()`
-  delegates), `app/Providers/ThalloServiceProvider.php` (bind the interface to the same
+  delegates), `app/Providers/CoreServiceProvider.php` (bind the interface to the same
   factory/instance as `MediaUrlResolver`)
 - Test: `tests/Integration/Content/MediaUrlBatchResolverTest.php` (new; sibling of
   `MediaVariantUrlResolverTest`, reuse its seedBlob shape)

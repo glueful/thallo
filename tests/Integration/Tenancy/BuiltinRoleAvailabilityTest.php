@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Content\Authorization\BuiltinRoleAvailabilityRepository;
-use App\Content\Authorization\EffectiveRoleMatrix;
-use App\Content\Authorization\TenantRoleLifecycle;
-use App\Content\Authorization\TenantRoleLifecycleException;
-use App\Content\Authorization\TenantRolePolicyMutator;
-use App\Content\Authorization\ThalloMembershipRoleAuthority;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Authorization\BuiltinRoleAvailabilityRepository;
+use Thallo\Core\Content\Authorization\EffectiveRoleMatrix;
+use Thallo\Core\Content\Authorization\TenantRoleLifecycle;
+use Thallo\Core\Content\Authorization\TenantRoleLifecycleException;
+use Thallo\Core\Content\Authorization\TenantRolePolicyMutator;
+use Thallo\Core\Content\Authorization\ThalloMembershipRoleAuthority;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;
 use Glueful\Helpers\Utils;
 
@@ -197,7 +197,7 @@ final class BuiltinRoleAvailabilityTest extends AppTestCase
     // IS 'viewer', so disabling viewer hits this guard even without configuration.
     public function testDisablingTheConfiguredSignupRoleRequiresAReplacement(): void
     {
-        $signup = $this->container()->get(\App\Signup\SignupConfig::class);
+        $signup = $this->container()->get(\Thallo\Core\Signup\SignupConfig::class);
         $signup->setMemberSignup($this->tenantUuid, true, 'viewer');
 
         try {

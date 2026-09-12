@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy\Authorization;
+namespace Thallo\Core\Tests\Unit\Tenancy\Authorization;
 
-use App\Content\Authorization\OperatorBypass;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Authorization\OperatorBypass;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Extensions\Audit\Contracts\AuditRecorderInterface;
 use Glueful\Extensions\Audit\Support\AuditEntry;
 use Glueful\Permissions\PermissionManager;

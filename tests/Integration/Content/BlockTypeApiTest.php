@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Content;
+namespace Thallo\Core\Tests\Integration\Content;
 
-use App\Content\Blocks\BlockTypeRepository;
-use App\Content\Http\Controllers\BlockTypeController;
-use App\Content\Http\DTOs\BlockTypeData;
-use App\Content\Http\DTOs\FieldDefinitionData;
-use App\Content\Http\DTOs\UpdateBlockTypeData;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Blocks\BlockTypeRepository;
+use Thallo\Core\Content\Http\Controllers\BlockTypeController;
+use Thallo\Core\Content\Http\DTOs\BlockTypeData;
+use Thallo\Core\Content\Http\DTOs\FieldDefinitionData;
+use Thallo\Core\Content\Http\DTOs\UpdateBlockTypeData;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 
 final class BlockTypeApiTest extends AppTestCase

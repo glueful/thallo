@@ -145,6 +145,11 @@ search returns docs pages, the sitemap lists them, and the outsider walk passes.
 
 ### Phase 3 — Deploy from the tag
 
+Note (2026-09-12): `composer update` cannot upgrade a `create-project` install — Thallo is the
+root package (charter decision 10). Until the package split ships, the deploy script below IS
+the upgrade path for thallo.dev, and `docs/upgrading.md` documents the same git-checkout flow
+for operators from beta.21. See `2026-09-12-composer-updatable-thallo.md`.
+
 `scripts/deploy-site` (or the panel equivalent) on the server: fetch the tag, `composer install
 --no-dev`, `php glueful thallo:provision`, `php glueful thallo:import markdown docs --type=doc
 --prefix=docs --publish`, reload PHP-FPM, warm the page cache, run `thallo:doctor`. The script

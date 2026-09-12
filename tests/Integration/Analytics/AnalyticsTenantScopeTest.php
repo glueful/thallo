@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Analytics;
+namespace Thallo\Core\Tests\Integration\Analytics;
 
-use App\Tests\Support\TenantOracleTestCase;
+use Thallo\Core\Tests\Support\TenantOracleTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Contracts\Tenancy\CurrentTenantResolver;

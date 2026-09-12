@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content\Seo;
+namespace Thallo\Core\Tests\Unit\Content\Seo;
 
-use App\Content\Seo\CanonicalPathBuilder;
-use App\Content\Seo\PathRenderer;
+use Thallo\Core\Content\Seo\CanonicalPathBuilder;
+use Thallo\Core\Content\Seo\PathRenderer;
 use Glueful\Extensions\I18n\Contracts\LocaleManagerInterface;
 use PHPUnit\Framework\TestCase;
 

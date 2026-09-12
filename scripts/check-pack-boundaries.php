@@ -17,11 +17,13 @@ foreach (glob($root . '/packages/*/composer.json') ?: [] as $manifest) {
         continue; // the contracts package itself is exempt
     }
     $deps = array_merge($json['require'] ?? [], $json['require-dev'] ?? []);
-    if (array_key_exists('glueful/thallo', $deps)) {
-        $violations[] = "{$name} depends on glueful/thallo (forbidden — use glueful/thallo-contracts)";
+    foreach (['glueful/thallo', 'glueful/thallo-dev', 'glueful/thallo-core'] as $forbidden) {
+        if (array_key_exists($forbidden, $deps)) {
+            $violations[] = "{$name} depends on {$forbidden} (forbidden — use glueful/thallo-contracts)";
+        }
     }
 }
-// Source-level boundary: no first-party pack (except the contracts package) may reference App\*.
+// Source-level boundary: no first-party pack (except the contracts package) may reference Thallo\Core\*.
 foreach (glob($root . '/packages/*', GLOB_ONLYDIR) ?: [] as $pkgDir) {
     if (basename($pkgDir) === 'thallo-contracts') {
         continue;
@@ -42,10 +44,10 @@ foreach (glob($root . '/packages/*', GLOB_ONLYDIR) ?: [] as $pkgDir) {
                 continue;
             }
             $src = (string) file_get_contents($file->getPathname());
-            // Matches `use App\...`, `\App\...`, or a bare `App\` namespace reference.
-            if (preg_match('/(^|[^\\w])App\\\\/m', $src) === 1) {
+            // Matches `use Thallo\Core\...`, `\Thallo\Core\...`, or a bare `Thallo\Core\` reference.
+            if (preg_match('/(^|[^\\w])Thallo\\\\Core\\\\/m', $src) === 1) {
                 $violations[] = basename($pkgDir) . '/' . $sub . '/' . $file->getFilename()
-                    . ' references App\\ (packs must use contracts, not the app)';
+                    . ' references Thallo\\Core\\ (packs must use contracts, not the core)';
             }
         }
     }

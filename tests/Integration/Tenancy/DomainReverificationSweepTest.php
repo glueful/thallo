@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Tests\Support\RetrofitHarnessTestCase;
+use Thallo\Core\Tests\Support\RetrofitHarnessTestCase;
 use Glueful\Extensions\Contracts\Tenancy\DomainReverificationResult;
 use Glueful\Extensions\Contracts\Tenancy\TenantDomainAdministration;
 use Glueful\Helpers\Utils;

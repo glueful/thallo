@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Subscriptions;
+namespace Thallo\Core\Tests\Integration\Subscriptions;
 
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\ApiKey\ApiKeyService;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Extensions\Aegis\AegisPermissionProvider;
@@ -24,7 +24,7 @@ use Thallo\Subscriptions\Http\PlansController;
  *
  * Four things, per the task brief's Step 1:
  *  - happy-path CRUD driven through the REAL kernel (auth via a real `X-API-Key` header, mirroring
- *    {@see \App\Tests\Integration\Commerce\AdminAuthorizationMatrixTest}'s established convention
+ *    {@see \Thallo\Core\Tests\Integration\Commerce\AdminAuthorizationMatrixTest}'s established convention
  *    for admin surfaces with no session-cookie harness), seeded via `POST .../import-config`.
  *  - a 403 for a `tenancy.manage`-less actor on EVERY registered route, looping the route table
  *    the structural pin below proves is live.

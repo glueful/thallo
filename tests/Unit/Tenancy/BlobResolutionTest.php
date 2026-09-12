@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Tenancy;
+namespace Thallo\Core\Tests\Unit\Tenancy;
 
-use App\Content\Media\TenantBlobRouteMiddlewareProvider;
+use Thallo\Core\Content\Media\TenantBlobRouteMiddlewareProvider;
 use Glueful\Uploader\Contracts\BlobRouteAction;
 use PHPUnit\Framework\TestCase;
 

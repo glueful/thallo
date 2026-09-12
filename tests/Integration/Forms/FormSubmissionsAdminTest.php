@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Forms;
+namespace Thallo\Core\Tests\Integration\Forms;
 
-use App\Content\Forms\FormSubmission;
-use App\Content\Forms\FormSubmissionRepository;
-use App\Http\Controllers\FormSubmissionsController;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Forms\FormSubmission;
+use Thallo\Core\Content\Forms\FormSubmissionRepository;
+use Thallo\Core\Http\Controllers\FormSubmissionsController;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 

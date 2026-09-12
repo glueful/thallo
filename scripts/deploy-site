@@ -1,0 +1,142 @@
+#!/usr/bin/env bash
+#
+# Deploy a Thallo site FROM A RELEASE TAG (docs/upgrading.md; DISTRIBUTION.md decision 10 and the
+# website-from-tag gate).
+#
+# Why this exists: a `create-project` install is Composer's ROOT package, and `composer update`
+# never rewrites the root — it moves the framework and the packs, never Thallo itself. Until the
+# package split ships, the upgrade IS a fresh checkout of the next tag, with everything that is
+# the operator's carried across. This script makes that one repeatable, reversible command.
+#
+# Layout (DEPLOY_ROOT, e.g. /home/thallo/htdocs/thallo.dev):
+#   releases/<tag>/   one checkout per deployed tag (kept: rollback = re-point `current`)
+#   shared/.env       the site's environment — never inside a release
+#   shared/storage/   uploads, cache, logs, backups
+#   shared/themes/    the operator's theme overrides (app-level themes/{name}/)
+#   current -> releases/<tag>   the web server's document root is current/public
+#
+# Usage:
+#   scripts/deploy-site [--dry-run] vX.Y.Z[-beta.N]
+#
+# Environment:
+#   DEPLOY_ROOT   required — the layout root above
+#   REPO_URL      default https://github.com/glueful/thallo.git
+#   FPM_RELOAD    default "sudo systemctl reload php8.4-fpm" (set to ":" if the panel reloads for you)
+#   PHP           default php
+#
+# Only a release tag is accepted: never a branch, never a commit — the charter deploys from the
+# published, immutable tag and nothing else.
+set -euo pipefail
+
+usage() {
+  cat >&2 <<'EOF'
+Usage: scripts/deploy-site [--dry-run] vX.Y.Z[-beta.N]
+  DEPLOY_ROOT=/path/to/site  (required: holds releases/, shared/, current)
+  REPO_URL, FPM_RELOAD, PHP  (optional overrides; see the header of this script)
+EOF
+}
+
+DRY_RUN=0
+TAG=""
+for arg in "$@"; do
+  case "$arg" in
+    --dry-run) DRY_RUN=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) TAG="$arg" ;;
+  esac
+done
+
+if [[ -z "$TAG" ]]; then
+  usage
+  exit 2
+fi
+if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+  echo "deploy-site: '$TAG' is not a release tag (expected vX.Y.Z or vX.Y.Z-beta.N)." >&2
+  exit 2
+fi
+if [[ -z "${DEPLOY_ROOT:-}" ]]; then
+  echo "deploy-site: DEPLOY_ROOT is required (the directory holding releases/, shared/ and current)." >&2
+  exit 2
+fi
+
+REPO_URL="${REPO_URL:-https://github.com/glueful/thallo.git}"
+FPM_RELOAD="${FPM_RELOAD:-sudo systemctl reload php8.4-fpm}"
+PHP="${PHP:-php}"
+RELEASE="$DEPLOY_ROOT/releases/$TAG"
+SHARED="$DEPLOY_ROOT/shared"
+CURRENT="$DEPLOY_ROOT/current"
+
+# Every step is printed before it runs; with --dry-run it is only printed.
+run() {
+  echo "+ $*"
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    "$@"
+  fi
+}
+run_in() {
+  local dir="$1"; shift
+  echo "+ (cd $dir && $*)"
+  if [[ "$DRY_RUN" -eq 0 ]]; then
+    (cd "$dir" && "$@")
+  fi
+}
+
+echo "== deploy-site: $TAG -> $DEPLOY_ROOT $([[ "$DRY_RUN" -eq 1 ]] && echo '(dry run)')"
+
+if [[ "$DRY_RUN" -eq 0 ]]; then
+  for required in "$SHARED/.env" "$SHARED/storage" "$SHARED/themes"; do
+    if [[ ! -e "$required" ]]; then
+      echo "deploy-site: $required is missing — create shared/ first (see docs/upgrading.md, 'First deploy with this layout')." >&2
+      exit 1
+    fi
+  done
+  if [[ -e "$RELEASE" ]]; then
+    echo "deploy-site: $RELEASE already exists — a tag is deployed once; remove it to redeploy." >&2
+    exit 1
+  fi
+fi
+
+# 1. Check out exactly the tag (shallow; then prove the checkout IS the tag).
+run mkdir -p "$DEPLOY_ROOT/releases"
+run git clone --quiet --depth 1 --branch "$TAG" "$REPO_URL" "$RELEASE"
+run_in "$RELEASE" git describe --exact-match --tags
+
+# 2. The operator's files come from shared/ — a release never carries its own.
+echo "+ link shared/.env, shared/storage, shared/themes into the release"
+if [[ "$DRY_RUN" -eq 0 ]]; then
+  rm -rf "$RELEASE/storage" "$RELEASE/themes"
+  ln -s "$SHARED/.env" "$RELEASE/.env"
+  ln -s "$SHARED/storage" "$RELEASE/storage"
+  ln -s "$SHARED/themes" "$RELEASE/themes"
+fi
+
+# 3. Dependencies exactly as locked in the tag; no dev packages on a server.
+run_in "$RELEASE" composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+
+# 4. Provision: pending migrations, install-role grants, starter block types, extension cache.
+#    Non-interactive: the credentials already in shared/.env are used as they are.
+run_in "$RELEASE" "$PHP" glueful thallo:provision --no-interaction
+run_in "$RELEASE" "$PHP" glueful migrate:verify
+
+# 5. Caches that outlive a release: the compiled route table and rendered pages.
+#    (The compiled container is signed by its definitions and recompiles itself.)
+run_in "$RELEASE" "$PHP" glueful route:cache:clear
+run_in "$RELEASE" "$PHP" glueful render:cache:clear
+
+# 6. Switch: `current` is re-pointed in one `ln -sfn` (unlink + symlink, no partial tree is ever
+#    visible; portable across GNU and BSD userlands).
+echo "+ ln -sfn $RELEASE $CURRENT (switch)"
+if [[ "$DRY_RUN" -eq 0 ]]; then
+  ln -sfn "$RELEASE" "$CURRENT"
+fi
+
+# 7. PHP-FPM reload so OPcache drops the previous release's classes.
+echo "+ $FPM_RELOAD"
+if [[ "$DRY_RUN" -eq 0 ]]; then
+  bash -c "$FPM_RELOAD"
+fi
+
+# 8. Prove it: the doctor runs against the live release.
+run_in "$CURRENT" "$PHP" glueful thallo:doctor
+
+echo "== deploy-site: $TAG is live at $CURRENT (rollback: re-point current to a previous releases/<tag>, reload FPM)"

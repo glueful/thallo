@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Account;
+namespace Thallo\Core\Tests\Integration\Account;
 
-use App\Signup\SignupIntentRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Signup\SignupIntentRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Auth\Interfaces\SessionStoreInterface;
 use Glueful\Cache\CacheStore;
 use Glueful\Extensions\Users\Repositories\UserRepository;
@@ -241,7 +241,7 @@ final class AccountContractsTest extends AppTestCase
         $sessions = $this->createMock(SessionStoreInterface::class);
         $sessions->expects(self::once())->method('revokeAllForUser')->with($userUuid)->willReturn(true);
 
-        $recovery = new \App\Account\AppStorefrontAccountRecovery(
+        $recovery = new \Thallo\Core\Account\AppStorefrontAccountRecovery(
             $this->appContext(),
             $this->container()->get(UserRepository::class),
             $sessions,
@@ -297,12 +297,12 @@ final class AccountContractsTest extends AppTestCase
         foreach ($files as $file) {
             if (
                 $file->isFile() && $file->getExtension() === 'php'
-                && str_contains((string) file_get_contents($file->getPathname()), 'App\\Signup')
+                && str_contains((string) file_get_contents($file->getPathname()), 'Thallo\\Core\\Signup')
             ) {
                 $offenders[] = $file->getFilename();
             }
         }
 
-        self::assertSame([], $offenders, 'thallo-account must consume contracts, not App\\Signup');
+        self::assertSame([], $offenders, 'thallo-account must consume contracts, not Thallo\\Core\\Signup');
     }
 }

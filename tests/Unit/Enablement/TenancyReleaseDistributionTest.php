@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Enablement;
+namespace Thallo\Core\Tests\Unit\Enablement;
 
 use PHPUnit\Framework\TestCase;
 
@@ -16,10 +16,14 @@ final class TenancyReleaseDistributionTest extends TestCase
 {
     public function testTenancyIsPublishedNotAPathRepoAtRelease(): void
     {
-        $composer = json_decode((string) file_get_contents(dirname(__DIR__, 3) . '/composer.json'), true);
+        $root = dirname(__DIR__, 3);
+        // The dev root installs everything from path repositories; the PUBLISHED requirement on
+        // glueful/tenancy lives in the package that ships it: glueful/thallo-core.
+        $composer = json_decode((string) file_get_contents($root . '/core/composer.json'), true);
+        $devRoot = json_decode((string) file_get_contents($root . '/composer.json'), true);
 
         // No sibling path repository for tenancy.
-        foreach (($composer['repositories'] ?? []) as $repo) {
+        foreach (($devRoot['repositories'] ?? []) as $repo) {
             self::assertStringNotContainsString('extensions/tenancy', (string) ($repo['url'] ?? ''));
         }
 

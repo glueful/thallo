@@ -68,12 +68,12 @@
 **Files:**
 - Create: `packages/thallo-tenancy/src/Enablement/DisableGates.php`, `packages/thallo-tenancy/src/Contracts/StarterCoverageCheck.php`, `app/Content/Starter/DefaultStarterCoverageCheck.php`
 - Modify: `app/Content/Starter/StarterProvenanceRepository.php` (+`divergentStates(): array`)
-- Modify: `app/Providers/ThalloServiceProvider.php` (bind pack interface → shared app implementation)
+- Modify: `app/Providers/CoreServiceProvider.php` (bind pack interface → shared app implementation)
 - Test: `tests/Integration/Tenancy/DisableGatesTest.php`, `tests/Unit/Content/Starter/DefaultStarterCoverageCheckTest.php`
 
 **Interfaces:**
 - Consumes (verified): `TenantAdministration::listTenants(ApplicationContext, ?string $status=null): array`; `ResolutionActivationStore::step()`; `SystemFlags::defaultTenantUuid()`; SP2b as-built `StarterKind::{definitions,locateExact(string): ?array{key,fingerprint}}`, `StarterDefinition::{sourceId,definitionKey,adoptionKeys}` (public readonly), `StarterDefinitions::syncKinds()`, `StarterProvenanceRepository::{findBySource,sourceIdsFor}`.
-- Produces: `StarterProvenanceRepository::divergentStates(): array` — all rows (any kind) with state ∈ {customized, orphaned_source}, shape `list<array{definition_kind,definition_key,state}>`. `DisableGates::assertCanDisable(): void` throwing `EnablementException` with the gate name + unblocking command; boundary note: `DisableGates` lives in the pack but consumes starter surfaces — it takes the kinds via the pack-safe route: a Thallo-local `StarterCoverageCheck` interface `{coverageViolations(): list<string>}` declared in the pack (`packages/thallo-tenancy/src/Contracts/StarterCoverageCheck.php`), implemented app-side over `StarterDefinitions`+repo (same inversion as `TenantSeedActivator`), bound by `ThalloServiceProvider`.
+- Produces: `StarterProvenanceRepository::divergentStates(): array` — all rows (any kind) with state ∈ {customized, orphaned_source}, shape `list<array{definition_kind,definition_key,state}>`. `DisableGates::assertCanDisable(): void` throwing `EnablementException` with the gate name + unblocking command; boundary note: `DisableGates` lives in the pack but consumes starter surfaces — it takes the kinds via the pack-safe route: a Thallo-local `StarterCoverageCheck` interface `{coverageViolations(): list<string>}` declared in the pack (`packages/thallo-tenancy/src/Contracts/StarterCoverageCheck.php`), implemented app-side over `StarterDefinitions`+repo (same inversion as `TenantSeedActivator`), bound by `CoreServiceProvider`.
 - **Source-aware algorithm (spec §6, implemented app-side in the `StarterCoverageCheck` impl):** for each syncable source definition: provenance by `source_id` → exists: require state `applied` AND recorded key ∈ {current `definitionKey`} ∪ `adoptionKeys` AND `locateExact(recordedKey)` non-null (else violation "dangling/wrong-source"); absent: probe `locateExact` over {current key} ∪ `adoptionKeys` — live row found → violation "starter-shaped row of unknown origin"; none → violation "missing starter (run thallo:tenant:sync)". Tenant-authored rows at unrelated keys never inspected.
 
 - [ ] **Step 1: Failing gates matrix** — each hard gate trips individually (two tenants; resolution FULL stub; missing default uuid); policy gate cases: customized row → blocked; orphaned_source → blocked; custom NON-starter content type → **passes** (pinned regression); live row at an adoption key without provenance → blocked (unknown origin); missing starter row → blocked naming sync; provenance recording an adoption key with the live row present → **passes** (legit rename history); provenance keyed to a key belonging to a different source → blocked (wrong-source).
@@ -258,7 +258,7 @@ if ($step === EnablementStep::DISABLED_WIDENED) {
 
 **Files:**
 - Create: `packages/thallo-tenancy/src/Console/TenancyDiagnoseCommand.php` + `packages/thallo-tenancy/src/Enablement/TenancyDiagnostics.php` (the composition, testable without CLI)
-- Modify: `packages/thallo-tenancy/src/TenancyServiceProvider.php` (bindings); pack contract `packages/thallo-tenancy/src/Contracts/StaticWriteAudit.php` (pack-neutral view of T7's app class: `available(): bool; run(): array` — bound by `ThalloServiceProvider` to `RawPdoWriteAudit`, same inversion as `StarterCoverageCheck`)
+- Modify: `packages/thallo-tenancy/src/TenancyServiceProvider.php` (bindings); pack contract `packages/thallo-tenancy/src/Contracts/StaticWriteAudit.php` (pack-neutral view of T7's app class: `available(): bool; run(): array` — bound by `CoreServiceProvider` to `RawPdoWriteAudit`, same inversion as `StarterCoverageCheck`)
 - Test: `tests/Integration/Tenancy/DiagnoseCommandTest.php`
 
 **Interfaces:**

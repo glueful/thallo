@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\RetrofittedTenantTestCase;
+use Thallo\Core\Tests\Support\RetrofittedTenantTestCase;
 use Glueful\Extensions\Contracts\Tenancy\TenantAdministration;
 use Glueful\Helpers\Utils;
 use Thallo\Tenancy\Purge\PurgeCoordinator;

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Forms;
+namespace Thallo\Core\Tests\Integration\Forms;
 
-use App\Content\Forms\FieldDef;
-use App\Content\Forms\FormValueNormalizer;
+use Thallo\Core\Content\Forms\FieldDef;
+use Thallo\Core\Content\Forms\FormValueNormalizer;
 use PHPUnit\Framework\TestCase;
 
 final class FormValueNormalizerTest extends TestCase

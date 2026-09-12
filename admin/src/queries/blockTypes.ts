@@ -11,7 +11,7 @@ import type { ContentTypeField } from './contentTypes'
 // contract); removal is deactivation only — plus zero-usage HARD delete and declared
 // schema migrations (block-migrations spec §2/§6).
 
-/** Mirrors the backend App\Content\Blocks\BlockDepth::MAX (nesting amendment §A2). */
+/** Mirrors the backend Thallo\Core\Content\Blocks\BlockDepth::MAX (nesting amendment §A2). */
 export const MAX_BLOCK_DEPTH = 3
 
 export interface BlockType {

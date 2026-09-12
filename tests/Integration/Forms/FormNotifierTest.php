@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Forms;
+namespace Thallo\Core\Tests\Integration\Forms;
 
-use App\Content\Forms\FieldDef;
-use App\Content\Forms\FormDescriptor;
-use App\Content\Forms\FormMailSender;
-use App\Content\Forms\FormNotifier;
+use Thallo\Core\Content\Forms\FieldDef;
+use Thallo\Core\Content\Forms\FormDescriptor;
+use Thallo\Core\Content\Forms\FormMailSender;
+use Thallo\Core\Content\Forms\FormNotifier;
 use Psr\Log\NullLogger;
 use PHPUnit\Framework\TestCase;
 

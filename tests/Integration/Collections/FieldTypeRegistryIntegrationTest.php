@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Collections;
+namespace Thallo\Core\Tests\Integration\Collections;
 
 use Thallo\Contracts\Schema\FieldTypeRegistry;
 
 /**
- * Verifies that ThalloServiceProvider binds FieldTypeRegistry to the container and
+ * Verifies that CoreServiceProvider binds FieldTypeRegistry to the container and
  * that EditorialFieldTypes seeds the registry with all content.* type definitions.
  */
 final class FieldTypeRegistryIntegrationTest extends CollectionsTestCase

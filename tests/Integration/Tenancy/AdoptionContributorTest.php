@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Tenancy;
+namespace Thallo\Core\Tests\Integration\Tenancy;
 
-use App\Tests\Support\RecordingExtensionActivation;
-use App\Tests\Support\RetrofitHarnessTestCase;
+use Thallo\Core\Tests\Support\RecordingExtensionActivation;
+use Thallo\Core\Tests\Support\RetrofitHarnessTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Contracts\Tenancy\TenantEnforcementProbe;

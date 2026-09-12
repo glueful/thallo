@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Console;
+namespace Thallo\Core\Tests\Integration\Console;
 
-use App\Content\Console\PruneVersionsCommand;
-use App\Content\Repositories\VersionRepository;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Content\Console\PruneVersionsCommand;
+use Thallo\Core\Content\Repositories\VersionRepository;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\Console\Tester\CommandTester;
 
 final class PruneVersionsCommandTest extends AppTestCase

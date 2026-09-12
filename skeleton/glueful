@@ -1,0 +1,36 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Glueful\Console\Application as GluefulConsole;
+use Symfony\Component\Console\Input\ArgvInput;
+use Symfony\Component\Console\Output\ConsoleOutput;
+
+// Bootstrap the application (loads env, builds container, boots framework)
+$app = require __DIR__ . '/bootstrap/app.php';
+
+// Get the DI container from the Application
+$container = $app->getContainer();
+
+// Wire up Glueful’s Symfony Console application with DI
+$cli = new GluefulConsole($container);
+
+// When invoked through the branded `thallo` launcher, present the console as that brand
+// (e.g. "Thallo") instead of "Glueful CLI". Bare `php glueful` is unaffected.
+$brand = getenv('CONSOLE_NAME');
+if (is_string($brand) && $brand !== '') {
+    $cli->setName($brand);
+    // Thallo has no release version of its own yet, so show just the name. Symfony omits the
+    // version when it is the 'UNKNOWN' sentinel. Set CONSOLE_VERSION to show a number later.
+    $version = getenv('CONSOLE_VERSION');
+    $cli->setVersion(is_string($version) && $version !== '' ? $version : 'UNKNOWN');
+}
+
+// Run CLI
+try {
+    exit($cli->run(new ArgvInput(), new ConsoleOutput()));
+} catch (Throwable $e) {
+    echo "Error: " . $e->getMessage() . "\n";
+    exit(1);
+}

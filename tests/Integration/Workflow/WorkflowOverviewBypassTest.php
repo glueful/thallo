@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Workflow;
+namespace Thallo\Core\Tests\Integration\Workflow;
 
-use App\Tests\Integration\Workflow\Concerns\GrantsPermissions;
-use App\Tests\Support\AppTestCase;
+use Thallo\Core\Tests\Integration\Workflow\Concerns\GrantsPermissions;
+use Thallo\Core\Tests\Support\AppTestCase;
 use Symfony\Component\HttpFoundation\Request;
 use Thallo\Workflow\Http\Controllers\WorkflowController;
 use Thallo\Workflow\WorkflowService;

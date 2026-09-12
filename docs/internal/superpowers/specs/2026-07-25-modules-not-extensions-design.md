@@ -94,7 +94,7 @@ Applied to this project:
   on/off); adding the explicit `thallo.search => false` default is a parity migration because
   Search is currently off by provider absence. No changes to real extensions (commerce, payvia,
   meilisearch, media, …).
-- The `EnsureFilterIndexesJob`-style app plumbing, `App\Providers\ThalloServiceProvider`, and
+- The `EnsureFilterIndexesJob`-style app plumbing, `App\Providers\CoreServiceProvider`, and
   the tenancy control plane are untouched.
 
 ## 4. Current state (verified)
@@ -110,7 +110,7 @@ Applied to this project:
 Activation today: nine Thallo provider lines in `config/extensions.php` `enabled`; Search is
 installed as a candidate but not enabled. App providers today
 (`config/serviceproviders.php` `enabled`): `TenancyControlPlaneProvider`,
-`App\Providers\ThalloServiceProvider`. The ten module manifests contain
+`App\Providers\CoreServiceProvider`. The ten module manifests contain
 `extra.glueful.provider`; none contains `extra.glueful.requires`. Current extension selection
 therefore does not derive boot order from Composer `require` or extension dependency metadata;
 the committed extension-list order is the initial order, with the uncached runtime sorter as a

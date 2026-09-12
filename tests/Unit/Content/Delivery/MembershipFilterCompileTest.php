@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Unit\Content\Delivery;
+namespace Thallo\Core\Tests\Unit\Content\Delivery;
 
-use App\Content\Delivery\FilterCompiler;
-use App\Content\Delivery\InvalidFilterException;
-use App\Content\Schema\ContentTypeSchema;
+use Thallo\Core\Content\Delivery\FilterCompiler;
+use Thallo\Core\Content\Delivery\InvalidFilterException;
+use Thallo\Core\Content\Schema\ContentTypeSchema;
 use Thallo\Contracts\Delivery\ReferenceTargetResolver;
 use Thallo\Contracts\Schema\FieldDescriptor;
 use PHPUnit\Framework\TestCase;

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Tests\Integration\Commerce;
+namespace Thallo\Core\Tests\Integration\Commerce;
 
-use App\Tests\Support\RecordingExtensionActivation;
-use App\Tests\Support\RetrofitHarnessTestCase;
+use Thallo\Core\Tests\Support\RecordingExtensionActivation;
+use Thallo\Core\Tests\Support\RetrofitHarnessTestCase;
 use Glueful\Bootstrap\ApplicationContext;
 use Glueful\Database\Connection;
 use Glueful\Extensions\Commerce\Tenancy\TenantAdopter;
@@ -29,7 +29,7 @@ use Thallo\Tenancy\ThalloTenantTables;
 /**
  * Commerce-Slice-1 Task 10: {@see CommerceAdoptionContributor} driven through the REAL
  * `TenancyEnablement::confirm()` state machine — mirrors
- * {@see \App\Tests\Integration\Tenancy\AdoptionContributorTest} exactly (same harness, same
+ * {@see \Thallo\Core\Tests\Integration\Tenancy\AdoptionContributorTest} exactly (same harness, same
  * `service()` shape), the only genuine consumer of the T4 adoption seam that exists so far.
  *
  * Carry-forward #1 (the retrofit write-barrier): confirm()'s RETROFITTING step runs every

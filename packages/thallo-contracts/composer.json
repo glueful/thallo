@@ -9,7 +9,6 @@
       "email": "michael@glueful.dev"
     }
   ],
-  "version": "0.1.0",
   "require": {
     "php": "^8.3"
   },
