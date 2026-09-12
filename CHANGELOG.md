@@ -7,6 +7,14 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.22] - 2026-09-12
+
+The first release installable from Packagist as the split, and the first that tells you when
+the next one exists. Beta.21's content ships under this number: the `glueful/thallo` Packagist
+entry had crawled the development repository's `v1.0.0-beta.21` tag before it was repointed at
+the install template, and a published version's reference is immutable there. Every artifact
+carries beta.22. Framework 1.85.4 required.
+
 ### Added
 - **The update notice** (charter decision 11). Once a day the install asks Packagist's public
   metadata for the newest published `glueful/thallo-core` it may move to — a plain GET, no
@@ -18,15 +26,6 @@ as the next release, never a mutated tag.
   install only stable; the notice clears the moment the upgrade has run. `UPDATE_CHECK_ENABLED=false`
   turns it off; `php glueful thallo:update:check [--force]` shows it on the command line. Never an
   updater: Composer runs as the deploy user, not under the web worker.
-
-### Upgrade Notes
-- Framework 1.85.4 is required (repinned): jobs declared in `config/schedule.php` actually run
-  under `queue:scheduler run`; before it, the tick logged them as executed and ran nothing.
-- **One scheduler cron entry is required:** `* * * * * php /path/to/site/glueful queue:scheduler run`.
-  It evaluates every job in `config/schedule.php` — scheduled publishing, the update check, the
-  signup and domain-reverification sweeps. Earlier guides listed only `thallo:schedules:run`,
-  which fires scheduled publishing alone, and called the sweeps automatic; they were not running
-  on an install without this tick. Queue workers do not tick the scheduler.
 - `thallo:provision` generates the API reference: `docs/openapi.json` and the `/api-docs` UI,
   from the install's live routes, refreshed on every provision (what `php glueful
   generate:openapi -f --ui` writes). An install from the template answered 404 at `/api-docs`
@@ -41,7 +40,18 @@ as the next release, never a mutated tag.
   mirror that holds it rejects), a mirror that already publishes the tag receives only `main`,
   a mirror publishing it at another commit is refused, and every mirror is pushed before the
   summary names what did not land. The runbook pushes the mirrors before the development
-  repository's own tag.
+  repository's own tag and never registers the development repository with Packagist.
+
+### Upgrade Notes
+- Framework 1.85.4 is required (repinned): jobs declared in `config/schedule.php` actually run
+  under `queue:scheduler run`; before it, the tick logged them as executed and ran nothing.
+- **One scheduler cron entry is required:** `* * * * * php /path/to/site/glueful queue:scheduler run`.
+  It evaluates every job in `config/schedule.php` — scheduled publishing, the update check, the
+  signup and domain-reverification sweeps. Earlier guides listed only `thallo:schedules:run`,
+  which fires scheduled publishing alone, and called the sweeps automatic; they were not running
+  on an install without this tick. Queue workers do not tick the scheduler. See
+  [production.md](docs/production.md), "Running the scheduler and the queue".
+- Installs on beta.21 upgrade as usual: `composer update && php glueful thallo:provision`.
 
 ## [1.0.0-beta.21] - 2026-09-12 — Developer Preview
 
