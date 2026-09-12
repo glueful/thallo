@@ -104,12 +104,14 @@
       "@test:phpunit"
     ],
     "test:distribution": "bash scripts/distribution-smoke",
+    "test:skeleton": "bash scripts/skeleton-smoke",
     "test:unit": "vendor/bin/phpunit --testsuite Unit",
     "test:integration": "vendor/bin/phpunit --testsuite Integration",
     "phpcs": "vendor/bin/phpcs",
     "phpcbf": "vendor/bin/phpcbf",
     "boundaries": "php scripts/check-pack-boundaries.php",
     "docs:openapi": "php glueful generate:openapi -f --clean --ui",
+    "release:split": "bash scripts/release-split",
     "ci": [
       "@phpcs",
       "@test"
