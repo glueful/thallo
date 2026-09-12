@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\Request;
  * plan slice 3) — the SAME seam the `content_permission` route middleware evaluates against
  * ({@see \Thallo\Core\Content\Http\RequirePermission}, bound to the concrete
  * {@see \Thallo\Core\Content\Authorization\PermissionRequirementAuthority} in
- * `Thallo\Core\Providers\ThalloServiceProvider`), exposed as a neutral contract so a first-party pack can
+ * `Thallo\Core\Providers\CoreServiceProvider`), exposed as a neutral contract so a first-party pack can
  * compute the SAME effective-permission decision (e.g. an admin `/meta` endpoint's `can_view`/
  * `can_manage` flags) without depending on the engine app's `Thallo\Core\` namespace directly.
  *

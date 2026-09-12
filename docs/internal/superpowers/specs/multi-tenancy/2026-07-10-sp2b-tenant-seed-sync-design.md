@@ -70,7 +70,7 @@ Starter engine (`app/Content/Starter/`):
 Pack integration (`packages/thallo-tenancy/src/Contracts/`):
 
 - **`TenantSeedActivator`** — `seedAndActivate(string $tenantUuid, string $ownerUserUuid): void`.
-  `TenantSeeder` implements it; `ThalloServiceProvider` binds the interface to that app service.
+  `TenantSeeder` implements it; `CoreServiceProvider` binds the interface to that app service.
   `TenantManagementController` and `TenantManageCommand` consume only this interface after
   `TenantAdministration::create()` returns the committed provisioning tenant.
 - **`TenantSeedRepair`** — `repair(string $tenantUuid): void`; consumed only by

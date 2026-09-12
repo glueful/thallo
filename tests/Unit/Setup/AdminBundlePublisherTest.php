@@ -51,7 +51,10 @@ final class AdminBundlePublisherTest extends TestCase
         $publisher = new AdminBundlePublisher();
         $publisher->publish("$this->root/source", "$this->root/public/admin");
 
-        self::assertSame(['published' => 3, 'removed' => 0], $publisher->publish("$this->root/source", "$this->root/public/admin"));
+        self::assertSame(
+            ['published' => 3, 'removed' => 0],
+            $publisher->publish("$this->root/source", "$this->root/public/admin"),
+        );
     }
 
     public function testAMissingSourceIsReportedNotFatal(): void

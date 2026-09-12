@@ -17,7 +17,11 @@ final class VerifyDistArchiveTest extends TestCase
 
         self::assertStringContainsString('must_contain "core/resources/admin/index.html"', $verify);
         self::assertStringContainsString('core/resources/admin/assets', $verify);
-        self::assertStringContainsString('must_not_contain_prefix "public/admin/"', $verify, 'the published copy never ships');
+        self::assertStringContainsString(
+            'must_not_contain_prefix "public/admin/"',
+            $verify,
+            'the published copy never ships',
+        );
         self::assertStringContainsString('git add -f core/resources/admin', $bake);
         self::assertStringNotContainsString('add -f public/admin', $bake);
     }

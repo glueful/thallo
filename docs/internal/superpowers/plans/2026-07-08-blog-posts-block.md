@@ -34,7 +34,7 @@
 
 **Modified:**
 - `app/Content/Delivery/EnginePublicRouteResolver.php` — `listItems()` delegates to `ListingItemShaper` (Task 1)
-- `app/Providers/ThalloServiceProvider.php` — bind `EntryListReader`; pass to extension (Tasks 2–3)
+- `app/Providers/CoreServiceProvider.php` — bind `EntryListReader`; pass to extension (Tasks 2–3)
 - `packages/thallo-render/src/RenderContextExtension.php` — inject reader, add `entries()` + `is_preview()` (Task 3)
 - `app/Content/Blocks/StarterBlockTypes.php` — `blog_posts` definition (Task 4)
 - `app/Setup/SetupService.php` — `cover` field on the `post` seed (Task 4)
@@ -181,7 +181,7 @@ git commit -m "Extract ListingItemShaper from EnginePublicRouteResolver::listIte
 **Files:**
 - Create: `packages/thallo-contracts/src/Delivery/EntryListReader.php`
 - Create: `app/Content/Delivery/EngineEntryListReader.php`
-- Modify: `app/Providers/ThalloServiceProvider.php` (bind the contract)
+- Modify: `app/Providers/CoreServiceProvider.php` (bind the contract)
 - Create: `tests/Integration/Content/EntryListReaderTest.php`
 
 **Interfaces:**
@@ -378,7 +378,7 @@ final class EngineEntryListReader implements EntryListReader
 
 (Verify `visible()` matches `EngineFacetCountsReader::visible()` — if that method also checks a not-deleted flag, mirror it exactly here for consistency.)
 
-- [ ] **Step 5: Bind the contract in `ThalloServiceProvider`**
+- [ ] **Step 5: Bind the contract in `CoreServiceProvider`**
 
 Next to the `FacetCountsReader` binding (~line 376), add (and `use App\Content\Delivery\EngineEntryListReader;` + `use Thallo\Contracts\Delivery\EntryListReader;` at the top):
 
@@ -399,14 +399,14 @@ Extend `EntryListReaderTest` with a helper that publishes 2–3 `post` entries +
 - [ ] **Step 7: Run tests + phpcs**
 
 Run: `vendor/bin/phpunit --filter=EntryListReaderTest` → Expected: PASS.
-Run: `vendor/bin/phpcs packages/thallo-contracts/src/Delivery/EntryListReader.php app/Content/Delivery/EngineEntryListReader.php app/Providers/ThalloServiceProvider.php tests/Integration/Content/EntryListReaderTest.php` → Expected: no errors.
+Run: `vendor/bin/phpcs packages/thallo-contracts/src/Delivery/EntryListReader.php app/Content/Delivery/EngineEntryListReader.php app/Providers/CoreServiceProvider.php tests/Integration/Content/EntryListReaderTest.php` → Expected: no errors.
 
 - [ ] **Step 8: Commit (HOLD)**
 
 ```bash
 git add packages/thallo-contracts/src/Delivery/EntryListReader.php \
   app/Content/Delivery/EngineEntryListReader.php \
-  app/Providers/ThalloServiceProvider.php \
+  app/Providers/CoreServiceProvider.php \
   tests/Integration/Content/EntryListReaderTest.php
 git commit -m "Add EntryListReader delivery seam for template entry listing"
 ```
@@ -417,7 +417,7 @@ git commit -m "Add EntryListReader delivery seam for template entry listing"
 
 **Files:**
 - Modify: `packages/thallo-render/src/RenderContextExtension.php` (inject reader, add functions)
-- Modify: `app/Providers/ThalloServiceProvider.php` (pass the reader to the extension definition, mirroring how `FacetCountsReader` is passed)
+- Modify: `app/Providers/CoreServiceProvider.php` (pass the reader to the extension definition, mirroring how `FacetCountsReader` is passed)
 - Modify: `tests/Integration/Render/BlockLibraryRenderTest.php` (add a small entries()/is_preview test) — OR add to the Task 4 test file; keep it here for the seam-level check.
 
 **Interfaces:**
@@ -486,18 +486,18 @@ Add alongside the existing `new TwigFunction('facets', ...)`:
 
 - [ ] **Step 6: Pass the reader in the provider's extension definition**
 
-In `ThalloServiceProvider`, where `RenderContextExtension` is defined, add the `EntryListReader` argument mirroring the `FacetCountsReader` argument already passed (same position discipline the container uses — match the existing arguments list).
+In `CoreServiceProvider`, where `RenderContextExtension` is defined, add the `EntryListReader` argument mirroring the `FacetCountsReader` argument already passed (same position discipline the container uses — match the existing arguments list).
 
 - [ ] **Step 7: Run tests + phpcs**
 
 Run: `vendor/bin/phpunit --filter='BlockLibraryRenderTest|PricingBlockRenderTest'` → Expected: PASS (no regressions; new test green).
-Run: `vendor/bin/phpcs packages/thallo-render/src/RenderContextExtension.php app/Providers/ThalloServiceProvider.php` → Expected: no errors.
+Run: `vendor/bin/phpcs packages/thallo-render/src/RenderContextExtension.php app/Providers/CoreServiceProvider.php` → Expected: no errors.
 
 - [ ] **Step 8: Commit (HOLD)**
 
 ```bash
 git add packages/thallo-render/src/RenderContextExtension.php \
-  app/Providers/ThalloServiceProvider.php \
+  app/Providers/CoreServiceProvider.php \
   tests/Integration/Render/BlockLibraryRenderTest.php
 git commit -m "Expose entries() and is_preview() Twig functions"
 ```

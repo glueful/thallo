@@ -99,7 +99,7 @@ final class AdminRouteCatalog {
 
 **Files:**
 - Create: `app/Content/Authorization/PermissionRequirementAuthority.php`, `app/Content/Authorization/PermissionImplicationSource.php`
-- Modify: `app/Content/Http/RequirePermission.php`, `app/Providers/ThalloServiceProvider.php`
+- Modify: `app/Content/Http/RequirePermission.php`, `app/Providers/CoreServiceProvider.php`
 - Test: `tests/Unit/Content/Http/RequirePermissionAnyOfTest.php` (new)
 
 **Interfaces (Produces):** `PermissionRequirementAuthority::allows(Request $request, list<string> $requirements): bool`. `RequirePermission` becomes a thin parser/HTTP adapter over it. The router already comma-splits `content_permission:a,b` into multiple middleware params.
@@ -128,7 +128,7 @@ Both factors must satisfy the same required `P`; their concrete satisfier may di
   - API key with empty scopes → 403 regardless of rbac.
   - Wildcard scope `commerce.*` satisfies both candidates (existing `scopeSatisfies` fnmatch semantics).
 - [ ] **Step 2: Run** — FAIL.
-- [ ] **Step 3: Implement the authority.** Move principal resolution, API-key scope enforcement, non-tenant `PermissionAuthority::can`, tenant `EffectiveRoleMatrix`, and operator-bypass evaluation out of `RequirePermission` into `PermissionRequirementAuthority`. It expands `PermissionImplicationSource::satisfiersFor($required)` before evaluating the formula above; null source means identity only. Preserve all existing fail-closed branches and resource derivation (`locale:<code>` vs `thallo`). Bind the authority once in `ThalloServiceProvider`; Task 4 replaces the identity fallback with the catalog source, and Task 8 injects this exact service into `/meta`.
+- [ ] **Step 3: Implement the authority.** Move principal resolution, API-key scope enforcement, non-tenant `PermissionAuthority::can`, tenant `EffectiveRoleMatrix`, and operator-bypass evaluation out of `RequirePermission` into `PermissionRequirementAuthority`. It expands `PermissionImplicationSource::satisfiersFor($required)` before evaluating the formula above; null source means identity only. Preserve all existing fail-closed branches and resource derivation (`locale:<code>` vs `thallo`). Bind the authority once in `CoreServiceProvider`; Task 4 replaces the identity fallback with the catalog source, and Task 8 injects this exact service into `/meta`.
 - [ ] **Step 4: Make middleware parsing type-safe.** Iterate `$params`; ignore non-strings, trim only strings, discard empty values, and pass the resulting list to the authority. Do **not** call `trim` through `array_map` before filtering mixed values. Existing one-candidate routes remain byte-identical.
 - [ ] **Step 5: Run new tests + `vendor/bin/phpunit tests/Unit/Content` + `tests/Integration/Tenancy` (matrix/bypass regressions)** — green.
 - [ ] **Step 6: Commit**: `feat(authz): reusable permission requirement authority with implication-safe scope∩RBAC evaluation`
@@ -136,7 +136,7 @@ Both factors must satisfy the same required `P`; their concrete satisfier may di
 ### Task 4 ✅ COMPLETE (thallo d609935): `commerce.view` across catalog / matrix / seed / policy-hash
 
 **Files:**
-- Modify: `app/Content/Authorization/CapabilityCatalog.php` (implements `PermissionImplicationSource`), `app/Providers/ThalloServiceProvider.php` (inject catalog source), `config/tenancy.php` (role_matrix), `packages/thallo-commerce/migrations/002_SeedCommercePermissions.php`
+- Modify: `app/Content/Authorization/CapabilityCatalog.php` (implements `PermissionImplicationSource`), `app/Providers/CoreServiceProvider.php` (inject catalog source), `config/tenancy.php` (role_matrix), `packages/thallo-commerce/migrations/002_SeedCommercePermissions.php`
 - Test: extend `tests/Unit/Tenancy/Authorization/CapabilityCatalogTest.php`; migration assertions in `tests/Integration/Commerce/PackSkeletonTest.php`
 
 - [ ] **Step 1: Failing tests.** CapabilityCatalogTest: assert `has('commerce.view')`, label of `commerce.manage` === `'Manage commerce'`, `satisfiersFor('commerce.view') === ['commerce.view', 'commerce.manage']`, `satisfiersFor('commerce.manage') === ['commerce.manage']`, implication cycles/unknown targets are rejected, and the existing matrix↔catalog consistency test stays green. PackSkeletonTest: after migrations, `permissions` contains `commerce.view` (`View commerce`) and `commerce.manage` (`Manage commerce`), both `category='commerce'`, `is_system=true`.

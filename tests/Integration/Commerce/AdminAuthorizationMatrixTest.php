@@ -27,7 +27,7 @@ use Symfony\Component\HttpFoundation\Request;
  *  - `content_permission` decisions (the bulk of this matrix) are driven by resolving the REAL,
  *    production-wired middleware straight from the container (`container()->get('content_permission')`
  *    -- the SAME instance `Router::resolveMiddleware()` uses, wired with the real
- *    `CapabilityCatalog` implication source, per {@see \Thallo\Core\Providers\ThalloServiceProvider::
+ *    `CapabilityCatalog` implication source, per {@see \Thallo\Core\Providers\CoreServiceProvider::
  *    makeRequirePermission()}), then invoked directly with a hand-built `Request` carrying the
  *    post-auth `'user'` attribute array (never `'auth.user'`, which only an optional enricher
  *    populates) and, for API-key cases, the `auth_method`/`api_key_scopes` attributes a real

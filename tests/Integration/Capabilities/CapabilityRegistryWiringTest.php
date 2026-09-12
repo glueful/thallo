@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Integration\Capabilities;
 
 use Thallo\Core\Capabilities\DefaultCapabilityRegistry;
-use Thallo\Core\Providers\ThalloServiceProvider;
+use Thallo\Core\Providers\CoreServiceProvider;
 use Thallo\Core\Tests\Support\AppTestCase;
 use Thallo\Contracts\Capability\Capability;
 use Thallo\Contracts\Capability\CapabilityRegistry;
@@ -43,7 +43,7 @@ final class CapabilityRegistryWiringTest extends AppTestCase
 
         // Call the factory directly to build a FRESH registry from the (now-seeded) config,
         // bypassing the shared singleton.
-        $reg = ThalloServiceProvider::makeCapabilityRegistry($this->container());
+        $reg = CoreServiceProvider::makeCapabilityRegistry($this->container());
         $reg->register(new Capability('test.fake'));
 
         self::assertFalse(

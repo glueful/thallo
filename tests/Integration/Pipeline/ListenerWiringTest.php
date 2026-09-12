@@ -18,7 +18,7 @@ use Thallo\Core\Tests\Support\AppTestCase;
 use Glueful\Events\EventService;
 
 /**
- * Regression guard for ThalloServiceProvider::boot() -> registerEventListeners().
+ * Regression guard for CoreServiceProvider::boot() -> registerEventListeners().
  *
  * The pipeline is "events emitted afterCommit -> listeners react". If the boot-time
  * addListener() calls silently never run (the classic "listeners not registered"
@@ -72,7 +72,7 @@ final class ListenerWiringTest extends AppTestCase
         self::assertTrue(
             $this->events()->hasListeners($eventClass),
             $eventClass . ' must have its pipeline listener(s) registered by '
-                . 'ThalloServiceProvider::boot() — none found, so the boot-time '
+                . 'CoreServiceProvider::boot() — none found, so the boot-time '
                 . 'addListener() calls did not run for this event.'
         );
     }
@@ -118,7 +118,7 @@ final class ListenerWiringTest extends AppTestCase
             $expected,
             count($this->events()->getListeners($eventClass)),
             $eventClass . ' is wired to fewer listeners than expected — a row dropped out '
-                . 'of the pipeline map in ThalloServiceProvider::registerEventListeners().'
+                . 'of the pipeline map in CoreServiceProvider::registerEventListeners().'
         );
     }
 }

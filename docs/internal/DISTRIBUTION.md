@@ -45,7 +45,7 @@ priority tier, with thallo-commerce explicitly `loadAfter` the commerce extensio
 | Thallo\Search | Inert until the `thallo.search` capability is switched on |
 | Thallo\Subscriptions | Active by default — the `thallo.subscriptions` capability is enabled unless explicitly set to `false` in `config/thallo.php` (absent key ⇒ the switch follows its engine, the `DefaultCapabilityRegistry` rule every capability gets — and this engine ships enabled). Its engine (`glueful/subscriptions`) ships enabled in `config/extensions.php` unlike Commerce's tier-2 posture — the "bundled engine enabled by default" consistency rule (design spec §1). Workspace self-serve checkout (`/v1/admin/billing/*`) is gated by `billing.manage`, a per-workspace, role-delegable authority — deliberately disjoint from the platform's `tenancy.manage`/`tenancy.access_any` (a platform-only operator is never granted it, and vice versa) — so enabling the capability never hands checkout/cancel control to platform operators who happen to hold tenancy authority |
 | Thallo\Tenancy | App-side tenancy integration, inert until enforcement |
-| Tenancy **control plane** (`TenancyControlPlaneProvider`) + `App\Providers\ThalloServiceProvider` | Same list, registered first — must pre-exist so workspaces can be enabled later |
+| Tenancy **control plane** (`TenancyControlPlaneProvider`) + `App\Providers\CoreServiceProvider` | Same list, registered first — must pre-exist so workspaces can be enabled later |
 
 **Tier 1 — Core extensions, shipped and enabled.** The `config/extensions.php` allow-list in
 a fresh install:

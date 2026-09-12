@@ -73,6 +73,9 @@ listed per capability in [docs/production.md](docs/production.md).
 - [Production setup & operational obligations](docs/production.md)
 - [Known limitations](docs/limitations.md)
 - [Upgrading](docs/upgrading.md)
+
+Thallo's own code lives in `core/`; `app/`, `routes/` and `database/migrations/` at the root are
+yours and start empty.
 - [Security policy](SECURITY.md)
 
 ## Support

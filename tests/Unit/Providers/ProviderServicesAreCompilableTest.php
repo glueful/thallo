@@ -19,7 +19,7 @@ final class ProviderServicesAreCompilableTest extends TestCase
     public static function providers(): iterable
     {
         $classes = [
-            \Thallo\Core\Providers\ThalloServiceProvider::class,
+            \Thallo\Core\Providers\CoreServiceProvider::class,
             \Thallo\Account\AccountServiceProvider::class,
             \Thallo\Analytics\AnalyticsServiceProvider::class,
             \Thallo\Collections\CollectionsServiceProvider::class,

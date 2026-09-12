@@ -177,7 +177,7 @@ transfer, because `superuser` is deliberately absent from the product role picke
 - **Idempotent recovery:** if the transfer already completed (target is a superuser and source is
   not), rerunning reports success without changing roles. Any other mismatched state fails clearly.
 
-Both commands are registered in `ThalloServiceProvider` services() (~:1397) + `commands()` list
+Both commands are registered in `CoreServiceProvider` services() (~:1397) + `commands()` list
 (~:1522), like `CreateAdminCommand`. There is no general-purpose `superuser:revoke`: removal must be
 part of a transfer so the hidden root cannot be left without an active holder.
 

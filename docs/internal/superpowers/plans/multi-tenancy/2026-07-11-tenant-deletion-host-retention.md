@@ -3724,7 +3724,7 @@ git add packages/thallo-tenancy/src/Http/Controllers/TenantManagementController.
 - Create: `packages/thallo-contracts/src/Tenancy/TenancyLifecycleAudit.php`
 - Create: `app/Support/TenancyLifecycleAudit.php`
 - Create: `app/Http/Controllers/TenantHostCooldownController.php`
-- Modify: `app/Providers/ThalloServiceProvider.php`
+- Modify: `app/Providers/CoreServiceProvider.php`
 - Modify: `packages/thallo-tenancy/src/{Purge/PurgeCoordinator.php,Purge/PurgeJob.php}`
 - Modify: `packages/thallo-tenancy/src/Http/Controllers/{TenantManagementController,TenantDomainController}.php`
 - Modify: `routes/admin.php`

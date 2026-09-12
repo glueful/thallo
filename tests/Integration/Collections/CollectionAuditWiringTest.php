@@ -16,7 +16,7 @@ use Thallo\Collections\Events\CollectionUpdated;
 
 /**
  * Proves the App audit listener is wired to the pack's pure CollectionRow* events: dispatching one
- * through the app EventService triggers CollectionAuditListener (registered in ThalloServiceProvider),
+ * through the app EventService triggers CollectionAuditListener (registered in CoreServiceProvider),
  * which bridges it to a CollectionRowAuditEvent — the AuditableEvent the Audit extension records.
  */
 final class CollectionAuditWiringTest extends CollectionsTestCase

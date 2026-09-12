@@ -163,7 +163,7 @@ final class AdoptionContributorRegistry   // mirrors PurgeResourceRegistry
 
 **Files:**
 - Create: `packages/thallo-contracts/src/Starter/StarterContentTypeDefinition.php`, `packages/thallo-contracts/src/Starter/StarterContentTypeContributor.php`, `packages/thallo-contracts/src/Starter/StarterContributorRegistry.php` (**interface only**), `app/Content/Starter/DefaultStarterContributorRegistry.php` (mutable implementation)
-- Modify: `app/Content/Starter/Kinds/ContentTypeKind.php` (`definitions()` validates + appends registry contributions), `app/Providers/ThalloServiceProvider.php` (bind registry interface to the shared app implementation; inject the interface into `ContentTypeKind`)
+- Modify: `app/Content/Starter/Kinds/ContentTypeKind.php` (`definitions()` validates + appends registry contributions), `app/Providers/CoreServiceProvider.php` (bind registry interface to the shared app implementation; inject the interface into `ContentTypeKind`)
 - Test: `tests/Integration/Content/Starter/StarterContributorTest.php`
 
 **Interfaces (produces):**

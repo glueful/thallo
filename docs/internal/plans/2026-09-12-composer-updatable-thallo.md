@@ -33,7 +33,7 @@ Every mechanism already exists in the framework's extension seams; the app is to
 Thallo code not using them.
 
 - **Providers.** `thallo-core` declares `extra.glueful.provider` → `Thallo\Core\CoreServiceProvider`
-  (today `App\Providers\ThalloServiceProvider`). The packs' providers stay listed by it; the
+  (before phase 2: `App\Providers\ThalloServiceProvider`). The packs' providers stay listed by it; the
   skeleton's `config/serviceproviders.php` no longer names Thallo classes.
 - **Routes.** `loadRoutesFrom(__DIR__ . '/../routes/admin.php')` etc. replace RouteManifest
   discovery of the app's `routes/`. The skeleton's `routes/` remains the operator's.

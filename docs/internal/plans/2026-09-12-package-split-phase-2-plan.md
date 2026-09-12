@@ -52,7 +52,7 @@ Expected: a non-empty listing. If `route:debug` output differs in shape, the lat
 - Test: `tests/Unit/Support/NamespaceMoveTest.php`
 
 **Interfaces:**
-- Produces: PSR-4 root `Thallo\Core\` → `app/` (moved in Task 2), `Thallo\Core\Tests\` → `tests/`. Provider class `Thallo\Core\Providers\ThalloServiceProvider` (renamed to `CoreServiceProvider` in Task 3).
+- Produces: PSR-4 root `Thallo\Core\` → `app/` (moved in Task 2), `Thallo\Core\Tests\` → `tests/`. Provider class `Thallo\Core\Providers\CoreServiceProvider` (renamed to `CoreServiceProvider` in Task 3).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -88,7 +88,7 @@ final class NamespaceMoveTest extends TestCase
             }
         }
         self::assertSame([], $offenders, 'App\\ is the operator\'s namespace now');
-        self::assertTrue(class_exists(\Thallo\Core\Providers\ThalloServiceProvider::class));
+        self::assertTrue(class_exists(\Thallo\Core\Providers\CoreServiceProvider::class));
     }
 }
 ```
@@ -96,7 +96,7 @@ final class NamespaceMoveTest extends TestCase
 - [ ] **Step 2: Run it to verify it fails**
 
 Run: `vendor/bin/phpunit tests/Unit/Support/NamespaceMoveTest.php`
-Expected: FAIL — the offenders list is hundreds of files (and `Thallo\Core\Providers\ThalloServiceProvider` does not exist).
+Expected: FAIL — the offenders list is hundreds of files (and `Thallo\Core\Providers\CoreServiceProvider` does not exist).
 
 - [ ] **Step 3: Write the one-shot rename script**
 
@@ -178,7 +178,7 @@ git commit -m "refactor(core): rename the application namespace App\\ to Thallo\
 - Test: `tests/Unit/Support/CoreLayoutTest.php`
 
 **Interfaces:**
-- Produces: `core/src/` as the PSR-4 root of `Thallo\Core\`; `Thallo\Core\Providers\ThalloServiceProvider::corePath(string $relative = ''): string` returning `<repo>/core/<relative>`.
+- Produces: `core/src/` as the PSR-4 root of `Thallo\Core\`; `Thallo\Core\Providers\CoreServiceProvider::corePath(string $relative = ''): string` returning `<repo>/core/<relative>`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -190,7 +190,7 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Unit\Support;
 
 use PHPUnit\Framework\TestCase;
-use Thallo\Core\Providers\ThalloServiceProvider;
+use Thallo\Core\Providers\CoreServiceProvider;
 
 final class CoreLayoutTest extends TestCase
 {
@@ -199,8 +199,8 @@ final class CoreLayoutTest extends TestCase
         $root = dirname(__DIR__, 3);
         self::assertDirectoryExists("$root/core/src/Providers");
         self::assertDirectoryDoesNotExist("$root/app/Providers", 'app/ is the operator\'s directory');
-        self::assertSame("$root/core", ThalloServiceProvider::corePath());
-        self::assertSame("$root/core/routes/admin.php", ThalloServiceProvider::corePath('routes/admin.php'));
+        self::assertSame("$root/core", CoreServiceProvider::corePath());
+        self::assertSame("$root/core/routes/admin.php", CoreServiceProvider::corePath('routes/admin.php'));
     }
 }
 ```
@@ -218,7 +218,7 @@ git mv app core/src
 
 `composer.json`: `"Thallo\\Core\\": "core/src/"`. `phpunit.xml`: `<directory>core/src</directory>`. `phpcs.xml.dist`: replace `<file>app</file>` with `<file>core</file>`.
 
-In `core/src/Providers/ThalloServiceProvider.php` add, and use everywhere the file computed a repo path with `dirname(__DIR__, 2)`:
+In `core/src/Providers/CoreServiceProvider.php` add, and use everywhere the file computed a repo path with `dirname(__DIR__, 2)`:
 
 ```php
     /** Absolute path under core/ (the product's own tree; the repo root is the operator's). */
@@ -252,11 +252,11 @@ git commit -m "refactor(core): move the application to core/src"
 **Files:**
 - Move: `routes/*.php` (admin, admin_spa, content, forms, preview, signup) → `core/routes/`.
 - Create: `routes/.gitkeep` and a `routes/README.md` (three lines: this directory is the operator's; Thallo's routes are loaded by the core provider).
-- Modify: `core/src/Providers/ThalloServiceProvider.php::boot()` — add `loadRoutesFrom` for each file; delete the docblock paragraph that says routes must not be loaded here.
+- Modify: `core/src/Providers/CoreServiceProvider.php::boot()` — add `loadRoutesFrom` for each file; delete the docblock paragraph that says routes must not be loaded here.
 - Test: `tests/Integration/Http/CoreRoutesTest.php`
 
 **Interfaces:**
-- Consumes: `ThalloServiceProvider::corePath()` (Task 2).
+- Consumes: `CoreServiceProvider::corePath()` (Task 2).
 - Produces: the same route table as before; the root `routes/` is empty.
 
 - [ ] **Step 1: Write the failing test**
@@ -348,7 +348,7 @@ git commit -m "refactor(core): load Thallo's routes from core/routes through the
 **Files:**
 - Move: `database/migrations/*.php` → `core/database/migrations/`; `database/dependent-migrations/*.php` → `core/database/dependent-migrations/`.
 - Create: `database/migrations/.gitkeep`.
-- Modify: `core/src/Providers/ThalloServiceProvider.php::boot()` (two `loadMigrationsFrom` calls); `scripts/run-test-migrations.php` (add the two core paths with sources `app` and `app:dependent`).
+- Modify: `core/src/Providers/CoreServiceProvider.php::boot()` (two `loadMigrationsFrom` calls); `scripts/run-test-migrations.php` (add the two core paths with sources `app` and `app:dependent`).
 - Test: `tests/Integration/Setup/CoreMigrationSourcesTest.php`
 
 **Interfaces:**
@@ -455,7 +455,7 @@ git commit -m "refactor(core): load Thallo's migrations from core/database under
 
 **Files:**
 - Move: `config/thallo.php`, `config/forms.php`, `config/signup.php`, `config/theme.php`, `config/i18n.php`, `config/tenancy.php`, `config/import_export.php` → `core/config/`.
-- Modify: `core/src/Providers/ThalloServiceProvider.php::register()` — merge each as defaults; class docblock paragraph about config.
+- Modify: `core/src/Providers/CoreServiceProvider.php::register()` — merge each as defaults; class docblock paragraph about config.
 - Modify: `config/schedule.php`, `config/documentation.php` (they reference `Thallo\Core\` classes after Task 1 — they stay in the root because they are framework-shaped files; no move).
 - Test: `tests/Integration/Setup/CoreConfigDefaultsTest.php`
 
@@ -637,7 +637,7 @@ git commit -m "refactor(core): the admin bundle builds into core/resources/admin
 ### Task 7: Rename the provider, document, full gates, merge
 
 **Files:**
-- Rename: `core/src/Providers/ThalloServiceProvider.php` → `CoreServiceProvider.php` (class `Thallo\Core\Providers\CoreServiceProvider`); update `config/serviceproviders.php`, every `use`/reference (`grep -rn ThalloServiceProvider core tests config scripts`), the two tests from Tasks 2–3.
+- Rename: `core/src/Providers/CoreServiceProvider.php` → `CoreServiceProvider.php` (class `Thallo\Core\Providers\CoreServiceProvider`); update `config/serviceproviders.php`, every `use`/reference (`grep -rn CoreServiceProvider core tests config scripts`), the two tests from Tasks 2–3.
 - Modify: `CHANGELOG.md` (Unreleased), `docs/internal/plans/2026-09-12-composer-updatable-thallo.md` (phase 2 status), `README.md` (one line: "Thallo's code lives in `core/`; `app/`, `routes/`, `database/migrations/` are yours").
 - Test: `NamespaceMoveTest` from Task 1 asserts `CoreServiceProvider` exists instead.
 
@@ -648,8 +648,8 @@ In `NamespaceMoveTest`: `self::assertTrue(class_exists(\Thallo\Core\Providers\Co
 Run: `vendor/bin/phpunit tests/Unit/Support/NamespaceMoveTest.php` → FAIL.
 
 ```bash
-git mv core/src/Providers/ThalloServiceProvider.php core/src/Providers/CoreServiceProvider.php
-grep -rl ThalloServiceProvider core tests config scripts docs/internal | xargs sed -i '' 's/ThalloServiceProvider/CoreServiceProvider/g'
+git mv core/src/Providers/CoreServiceProvider.php core/src/Providers/CoreServiceProvider.php
+grep -rl CoreServiceProvider core tests config scripts docs/internal | xargs sed -i '' 's/CoreServiceProvider/CoreServiceProvider/g'
 rm -f bootstrap/cache/extensions.php
 composer dump-autoload
 ```

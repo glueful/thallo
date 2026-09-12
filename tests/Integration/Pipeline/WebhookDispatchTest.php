@@ -13,7 +13,7 @@ use Glueful\Api\Webhooks\WebhookDispatcher;
 
 /**
  * Proves the webhook-dispatch listener (V1_DESIGN §5) wired in
- * ThalloServiceProvider::boot() forwards content events to the core WebhookDispatcher
+ * CoreServiceProvider::boot() forwards content events to the core WebhookDispatcher
  * with the FROZEN event name + the identity-only payload.
  *
  * Thallo builds no webhook infra: it calls the core

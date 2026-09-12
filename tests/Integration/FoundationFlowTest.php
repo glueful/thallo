@@ -18,7 +18,7 @@ use Thallo\Core\Content\Validation\FieldValidator;
 use Thallo\Core\Tests\Support\AppTestCase;
 
 /**
- * Proves the ThalloServiceProvider wiring is correct end-to-end through the booted
+ * Proves the CoreServiceProvider wiring is correct end-to-end through the booted
  * application: the provider's DI definitions resolve, the `content_permission` middleware
  * alias resolves, the /v1/admin/* routes are live in the router with their permission
  * middleware attached, and a request driven through the REAL kernel reaches that

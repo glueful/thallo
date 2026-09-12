@@ -42,7 +42,7 @@
 
 **Files:**
 - Create: `app/Settings/PlatformPaymentSettingsStore.php`
-- Modify: `app/Providers/ThalloServiceProvider.php` (binding, shared)
+- Modify: `app/Providers/CoreServiceProvider.php` (binding, shared)
 - Test: `tests/Integration/Settings/PlatformPaymentSettingsStoreTest.php` (new)
 
 **Interfaces:**
@@ -55,7 +55,7 @@
 
 **Files:**
 - Create: `app/Settings/LegacyPlatformPaymentSettingsReader.php`, `app/Settings/LegacyPlatformPaymentSettingsRepository.php`
-- Modify: `app/Providers/ThalloServiceProvider.php` (production repository uses table `settings`; reader is a shared read-only facade)
+- Modify: `app/Providers/CoreServiceProvider.php` (production repository uses table `settings`; reader is a shared read-only facade)
 - Test: `tests/Integration/Settings/LegacyPlatformPaymentReaderTest.php` (new)
 
 **Interfaces:**
@@ -70,7 +70,7 @@
 
 **Files:**
 - Create: `app/Settings/PlatformPayviaSettingsOverride.php`, `tests/Integration/Settings/PlatformPayviaOverrideCachedBootTest.php`
-- Modify: `app/Providers/ThalloServiceProvider.php` (bind `PayviaSettingsOverride::class`; mechanism per the cached-boot constraint), `packages/thallo-commerce/src/CommerceIntegrationServiceProvider.php` (REMOVE the `PayviaSettingsOverride` binding + `makePayviaSettingsOverride()`)
+- Modify: `app/Providers/CoreServiceProvider.php` (bind `PayviaSettingsOverride::class`; mechanism per the cached-boot constraint), `packages/thallo-commerce/src/CommerceIntegrationServiceProvider.php` (REMOVE the `PayviaSettingsOverride` binding + `makePayviaSettingsOverride()`)
 - Delete: `packages/thallo-commerce/src/Settings/SettingsStorePayviaOverride.php` only
 - Test: `tests/Integration/Settings/PlatformPayviaOverrideTest.php` (new); modify `tests/Integration/Commerce/CommercePaymentsEndpointTest.php` only where it imports/asserts the removed override so its still-shipped controller contract remains covered until Task 6 ports it
 
@@ -85,7 +85,7 @@
 
 **Files:**
 - Create: `app/Settings/Console/MigratePlatformPaymentCredentialsCommand.php` (`thallo:payments:migrate-platform-credentials`)
-- Modify: `app/Providers/ThalloServiceProvider.php` (add the command to `consoleCommandServices()` and the explicit `$this->commands([...])` list in `boot()`, matching the app's existing command registration)
+- Modify: `app/Providers/CoreServiceProvider.php` (add the command to `consoleCommandServices()` and the explicit `$this->commands([...])` list in `boot()`, matching the app's existing command registration)
 - Test: `tests/Integration/Settings/PlatformPaymentMigrationTest.php` (new)
 
 **Interfaces:**
@@ -99,7 +99,7 @@
 
 **Files:**
 - Create: `app/Http/Controllers/PlatformPaymentsSettingsController.php`
-- Modify: `app/Providers/ThalloServiceProvider.php` (shared/autowired controller service), `routes/admin.php` (new app-owned `GET|PUT /v1/admin/settings/payments` group with `['auth','tenant_system','content_permission:tenancy.manage']`, names `thallo.settings.payments.{show,update}`)
+- Modify: `app/Providers/CoreServiceProvider.php` (shared/autowired controller service), `routes/admin.php` (new app-owned `GET|PUT /v1/admin/settings/payments` group with `['auth','tenant_system','content_permission:tenancy.manage']`, names `thallo.settings.payments.{show,update}`)
 - Modify: `packages/thallo-commerce/routes/admin-routes.php` (REMOVE the two `/payments` routes); delete `packages/thallo-commerce/src/Http/PaymentsSettingsController.php`; port every still-relevant assertion from `tests/Integration/Commerce/CommercePaymentsEndpointTest.php` to the new API test, then delete that old test; update every route-inventory/OpenAPI pin (`AdminOpenApiGateTest` included)
 - Test: `tests/Integration/Settings/PlatformPaymentsSettingsApiTest.php` (new)
 

@@ -51,7 +51,7 @@
 **Files:**
 - Create: `app/Signup/SignupConfig.php`, `app/Signup/SignupRolePolicy.php`
 - Modify: `config/thallo.php` (or the verified app feature-config home; add the config default for the exact system key `tenancy.signup.workspaces.enabled`), `packages/thallo-tenancy/src/Enablement/TenancyDiagnostics.php`
-- Register both in `ThalloServiceProvider::services()`.
+- Register both in `CoreServiceProvider::services()`.
 - Test: `tests/Integration/Signup/SignupConfigTest.php`, `tests/Unit/Signup/SignupRolePolicyTest.php`
 
 **Interfaces:**

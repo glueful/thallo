@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Integration\Settings;
 
-use Thallo\Core\Providers\ThalloServiceProvider;
+use Thallo\Core\Providers\CoreServiceProvider;
 use Thallo\Core\Settings\PlatformPaymentSettingsStore;
 use Thallo\Core\Settings\PlatformPayviaSettingsOverride;
 use Thallo\Core\Tests\Support\AppTestCase;
@@ -25,14 +25,14 @@ use Thallo\Tenancy\System\SystemFlags;
  *    boot mode production is required to use. That is true of APP-level providers too: the
  *    framework's `ProviderClassResolver` folds `config/serviceproviders.php` entries into the same
  *    provider list as composer extensions, and the cache file is written from that same resolved
- *    list. A binding contributed from {@see ThalloServiceProvider::register()} would therefore be
+ *    list. A binding contributed from {@see CoreServiceProvider::register()} would therefore be
  *    dead code exactly where it matters most.
  *  - `ContainerFactory::loadExtensionDefinitions()`, by contrast, does NOT consult the extensions
  *    cache at all: it re-resolves the provider list through `ProviderClassResolver` while the
  *    container is being built and reads each provider's STATIC `services()`. That path runs
  *    identically in both boot modes.
  *
- * So the binding lives in `ThalloServiceProvider::services()`, and this test is what stops it from
+ * So the binding lives in `CoreServiceProvider::services()`, and this test is what stops it from
  * silently migrating into `register()`/`boot()` later.
  *
  * A BOUND override is not the same as a WORKING one, so `instanceof` alone is not the pin. The
@@ -73,12 +73,12 @@ final class PlatformPayviaOverrideCachedBootTest extends AppTestCase
         );
 
         // 2. The cached-provider boot — the one production is required to use.
-        $cachedApp = $this->bootFromExtensionProviderCache([ThalloServiceProvider::class]);
+        $cachedApp = $this->bootFromExtensionProviderCache([CoreServiceProvider::class]);
 
         try {
             $manager = $this->assertBootUsedTheProviderCache($cachedApp);
             self::assertArrayHasKey(
-                ThalloServiceProvider::class,
+                CoreServiceProvider::class,
                 $manager->getProviders(),
                 'sanity: the app provider must really be live on this cached boot',
             );

@@ -30,6 +30,6 @@ final class NamespaceMoveTest extends TestCase
             }
         }
         self::assertSame([], $offenders, 'Thallo\\Core\\ is the operator\'s namespace now');
-        self::assertTrue(class_exists(\Thallo\Core\Providers\ThalloServiceProvider::class));
+        self::assertTrue(class_exists(\Thallo\Core\Providers\CoreServiceProvider::class));
     }
 }

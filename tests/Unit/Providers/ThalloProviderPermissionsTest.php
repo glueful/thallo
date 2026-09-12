@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Thallo\Core\Tests\Unit\Providers;
 
 use Thallo\Core\Content\Authorization\CapabilityCatalog;
-use Thallo\Core\Providers\ThalloServiceProvider;
+use Thallo\Core\Providers\CoreServiceProvider;
 use Glueful\Permissions\Catalog\Permission;
 use PHPUnit\Framework\TestCase;
 use Psr\Container\ContainerInterface;
@@ -33,7 +33,7 @@ final class ThalloProviderPermissionsTest extends TestCase
         };
 
         $declared = [];
-        foreach ((new ThalloServiceProvider($container))->permissions() as $permission) {
+        foreach ((new CoreServiceProvider($container))->permissions() as $permission) {
             self::assertInstanceOf(Permission::class, $permission);
             $declared[$permission->slug()] = $permission->toArray();
         }

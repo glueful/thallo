@@ -120,7 +120,7 @@ public function testUnknownManifestVersionFailsClosed(): void { /* manifest_vers
 **Files:**
 - Create: `packages/thallo-tenancy/migrations/004_CreateTenantRolePolicyTables.php` (next free number — verify)
 - Create: `app/Content/Authorization/TenantRoleOverrideRepository.php`
-- Register in `ThalloServiceProvider::services()`.
+- Register in `CoreServiceProvider::services()`.
 - Test: `tests/Integration/Authorization/TenantRoleOverrideRepositoryTest.php`
 
 **Interfaces:**
@@ -153,7 +153,7 @@ $this->validateCompleteDesiredSet($roleSlug, $grants, $revokes);
 **Files:**
 - Create: `app/Content/Authorization/EffectiveRoleEvaluator.php`, `EffectiveRoleMatrix.php`
 - Modify: `app/Content/Http/RequirePermission.php` (swap `RoleMatrix->allows` for the tenant-aware call)
-- Register in `ThalloServiceProvider`.
+- Register in `CoreServiceProvider`.
 - Test: `tests/Integration/Authorization/EffectiveRoleMatrixTest.php`
 
 **Interfaces:**

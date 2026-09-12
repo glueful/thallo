@@ -8,7 +8,7 @@ namespace Thallo\Contracts\Starter;
  * Holds the {@see StarterBlockTypeContributor}s registered by installed packs. Interface only —
  * packs compile against this (never the concrete app-owned registry, keeping packs Thallo\Core\-free);
  * {@see \Thallo\Core\Content\Starter\DefaultStarterBlockTypeRegistry} is the mutable implementation
- * `Thallo\Core\Providers\ThalloServiceProvider` binds it to.
+ * `Thallo\Core\Providers\CoreServiceProvider` binds it to.
  */
 interface StarterBlockTypeRegistry
 {

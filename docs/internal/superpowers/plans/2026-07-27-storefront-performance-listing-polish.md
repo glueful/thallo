@@ -42,7 +42,7 @@ partial. CSS carries the listing rows, content-visibility, and the reduced-motio
 **Files:**
 - Create: `packages/thallo-contracts/src/Delivery/MediaVariantUrlResolver.php`
 - Create: `app/Content/Delivery/EngineMediaVariantUrlResolver.php`
-- Modify: `app/Providers/ThalloServiceProvider.php` (services() entry ~line 1056 beside
+- Modify: `app/Providers/CoreServiceProvider.php` (services() entry ~line 1056 beside
   `MediaUrlResolver::class`, new `makeMediaVariantUrlResolver()` factory, `use` import)
 - Test: `tests/Integration/Content/MediaVariantUrlResolverTest.php` (new; if
   `tests/Integration/Content/` does not exist, use `tests/Integration/Delivery/` — match
@@ -267,7 +267,7 @@ final class EngineMediaVariantUrlResolver implements MediaVariantUrlResolver
   NOT NULL column, copy the full insert shape from the `EngineMediaUrlResolver` test.
 
 - [ ] **Step 6: Always bind the Thallo app implementation in
-  `ThalloServiceProvider`.** The contract remains optional to generic `thallo-render`
+  `CoreServiceProvider`.** The contract remains optional to generic `thallo-render`
   consumers, but Thallo needs the MIME-aware valid-image-vs-invalid-media distinction
   even when resizing is disabled. Beside the existing
   `MediaUrlResolver::class` entry (~line 1056):
@@ -315,7 +315,7 @@ expressions — do not re-derive them.
   stay green with the new binding). phpcs PSR12 on the three PHP files.
 
 - [ ] **Step 8: Commit** —
-  `git add packages/thallo-contracts/src/Delivery/MediaVariantUrlResolver.php app/Content/Delivery/EngineMediaVariantUrlResolver.php app/Providers/ThalloServiceProvider.php tests/Integration/Content/MediaVariantUrlResolverTest.php`
+  `git add packages/thallo-contracts/src/Delivery/MediaVariantUrlResolver.php app/Content/Delivery/EngineMediaVariantUrlResolver.php app/Providers/CoreServiceProvider.php tests/Integration/Content/MediaVariantUrlResolverTest.php`
   `git commit -m "feat(delivery): batch MediaVariantUrlResolver seam for responsive images"`
 
 ---

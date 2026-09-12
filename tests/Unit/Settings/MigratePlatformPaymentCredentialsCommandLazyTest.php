@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Thallo\Core\Tests\Unit\Settings;
 
-use Thallo\Core\Providers\ThalloServiceProvider;
+use Thallo\Core\Providers\CoreServiceProvider;
 use Thallo\Core\Settings\Console\MigratePlatformPaymentCredentialsCommand;
 use Glueful\Bootstrap\ApplicationContext;
 use PHPUnit\Framework\TestCase;
@@ -41,7 +41,7 @@ final class MigratePlatformPaymentCredentialsCommandLazyTest extends TestCase
             }
         };
 
-        $definition = ThalloServiceProvider::services()[MigratePlatformPaymentCredentialsCommand::class];
+        $definition = CoreServiceProvider::services()[MigratePlatformPaymentCredentialsCommand::class];
         self::assertIsCallable(
             $definition['factory'] ?? null,
             'the command needs an explicit (lazy) factory, not autowiring',

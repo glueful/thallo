@@ -14,7 +14,7 @@ use Glueful\Events\EventService;
 
 /**
  * Proves the cache-tag invalidation listener (V1_DESIGN §5) wired in
- * ThalloServiceProvider::boot() invalidates the SAME surrogate keys the delivery layer
+ * CoreServiceProvider::boot() invalidates the SAME surrogate keys the delivery layer
  * emits (Thallo\Core\Content\Http\DeliveryEtag): `thallo:entry:{uuid}` and `thallo:type:{slug}`.
  *
  * A byte-for-byte match is the whole point — if delivery tags by slug but the listener

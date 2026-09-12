@@ -38,7 +38,7 @@
 - `app/Settings/GeneralSettings.php` — 2 DEFS + accessors.
 - `app/Http/DTOs/UpdateGeneralSettingsData.php` — 2 fields.
 - `app/Http/Controllers/GeneralSettingsController.php` — save map + enum validation + dispatch event.
-- `app/Providers/ThalloServiceProvider.php` — bind provider, register listener + event subscription.
+- `app/Providers/CoreServiceProvider.php` — bind provider, register listener + event subscription.
 - `packages/thallo-render/src/RenderContextExtension.php` — ctor gains appearance source + per-request override; `theme_colors_style()` fn + method; setter + reset.
 - `packages/thallo-render/src/RenderServiceProvider.php` — wire `ThemeAppearanceSource`, pass to extension + `RenderPageCache`; wire listener.
 - `packages/thallo-render/src/Http/Middleware/RenderPageCache.php` — ctor gains fingerprint; `key()` includes it.
@@ -317,7 +317,7 @@ Expected: PASS (5 tests). If `testWhiteAccentInk...` fails for a family, bump th
 - Modify: `app/Settings/GeneralSettings.php` (DEFS ~20-46; add accessors after `theme()`)
 - Create: `packages/thallo-contracts/src/Settings/ThemeAppearanceProvider.php`
 - Create: `app/Settings/EngineThemeAppearanceProvider.php`
-- Modify: `app/Providers/ThalloServiceProvider.php` (bind the provider)
+- Modify: `app/Providers/CoreServiceProvider.php` (bind the provider)
 - Test: `tests/Integration/Settings/ThemeAppearanceSettingsTest.php`
 
 **Interfaces:**
@@ -466,7 +466,7 @@ final class EngineThemeAppearanceProvider implements ThemeAppearanceProvider
 
 - [ ] **Step 6: Register the binding**
 
-In `app/Providers/ThalloServiceProvider.php`, find where `ThemeSettingProvider` is bound (grep `ThemeSettingProvider`) and add an adjacent binding:
+In `app/Providers/CoreServiceProvider.php`, find where `ThemeSettingProvider` is bound (grep `ThemeSettingProvider`) and add an adjacent binding:
 
 ```php
         \Thallo\Contracts\Settings\ThemeAppearanceProvider::class => [
@@ -1100,7 +1100,7 @@ Expected: PASS.
 - Modify: `packages/thallo-render/src/RenderErrorCache.php` (ctor ~24-30; extract + fingerprint the error key ~51)
 - Modify: `packages/thallo-render/src/RenderServiceProvider.php` (`makeRenderPageCache` ~250 AND `makeRenderErrorCache` ~239 — pass the fingerprint)
 - Create: `packages/thallo-render/src/Listeners/PurgeRenderCacheOnAppearanceChange.php`
-- Modify: `app/Providers/ThalloServiceProvider.php` (register the listener on `ThemeAppearanceChanged`)
+- Modify: `app/Providers/CoreServiceProvider.php` (register the listener on `ThemeAppearanceChanged`)
 - Test: `tests/Integration/Render/RenderPageCacheAppearanceTest.php`
 
 **Interfaces:**
@@ -1273,7 +1273,7 @@ final class PurgeRenderCacheOnAppearanceChange
 
 - [ ] **Step 6: Register the listener**
 
-In `app/Providers/ThalloServiceProvider.php`, find where `PurgeRenderCacheOnThemeChange` is subscribed to `ThemeChanged` (grep it) and add the parallel subscription of `PurgeRenderCacheOnAppearanceChange::onAppearanceChanged` to `ThemeAppearanceChanged`, matching the exact event-registration style used there.
+In `app/Providers/CoreServiceProvider.php`, find where `PurgeRenderCacheOnThemeChange` is subscribed to `ThemeChanged` (grep it) and add the parallel subscription of `PurgeRenderCacheOnAppearanceChange::onAppearanceChanged` to `ThemeAppearanceChanged`, matching the exact event-registration style used there.
 
 - [ ] **Step 7: Run the tests and make sure they pass**
 
