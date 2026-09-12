@@ -52,8 +52,9 @@ case "$cmd" in
     # .env that Layer 1 (provision) just wrote.
     "$PHP" "$GLUEFUL" thallo:provision && exec "$PHP" "$GLUEFUL" thallo:create-admin
     ;;
-  doctor | provision | create-admin)
-    # Branded shortcuts: a bare setup verb maps to its `thallo:` command.
+  doctor | provision | create-admin | update-check)
+    # Branded shortcuts: a bare verb maps to its `thallo:` command (update-check → thallo:update:check).
+    case "$cmd" in update-check) cmd=update:check ;; esac
     exec "$PHP" "$GLUEFUL" "thallo:$cmd" "$@"
     ;;
   *)

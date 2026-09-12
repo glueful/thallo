@@ -6,7 +6,7 @@ here; Thallo itself is installed by Composer as `glueful/thallo-core` and upgrad
 ## Install
 
 ```bash
-composer create-project --prefer-dist glueful/thallo my-site
+composer create-project --prefer-dist --stability=beta glueful/thallo my-site
 cd my-site
 php glueful thallo:doctor          # PHP, extensions, paths, database reachability
 php glueful thallo:provision       # database + keys + migrations + admin bundle + API reference

@@ -7,6 +7,10 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- The documented install command carries `--stability=beta` (`create-project` defaults to
+  stable, and Thallo is beta-only), and `./thallo update-check` maps to `thallo:update:check`.
+
 ## [1.0.0-beta.22] - 2026-09-12
 
 The first release installable from Packagist as the split, and the first that tells you when
