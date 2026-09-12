@@ -17,6 +17,18 @@ for provision followed by the first admin. Provision prints the link to create t
 in your browser (or run `php glueful thallo:create-admin`). The API reference is served at
 `/api-docs`, generated into `docs/` by provision from your install's own routes.
 
+## Run
+
+One cron entry drives every scheduled job (scheduled publishing, the daily update check, the
+maintenance sweeps):
+
+```
+* * * * * php /path/to/my-site/glueful queue:scheduler run
+```
+
+and a queue worker handles background jobs such as mail: `php glueful queue:work`. See
+[production](https://github.com/glueful/thallo/blob/main/docs/production.md).
+
 ## Upgrade
 
 ```bash

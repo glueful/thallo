@@ -18,6 +18,13 @@ as the next release, never a mutated tag.
   install only stable; the notice clears the moment the upgrade has run. `UPDATE_CHECK_ENABLED=false`
   turns it off; `php glueful thallo:update:check [--force]` shows it on the command line. Never an
   updater: Composer runs as the deploy user, not under the web worker.
+
+### Upgrade Notes
+- **One scheduler cron entry is required:** `* * * * * php /path/to/site/glueful queue:scheduler run`.
+  It evaluates every job in `config/schedule.php` — scheduled publishing, the update check, the
+  signup and domain-reverification sweeps. Earlier guides listed only `thallo:schedules:run`,
+  which fires scheduled publishing alone, and called the sweeps automatic; they were not running
+  on an install without this tick. Queue workers do not tick the scheduler.
 - `thallo:provision` generates the API reference: `docs/openapi.json` and the `/api-docs` UI,
   from the install's live routes, refreshed on every provision (what `php glueful
   generate:openapi -f --ui` writes). An install from the template answered 404 at `/api-docs`
