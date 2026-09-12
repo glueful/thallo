@@ -7,6 +7,20 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Upgrade Notes
+- **`composer update` does not upgrade Thallo.** A `create-project` install is Composer's root
+  package, which Composer never rewrites: `composer update` moves the framework and the packs
+  and leaves Thallo at the version you installed (beta.20 on thallo.dev proved it — framework
+  1.84.0 with the beta.19 admin). The upgrade is deploying the next tag. `docs/upgrading.md` is
+  rewritten around that, and the new `scripts/deploy-site <tag>` does it in one command
+  (releases/ + shared/ + current layout, atomic switch, provision, cache clears, FPM reload,
+  doctor; rollback by re-pointing `current`). A Composer-updatable Thallo (the application as
+  a package) is on the road to Beta.
+
+### Added
+- **`scripts/deploy-site`** — deploy a site from a release tag; refuses branches and commits;
+  `--dry-run` prints every step.
+
 ## [1.0.0-beta.20] - 2026-09-11 — Developer Preview
 
 The framework's API reference moves to `/api-docs`, freeing `/docs` for the site's own
