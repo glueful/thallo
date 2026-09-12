@@ -551,6 +551,12 @@ git commit -m "refactor(core): Thallo's config ships as core/config defaults; co
 
 ### Task 6: The admin bundle is built into `core/resources/admin`
 
+> **Executed with one deviation (decided 2026-09-12):** the bundle is ALSO published into
+> `public/admin` by `thallo:provision` (`Thallo\Core\Setup\AdminBundlePublisher`, mirror with
+> stale-file removal), so the web server keeps serving the assets from disk and no operator has
+> to route `/admin/*` to PHP. `core/resources/admin` is the canonical, shipped copy and the
+> PHP mount; `public/admin` is derived output — gitignored, never shipped, never edited.
+
 **Files:**
 - Modify: `admin/vite.config.ts` (`outDir`), `core/config/thallo.php` (`bundle_path` default), `.gitignore` (`/public/admin/` → `/core/resources/admin/`), `scripts/release-bake` (build check + `git add -f core/resources/admin`), `scripts/verify-dist-archive` (`must_contain "core/resources/admin/index.html"`, `BUNDLE_JS` archive path), `docs/internal/RELEASING.md` and `docs/internal/DISTRIBUTION.md` decision 9 wording (path only).
 - Remove from git: the currently tracked `public/admin/**` (the beta.20 bake) — `git rm -r --cached public/admin` is NOT enough; the files must go so a stale bundle can never be served from `public/admin`: `git rm -r public/admin`.

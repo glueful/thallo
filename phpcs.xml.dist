@@ -24,6 +24,8 @@
       the Node-harness runtime tests).
     -->
     <exclude-pattern>packages/*/assets/*</exclude-pattern>
+    <!-- The built admin bundle (JS/CSS; gitignored daily, force-added at release). -->
+    <exclude-pattern>core/resources/*</exclude-pattern>
     <exclude-pattern>packages/*/runtime/*</exclude-pattern>
 
     <!--

@@ -84,7 +84,8 @@ Then point the document root at `new-site/public` and reload PHP-FPM.
 
 - **`thallo:provision`** on the new release: pending migrations, install-role grants for any
   permission a new pack declared, starter block types the instance lacks (existing rows are
-  never touched), and the extension cache production boot requires. `migrate:verify` confirms
+  never touched), the extension cache production boot requires, and the admin bundle published
+  into `public/admin` (the release's copy replaces the previous one; stale files are removed). `migrate:verify` confirms
   every declared migration source is Ready; a non-zero exit stops the sequence.
 - **Cache clears that outlive a release**: `route:cache:clear` (the compiled route table — a
   stale one keeps serving the previous release's routes) and `render:cache:clear` (rendered
