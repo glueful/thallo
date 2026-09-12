@@ -38,6 +38,7 @@ env:
     tests/Integration/Schema
     tests/Integration/Seo
     tests/Integration/Settings
+    tests/Integration/Updates
     tests/Integration/Setup
     tests/Integration/Signup
     tests/Integration/Workflow
