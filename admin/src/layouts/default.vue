@@ -6,6 +6,7 @@ import CapabilityErrorPanel from '@/components/CapabilityErrorPanel.vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useContentTypes } from '@/queries/contentTypes'
 import { useUnreadCount } from '@/queries/formSubmissions'
+import { useUpdateNotice } from '@/composables/useUpdateNotice'
 import { useTenantStore } from '@/stores/tenant'
 import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 import { useTenancyAccessLifecycle } from '@/composables/useTenancyAccessLifecycle'
@@ -109,7 +110,21 @@ const mainItems = computed(() => {
     tenancyEnabled.value,
   )
 })
-const utilityItems = computed(() => nav.value[1])
+// nav.value[1] = utilities; the Health item carries an "Update" badge while a newer Thallo is
+// published and this browser has not dismissed it (same seam as the Submissions count).
+const { visible: updateVisible } = useUpdateNotice()
+const utilityItems = computed(() =>
+  nav.value[1].map((item) =>
+    item.children
+      ? {
+          ...item,
+          children: item.children.map((child) =>
+            child.label === 'Health' && updateVisible.value ? { ...child, badge: 'Update' } : child,
+          ),
+        }
+      : item,
+  ),
+)
 </script>
 
 <template>

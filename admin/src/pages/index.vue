@@ -8,6 +8,8 @@ import { useSessionStore } from '@/stores/session'
 import { useNotify } from '@/composables/useNotify'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { rangeFor, useAnalyticsSummary } from '@/queries/analytics'
+import { useUpdateNotice } from '@/composables/useUpdateNotice'
+import UpdateAvailableCard from '@/components/UpdateAvailableCard.vue'
 
 definePage({ meta: { requiresAuth: true } })
 
@@ -15,6 +17,8 @@ const router = useRouter()
 const session = useSessionStore()
 const { error: notifyError } = useNotify()
 const { data, status } = useHomeOverview()
+// The update notice (operators only; others get no notice). Dismissal is per browser, per version.
+const { status: updateStatus, visible: updateVisible, dismiss: dismissUpdate } = useUpdateNotice()
 const { mutateAsync: createEntry } = useCreateEntry()
 
 const overview = computed(() => data.value)
@@ -79,6 +83,12 @@ function fmtTime(v?: string | null): string {
           </h1>
           <p class="text-sm text-muted">Here's a snapshot of your content.</p>
         </header>
+
+        <UpdateAvailableCard
+          v-if="updateVisible && updateStatus"
+          :status="updateStatus"
+          @dismiss="dismissUpdate"
+        />
 
         <!-- Analytics KPI strip (only when thallo.analytics is enabled) -->
         <div

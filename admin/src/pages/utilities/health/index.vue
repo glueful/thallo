@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useHealth, healthStatusColor, formatBytes } from '@/queries/health'
+import { useUpdateStatus } from '@/queries/updates'
 
 definePage({ meta: { requiresAuth: true } })
 
 const { data, status, refresh, isLoading } = useHealth()
 const health = computed(() => data.value)
+const { data: update } = useUpdateStatus()
 
 function fmtTime(v?: string | null): string {
   if (!v) return '—'
@@ -98,6 +100,16 @@ function fmtTime(v?: string | null): string {
             <dl
               class="grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl border border-default p-4 text-sm sm:grid-cols-3"
             >
+              <div>
+                <dt class="text-muted">Thallo</dt>
+                <dd class="text-default" data-testid="health-thallo-version">
+                  {{ update?.development ? 'development checkout' : (update?.current ?? '—') }}
+                </dd>
+              </div>
+              <div v-if="update?.latest">
+                <dt class="text-muted">Newest published</dt>
+                <dd class="text-default" data-testid="health-thallo-latest">{{ update.latest }}</dd>
+              </div>
               <div>
                 <dt class="text-muted">Framework</dt>
                 <dd class="text-default">{{ health.version }}</dd>
