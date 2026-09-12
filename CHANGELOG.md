@@ -20,6 +20,8 @@ as the next release, never a mutated tag.
   updater: Composer runs as the deploy user, not under the web worker.
 
 ### Upgrade Notes
+- Framework 1.85.4 is required (repinned): jobs declared in `config/schedule.php` actually run
+  under `queue:scheduler run`; before it, the tick logged them as executed and ran nothing.
 - **One scheduler cron entry is required:** `* * * * * php /path/to/site/glueful queue:scheduler run`.
   It evaluates every job in `config/schedule.php` — scheduled publishing, the update check, the
   signup and domain-reverification sweeps. Earlier guides listed only `thallo:schedules:run`,
