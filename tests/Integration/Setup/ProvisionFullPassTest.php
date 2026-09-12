@@ -73,7 +73,7 @@ final class ProvisionFullPassTest extends TestCase
     /**
      * A provision base over THIS repo's real vendor tree: the fixture symlinks vendor/ (real
      * installed.json, real packs) and points the app migrations path at the real
-     * database/migrations, but keeps its own .env and sqlite database.
+     * core/database/migrations (via the core provider), but keeps its own .env and sqlite database.
      */
     private function realRepoBase(): string
     {
@@ -85,7 +85,8 @@ final class ProvisionFullPassTest extends TestCase
         file_put_contents($base . '/.env.example', "APP_ENV=local\nAPP_KEY=\n");
         file_put_contents(
             $base . '/config/app.php',
-            "<?php\nreturn ['paths' => ['migrations' => " . var_export($root . '/database/migrations', true) . "]];\n"
+            "<?php\nreturn ['paths' => ['migrations' => "
+                . var_export($root . '/core/database/migrations', true) . "]];\n"
         );
         // The REAL enabled extension list (no testing shield): provision must cover every
         // enabled engine's schema, tenancy included.
@@ -182,7 +183,12 @@ final class ProvisionFullPassTest extends TestCase
         $tables = $pdo->query(
             "SELECT tablename FROM pg_tables WHERE schemaname = '" . $this->schema . "'"
         )->fetchAll(\PDO::FETCH_COLUMN);
-        foreach (['permissions', 'collection_definitions', 'render_templates', 'extension_operations'] as $table) {
+        // 'entries' and 'block_types' are app-tier tables: they prove the core/database/migrations
+        // lane (registered by the core provider under source 'app') ran inside the same pass.
+        $expected = ['permissions', 'collection_definitions', 'render_templates', 'extension_operations'];
+        $expected[] = 'entries';
+        $expected[] = 'block_types';
+        foreach ($expected as $table) {
             self::assertContains($table, $tables, "{$table} must exist after provision");
         }
         $slugCount = (int) $pdo->query(
@@ -195,7 +201,7 @@ final class ProvisionFullPassTest extends TestCase
         // every source in the provision snapshot it is a no-op belt, not the workhorse.
         $root = dirname(__DIR__, 3);
         $manager->addMigrationPath(
-            $root . '/database/dependent-migrations',
+            $root . '/core/database/dependent-migrations',
             \Glueful\Database\Migrations\MigrationPriority::DEPENDENT,
             'app:dependent'
         );

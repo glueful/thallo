@@ -40,7 +40,7 @@ final class AuthorityRolesMigrationTest extends AppTestCase
     public function testUpIsIdempotentAndDownRestoresPriorShape(): void
     {
         require_once dirname(__DIR__, 3)
-            . '/database/dependent-migrations/013_CreateTenancyAuthorityRoles.php';
+            . '/core/database/dependent-migrations/013_CreateTenancyAuthorityRoles.php';
         $migration = new \CreateTenancyAuthorityRoles();
         $schema = $this->connection()->getSchemaBuilder();
         try {
