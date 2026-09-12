@@ -22,7 +22,7 @@ final class SkeletonParityTest extends TestCase
 
     public function testSharedFilesAreIdentical(): void
     {
-        $shared = ['bootstrap/app.php', 'public/index.php', 'public/.htaccess', 'glueful', '.env.example'];
+        $shared = ['bootstrap/app.php', 'public/index.php', 'public/.htaccess', 'glueful', 'thallo', '.env.example'];
         foreach ($shared as $rel) {
             self::assertFileEquals("$this->root/$rel", "$this->root/skeleton/$rel", $rel);
         }

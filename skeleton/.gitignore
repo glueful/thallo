@@ -20,6 +20,10 @@ bootstrap/cache/
 # --- The admin bundle: published here by `php glueful thallo:provision` from vendor/glueful/thallo-core ---
 /public/admin/
 
+# --- The API reference (/api-docs): generated here by `php glueful thallo:provision` from the live routes ---
+/docs/openapi.json
+/docs/index.html
+
 # --- Runtime artifacts ---
 /storage/cache/*
 !/storage/cache/.gitkeep

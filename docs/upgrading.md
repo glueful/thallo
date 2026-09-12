@@ -110,9 +110,25 @@ hand before upgrading.
   operational obligations — each is listed in the release's Upgrade Notes and reflected in
   [production.md](production.md).
 
-## Coming next
+## Knowing when to upgrade
 
-The admin will show a notice when a newer Thallo is published (charter decision 11).
+Once a day (04:00 server time, `update_check` in `config/schedule.php`, run by
+`php glueful queue:scheduler run` from cron) the install asks Packagist's public metadata for
+the newest published `glueful/thallo-core` it may move to — a plain GET with no install
+identifier; nothing about the site leaves it. The answer is kept in the system flags, and
+administrators with `system.access` see it: a card on Home and an **Update** badge on
+Utilities → Health, both with the release notes link and the command above; the Health page
+shows the installed and newest versions. Dismissing the card hides that version in that
+browser only; the next release shows again. The notice clears the moment the upgrade has run.
+
+- A pre-release install (`1.0.0-beta.N`) is offered newer pre-releases and stable releases; a
+  stable install is never pointed at a pre-release.
+- `UPDATE_CHECK_ENABLED=false` in `.env` turns the check and the notice off.
+- `php glueful thallo:update:check` (add `--force` to ask now) shows the same status on the
+  command line.
+- A failed check is silent: the previous answer stands until the next one succeeds.
+- There is no update button, and there will not be one in the self-hosted product: Composer
+  runs as the deploy user with write access to `vendor/`, never under the web worker.
 
 ## Extensions
 

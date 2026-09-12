@@ -1,7 +1,9 @@
 # Composer-updatable Thallo: the package split and the update notice
 
 Status: phases 2 and 3 implemented on `dev` (2026-09-12); beta.21 is the first split release;
-phase 4 (update notice) next. Owner: Michael Tawiah Sowah. Binds to `docs/internal/DISTRIBUTION.md`.
+phase 4 (update notice) implemented for beta.22 — see
+`docs/internal/plans/2026-09-12-update-notice-phase-4-plan.md`. Owner: Michael Tawiah Sowah.
+Binds to `docs/internal/DISTRIBUTION.md`.
 
 ## Why
 
@@ -99,9 +101,10 @@ guide is rewritten in beta.21 regardless of when the split lands.
    php glueful thallo:provision`. Clean-machine gate: install AND upgrade.
 4. **Update notice (decision 11).** Scheduled daily check of Packagist's public API for
    `glueful/thallo-core` (jitter; silent on failure; `UPDATE_CHECK_ENABLED=false` opts out);
-   result in system flags; `/admin/config` gains `update: {current, latest, notesUrl}`;
-   administrators see a dismissible badge and a Home card with the changelog link and the
-   command. No button: Composer runs as the deploy user, never under the web worker.
+   result in system flags; administrators read it from the authenticated
+   `GET /v1/admin/update-status` (decision 11 amended: not `/admin/config`, which is
+   unauthenticated) and see a dismissible badge and a Home card with the changelog link and
+   the command. No button: Composer runs as the deploy user, never under the web worker.
 
 Phase 1 is a beta.21 item. Phases 2–4 are Beta-gate items and are not scheduled against the
 website plan's phase 1 (landing page), which proceeds independently.

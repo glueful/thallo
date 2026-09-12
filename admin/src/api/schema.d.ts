@@ -230,7 +230,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List block types */
+        /**
+         * List block types
+         * @description A pack's block types (Commerce, Accounts) are listed only while its capability is on; their rows are kept, not deleted, while it is off.
+         */
         get: operations["getV1AdminBlocktypes"];
         put?: never;
         /**
@@ -411,6 +414,46 @@ export interface paths {
          */
         get: operations["getV1AdminCapabilities"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/capabilities/manage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all registered capabilities with switchboard state
+         * @description Every registered capability with requested, availability (reason/remedy) and effective state. Operator-only: requires the `system.access` permission.
+         */
+        get: operations["getV1AdminCapabilitiesManage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/capabilities/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Enable or disable a capability
+         * @description Persists the requested state in the system-scoped switchboard. Disable is always allowed; enable refuses 409 while the owning engine cannot back the capability. Operator-only: requires the `system.access` permission.
+         */
+        put: operations["putV1AdminCapabilitiesById"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2621,7 +2664,7 @@ export interface paths {
         put?: never;
         /**
          * Disable an installed extension
-         * @description Removes the extension from config/extensions.php and recompiles the cache. Dev only. Requires the `system.access` permission.
+         * @description Disables the extension through the shared schema executor (never any schema change — tables and data are preserved). Requires the `system.access` permission.
          */
         post: operations["postV1AdminExtensionsDisable"];
         delete?: never;
@@ -2641,7 +2684,7 @@ export interface paths {
         put?: never;
         /**
          * Enable an installed extension
-         * @description Adds the extension to config/extensions.php and recompiles the cache. Dev only. Requires the `system.access` permission.
+         * @description Migrates the extension schema first, then enables it — the shared schema executor serializes the whole operation and records its truthful outcome. Requires the `system.access` permission.
          */
         post: operations["postV1AdminExtensionsEnable"];
         delete?: never;
@@ -3570,6 +3613,26 @@ export interface paths {
         get?: never;
         /** Start or change a workspace subscription plan */
         put: operations["thalloSubscriptionsAdminWorkspacesPlan"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/update-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Update status
+         * @description The installed glueful/thallo-core version, the newest published version this install may move to (from the daily Packagist check), and the release notes link. Read-only; requires `system.access`. The upgrade is `composer update && php glueful thallo:provision`.
+         */
+        get: operations["getV1AdminUpdatestatus"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -7180,6 +7243,187 @@ export interface operations {
                             code?: number;
                             timestamp?: string;
                             request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    getV1AdminCapabilitiesManage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description All registered capabilities with management state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
+    putV1AdminCapabilitiesById: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "enabled": true
+                 *     }
+                 */
+                "application/json": {
+                    enabled: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Requested state persisted (read back before reporting). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description No such registered capability. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Enable refused: the owning engine cannot back it. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation failed */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example false */
+                        success: boolean;
+                        message: string;
+                        errors: {
+                            [key: string]: string[];
                         };
                     };
                 };
@@ -24517,6 +24761,13 @@ export interface operations {
                     };
                 };
             };
+            /** @description Refused (protected/unwritable/lock) or the operation failed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             /** @description Unexpected server error. */
             500: {
                 headers: {
@@ -24545,7 +24796,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Extension enabled. */
+            /** @description Extension enabled (a stale provider cache carries a warning). */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -24585,6 +24836,13 @@ export interface operations {
                         };
                     };
                 };
+            };
+            /** @description Refused (protected/unwritable/lock) or the operation failed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Unexpected server error. */
             500: {
@@ -29582,6 +29840,91 @@ export interface operations {
             };
         };
     };
+    getV1AdminUpdatestatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Update status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success: boolean;
+                        message: string;
+                        data: {
+                            update?: {
+                                current?: string | null;
+                                latest?: string | null;
+                                available?: boolean;
+                                development?: boolean;
+                                enabled?: boolean;
+                                checkedAt?: string | null;
+                                notesUrl?: string;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Unauthenticated. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Forbidden. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        success?: boolean;
+                        message?: string;
+                        error?: {
+                            code?: number;
+                            timestamp?: string;
+                            request_id?: string;
+                        };
+                    };
+                };
+            };
+        };
+    };
     postV1AdminUsers: {
         parameters: {
             query?: never;
@@ -30954,7 +31297,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description State row (draft default) + recent history. */
+            /** @description State row (draft default) + recent history; `can_bypass` is whether the requesting user holds workflow.bypass for the locale. */
             200: {
                 headers: {
                     [name: string]: unknown;

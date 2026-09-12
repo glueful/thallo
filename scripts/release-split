@@ -49,15 +49,50 @@ for dir in "${ARTIFACTS[@]}"; do
     commit="$(git subtree split --prefix="$dir" --quiet)"
     git branch -f "split/$name" "$commit"
   fi
-  run git tag -f -a "split/$name/$TAG" -m "$TAG — $name" "split/$name"
-  PUSHES+=("git push split/$name split/$name:refs/heads/main refs/tags/split/$name/$TAG:refs/tags/$TAG")
+  # Tags are immutable (RELEASING.md, decision 8) and an annotated tag is a new object every time
+  # it is written, which a mirror that already holds the tag rejects. Keep a local tag that already
+  # names the split head; only (re)write it when the split content changed before publication.
+  if [[ "$DRY" -eq 0 ]] && [[ "$(git rev-parse -q --verify "refs/tags/split/$name/$TAG^{commit}" || true)" == "$(git rev-parse "split/$name")" ]]; then
+    echo "= tag split/$name/$TAG already names the split head; kept"
+  else
+    run git tag -f -a "split/$name/$TAG" -m "$TAG — $name" "split/$name"
+  fi
+  PUSHES+=("split/$name")
 done
 
+# One mirror per push; a mirror that already holds the tag at the same commit receives only the
+# branch, a mirror holding the tag at ANOTHER commit is a release mistake and is reported, and
+# a failed push never stops the remaining mirrors — the summary names what did not land.
+push_mirror() {
+  local name="$1" head remote_tag
+  head="$(git rev-parse "split/$name")"
+  remote_tag="$(git ls-remote --tags "split/$name" "refs/tags/$TAG^{}" 2>/dev/null | cut -f1 || true)"
+  if [[ -n "$remote_tag" && "$remote_tag" != "$head" ]]; then
+    echo "release-split: split/$name already publishes $TAG at ${remote_tag:0:8}, not ${head:0:8}; tags are immutable — this content is the next release." >&2
+    return 1
+  fi
+  if [[ -n "$remote_tag" ]]; then
+    echo "= split/$name already publishes $TAG; pushing main only"
+    git push "split/$name" "split/$name:refs/heads/main"
+  else
+    git push "split/$name" "split/$name:refs/heads/main" "refs/tags/split/$name/$TAG:refs/tags/$TAG"
+  fi
+}
+
 echo "== pushes (mirrors receive branch main + tag $TAG) =="
-for cmd in "${PUSHES[@]}"; do
-  echo "+ $cmd"
+FAILED=()
+for name in "${PUSHES[@]}"; do
+  echo "+ git push $name $name:refs/heads/main refs/tags/$name/$TAG:refs/tags/$TAG"
   if [[ "$PUSH" -eq 1 && "$DRY" -eq 0 ]]; then
-    bash -c "$cmd"
+    push_mirror "${name#split/}" || FAILED+=("$name")
   fi
 done
-[[ "$PUSH" -eq 1 && "$DRY" -eq 0 ]] && echo "== release-split: pushed $TAG to ${#PUSHES[@]} mirrors ==" || echo "== release-split: done locally; run the pushes above (or re-run with --push) =="
+if [[ "$PUSH" -eq 1 && "$DRY" -eq 0 ]]; then
+  if [[ ${#FAILED[@]} -gt 0 ]]; then
+    echo "== release-split: ${#FAILED[@]} mirror(s) did not land: ${FAILED[*]} — fix and re-run with --push (published mirrors are skipped) ==" >&2
+    exit 1
+  fi
+  echo "== release-split: pushed $TAG to ${#PUSHES[@]} mirrors =="
+else
+  echo "== release-split: done locally; run the pushes above (or re-run with --push) =="
+fi

@@ -5,6 +5,11 @@ declare(strict_types=1);
 namespace Thallo\Core\Providers;
 
 use Thallo\Core\Capabilities\CapabilityStateStore;
+use Thallo\Contracts\Settings\SystemChannel;
+use Thallo\Core\Updates\Console\UpdateCheckCommand;
+use Thallo\Core\Updates\PackagistReleaseFeed;
+use Thallo\Core\Updates\ReleaseFeed;
+use Thallo\Core\Updates\UpdateChecker;
 use Thallo\Core\Capabilities\DefaultCapabilityRegistry;
 use Thallo\Core\Capabilities\ExtensionCapabilityAvailabilityResolver;
 use Thallo\Core\Setup\InstallRoleGrants;
@@ -92,6 +97,7 @@ use Thallo\Core\Http\Controllers\FormSubmissionsController;
 use Thallo\Core\Http\Controllers\FormSubmitController;
 use Thallo\Core\Http\Controllers\GeneralSettingsController;
 use Thallo\Core\Http\Controllers\HealthAdminController;
+use Thallo\Core\Http\Controllers\UpdateStatusController;
 use Thallo\Core\Http\Controllers\IconInventoryController;
 use Thallo\Core\Http\Controllers\ImportExportController;
 use Thallo\Core\Http\Controllers\MediaAdminController;
@@ -403,6 +409,15 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
             ],
         ];
+    }
+
+    public static function makeUpdateChecker(ContainerInterface $container): UpdateChecker
+    {
+        return UpdateChecker::fromContext(
+            $container->get(ApplicationContext::class),
+            $container->get(ReleaseFeed::class),
+            $container->get(SystemChannel::class),
+        );
     }
 
     public static function makeSignupChallenge(ContainerInterface $container): SignupChallenge
@@ -1757,6 +1772,16 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            // The update notice (decision 11): Packagist's public metadata behind the ReleaseFeed
+            // seam, the checker wired from config and Composer's installed-version registry.
+            ReleaseFeed::class => [
+                'class' => PackagistReleaseFeed::class,
+                'shared' => true,
+            ],
+            UpdateChecker::class => [
+                'factory' => [self::class, 'makeUpdateChecker'],
+                'shared' => true,
+            ],
             // Platform-payments-settings spec Task 2: the encrypted write/read surface over the
             // unscoped SystemChannel for payvia.* gateway credentials — SystemChannel and
             // EncryptionService both autowire (constructor injection only, no container lookups
@@ -1871,6 +1896,11 @@ final class CoreServiceProvider extends ServiceProvider
                 'shared' => true,
                 'autowire' => true,
             ],
+            UpdateStatusController::class => [
+                'class' => UpdateStatusController::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
             CapabilityAdminController::class => [
                 'class' => CapabilityAdminController::class,
                 'shared' => true,
@@ -1944,6 +1974,11 @@ final class CoreServiceProvider extends ServiceProvider
             ],
             RunDueSchedulesCommand::class => [
                 'class' => RunDueSchedulesCommand::class,
+                'shared' => true,
+                'autowire' => true,
+            ],
+            UpdateCheckCommand::class => [
+                'class' => UpdateCheckCommand::class,
                 'shared' => true,
                 'autowire' => true,
             ],
@@ -2210,6 +2245,7 @@ final class CoreServiceProvider extends ServiceProvider
             RunBlockBackfillCommand::class,
             RunBackfillCommand::class,
             RunDueSchedulesCommand::class,
+            UpdateCheckCommand::class,
             SuperuserGrantCommand::class,
             SuperuserTransferCommand::class,
             MigratePlatformPaymentCredentialsCommand::class,

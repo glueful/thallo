@@ -6354,7 +6354,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Runtime config: apiBase, sitePreviewUrl, defaultLocale, installed. */
+            /** @description Runtime config: apiBase, sitePreviewUrl, defaultLocale, installed, apiDocsPath. */
             200: {
                 headers: {
                     [name: string]: unknown;
