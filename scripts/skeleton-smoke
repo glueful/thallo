@@ -66,6 +66,8 @@ if [[ "$DRY" -eq 0 ]]; then
 fi
 [[ "$DRY" -eq 1 ]] || env_summary "$SCRATCH/.env"
 run_in "$SCRATCH" $PHP glueful migrate:status
+# The update notice's command wiring in the template (a path-installed core reports a development checkout).
+run_in "$SCRATCH" $PHP glueful thallo:update:check
 
 echo "+ assert: public/admin/index.html published, docs/openapi.json generated, no operator code, nothing pending"
 if [[ "$DRY" -eq 0 ]]; then

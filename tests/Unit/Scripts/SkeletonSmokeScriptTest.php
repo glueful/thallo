@@ -24,6 +24,7 @@ final class SkeletonSmokeScriptTest extends TestCase
                 'thallo:doctor',
                 'thallo:provision --no-interaction',
                 'migrate:status',
+                'thallo:update:check',
                 'public/admin/index.html',
                 'docs/openapi.json',
             ] as $needle
