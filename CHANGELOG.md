@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Changed
+- Every published repository's README carries a Contributing note: the mirrors are read-only,
+  overwritten on each release, and issues and pull requests belong in glueful/thallo. The three
+  packs without a README (account, subscriptions, tenancy) have one now, and the archive check
+  requires it.
+
 ## [1.0.0-beta.23] - 2026-09-13
 
 A small release after beta.22's install gate: the documented install command works as written,

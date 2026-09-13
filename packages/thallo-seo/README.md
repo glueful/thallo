@@ -100,3 +100,10 @@ disk (drop it manually if you want the data gone).
 **JSON-LD / structured data** is a fast-follow — it expands the modeling surface (schema-type
 selection, field mapping, breadcrumbs, validation) and deserves its own pass. Redirects, canonical,
 and hreflang stay with core delivery.
+
+## Contributing
+
+This repository is a read-only mirror, published from
+[glueful/thallo](https://github.com/glueful/thallo) on every release; its `main` is overwritten
+by the next split, so nothing can land here. Issues and pull requests belong in glueful/thallo,
+where this code lives at `packages/thallo-seo/`.

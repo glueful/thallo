@@ -78,10 +78,10 @@ check_skeleton() {
 
 check_pack() {
   local dir="packages/$1" L; L="$(listing_of "$dir")"
-  if contains "$L" "composer.json" && contains_prefix "$L" "src/"; then
-    echo "ok: $1 ships composer.json + src/"
+  if contains "$L" "composer.json" && contains_prefix "$L" "src/" && contains "$L" "README.md"; then
+    echo "ok: $1 ships composer.json + src/ + README.md"
   else
-    echo "FAIL: $1 lacks composer.json or src/" >&2; fail=1
+    echo "FAIL: $1 lacks composer.json, src/ or README.md" >&2; fail=1
   fi
   if git show "$REF:$dir/composer.json" | grep -q '"version"'; then
     echo "FAIL: $1 composer.json must not carry a version field" >&2; fail=1

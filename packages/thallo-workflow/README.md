@@ -81,3 +81,10 @@ unchanged; the workflow tables remain on disk (drop manually if you want the dat
 
 Multi-stage/configurable pipelines, per-content-type reviewer policy, assignment,
 notification delivery, and a workboard UI.
+
+## Contributing
+
+This repository is a read-only mirror, published from
+[glueful/thallo](https://github.com/glueful/thallo) on every release; its `main` is overwritten
+by the next split, so nothing can land here. Issues and pull requests belong in glueful/thallo,
+where this code lives at `packages/thallo-workflow/`.
