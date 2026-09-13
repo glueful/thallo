@@ -50,8 +50,9 @@ final class SeedBlockTypesTest extends AppTestCase
         // carry the Nuxt UI shapes; container declares value constraints.
         // blog_posts (blog-posts spec): dynamic listing of published posts as cards.
         // modern-blocks spec §2/§3: animated_text (Content) + gallery (Media) added.
-        self::assertSame(46, count(StarterBlockTypes::definitions()));
-        self::assertGreaterThanOrEqual(46, $expected, 'contributions only ever add to the fixed library');
+        // code (website plan, phase 1): a snippet with a language label and a copy button.
+        self::assertSame(47, count(StarterBlockTypes::definitions()));
+        self::assertGreaterThanOrEqual(47, $expected, 'contributions only ever add to the fixed library');
         // Style block (style-block spec §3): scoped accent/neutral re-skin + class hook.
         $style = $repo->findBySlug('style');
         self::assertSame('Layout', $style['category']);

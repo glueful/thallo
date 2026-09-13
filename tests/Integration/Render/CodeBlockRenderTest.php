@@ -1,0 +1,71 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Thallo\Core\Tests\Integration\Render;
+
+use Thallo\Core\Tests\Support\AppTestCase;
+use Thallo\Render\RenderContextExtension;
+use Thallo\Render\ThemeLocator;
+use Thallo\Render\TwigFactory;
+use Twig\Environment;
+
+/**
+ * The code block (website plan, phase 1): a snippet with a language label and a copy button,
+ * for the install command on the landing page. The no-JS floor is the plain <pre><code>; the
+ * copy button is created by the runtime asset, so nothing dead ships in the markup.
+ */
+final class CodeBlockRenderTest extends AppTestCase
+{
+    private function env(): Environment
+    {
+        $base = $this->appContext()->getBasePath();
+        return (new TwigFactory(
+            new ThemeLocator('default', $base . '/themes'),
+            $this->container()->get(RenderContextExtension::class),
+            $base . '/storage/cache/twig',
+        ))->environment();
+    }
+
+    /** @param array<string,mixed> $data */
+    private function render(array $data): string
+    {
+        return $this->env()->createTemplate('{{ blocks(list) }}')->render([
+            'list' => [['id' => 'c1', 'type' => 'code', 'data' => $data]],
+        ]);
+    }
+
+    public function testItRendersTheSnippetEscapedWithItsLanguageAndLabel(): void
+    {
+        $out = $this->render([
+            'code' => "composer create-project --stability=beta glueful/thallo my-site && cd my-site\n<b>not html</b>",
+            'language' => 'bash',
+            'label' => 'Terminal',
+        ]);
+
+        self::assertStringContainsString('class="thallo-block thallo-block-code"', $out);
+        self::assertStringContainsString('data-language="bash"', $out);
+        self::assertStringContainsString('data-copy="1"', $out, 'copy defaults to on');
+        self::assertStringContainsString('<code class="language-bash">', $out);
+        self::assertStringContainsString('&lt;b&gt;not html&lt;/b&gt;', $out, 'the snippet is text, never markup');
+        self::assertStringContainsString('Terminal', $out);
+        self::assertStringNotContainsString('<button', $out, 'the button is the runtime\'s, not the floor\'s');
+        self::assertStringContainsString('/_thallo/runtime/block-code.js', $out);
+    }
+
+    public function testTheLanguageIsTheLabelWhenNoneIsGivenAndCopyCanBeOff(): void
+    {
+        $out = $this->render(['code' => 'SELECT 1;', 'language' => 'sql', 'copy' => false]);
+
+        self::assertStringContainsString('data-copy="0"', $out);
+        self::assertStringContainsString('>sql<', $out);
+    }
+
+    public function testAnUnknownLanguageFallsBackToText(): void
+    {
+        $out = $this->render(['code' => 'x', 'language' => 'klingon']);
+
+        self::assertStringContainsString('data-language="text"', $out);
+        self::assertStringContainsString('<code class="language-text">', $out);
+    }
+}
