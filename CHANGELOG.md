@@ -7,6 +7,17 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Fixed
+- **Uploaded media answered 401 on a fresh install.** The framework's upload access default is
+  `private` (auth for retrieval too), so every image on the site and every preview in the admin
+  was unauthorized until `UPLOADS_ACCESS` was set by hand. Thallo's default is `upload_only`
+  now: uploading and deleting need the admin session, retrieval is public per blob (the media
+  library uploads site media as public; private blobs still need auth or a signed URL).
+- **Saving the site's custom CSS answered 405 from nginx.** `/v1/admin/render/templates/custom.css`
+  ends like a file, so the common static-file location took it. The production guide's location
+  rule covers `/v1/` and `/api-docs/` now, and `thallo:doctor` probes an API path that ends like
+  a file (`api-routing`) next to the theme-asset probe.
+
 ### Added
 - **Code block** (website plan, phase 1): a snippet with a language label and a Copy button,
   for the install command on a landing page. The snippet is text (never markup), the

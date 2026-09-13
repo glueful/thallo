@@ -173,7 +173,34 @@ final class DoctorTest extends TestCase
         self::assertSame(Check::WARN, $check->status);
         self::assertStringContainsString('/theme-assets/', $check->message);
         self::assertStringContainsString('docs/production.md', $check->message);
-        self::assertSame(['https://thallo.dev/theme-assets/site.css?t=default'], $probed);
+        self::assertSame(
+            [
+                'https://thallo.dev/theme-assets/site.css?t=default',
+                'https://thallo.dev/v1/admin/render/templates/custom.css?theme=default',
+            ],
+            $probed,
+        );
+    }
+
+    public function testApiRoutingWarnsWhenAFileShapedApiPathIsServedFromDisk(): void
+    {
+        // A static-file location that matches *.css takes the custom-stylesheet template path
+        // before PHP sees it: 404 on GET, 405 on PUT (nginx). A 401 means the request reached the
+        // API (the probe is anonymous), which is the healthy answer.
+        $dir = $this->tempProjectWithEnv("APP_ENV=production\nBASE_URL=https://thallo.dev\n");
+        $doctor = new Doctor($dir, '8.3.0', ['pdo_pgsql'], static fn (string $url): ?int =>
+            str_contains($url, '/theme-assets/') ? 200 : 404);
+
+        $checks = $this->byName($doctor->preflight());
+
+        self::assertSame(Check::OK, $checks['asset-routing']->status);
+        self::assertSame(Check::WARN, $checks['api-routing']->status);
+        self::assertStringContainsString('/v1/', $checks['api-routing']->message);
+        self::assertStringContainsString('docs/production.md', $checks['api-routing']->message);
+
+        $healthy = new Doctor($dir, '8.3.0', ['pdo_pgsql'], static fn (string $url): ?int =>
+            str_contains($url, '/theme-assets/') ? 200 : 401);
+        self::assertSame(Check::OK, $this->byName($healthy->preflight())['api-routing']->status);
     }
 
     public function testAssetRoutingIsOkWhenThePhpServedAssetIsReachable(): void
