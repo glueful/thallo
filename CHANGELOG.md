@@ -7,6 +7,17 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- **Code block** (website plan, phase 1): a snippet with a language label and a Copy button,
+  for the install command on a landing page. The snippet is text (never markup), the
+  language rides as `data-language` and a `language-*` class for a later highlighter, the
+  caption is optional, and Copy can be switched off. Without JavaScript the block is a plain
+  `<pre><code>`; `block-code.js` adds the button (same-origin, the `block_script()` catalog).
+- **`thallo-version` shortcode** (website plan decision 7): renders the running install's
+  version from `site.version`, now available to every template, with an optional prefix
+  (`params.prefix`); a development checkout says so. `site.version` comes from the new
+  `SiteVersionProvider` contract, bound to Composer's installed-version registry.
+
 ## [1.0.0-beta.26] - 2026-09-13
 
 Findings from the first real upgrade on thallo.dev: the version is visible to every admin user,
