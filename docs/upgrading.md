@@ -66,9 +66,10 @@ website runs, and every release is exercised there by the exact upgrade every op
   never touched), the extension cache production boot requires, and the admin bundle published
   into `public/admin` (the release's copy replaces the previous one; stale files are removed). `migrate:verify` confirms
   every declared migration source is Ready; a non-zero exit stops the sequence.
-- **Cache clears that outlive a release**: `route:cache:clear` (the compiled route table — a
-  stale one keeps serving the previous release's routes) and `render:cache:clear` (rendered
-  pages). The compiled container is signed by its definitions and recompiles itself.
+- **Cache clears that outlive a release** — done by `thallo:provision`: the compiled route
+  table (a stale one keeps serving the previous release's routes) and the rendered pages. A
+  deploy that skips provision runs `route:cache:clear` and `render:cache:clear` itself. The
+  compiled container is signed by its definitions and recompiles itself.
 - **A PHP-FPM reload**, so OPcache drops the previous release's classes.
 - **The release's Upgrade Notes** in [CHANGELOG.md](../CHANGELOG.md).
 
