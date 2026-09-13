@@ -7,12 +7,21 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.25] - 2026-09-13
+
+The first upgrade release: provision now finishes an upgrade completely, and the website's
+separate deploy path is gone. Framework 1.85.4 required.
+
 ### Fixed
 - `thallo:provision` drops the compiled route table and the rendered page cache, so
   `composer update && php glueful thallo:provision` is the whole upgrade. The route table's
   signature does not cover the routes shipped in `vendor/`, so after an update a stale table
   kept serving the previous release's routes until `route:cache:clear` was run by hand — a step
   the upgrade guide listed but the upgrade command did not do.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`, then reload PHP-FPM. Provision now clears
+  the route table and the rendered pages itself; no manual cache clear is needed.
 
 ### Removed
 - `scripts/deploy-site`, the website's deploy-from-a-tag flow written before the package split.
