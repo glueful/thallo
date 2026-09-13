@@ -264,8 +264,11 @@ jobs:
           cache: pnpm
           cache-dependency-path: admin/pnpm-lock.yaml
 
+      - name: Admin lint, format check and tests
+        run: cd admin && pnpm install --frozen-lockfile && pnpm run -s lint && pnpm run -s fmt:check && pnpm test
+
       - name: Build the admin bundle into core/resources/admin
-        run: cd admin && pnpm install --frozen-lockfile && pnpm run -s build
+        run: cd admin && pnpm run -s build
 
       - name: Install the dev root (reset-test-db needs its vendor)
         run: composer install --no-interaction --prefer-dist
