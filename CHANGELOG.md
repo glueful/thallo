@@ -8,9 +8,10 @@ as the next release, never a mutated tag.
 ## [Unreleased]
 
 ### Fixed
-- Framework 1.85.5 is required (repinned): a login whose token generation fails (an empty JWT
+- Framework 1.85.6 is required (repinned): a login whose token generation fails (an empty JWT
   key) no longer stores a session with an empty refresh token, whose constant hash made every
-  later login answer 409; the cause is logged, and unique-constraint violations are reported.
+  later login answer 409; the cause is logged, and unique-constraint violations are reported
+  (1.85.5); an SVG served with a width hint is the original, not a 422 (1.85.6).
 - **Uploaded media answered 401 on a fresh install.** The framework's upload access default is
   `private` (auth for retrieval too), so every image on the site and every preview in the admin
   was unauthorized until `UPLOADS_ACCESS` was set by hand. Thallo's default is `upload_only`
