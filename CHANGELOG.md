@@ -7,6 +7,12 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.26] - 2026-09-13
+
+Findings from the first real upgrade on thallo.dev: the version is visible to every admin user,
+and the guide stops asking for a PHP-FPM reload nobody needs by default. Framework 1.85.4
+required.
+
 ### Added
 - The user menu shows the Thallo version this admin runs ("Thallo 1.0.0-beta.25"; "development
   checkout" in the development repository) and, when a newer one is published, an "Update
@@ -19,6 +25,10 @@ as the next release, never a mutated tag.
   picked up without one.
 - `pnpm gen:api` formats the generated schema files, so regenerating the typed client no
   longer fails the admin's format check.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`. No PHP-FPM reload unless OPcache runs with
+  `opcache.validate_timestamps=0`.
 
 ## [1.0.0-beta.25] - 2026-09-13
 
