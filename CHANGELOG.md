@@ -7,6 +7,11 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Removed
+- `scripts/deploy-site`, the website's deploy-from-a-tag flow written before the package split.
+  It was never used: thallo.dev is an ordinary template install now, upgraded like every site
+  with `composer update && php glueful thallo:provision`. The runbook's website gate says so.
+
 ## [1.0.0-beta.24] - 2026-09-13
 
 Housekeeping for the published repositories: they are read-only mirrors now, and they say so.
