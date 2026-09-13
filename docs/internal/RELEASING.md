@@ -69,6 +69,18 @@ the mirrors. Nobody commits to a mirror.
 8. **Website-from-tag gate**: the Thallo website + docs deploy from this exact tag
    (`scripts/deploy-site`), never the dev checkout. Announce only after gates 7 AND 8 pass.
 
+## One-time setup (mirror protection)
+
+The mirrors are read-only for everyone but the release pusher: a branch ruleset on `main` and a
+tag ruleset (no creation, update or deletion; the repository admin bypasses), and issues, wiki,
+projects and discussions switched off. Pull requests cannot be disabled on GitHub, but nobody
+can merge one. Applied to all 15 by:
+
+    GITHUB_TOKEN=<fine-grained token, Administration read+write on the mirrors> scripts/mirror-protect
+
+(`--dry-run` prints the API calls.) Re-run it after creating a new mirror; it updates rulesets
+in place. A personal account has no organisation-level rulesets, which is why this is per repo.
+
 ## One-time setup (mirror remotes)
 
     for n in thallo-skeleton thallo-core thallo-contracts thallo-account thallo-analytics \

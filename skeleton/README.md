@@ -54,3 +54,10 @@ Thallo's code is `vendor/glueful/thallo-core` (with the capability packs alongsi
 never touches the paths above.
 
 Documentation: https://thallo.dev
+
+## Contributing
+
+This repository is a read-only mirror, published from
+[glueful/thallo](https://github.com/glueful/thallo) on every release; its `main` is overwritten
+by the next split, so nothing can land here. Issues and pull requests belong in glueful/thallo,
+where this code lives at `skeleton/`.

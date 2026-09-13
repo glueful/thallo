@@ -7,6 +7,21 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.24] - 2026-09-13
+
+Housekeeping for the published repositories: they are read-only mirrors now, and they say so.
+No application code changed since beta.23; framework 1.85.4 required.
+
+### Changed
+- `scripts/mirror-protect` makes the 15 mirrors read-only for everyone but the release pusher
+  through the GitHub API: branch and tag rulesets (no creation, update or deletion; the
+  repository admin bypasses) and issues, wiki, projects and discussions switched off. Applied
+  once; re-run after adding a mirror.
+- Every published repository's README carries a Contributing note: the mirrors are read-only,
+  overwritten on each release, and issues and pull requests belong in glueful/thallo. The three
+  packs without a README (account, subscriptions, tenancy) have one now, and the archive check
+  requires it.
+
 ## [1.0.0-beta.23] - 2026-09-13
 
 A small release after beta.22's install gate: the documented install command works as written,

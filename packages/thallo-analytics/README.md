@@ -88,3 +88,10 @@ if you want the data gone).
 
 The admin-SPA analytics **dashboard** (charts over this data) is a separate concern — this pack ships
 the backend fact store + read API. HTTP/ops metrics stay with the framework `metrics` capability.
+
+## Contributing
+
+This repository is a read-only mirror, published from
+[glueful/thallo](https://github.com/glueful/thallo) on every release; its `main` is overwritten
+by the next split, so nothing can land here. Issues and pull requests belong in glueful/thallo,
+where this code lives at `packages/thallo-analytics/`.
