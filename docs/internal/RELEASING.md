@@ -66,8 +66,9 @@ the mirrors. Nobody commits to a mirror.
    Confirm: the admin loads; the documented first-run sequence completes using only the public
    docs; the upgraded install reports zero pending migrations and serves the new admin.
 
-8. **Website-from-tag gate**: the Thallo website + docs deploy from this exact tag
-   (`scripts/deploy-site`), never the dev checkout. Announce only after gates 7 AND 8 pass.
+8. **Website gate**: thallo.dev is an ordinary template install, upgraded with
+   `composer update && php glueful thallo:provision` from Packagist — never a checkout of this
+   repository. Announce only after gates 7 AND 8 pass.
 
 ## One-time setup (mirror protection)
 

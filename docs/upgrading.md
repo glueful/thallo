@@ -52,13 +52,12 @@ Customisations you made inside Thallo's own files (under the old `app/`, `routes
 `database/migrations/` of a release) were never yours to keep; re-apply them as overrides in the
 paths listed above.
 
-## Deploying the website from a tag
+## The Thallo website is an ordinary install
 
-`scripts/deploy-site <tag>` remains the tag-pinned deploy for the Thallo website (charter:
-deploy from the tag, never from a checkout). It checks out this repository at the tag — whose
-tree is a complete, lock-pinned install (the template plus `core/` and the packs as path
-packages) — into a `releases/` + `shared/` + `current` layout with instant rollback. Ordinary
-sites do not need it: `composer update` is their upgrade.
+thallo.dev runs the same template every site runs — `composer create-project --prefer-dist
+--stability=beta glueful/thallo`, provisioned, upgraded with `composer update && php glueful
+thallo:provision`. There is no separate deploy path for it: the published release IS what the
+website runs, and every release is exercised there by the exact upgrade every operator runs.
 
 ## What every upgrade must include
 
@@ -67,9 +66,10 @@ sites do not need it: `composer update` is their upgrade.
   never touched), the extension cache production boot requires, and the admin bundle published
   into `public/admin` (the release's copy replaces the previous one; stale files are removed). `migrate:verify` confirms
   every declared migration source is Ready; a non-zero exit stops the sequence.
-- **Cache clears that outlive a release**: `route:cache:clear` (the compiled route table — a
-  stale one keeps serving the previous release's routes) and `render:cache:clear` (rendered
-  pages). The compiled container is signed by its definitions and recompiles itself.
+- **Cache clears that outlive a release** — done by `thallo:provision`: the compiled route
+  table (a stale one keeps serving the previous release's routes) and the rendered pages. A
+  deploy that skips provision runs `route:cache:clear` and `render:cache:clear` itself. The
+  compiled container is signed by its definitions and recompiles itself.
 - **A PHP-FPM reload**, so OPcache drops the previous release's classes.
 - **The release's Upgrade Notes** in [CHANGELOG.md](../CHANGELOG.md).
 

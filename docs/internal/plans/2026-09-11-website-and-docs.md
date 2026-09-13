@@ -150,11 +150,13 @@ root package (charter decision 10). Until the package split ships, the deploy sc
 the upgrade path for thallo.dev, and `docs/upgrading.md` documents the same git-checkout flow
 for operators from beta.21. See `2026-09-12-composer-updatable-thallo.md`.
 
-`scripts/deploy-site` (or the panel equivalent) on the server: fetch the tag, `composer install
---no-dev`, `php glueful thallo:provision`, `php glueful thallo:import markdown docs --type=doc
---prefix=docs --publish`, reload PHP-FPM, warm the page cache, run `thallo:doctor`. The script
-refuses a non-tag ref. First run against beta.N with the phase 1 and 2 work closes the
-website-from-tag gate; `DISTRIBUTION.md`'s checklist is ticked in the same commit.
+On the server, thallo.dev is an ordinary template install (`composer create-project
+--stability=beta glueful/thallo`, provisioned), upgraded like every site: `composer update &&
+php glueful thallo:provision`, then `php glueful thallo:import markdown docs --type=doc
+--prefix=docs --publish`, reload PHP-FPM, warm the page cache, run `thallo:doctor`. The
+deploy-from-tag script that predated the package split was removed in beta.25: the published
+release is what the website runs. First upgrade to a release carrying the phase 1 and 2 work
+closes the website gate; `DISTRIBUTION.md`'s checklist is ticked in the same commit.
 
 ## Expected product gaps (fix in Thallo/framework, never in the site)
 
