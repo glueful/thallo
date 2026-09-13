@@ -7,6 +7,8 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.27] - 2026-09-13
+
 ### Fixed
 - Framework 1.85.6 is required (repinned): a login whose token generation fails (an empty JWT
   key) no longer stores a session with an empty refresh token, whose constant hash made every
