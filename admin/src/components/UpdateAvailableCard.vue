@@ -30,7 +30,8 @@ const emit = defineEmits<{ dismiss: [] }>()
           class="overflow-x-auto rounded-md bg-elevated px-3 py-2 text-xs text-default"
         ><code data-testid="update-available-command">{{ UPGRADE_COMMAND }}</code></pre>
         <p class="text-xs text-muted">
-          Then reload PHP-FPM. Composer runs on the server, never from this page.
+          Reload PHP-FPM only if OPcache has timestamp validation off. Composer runs on the server,
+          never from this page.
         </p>
       </div>
       <UButton

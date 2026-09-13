@@ -4,6 +4,7 @@ import type { DropdownMenuItem } from '@nuxt/ui'
 import { useColorMode } from '@vueuse/core'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
+import { useUpdateNotice, versionLabel } from '@/composables/useUpdateNotice'
 
 const colorMode = useColorMode({ initialValue: 'system' })
 const router = useRouter()
@@ -12,6 +13,10 @@ const session = useSessionStore()
 defineProps<{
   collapsed?: boolean
 }>()
+
+// The Thallo version this admin runs, and whether a newer one is published (Home carries the card).
+const { status: updateStatus, visible: updateVisible } = useUpdateNotice()
+const version = computed(() => versionLabel(updateStatus.value))
 
 const showLogoutConfirm = ref(false)
 const loggingOut = ref(false)
@@ -102,6 +107,26 @@ const items = computed<DropdownMenuItem[][]>(() => [
       },
     },
   ],
+  ...(version.value
+    ? [
+        [
+          {
+            label: version.value,
+            icon: 'i-lucide-info',
+            type: 'label' as const,
+          },
+          ...(updateVisible.value && updateStatus.value?.latest
+            ? [
+                {
+                  label: `Update available: ${updateStatus.value.latest}`,
+                  icon: 'i-lucide-arrow-up-circle',
+                  to: '/',
+                },
+              ]
+            : []),
+        ],
+      ]
+    : []),
 ])
 </script>
 

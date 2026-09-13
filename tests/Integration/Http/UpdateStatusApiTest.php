@@ -12,21 +12,25 @@ use Thallo\Core\Tests\Support\ScriptedReleaseFeed;
 use Thallo\Core\Updates\UpdateChecker;
 
 /**
- * The update notice's read surface for administrators. Deliberately NOT on the unauthenticated
- * /admin/config (DISTRIBUTION.md decision 11, amended): an anonymous endpoint that reveals the
- * installed version is a fingerprint. Operators with system.access read it; nobody else.
+ * The update notice's read surface. Deliberately NOT on the unauthenticated /admin/config
+ * (DISTRIBUTION.md decision 11, amended): an anonymous endpoint that reveals the installed version
+ * is a fingerprint. Any signed-in admin user reads it (the version shows in the user menu).
  */
 final class UpdateStatusApiTest extends AppTestCase
 {
     private const PATH = '/v1/admin/update-status';
 
-    public function testTheRouteIsAuthenticatedAndOperatorOnly(): void
+    public function testTheRouteIsAuthenticatedButNotOperatorOnly(): void
     {
         $route = $this->findRoute('GET', self::PATH);
 
         self::assertNotNull($route, 'GET ' . self::PATH . ' must be registered');
         self::assertContains('auth', $route['middleware']);
-        self::assertContains('content_permission:system.access', $route['middleware']);
+        self::assertNotContains(
+            'content_permission:system.access',
+            $route['middleware'],
+            'every signed-in admin user may see which Thallo they are on',
+        );
     }
 
     public function testAnonymousRequestsAreRejected(): void

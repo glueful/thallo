@@ -42,3 +42,25 @@ describe('useUpdateNotice', () => {
     expect(shouldShowNotice(status({ latest: '1.0.0-beta.23' }), readDismissed())).toBe(true)
   })
 })
+
+describe('versionLabel', () => {
+  it('names the running version, marks a development checkout, and is silent without status', async () => {
+    const { versionLabel } = await import('@/composables/useUpdateNotice')
+    const base = {
+      current: '1.0.0-beta.25',
+      latest: null,
+      available: false,
+      development: false,
+      enabled: true,
+      checkedAt: null,
+      notesUrl: 'https://example.test',
+    }
+
+    expect(versionLabel(base)).toBe('Thallo 1.0.0-beta.25')
+    expect(versionLabel({ ...base, development: true, current: null })).toBe(
+      'Thallo — development checkout',
+    )
+    expect(versionLabel({ ...base, current: null })).toBeNull()
+    expect(versionLabel(null)).toBeNull()
+  })
+})

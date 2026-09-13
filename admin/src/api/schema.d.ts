@@ -3629,7 +3629,7 @@ export interface paths {
     }
     /**
      * Update status
-     * @description The installed glueful/thallo-core version, the newest published version this install may move to (from the daily Packagist check), and the release notes link. Read-only; requires `system.access`. The upgrade is `composer update && php glueful thallo:provision`.
+     * @description The installed glueful/thallo-core version, the newest published version this install may move to (from the daily Packagist check), and the release notes link. Read-only, for any signed-in admin user. The upgrade is `composer update && php glueful thallo:provision`.
      */
     get: operations['getV1AdminUpdatestatus']
     put?: never
