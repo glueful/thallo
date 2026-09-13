@@ -86,11 +86,15 @@ watch(form, () => {
 })
 
 // Read-only seller identity mirror — see the top-of-file docblock for why this panel never edits it.
-const sellerName = computed(() => String(settings.value?.settings['commerce.seller.name']?.value ?? ''))
+const sellerName = computed(() =>
+  String(settings.value?.settings['commerce.seller.name']?.value ?? ''),
+)
 const sellerAddress = computed(() =>
   String(settings.value?.settings['commerce.seller.address']?.value ?? ''),
 )
-const sellerTaxId = computed(() => String(settings.value?.settings['commerce.seller.tax_id']?.value ?? ''))
+const sellerTaxId = computed(() =>
+  String(settings.value?.settings['commerce.seller.tax_id']?.value ?? ''),
+)
 
 // The ONE thing this panel may render as `<img src>` — the server-derived, ownership+servability-
 // checked URL. `form.logoBlobUuid` alone is NEVER turned into a src here (`invoice_logo_url`'s own
@@ -131,7 +135,11 @@ async function submit(): Promise<void> {
 </script>
 
 <template>
-  <div v-if="status === 'pending'" class="flex justify-center py-10" data-test="invoices-settings-loading">
+  <div
+    v-if="status === 'pending'"
+    class="flex justify-center py-10"
+    data-test="invoices-settings-loading"
+  >
     <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
   </div>
 
@@ -230,7 +238,11 @@ async function submit(): Promise<void> {
       </div>
       <div class="flex items-center justify-between gap-3">
         <span class="text-sm">Show tax ID</span>
-        <USwitch v-model="form.showTaxId" :disabled="!canManage" data-test="invoices-toggle-tax-id" />
+        <USwitch
+          v-model="form.showTaxId"
+          :disabled="!canManage"
+          data-test="invoices-toggle-tax-id"
+        />
       </div>
     </div>
 

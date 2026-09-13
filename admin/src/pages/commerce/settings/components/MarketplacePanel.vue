@@ -5,10 +5,7 @@
 // when it's off (the default) this tab is a single honest card, no controls. Sellers, payouts,
 // and financials are a future Marketplace admin area, not this tab.
 import { computed, reactive, ref, watch } from 'vue'
-import {
-  useMarketplaceSettings,
-  useMarketplaceMutations,
-} from '@/queries/commerceSettings'
+import { useMarketplaceSettings, useMarketplaceMutations } from '@/queries/commerceSettings'
 import { useNotify } from '@/composables/useNotify'
 import { toApiError } from '@/api/errors'
 
@@ -39,17 +36,21 @@ const commission = reactive({ kind: 'percentage', percent: '', fixed: '' })
 let syncing = false
 const dirty = ref(false)
 
-watch(marketplace, () => {
-  if (dirty.value) return
-  const row = marketplace.value?.settings
-  syncing = true
-  commission.kind = row?.commission.kind ?? 'percentage'
-  commission.percent = row?.commission.bps != null ? String(row.commission.bps / 100) : ''
-  commission.fixed = row?.commission.fixed != null ? String(row.commission.fixed) : ''
-  queueMicrotask(() => {
-    syncing = false
-  })
-}, { immediate: true })
+watch(
+  marketplace,
+  () => {
+    if (dirty.value) return
+    const row = marketplace.value?.settings
+    syncing = true
+    commission.kind = row?.commission.kind ?? 'percentage'
+    commission.percent = row?.commission.bps != null ? String(row.commission.bps / 100) : ''
+    commission.fixed = row?.commission.fixed != null ? String(row.commission.fixed) : ''
+    queueMicrotask(() => {
+      syncing = false
+    })
+  },
+  { immediate: true },
+)
 
 watch(commission, () => {
   if (!syncing) dirty.value = true
@@ -119,7 +120,11 @@ async function doSaveCommission(): Promise<void> {
 </script>
 
 <template>
-  <div v-if="status === 'pending'" class="flex justify-center py-10" data-test="marketplace-loading">
+  <div
+    v-if="status === 'pending'"
+    class="flex justify-center py-10"
+    data-test="marketplace-loading"
+  >
     <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
   </div>
 
@@ -139,8 +144,8 @@ async function doSaveCommission(): Promise<void> {
   >
     <p>
       <span class="font-medium text-default">Marketplace mode is switched off.</span>
-      Turn it on to run this site as a multi-seller marketplace — sellers list products,
-      orders attribute to them, and commissions settle through payouts.
+      Turn it on to run this site as a multi-seller marketplace — sellers list products, orders
+      attribute to them, and commissions settle through payouts.
     </p>
     <UButton
       v-if="canManage"
@@ -156,8 +161,11 @@ async function doSaveCommission(): Promise<void> {
       <div class="min-w-0">
         <p class="font-medium">Marketplace mode</p>
         <p class="text-xs text-muted">
-          {{ active ? 'Active — orders attribute to sellers and settle through payouts.'
-                    : 'Inactive — this workspace sells as a single store.' }}
+          {{
+            active
+              ? 'Active — orders attribute to sellers and settle through payouts.'
+              : 'Inactive — this workspace sells as a single store.'
+          }}
         </p>
       </div>
       <UBadge
@@ -261,8 +269,7 @@ async function doSaveCommission(): Promise<void> {
     <p class="text-xs text-muted">
       Sellers, payouts, and financial reports get their own Marketplace area — this tab covers
       activation and the workspace policy. Commerce’s direct marketplace REST API (external
-      integrations) additionally needs <code>COMMERCE_MARKETPLACE_ENABLED</code> in the
-      environment.
+      integrations) additionally needs <code>COMMERCE_MARKETPLACE_ENABLED</code> in the environment.
     </p>
   </div>
 </template>

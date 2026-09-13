@@ -31,7 +31,7 @@ const UNBOUND = '__unbound__'
 const selectedTenant = ref(props.item.tenant_uuid ?? UNBOUND)
 const tenantItems = computed(() => [
   { label: 'Unbound', value: UNBOUND },
-  ...((tenants.data.value ?? []).map((tenant) => ({ label: tenant.name, value: tenant.uuid }))),
+  ...(tenants.data.value ?? []).map((tenant) => ({ label: tenant.name, value: tenant.uuid })),
 ])
 
 async function saveTenantBinding() {
@@ -119,7 +119,12 @@ async function confirmRevoke() {
     <div>
       <h3 class="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Workspace</h3>
       <div v-if="access.access.manage_platform" class="flex gap-2">
-        <USelectMenu v-model="selectedTenant" :items="tenantItems" value-key="value" class="min-w-0 flex-1" />
+        <USelectMenu
+          v-model="selectedTenant"
+          :items="tenantItems"
+          value-key="value"
+          class="min-w-0 flex-1"
+        />
         <UButton
           icon="i-lucide-save"
           color="neutral"
@@ -175,7 +180,12 @@ async function confirmRevoke() {
         variant="outline"
         block
         :disabled="item.status === 'revoked'"
-        @click="() => { graceHours = 24; showRotate = true }"
+        @click="
+          () => {
+            graceHours = 24
+            showRotate = true
+          }
+        "
       />
       <UButton
         label="Revoke key"
@@ -184,7 +194,11 @@ async function confirmRevoke() {
         variant="soft"
         block
         :disabled="item.status === 'revoked'"
-        @click="() => { pendingRevoke = true }"
+        @click="
+          () => {
+            pendingRevoke = true
+          }
+        "
       />
     </div>
 
@@ -234,7 +248,11 @@ async function confirmRevoke() {
             variant="ghost"
             label="Cancel"
             :disabled="rotate.isLoading.value"
-            @click="() => { showRotate = false }"
+            @click="
+              () => {
+                showRotate = false
+              }
+            "
           />
           <UButton
             label="Rotate"
@@ -261,7 +279,11 @@ async function confirmRevoke() {
             variant="ghost"
             label="Cancel"
             :disabled="revoke.isLoading.value"
-            @click="() => { pendingRevoke = false }"
+            @click="
+              () => {
+                pendingRevoke = false
+              }
+            "
           />
           <UButton
             color="error"

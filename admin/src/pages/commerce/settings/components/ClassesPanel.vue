@@ -172,7 +172,9 @@ async function confirmDelete() {
         class="flex flex-wrap items-center gap-3 rounded-md border border-default p-3"
       >
         <span data-test="class-name" class="font-medium text-default">{{ cls.name }}</span>
-        <UBadge color="neutral" variant="subtle" size="sm" data-test="class-slug">{{ cls.slug }}</UBadge>
+        <UBadge color="neutral" variant="subtle" size="sm" data-test="class-slug">{{
+          cls.slug
+        }}</UBadge>
 
         <div v-if="props.canManage" class="ml-auto flex gap-1">
           <UButton
@@ -191,7 +193,11 @@ async function confirmDelete() {
             icon="i-lucide-trash-2"
             aria-label="Delete class"
             data-test="class-delete"
-            @click="() => { pendingDelete = cls }"
+            @click="
+              () => {
+                pendingDelete = cls
+              }
+            "
           />
         </div>
       </div>
@@ -211,7 +217,11 @@ async function confirmDelete() {
     :open="formOpen"
     :title="editingClass ? 'Edit shipping class' : 'Create shipping class'"
     :ui="{ content: 'sm:max-w-md' }"
-    @update:open="(v: boolean) => { if (!v) closeForm() }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) closeForm()
+      }
+    "
   >
     <template #body>
       <form id="class-form" class="space-y-4" @submit.prevent="submitForm">
@@ -266,7 +276,11 @@ async function confirmDelete() {
   <UModal
     :open="pendingDelete !== null"
     title="Delete shipping class"
-    @update:open="(v: boolean) => { if (!v) pendingDelete = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) pendingDelete = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
@@ -280,7 +294,11 @@ async function confirmDelete() {
           variant="ghost"
           label="Cancel"
           :disabled="deleteClass.isLoading.value"
-          @click="() => { pendingDelete = null }"
+          @click="
+            () => {
+              pendingDelete = null
+            }
+          "
         />
         <UButton
           color="error"

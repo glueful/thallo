@@ -144,7 +144,8 @@ function move(index: number, direction: -1 | 1): void {
 const pickerOpen = ref(false)
 const pickerSearch = ref('')
 const debouncedPickerSearch = refDebounced(pickerSearch, 250)
-const { data: pickerResults, status: pickerStatus } = useProductSearchForChildren(debouncedPickerSearch)
+const { data: pickerResults, status: pickerStatus } =
+  useProductSearchForChildren(debouncedPickerSearch)
 
 /** Never offers a tombstoned or non-purchasable product (see the file-level note): tombstones
  * never appear in `fetchProducts`' results to begin with (the admin list only ever returns live

@@ -48,7 +48,11 @@ const meta = computed(() => COLLECTION_FIELD_TYPE_META[field.value.type])
         variant="ghost"
         size="xs"
         aria-label="Toggle field settings"
-        @click="() => { field.open = !field.open }"
+        @click="
+          () => {
+            field.open = !field.open
+          }
+        "
       />
       <UButton
         v-if="!draft && !field.system"

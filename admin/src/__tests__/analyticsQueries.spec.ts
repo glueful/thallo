@@ -26,7 +26,9 @@ describe('analytics query layer', () => {
   })
 
   it('fetchSummary hits /analytics/summary and returns the summary payload', async () => {
-    authFetch.mockResolvedValue({ data: { from: 'a', to: 'b', totals: { 'auth.login': 9 }, active_users: 3 } })
+    authFetch.mockResolvedValue({
+      data: { from: 'a', to: 'b', totals: { 'auth.login': 9 }, active_users: 3 },
+    })
     const s = await fetchSummary('a', 'b')
     expect(s.active_users).toBe(3)
     expect(s.totals['auth.login']).toBe(9)

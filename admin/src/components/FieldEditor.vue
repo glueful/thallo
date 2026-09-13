@@ -33,7 +33,11 @@ interface BlocksFieldExposed {
 
 const blocksFields = new Map<string, BlocksFieldExposed>()
 
-function trackField(name: string, type: string, el: Element | ComponentPublicInstance | null): void {
+function trackField(
+  name: string,
+  type: string,
+  el: Element | ComponentPublicInstance | null,
+): void {
   if (type !== 'blocks') return
   if (el === null) {
     blocksFields.delete(name)
@@ -95,7 +99,9 @@ defineExpose({
     <div v-for="field in schema" :key="field.name">
       <component
         :is="fieldComponent(field.type)"
-        :ref="(el: Element | ComponentPublicInstance | null) => trackField(field.name, field.type, el)"
+        :ref="
+          (el: Element | ComponentPublicInstance | null) => trackField(field.name, field.type, el)
+        "
         :model-value="model[field.name]"
         :field="field"
         @update:model-value="(v: unknown) => (model = { ...model, [field.name]: v })"

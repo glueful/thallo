@@ -162,200 +162,212 @@ onMounted(() => {
                is the short set-once rail; templates are the tall working column. -->
           <div class="grid gap-6 pb-5 lg:grid-cols-3">
             <div class="space-y-6 lg:sticky lg:top-0 lg:self-start">
-          <UCard>
-            <template #header>
-              <div class="flex items-center justify-between gap-2">
-                <h2 class="font-semibold text-default">Mailer</h2>
-                <UButton
-                  size="xs"
-                  variant="ghost"
-                  color="neutral"
-                  icon="i-lucide-send"
-                  label="Send test email"
-                  data-test="transport-test-open"
-                  @click="openTest('')"
-                />
-              </div>
-            </template>
-            <div class="space-y-4">
-              <div class="grid gap-4">
-                <UFormField label="Mailer">
-                  <USelect
-                    v-model="form.mailer"
-                    :items="mailerOptions"
-                    class="w-full"
-                    data-test="mailer-select"
-                  />
-                </UFormField>
-                <UFormField label="Encryption">
-                  <USelect v-model="form.encryption" :items="encryptionOptions" class="w-full" />
-                </UFormField>
-              </div>
+              <UCard>
+                <template #header>
+                  <div class="flex items-center justify-between gap-2">
+                    <h2 class="font-semibold text-default">Mailer</h2>
+                    <UButton
+                      size="xs"
+                      variant="ghost"
+                      color="neutral"
+                      icon="i-lucide-send"
+                      label="Send test email"
+                      data-test="transport-test-open"
+                      @click="openTest('')"
+                    />
+                  </div>
+                </template>
+                <div class="space-y-4">
+                  <div class="grid gap-4">
+                    <UFormField label="Mailer">
+                      <USelect
+                        v-model="form.mailer"
+                        :items="mailerOptions"
+                        class="w-full"
+                        data-test="mailer-select"
+                      />
+                    </UFormField>
+                    <UFormField label="Encryption">
+                      <USelect
+                        v-model="form.encryption"
+                        :items="encryptionOptions"
+                        class="w-full"
+                      />
+                    </UFormField>
+                  </div>
 
-              <div class="grid gap-4">
-                <UFormField label="Host">
-                  <UInput v-model="form.host" placeholder="smtp.example.com" class="w-full" />
-                </UFormField>
-                <UFormField label="Port">
-                  <UInput
-                    v-model="form.port"
-                    inputmode="numeric"
-                    placeholder="587"
-                    class="w-full"
-                  />
-                </UFormField>
-              </div>
+                  <div class="grid gap-4">
+                    <UFormField label="Host">
+                      <UInput v-model="form.host" placeholder="smtp.example.com" class="w-full" />
+                    </UFormField>
+                    <UFormField label="Port">
+                      <UInput
+                        v-model="form.port"
+                        inputmode="numeric"
+                        placeholder="587"
+                        class="w-full"
+                      />
+                    </UFormField>
+                  </div>
 
-              <div class="grid gap-4">
-                <UFormField label="Username">
-                  <UInput v-model="form.username" autocomplete="off" class="w-full" />
-                </UFormField>
-                <UFormField label="Password" :hint="passwordSet ? 'A password is set' : undefined">
-                  <UInput
-                    v-model="form.password"
-                    type="password"
-                    autocomplete="new-password"
-                    :placeholder="passwordSet ? '•••••••• (unchanged)' : ''"
-                    class="w-full"
-                  />
-                </UFormField>
-              </div>
-            </div>
-          </UCard>
+                  <div class="grid gap-4">
+                    <UFormField label="Username">
+                      <UInput v-model="form.username" autocomplete="off" class="w-full" />
+                    </UFormField>
+                    <UFormField
+                      label="Password"
+                      :hint="passwordSet ? 'A password is set' : undefined"
+                    >
+                      <UInput
+                        v-model="form.password"
+                        type="password"
+                        autocomplete="new-password"
+                        :placeholder="passwordSet ? '•••••••• (unchanged)' : ''"
+                        class="w-full"
+                      />
+                    </UFormField>
+                  </div>
+                </div>
+              </UCard>
 
-          <UCard>
-            <template #header><h2 class="font-semibold text-default">Sender</h2></template>
-            <div class="space-y-4">
-              <div class="grid gap-4">
-                <UFormField label="From address">
-                  <UInput
-                    v-model="form.from"
-                    type="email"
-                    placeholder="no-reply@example.com"
-                    class="w-full"
-                  />
-                </UFormField>
-                <UFormField label="From name">
-                  <UInput v-model="form.from_name" placeholder="Thallo" class="w-full" />
-                </UFormField>
-              </div>
-              <div class="grid gap-4">
-                <UFormField label="BCC" hint="Optional">
-                  <UInput v-model="form.bcc" type="email" class="w-full" />
-                </UFormField>
-                <UFormField label="Logo URL" hint="Optional">
-                  <UInput v-model="form.logo_url" class="w-full" />
-                </UFormField>
-              </div>
-            </div>
-          </UCard>
-
+              <UCard>
+                <template #header><h2 class="font-semibold text-default">Sender</h2></template>
+                <div class="space-y-4">
+                  <div class="grid gap-4">
+                    <UFormField label="From address">
+                      <UInput
+                        v-model="form.from"
+                        type="email"
+                        placeholder="no-reply@example.com"
+                        class="w-full"
+                      />
+                    </UFormField>
+                    <UFormField label="From name">
+                      <UInput v-model="form.from_name" placeholder="Thallo" class="w-full" />
+                    </UFormField>
+                  </div>
+                  <div class="grid gap-4">
+                    <UFormField label="BCC" hint="Optional">
+                      <UInput v-model="form.bcc" type="email" class="w-full" />
+                    </UFormField>
+                    <UFormField label="Logo URL" hint="Optional">
+                      <UInput v-model="form.logo_url" class="w-full" />
+                    </UFormField>
+                  </div>
+                </div>
+              </UCard>
             </div>
 
             <div class="space-y-6 lg:col-span-2">
-          <UCard v-if="templatesVisible" data-test="templates-card">
-            <template #header>
-              <div class="flex items-center justify-between gap-2">
-                <h2 class="font-semibold text-default">Mail templates</h2>
-                <UButton
-                  size="xs"
-                  variant="ghost"
-                  color="neutral"
-                  icon="i-lucide-send"
-                  label="Send test email"
-                  data-test="templates-test-open"
-                  @click="openTest(templates[0]?.key ?? '')"
-                />
-              </div>
-            </template>
-            <div class="space-y-1">
-              <UCollapsible
-                v-for="t in templates"
-                :key="t.key"
-                :default-open="false"
-                :unmount-on-hide="false"
-              >
-                <UButton
-                  class="w-full justify-between"
-                  color="neutral"
-                  variant="ghost"
-                  :data-test="`template-toggle-${t.key}`"
-                >
-                  <span class="flex min-w-0 items-center gap-2">
-                    <UIcon name="i-lucide-file-pen-line" class="size-4 shrink-0 text-muted" />
-                    <span class="truncate font-medium">{{ t.label }}</span>
-                    <span
-                      v-if="t.owner !== 'glueful/email-notification'"
-                      class="truncate text-xs text-muted"
-                    >
-                      {{ t.owner }}
-                    </span>
-                  </span>
-                  <span class="flex shrink-0 items-center gap-2">
-                    <UBadge
+              <UCard v-if="templatesVisible" data-test="templates-card">
+                <template #header>
+                  <div class="flex items-center justify-between gap-2">
+                    <h2 class="font-semibold text-default">Mail templates</h2>
+                    <UButton
                       size="xs"
-                      :color="t.overridden ? 'primary' : 'neutral'"
-                      variant="subtle"
-                      :data-test="`template-badge-${t.key}`"
-                    >
-                      {{ t.overridden ? 'custom' : 'default' }}
-                    </UBadge>
-                    <UIcon
-                      name="i-lucide-chevron-down"
-                      class="size-4 text-muted transition-transform group-data-[state=open]:rotate-180"
+                      variant="ghost"
+                      color="neutral"
+                      icon="i-lucide-send"
+                      label="Send test email"
+                      data-test="templates-test-open"
+                      @click="openTest(templates[0]?.key ?? '')"
                     />
-                  </span>
-                </UButton>
-                <template #content>
-                  <TemplateRow :template="t" @saved="loadTemplates" @reset="loadTemplates" />
+                  </div>
                 </template>
-              </UCollapsible>
-            </div>
-
-            <template v-if="partials.length > 0">
-              <p class="mt-4 px-1 pb-1 text-xs font-semibold text-muted">Layout &amp; partials</p>
-              <div class="space-y-1">
-                <UCollapsible
-                  v-for="pRow in partials"
-                  :key="pRow.key"
-                  :default-open="false"
-                  :unmount-on-hide="false"
-                >
-                  <UButton
-                    class="w-full justify-between"
-                    color="neutral"
-                    variant="ghost"
-                    :data-test="`partial-toggle-${pRow.key}`"
+                <div class="space-y-1">
+                  <UCollapsible
+                    v-for="t in templates"
+                    :key="t.key"
+                    :default-open="false"
+                    :unmount-on-hide="false"
                   >
-                    <span class="flex min-w-0 items-center gap-2">
-                      <UIcon
-                        :name="pRow.language === 'css' ? 'i-lucide-paintbrush' : 'i-lucide-layout-template'"
-                        class="size-4 shrink-0 text-muted"
-                      />
-                      <span class="truncate font-medium">{{ pRow.label }}</span>
-                    </span>
-                    <span class="flex shrink-0 items-center gap-2">
-                      <UBadge
-                        size="xs"
-                        :color="pRow.overridden ? 'primary' : 'neutral'"
-                        variant="subtle"
-                        :data-test="`partial-badge-${pRow.key}`"
+                    <UButton
+                      class="w-full justify-between"
+                      color="neutral"
+                      variant="ghost"
+                      :data-test="`template-toggle-${t.key}`"
+                    >
+                      <span class="flex min-w-0 items-center gap-2">
+                        <UIcon name="i-lucide-file-pen-line" class="size-4 shrink-0 text-muted" />
+                        <span class="truncate font-medium">{{ t.label }}</span>
+                        <span
+                          v-if="t.owner !== 'glueful/email-notification'"
+                          class="truncate text-xs text-muted"
+                        >
+                          {{ t.owner }}
+                        </span>
+                      </span>
+                      <span class="flex shrink-0 items-center gap-2">
+                        <UBadge
+                          size="xs"
+                          :color="t.overridden ? 'primary' : 'neutral'"
+                          variant="subtle"
+                          :data-test="`template-badge-${t.key}`"
+                        >
+                          {{ t.overridden ? 'custom' : 'default' }}
+                        </UBadge>
+                        <UIcon
+                          name="i-lucide-chevron-down"
+                          class="size-4 text-muted transition-transform group-data-[state=open]:rotate-180"
+                        />
+                      </span>
+                    </UButton>
+                    <template #content>
+                      <TemplateRow :template="t" @saved="loadTemplates" @reset="loadTemplates" />
+                    </template>
+                  </UCollapsible>
+                </div>
+
+                <template v-if="partials.length > 0">
+                  <p class="mt-4 px-1 pb-1 text-xs font-semibold text-muted">
+                    Layout &amp; partials
+                  </p>
+                  <div class="space-y-1">
+                    <UCollapsible
+                      v-for="pRow in partials"
+                      :key="pRow.key"
+                      :default-open="false"
+                      :unmount-on-hide="false"
+                    >
+                      <UButton
+                        class="w-full justify-between"
+                        color="neutral"
+                        variant="ghost"
+                        :data-test="`partial-toggle-${pRow.key}`"
                       >
-                        {{ pRow.overridden ? 'custom' : 'default' }}
-                      </UBadge>
-                      <UIcon
-                        name="i-lucide-chevron-down"
-                        class="size-4 text-muted transition-transform group-data-[state=open]:rotate-180"
-                      />
-                    </span>
-                  </UButton>
-                  <template #content>
-                    <PartialRow :partial="pRow" @saved="loadTemplates" @reset="loadTemplates" />
-                  </template>
-                </UCollapsible>
-              </div>
-            </template>
-          </UCard>
+                        <span class="flex min-w-0 items-center gap-2">
+                          <UIcon
+                            :name="
+                              pRow.language === 'css'
+                                ? 'i-lucide-paintbrush'
+                                : 'i-lucide-layout-template'
+                            "
+                            class="size-4 shrink-0 text-muted"
+                          />
+                          <span class="truncate font-medium">{{ pRow.label }}</span>
+                        </span>
+                        <span class="flex shrink-0 items-center gap-2">
+                          <UBadge
+                            size="xs"
+                            :color="pRow.overridden ? 'primary' : 'neutral'"
+                            variant="subtle"
+                            :data-test="`partial-badge-${pRow.key}`"
+                          >
+                            {{ pRow.overridden ? 'custom' : 'default' }}
+                          </UBadge>
+                          <UIcon
+                            name="i-lucide-chevron-down"
+                            class="size-4 text-muted transition-transform group-data-[state=open]:rotate-180"
+                          />
+                        </span>
+                      </UButton>
+                      <template #content>
+                        <PartialRow :partial="pRow" @saved="loadTemplates" @reset="loadTemplates" />
+                      </template>
+                    </UCollapsible>
+                  </div>
+                </template>
+              </UCard>
             </div>
           </div>
         </template>

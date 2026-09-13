@@ -9,7 +9,8 @@ vi.mock('@/fields/registry', () => ({
   fieldComponent: () =>
     defineComponent({
       props: { field: { type: Object, required: true }, modelValue: null },
-      setup: (props) => () => h('div', { 'data-test': `stub-${(props.field as { name: string }).name}` }),
+      setup: (props) => () =>
+        h('div', { 'data-test': `stub-${(props.field as { name: string }).name}` }),
     }),
 }))
 

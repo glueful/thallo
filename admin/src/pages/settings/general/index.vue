@@ -95,13 +95,10 @@ async function previewColorsOnSite(): Promise<void> {
   }
   previewingColors.value = true
   try {
-    const { data, error: mintError } = await client.POST(
-      '/entries/{uuid}/preview/{locale}',
-      {
-        params: { path: { uuid: entry, locale: form.default_locale } },
-        body: { accent: form.theme_accent, neutral: form.theme_neutral },
-      },
-    )
+    const { data, error: mintError } = await client.POST('/entries/{uuid}/preview/{locale}', {
+      params: { path: { uuid: entry, locale: form.default_locale } },
+      body: { accent: form.theme_accent, neutral: form.theme_neutral },
+    })
     if (mintError || !data?.data?.theme_url) {
       throw mintError ?? new Error('Preview unavailable')
     }
@@ -261,9 +258,14 @@ async function onSave() {
                  during scroll is the pinning, not a layout bug). -->
             <div class="space-y-6 lg:sticky lg:top-0 lg:self-start">
               <UCard>
-                <template #header><h2 class="font-semibold text-default">Site identity</h2></template>
+                <template #header
+                  ><h2 class="font-semibold text-default">Site identity</h2></template
+                >
                 <div class="space-y-4">
-                  <UFormField label="Site name" description="Shown to admins; the instance display name.">
+                  <UFormField
+                    label="Site name"
+                    description="Shown to admins; the instance display name."
+                  >
                     <UInput v-model="form.site_name" placeholder="Thallo" class="w-full" />
                   </UFormField>
                   <UFormField
@@ -291,7 +293,6 @@ async function onSave() {
                   </UFormField>
                 </div>
               </UCard>
-
             </div>
 
             <div class="space-y-6 lg:col-span-2">
@@ -316,8 +317,8 @@ async function onSave() {
                 </template>
                 <div class="space-y-6">
                   <p class="text-sm text-muted">
-                    Re-skins the theme's tokens only — never changes templates. The
-                    default blue / slate reproduces the current look.
+                    Re-skins the theme's tokens only — never changes templates. The default blue /
+                    slate reproduces the current look.
                   </p>
                   <div class="grid gap-6 sm:grid-cols-2">
                     <UFormField label="Accent" description="Your brand color.">
@@ -425,11 +426,14 @@ async function onSave() {
                 <div class="space-y-4">
                   <p class="text-sm text-muted">
                     The entry rendered at <code>/</code>. Cleared = the deploy default
-                    (<code>RENDER_HOMEPAGE_ENTRY</code>), or the standalone index when
-                    that is empty too. Must be a published entry of a publicly
-                    delivered type.
+                    (<code>RENDER_HOMEPAGE_ENTRY</code>), or the standalone index when that is empty
+                    too. Must be a published entry of a publicly delivered type.
                   </p>
-                  <div v-if="form.homepage_entry" class="flex items-center gap-2" data-test="homepage-current">
+                  <div
+                    v-if="form.homepage_entry"
+                    class="flex items-center gap-2"
+                    data-test="homepage-current"
+                  >
                     <UBadge color="primary" variant="subtle" icon="i-lucide-house">Home</UBadge>
                     <span class="text-sm font-medium text-default" :title="form.homepage_entry">
                       {{ homepageEntry?.title ?? form.homepage_entry }}
@@ -470,12 +474,14 @@ async function onSave() {
               </UCard>
 
               <UCard>
-                <template #header><h2 class="font-semibold text-default">Public listings</h2></template>
+                <template #header
+                  ><h2 class="font-semibold text-default">Public listings</h2></template
+                >
                 <div class="space-y-4">
                   <p class="text-sm text-muted">
-                    Content types that expose index pages (<code>/post</code>) and
-                    taxonomy archives (<code>/post/categories/news</code>) on the
-                    live site. Types not listed here only serve their entry pages.
+                    Content types that expose index pages (<code>/post</code>) and taxonomy archives
+                    (<code>/post/categories/news</code>) on the live site. Types not listed here
+                    only serve their entry pages.
                   </p>
                   <UFormField label="Listing types">
                     <USelectMenu
@@ -492,7 +498,9 @@ async function onSave() {
               </UCard>
 
               <UCard>
-                <template #header><h2 class="font-semibold text-default">Localization</h2></template>
+                <template #header
+                  ><h2 class="font-semibold text-default">Localization</h2></template
+                >
                 <UFormField
                   label="Default locale"
                   description="The default content locale. Manage the enabled list under Languages."
@@ -507,7 +515,10 @@ async function onSave() {
                 >
                 <div class="space-y-4">
                   <div class="grid gap-4 sm:grid-cols-2">
-                    <UFormField label="Default items per page" description="Default page size for delivery.">
+                    <UFormField
+                      label="Default items per page"
+                      description="Default page size for delivery."
+                    >
                       <UInput
                         v-model.number="form.default_per_page"
                         type="number"
@@ -515,7 +526,10 @@ async function onSave() {
                         class="w-full"
                       />
                     </UFormField>
-                    <UFormField label="Max items per page" description="Hard cap a client can request.">
+                    <UFormField
+                      label="Max items per page"
+                      description="Hard cap a client can request."
+                    >
                       <UInput
                         v-model.number="form.max_per_page"
                         type="number"
@@ -534,7 +548,9 @@ async function onSave() {
               </UCard>
 
               <UCard>
-                <template #header><h2 class="font-semibold text-default">Feature toggles</h2></template>
+                <template #header
+                  ><h2 class="font-semibold text-default">Feature toggles</h2></template
+                >
                 <div class="space-y-4">
                   <USwitch
                     v-model="form.scheduler_enabled"

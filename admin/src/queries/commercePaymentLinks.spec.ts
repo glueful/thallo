@@ -115,7 +115,11 @@ describe('commerce payment-link query layer', () => {
         success: true,
         data: {
           link: { ...linkBody(), token: TOKEN, url: `https://shop.test/pay/${TOKEN}` },
-          exposure: { reason: 'active_link', blocks_automatic_cancellation: true, requires_risk_acknowledgement: false },
+          exposure: {
+            reason: 'active_link',
+            blocks_automatic_cancellation: true,
+            requires_risk_acknowledgement: false,
+          },
         },
       }),
     )
@@ -157,7 +161,10 @@ describe('commerce payment-link query layer', () => {
   it('createOrderPaymentLink omits ttl_days entirely when none is given', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: true, data: { url: 'https://shop.test/pay/x', link: linkBody() } }, 201),
+      jsonResponse(
+        { success: true, data: { url: 'https://shop.test/pay/x', link: linkBody() } },
+        201,
+      ),
     )
     const { createOrderPaymentLink } = await import('./commercePaymentLinks')
     await createOrderPaymentLink('o1', null)
@@ -178,7 +185,8 @@ describe('commerce payment-link query layer', () => {
         409,
       ),
     )
-    const { createOrderPaymentLink, paymentLinkRefusalReason } = await import('./commercePaymentLinks')
+    const { createOrderPaymentLink, paymentLinkRefusalReason } =
+      await import('./commercePaymentLinks')
 
     // One call, one caught error — the mocked Response's body can only be read once (the typed
     // client reads the error body directly rather than cloning it, unlike the pre-migration
@@ -221,7 +229,11 @@ describe('commerce payment-link query layer', () => {
       }),
     )
     const { sendOrderPaymentLink } = await import('./commercePaymentLinks')
-    const envelope = await sendOrderPaymentLink('o1', { mode: 'current', token: TOKEN }, 'key-0123456789abcdef')
+    const envelope = await sendOrderPaymentLink(
+      'o1',
+      { mode: 'current', token: TOKEN },
+      'key-0123456789abcdef',
+    )
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('POST')
@@ -241,7 +253,12 @@ describe('commerce payment-link query layer', () => {
       jsonResponse({
         success: true,
         message: 'the payment link was emailed.',
-        data: { receipt: receiptBody({ mode: 'regenerate' }), link: linkBody(), url: null, recovery: null },
+        data: {
+          receipt: receiptBody({ mode: 'regenerate' }),
+          link: linkBody(),
+          url: null,
+          recovery: null,
+        },
       }),
     )
     const { sendOrderPaymentLink } = await import('./commercePaymentLinks')
@@ -260,9 +277,14 @@ describe('commerce payment-link query layer', () => {
       jsonResponse(
         {
           success: false,
-          message: 'the payment link was created but could not be emailed; copy the link and send it manually.',
+          message:
+            'the payment link was created but could not be emailed; copy the link and send it manually.',
           data: {
-            receipt: receiptBody({ mode: 'regenerate', status: 'failed', error_code: 'send_failed' }),
+            receipt: receiptBody({
+              mode: 'regenerate',
+              status: 'failed',
+              error_code: 'send_failed',
+            }),
             link: linkBody(),
             url: `https://shop.test/pay/${TOKEN}`,
             recovery: null,
@@ -272,7 +294,11 @@ describe('commerce payment-link query layer', () => {
       ),
     )
     const { sendOrderPaymentLink } = await import('./commercePaymentLinks')
-    const envelope = await sendOrderPaymentLink('o1', { mode: 'regenerate' }, 'key-0123456789abcdef')
+    const envelope = await sendOrderPaymentLink(
+      'o1',
+      { mode: 'regenerate' },
+      'key-0123456789abcdef',
+    )
 
     expect(envelope.http_status).toBe(502)
     expect(envelope.receipt.status).toBe('failed')
@@ -297,7 +323,11 @@ describe('commerce payment-link query layer', () => {
       ),
     )
     const { sendOrderPaymentLink } = await import('./commercePaymentLinks')
-    const envelope = await sendOrderPaymentLink('o1', { mode: 'current', token: TOKEN }, 'key-0123456789abcdef')
+    const envelope = await sendOrderPaymentLink(
+      'o1',
+      { mode: 'current', token: TOKEN },
+      'key-0123456789abcdef',
+    )
 
     expect(envelope.receipt.replayed).toBe(true)
     expect(envelope.recovery).toBe('use_a_new_idempotency_key_or_regenerate')
@@ -316,7 +346,8 @@ describe('commerce payment-link query layer', () => {
         409,
       ),
     )
-    const { sendOrderPaymentLink, paymentLinkRefusalReason } = await import('./commercePaymentLinks')
+    const { sendOrderPaymentLink, paymentLinkRefusalReason } =
+      await import('./commercePaymentLinks')
 
     try {
       await sendOrderPaymentLink('o1', { mode: 'current', token: TOKEN }, 'key-0123456789abcdef')

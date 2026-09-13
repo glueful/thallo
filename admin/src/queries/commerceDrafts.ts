@@ -151,7 +151,9 @@ function normalizeCommonOrderFields(raw: Record<string, unknown>) {
     customer_name: typeof raw.customer_name === 'string' ? raw.customer_name : null,
     phone_normalized: typeof raw.phone_normalized === 'string' ? raw.phone_normalized : null,
     phone_display: typeof raw.phone_display === 'string' ? raw.phone_display : null,
-    fulfillment_mode: (raw.fulfillment_mode === 'delivery' ? 'delivery' : 'in_store') as DraftFulfillmentMode,
+    fulfillment_mode: (raw.fulfillment_mode === 'delivery'
+      ? 'delivery'
+      : 'in_store') as DraftFulfillmentMode,
     origin: String(raw.origin ?? 'admin'),
     currency: String(raw.currency ?? ''),
     subtotal: num(raw.subtotal),
@@ -334,10 +336,13 @@ export async function updateDraftLine(
   lineUuid: string,
   input: UpdateDraftLineInput,
 ): Promise<CommerceDraft> {
-  const { data, error, response } = await client.PATCH('/commerce/orders/drafts/{uuid}/lines/{lineUuid}', {
-    params: { path: { uuid, lineUuid } },
-    body: input as never,
-  })
+  const { data, error, response } = await client.PATCH(
+    '/commerce/orders/drafts/{uuid}/lines/{lineUuid}',
+    {
+      params: { path: { uuid, lineUuid } },
+      body: input as never,
+    },
+  )
   if (error) throw toApiError(error, response)
   const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeDraft((raw ?? {}) as Record<string, unknown>)
@@ -348,20 +353,29 @@ export async function deleteDraftLine(
   lineUuid: string,
   expectedRevision?: number,
 ): Promise<CommerceDraft> {
-  const { data, error, response } = await client.DELETE('/commerce/orders/drafts/{uuid}/lines/{lineUuid}', {
-    params: { path: { uuid, lineUuid } },
-    body: { expected_revision: expectedRevision } as never,
-  })
+  const { data, error, response } = await client.DELETE(
+    '/commerce/orders/drafts/{uuid}/lines/{lineUuid}',
+    {
+      params: { path: { uuid, lineUuid } },
+      body: { expected_revision: expectedRevision } as never,
+    },
+  )
   if (error) throw toApiError(error, response)
   const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeDraft((raw ?? {}) as Record<string, unknown>)
 }
 
-export async function recalculateDraft(uuid: string, expectedRevision?: number): Promise<CommerceDraft> {
-  const { data, error, response } = await client.POST('/commerce/orders/drafts/{uuid}/recalculate', {
-    params: { path: { uuid } },
-    body: { expected_revision: expectedRevision } as never,
-  })
+export async function recalculateDraft(
+  uuid: string,
+  expectedRevision?: number,
+): Promise<CommerceDraft> {
+  const { data, error, response } = await client.POST(
+    '/commerce/orders/drafts/{uuid}/recalculate',
+    {
+      params: { path: { uuid } },
+      body: { expected_revision: expectedRevision } as never,
+    },
+  )
   if (error) throw toApiError(error, response)
   const raw = (data as { data?: unknown } | undefined)?.data
   return normalizeDraft((raw ?? {}) as Record<string, unknown>)
@@ -416,11 +430,13 @@ export function useCommerceDraftMutations() {
 
   return {
     update: useMutation({
-      mutation: (vars: { uuid: string; input: UpdateDraftInput }) => updateDraft(vars.uuid, vars.input),
+      mutation: (vars: { uuid: string; input: UpdateDraftInput }) =>
+        updateDraft(vars.uuid, vars.input),
       onSettled: (_d, _e, vars) => invalidate(vars.uuid),
     }),
     addLine: useMutation({
-      mutation: (vars: { uuid: string; input: AddDraftLineInput }) => addDraftLine(vars.uuid, vars.input),
+      mutation: (vars: { uuid: string; input: AddDraftLineInput }) =>
+        addDraftLine(vars.uuid, vars.input),
       onSettled: (_d, _e, vars) => invalidate(vars.uuid),
     }),
     updateLine: useMutation({
@@ -491,7 +507,9 @@ export interface CompleteSaleResult {
   order: Record<string, unknown> | null
 }
 
-function isCompleteSaleBody(body: unknown): body is { message?: unknown; data?: { steps?: unknown; order?: unknown } } {
+function isCompleteSaleBody(
+  body: unknown,
+): body is { message?: unknown; data?: { steps?: unknown; order?: unknown } } {
   return (
     typeof body === 'object' &&
     body !== null &&
@@ -514,7 +532,10 @@ function normalizeCompleteSaleResult(body: {
   }
 }
 
-export async function completeSale(uuid: string, trackingRef: string | null = null): Promise<CompleteSaleResult> {
+export async function completeSale(
+  uuid: string,
+  trackingRef: string | null = null,
+): Promise<CompleteSaleResult> {
   const { data, error, response } = await client.POST('/commerce/orders/{uuid}/complete-sale', {
     params: { path: { uuid } },
     body: { tracking_ref: trackingRef } as never,
@@ -605,7 +626,10 @@ function safeKeysWithPrefix(prefix: string): string[] {
   return [...out]
 }
 
-export function getOrCreateFinalizeIdempotencyKey(draftUuid: string, expectedRevision: number): string {
+export function getOrCreateFinalizeIdempotencyKey(
+  draftUuid: string,
+  expectedRevision: number,
+): string {
   const storageKey = idempotencyStorageKey(draftUuid, expectedRevision)
   const existing = safeGetItem(storageKey)
   if (existing) return existing

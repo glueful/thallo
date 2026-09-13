@@ -128,7 +128,9 @@ async function confirmFulfill() {
       class="rounded-md border border-success p-3 text-sm"
       data-test="order-mark-paid-panel"
     >
-      <p>Mark order <strong>{{ order.order_number }}</strong> as paid?</p>
+      <p>
+        Mark order <strong>{{ order.order_number }}</strong> as paid?
+      </p>
       <div class="mt-2 flex gap-2">
         <UButton
           size="xs"
@@ -156,7 +158,10 @@ async function confirmFulfill() {
       class="rounded-md border border-primary p-3 text-sm"
       data-test="order-fulfill-panel"
     >
-      <p>Fulfill order <strong>{{ order.order_number }}</strong>.</p>
+      <p>
+        Fulfill order <strong>{{ order.order_number }}</strong
+        >.
+      </p>
       <UFormField label="Tracking reference" name="tracking_ref" class="mt-2">
         <UInput
           v-model="trackingRef"

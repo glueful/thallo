@@ -150,7 +150,16 @@ export function useOrderSearch(filters: Ref<OrderSearchFilters>) {
   return useQuery({
     key: () => {
       const f = toValue(filters)
-      return [...qk.commerceOrderSearch(), f.status, f.fulfillment, f.placedFrom, f.placedTo, f.q, f.page, f.perPage]
+      return [
+        ...qk.commerceOrderSearch(),
+        f.status,
+        f.fulfillment,
+        f.placedFrom,
+        f.placedTo,
+        f.q,
+        f.page,
+        f.perPage,
+      ]
     },
     query: () => fetchOrderSearch(toValue(filters)),
   })
@@ -185,17 +194,25 @@ function parsePositiveInt(value: unknown): number | null {
  * discarded back to `ORDER_SEARCH_DEFAULTS` (the backend would 422 on an invalid enum/date/
  * oversize `q` anyway, so a silently-corrected client never sends a request doomed to fail). */
 export function parseOrderSearchQuery(query: Record<string, unknown>): OrderSearchFilters {
-  const status = isValidEnum(query.status, ORDER_STATUSES) ? query.status : ORDER_SEARCH_DEFAULTS.status
+  const status = isValidEnum(query.status, ORDER_STATUSES)
+    ? query.status
+    : ORDER_SEARCH_DEFAULTS.status
   const fulfillment = isValidEnum(query.fulfillment, FULFILLMENT_STATUSES)
     ? query.fulfillment
     : ORDER_SEARCH_DEFAULTS.fulfillment
-  const placedFrom = isValidIsoDate(query.placed_from) ? query.placed_from : ORDER_SEARCH_DEFAULTS.placedFrom
-  const placedTo = isValidIsoDate(query.placed_to) ? query.placed_to : ORDER_SEARCH_DEFAULTS.placedTo
+  const placedFrom = isValidIsoDate(query.placed_from)
+    ? query.placed_from
+    : ORDER_SEARCH_DEFAULTS.placedFrom
+  const placedTo = isValidIsoDate(query.placed_to)
+    ? query.placed_to
+    : ORDER_SEARCH_DEFAULTS.placedTo
   const q = typeof query.q === 'string' ? query.q : ORDER_SEARCH_DEFAULTS.q
   const page = parsePositiveInt(query.page) ?? ORDER_SEARCH_DEFAULTS.page
   const perPageCandidate = parsePositiveInt(query.per_page)
   const perPage =
-    perPageCandidate !== null && perPageCandidate <= 100 ? perPageCandidate : ORDER_SEARCH_DEFAULTS.perPage
+    perPageCandidate !== null && perPageCandidate <= 100
+      ? perPageCandidate
+      : ORDER_SEARCH_DEFAULTS.perPage
 
   return { q, status, fulfillment, placedFrom, placedTo, page, perPage }
 }
@@ -243,7 +260,9 @@ export async function downloadOrdersCsv(filters: OrderSearchFilters): Promise<vo
   if (res.status === 422) {
     const body = (await res.json().catch(() => ({}))) as { message?: string }
     throw new ExportTooLargeError(
-      typeof body.message === 'string' && body.message.trim() !== '' ? body.message : EXPORT_TOO_LARGE_FALLBACK,
+      typeof body.message === 'string' && body.message.trim() !== ''
+        ? body.message
+        : EXPORT_TOO_LARGE_FALLBACK,
     )
   }
   if (!res.ok) throw await responseError(res, 'Could not export orders.')

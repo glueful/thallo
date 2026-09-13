@@ -49,7 +49,10 @@ describe('useCommerceDiscountMutations invalidation', () => {
 
   it('update invalidates the discount detail AND the list', async () => {
     const { mutations, qk } = await bundle()
-    mutations.update.onSettled?.(undefined, undefined, { uuid: 'd1', input: { status: 'inactive' } })
+    mutations.update.onSettled?.(undefined, undefined, {
+      uuid: 'd1',
+      input: { status: 'inactive' },
+    })
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceDiscount('d1') }],

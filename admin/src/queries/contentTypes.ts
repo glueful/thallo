@@ -186,9 +186,7 @@ export async function updateContentTypeMeta(
     body: meta,
   })
   if (error) throw toApiError(error, response)
-  return normalizeContentType(
-    (data?.data?.content_type ?? {}) as Record<string, unknown>,
-  )
+  return normalizeContentType((data?.data?.content_type ?? {}) as Record<string, unknown>)
 }
 
 export async function updateContentTypeSchema(slug: string, schema: ContentTypeField[]) {

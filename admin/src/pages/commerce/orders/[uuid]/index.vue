@@ -64,7 +64,9 @@ const { data: invoice, status: invoiceStatus } = useOrderInvoiceData(uuid, invoi
 // `'data-test'` key rides straight through to its rendered element — Nuxt UI's `pickLinkProps()`
 // forwards any `data-*`/`aria-*` key present on the item object verbatim.
 const cancelDialogOpen = ref(false)
-const canCancel = computed(() => canManage.value && !!order.value && canCancelOrder(order.value.status))
+const canCancel = computed(
+  () => canManage.value && !!order.value && canCancelOrder(order.value.status),
+)
 
 // Final review fix wave (finding 4): a user-less order is either a storefront GUEST checkout or
 // an admin-created WALK-IN counter sale — the two are different customer relationships even
@@ -113,7 +115,8 @@ const canCompleteSale = computed(
     order.value.status === 'pending_payment',
 )
 
-const { mutateAsync: completeSaleMutate, isLoading: completeSaleLoading } = useCompleteSaleMutation()
+const { mutateAsync: completeSaleMutate, isLoading: completeSaleLoading } =
+  useCompleteSaleMutation()
 const completeSaleResult = ref<CompleteSaleResult | null>(null)
 const completeSaleError = ref<string | null>(null)
 
@@ -306,7 +309,11 @@ const billingDisplay = computed(() => {
     </template>
 
     <template #body>
-      <div v-if="status === 'pending'" class="flex justify-center py-10" data-test="order-detail-loading">
+      <div
+        v-if="status === 'pending'"
+        class="flex justify-center py-10"
+        data-test="order-detail-loading"
+      >
         <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
       </div>
 
@@ -325,7 +332,10 @@ const billingDisplay = computed(() => {
           <!-- Header band (spec §2.5): identity + badges + placed date + customer + grand total,
                the print link, the canonical action group, and the overflow (cancel + invoice
                data). This is the ONE place `OrderActions`/`OrderCancelDialog` are instantiated. -->
-          <div class="flex flex-col gap-4 rounded-lg border border-default p-4" data-test="order-header-band">
+          <div
+            class="flex flex-col gap-4 rounded-lg border border-default p-4"
+            data-test="order-header-band"
+          >
             <div class="flex flex-wrap items-start justify-between gap-4">
               <div class="flex flex-col gap-2">
                 <!-- A never-completed (canceled, numberless) row has no identifier to copy — it
@@ -343,7 +353,11 @@ const billingDisplay = computed(() => {
                   />
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                  <UBadge :color="statusColor(order.status)" variant="subtle" data-test="order-detail-status">
+                  <UBadge
+                    :color="statusColor(order.status)"
+                    variant="subtle"
+                    data-test="order-detail-status"
+                  >
                     {{ order.status }}
                   </UBadge>
                   <UBadge color="neutral" variant="subtle" data-test="order-detail-fulfillment">
@@ -352,7 +366,11 @@ const billingDisplay = computed(() => {
                   <!-- Task 14: walk-in orders carry their own fulfillment MODE (distinct from
                        fulfillment STATUS above) — Task 15's Complete-sale gating consumes this
                        same field, so it's surfaced here rather than left invisible. -->
-                  <UBadge color="neutral" variant="subtle" data-test="order-detail-fulfillment-mode">
+                  <UBadge
+                    color="neutral"
+                    variant="subtle"
+                    data-test="order-detail-fulfillment-mode"
+                  >
                     {{ order.fulfillment_mode }}
                   </UBadge>
                   <span class="text-sm text-muted" data-test="order-header-placed">
@@ -380,7 +398,12 @@ const billingDisplay = computed(() => {
                        walk-in counter sale, never an anonymous storefront "guest checkout" — the
                        two are different customer relationships even though both leave
                        `user_uuid` null. Storefront guests keep the original label. -->
-                  <UBadge color="neutral" variant="subtle" size="sm" data-test="order-customer-type">
+                  <UBadge
+                    color="neutral"
+                    variant="subtle"
+                    size="sm"
+                    data-test="order-customer-type"
+                  >
                     {{ customerTypeLabel }}
                   </UBadge>
                 </div>
@@ -388,7 +411,10 @@ const billingDisplay = computed(() => {
 
               <div class="flex flex-col items-end gap-1">
                 <span class="text-xs uppercase text-muted">Grand total</span>
-                <span class="text-xl font-semibold text-default" data-test="order-header-grand-total">
+                <span
+                  class="text-xl font-semibold text-default"
+                  data-test="order-header-grand-total"
+                >
                   {{ money(order.grand_total) }}
                 </span>
               </div>
@@ -449,11 +475,19 @@ const billingDisplay = computed(() => {
             >
               <p data-test="complete-sale-message">{{ completeSaleResult.message }}</p>
               <ul class="mt-1 flex flex-col gap-0.5">
-                <li v-for="s in completeSaleResult.steps" :key="s.step" data-test="complete-sale-step">
+                <li
+                  v-for="s in completeSaleResult.steps"
+                  :key="s.step"
+                  data-test="complete-sale-step"
+                >
                   {{ s.step }}: {{ s.status }}<span v-if="s.error"> — {{ s.error }}</span>
                 </li>
               </ul>
-              <p v-if="completeSalePaidButUnfulfilled" class="mt-2" data-test="complete-sale-fulfill-hint">
+              <p
+                v-if="completeSalePaidButUnfulfilled"
+                class="mt-2"
+                data-test="complete-sale-fulfill-hint"
+              >
                 Payment was recorded. Use Fulfill below to finish this order — Complete sale is not
                 retried automatically.
               </p>
@@ -509,15 +543,23 @@ const billingDisplay = computed(() => {
             </template>
             <dl class="grid grid-cols-2 gap-y-2 text-sm sm:max-w-xs">
               <dt class="text-muted">Subtotal</dt>
-              <dd class="text-right" data-test="order-total-subtotal">{{ money(order.subtotal) }}</dd>
+              <dd class="text-right" data-test="order-total-subtotal">
+                {{ money(order.subtotal) }}
+              </dd>
               <dt class="text-muted">Discount</dt>
-              <dd class="text-right" data-test="order-total-discount">{{ money(order.discount_total) }}</dd>
+              <dd class="text-right" data-test="order-total-discount">
+                {{ money(order.discount_total) }}
+              </dd>
               <dt class="text-muted">Shipping</dt>
-              <dd class="text-right" data-test="order-total-shipping">{{ money(order.shipping_total) }}</dd>
+              <dd class="text-right" data-test="order-total-shipping">
+                {{ money(order.shipping_total) }}
+              </dd>
               <dt class="text-muted">Tax</dt>
               <dd class="text-right" data-test="order-total-tax">{{ money(order.tax_total) }}</dd>
               <dt class="text-muted">Refunded</dt>
-              <dd class="text-right" data-test="order-total-refunded">{{ money(order.refunded_total) }}</dd>
+              <dd class="text-right" data-test="order-total-refunded">
+                {{ money(order.refunded_total) }}
+              </dd>
               <dt class="font-medium text-default">Grand total</dt>
               <dd class="text-right font-medium text-default" data-test="order-total-grand">
                 {{ money(order.grand_total) }}
@@ -581,11 +623,20 @@ const billingDisplay = computed(() => {
                 class="flex flex-wrap items-center justify-between gap-2 p-3 text-sm"
               >
                 <div class="flex items-center gap-2">
-                  <span class="font-medium text-default" data-test="refund-amount">{{ money(r.amount) }}</span>
-                  <UBadge :color="refundStatusColor(r.status)" variant="subtle" size="sm" data-test="refund-status">
+                  <span class="font-medium text-default" data-test="refund-amount">{{
+                    money(r.amount)
+                  }}</span>
+                  <UBadge
+                    :color="refundStatusColor(r.status)"
+                    variant="subtle"
+                    size="sm"
+                    data-test="refund-status"
+                  >
                     {{ r.status }}
                   </UBadge>
-                  <UBadge v-if="r.restocked" color="neutral" variant="subtle" size="sm">Restocked</UBadge>
+                  <UBadge v-if="r.restocked" color="neutral" variant="subtle" size="sm"
+                    >Restocked</UBadge
+                  >
                 </div>
                 <div class="flex items-center gap-3 text-muted">
                   <span v-if="r.reason" data-test="refund-reason">{{ r.reason }}</span>
@@ -688,99 +739,120 @@ const billingDisplay = computed(() => {
            entirely once the caller supplies ANY default-slot content, so this modal must stay
            nested inside a named slot, never a bare sibling of <UDashboardPanel>. -->
       <UModal v-model:open="invoiceOpen" title="Invoice data" :ui="{ content: 'sm:max-w-2xl' }">
-      <template #body>
-        <div data-test="order-invoice-modal" class="flex flex-col gap-4 text-sm">
-          <div
-            v-if="invoiceStatus === 'pending'"
-            class="flex justify-center py-6"
-            data-test="order-invoice-loading"
-          >
-            <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
-          </div>
-          <UAlert
-            v-else-if="invoiceStatus === 'error'"
-            color="error"
-            variant="subtle"
-            icon="i-lucide-triangle-alert"
-            title="Couldn’t load invoice data"
-            description="Something went wrong loading this order's invoice data. Try again."
-            data-test="order-invoice-error"
-          />
-          <template v-else-if="invoice">
-            <div class="grid gap-4 sm:grid-cols-2">
-              <div>
-                <h4 class="mb-1 text-xs font-medium uppercase text-muted">Seller</h4>
-                <p data-test="order-invoice-seller-name">{{ invoice.seller.name ?? '—' }}</p>
-                <p v-if="invoice.seller.address" class="text-muted">{{ invoice.seller.address }}</p>
-                <p v-if="invoice.seller.tax_id" class="text-muted">{{ invoice.seller.tax_id }}</p>
-              </div>
-              <div>
-                <h4 class="mb-1 text-xs font-medium uppercase text-muted">Order</h4>
-                <p>{{ invoice.order.number ?? '—' }} · {{ invoice.order.status ?? '—' }}</p>
-                <!-- Review fix (round 1, minor): matches InvoiceDocument.vue's own printed invoice
+        <template #body>
+          <div data-test="order-invoice-modal" class="flex flex-col gap-4 text-sm">
+            <div
+              v-if="invoiceStatus === 'pending'"
+              class="flex justify-center py-6"
+              data-test="order-invoice-loading"
+            >
+              <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
+            </div>
+            <UAlert
+              v-else-if="invoiceStatus === 'error'"
+              color="error"
+              variant="subtle"
+              icon="i-lucide-triangle-alert"
+              title="Couldn’t load invoice data"
+              description="Something went wrong loading this order's invoice data. Try again."
+              data-test="order-invoice-error"
+            />
+            <template v-else-if="invoice">
+              <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <h4 class="mb-1 text-xs font-medium uppercase text-muted">Seller</h4>
+                  <p data-test="order-invoice-seller-name">{{ invoice.seller.name ?? '—' }}</p>
+                  <p v-if="invoice.seller.address" class="text-muted">
+                    {{ invoice.seller.address }}
+                  </p>
+                  <p v-if="invoice.seller.tax_id" class="text-muted">{{ invoice.seller.tax_id }}</p>
+                </div>
+                <div>
+                  <h4 class="mb-1 text-xs font-medium uppercase text-muted">Order</h4>
+                  <p>{{ invoice.order.number ?? '—' }} · {{ invoice.order.status ?? '—' }}</p>
+                  <!-- Review fix (round 1, minor): matches InvoiceDocument.vue's own printed invoice
                      — a walk-in order's null email reads "Walk-in customer" here too, never a bare
                      em-dash that could pass for missing/broken data. -->
-                <p class="text-muted">{{ invoice.buyer.email ?? 'Walk-in customer' }}</p>
-                <p class="text-muted">{{ fmtDateTime(invoice.order.dates.placed_at ?? invoice.order.dates.created_at) }}</p>
+                  <p class="text-muted">{{ invoice.buyer.email ?? 'Walk-in customer' }}</p>
+                  <p class="text-muted">
+                    {{
+                      fmtDateTime(invoice.order.dates.placed_at ?? invoice.order.dates.created_at)
+                    }}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <UTable
-              :data="invoice.lines"
-              :columns="[
-                { accessorKey: 'name', header: 'Product' },
-                { accessorKey: 'sku', header: 'SKU' },
-                { accessorKey: 'quantity', header: 'Qty' },
-                { accessorKey: 'unit_minor', header: 'Unit price' },
-                { accessorKey: 'subtotal_minor', header: 'Subtotal' },
-              ]"
-              :ui="{ td: 'align-middle' }"
-            >
-              <template #name-cell="{ row }">
-                <span data-test="order-invoice-line" class="font-medium text-default">
-                  {{ row.original.name }} ({{ row.original.sku }}, {{ money(row.original.unit_minor) }},
-                  {{ money(row.original.subtotal_minor) }})
-                </span>
-              </template>
-              <template #unit_minor-cell="{ row }">{{ money(row.original.unit_minor) }}</template>
-              <template #subtotal_minor-cell="{ row }">{{ money(row.original.subtotal_minor) }}</template>
-            </UTable>
+              <UTable
+                :data="invoice.lines"
+                :columns="[
+                  { accessorKey: 'name', header: 'Product' },
+                  { accessorKey: 'sku', header: 'SKU' },
+                  { accessorKey: 'quantity', header: 'Qty' },
+                  { accessorKey: 'unit_minor', header: 'Unit price' },
+                  { accessorKey: 'subtotal_minor', header: 'Subtotal' },
+                ]"
+                :ui="{ td: 'align-middle' }"
+              >
+                <template #name-cell="{ row }">
+                  <span data-test="order-invoice-line" class="font-medium text-default">
+                    {{ row.original.name }} ({{ row.original.sku }},
+                    {{ money(row.original.unit_minor) }}, {{ money(row.original.subtotal_minor) }})
+                  </span>
+                </template>
+                <template #unit_minor-cell="{ row }">{{ money(row.original.unit_minor) }}</template>
+                <template #subtotal_minor-cell="{ row }">{{
+                  money(row.original.subtotal_minor)
+                }}</template>
+              </UTable>
 
-            <dl class="grid grid-cols-2 gap-y-2 sm:max-w-xs">
-              <dt class="text-muted">Subtotal</dt>
-              <dd class="text-right" data-test="order-invoice-total-subtotal">{{ money(invoice.totals.subtotal_minor) }}</dd>
-              <dt class="text-muted">Discount</dt>
-              <dd class="text-right" data-test="order-invoice-total-discount">{{ money(invoice.totals.discount_minor) }}</dd>
-              <dt class="text-muted">Shipping</dt>
-              <dd class="text-right" data-test="order-invoice-total-shipping">{{ money(invoice.totals.shipping_minor) }}</dd>
-              <dt class="text-muted">Tax</dt>
-              <dd class="text-right" data-test="order-invoice-total-tax">{{ money(invoice.totals.tax_minor) }}</dd>
-              <dt class="text-muted">Refunded</dt>
-              <dd class="text-right" data-test="order-invoice-total-refunded">{{ money(invoice.totals.refunded_minor) }}</dd>
-              <dt class="font-medium text-default">Grand total</dt>
-              <dd class="text-right font-medium text-default" data-test="order-invoice-total-grand">
-                {{ money(invoice.totals.grand_minor) }}
-              </dd>
-            </dl>
-
-            <div v-if="invoice.refunds.length > 0">
-              <h4 class="mb-1 text-xs font-medium uppercase text-muted">Refunds</h4>
-              <ul class="flex flex-col gap-1">
-                <li
-                  v-for="(r, i) in invoice.refunds"
-                  :key="i"
-                  data-test="order-invoice-refund"
-                  class="flex items-center justify-between gap-2"
+              <dl class="grid grid-cols-2 gap-y-2 sm:max-w-xs">
+                <dt class="text-muted">Subtotal</dt>
+                <dd class="text-right" data-test="order-invoice-total-subtotal">
+                  {{ money(invoice.totals.subtotal_minor) }}
+                </dd>
+                <dt class="text-muted">Discount</dt>
+                <dd class="text-right" data-test="order-invoice-total-discount">
+                  {{ money(invoice.totals.discount_minor) }}
+                </dd>
+                <dt class="text-muted">Shipping</dt>
+                <dd class="text-right" data-test="order-invoice-total-shipping">
+                  {{ money(invoice.totals.shipping_minor) }}
+                </dd>
+                <dt class="text-muted">Tax</dt>
+                <dd class="text-right" data-test="order-invoice-total-tax">
+                  {{ money(invoice.totals.tax_minor) }}
+                </dd>
+                <dt class="text-muted">Refunded</dt>
+                <dd class="text-right" data-test="order-invoice-total-refunded">
+                  {{ money(invoice.totals.refunded_minor) }}
+                </dd>
+                <dt class="font-medium text-default">Grand total</dt>
+                <dd
+                  class="text-right font-medium text-default"
+                  data-test="order-invoice-total-grand"
                 >
-                  <span>{{ money(r.amount_minor) }} — {{ r.method }}</span>
-                  <span class="text-muted">{{ fmtDateTime(r.date) }}</span>
-                </li>
-              </ul>
-            </div>
-          </template>
-        </div>
-      </template>
-    </UModal>
+                  {{ money(invoice.totals.grand_minor) }}
+                </dd>
+              </dl>
+
+              <div v-if="invoice.refunds.length > 0">
+                <h4 class="mb-1 text-xs font-medium uppercase text-muted">Refunds</h4>
+                <ul class="flex flex-col gap-1">
+                  <li
+                    v-for="(r, i) in invoice.refunds"
+                    :key="i"
+                    data-test="order-invoice-refund"
+                    class="flex items-center justify-between gap-2"
+                  >
+                    <span>{{ money(r.amount_minor) }} — {{ r.method }}</span>
+                    <span class="text-muted">{{ fmtDateTime(r.date) }}</span>
+                  </li>
+                </ul>
+              </div>
+            </template>
+          </div>
+        </template>
+      </UModal>
     </template>
   </UDashboardPanel>
 </template>

@@ -17,14 +17,20 @@ describe('ColumnsLayoutField', () => {
     const wrapper = mount(ColumnsLayoutField, {
       props: { layout: '2', widths: '33-67', presets: PRESETS },
     })
-    expect(wrapper.find('[data-test="columns-preset-33-67"]').attributes('aria-pressed')).toBe('true')
-    expect(wrapper.find('[data-test="columns-preset-50-50"]').attributes('aria-pressed')).toBe('false')
+    expect(wrapper.find('[data-test="columns-preset-33-67"]').attributes('aria-pressed')).toBe(
+      'true',
+    )
+    expect(wrapper.find('[data-test="columns-preset-50-50"]').attributes('aria-pressed')).toBe(
+      'false',
+    )
   })
 
   it('falls back to the equal split for the current layout when no ratio is set', () => {
     const wrapper = mount(ColumnsLayoutField, {
       props: { layout: '3', widths: '', presets: PRESETS },
     })
-    expect(wrapper.find('[data-test="columns-preset-33-33-33"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.find('[data-test="columns-preset-33-33-33"]').attributes('aria-pressed')).toBe(
+      'true',
+    )
   })
 })

@@ -291,7 +291,11 @@ const itemMutationsLocked = computed(() => dirty.value)
       </div>
     </div>
 
-    <p v-if="itemMutationsLocked" class="text-xs text-muted" data-test="media-item-mutations-locked">
+    <p
+      v-if="itemMutationsLocked"
+      class="text-xs text-muted"
+      data-test="media-item-mutations-locked"
+    >
       Save or discard your order changes to add, edit, or remove media.
     </p>
 

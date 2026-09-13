@@ -161,8 +161,7 @@ async function refreshPreview(): Promise<void> {
           .map(([path, message]) => `${path}: ${message}`)
           .join(' · ')
       : ''
-    previewError.value =
-      detail || (e instanceof Error ? e.message : 'Preview failed')
+    previewError.value = detail || (e instanceof Error ? e.message : 'Preview failed')
     previewStale.value = true
   }
 }
@@ -232,7 +231,11 @@ onBeforeUnmount(() => {
             :loading="preview.isLoading.value"
             aria-label="Refresh preview"
             data-test="region-preview-refresh"
-            @click="() => { void refreshPreview() }"
+            @click="
+              () => {
+                void refreshPreview()
+              }
+            "
           >
             Refresh
           </UButton>
@@ -261,25 +264,25 @@ onBeforeUnmount(() => {
             <template #header>
               <div v-if="state.header" class="space-y-4 pt-3" data-test="region-header">
                 <div class="flex items-center justify-between gap-2">
-                  <USwitch
-                    v-model="headerSticky"
-                    label="Sticky"
-                    data-test="region-header-sticky"
-                  />
+                  <USwitch v-model="headerSticky" label="Sticky" data-test="region-header-sticky" />
                   <UChip :show="state.header.dirty" color="warning" size="sm">
                     <UButton
                       size="sm"
                       :loading="save.isLoading.value"
                       data-test="save-region-header"
-                      @click="() => { void onSave('header') }"
+                      @click="
+                        () => {
+                          void onSave('header')
+                        }
+                      "
                     >
                       Save
                     </UButton>
                   </UChip>
                 </div>
                 <p class="text-sm text-muted">
-                  Rendered on every page. Empty means the theme’s built-in header;
-                  hide per page via the page’s presentation settings.
+                  Rendered on every page. Empty means the theme’s built-in header; hide per page via
+                  the page’s presentation settings.
                 </p>
                 <UFormField label="Width">
                   <USelect
@@ -301,7 +304,11 @@ onBeforeUnmount(() => {
                       size="sm"
                       :loading="save.isLoading.value"
                       data-test="save-region-footer"
-                      @click="() => { void onSave('footer') }"
+                      @click="
+                        () => {
+                          void onSave('footer')
+                        }
+                      "
                     >
                       Save
                     </UButton>

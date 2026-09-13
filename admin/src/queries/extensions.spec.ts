@@ -47,7 +47,9 @@ describe('useExtensionInstall', () => {
   it('surfaces a failed install without invalidating the catalog', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       jsonResponse(
-        { data: { status: 'failed', package: 'glueful/entrada', error: 'composer require failed' } },
+        {
+          data: { status: 'failed', package: 'glueful/entrada', error: 'composer require failed' },
+        },
         200,
       ),
     )
@@ -79,7 +81,6 @@ describe('useExtensionInstall', () => {
     expect(installing('glueful/entrada')).toBe(false)
   })
 })
-
 
 describe('schema state helpers', () => {
   const ext = (over: Record<string, unknown> = {}) => ({
@@ -122,7 +123,9 @@ describe('schema state helpers', () => {
     const { failedMigrationOf } = await import('@/queries/extensions')
     const e = Object.assign(new Error('Extension operation did not complete'), {
       body: {
-        error: { details: { operation: { failed_migration: '004_CreateThing.php', status: 'failed' } } },
+        error: {
+          details: { operation: { failed_migration: '004_CreateThing.php', status: 'failed' } },
+        },
       },
     })
     expect(failedMigrationOf(e)).toBe('004_CreateThing.php')

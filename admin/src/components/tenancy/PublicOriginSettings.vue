@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { ApiError } from '@/api/errors'
-import { fetchPublicOrigin, savePublicOrigin, type PublicOriginStatus } from '@/queries/publicOrigin'
+import {
+  fetchPublicOrigin,
+  savePublicOrigin,
+  type PublicOriginStatus,
+} from '@/queries/publicOrigin'
 
 // When embedded inside the Domain-routing card, drop the standalone card chrome + header.
 const props = withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
@@ -29,7 +33,9 @@ function parseHosts(text: string): string[] {
     .filter((h) => h !== '')
 }
 
-const desiredBase = computed(() => (baseDomain.value.trim() === '' ? null : baseDomain.value.trim()))
+const desiredBase = computed(() =>
+  baseDomain.value.trim() === '' ? null : baseDomain.value.trim(),
+)
 const desiredHosts = computed(() => parseHosts(hostsText.value))
 
 const dirty = computed(() => {
@@ -44,7 +50,8 @@ const appliedDiffers = computed(() => {
   if (status.value === null) return false
   return (
     status.value.applied_base_domain !== status.value.base_domain ||
-    JSON.stringify(status.value.applied_default_hosts) !== JSON.stringify(status.value.default_hosts)
+    JSON.stringify(status.value.applied_default_hosts) !==
+      JSON.stringify(status.value.default_hosts)
   )
 })
 
@@ -61,7 +68,8 @@ function apply(next: PublicOriginStatus): void {
   const fallback = currentHost()
   // Bind the DESIRED values (not the applied snapshot) so a pending change stays visible until restart.
   // When nothing is set yet, prefill with the current host so the operator has an editable default.
-  baseDomain.value = next.base_domain !== null && next.base_domain !== '' ? next.base_domain : fallback
+  baseDomain.value =
+    next.base_domain !== null && next.base_domain !== '' ? next.base_domain : fallback
   hostsText.value = next.default_hosts.length > 0 ? next.default_hosts.join('\n') : fallback
 }
 
@@ -80,7 +88,9 @@ async function save(): Promise<void> {
   saving.value = true
   error.value = null
   try {
-    apply(await savePublicOrigin({ base_domain: desiredBase.value, default_hosts: desiredHosts.value }))
+    apply(
+      await savePublicOrigin({ base_domain: desiredBase.value, default_hosts: desiredHosts.value }),
+    )
   } catch (caught) {
     error.value =
       caught instanceof ApiError || caught instanceof Error ? caught.message : 'Unable to save.'
@@ -102,7 +112,8 @@ onMounted(load)
       <h2 class="text-sm font-semibold text-highlighted">Public origin</h2>
       <p class="text-sm text-muted">
         The base domain and default hosts workspace resolution routes on. Setting these here means
-        activating full resolution no longer needs an environment edit — a restart applies the change.
+        activating full resolution no longer needs an environment edit — a restart applies the
+        change.
       </p>
     </div>
 
@@ -162,7 +173,11 @@ onMounted(load)
             />
           </UFormField>
 
-          <UFormField label="Default hosts" name="default_hosts" hint="One per line or comma-separated">
+          <UFormField
+            label="Default hosts"
+            name="default_hosts"
+            hint="One per line or comma-separated"
+          >
             <UTextarea
               v-model="hostsText"
               :disabled="frozen"

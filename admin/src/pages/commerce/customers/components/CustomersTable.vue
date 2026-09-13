@@ -75,7 +75,9 @@ function detailLink(row: CommerceCustomer): string {
         <span class="font-medium" data-test="customer-email">
           {{ row.original.username ?? row.original.email }}
         </span>
-        <span v-if="row.original.username" class="text-xs text-muted">{{ row.original.email }}</span>
+        <span v-if="row.original.username" class="text-xs text-muted">{{
+          row.original.email
+        }}</span>
       </RouterLink>
       <UBadge
         :color="row.original.key_type === 'user' ? 'info' : 'neutral'"

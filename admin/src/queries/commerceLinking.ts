@@ -77,9 +77,12 @@ export async function fetchProductLink(productUuid: string): Promise<ProductLink
     params: { path: { productUuid } },
   })
   if (error) throw toApiError(error, response)
-  const raw = (
-    data as { data?: { product_uuid?: string; storefront_url?: string; link?: unknown } } | undefined
-  )?.data ?? {}
+  const raw =
+    (
+      data as
+        | { data?: { product_uuid?: string; storefront_url?: string; link?: unknown } }
+        | undefined
+    )?.data ?? {}
   return {
     product_uuid: String(raw.product_uuid ?? productUuid),
     storefront_url: String(raw.storefront_url ?? ''),
@@ -112,7 +115,9 @@ export async function searchLinkEntries(q: string): Promise<EntrySearchResult[]>
   })
   if (error) throw toApiError(error, response)
   const rows = (data as { data?: unknown[] } | undefined)?.data
-  return Array.isArray(rows) ? rows.map((r) => normalizeEntrySearchResult(r as Record<string, unknown>)) : []
+  return Array.isArray(rows)
+    ? rows.map((r) => normalizeEntrySearchResult(r as Record<string, unknown>))
+    : []
 }
 
 /** `PUT /commerce/products/{productUuid}/link` — 201 create / 200 relink; `expected_entry_uuid`
@@ -217,7 +222,11 @@ export function useCommerceLinkMutations() {
         entryUuid: string
         expectedEntryUuid?: string
         previousEntryUuid?: string
-      }) => setProductLink(vars.productUuid, { entryUuid: vars.entryUuid, expectedEntryUuid: vars.expectedEntryUuid }),
+      }) =>
+        setProductLink(vars.productUuid, {
+          entryUuid: vars.entryUuid,
+          expectedEntryUuid: vars.expectedEntryUuid,
+        }),
       onSettled: (_data, _error, vars) => {
         cache.invalidateQueries({ key: qk.commerceLink(vars.productUuid) })
         cache.invalidateQueries({ key: qk.commerceLinkByEntry(vars.entryUuid) })
@@ -227,7 +236,8 @@ export function useCommerceLinkMutations() {
       },
     }),
     unlink: useMutation({
-      mutation: (vars: { productUuid: string; entryUuid?: string }) => unlinkProduct(vars.productUuid),
+      mutation: (vars: { productUuid: string; entryUuid?: string }) =>
+        unlinkProduct(vars.productUuid),
       onSettled: (_data, _error, vars) => {
         cache.invalidateQueries({ key: qk.commerceLink(vars.productUuid) })
         if (vars.entryUuid) cache.invalidateQueries({ key: qk.commerceLinkByEntry(vars.entryUuid) })

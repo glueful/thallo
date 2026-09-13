@@ -87,8 +87,8 @@ watch(form, () => {
   if (!syncing) dirty.value = true
 })
 
-const gatewayItems = computed<{ value: string; label: string }[]>(
-  () => (payments.value?.gateways ?? []).map((g) => ({ value: g.id, label: g.id })),
+const gatewayItems = computed<{ value: string; label: string }[]>(() =>
+  (payments.value?.gateways ?? []).map((g) => ({ value: g.id, label: g.id })),
 )
 
 type SecretField = 'secret_key' | 'webhook_secret'
@@ -100,8 +100,10 @@ function secretHelp(id: string, field: SecretField): string {
   const draft = form.gateways[id]
   if (draft?.[`clear_${field}`]) return 'Will be cleared on save.'
   if ((draft?.[field] ?? '') !== '') return 'Will replace the stored value on save.'
-  if (state?.set && state.source === 'settings') return 'A key is stored (encrypted). Leave blank to keep it.'
-  if (state?.set && state.source === 'env') return 'Using the key from .env. Enter a value to override it here.'
+  if (state?.set && state.source === 'settings')
+    return 'A key is stored (encrypted). Leave blank to keep it.'
+  if (state?.set && state.source === 'env')
+    return 'Using the key from .env. Enter a value to override it here.'
   return 'No key set.'
 }
 
@@ -190,7 +192,11 @@ async function submit(): Promise<void> {
           data-test="payments-limitation-notice"
         />
 
-        <div v-if="status === 'pending'" class="flex justify-center py-10" data-test="payments-loading">
+        <div
+          v-if="status === 'pending'"
+          class="flex justify-center py-10"
+          data-test="payments-loading"
+        >
           <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
         </div>
 
@@ -209,8 +215,8 @@ async function submit(): Promise<void> {
           data-test="payments-manual"
         >
           <span class="font-medium text-default">Manual collection</span> — no payment gateway
-          extension is installed; operators mark orders paid from the order page. Install a
-          gateway extension (e.g. glueful/payvia) to configure online payments here.
+          extension is installed; operators mark orders paid from the order page. Install a gateway
+          extension (e.g. glueful/payvia) to configure online payments here.
         </div>
 
         <div v-else class="max-w-2xl space-y-6" data-test="payments-panel">
@@ -304,7 +310,9 @@ async function submit(): Promise<void> {
                   v-model="form.gateways[gateway.id]!.webhook_secret"
                   type="password"
                   autocomplete="off"
-                  :placeholder="gateway.webhook_secret.set ? '•••••••• (stored)' : 'Enter webhook secret'"
+                  :placeholder="
+                    gateway.webhook_secret.set ? '•••••••• (stored)' : 'Enter webhook secret'
+                  "
                   :disabled="!canManage"
                   class="flex-1"
                   :data-test="`payments-secret-${gateway.id}-webhook_secret`"

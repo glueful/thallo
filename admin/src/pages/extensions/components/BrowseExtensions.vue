@@ -35,7 +35,10 @@ async function onInstall(name: string) {
   if (result.status === 'installed') {
     success('Extension installed', `${short} is installed. Enable it to activate.`)
   } else {
-    error(new Error('Install failed'), result.error ? `${short}: ${result.error}` : `Couldn't install ${short}`)
+    error(
+      new Error('Install failed'),
+      result.error ? `${short}: ${result.error}` : `Couldn't install ${short}`,
+    )
   }
 }
 

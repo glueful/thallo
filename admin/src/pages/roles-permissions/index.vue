@@ -217,7 +217,16 @@ async function confirmDelete() {
     </template>
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton color="neutral" variant="ghost" @click="() => { showRoleForm = false }">Cancel</UButton>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          @click="
+            () => {
+              showRoleForm = false
+            }
+          "
+          >Cancel</UButton
+        >
         <UButton
           type="submit"
           form="role-form"
@@ -252,7 +261,11 @@ async function confirmDelete() {
           variant="ghost"
           label="Cancel"
           :disabled="remove.isLoading.value"
-          @click="() => { pendingDelete = null }"
+          @click="
+            () => {
+              pendingDelete = null
+            }
+          "
         />
         <UButton
           color="error"

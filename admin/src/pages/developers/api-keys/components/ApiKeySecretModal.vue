@@ -56,7 +56,14 @@ async function copy() {
 
     <template #footer>
       <div class="flex w-full justify-end">
-        <UButton label="Done" @click="() => { open = false }" />
+        <UButton
+          label="Done"
+          @click="
+            () => {
+              open = false
+            }
+          "
+        />
       </div>
     </template>
   </UModal>

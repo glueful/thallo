@@ -32,7 +32,9 @@ vi.mock('@/queries/platformPayments', async (importOriginal) => {
 import PaymentsPage from '@/pages/settings/payments.vue'
 import { useTenancyAccessStore } from '@/stores/tenancyAccess'
 
-function paymentsSettings(overrides: Partial<PlatformPaymentsSettings> = {}): PlatformPaymentsSettings {
+function paymentsSettings(
+  overrides: Partial<PlatformPaymentsSettings> = {},
+): PlatformPaymentsSettings {
   return {
     mode: overrides.mode ?? 'gateway',
     default_gateway: overrides.default_gateway ?? {
@@ -127,20 +129,26 @@ describe('Settings → Payments page', () => {
     // Loaded state.
     const loaded = mountPage()
     await flushPromises()
-    expect(loaded.find('[data-test="payments-limitation-notice"]').text()).toContain(LIMITATION_COPY)
+    expect(loaded.find('[data-test="payments-limitation-notice"]').text()).toContain(
+      LIMITATION_COPY,
+    )
 
     // Loading state — the notice is a standing policy statement, not gated on the query.
     paymentsStatus.value = 'pending'
     paymentsData.value = undefined
     const loading = mountPage()
     await flushPromises()
-    expect(loading.find('[data-test="payments-limitation-notice"]').text()).toContain(LIMITATION_COPY)
+    expect(loading.find('[data-test="payments-limitation-notice"]').text()).toContain(
+      LIMITATION_COPY,
+    )
 
     // Error state.
     paymentsStatus.value = 'error'
     const errored = mountPage()
     await flushPromises()
-    expect(errored.find('[data-test="payments-limitation-notice"]').text()).toContain(LIMITATION_COPY)
+    expect(errored.find('[data-test="payments-limitation-notice"]').text()).toContain(
+      LIMITATION_COPY,
+    )
   })
 
   // ── Secret presence badges: boolean-only, never a value (seeded fixture) ─────────────────────
@@ -208,7 +216,9 @@ describe('Settings → Payments page', () => {
     const wrapper = mountPage()
     await flushPromises()
 
-    await wrapper.find('[data-test="payments-secret-paystack-secret_key"]').setValue('sk_live_new123')
+    await wrapper
+      .find('[data-test="payments-secret-paystack-secret_key"]')
+      .setValue('sk_live_new123')
     await wrapper.find('[data-test="payments-save"]').trigger('click')
     await flushPromises()
 
@@ -272,8 +282,10 @@ describe('Settings → Payments page', () => {
     expect(notify.error).toHaveBeenCalled()
     // The typed value is preserved so the operator can correct it rather than retype it.
     expect(
-      (wrapper.find('[data-test="payments-secret-paystack-secret_key"]').element as HTMLInputElement)
-        .value,
+      (
+        wrapper.find('[data-test="payments-secret-paystack-secret_key"]')
+          .element as HTMLInputElement
+      ).value,
     ).toBe('short')
   })
 

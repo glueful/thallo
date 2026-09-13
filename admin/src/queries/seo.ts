@@ -25,7 +25,7 @@ const url = (uuid: string, locale: string) =>
 export async function fetchSeoMeta(uuid: string, locale: string): Promise<SeoMeta> {
   const json = await authFetch(url(uuid, locale))
   // The backend wraps the row in `data`; an unset override returns an empty object.
-  return ((json.data ?? json) ?? {}) as SeoMeta
+  return (json.data ?? json ?? {}) as SeoMeta
 }
 
 export function useSeoMeta(

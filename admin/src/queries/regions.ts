@@ -31,7 +31,9 @@ export function useRegions() {
 export function usePreviewRegions() {
   return useMutation({
     mutation: async (vars: {
-      regions: Partial<Record<string, { blocks: BlockInstance[]; settings: Record<string, unknown> }>>
+      regions: Partial<
+        Record<string, { blocks: BlockInstance[]; settings: Record<string, unknown> }>
+      >
     }) => {
       const { data, error, response } = await client.POST('/regions/preview', {
         body: { regions: vars.regions } as never,

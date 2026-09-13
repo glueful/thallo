@@ -40,8 +40,8 @@ async function toggle(key: ApiKey, action: string) {
     <div>
       <h3 class="text-sm font-medium text-default">API-key access</h3>
       <p class="text-xs text-muted">
-        Grant each key the <code>collections.{{ collectionName }}.read</code> /
-        <code>write</code> / <code>delete</code> scopes for this collection's public API.
+        Grant each key the <code>collections.{{ collectionName }}.read</code> / <code>write</code> /
+        <code>delete</code> scopes for this collection's public API.
       </p>
     </div>
 

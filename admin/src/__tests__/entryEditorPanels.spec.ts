@@ -26,7 +26,9 @@ import {
 
 const ctx: EntryEditorPanelContext = { uuid: 'e-1', locale: 'en', type: 'page' }
 
-function makePanel(overrides: Partial<EntryEditorPanel> & Pick<EntryEditorPanel, 'id' | 'order'>): EntryEditorPanel {
+function makePanel(
+  overrides: Partial<EntryEditorPanel> & Pick<EntryEditorPanel, 'id' | 'order'>,
+): EntryEditorPanel {
   return {
     label: overrides.id,
     component: { template: '<div />' },

@@ -95,7 +95,12 @@ describe('commerce customers query layer', () => {
 
   it('includes an enriched username when the backend attaches one', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      jsonResponse({ data: [customerBody({ username: 'ada' })], current_page: 1, per_page: 24, total: 1 }),
+      jsonResponse({
+        data: [customerBody({ username: 'ada' })],
+        current_page: 1,
+        per_page: 24,
+        total: 1,
+      }),
     )
 
     const { fetchCustomers } = await import('@/queries/commerceCustomers')
@@ -108,7 +113,13 @@ describe('commerce customers query layer', () => {
     fetchMock.mockResolvedValue(jsonResponse({ data: [], current_page: 2, per_page: 10, total: 0 }))
 
     const { fetchCustomers } = await import('@/queries/commerceCustomers')
-    await fetchCustomers({ email: 'ada', sort: 'total_spent', direction: 'asc', page: 2, perPage: 10 })
+    await fetchCustomers({
+      email: 'ada',
+      sort: 'total_spent',
+      direction: 'asc',
+      page: 2,
+      perPage: 10,
+    })
 
     const requested = fetchMock.mock.calls[0]![0]
     const requestedUrl = typeof requested === 'string' ? requested : (requested as Request).url
@@ -129,7 +140,10 @@ describe('commerce customers query layer', () => {
     await fetchCustomers({})
 
     const requested = fetchMock.mock.calls[0]![0]
-    const url = new URL(typeof requested === 'string' ? requested : (requested as Request).url, 'http://localhost')
+    const url = new URL(
+      typeof requested === 'string' ? requested : (requested as Request).url,
+      'http://localhost',
+    )
     expect(url.searchParams.has('email')).toBe(false)
     expect(url.searchParams.has('sort')).toBe(false)
     expect(url.searchParams.has('direction')).toBe(false)
@@ -297,7 +311,11 @@ describe('commerce customers query layer', () => {
 
   it('normalizes an empty (but present) address book to an empty array, distinct from absent', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      jsonResponse({ success: true, message: 'Customer retrieved', data: customerBody({ addresses: [] }) }),
+      jsonResponse({
+        success: true,
+        message: 'Customer retrieved',
+        data: customerBody({ addresses: [] }),
+      }),
     )
 
     const { fetchCustomer } = await import('@/queries/commerceCustomers')

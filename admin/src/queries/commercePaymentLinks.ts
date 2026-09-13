@@ -139,7 +139,9 @@ function normalizeExposure(raw: unknown): PaymentLinkExposure {
   const reason = row.reason
   return {
     reason:
-      reason === 'active_link' || reason === 'session_exposed' || reason === 'none' ? reason : 'none',
+      reason === 'active_link' || reason === 'session_exposed' || reason === 'none'
+        ? reason
+        : 'none',
     blocks_automatic_cancellation: row.blocks_automatic_cancellation === true,
     requires_risk_acknowledgement: row.requires_risk_acknowledgement === true,
   }
@@ -154,7 +156,8 @@ function normalizeReceipt(raw: unknown): PaymentLinkReceipt {
     mode: str(row.mode),
     status: str(row.status),
     error_code: typeof row.error_code === 'string' ? row.error_code : null,
-    provider_message_id: typeof row.provider_message_id === 'string' ? row.provider_message_id : null,
+    provider_message_id:
+      typeof row.provider_message_id === 'string' ? row.provider_message_id : null,
     replayed: row.replayed === true,
     created_at: str(row.created_at),
     updated_at: str(row.updated_at),
@@ -174,7 +177,12 @@ export function paymentLinkRefusalReason(e: unknown): string | null {
 
 /** Clamp a TTL to the engine's own 1..30 window; anything non-numeric falls back to the default. */
 export function clampPaymentLinkTtl(value: unknown): number {
-  const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN
+  const n =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim() !== ''
+        ? Number(value)
+        : Number.NaN
   if (!Number.isFinite(n)) return PAYMENT_LINK_TTL_DEFAULT
   return Math.min(PAYMENT_LINK_TTL_MAX, Math.max(PAYMENT_LINK_TTL_MIN, Math.trunc(n)))
 }
@@ -285,7 +293,8 @@ export async function sendOrderPaymentLink(
   // than seeing an exception. openapi-fetch routes every non-2xx into `error`, so that receipt
   // check runs there instead of a catch block, but it is otherwise the same branch as before.
   if (error) {
-    if (hasReceipt(error)) return envelopeFrom(error as Record<string, unknown>, response?.status ?? 502)
+    if (hasReceipt(error))
+      return envelopeFrom(error as Record<string, unknown>, response?.status ?? 502)
     throw toApiError(error, response)
   }
   return envelopeFrom((data ?? {}) as Record<string, unknown>, response?.status ?? 200)

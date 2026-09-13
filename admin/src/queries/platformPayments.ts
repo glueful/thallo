@@ -69,7 +69,11 @@ function normalizePlatformPaymentsSettings(raw: unknown): PlatformPaymentsSettin
     default_gateway?: unknown
     gateways?: unknown
   }
-  const dg = (data.default_gateway ?? {}) as { value?: unknown; default?: unknown; overridden?: unknown }
+  const dg = (data.default_gateway ?? {}) as {
+    value?: unknown
+    default?: unknown
+    overridden?: unknown
+  }
   const gateways = Array.isArray(data.gateways) ? data.gateways : []
   return {
     mode: data.mode === 'gateway' ? 'gateway' : 'manual',
@@ -80,7 +84,11 @@ function normalizePlatformPaymentsSettings(raw: unknown): PlatformPaymentsSettin
     },
     gateways: gateways.map((g) => {
       const row = (g ?? {}) as Record<string, unknown>
-      const enabled = (row.enabled ?? {}) as { value?: unknown; default?: unknown; overridden?: unknown }
+      const enabled = (row.enabled ?? {}) as {
+        value?: unknown
+        default?: unknown
+        overridden?: unknown
+      }
       return {
         id: String(row.id ?? ''),
         enabled: {

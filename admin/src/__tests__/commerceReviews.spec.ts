@@ -69,7 +69,10 @@ function review(overrides: Partial<CommerceReview> = {}): CommerceReview {
 
 // UModal teleports its body/footer out of the wrapper — stub it to render the slots inline
 // (mirrors commerceDiscounts.spec.ts's identical Modal teleport stub).
-const teleportStub = { props: ['open'], template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>' }
+const teleportStub = {
+  props: ['open'],
+  template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>',
+}
 const pageStubs = { Modal: teleportStub }
 
 beforeEach(() => {
@@ -241,28 +244,56 @@ describe('ReviewsTable', () => {
 
   it('renders one row per review', () => {
     const wrapper = mount(ReviewsTable, {
-      props: { rows, status: 'success', canManage: true, selected: [], approveLoading: false, spamLoading: false },
+      props: {
+        rows,
+        status: 'success',
+        canManage: true,
+        selected: [],
+        approveLoading: false,
+        spamLoading: false,
+      },
     })
     expect(wrapper.findAll('[data-test="review-row"]')).toHaveLength(2)
   })
 
   it('shows the loading state', () => {
     const wrapper = mount(ReviewsTable, {
-      props: { rows: [], status: 'pending', canManage: true, selected: [], approveLoading: false, spamLoading: false },
+      props: {
+        rows: [],
+        status: 'pending',
+        canManage: true,
+        selected: [],
+        approveLoading: false,
+        spamLoading: false,
+      },
     })
     expect(wrapper.find('[data-test="reviews-loading"]').exists()).toBe(true)
   })
 
   it('shows the empty state', () => {
     const wrapper = mount(ReviewsTable, {
-      props: { rows: [], status: 'success', canManage: true, selected: [], approveLoading: false, spamLoading: false },
+      props: {
+        rows: [],
+        status: 'success',
+        canManage: true,
+        selected: [],
+        approveLoading: false,
+        spamLoading: false,
+      },
     })
     expect(wrapper.find('[data-test="reviews-empty"]').exists()).toBe(true)
   })
 
   it('shows the error state', () => {
     const wrapper = mount(ReviewsTable, {
-      props: { rows: [], status: 'error', canManage: true, selected: [], approveLoading: false, spamLoading: false },
+      props: {
+        rows: [],
+        status: 'error',
+        canManage: true,
+        selected: [],
+        approveLoading: false,
+        spamLoading: false,
+      },
     })
     expect(wrapper.find('[data-test="reviews-error"]').exists()).toBe(true)
   })
@@ -287,7 +318,12 @@ describe('commerce reviews list page', () => {
   })
 
   it('approves a pending review and notifies success', async () => {
-    reviewsPage.value = { reviews: [review({ uuid: 'r1', status: 'pending' })], total: 1, current_page: 1, per_page: 24 }
+    reviewsPage.value = {
+      reviews: [review({ uuid: 'r1', status: 'pending' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     approveMock.mockResolvedValue(review({ uuid: 'r1', status: 'approved' }))
     const wrapper = mount(ReviewsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
@@ -300,8 +336,15 @@ describe('commerce reviews list page', () => {
   })
 
   it('surfaces the 409 error instead of vanishing it when approve fails', async () => {
-    reviewsPage.value = { reviews: [review({ uuid: 'r1', status: 'pending' })], total: 1, current_page: 1, per_page: 24 }
-    approveMock.mockRejectedValue(new ApiError("Review status is 'approved'; expected pending.", 409, {}, {}))
+    reviewsPage.value = {
+      reviews: [review({ uuid: 'r1', status: 'pending' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
+    approveMock.mockRejectedValue(
+      new ApiError("Review status is 'approved'; expected pending.", 409, {}, {}),
+    )
     const wrapper = mount(ReviewsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
 
@@ -315,7 +358,12 @@ describe('commerce reviews list page', () => {
   })
 
   it('marks a review as spam and notifies success', async () => {
-    reviewsPage.value = { reviews: [review({ uuid: 'r1', status: 'pending' })], total: 1, current_page: 1, per_page: 24 }
+    reviewsPage.value = {
+      reviews: [review({ uuid: 'r1', status: 'pending' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     spamMock.mockResolvedValue(review({ uuid: 'r1', status: 'spam' }))
     const wrapper = mount(ReviewsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
@@ -328,7 +376,12 @@ describe('commerce reviews list page', () => {
   })
 
   it('requires confirmation before deleting a review', async () => {
-    reviewsPage.value = { reviews: [review({ uuid: 'r1', status: 'pending' })], total: 1, current_page: 1, per_page: 24 }
+    reviewsPage.value = {
+      reviews: [review({ uuid: 'r1', status: 'pending' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     removeMock.mockResolvedValue(undefined)
     const wrapper = mount(ReviewsIndex, { global: { stubs: pageStubs } })
     await flushPromises()

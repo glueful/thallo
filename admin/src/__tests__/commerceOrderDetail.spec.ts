@@ -186,13 +186,24 @@ function invoiceDataFixture(overrides: Partial<CommerceInvoiceData> = {}): Comme
     buyer: { email: 'buyer@example.com', addresses: null },
     order: {
       number: 'ORD-2002',
-      dates: { placed_at: '2026-01-01 00:00:00', created_at: '2026-01-01 00:00:00', updated_at: null },
+      dates: {
+        placed_at: '2026-01-01 00:00:00',
+        created_at: '2026-01-01 00:00:00',
+        updated_at: null,
+      },
       currency: 'USD',
       currency_exponent: 2,
       status: 'paid',
     },
     lines: [
-      { name: 'Widget', sku: 'SKU-1', quantity: 2, unit_minor: 1000, subtotal_minor: 2000, addons: [] },
+      {
+        name: 'Widget',
+        sku: 'SKU-1',
+        quantity: 2,
+        unit_minor: 1000,
+        subtotal_minor: 2000,
+        addons: [],
+      },
     ],
     totals: {
       subtotal_minor: 2000,
@@ -207,7 +218,9 @@ function invoiceDataFixture(overrides: Partial<CommerceInvoiceData> = {}): Comme
   }
 }
 
-function paymentEnvelope(overrides: Partial<CommerceOrderPaymentsEnvelope> = {}): CommerceOrderPaymentsEnvelope {
+function paymentEnvelope(
+  overrides: Partial<CommerceOrderPaymentsEnvelope> = {},
+): CommerceOrderPaymentsEnvelope {
   return {
     available: true,
     payments: [],
@@ -217,7 +230,9 @@ function paymentEnvelope(overrides: Partial<CommerceOrderPaymentsEnvelope> = {})
   }
 }
 
-function paymentRecord(overrides: Partial<CommerceOrderPaymentRecord> = {}): CommerceOrderPaymentRecord {
+function paymentRecord(
+  overrides: Partial<CommerceOrderPaymentRecord> = {},
+): CommerceOrderPaymentRecord {
   return {
     gateway: 'stripe',
     status: 'succeeded',
@@ -231,7 +246,9 @@ function paymentRecord(overrides: Partial<CommerceOrderPaymentRecord> = {}): Com
   }
 }
 
-function paymentIntent(overrides: Partial<CommerceOrderPaymentIntent> = {}): CommerceOrderPaymentIntent {
+function paymentIntent(
+  overrides: Partial<CommerceOrderPaymentIntent> = {},
+): CommerceOrderPaymentIntent {
   return {
     gateway: 'stripe',
     status: 'failed',
@@ -244,7 +261,10 @@ function paymentIntent(overrides: Partial<CommerceOrderPaymentIntent> = {}): Com
 }
 
 const RouterLinkStub = { props: ['to'], template: '<a :href="to"><slot /></a>' }
-const SlideoverStub = { props: ['open'], template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>' }
+const SlideoverStub = {
+  props: ['open'],
+  template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>',
+}
 const pageStubs = { RouterLink: RouterLinkStub, Slideover: SlideoverStub, Modal: SlideoverStub }
 
 /** Opens the header's overflow menu (destructive cancel + "Invoice data") — every item inside it
@@ -401,7 +421,9 @@ describe('commerce order detail page', () => {
     const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
     await flushPromises()
 
-    expect(wrapper.find('[data-test="order-customer-type"]').text()).toContain('Registered customer')
+    expect(wrapper.find('[data-test="order-customer-type"]').text()).toContain(
+      'Registered customer',
+    )
   })
 
   // ── Nullable email (Task 14: admin-order-creation walk-in orders) ─────────────────────────
@@ -444,7 +466,12 @@ describe('commerce order detail page', () => {
   it('renders the shipping and billing addresses, resolving whichever field aliases are present', async () => {
     singleOrder.value = order({
       addresses: {
-        shipping: { first_name: 'Ada', last_name: 'Lovelace', address1: '1 Main St', city: 'Springfield' },
+        shipping: {
+          first_name: 'Ada',
+          last_name: 'Lovelace',
+          address1: '1 Main St',
+          city: 'Springfield',
+        },
         billing: { name: 'Ada Lovelace', line1: '2 Other St', postal_code: '90210' },
       },
     })
@@ -467,8 +494,22 @@ describe('commerce order detail page', () => {
   it('renders the status timeline from order events', async () => {
     singleOrder.value = order({
       events: [
-        { uuid: 'e1', type: 'placed', payload: { number: 'ORD-1001' }, actor_uuid: null, visibility: 'internal', created_at: '2026-01-01 00:00:00' },
-        { uuid: 'e2', type: 'status:paid', payload: null, actor_uuid: null, visibility: 'internal', created_at: '2026-01-01 01:00:00' },
+        {
+          uuid: 'e1',
+          type: 'placed',
+          payload: { number: 'ORD-1001' },
+          actor_uuid: null,
+          visibility: 'internal',
+          created_at: '2026-01-01 00:00:00',
+        },
+        {
+          uuid: 'e2',
+          type: 'status:paid',
+          payload: null,
+          actor_uuid: null,
+          visibility: 'internal',
+          created_at: '2026-01-01 01:00:00',
+        },
       ],
     })
     const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
@@ -608,7 +649,9 @@ describe('order detail overflow menu', () => {
     expect(trigger.attributes('aria-expanded')).toBe('false')
 
     await openOverflow(wrapper)
-    expect(wrapper.find('[data-test="order-overflow-trigger"]').attributes('aria-expanded')).toBe('true')
+    expect(wrapper.find('[data-test="order-overflow-trigger"]').attributes('aria-expanded')).toBe(
+      'true',
+    )
   })
 
   it('closes on Escape', async () => {
@@ -625,7 +668,9 @@ describe('order detail overflow menu', () => {
     await flushPromises()
 
     expect(wrapper.find('[role="menu"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="order-overflow-trigger"]').attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('[data-test="order-overflow-trigger"]').attributes('aria-expanded')).toBe(
+      'false',
+    )
     wrapper.unmount()
   })
 
@@ -825,7 +870,9 @@ describe('order lifecycle actions', () => {
 
   it('renders the server 409 cancel-rejection inline and keeps the dialog open for retry', async () => {
     const { ApiError } = await import('@/api/errors')
-    cancelMock.mockRejectedValue(new ApiError('Invalid order transition paid -> paid.', 409, {}, null))
+    cancelMock.mockRejectedValue(
+      new ApiError('Invalid order transition paid -> paid.', 409, {}, null),
+    )
     singleOrder.value = order({ uuid: 'o1', status: 'paid' })
     const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
     await flushPromises()
@@ -998,11 +1045,13 @@ describe('order lifecycle actions', () => {
 // finish for a finalized in-store order still awaiting payment. Gating matrix, the closed body
 // shape, and rendering for all five coordinator outcomes. ─────────────────────────────────────
 
-function completeSaleResult(overrides: {
-  message?: string
-  steps?: { step: string; status: string; error?: string }[]
-  order?: Record<string, unknown> | null
-} = {}) {
+function completeSaleResult(
+  overrides: {
+    message?: string
+    steps?: { step: string; status: string; error?: string }[]
+    order?: Record<string, unknown> | null
+  } = {},
+) {
   return {
     message: overrides.message ?? 'Sale completed',
     steps: overrides.steps ?? [
@@ -1015,7 +1064,11 @@ function completeSaleResult(overrides: {
 
 describe('complete sale gating', () => {
   it('shows the button only when fulfillment_mode is in_store AND status is pending_payment', async () => {
-    singleOrder.value = order({ uuid: 'o1', fulfillment_mode: 'in_store', status: 'pending_payment' })
+    singleOrder.value = order({
+      uuid: 'o1',
+      fulfillment_mode: 'in_store',
+      status: 'pending_payment',
+    })
     const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
     await flushPromises()
 
@@ -1042,7 +1095,11 @@ describe('complete sale gating', () => {
 
   it('hides the button when can_manage is false even for an eligible order', async () => {
     metaData.value = { ...metaData.value, can_manage: false }
-    singleOrder.value = order({ uuid: 'o1', fulfillment_mode: 'in_store', status: 'pending_payment' })
+    singleOrder.value = order({
+      uuid: 'o1',
+      fulfillment_mode: 'in_store',
+      status: 'pending_payment',
+    })
     const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
     await flushPromises()
 
@@ -1052,7 +1109,12 @@ describe('complete sale gating', () => {
 
 describe('complete sale invocation', () => {
   function eligibleOrder(overrides: Partial<CommerceOrder> = {}) {
-    return order({ uuid: 'o1', fulfillment_mode: 'in_store', status: 'pending_payment', ...overrides })
+    return order({
+      uuid: 'o1',
+      fulfillment_mode: 'in_store',
+      status: 'pending_payment',
+      ...overrides,
+    })
   }
 
   it('calls the mutation with the closed body shape — tracking_ref only, no confirm step', async () => {
@@ -1089,7 +1151,11 @@ describe('complete sale invocation', () => {
       completeSaleResult({
         message: 'The order changed before the sale could be completed.',
         steps: [
-          { step: 'mark_paid', status: 'failed', error: 'The order changed before this step could complete.' },
+          {
+            step: 'mark_paid',
+            status: 'failed',
+            error: 'The order changed before this step could complete.',
+          },
           { step: 'fulfill', status: 'skipped' },
         ],
       }),
@@ -1154,7 +1220,11 @@ describe('complete sale invocation', () => {
         message: 'The order changed before the sale could be completed.',
         steps: [
           { step: 'mark_paid', status: 'done' },
-          { step: 'fulfill', status: 'failed', error: 'The order changed before this step could complete.' },
+          {
+            step: 'fulfill',
+            status: 'failed',
+            error: 'The order changed before this step could complete.',
+          },
         ],
       }),
     )
@@ -1182,7 +1252,11 @@ describe('complete sale invocation', () => {
         message: 'The sale could not be completed.',
         steps: [
           { step: 'mark_paid', status: 'done' },
-          { step: 'fulfill', status: 'failed', error: 'An unexpected error prevented this step from completing.' },
+          {
+            step: 'fulfill',
+            status: 'failed',
+            error: 'An unexpected error prevented this step from completing.',
+          },
         ],
       }),
     )
@@ -1207,7 +1281,11 @@ describe('complete sale invocation', () => {
         message: 'The order changed before the sale could be completed.',
         steps: [
           { step: 'mark_paid', status: 'done' },
-          { step: 'fulfill', status: 'failed', error: 'The order changed before this step could complete.' },
+          {
+            step: 'fulfill',
+            status: 'failed',
+            error: 'The order changed before this step could complete.',
+          },
         ],
         order: null,
       }),
@@ -1307,7 +1385,9 @@ describe('order refund action', () => {
 
     await wrapper.find('[data-test="refund-amount-input"]').setValue('5.00')
     await wrapper.find('[data-test="refund-reason-input"]').setValue('  customer request  ')
-    const restockCheckbox = wrapper.find('[data-test="refund-restock-checkbox"] button, [data-test="refund-restock-checkbox"] input')
+    const restockCheckbox = wrapper.find(
+      '[data-test="refund-restock-checkbox"] button, [data-test="refund-restock-checkbox"] input',
+    )
     if (restockCheckbox.exists()) {
       expect(restockCheckbox.attributes('disabled')).toBeDefined()
     }
@@ -1460,7 +1540,13 @@ describe('order refund action', () => {
 
     it('renders a row per refund with exact money, status, reason, and restocked flag', async () => {
       orderRefunds.value = [
-        refund({ uuid: 'r1', amount: 1234, status: 'completed', reason: 'customer request', restocked: true }),
+        refund({
+          uuid: 'r1',
+          amount: 1234,
+          status: 'completed',
+          reason: 'customer request',
+          restocked: true,
+        }),
         refund({ uuid: 'r2', amount: 500, status: 'pending', reason: null, restocked: false }),
       ]
       singleOrder.value = order({ uuid: 'o1', status: 'paid' })
@@ -1480,7 +1566,12 @@ describe('order refund action', () => {
 
   it('reflects the new refund row and a refund.completed timeline entry once the (simulated) refetch lands', async () => {
     refundMock.mockResolvedValue(refund({ uuid: 'r1', amount: 5900 }))
-    const wrapper = await openRefund({ uuid: 'o1', grand_total: 5900, refunded_total: 0, status: 'paid' })
+    const wrapper = await openRefund({
+      uuid: 'o1',
+      grand_total: 5900,
+      refunded_total: 0,
+      status: 'paid',
+    })
 
     expect(wrapper.find('[data-test="refunds-empty"]').exists()).toBe(true)
 
@@ -1495,7 +1586,14 @@ describe('order refund action', () => {
       grand_total: 5900,
       refunded_total: 5900,
       events: [
-        { uuid: 'e1', type: 'refund.completed', payload: { refund_uuid: 'r1', amount: 5900 }, actor_uuid: null, visibility: 'internal', created_at: '2026-01-03 00:00:00' },
+        {
+          uuid: 'e1',
+          type: 'refund.completed',
+          payload: { refund_uuid: 'r1', amount: 5900 },
+          actor_uuid: null,
+          visibility: 'internal',
+          created_at: '2026-01-03 00:00:00',
+        },
       ],
     })
     orderRefunds.value = [refund({ uuid: 'r1', amount: 5900, status: 'completed' })]
@@ -1553,7 +1651,9 @@ describe('order payment summary card', () => {
     const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
     await flushPromises()
 
-    expect(wrapper.find('[data-test="order-payments-empty"]').text()).toContain('No payments or attempts')
+    expect(wrapper.find('[data-test="order-payments-empty"]').text()).toContain(
+      'No payments or attempts',
+    )
     expect(wrapper.find('[data-test="order-payments-unavailable"]').exists()).toBe(false)
   })
 
@@ -1654,7 +1754,12 @@ describe('address copy parity', () => {
           city: 'Springfield',
           country: 'USA',
         },
-        billing: { name: 'Ada Lovelace', line1: '2 Other St', postal_code: '90210', country: 'USA' },
+        billing: {
+          name: 'Ada Lovelace',
+          line1: '2 Other St',
+          postal_code: '90210',
+          country: 'USA',
+        },
       },
     })
   })
@@ -1664,7 +1769,10 @@ describe('address copy parity', () => {
     await flushPromises()
 
     const shippingEl = wrapper.find('[data-test="order-address-shipping"]')
-    const displayedText = shippingEl.findAll('p').map((p) => p.text()).join('\n')
+    const displayedText = shippingEl
+      .findAll('p')
+      .map((p) => p.text())
+      .join('\n')
 
     await wrapper.find('[data-test="order-address-shipping-copy"]').trigger('click')
     await flushPromises()
@@ -1678,7 +1786,10 @@ describe('address copy parity', () => {
     await flushPromises()
 
     const billingEl = wrapper.find('[data-test="order-address-billing"]')
-    const displayedText = billingEl.findAll('p').map((p) => p.text()).join('\n')
+    const displayedText = billingEl
+      .findAll('p')
+      .map((p) => p.text())
+      .join('\n')
 
     await wrapper.find('[data-test="order-address-billing-copy"]').trigger('click')
     await flushPromises()
@@ -1713,7 +1824,16 @@ describe('order detail section ordering', () => {
   it('renders payments, addresses, timeline, and notes in that order, below the header band', async () => {
     singleOrder.value = order({
       uuid: 'o1',
-      events: [{ uuid: 'e1', type: 'placed', payload: null, actor_uuid: null, visibility: 'internal', created_at: null }],
+      events: [
+        {
+          uuid: 'e1',
+          type: 'placed',
+          payload: null,
+          actor_uuid: null,
+          visibility: 'internal',
+          created_at: null,
+        },
+      ],
     })
     orderNotes.value = [note()]
     const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
@@ -1741,7 +1861,12 @@ describe('order detail section ordering', () => {
 
 describe('order sticky rail', () => {
   it('shows order identity, the grand total, and a print link matching the header band', async () => {
-    singleOrder.value = order({ uuid: 'o7', order_number: 'ORD-7', status: 'paid', grand_total: 1999 })
+    singleOrder.value = order({
+      uuid: 'o7',
+      order_number: 'ORD-7',
+      status: 'paid',
+      grand_total: 1999,
+    })
     routeState.params = { uuid: 'o7' }
     const wrapper = mount(OrderDetail, { global: { stubs: pageStubs } })
     await flushPromises()
@@ -1774,7 +1899,16 @@ describe('order sticky rail', () => {
       uuid: 'o1',
       status: 'paid',
       lines: [
-        { uuid: 'l1', product_name: 'Widget', sku: 'SKU-1', quantity: 1, unit_price: 100, line_total: 100, option_values: {}, addons: [] },
+        {
+          uuid: 'l1',
+          product_name: 'Widget',
+          sku: 'SKU-1',
+          quantity: 1,
+          unit_price: 100,
+          line_total: 100,
+          option_values: {},
+          addons: [],
+        },
       ],
       addresses: { shipping: { name: 'Ada', line1: '1 Main St' }, billing: null },
     })
@@ -1882,7 +2016,9 @@ describe('order notes section', () => {
     await wrapper.find('[data-test="order-note-submit"]').trigger('click')
     await flushPromises()
 
-    expect((wrapper.find('[data-test="order-note-input"]').element as HTMLTextAreaElement).value).toBe('')
+    expect(
+      (wrapper.find('[data-test="order-note-input"]').element as HTMLTextAreaElement).value,
+    ).toBe('')
   })
 
   it('rejects a blank note client-side without calling the mutation', async () => {

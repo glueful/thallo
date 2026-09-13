@@ -28,7 +28,11 @@ vi.mock('@/queries/analytics', () => ({
   }),
   useAnalyticsBreakdown: (event: unknown) => {
     h.breakdownEventRef = event
-    return { data: ref([{ subject: 'posts', count: 12 }]), status: ref('success'), error: ref(null) }
+    return {
+      data: ref([{ subject: 'posts', count: 12 }]),
+      status: ref('success'),
+      error: ref(null),
+    }
   },
 }))
 

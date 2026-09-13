@@ -8,7 +8,11 @@
 // (`useCommerceProduct()`, which DOES carry `variants`) to pick the specific `variant_uuid` a
 // draft line actually targets.
 import { ref, computed } from 'vue'
-import { useCommerceProducts, useCommerceProduct, type CommerceProduct } from '@/queries/commerceCatalog'
+import {
+  useCommerceProducts,
+  useCommerceProduct,
+  type CommerceProduct,
+} from '@/queries/commerceCatalog'
 import { useCommerceDraftMutations, type CommerceDraft } from '@/queries/commerceDrafts'
 import { useMoney } from '@/composables/useMoney'
 import { toApiError } from '@/api/errors'
@@ -139,7 +143,10 @@ async function removeLine(lineUuid: string) {
               min="1"
               class="w-20"
               data-test="draft-line-qty"
-              @change="(e: Event) => changeQuantity(line.uuid, Number((e.target as HTMLInputElement).value))"
+              @change="
+                (e: Event) =>
+                  changeQuantity(line.uuid, Number((e.target as HTMLInputElement).value))
+              "
             />
             <UButton
               size="xs"
@@ -184,13 +191,22 @@ async function removeLine(lineUuid: string) {
             >
               {{ INELIGIBLE_LABELS[p.admin_draft_ineligible_reason ?? 'unavailable'] }}
             </span>
-            <UButton v-else size="xs" data-test="draft-product-select" @click="selectProduct(p.uuid)">
+            <UButton
+              v-else
+              size="xs"
+              data-test="draft-product-select"
+              @click="selectProduct(p.uuid)"
+            >
               Select
             </UButton>
           </li>
         </ul>
 
-        <div v-if="selectedProduct" data-test="draft-variant-picker" class="flex flex-col gap-2 rounded-md border border-default p-3">
+        <div
+          v-if="selectedProduct"
+          data-test="draft-variant-picker"
+          class="flex flex-col gap-2 rounded-md border border-default p-3"
+        >
           <p class="text-sm font-medium">{{ selectedProduct.name }}</p>
           <label
             v-for="v in selectedProduct.variants"
@@ -232,7 +248,12 @@ async function removeLine(lineUuid: string) {
             >
               Add to order
             </UButton>
-            <UButton color="neutral" variant="ghost" data-test="draft-line-add-cancel" @click="cancelSelection">
+            <UButton
+              color="neutral"
+              variant="ghost"
+              data-test="draft-line-add-cancel"
+              @click="cancelSelection"
+            >
               Cancel
             </UButton>
           </div>

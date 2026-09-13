@@ -16,4 +16,8 @@ const main: NavigationMenuItem[] = [
   },
 ]
 
-export const tenancyModule: AdminModule = { id: 'tenancy', requires: ['thallo.tenancy'], nav: { main } }
+export const tenancyModule: AdminModule = {
+  id: 'tenancy',
+  requires: ['thallo.tenancy'],
+  nav: { main },
+}

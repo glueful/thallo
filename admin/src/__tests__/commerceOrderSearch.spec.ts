@@ -30,7 +30,10 @@ import {
 } from '@/queries/commerceOrderSearch'
 
 function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  })
 }
 
 function mountQuery(
@@ -87,7 +90,8 @@ describe('fetchOrderSearch', () => {
   })
 
   it('calls the search endpoint with status/fulfillment/date/q/page/per_page params', async () => {
-    const { fetchOrderSearch, ORDER_SEARCH_DEFAULTS: DEFAULTS } = await import('@/queries/commerceOrderSearch')
+    const { fetchOrderSearch, ORDER_SEARCH_DEFAULTS: DEFAULTS } =
+      await import('@/queries/commerceOrderSearch')
     await fetchOrderSearch({
       ...DEFAULTS,
       status: 'paid',
@@ -112,7 +116,8 @@ describe('fetchOrderSearch', () => {
   })
 
   it('omits status/fulfillment/dates/q from the request when unset (defaults)', async () => {
-    const { fetchOrderSearch, ORDER_SEARCH_DEFAULTS: DEFAULTS } = await import('@/queries/commerceOrderSearch')
+    const { fetchOrderSearch, ORDER_SEARCH_DEFAULTS: DEFAULTS } =
+      await import('@/queries/commerceOrderSearch')
     await fetchOrderSearch(DEFAULTS)
     const url = (fetchMock.mock.calls[0]![0] as Request).url
     expect(url).not.toContain('status=')
@@ -123,7 +128,8 @@ describe('fetchOrderSearch', () => {
   })
 
   it('normalizes rows into the CommerceOrder shape the table expects', async () => {
-    const { fetchOrderSearch, ORDER_SEARCH_DEFAULTS: DEFAULTS } = await import('@/queries/commerceOrderSearch')
+    const { fetchOrderSearch, ORDER_SEARCH_DEFAULTS: DEFAULTS } =
+      await import('@/queries/commerceOrderSearch')
     const page = await fetchOrderSearch(DEFAULTS)
     expect(page.orders).toHaveLength(1)
     expect(page.orders[0]).toMatchObject({
@@ -145,7 +151,9 @@ describe('useOrderSearch query key', () => {
 
   beforeEach(() => {
     vi.resetModules()
-    fetchMock = vi.fn().mockResolvedValue(jsonResponse({ data: [], current_page: 1, per_page: 24, total: 0 }))
+    fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ data: [], current_page: 1, per_page: 24, total: 0 }))
     vi.stubGlobal('fetch', fetchMock)
   })
 
@@ -154,7 +162,8 @@ describe('useOrderSearch query key', () => {
   })
 
   it('refetches when a scalar filter value changes, but not for an equal-value new object', async () => {
-    const { useOrderSearch, ORDER_SEARCH_DEFAULTS: DEFAULTS } = await import('@/queries/commerceOrderSearch')
+    const { useOrderSearch, ORDER_SEARCH_DEFAULTS: DEFAULTS } =
+      await import('@/queries/commerceOrderSearch')
     const state = ref<OrderSearchFilters>({ ...DEFAULTS })
     mountQuery(useOrderSearch, state)
     await flushPromises()

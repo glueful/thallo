@@ -89,7 +89,16 @@ async function runRetry() {
 
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton color="neutral" variant="ghost" label="Close" @click="() => { open = false }" />
+        <UButton
+          color="neutral"
+          variant="ghost"
+          label="Close"
+          @click="
+            () => {
+              open = false
+            }
+          "
+        />
         <UButton
           v-if="canRetry"
           label="Retry"

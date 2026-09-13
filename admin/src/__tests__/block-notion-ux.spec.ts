@@ -146,7 +146,14 @@ describe('prose seam', () => {
   const withRichText = () => [
     ...defaultTypes(),
     bt('rich_text', [
-      { name: 'body', type: 'text', format: 'rich', required: false, localized: false, filterable: false },
+      {
+        name: 'body',
+        type: 'text',
+        format: 'rich',
+        required: false,
+        localized: false,
+        filterable: false,
+      },
     ]),
   ]
 
@@ -177,7 +184,14 @@ describe('prose seam', () => {
     blockTypes.value = [
       ...withRichText(),
       bt('note', [
-        { name: 'content', type: 'text', format: 'rich', required: false, localized: false, filterable: false },
+        {
+          name: 'content',
+          type: 'text',
+          format: 'rich',
+          required: false,
+          localized: false,
+          filterable: false,
+        },
       ]),
     ]
     const model2 = ref<BlockInstance[]>([])
@@ -262,7 +276,12 @@ describe('drag (direct handler — jsdom never simulates sortable)', () => {
     const wrapper = mountField(model)
     await flushPromises()
     const vm = wrapper.vm as unknown as {
-      onDragEnd: (e: { item: HTMLElement; to: HTMLElement; from: HTMLElement; newIndex?: number }) => void
+      onDragEnd: (e: {
+        item: HTMLElement
+        to: HTMLElement
+        from: HTMLElement
+        newIndex?: number
+      }) => void
     }
     vm.onDragEnd({
       item: fakeEl({ blockId: 'q1' }),
@@ -294,7 +313,12 @@ describe('drag (direct handler — jsdom never simulates sortable)', () => {
     const wrapper = mountField(model)
     await flushPromises()
     const vm = wrapper.vm as unknown as {
-      onDragEnd: (e: { item: HTMLElement; to: HTMLElement; from: HTMLElement; newIndex?: number }) => void
+      onDragEnd: (e: {
+        item: HTMLElement
+        to: HTMLElement
+        from: HTMLElement
+        newIndex?: number
+      }) => void
     }
     vm.onDragEnd({
       item: fakeEl({ blockId: 'drag' }),

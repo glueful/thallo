@@ -39,16 +39,30 @@ describe('commerce invoice-data query layer', () => {
       data: {
         schema_version: 2,
         seller: { name: 'Acme Supply Co.', address: '1 Market St', tax_id: 'TAX-1' },
-        buyer: { email: 'buyer@example.com', addresses: { shipping: { country: 'US' }, billing: null } },
+        buyer: {
+          email: 'buyer@example.com',
+          addresses: { shipping: { country: 'US' }, billing: null },
+        },
         order: {
           number: 'ORD-2002',
-          dates: { placed_at: '2026-01-01 00:00:00', created_at: '2026-01-01 00:00:00', updated_at: null },
+          dates: {
+            placed_at: '2026-01-01 00:00:00',
+            created_at: '2026-01-01 00:00:00',
+            updated_at: null,
+          },
           currency: 'USD',
           currency_exponent: 2,
           status: 'paid',
         },
         lines: [
-          { name: 'Widget', sku: 'SKU-1', quantity: 2, unit_minor: 1000, subtotal_minor: 2000, addons: [] },
+          {
+            name: 'Widget',
+            sku: 'SKU-1',
+            quantity: 2,
+            unit_minor: 1000,
+            subtotal_minor: 2000,
+            addons: [],
+          },
         ],
         totals: {
           subtotal_minor: 2000,
@@ -73,21 +87,38 @@ describe('commerce invoice-data query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('GET')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/orders/o1/invoice-data')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/orders/o1/invoice-data',
+    )
 
     expect(invoice.schema_version).toBe(2)
-    expect(invoice.seller).toEqual({ name: 'Acme Supply Co.', address: '1 Market St', tax_id: 'TAX-1' })
+    expect(invoice.seller).toEqual({
+      name: 'Acme Supply Co.',
+      address: '1 Market St',
+      tax_id: 'TAX-1',
+    })
     expect(invoice.buyer.email).toBe('buyer@example.com')
     expect(invoice.buyer.addresses).toEqual({ shipping: { country: 'US' }, billing: null })
     expect(invoice.order).toEqual({
       number: 'ORD-2002',
-      dates: { placed_at: '2026-01-01 00:00:00', created_at: '2026-01-01 00:00:00', updated_at: null },
+      dates: {
+        placed_at: '2026-01-01 00:00:00',
+        created_at: '2026-01-01 00:00:00',
+        updated_at: null,
+      },
       currency: 'USD',
       currency_exponent: 2,
       status: 'paid',
     })
     expect(invoice.lines).toEqual([
-      { name: 'Widget', sku: 'SKU-1', quantity: 2, unit_minor: 1000, subtotal_minor: 2000, addons: [] },
+      {
+        name: 'Widget',
+        sku: 'SKU-1',
+        quantity: 2,
+        unit_minor: 1000,
+        subtotal_minor: 2000,
+        addons: [],
+      },
     ])
     expect(invoice.totals).toEqual({
       subtotal_minor: 2000,
@@ -97,19 +128,31 @@ describe('commerce invoice-data query layer', () => {
       grand_minor: 2500,
       refunded_minor: 0,
     })
-    expect(invoice.refunds).toEqual([{ date: '2026-01-15 10:00:00', amount_minor: 500, method: 'original' }])
+    expect(invoice.refunds).toEqual([
+      { date: '2026-01-15 10:00:00', amount_minor: 500, method: 'original' },
+    ])
     for (const v of Object.values(invoice.totals)) expect(typeof v).toBe('number')
   })
 
   it('normalizes order.currency_exponent from the payload, defaulting to 2 only when absent', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(jsonResponse(invoiceDataBody({ order: {
-      number: 'ORD-JPY',
-      dates: { placed_at: '2026-01-01 00:00:00', created_at: '2026-01-01 00:00:00', updated_at: null },
-      currency: 'JPY',
-      currency_exponent: 0,
-      status: 'paid',
-    } })))
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        invoiceDataBody({
+          order: {
+            number: 'ORD-JPY',
+            dates: {
+              placed_at: '2026-01-01 00:00:00',
+              created_at: '2026-01-01 00:00:00',
+              updated_at: null,
+            },
+            currency: 'JPY',
+            currency_exponent: 0,
+            status: 'paid',
+          },
+        }),
+      ),
+    )
 
     const { fetchOrderInvoiceData } = await import('@/queries/commerceInvoice')
     const invoice = await fetchOrderInvoiceData('o1')
@@ -119,12 +162,18 @@ describe('commerce invoice-data query layer', () => {
 
   it('defaults currency_exponent to 2 for a payload predating the field', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(jsonResponse(invoiceDataBody({ order: {
-      number: 'ORD-OLD',
-      dates: { placed_at: null, created_at: null, updated_at: null },
-      currency: 'USD',
-      status: 'paid',
-    } })))
+    fetchMock.mockResolvedValue(
+      jsonResponse(
+        invoiceDataBody({
+          order: {
+            number: 'ORD-OLD',
+            dates: { placed_at: null, created_at: null, updated_at: null },
+            currency: 'USD',
+            status: 'paid',
+          },
+        }),
+      ),
+    )
 
     const { fetchOrderInvoiceData } = await import('@/queries/commerceInvoice')
     const invoice = await fetchOrderInvoiceData('o1')

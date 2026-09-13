@@ -12,7 +12,6 @@ import { disableAutoUnmount } from '@vue/test-utils'
 // family as the getBBox/getComputedTextLength shims in setup.ts.
 disableAutoUnmount()
 
-
 // Stub unovis primitives — jsdom can't lay out real SVG charts, and they're not what we're testing.
 const stubs = {
   VisXYContainer: { template: '<div><slot /></div>' },
@@ -26,7 +25,14 @@ describe('analytics chart wrappers', () => {
   it('line chart renders its container given series', () => {
     const wrapper = mount(AnalyticsLineChart, {
       props: {
-        series: [{ key: 'logins', label: 'Logins', color: '#000', points: [{ day: '2025-06-10', count: 3 }] }],
+        series: [
+          {
+            key: 'logins',
+            label: 'Logins',
+            color: '#000',
+            points: [{ day: '2025-06-10', count: 3 }],
+          },
+        ],
       },
       global: { stubs },
     })

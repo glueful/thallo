@@ -63,7 +63,7 @@ admin API. A few contracts must hold for the build to drop into a Thallo instanc
   `thallo:provision` publishes a copy into `public/admin/` for the web server).
 - **Base path `/admin/`** — the bundle is served under `/admin`, so assets must resolve there.
   Set Vite `base: '/admin/'` (the router already uses `import.meta.env.BASE_URL`).
-  *(not wired yet — default is `/`)*
+  _(not wired yet — default is `/`)_
 - **Runtime config**: the app fetches **`GET /admin/config.json`** at boot (unauthenticated) for
   `apiBase`, `defaultLocale`, `sitePreviewUrl`, and `installed` — so one compiled bundle works across
   installs without env-baking.

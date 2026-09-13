@@ -50,7 +50,9 @@ function filterQuery(filter: SubmissionFilter): string {
   return s === '' ? '' : `?${s}`
 }
 
-export async function fetchSubmissions(filter: SubmissionFilter = {}): Promise<SubmissionSummary[]> {
+export async function fetchSubmissions(
+  filter: SubmissionFilter = {},
+): Promise<SubmissionSummary[]> {
   const json = await authFetch(`${base()}${filterQuery(filter)}`)
   const d = (json.data ?? json) as { submissions?: SubmissionSummary[] }
   return d.submissions ?? []
@@ -112,10 +114,7 @@ export function useSubmissions(filter: MaybeRefOrGetter<SubmissionFilter>) {
   })
 }
 
-export function useSubmission(
-  uuid: MaybeRefOrGetter<string>,
-  enabled?: MaybeRefOrGetter<boolean>,
-) {
+export function useSubmission(uuid: MaybeRefOrGetter<string>, enabled?: MaybeRefOrGetter<boolean>) {
   return useQuery({
     key: () => qk.formSubmission(toValue(uuid)),
     query: () => fetchSubmission(toValue(uuid)),

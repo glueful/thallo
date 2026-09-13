@@ -42,9 +42,7 @@ watch(
 )
 
 const description = computed(() =>
-  props.planLabel
-    ? `Cancel the “${props.planLabel}” subscription?`
-    : 'Cancel this subscription?',
+  props.planLabel ? `Cancel the “${props.planLabel}” subscription?` : 'Cancel this subscription?',
 )
 
 async function confirm() {
@@ -58,7 +56,9 @@ async function confirm() {
     submitError.value = err.message
     const details = apiErrorDetails(e)
     const modes = details?.modes
-    supportedModes.value = Array.isArray(modes) ? modes.filter((m): m is string => typeof m === 'string') : null
+    supportedModes.value = Array.isArray(modes)
+      ? modes.filter((m): m is string => typeof m === 'string')
+      : null
     notifyError(err, 'Couldn’t cancel subscription')
   }
 }
@@ -89,7 +89,11 @@ async function confirm() {
         variant="subtle"
         icon="i-lucide-triangle-alert"
         :title="submitError"
-        :description="supportedModes && supportedModes.length > 0 ? `Supported modes: ${supportedModes.join(', ')}` : undefined"
+        :description="
+          supportedModes && supportedModes.length > 0
+            ? `Supported modes: ${supportedModes.join(', ')}`
+            : undefined
+        "
         data-test="cancel-mode-error"
       />
     </template>

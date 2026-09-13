@@ -40,7 +40,16 @@ function submit(): void {
     </template>
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton color="neutral" variant="ghost" :disabled="busy" @click="() => { open = false }">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          :disabled="busy"
+          @click="
+            () => {
+              open = false
+            }
+          "
+        >
           Cancel
         </UButton>
         <UButton

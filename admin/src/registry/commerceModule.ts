@@ -38,4 +38,8 @@ const main: NavigationMenuItem[] = [
   },
 ]
 
-export const commerceModule: AdminModule = { id: 'commerce', requires: ['thallo.commerce'], nav: { main } }
+export const commerceModule: AdminModule = {
+  id: 'commerce',
+  requires: ['thallo.commerce'],
+  nav: { main },
+}

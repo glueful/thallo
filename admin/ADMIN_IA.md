@@ -48,11 +48,12 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
 ## Sections
 
 ### Home
+
 - **Persona:** all
 - **Phase 1:** yes
 - Default landing route (`/`) after login: recent/draft entries, quick "create"
   actions, content counts.
-- **Welcome / first-run** is *not* a separate page — it's Home's **empty/onboarding
+- **Welcome / first-run** is _not_ a separate page — it's Home's **empty/onboarding
   state** for a fresh install. Because install seeds a **Pages** type (see Content), the
   first-run state is **"create your first page"** (concrete, one click) rather than
   "define a content type" (cold-start) — a working editorial loop on day one. It
@@ -60,6 +61,7 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
   already reads, not a dedicated route.
 
 ### Content
+
 - **Persona:** editorial
 - **Phase 1:** yes (the editorial loop)
 - One nav item per **content type**, fetched live from `GET /v1/admin/content-types`
@@ -68,7 +70,7 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
 - **Seeded type:** a fresh install ships with one generic **Pages** type
   (`slug: page`, `name: Pages`, schema `title` [string, required] + `body` [text]),
   seeded by `App\Setup\SetupService::install()`. It is an **ordinary content-type row**
-  — fully editable, renameable, deletable like any user-defined type, *not* a
+  — fully editable, renameable, deletable like any user-defined type, _not_ a
   hardcoded/system type — so the "define your own types" model stays intact. Pages alone
   (not Posts) — pages are universal; a blog is opinionated. `public_delivery` is left at
   the secure default (`false`); enable it per type in the type editor.
@@ -78,10 +80,12 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
   its entries.
 
 ### Media
+
 - **Persona:** editorial
 - Asset library (blobs / uploads). Stub for now.
 
 ### Extensions
+
 - **Persona:** site owner (product feature — like WP Plugins / Shopify Apps / Statamic Addons)
 - Top-level, **not** an ops/dev concern.
 - Ships as **browse + enable/disable + configure** (works on already-installed packages today).
@@ -92,6 +96,7 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
   app (RCE by design): own owner/developer role, hard auth, audit trail. Design deliberately.
 
 ### Users & Access
+
 - **Persona:** admin
 - **Users** — `glueful/users`
 - **Roles & Permissions** — `aegis` (RBAC)
@@ -99,6 +104,7 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
   access record, not a maintenance tool)
 
 ### Developers
+
 - **Persona:** integrator (Stripe-style "Developers" section)
 - **API Reference** — internal **Scalar** viewer over **Thallo's own `openapi.json`**
   (bundled into the admin build or served from a Thallo-owned route — does **not** depend
@@ -109,6 +115,7 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
 - **Webhooks** — outbound event subscriptions (core `Api\Webhooks`).
 
 ### Settings
+
 - **Persona:** admin / site owner
 - **Content Types** — the type builder (create/edit content-type schemas). Schema =
   configuration, so it lives here (Directus "Data Model under Settings" pattern); also
@@ -120,12 +127,14 @@ Home · Content · Media · Extensions · Users & Access · Developers · Settin
 - **Import / Export** — content jobs (`glueful/import-export`)
 
 ### Utilities
+
 - **Persona:** ops
 - **Scheduled Tasks** — queue + publish schedules (`thallo:schedules`, queue)
 - **Health** — diagnostics (framework health endpoints)
 - **Cache** — status / clear (`cache:status` / `cache:clear`)
 
 ### Account menu (corner, not in nav)
+
 - Current user's profile, password, logout (`glueful/users` account).
 
 ## Naming rationale

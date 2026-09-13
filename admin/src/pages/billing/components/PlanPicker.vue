@@ -57,7 +57,12 @@ function submit() {
     </p>
     <template v-else>
       <UFormField label="Choose a plan">
-        <USelect v-model="selected" :items="items" class="w-full max-w-sm" data-test="plan-picker-select" />
+        <USelect
+          v-model="selected"
+          :items="items"
+          class="w-full max-w-sm"
+          data-test="plan-picker-select"
+        />
       </UFormField>
       <UButton
         :disabled="selected.trim() === ''"

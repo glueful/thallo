@@ -55,11 +55,14 @@ export async function fetchSubscriptionsMeta(): Promise<SubscriptionsMeta> {
   return {
     engine: normalizeEngineState(raw.engine),
     tenancy_enabled: raw.tenancy_enabled === true,
-    default_tenant_uuid: typeof raw.default_tenant_uuid === 'string' ? raw.default_tenant_uuid : null,
+    default_tenant_uuid:
+      typeof raw.default_tenant_uuid === 'string' ? raw.default_tenant_uuid : null,
     self_serve_checkout_enabled: raw.self_serve_checkout_enabled === true,
     self_serve_gateway: typeof raw.self_serve_gateway === 'string' ? raw.self_serve_gateway : null,
     self_serve_gateway_capable: raw.self_serve_gateway_capable === true,
-    self_serve_gateway_capable_reason: normalizeSelfServeGatewayCapableReason(raw.self_serve_gateway_capable_reason),
+    self_serve_gateway_capable_reason: normalizeSelfServeGatewayCapableReason(
+      raw.self_serve_gateway_capable_reason,
+    ),
   }
 }
 
@@ -199,7 +202,10 @@ export async function createPlan(input: CreatePlanInput): Promise<SubscriptionPl
   return normalizePlan((json.data ?? json) as Record<string, unknown>)
 }
 
-export async function updatePlan(planKey: string, input: UpdatePlanInput): Promise<SubscriptionPlan> {
+export async function updatePlan(
+  planKey: string,
+  input: UpdatePlanInput,
+): Promise<SubscriptionPlan> {
   const json = await authFetch(`${base()}/plans/${encodeURIComponent(planKey)}`, {
     method: 'PATCH',
     body: JSON.stringify(input),
@@ -219,7 +225,9 @@ export interface ImportPlansConfigInput {
   status?: PlanStatus
 }
 
-export async function importPlansConfig(input: ImportPlansConfigInput = {}): Promise<SubscriptionPlan[]> {
+export async function importPlansConfig(
+  input: ImportPlansConfigInput = {},
+): Promise<SubscriptionPlan[]> {
   const json = await authFetch(`${base()}/plans/import-config`, {
     method: 'POST',
     body: JSON.stringify(input),
@@ -244,7 +252,8 @@ export function usePlanMutations() {
       onSettled: invalidate,
     }),
     update: useMutation({
-      mutation: (vars: { planKey: string; input: UpdatePlanInput }) => updatePlan(vars.planKey, vars.input),
+      mutation: (vars: { planKey: string; input: UpdatePlanInput }) =>
+        updatePlan(vars.planKey, vars.input),
       onSettled: invalidate,
     }),
     archive: useMutation({
@@ -328,7 +337,8 @@ function normalizeTenant(raw: Record<string, unknown>): WorkspaceTenant {
     name: String(raw.name ?? ''),
     status: String(raw.status ?? ''),
     deleted_at: typeof raw.deleted_at === 'string' ? raw.deleted_at : null,
-    deleted_from_status: typeof raw.deleted_from_status === 'string' ? raw.deleted_from_status : null,
+    deleted_from_status:
+      typeof raw.deleted_from_status === 'string' ? raw.deleted_from_status : null,
     purge_after: typeof raw.purge_after === 'string' ? raw.purge_after : null,
   }
 }
@@ -372,7 +382,9 @@ export function isOverrideExpired(override: WorkspaceOverride, now: Date = new D
 
 /** No caller-supplied `?uuids=` filter exists on this endpoint (design ruling) -- only
  * `page`/`per_page` are ever sent. */
-export async function fetchWorkspaces(filters: WorkspaceListFilters = {}): Promise<WorkspaceListPage> {
+export async function fetchWorkspaces(
+  filters: WorkspaceListFilters = {},
+): Promise<WorkspaceListPage> {
   const params = new URLSearchParams()
   if (filters.page !== undefined) params.set('page', String(filters.page))
   if (filters.perPage !== undefined) params.set('per_page', String(filters.perPage))
@@ -418,7 +430,10 @@ export async function setWorkspacePlan(uuid: string, planKey: string): Promise<u
 
 /** `POST /workspaces/{uuid}/cancel` -- same "raw engine row, refetch for the projected view"
  * caveat as {@see setWorkspacePlan}. */
-export async function cancelWorkspaceSubscription(uuid: string, atPeriodEnd = true): Promise<unknown> {
+export async function cancelWorkspaceSubscription(
+  uuid: string,
+  atPeriodEnd = true,
+): Promise<unknown> {
   const json = await authFetch(`${base()}/workspaces/${encodeURIComponent(uuid)}/cancel`, {
     method: 'POST',
     body: JSON.stringify({ at_period_end: atPeriodEnd }),
@@ -483,7 +498,10 @@ export function useWorkspaces(
  * concrete uuid is known (e.g. the tenancy-off "This site's plan" panel, which must not fetch at
  * all while `default_tenant_uuid` is null) simply never mount the component that calls this --
  * the `!!toValue(uuid)` guard below is the last line of defense, not the primary one. */
-export function useWorkspace(uuid: MaybeRefOrGetter<string>, enabled: MaybeRefOrGetter<boolean> = true) {
+export function useWorkspace(
+  uuid: MaybeRefOrGetter<string>,
+  enabled: MaybeRefOrGetter<boolean> = true,
+) {
   return useQuery({
     key: () => qkWorkspace(toValue(uuid)),
     query: () => fetchWorkspace(toValue(uuid)),
@@ -499,7 +517,8 @@ export function useWorkspaceMutations() {
   }
   return {
     setPlan: useMutation({
-      mutation: (vars: { uuid: string; planKey: string }) => setWorkspacePlan(vars.uuid, vars.planKey),
+      mutation: (vars: { uuid: string; planKey: string }) =>
+        setWorkspacePlan(vars.uuid, vars.planKey),
       onSettled: (_d, _e, vars) => invalidate(vars.uuid),
     }),
     cancel: useMutation({

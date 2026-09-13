@@ -117,7 +117,9 @@ describe('email settings page', () => {
     fetchSettingsMock.mockReset().mockResolvedValue(settings())
     saveSettingsMock.mockReset().mockResolvedValue(settings())
     testSettingsMock.mockReset().mockResolvedValue(undefined)
-    fetchTemplatesMock.mockReset().mockResolvedValue({ templates: templates(), partials: partials() })
+    fetchTemplatesMock
+      .mockReset()
+      .mockResolvedValue({ templates: templates(), partials: partials() })
     saveTemplateMock.mockReset().mockResolvedValue(undefined)
     resetTemplateMock.mockReset().mockResolvedValue(undefined)
     testTemplateMock.mockReset().mockResolvedValue(undefined)
@@ -128,7 +130,9 @@ describe('email settings page', () => {
     await flushPromises()
 
     // Nested GET hydrated into the flat form.
-    const host = wrapper.findAll('input').find((i) => (i.element as HTMLInputElement).value === 'smtp.app.test')
+    const host = wrapper
+      .findAll('input')
+      .find((i) => (i.element as HTMLInputElement).value === 'smtp.app.test')
     expect(host).toBeTruthy()
 
     const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
@@ -136,7 +140,11 @@ describe('email settings page', () => {
     await flushPromises()
 
     const payload = saveSettingsMock.mock.calls[0]![0]
-    expect(payload).toMatchObject({ mailer: 'smtp', host: 'smtp.app.test', from: 'no-reply@app.test' })
+    expect(payload).toMatchObject({
+      mailer: 'smtp',
+      host: 'smtp.app.test',
+      from: 'no-reply@app.test',
+    })
     expect(payload).not.toHaveProperty('password') // blank keeps the stored one
     wrapper.unmount()
   })
@@ -194,11 +202,16 @@ describe('email settings page', () => {
 
   it('saves one row and shows 422 violations inline', async () => {
     saveTemplateMock.mockRejectedValue(
-      new ApiError('Template violations.', 422, {}, {
-        success: false,
-        message: 'Template violations.',
-        errors: ['Unclosed conditional block: {{#if otp}}'],
-      }),
+      new ApiError(
+        'Template violations.',
+        422,
+        {},
+        {
+          success: false,
+          message: 'Template violations.',
+          errors: ['Unclosed conditional block: {{#if otp}}'],
+        },
+      ),
     )
     const wrapper = mountPage()
     await flushPromises()

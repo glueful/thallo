@@ -24,4 +24,8 @@ const main: NavigationMenuItem[] = [
   },
 ]
 
-export const collectionsModule: AdminModule = { id: 'collections', requires: ['thallo.collections'], nav: { main } }
+export const collectionsModule: AdminModule = {
+  id: 'collections',
+  requires: ['thallo.collections'],
+  nav: { main },
+}

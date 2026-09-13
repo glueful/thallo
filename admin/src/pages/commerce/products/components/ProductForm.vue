@@ -244,10 +244,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
            renders this through the render pack's fail-closed `safe_html` sanitizer, so markup
            here can never smuggle scripts onto the shop page. -->
       <UFormField label="Description" name="description" class="col-span-2">
-        <div
-          class="rounded-md border border-default px-3"
-          data-test="product-description-input"
-        >
+        <div class="rounded-md border border-default px-3" data-test="product-description-input">
           <RichText
             v-model="state.description"
             :editable="canManage"
@@ -306,7 +303,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           />
         </UFormField>
 
-        <UFormField label="Button label" name="buttonLabel" class="col-span-2" help="Optional — e.g. “Buy at Partner Store”.">
+        <UFormField
+          label="Button label"
+          name="buttonLabel"
+          class="col-span-2"
+          help="Optional — e.g. “Buy at Partner Store”."
+        >
           <UInput
             v-model="state.buttonLabel"
             class="w-full"

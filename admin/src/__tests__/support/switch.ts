@@ -18,7 +18,9 @@ export interface SwitchHandle {
 // owns `modelValue`: that is the SwitchRoot, whose `update:modelValue` USwitch forwards as the
 // page's v-model.
 export function switchRootByTestId(wrapper: VueWrapper<unknown>, testId: string): SwitchHandle {
-  const button = wrapper.findComponent<ComponentPublicInstance>(`button[role="switch"][data-test="${testId}"]`)
+  const button = wrapper.findComponent<ComponentPublicInstance>(
+    `button[role="switch"][data-test="${testId}"]`,
+  )
   if (!button.exists()) throw new Error(`no <button role="switch" data-test="${testId}"> rendered`)
 
   let vm: ComponentPublicInstance | null = button.vm

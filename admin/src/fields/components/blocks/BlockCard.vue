@@ -68,9 +68,7 @@ const summary = computed(() => {
 // back restores everything. Navigation: the `menu` slug field renders as a
 // select over existing menus (nav-v2 spec §2) — the picker is cosmetic, the
 // slug + pattern rule stay the contract. Custom block types are unaffected.
-const columnsLayout = computed(() =>
-  String(props.block.data.layout ?? '2') === '3' ? 3 : 2,
-)
+const columnsLayout = computed(() => (String(props.block.data.layout ?? '2') === '3' ? 3 : 2))
 
 function fieldVisible(name: string): boolean {
   if (props.block.type !== 'columns') return true
@@ -345,7 +343,11 @@ function onHeaderKeydown(event: KeyboardEvent): void {
           >
             “{{ humanize(f.name) }}”: maximum nesting depth ({{ ctx.maxDepth }}) reached.
           </p>
-          <UFormField v-else-if="toFieldDef(f).type === 'blocks'" :label="humanize(f.name)" :name="f.name">
+          <UFormField
+            v-else-if="toFieldDef(f).type === 'blocks'"
+            :label="humanize(f.name)"
+            :name="f.name"
+          >
             <BlockList
               :blocks="(block.data[f.name] as BlockInstance[]) ?? []"
               :parent-id="block.id"

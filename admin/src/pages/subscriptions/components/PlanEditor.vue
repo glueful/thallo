@@ -169,7 +169,9 @@ watch(
     if (!isOpen) return
     Object.assign(state, editing.value ? stateFromPlan(editing.value) : blankState())
     entitlementRows.value = editing.value ? rowsFromEntitlements(editing.value.entitlements) : []
-    identifierRows.value = editing.value ? rowsFromIdentifiers(editing.value.provider_identifiers) : []
+    identifierRows.value = editing.value
+      ? rowsFromIdentifiers(editing.value.provider_identifiers)
+      : []
     resetErrors()
   },
 )
@@ -242,7 +244,8 @@ async function submit() {
         display_name: state.displayName.trim(),
         description: state.description.trim() === '' ? null : state.description.trim(),
         entitlements,
-        provider_price_id: state.providerPriceId.trim() === '' ? null : state.providerPriceId.trim(),
+        provider_price_id:
+          state.providerPriceId.trim() === '' ? null : state.providerPriceId.trim(),
         provider_identifiers: providerIdentifiers,
         status: state.status,
         sort_order: sortOrder,
@@ -255,7 +258,8 @@ async function submit() {
         display_name: state.displayName.trim(),
         description: state.description.trim() === '' ? null : state.description.trim(),
         entitlements,
-        provider_price_id: state.providerPriceId.trim() === '' ? null : state.providerPriceId.trim(),
+        provider_price_id:
+          state.providerPriceId.trim() === '' ? null : state.providerPriceId.trim(),
         provider_identifiers: providerIdentifiers,
         status: state.status,
         sort_order: sortOrder,
@@ -297,20 +301,39 @@ async function submit() {
           />
         </UFormField>
 
-        <UFormField label="Display name" name="displayName" required :error="displayNameError ?? undefined">
+        <UFormField
+          label="Display name"
+          name="displayName"
+          required
+          :error="displayNameError ?? undefined"
+        >
           <UInput v-model="state.displayName" class="w-full" data-test="plan-display-name-input" />
         </UFormField>
 
         <UFormField label="Description" name="description" help="Optional.">
-          <UTextarea v-model="state.description" class="w-full" :rows="2" data-test="plan-description-input" />
+          <UTextarea
+            v-model="state.description"
+            class="w-full"
+            :rows="2"
+            data-test="plan-description-input"
+          />
         </UFormField>
 
         <UFormField label="Status" name="status">
-          <USelect v-model="state.status" :items="STATUS_ITEMS" class="w-full" data-test="plan-status-input" />
+          <USelect
+            v-model="state.status"
+            :items="STATUS_ITEMS"
+            class="w-full"
+            data-test="plan-status-input"
+          />
         </UFormField>
 
         <UFormField label="Provider price ID" name="providerPriceId" help="Optional.">
-          <UInput v-model="state.providerPriceId" class="w-full" data-test="plan-provider-price-id-input" />
+          <UInput
+            v-model="state.providerPriceId"
+            class="w-full"
+            data-test="plan-provider-price-id-input"
+          />
         </UFormField>
 
         <UFormField label="Sort order" name="sortOrder" :error="sortOrderError ?? undefined">
@@ -341,7 +364,12 @@ async function submit() {
               class="flex-1"
               data-test="plan-entitlement-key-input"
             />
-            <USelect v-model="row.kind" :items="KIND_ITEMS" class="w-32" data-test="plan-entitlement-kind-input" />
+            <USelect
+              v-model="row.kind"
+              :items="KIND_ITEMS"
+              class="w-32"
+              data-test="plan-entitlement-kind-input"
+            />
             <UInput
               v-if="row.kind === 'limited'"
               v-model="row.limitInput"
@@ -358,7 +386,11 @@ async function submit() {
               @click="removeEntitlementRow(index)"
             />
           </div>
-          <p v-if="entitlementRows.length === 0" class="text-sm text-muted" data-test="plan-entitlement-empty">
+          <p
+            v-if="entitlementRows.length === 0"
+            class="text-sm text-muted"
+            data-test="plan-entitlement-empty"
+          >
             No entitlements yet.
           </p>
         </div>
@@ -402,7 +434,11 @@ async function submit() {
               @click="removeIdentifierRow(index)"
             />
           </div>
-          <p v-if="identifierRows.length === 0" class="text-sm text-muted" data-test="plan-identifier-empty">
+          <p
+            v-if="identifierRows.length === 0"
+            class="text-sm text-muted"
+            data-test="plan-identifier-empty"
+          >
             No provider identifiers yet — this plan isn't purchasable through any gateway.
           </p>
         </div>

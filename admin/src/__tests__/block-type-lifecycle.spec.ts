@@ -92,14 +92,19 @@ beforeEach(() => {
 
 describe('block-type lifecycle: error-code mapping', () => {
   it('apiErrorCode/apiErrorDetails read the framework error.details shape', () => {
-    const e = new ApiError("block type 'card' has a migration in progress", 409, {}, {
-      success: false,
-      message: "block type 'card' has a migration in progress",
-      error: {
-        code: 409,
-        details: { code: 'BLOCK_MIGRATION_IN_PROGRESS', block_type: 'card' },
+    const e = new ApiError(
+      "block type 'card' has a migration in progress",
+      409,
+      {},
+      {
+        success: false,
+        message: "block type 'card' has a migration in progress",
+        error: {
+          code: 409,
+          details: { code: 'BLOCK_MIGRATION_IN_PROGRESS', block_type: 'card' },
+        },
       },
-    })
+    )
     expect(apiErrorCode(e)).toBe('BLOCK_MIGRATION_IN_PROGRESS')
     expect(apiErrorDetails(e)?.block_type).toBe('card')
     // Non-ApiError and detail-less bodies → null (never throws).

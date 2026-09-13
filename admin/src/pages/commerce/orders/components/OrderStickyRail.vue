@@ -56,7 +56,12 @@ const sections: { href: string; label: string }[] = [
         <span class="font-medium text-default" data-test="order-sticky-number">
           {{ order.order_number ?? 'No order number' }}
         </span>
-        <UBadge :color="statusColor(order.status)" variant="subtle" class="w-fit" data-test="order-sticky-status">
+        <UBadge
+          :color="statusColor(order.status)"
+          variant="subtle"
+          class="w-fit"
+          data-test="order-sticky-status"
+        >
           {{ order.status }}
         </UBadge>
         <span class="text-base font-semibold text-default" data-test="order-sticky-total">

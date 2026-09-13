@@ -76,11 +76,7 @@ function insertType(type: BlockType): void {
       :data-list-region="region ?? ''"
       @end="ctx.onDragEnd"
     >
-      <div
-        v-for="(block, index) in localList"
-        :key="block.id"
-        :data-block-id="block.id"
-      >
+      <div v-for="(block, index) in localList" :key="block.id" :data-block-id="block.id">
         <!-- Hover-revealed insert divider at gap `index` (before this block).
              The divider button is the popover ANCHOR (not a trigger — open
              state stays list-controlled so only ONE menu exists per level). -->
@@ -90,7 +86,11 @@ function insertType(type: BlockType): void {
             :portal="false"
             :content="{ side: 'bottom', align: 'start', sideOffset: 4 }"
             :ui="{ content: 'z-50' }"
-            @update:open="(v: boolean) => { if (!v) closeMenu() }"
+            @update:open="
+              (v: boolean) => {
+                if (!v) closeMenu()
+              }
+            "
           >
             <template #anchor>
               <button
@@ -143,7 +143,11 @@ function insertType(type: BlockType): void {
         :portal="false"
         :content="{ side: 'bottom', align: 'start', sideOffset: 4 }"
         :ui="{ content: 'z-50' }"
-        @update:open="(v: boolean) => { if (!v) closeMenu() }"
+        @update:open="
+          (v: boolean) => {
+            if (!v) closeMenu()
+          }
+        "
       >
         <template #anchor>
           <!-- Region lists (col_1, content, items…) get a full-width dashed drop-zone

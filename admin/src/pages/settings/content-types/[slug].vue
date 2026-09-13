@@ -219,7 +219,11 @@ async function confirmDelete() {
                   color="error"
                   variant="subtle"
                   icon="i-lucide-trash-2"
-                  @click="() => { showDeleteConfirm = true }"
+                  @click="
+                    () => {
+                      showDeleteConfirm = true
+                    }
+                  "
                 >
                   Delete
                 </UButton>
@@ -241,7 +245,11 @@ async function confirmDelete() {
                       square
                       aria-label="Preview the entry form"
                       data-test="open-preview"
-                      @click="() => { previewOpen = true }"
+                      @click="
+                        () => {
+                          previewOpen = true
+                        }
+                      "
                     />
                     <UButton
                       size="sm"
@@ -298,7 +306,11 @@ async function confirmDelete() {
           variant="ghost"
           label="Cancel"
           :disabled="remove.isLoading.value"
-          @click="() => { showDeleteConfirm = false }"
+          @click="
+            () => {
+              showDeleteConfirm = false
+            }
+          "
         />
         <UButton
           color="error"

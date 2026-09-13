@@ -26,7 +26,11 @@ const plain = ref(false)
         color="neutral"
         size="xs"
         :label="plain ? 'Rich text' : 'Plain text'"
-        @click="() => { plain = !plain }"
+        @click="
+          () => {
+            plain = !plain
+          }
+        "
       />
     </template>
     <UTextarea v-if="plain" v-model="text" :rows="4" class="w-full" />

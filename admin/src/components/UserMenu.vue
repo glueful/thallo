@@ -155,7 +155,11 @@ const items = computed<DropdownMenuItem[][]>(() => [
           variant="ghost"
           label="Cancel"
           :disabled="loggingOut"
-          @click="() => { showLogoutConfirm = false }"
+          @click="
+            () => {
+              showLogoutConfirm = false
+            }
+          "
         />
         <UButton
           color="error"

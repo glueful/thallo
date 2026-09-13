@@ -82,9 +82,19 @@ async function confirmDelete() {
     <template #header>
       <UDashboardNavbar title="Discounts">
         <template #right>
-          <UInput v-model="search" icon="i-lucide-search" placeholder="Search codes…" class="w-56" />
+          <UInput
+            v-model="search"
+            icon="i-lucide-search"
+            placeholder="Search codes…"
+            class="w-56"
+          />
           <USelect v-model="statusFilter" :items="statusFilterItems" class="w-36" />
-          <UButton v-if="canManage" icon="i-lucide-plus" data-test="new-discount" @click="openCreate">
+          <UButton
+            v-if="canManage"
+            icon="i-lucide-plus"
+            data-test="new-discount"
+            @click="openCreate"
+          >
             New discount
           </UButton>
         </template>
@@ -97,7 +107,11 @@ async function confirmDelete() {
         :status="queryStatus"
         :can-manage="canManage"
         @edit-request="openEdit"
-        @delete-request="(row) => { pendingDelete = row }"
+        @delete-request="
+          (row) => {
+            pendingDelete = row
+          }
+        "
       />
 
       <TablePagination
@@ -115,7 +129,11 @@ async function confirmDelete() {
   <UModal
     :open="pendingDelete !== null"
     title="Delete discount"
-    @update:open="(v: boolean) => { if (!v) pendingDelete = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) pendingDelete = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
@@ -129,7 +147,11 @@ async function confirmDelete() {
           variant="ghost"
           label="Cancel"
           :disabled="remove.isLoading.value"
-          @click="() => { pendingDelete = null }"
+          @click="
+            () => {
+              pendingDelete = null
+            }
+          "
         />
         <UButton
           color="error"

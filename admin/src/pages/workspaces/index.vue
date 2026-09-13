@@ -111,7 +111,14 @@ async function purge(input: { uuid: string; confirm: string }): Promise<void> {
     <template #header>
       <UDashboardNavbar title="Workspaces">
         <template #right>
-          <UButton v-if="canManage" icon="i-lucide-plus" @click="() => { createOpen = true }"
+          <UButton
+            v-if="canManage"
+            icon="i-lucide-plus"
+            @click="
+              () => {
+                createOpen = true
+              }
+            "
             >New workspace</UButton
           >
         </template>
@@ -162,7 +169,11 @@ async function purge(input: { uuid: string; confirm: string }): Promise<void> {
             v-if="canManage"
             icon="i-lucide-plus"
             size="sm"
-            @click="() => { createOpen = true }"
+            @click="
+              () => {
+                createOpen = true
+              }
+            "
           >
             New workspace
           </UButton>
@@ -266,7 +277,11 @@ async function purge(input: { uuid: string; confirm: string }): Promise<void> {
                     variant="ghost"
                     size="sm"
                     aria-label="Move workspace to trash"
-                    @click="() => { trashCandidate = tenant }"
+                    @click="
+                      () => {
+                        trashCandidate = tenant
+                      }
+                    "
                   />
                 </UTooltip>
                 <UTooltip v-if="tenant.status === 'deleted'" text="Restore workspace">
@@ -285,7 +300,11 @@ async function purge(input: { uuid: string; confirm: string }): Promise<void> {
                   color="error"
                   variant="soft"
                   size="sm"
-                  @click="() => { purgeCandidate = tenant }"
+                  @click="
+                    () => {
+                      purgeCandidate = tenant
+                    }
+                  "
                 >
                   Purge
                 </UButton>
@@ -313,7 +332,16 @@ async function purge(input: { uuid: string; confirm: string }): Promise<void> {
     </template>
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton color="neutral" variant="ghost" @click="() => { trashCandidate = null }">Cancel</UButton>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          @click="
+            () => {
+              trashCandidate = null
+            }
+          "
+          >Cancel</UButton
+        >
         <UButton
           color="error"
           icon="i-lucide-trash-2"

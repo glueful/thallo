@@ -25,7 +25,11 @@ function money(minor: number): string {
 <template>
   <div class="space-y-4">
     <!-- Sales tiles -->
-    <div v-if="props.salesStatus === 'pending'" class="grid grid-cols-2 gap-3 lg:grid-cols-3" data-test="sales-summary-loading">
+    <div
+      v-if="props.salesStatus === 'pending'"
+      class="grid grid-cols-2 gap-3 lg:grid-cols-3"
+      data-test="sales-summary-loading"
+    >
       <USkeleton v-for="n in 6" :key="n" class="h-20" />
     </div>
 
@@ -79,7 +83,11 @@ function money(minor: number): string {
     </div>
 
     <!-- Customer acquisition tiles -->
-    <div v-if="props.customersStatus === 'pending'" class="grid grid-cols-3 gap-3" data-test="customers-summary-loading">
+    <div
+      v-if="props.customersStatus === 'pending'"
+      class="grid grid-cols-3 gap-3"
+      data-test="customers-summary-loading"
+    >
       <USkeleton v-for="n in 3" :key="n" class="h-20" />
     </div>
 

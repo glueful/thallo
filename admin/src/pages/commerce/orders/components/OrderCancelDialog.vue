@@ -79,11 +79,7 @@ function confirm() {
 </script>
 
 <template>
-  <UModal
-    :open="open"
-    title="Cancel order"
-    @update:open="(v: boolean) => emit('update:open', v)"
-  >
+  <UModal :open="open" title="Cancel order" @update:open="(v: boolean) => emit('update:open', v)">
     <template #body>
       <div data-test="order-cancel-dialog" class="flex flex-col gap-3 text-sm">
         <p>
@@ -112,12 +108,7 @@ function confirm() {
 
     <template #footer>
       <div class="flex w-full justify-end gap-2">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          data-test="order-cancel-dismiss"
-          @click="dismiss"
-        >
+        <UButton color="neutral" variant="ghost" data-test="order-cancel-dismiss" @click="dismiss">
           Dismiss
         </UButton>
         <UButton

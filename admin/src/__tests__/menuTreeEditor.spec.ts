@@ -5,7 +5,10 @@ import type { NavTreeItem } from '@/queries/navigation'
 
 // The row hosts the icon picker modal, whose query needs Pinia — mock it.
 vi.mock('@/queries/icons', () => ({
-  useIcons: () => ({ data: ref({ icons: ['star', 'external-link'], svgs: {} }), status: ref('success') }),
+  useIcons: () => ({
+    data: ref({ icons: ['star', 'external-link'], svgs: {} }),
+    status: ref('success'),
+  }),
 }))
 
 import MenuTreeEditor from '@/pages/navigation/components/MenuTreeEditor.vue'
@@ -24,7 +27,9 @@ const mountEditor = (items: NavTreeItem[]) =>
 describe('MenuTreeEditor', () => {
   it('renders one row per item with the active-locale label', () => {
     const wrapper = mountEditor([url('a'), url('b')])
-    const labels = wrapper.findAll('[data-test="tree-item-label"] input, input[data-test="tree-item-label"]')
+    const labels = wrapper.findAll(
+      '[data-test="tree-item-label"] input, input[data-test="tree-item-label"]',
+    )
     expect(labels).toHaveLength(2)
     expect((labels[0]!.element as HTMLInputElement).value).toBe('a')
   })
@@ -77,7 +82,9 @@ describe('MenuTreeEditor', () => {
         children: [],
       },
     ])
-    const label = wrapper.find('[data-test="tree-item-label"] input, input[data-test="tree-item-label"]')
+    const label = wrapper.find(
+      '[data-test="tree-item-label"] input, input[data-test="tree-item-label"]',
+    )
     expect(label.attributes('placeholder')).toBe('About us')
     expect(wrapper.find('[data-test="tree-item-path"]').text()).toBe('/pages/about')
     expect(wrapper.find('[data-test="tree-item-status"]').exists()).toBe(true)

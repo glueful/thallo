@@ -47,15 +47,36 @@ describe('commerce orders query layer', () => {
           discount_code: 'SAVE10',
           shipping_method: 'standard',
           addresses: {
-            shipping: { first_name: 'Ada', last_name: 'Lovelace', address1: '1 Main St', city: 'Springfield' },
+            shipping: {
+              first_name: 'Ada',
+              last_name: 'Lovelace',
+              address1: '1 Main St',
+              city: 'Springfield',
+            },
             billing: { name: 'Ada Lovelace', line1: '1 Main St' },
           },
           placed_at: '2026-01-01 00:00:00',
           created_at: '2026-01-01 00:00:00',
           updated_at: '2026-01-02 00:00:00',
           events: [
-            { uuid: 'e1', order_uuid: 'o1', type: 'placed', payload: { number: 'ORD-1001' }, actor_uuid: null, visibility: 'internal', created_at: '2026-01-01 00:00:00' },
-            { uuid: 'e2', order_uuid: 'o1', type: 'status:paid', payload: null, actor_uuid: null, visibility: 'internal', created_at: '2026-01-01 01:00:00' },
+            {
+              uuid: 'e1',
+              order_uuid: 'o1',
+              type: 'placed',
+              payload: { number: 'ORD-1001' },
+              actor_uuid: null,
+              visibility: 'internal',
+              created_at: '2026-01-01 00:00:00',
+            },
+            {
+              uuid: 'e2',
+              order_uuid: 'o1',
+              type: 'status:paid',
+              payload: null,
+              actor_uuid: null,
+              visibility: 'internal',
+              created_at: '2026-01-01 01:00:00',
+            },
           ],
           lines: [
             {
@@ -222,7 +243,9 @@ describe('commerce orders query layer', () => {
 
   it('cancelOrder posts to the exact endpoint with no request body and returns the canceled order', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(jsonResponse(fulfilledOrderBody({ status: 'canceled', fulfillment_status: 'unfulfilled' })))
+    fetchMock.mockResolvedValue(
+      jsonResponse(fulfilledOrderBody({ status: 'canceled', fulfillment_status: 'unfulfilled' })),
+    )
 
     const { cancelOrder } = await import('@/queries/commerceOrders')
     const order = await cancelOrder('o1')
@@ -230,21 +253,27 @@ describe('commerce orders query layer', () => {
     const requested = fetchMock.mock.calls[0]!
     const request = requested[0] as Request
     expect(request.method).toBe('POST')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/orders/o1/cancel')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/orders/o1/cancel',
+    )
     expect(await request.clone().text()).toBe('')
     expect(order.status).toBe('canceled')
   })
 
   it('markOrderPaid posts to the exact endpoint with no request body and returns the paid order', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(jsonResponse(fulfilledOrderBody({ status: 'paid', fulfillment_status: 'unfulfilled' })))
+    fetchMock.mockResolvedValue(
+      jsonResponse(fulfilledOrderBody({ status: 'paid', fulfillment_status: 'unfulfilled' })),
+    )
 
     const { markOrderPaid } = await import('@/queries/commerceOrders')
     const order = await markOrderPaid('o1')
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('POST')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/orders/o1/mark-paid')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/orders/o1/mark-paid',
+    )
     expect(await request.clone().text()).toBe('')
     expect(order.status).toBe('paid')
   })
@@ -258,7 +287,9 @@ describe('commerce orders query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('POST')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/orders/o1/fulfill')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/orders/o1/fulfill',
+    )
     expect(await request.clone().json()).toEqual({ tracking_ref: 'TRACK-123' })
     expect(order.status).toBe('fulfilled')
     expect(order.fulfillment_status).toBe('fulfilled')
@@ -297,15 +328,14 @@ describe('commerce orders query layer', () => {
     }
     expect(caught).toBeInstanceOf(ApiError)
     expect((caught as InstanceType<typeof ApiError>).status).toBe(409)
-    expect((caught as InstanceType<typeof ApiError>).message).toBe('Invalid order transition fulfilled -> canceled.')
+    expect((caught as InstanceType<typeof ApiError>).message).toBe(
+      'Invalid order transition fulfilled -> canceled.',
+    )
   })
 
   it('surfaces the server 409 message for an illegal transition (mark-paid)', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      jsonResponse(
-        { success: false, message: 'Invalid order transition paid -> paid.' },
-        409,
-      ),
+      jsonResponse({ success: false, message: 'Invalid order transition paid -> paid.' }, 409),
     )
 
     const { markOrderPaid } = await import('@/queries/commerceOrders')
@@ -317,7 +347,9 @@ describe('commerce orders query layer', () => {
       caught = e
     }
     expect((caught as InstanceType<typeof ApiError>).status).toBe(409)
-    expect((caught as InstanceType<typeof ApiError>).message).toBe('Invalid order transition paid -> paid.')
+    expect((caught as InstanceType<typeof ApiError>).message).toBe(
+      'Invalid order transition paid -> paid.',
+    )
   })
 
   it('surfaces the server 409 message for an illegal transition (fulfill)', async () => {
@@ -416,7 +448,9 @@ describe('commerce orders query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('POST')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/orders/o1/refunds')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/orders/o1/refunds',
+    )
     expect(request.headers.get('idempotency-key')).toBe('idem-key-1')
     expect(await request.clone().json()).toEqual({
       amount: 1234,
@@ -585,7 +619,9 @@ describe('commerce orders query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('GET')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/orders/o1/refunds')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/orders/o1/refunds',
+    )
     expect(refunds).toHaveLength(1)
     expect(refunds[0]!.uuid).toBe('r1')
     expect(refunds[0]!.lines).toEqual([{ order_line_uuid: 'l1', quantity: 1, amount: 500 }])
@@ -613,15 +649,16 @@ describe('commerce orders query layer', () => {
 
   it('fetchRefunds sends the exact RefundListQuery param set, omitting empty filters', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(
-      jsonResponse({ data: [], current_page: 1, per_page: 24, total: 0 }),
-    )
+    fetchMock.mockResolvedValue(jsonResponse({ data: [], current_page: 1, per_page: 24, total: 0 }))
 
     const { fetchRefunds } = await import('@/queries/commerceOrders')
     await fetchRefunds({ status: 'completed', order: 'o1', from: '2026-01-01', to: '2026-01-31' })
 
     const requested = fetchMock.mock.calls[0]![0]
-    const url = new URL(typeof requested === 'string' ? requested : (requested as Request).url, 'http://localhost')
+    const url = new URL(
+      typeof requested === 'string' ? requested : (requested as Request).url,
+      'http://localhost',
+    )
     expect(url.pathname).toBe('/v1/admin/commerce/refunds')
     expect(url.searchParams.get('status')).toBe('completed')
     expect(url.searchParams.get('order')).toBe('o1')
@@ -637,7 +674,10 @@ describe('commerce orders query layer', () => {
     await fetchRefunds({})
 
     const requested = fetchMock.mock.calls[0]![0]
-    const url = new URL(typeof requested === 'string' ? requested : (requested as Request).url, 'http://localhost')
+    const url = new URL(
+      typeof requested === 'string' ? requested : (requested as Request).url,
+      'http://localhost',
+    )
     expect(url.searchParams.has('status')).toBe(false)
     expect(url.searchParams.has('order')).toBe(false)
     expect(url.searchParams.has('from')).toBe(false)
@@ -702,7 +742,12 @@ describe('commerce orders query layer', () => {
       uuid: 'ev1',
       order_uuid: 'o1',
       type: 'note.added',
-      payload: { body: 'Called customer, confirmed address.', visibility: 'internal', notify: false, actor_uuid: 'admin1' },
+      payload: {
+        body: 'Called customer, confirmed address.',
+        visibility: 'internal',
+        notify: false,
+        actor_uuid: 'admin1',
+      },
       actor_uuid: 'admin1',
       visibility: 'internal',
       created_at: '2026-01-02 00:00:00',
@@ -721,7 +766,9 @@ describe('commerce orders query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('GET')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/orders/o1/notes')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/orders/o1/notes',
+    )
     expect(notes).toHaveLength(1)
     expect(notes[0]).toEqual({
       uuid: 'ev1',
@@ -739,8 +786,14 @@ describe('commerce orders query layer', () => {
         success: true,
         message: 'Notes retrieved',
         data: [
-          noteEventBody({ uuid: 'ev1', payload: { body: 'first', visibility: 'internal', notify: false } }),
-          noteEventBody({ uuid: 'ev2', payload: { body: 'second', visibility: 'internal', notify: false } }),
+          noteEventBody({
+            uuid: 'ev1',
+            payload: { body: 'first', visibility: 'internal', notify: false },
+          }),
+          noteEventBody({
+            uuid: 'ev2',
+            payload: { body: 'second', visibility: 'internal', notify: false },
+          }),
         ],
       }),
     )
@@ -775,7 +828,15 @@ describe('commerce orders query layer', () => {
       jsonResponse({
         success: true,
         message: 'Note added',
-        data: { order_uuid: 'o1', note: { body: 'Shipped a day late.', visibility: 'internal', notify: false, actor_uuid: 'admin1' } },
+        data: {
+          order_uuid: 'o1',
+          note: {
+            body: 'Shipped a day late.',
+            visibility: 'internal',
+            notify: false,
+            actor_uuid: 'admin1',
+          },
+        },
       }),
     )
 
@@ -784,7 +845,9 @@ describe('commerce orders query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('POST')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/orders/o1/notes')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/orders/o1/notes',
+    )
     expect(await request.clone().json()).toEqual({
       body: 'Shipped a day late.',
       visibility: 'internal',
@@ -798,12 +861,24 @@ describe('commerce orders query layer', () => {
       jsonResponse({
         success: true,
         message: 'Note added',
-        data: { order_uuid: 'o1', note: { body: 'Refund issued, notifying customer.', visibility: 'customer', notify: true, actor_uuid: 'admin1' } },
+        data: {
+          order_uuid: 'o1',
+          note: {
+            body: 'Refund issued, notifying customer.',
+            visibility: 'customer',
+            notify: true,
+            actor_uuid: 'admin1',
+          },
+        },
       }),
     )
 
     const { addOrderNote } = await import('@/queries/commerceOrders')
-    await addOrderNote('o1', { body: 'Refund issued, notifying customer.', visibility: 'customer', notify: true })
+    await addOrderNote('o1', {
+      body: 'Refund issued, notifying customer.',
+      visibility: 'customer',
+      notify: true,
+    })
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(await request.clone().json()).toEqual({

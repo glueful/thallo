@@ -34,7 +34,8 @@ function statusColor(s: string): 'warning' | 'success' | 'error' | 'neutral' {
 // action that would always 409/404 gets no affordance rather than a button that just fails.
 const canApprove = computed(() => props.canManage && props.review.status === 'pending')
 const canSpam = computed(
-  () => props.canManage && (props.review.status === 'pending' || props.review.status === 'approved'),
+  () =>
+    props.canManage && (props.review.status === 'pending' || props.review.status === 'approved'),
 )
 // Guarded delete only ever allows pending/spam — an approved review must be spammed first
 // (ReviewService::delete()'s own docblock).
@@ -62,7 +63,10 @@ function fmtDate(v: string | null): string {
 
     <div class="min-w-0 flex-1 space-y-1.5">
       <div class="flex flex-wrap items-center gap-2">
-        <span data-test="review-rating" class="flex items-center gap-0.5 text-sm font-medium text-default">
+        <span
+          data-test="review-rating"
+          class="flex items-center gap-0.5 text-sm font-medium text-default"
+        >
           <UIcon
             v-for="n in 5"
             :key="n"
@@ -73,7 +77,12 @@ function fmtDate(v: string | null): string {
           <span class="ml-1 text-xs text-muted">{{ review.rating }}/5</span>
         </span>
 
-        <UBadge :color="statusColor(review.status)" variant="subtle" size="sm" data-test="review-status">
+        <UBadge
+          :color="statusColor(review.status)"
+          variant="subtle"
+          size="sm"
+          data-test="review-status"
+        >
           {{ review.status }}
         </UBadge>
 
@@ -84,11 +93,15 @@ function fmtDate(v: string | null): string {
 
       <p class="text-sm text-default" data-test="review-author">
         <span class="font-medium">{{ review.author_name }}</span>
-        <span class="text-muted"> · {{ review.author_email }} · {{ fmtDate(review.created_at) }}</span>
+        <span class="text-muted">
+          · {{ review.author_email }} · {{ fmtDate(review.created_at) }}</span
+        >
       </p>
 
       <!-- Plain text interpolation only -- reviewer-authored content is never rendered as HTML. -->
-      <p class="whitespace-pre-line text-sm text-muted" data-test="review-body">{{ review.body }}</p>
+      <p class="whitespace-pre-line text-sm text-muted" data-test="review-body">
+        {{ review.body }}
+      </p>
     </div>
 
     <div v-if="canManage" class="flex shrink-0 items-center gap-1">

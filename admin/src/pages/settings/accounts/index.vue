@@ -23,7 +23,9 @@ const saved = ref(false)
 
 const loginInvalid = computed(() => !isSafeReturnPath(afterLogin.value))
 const logoutInvalid = computed(() => !isSafeReturnPath(afterLogout.value))
-const canSave = computed(() => !loading.value && !saving.value && !loginInvalid.value && !logoutInvalid.value)
+const canSave = computed(
+  () => !loading.value && !saving.value && !loginInvalid.value && !logoutInvalid.value,
+)
 
 async function load(): Promise<void> {
   loading.value = true
@@ -124,7 +126,9 @@ onMounted(load)
             <UFormField
               label="After sign in"
               help="Where a visitor lands after signing in. Blank uses /account."
-              :error="loginInvalid ? 'Enter a site-relative path beginning with a single /.' : undefined"
+              :error="
+                loginInvalid ? 'Enter a site-relative path beginning with a single /.' : undefined
+              "
             >
               <PathCombobox
                 v-model="afterLogin"
@@ -137,7 +141,9 @@ onMounted(load)
             <UFormField
               label="After sign out"
               help="Where a visitor lands after signing out. Blank uses /account/login."
-              :error="logoutInvalid ? 'Enter a site-relative path beginning with a single /.' : undefined"
+              :error="
+                logoutInvalid ? 'Enter a site-relative path beginning with a single /.' : undefined
+              "
             >
               <PathCombobox
                 v-model="afterLogout"

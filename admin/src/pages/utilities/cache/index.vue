@@ -110,7 +110,11 @@ async function clearType() {
             color="neutral"
             variant="ghost"
             :loading="isLoading"
-            @click="() => { refresh() }"
+            @click="
+              () => {
+                refresh()
+              }
+            "
           >
             Refresh
           </UButton>
@@ -164,7 +168,11 @@ async function clearType() {
                       color="error"
                       variant="soft"
                       :loading="clear.isLoading.value"
-                      @click="() => { pendingClearAll = true }"
+                      @click="
+                        () => {
+                          pendingClearAll = true
+                        }
+                      "
                     />
                     <p class="mt-1 text-xs text-muted">
                       Flushes every cache entry across the instance.
@@ -190,7 +198,9 @@ async function clearType() {
                 </dl>
 
                 <div v-if="statBlocks.length" class="mt-4 space-y-4 border-t border-default pt-4">
-                  <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">Driver stats</h3>
+                  <h3 class="text-xs font-semibold uppercase tracking-wide text-muted">
+                    Driver stats
+                  </h3>
                   <div v-for="b in statBlocks" :key="b.label">
                     <p class="mb-1.5 text-xs font-medium uppercase tracking-wide text-dimmed">
                       {{ b.label }}
@@ -229,7 +239,11 @@ async function clearType() {
           variant="ghost"
           label="Cancel"
           :disabled="clear.isLoading.value"
-          @click="() => { pendingClearAll = false }"
+          @click="
+            () => {
+              pendingClearAll = false
+            }
+          "
         />
         <UButton
           color="error"

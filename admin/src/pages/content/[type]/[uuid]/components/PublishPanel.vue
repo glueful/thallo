@@ -105,8 +105,8 @@ async function onPublish(action: 'publish' | 'unpublish') {
 // - external preview needs a configured Site preview URL (headless frontend);
 // - theme preview needs the render pack (rendered delivery).
 const caps = useCapabilitiesStore()
-const hasExternalPreview = computed(
-  () => Boolean(generalSettings.value?.site_preview_url || runtimeConfig.sitePreviewUrl),
+const hasExternalPreview = computed(() =>
+  Boolean(generalSettings.value?.site_preview_url || runtimeConfig.sitePreviewUrl),
 )
 const hasThemePreview = computed(() => caps.isEnabled('thallo.render'))
 const preview = usePreview(props.uuid, props.locale)

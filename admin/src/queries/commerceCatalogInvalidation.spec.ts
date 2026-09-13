@@ -45,10 +45,28 @@ describe('useCommerceProductMutations invalidation', () => {
     // The colada mock spreads each mutation's options onto its return value, exposing
     // onSettled; the real return type doesn't carry it, hence the cast.
     const mutations = useCommerceProductMutations() as unknown as Record<
-      'create' | 'update' | 'remove' | 'bulkStatus' | 'createVariant' | 'updateVariant' | 'bulkPrice' |
-        'setChildren' | 'stockAdjust' | 'attachMedia' | 'updateMedia' | 'detachMedia' | 'reorderMedia' |
-        'setCategories' | 'setTags' | 'setAttributes' | 'createAddon' | 'updateAddon' | 'removeAddon' |
-        'attachDownload' | 'updateDownload' | 'removeDownload',
+      | 'create'
+      | 'update'
+      | 'remove'
+      | 'bulkStatus'
+      | 'createVariant'
+      | 'updateVariant'
+      | 'bulkPrice'
+      | 'setChildren'
+      | 'stockAdjust'
+      | 'attachMedia'
+      | 'updateMedia'
+      | 'detachMedia'
+      | 'reorderMedia'
+      | 'setCategories'
+      | 'setTags'
+      | 'setAttributes'
+      | 'createAddon'
+      | 'updateAddon'
+      | 'removeAddon'
+      | 'attachDownload'
+      | 'updateDownload'
+      | 'removeDownload',
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
     return { mutations, qk }
@@ -59,7 +77,9 @@ describe('useCommerceProductMutations invalidation', () => {
    * sequence right after its `qk.commerceProduct(uuid)` call. */
   async function sectionCalls(uuid: string) {
     const { qk, COMMERCE_PRODUCT_SECTIONS } = await import('@/queries/keys')
-    return COMMERCE_PRODUCT_SECTIONS.map((section) => [{ key: qk.commerceProductSection(uuid, section) }])
+    return COMMERCE_PRODUCT_SECTIONS.map((section) => [
+      { key: qk.commerceProductSection(uuid, section) },
+    ])
   }
 
   async function categoryBundle() {
@@ -324,7 +344,10 @@ describe('useCommerceProductMutations invalidation', () => {
 
   it('tag update invalidates the tag list only', async () => {
     const { mutations, qk } = await tagBundle()
-    mutations.update.onSettled?.(undefined, undefined, { uuid: 'tag00000001', input: { name: 'New' } })
+    mutations.update.onSettled?.(undefined, undefined, {
+      uuid: 'tag00000001',
+      input: { name: 'New' },
+    })
 
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceTags() }]])
   })
@@ -366,7 +389,10 @@ describe('useCommerceProductMutations invalidation', () => {
 
   it('attribute update invalidates the attribute list only', async () => {
     const { mutations, qk } = await attributeBundle()
-    mutations.update.onSettled?.(undefined, undefined, { uuid: 'attr00000001', input: { name: 'New' } })
+    mutations.update.onSettled?.(undefined, undefined, {
+      uuid: 'attr00000001',
+      input: { name: 'New' },
+    })
 
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceAttributes() }]])
   })
@@ -390,7 +416,10 @@ describe('useCommerceProductMutations invalidation', () => {
 
   it('attribute updateValue invalidates the attribute list only', async () => {
     const { mutations, qk } = await attributeBundle()
-    mutations.updateValue.onSettled?.(undefined, undefined, { uuid: 'val00000001', input: { value: 'Crimson' } })
+    mutations.updateValue.onSettled?.(undefined, undefined, {
+      uuid: 'val00000001',
+      input: { value: 'Crimson' },
+    })
 
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceAttributes() }]])
   })
@@ -467,7 +496,9 @@ describe('useCommerceProductMutations invalidation', () => {
       input: { blob_uuid: 'blob00000001', name: 'Ebook (PDF)' },
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceVariantDownloads('var00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceVariantDownloads('var00000001') }],
+    ])
   })
 
   it('updateDownload invalidates the owning variant’s download list only when productUuid is omitted', async () => {
@@ -478,7 +509,9 @@ describe('useCommerceProductMutations invalidation', () => {
       input: { name: 'Ebook (2nd edition)' },
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceVariantDownloads('var00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceVariantDownloads('var00000001') }],
+    ])
   })
 
   it('removeDownload invalidates the owning variant’s download list only when productUuid is omitted', async () => {
@@ -488,7 +521,9 @@ describe('useCommerceProductMutations invalidation', () => {
       variantUuid: 'var00000001',
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceVariantDownloads('var00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceVariantDownloads('var00000001') }],
+    ])
   })
 
   it('attachDownload invalidates the download list, the product, AND its six sections when productUuid is supplied (DownloadsPanel’s real call shape as of Task C8)', async () => {

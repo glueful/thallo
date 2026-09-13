@@ -14,13 +14,14 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ changed: []; outdent: [index: number] }>()
 
-const STATUS_COLOR: Record<NavTargetStatus, 'success' | 'warning' | 'error' | 'neutral' | 'info'> = {
-  published: 'success',
-  routeless: 'info',
-  unpublished: 'warning',
-  deleted: 'error',
-  missing: 'error',
-}
+const STATUS_COLOR: Record<NavTargetStatus, 'success' | 'warning' | 'error' | 'neutral' | 'info'> =
+  {
+    published: 'success',
+    routeless: 'info',
+    unpublished: 'warning',
+    deleted: 'error',
+    missing: 'error',
+  }
 const STATUS_LABEL: Record<NavTargetStatus, string> = {
   published: 'published',
   routeless: 'needs a route',
@@ -148,7 +149,9 @@ function onIconClear(): void {
           :model-value="item.labels[locale] ?? ''"
           size="sm"
           class="w-44"
-          :placeholder="item.kind === 'entry' && item.target_title ? item.target_title : `Label (${locale})`"
+          :placeholder="
+            item.kind === 'entry' && item.target_title ? item.target_title : `Label (${locale})`
+          "
           data-test="tree-item-label"
           @update:model-value="(v: string) => setLabel(item, v)"
         />
@@ -170,7 +173,11 @@ function onIconClear(): void {
           >
             {{ STATUS_LABEL[item.target_status] }}
           </UBadge>
-          <code v-if="item.target_url" class="text-muted max-w-48 truncate text-xs" data-test="tree-item-path">
+          <code
+            v-if="item.target_url"
+            class="text-muted max-w-48 truncate text-xs"
+            data-test="tree-item-path"
+          >
             {{ item.target_url }}
           </code>
         </template>
@@ -188,7 +195,11 @@ function onIconClear(): void {
              tree items are not schema fields). Picker over the vendored
              inventory; preview via the admin's i-lucide-* set (same names). -->
         <div class="flex items-center gap-1" data-test="tree-item-icon">
-          <UIcon v-if="item.icon" :name="`i-lucide-${item.icon}`" class="size-4 shrink-0 text-muted" />
+          <UIcon
+            v-if="item.icon"
+            :name="`i-lucide-${item.icon}`"
+            class="size-4 shrink-0 text-muted"
+          />
           <UButton
             size="xs"
             variant="subtle"
@@ -206,12 +217,23 @@ function onIconClear(): void {
             icon="i-lucide-x"
             aria-label="Clear icon"
             data-test="tree-item-icon-clear"
-            @click="() => { item.icon = null; changed() }"
+            @click="
+              () => {
+                item.icon = null
+                changed()
+              }
+            "
           />
         </div>
 
         <span class="grow" />
-        <UButton size="xs" variant="ghost" icon="i-lucide-arrow-up" data-test="tree-item-up" @click="move(i, -1)" />
+        <UButton
+          size="xs"
+          variant="ghost"
+          icon="i-lucide-arrow-up"
+          data-test="tree-item-up"
+          @click="move(i, -1)"
+        />
         <UButton
           size="xs"
           variant="ghost"

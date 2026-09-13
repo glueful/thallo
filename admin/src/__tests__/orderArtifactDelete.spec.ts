@@ -110,9 +110,8 @@ const stubs = { RouterLink: RouterLinkStub, Modal: ModalStub, Slideover: ModalSt
 const caches: { query: ReturnType<typeof useQueryCache> | null } = { query: null }
 
 async function mountTable(rows: CommerceOrder[], canManage = true) {
-  const { default: OrdersTable } = await import(
-    '@/pages/commerce/orders/components/OrdersTable.vue'
-  )
+  const { default: OrdersTable } =
+    await import('@/pages/commerce/orders/components/OrdersTable.vue')
   const Harness = defineComponent({
     setup() {
       caches.query = useQueryCache()
@@ -142,7 +141,10 @@ beforeEach(() => {
 
 describe('OrdersTable draft-artifact delete gating', () => {
   beforeEach(() => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ success: true })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ success: true })),
+    )
   })
 
   it.each([
@@ -205,7 +207,10 @@ describe('OrdersTable draft-artifact delete flow', () => {
   }
 
   it('states exactly what is destroyed, and that nothing about it exists to lose', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ success: true })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ success: true })),
+    )
     const wrapper = await openConfirm()
     expect(wrapper.find('[data-test="order-artifact-delete-dialog"]').text()).toContain(
       'This never-completed draft has no order number, payments, or invoices — delete permanently?',
@@ -213,7 +218,10 @@ describe('OrdersTable draft-artifact delete flow', () => {
   })
 
   it('dismisses without deleting', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ success: true })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ success: true })),
+    )
     const wrapper = await openConfirm()
     await wrapper.find('[data-test="order-artifact-delete-dismiss"]').trigger('click')
     await flushPromises()
@@ -243,7 +251,10 @@ describe('OrdersTable draft-artifact delete flow', () => {
   })
 
   it('deletes ONCE on a double-clicked confirmation', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ success: true })))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ success: true })),
+    )
     const wrapper = await openConfirm()
     const confirm = wrapper.find('[data-test="order-artifact-delete-confirm"]')
     confirm.trigger('click')

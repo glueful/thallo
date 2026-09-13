@@ -51,7 +51,11 @@ function onClear(): void {
         variant="subtle"
         color="neutral"
         data-test="icon-field-choose"
-        @click="()=>{pickerOpen = true}"
+        @click="
+          () => {
+            pickerOpen = true
+          }
+        "
       >
         Choose
       </UButton>

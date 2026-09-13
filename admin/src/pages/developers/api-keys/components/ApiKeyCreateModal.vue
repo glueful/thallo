@@ -17,7 +17,7 @@ const tenants = useAllTenants(() => access.access.manage_platform)
 const UNBOUND = '__unbound__'
 const tenantItems = computed(() => [
   { label: 'Unbound', value: UNBOUND },
-  ...((tenants.data.value ?? []).map((tenant) => ({ label: tenant.name, value: tenant.uuid }))),
+  ...(tenants.data.value ?? []).map((tenant) => ({ label: tenant.name, value: tenant.uuid })),
 ])
 
 const form = reactive({ name: '', expires_at: '', tenant_uuid: UNBOUND })
@@ -104,7 +104,12 @@ async function submit() {
           <label class="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted">
             Workspace
           </label>
-          <USelectMenu v-model="form.tenant_uuid" :items="tenantItems" value-key="value" class="w-full" />
+          <USelectMenu
+            v-model="form.tenant_uuid"
+            :items="tenantItems"
+            value-key="value"
+            class="w-full"
+          />
         </div>
 
         <!-- Scopes -->
@@ -186,7 +191,11 @@ async function submit() {
           variant="ghost"
           label="Cancel"
           :disabled="create.isLoading.value"
-          @click="() => { open = false }"
+          @click="
+            () => {
+              open = false
+            }
+          "
         />
         <UButton
           label="Create key"

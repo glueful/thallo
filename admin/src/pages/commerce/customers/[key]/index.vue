@@ -28,9 +28,7 @@ function money(minor: number): string {
 function fmtDate(v: string | null): string {
   if (!v) return '—'
   const d = new Date(v.replace(' ', 'T'))
-  return Number.isNaN(d.getTime())
-    ? '—'
-    : d.toLocaleDateString(undefined, { dateStyle: 'medium' })
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { dateStyle: 'medium' })
 }
 
 function fmtDateTime(v: string | null): string {
@@ -87,7 +85,11 @@ function statusColor(s: string): 'success' | 'info' | 'warning' | 'error' | 'neu
     </template>
 
     <template #body>
-      <div v-if="status === 'pending'" class="flex justify-center py-10" data-test="customer-detail-loading">
+      <div
+        v-if="status === 'pending'"
+        class="flex justify-center py-10"
+        data-test="customer-detail-loading"
+      >
         <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
       </div>
 
@@ -119,15 +121,25 @@ function statusColor(s: string): 'success' | 'info' | 'warning' | 'error' | 'neu
           </template>
           <dl class="grid grid-cols-2 gap-y-2 text-sm sm:max-w-sm">
             <dt class="text-muted">Orders</dt>
-            <dd class="text-right" data-test="customer-summary-orders">{{ customer.orders_count }}</dd>
+            <dd class="text-right" data-test="customer-summary-orders">
+              {{ customer.orders_count }}
+            </dd>
             <dt class="text-muted">Total spent</dt>
-            <dd class="text-right" data-test="customer-summary-total">{{ money(customer.total_spent_minor) }}</dd>
+            <dd class="text-right" data-test="customer-summary-total">
+              {{ money(customer.total_spent_minor) }}
+            </dd>
             <dt class="text-muted">Refunded</dt>
-            <dd class="text-right" data-test="customer-summary-refunded">{{ money(customer.refunded_minor) }}</dd>
+            <dd class="text-right" data-test="customer-summary-refunded">
+              {{ money(customer.refunded_minor) }}
+            </dd>
             <dt class="text-muted">First order</dt>
-            <dd class="text-right" data-test="customer-summary-first-order">{{ fmtDate(customer.first_order_at) }}</dd>
+            <dd class="text-right" data-test="customer-summary-first-order">
+              {{ fmtDate(customer.first_order_at) }}
+            </dd>
             <dt class="text-muted">Last order</dt>
-            <dd class="text-right" data-test="customer-summary-last-order">{{ fmtDate(customer.last_order_at) }}</dd>
+            <dd class="text-right" data-test="customer-summary-last-order">
+              {{ fmtDate(customer.last_order_at) }}
+            </dd>
           </dl>
         </UCard>
 
@@ -152,11 +164,23 @@ function statusColor(s: string): 'success' | 'info' | 'warning' | 'error' | 'neu
               class="rounded-md border border-default p-3 text-sm"
             >
               <div class="mb-1 flex flex-wrap items-center gap-1">
-                <span v-if="address.label" class="font-medium text-default">{{ address.label }}</span>
-                <UBadge v-if="address.is_default_shipping" color="neutral" variant="subtle" size="sm">
+                <span v-if="address.label" class="font-medium text-default">{{
+                  address.label
+                }}</span>
+                <UBadge
+                  v-if="address.is_default_shipping"
+                  color="neutral"
+                  variant="subtle"
+                  size="sm"
+                >
                   Default shipping
                 </UBadge>
-                <UBadge v-if="address.is_default_billing" color="neutral" variant="subtle" size="sm">
+                <UBadge
+                  v-if="address.is_default_billing"
+                  color="neutral"
+                  variant="subtle"
+                  size="sm"
+                >
                   Default billing
                 </UBadge>
               </div>

@@ -192,10 +192,7 @@ function moveBlock(id: string, delta: number): { beforeId: string } | { afterId:
  * (Tabs cap needs no check here: same-list moves never change the net count,
  * and cross-list moves are already denied outright.)
  */
-function moveBlockTo(
-  id: string,
-  neighbor: { beforeId: string } | { afterId: string },
-): boolean {
+function moveBlockTo(id: string, neighbor: { beforeId: string } | { afterId: string }): boolean {
   const tree = model.value ?? []
   const dragged = ops.locateById(tree, id)
   const refId = 'beforeId' in neighbor ? neighbor.beforeId : neighbor.afterId
@@ -208,9 +205,7 @@ function moveBlockTo(
   const refPos = without.findIndex((b) => b.id === refId)
   if (refPos < 0) return false
   const index = 'beforeId' in neighbor ? refPos : refPos + 1
-  apply((t) =>
-    ops.moveAcross(t, id, { parentId: dragged.parentId, region: dragged.region, index }),
-  )
+  apply((t) => ops.moveAcross(t, id, { parentId: dragged.parentId, region: dragged.region, index }))
   return true
 }
 

@@ -63,7 +63,11 @@ describe('useCommerceReviewMutations invalidation', () => {
 
   it('approve still invalidates both keys when the mutation itself failed (a 409, say)', async () => {
     const { mutations, qk } = await bundle()
-    mutations.approve.onSettled?.(undefined, new Error("Review status is 'approved'; expected pending."), 'r2')
+    mutations.approve.onSettled?.(
+      undefined,
+      new Error("Review status is 'approved'; expected pending."),
+      'r2',
+    )
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceReview('r2') }],
@@ -83,7 +87,11 @@ describe('useCommerceReviewMutations invalidation', () => {
 
   it('spam still invalidates both keys when the mutation itself failed (already spam)', async () => {
     const { mutations, qk } = await bundle()
-    mutations.spam.onSettled?.(undefined, new Error("Review status is 'spam'; expected pending or approved."), 'r4')
+    mutations.spam.onSettled?.(
+      undefined,
+      new Error("Review status is 'spam'; expected pending or approved."),
+      'r4',
+    )
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceReview('r4') }],
@@ -113,14 +121,20 @@ describe('useCommerceReviewMutations invalidation', () => {
 
   it('bulk invalidates ONLY the list, never one key per acted-on uuid', async () => {
     const { mutations, qk } = await bundle()
-    mutations.bulk.onSettled?.(undefined, undefined, { action: 'approve', uuids: ['r7', 'r8', 'r9'] })
+    mutations.bulk.onSettled?.(undefined, undefined, {
+      action: 'approve',
+      uuids: ['r7', 'r8', 'r9'],
+    })
 
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceReviews() }]])
   })
 
   it('bulk still invalidates the list when the mutation itself failed', async () => {
     const { mutations, qk } = await bundle()
-    mutations.bulk.onSettled?.(undefined, new Error('Validation failed'), { action: 'delete', uuids: ['r10'] })
+    mutations.bulk.onSettled?.(undefined, new Error('Validation failed'), {
+      action: 'delete',
+      uuids: ['r10'],
+    })
 
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceReviews() }]])
   })

@@ -94,7 +94,11 @@ watch(debounced, () => {
           size="xs"
           :disabled="page <= 1"
           aria-label="Previous page"
-          @click="() => { page-- }"
+          @click="
+            () => {
+              page--
+            }
+          "
         />
         <UButton
           icon="i-lucide-chevron-right"
@@ -103,7 +107,11 @@ watch(debounced, () => {
           size="xs"
           :disabled="page >= totalPages"
           aria-label="Next page"
-          @click="() => { page++ }"
+          @click="
+            () => {
+              page++
+            }
+          "
         />
       </div>
     </div>

@@ -82,15 +82,31 @@ async function save() {
 
     <div class="flex flex-col gap-4">
       <UFormField label="Email" name="email" :error="fieldErrors.email">
-        <UInput v-model="email" type="email" placeholder="customer@example.com" class="w-full" data-test="draft-customer-email" />
+        <UInput
+          v-model="email"
+          type="email"
+          placeholder="customer@example.com"
+          class="w-full"
+          data-test="draft-customer-email"
+        />
       </UFormField>
 
       <UFormField label="Phone" name="phone" :error="fieldErrors.phone">
-        <UInput v-model="phone" placeholder="+1 555 010 9999" class="w-full" data-test="draft-customer-phone" />
+        <UInput
+          v-model="phone"
+          placeholder="+1 555 010 9999"
+          class="w-full"
+          data-test="draft-customer-phone"
+        />
       </UFormField>
 
       <UFormField label="Name" name="customer_name" :error="fieldErrors.customer_name">
-        <UInput v-model="name" placeholder="Walk-in customer name" class="w-full" data-test="draft-customer-name" />
+        <UInput
+          v-model="name"
+          placeholder="Walk-in customer name"
+          class="w-full"
+          data-test="draft-customer-name"
+        />
       </UFormField>
 
       <div v-if="canAttachUser" class="flex flex-col gap-2">
@@ -118,7 +134,9 @@ async function save() {
         <UButton :loading="update.isLoading.value" data-test="draft-customer-save" @click="save">
           Save customer
         </UButton>
-        <span v-if="saved" class="text-sm text-success" data-test="draft-customer-saved">Saved</span>
+        <span v-if="saved" class="text-sm text-success" data-test="draft-customer-saved"
+          >Saved</span
+        >
       </div>
     </div>
   </UCard>

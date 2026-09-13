@@ -30,7 +30,11 @@ const columns = computed<TableColumn<ProductsReportItem>[]>(() => [
 </script>
 
 <template>
-  <div v-if="status === 'pending'" class="flex justify-center py-10" data-test="top-products-loading">
+  <div
+    v-if="status === 'pending'"
+    class="flex justify-center py-10"
+    data-test="top-products-loading"
+  >
     <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
   </div>
 
@@ -55,7 +59,9 @@ const columns = computed<TableColumn<ProductsReportItem>[]>(() => [
   <UTable v-else :data="rows" :columns="columns" :ui="{ td: 'align-middle' }">
     <template #product_name-cell="{ row }">
       <div data-test="top-product-row" class="flex flex-col">
-        <span class="font-medium text-default" data-test="top-product-name">{{ row.original.product_name }}</span>
+        <span class="font-medium text-default" data-test="top-product-name">{{
+          row.original.product_name
+        }}</span>
         <span class="text-xs text-muted">{{ row.original.sku }}</span>
       </div>
     </template>

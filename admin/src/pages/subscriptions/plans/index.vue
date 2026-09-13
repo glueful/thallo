@@ -88,12 +88,7 @@ async function confirmArchive() {
           >
             Import from config
           </UButton>
-          <UButton
-            v-if="engineReady"
-            icon="i-lucide-plus"
-            data-test="new-plan"
-            @click="openCreate"
-          >
+          <UButton v-if="engineReady" icon="i-lucide-plus" data-test="new-plan" @click="openCreate">
             New plan
           </UButton>
         </template>
@@ -146,7 +141,12 @@ async function confirmArchive() {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="plan in rows" :key="plan.uuid" class="border-b border-default" data-test="plan-row">
+            <tr
+              v-for="plan in rows"
+              :key="plan.uuid"
+              class="border-b border-default"
+              data-test="plan-row"
+            >
               <td class="py-2">
                 <p class="font-medium" data-test="plan-display-name">{{ plan.display_name }}</p>
                 <p class="text-xs text-muted" data-test="plan-key">{{ plan.plan_key }}</p>
@@ -154,7 +154,13 @@ async function confirmArchive() {
               <td class="py-2" data-test="plan-status">{{ plan.status }}</td>
               <td class="py-2">{{ plan.sort_order }}</td>
               <td class="py-2 text-right">
-                <UButton size="xs" variant="ghost" label="Edit" data-test="plan-edit" @click="openEdit(plan)" />
+                <UButton
+                  size="xs"
+                  variant="ghost"
+                  label="Edit"
+                  data-test="plan-edit"
+                  @click="openEdit(plan)"
+                />
                 <UButton
                   v-if="plan.status !== 'archived'"
                   size="xs"
@@ -177,11 +183,16 @@ async function confirmArchive() {
   <UModal
     :open="importOpen"
     title="Import plans from config"
-    @update:open="(v: boolean) => { if (!v) importOpen = false }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) importOpen = false
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
-        Seeds the platform catalog from this site's <span class="text-default">subscriptions.plans</span>
+        Seeds the platform catalog from this site's
+        <span class="text-default">subscriptions.plans</span>
         config block. Plans that already exist are skipped unless you overwrite them.
       </p>
       <UCheckbox
@@ -198,7 +209,11 @@ async function confirmArchive() {
           variant="ghost"
           label="Cancel"
           :disabled="importConfig.isLoading.value"
-          @click="() => { importOpen = false }"
+          @click="
+            () => {
+              importOpen = false
+            }
+          "
         />
         <UButton
           label="Import"
@@ -213,12 +228,16 @@ async function confirmArchive() {
   <UModal
     :open="pendingArchive !== null"
     title="Archive plan"
-    @update:open="(v: boolean) => { if (!v) pendingArchive = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) pendingArchive = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
-        Archive <span class="text-default">“{{ pendingArchive?.display_name }}”</span>? Existing subscribers
-        keep their access; no new subscriptions can start on it.
+        Archive <span class="text-default">“{{ pendingArchive?.display_name }}”</span>? Existing
+        subscribers keep their access; no new subscriptions can start on it.
       </p>
     </template>
     <template #footer>
@@ -228,7 +247,11 @@ async function confirmArchive() {
           variant="ghost"
           label="Cancel"
           :disabled="archive.isLoading.value"
-          @click="() => { pendingArchive = null }"
+          @click="
+            () => {
+              pendingArchive = null
+            }
+          "
         />
         <UButton
           color="error"

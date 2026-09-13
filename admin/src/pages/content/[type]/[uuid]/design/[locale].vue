@@ -181,7 +181,10 @@ const presChrome = (key: 'header' | 'footer') =>
 const presHeader = presChrome('header')
 const presFooter = presChrome('footer')
 
-function patchPresentation(key: 'show_title' | 'layout' | 'header' | 'footer', value: unknown): void {
+function patchPresentation(
+  key: 'show_title' | 'layout' | 'header' | 'footer',
+  value: unknown,
+): void {
   const next = { ...presentationOverride.value }
   if (value === undefined) delete next[key]
   else next[key] = value
@@ -199,7 +202,6 @@ function setPresLayout(v: string): void {
 function setPresChrome(key: 'header' | 'footer', v: string): void {
   patchPresentation(key, v === 'default' ? undefined : v === 'show' ? 'default' : 'hidden')
 }
-
 
 // Viewport presets (spec §6): stage width only.
 const viewport = ref<'desktop' | 'tablet' | 'mobile'>('desktop')
@@ -491,7 +493,10 @@ function scheduleAuto(): void {
   const now = Date.now()
   if (autoTimer === null) autoFirstScheduledAt = now // a fresh burst starts the max-wait clock
   cancelAutoTimer()
-  const delay = Math.min(AUTO_DEBOUNCE_MS, Math.max(50, autoFirstScheduledAt + AUTO_MAX_WAIT_MS - now))
+  const delay = Math.min(
+    AUTO_DEBOUNCE_MS,
+    Math.max(50, autoFirstScheduledAt + AUTO_MAX_WAIT_MS - now),
+  )
   autoTimer = setTimeout(() => {
     autoTimer = null
     if (!autoEnabled.value || autoSuspended.value || editSessionActive.value) return
@@ -718,7 +723,9 @@ function reloadStage(): void {
         </template>
         <template #title>
           <span class="capitalize">{{ type }}</span>
-          <UBadge size="xs" color="neutral" variant="subtle" class="ml-2">Design · {{ locale }}</UBadge>
+          <UBadge size="xs" color="neutral" variant="subtle" class="ml-2"
+            >Design · {{ locale }}</UBadge
+          >
         </template>
         <template #default>
           <UFieldGroup size="sm">
@@ -731,7 +738,7 @@ function reloadStage(): void {
               :class="{ 'bg-elevated': viewport === 'desktop' }"
               @click="setViewport('desktop')"
               :ui="{
-                base: 'rounded-s'
+                base: 'rounded-s',
               }"
             />
             <UButton
@@ -743,7 +750,7 @@ function reloadStage(): void {
               :class="{ 'bg-elevated': viewport === 'tablet' }"
               @click="setViewport('tablet')"
               :ui="{
-                base: 'rounded-none'
+                base: 'rounded-none',
               }"
             />
             <UButton
@@ -755,7 +762,7 @@ function reloadStage(): void {
               :class="{ 'bg-elevated': viewport === 'mobile' }"
               @click="setViewport('mobile')"
               :ui="{
-                base: 'rounded-none'
+                base: 'rounded-none',
               }"
             />
           </UFieldGroup>
@@ -778,14 +785,23 @@ function reloadStage(): void {
                 :variant="autoEnabled && !autoSuspended ? 'soft' : 'outline'"
                 :color="autoSuspended ? 'warning' : autoEnabled ? 'primary' : 'neutral'"
                 :icon="autoEnabled && !autoSuspended ? 'i-lucide-zap' : 'i-lucide-zap-off'"
-                :aria-label="autoSuspended ? 'Auto-apply paused after an error — click to resume' : 'Toggle auto-apply'"
+                :aria-label="
+                  autoSuspended
+                    ? 'Auto-apply paused after an error — click to resume'
+                    : 'Toggle auto-apply'
+                "
                 data-test="canvas-auto-toggle"
                 :ui="{ base: 'rounded-none' }"
                 @click="toggleAuto()"
               >
                 {{ autoSuspended ? 'Auto paused' : autoEnabled ? 'Auto' : 'Auto off' }}
               </UButton>
-              <UButton :loading="applying" data-test="canvas-apply" :ui="{ base: 'rounded-ee' }" @click="applyWorking()">
+              <UButton
+                :loading="applying"
+                data-test="canvas-apply"
+                :ui="{ base: 'rounded-ee' }"
+                @click="applyWorking()"
+              >
                 Apply
               </UButton>
             </UFieldGroup>
@@ -841,8 +857,8 @@ function reloadStage(): void {
         <UIcon name="i-lucide-monitor-off" class="mx-auto size-8 text-muted" />
         <p class="font-medium">Rendered delivery is disabled</p>
         <p class="text-sm text-muted">
-          The visual canvas previews your site's real theme output. Enable rendered
-          delivery (RENDER_ENABLED) to use it — the form editor covers everything else.
+          The visual canvas previews your site's real theme output. Enable rendered delivery
+          (RENDER_ENABLED) to use it — the form editor covers everything else.
         </p>
         <UButton variant="subtle" color="neutral" :to="`/content/${type}/${uuid}?locale=${locale}`">
           Open the form editor
@@ -850,7 +866,6 @@ function reloadStage(): void {
       </div>
 
       <div v-else class="flex h-full min-h-0 gap-4">
-       
         <aside class="w-96 shrink-0 overflow-y-auto" data-test="canvas-inspector">
           <!-- Tabbed inspector (modern-default-theme spec §5a). unmount-on-hide
                MUST stay false: the bridge routes every stage intent through
@@ -882,114 +897,125 @@ function reloadStage(): void {
             </template>
             <template v-if="seoEnabled" #seo>
               <div class="pt-2">
-                <SeoPanel :key="`seo-${uuid}-${locale}`" :uuid="uuid" :locale="locale" :enabled="seoEnabled" />
+                <SeoPanel
+                  :key="`seo-${uuid}-${locale}`"
+                  :uuid="uuid"
+                  :locale="locale"
+                  :enabled="seoEnabled"
+                />
               </div>
             </template>
             <template #versions>
               <div class="pt-2">
-                <VersionsPanel :key="`versions-${uuid}-${locale}`" :uuid="uuid" :locale="locale" :type="type" />
+                <VersionsPanel
+                  :key="`versions-${uuid}-${locale}`"
+                  :uuid="uuid"
+                  :locale="locale"
+                  :type="type"
+                />
               </div>
             </template>
             <template #page>
               <div class="space-y-5 pt-2" data-test="page-settings">
-            <UFormField
-              label="Show page title"
-              help="Hide it when a hero block owns the page heading."
-            >
-              <UFieldGroup>
-                <UButton
-                  v-for="opt in [
-                    { label: 'Theme default', value: 'default' },
-                    { label: 'Show', value: 'show' },
-                    { label: 'Hide', value: 'hide' },
-                  ]"
-                  :key="opt.value"
-                  size="xs"
-                  :variant="presShowTitle === opt.value ? 'solid' : 'outline'"
-                  color="neutral"
-                  :data-test="`pres-title-${opt.value}`"
-                  @click="setPresShowTitle(opt.value)"
+                <UFormField
+                  label="Show page title"
+                  help="Hide it when a hero block owns the page heading."
                 >
-                  {{ opt.label }}
-                </UButton>
-              </UFieldGroup>
-            </UFormField>
-            <UFormField
-              label="Layout"
-              help="Full width lets hero and section bands bleed edge-to-edge."
-            >
-              <UFieldGroup>
-                <UButton
-                  v-for="opt in [
-                    { label: 'Theme default', value: 'default' },
-                    { label: 'Centered', value: 'centered' },
-                    { label: 'Full width', value: 'full' },
-                  ]"
-                  :key="opt.value"
-                  size="xs"
-                  :variant="presLayout === opt.value ? 'solid' : 'outline'"
-                  color="neutral"
-                  :data-test="`pres-layout-${opt.value}`"
-                  @click="setPresLayout(opt.value)"
+                  <UFieldGroup>
+                    <UButton
+                      v-for="opt in [
+                        { label: 'Theme default', value: 'default' },
+                        { label: 'Show', value: 'show' },
+                        { label: 'Hide', value: 'hide' },
+                      ]"
+                      :key="opt.value"
+                      size="xs"
+                      :variant="presShowTitle === opt.value ? 'solid' : 'outline'"
+                      color="neutral"
+                      :data-test="`pres-title-${opt.value}`"
+                      @click="setPresShowTitle(opt.value)"
+                    >
+                      {{ opt.label }}
+                    </UButton>
+                  </UFieldGroup>
+                </UFormField>
+                <UFormField
+                  label="Layout"
+                  help="Full width lets hero and section bands bleed edge-to-edge."
                 >
-                  {{ opt.label }}
-                </UButton>
-              </UFieldGroup>
-            </UFormField>
-            <UFormField
-              label="Header"
-              help="Hide the site header on this page (landing pages)."
-            >
-              <UFieldGroup>
-                <UButton
-                  v-for="opt in [
-                    { label: 'Theme default', value: 'default' },
-                    { label: 'Show', value: 'show' },
-                    { label: 'Hide', value: 'hide' },
-                  ]"
-                  :key="opt.value"
-                  size="xs"
-                  :variant="presHeader === opt.value ? 'solid' : 'outline'"
-                  color="neutral"
-                  :data-test="`pres-header-${opt.value}`"
-                  @click="setPresChrome('header', opt.value)"
+                  <UFieldGroup>
+                    <UButton
+                      v-for="opt in [
+                        { label: 'Theme default', value: 'default' },
+                        { label: 'Centered', value: 'centered' },
+                        { label: 'Full width', value: 'full' },
+                      ]"
+                      :key="opt.value"
+                      size="xs"
+                      :variant="presLayout === opt.value ? 'solid' : 'outline'"
+                      color="neutral"
+                      :data-test="`pres-layout-${opt.value}`"
+                      @click="setPresLayout(opt.value)"
+                    >
+                      {{ opt.label }}
+                    </UButton>
+                  </UFieldGroup>
+                </UFormField>
+                <UFormField
+                  label="Header"
+                  help="Hide the site header on this page (landing pages)."
                 >
-                  {{ opt.label }}
-                </UButton>
-              </UFieldGroup>
-            </UFormField>
-            <UFormField
-              label="Footer"
-              help="Hide the site footer on this page."
-            >
-              <UFieldGroup>
-                <UButton
-                  v-for="opt in [
-                    { label: 'Theme default', value: 'default' },
-                    { label: 'Show', value: 'show' },
-                    { label: 'Hide', value: 'hide' },
-                  ]"
-                  :key="opt.value"
-                  size="xs"
-                  :variant="presFooter === opt.value ? 'solid' : 'outline'"
-                  color="neutral"
-                  :data-test="`pres-footer-${opt.value}`"
-                  @click="setPresChrome('footer', opt.value)"
-                >
-                  {{ opt.label }}
-                </UButton>
-              </UFieldGroup>
-            </UFormField>
+                  <UFieldGroup>
+                    <UButton
+                      v-for="opt in [
+                        { label: 'Theme default', value: 'default' },
+                        { label: 'Show', value: 'show' },
+                        { label: 'Hide', value: 'hide' },
+                      ]"
+                      :key="opt.value"
+                      size="xs"
+                      :variant="presHeader === opt.value ? 'solid' : 'outline'"
+                      color="neutral"
+                      :data-test="`pres-header-${opt.value}`"
+                      @click="setPresChrome('header', opt.value)"
+                    >
+                      {{ opt.label }}
+                    </UButton>
+                  </UFieldGroup>
+                </UFormField>
+                <UFormField label="Footer" help="Hide the site footer on this page.">
+                  <UFieldGroup>
+                    <UButton
+                      v-for="opt in [
+                        { label: 'Theme default', value: 'default' },
+                        { label: 'Show', value: 'show' },
+                        { label: 'Hide', value: 'hide' },
+                      ]"
+                      :key="opt.value"
+                      size="xs"
+                      :variant="presFooter === opt.value ? 'solid' : 'outline'"
+                      color="neutral"
+                      :data-test="`pres-footer-${opt.value}`"
+                      @click="setPresChrome('footer', opt.value)"
+                    >
+                      {{ opt.label }}
+                    </UButton>
+                  </UFieldGroup>
+                </UFormField>
                 <p class="text-xs text-muted">
-                  “Theme default” follows the theme’s settings; overrides save
-                  and publish with this page.
+                  “Theme default” follows the theme’s settings; overrides save and publish with this
+                  page.
                 </p>
               </div>
             </template>
           </UTabs>
         </aside>
 
-        <div ref="stageEl" class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3" data-test="canvas-stage">
+        <div
+          ref="stageEl"
+          class="relative min-w-0 flex-1 overflow-auto rounded-lg border border-default bg-elevated/40 p-3"
+          data-test="canvas-stage"
+        >
           <div class="mx-auto h-full transition-[width]" :style="{ width: stageWidth }">
             <iframe
               v-if="iframeSrc"
@@ -1023,12 +1049,16 @@ function reloadStage(): void {
               >
                 Cancel
               </UButton>
-              <UButton size="xs" color="error" data-test="canvas-delete-confirm-yes" @click="confirmDelete()">
+              <UButton
+                size="xs"
+                color="error"
+                data-test="canvas-delete-confirm-yes"
+                @click="confirmDelete()"
+              >
                 Delete
               </UButton>
             </div>
           </div>
-
         </div>
 
         <!-- Add-after picker (stage-toolbar spec §5): a UPopover anchored to a
@@ -1041,7 +1071,11 @@ function reloadStage(): void {
           :reference="addAfterReference"
           :portal="false"
           :content="{ side: 'bottom', align: 'start', sideOffset: 8 }"
-          @update:open="(v: boolean) => { if (!v) cancelAddAfter() }"
+          @update:open="
+            (v: boolean) => {
+              if (!v) cancelAddAfter()
+            }
+          "
         >
           <template #content>
             <div class="w-64 p-2" data-test="canvas-add-picker">
@@ -1058,7 +1092,10 @@ function reloadStage(): void {
                 @keydown="onAddFilterKeydown"
               />
               <!-- Internal scroll (30 seeded types); filter + Cancel stay pinned. -->
-              <div class="max-h-64 overflow-y-auto overscroll-contain" data-test="canvas-add-scroll">
+              <div
+                class="max-h-64 overflow-y-auto overscroll-contain"
+                data-test="canvas-add-scroll"
+              >
                 <div class="grid grid-cols-2 gap-1">
                   <button
                     v-for="t in filteredAddTypes"
@@ -1077,7 +1114,13 @@ function reloadStage(): void {
                 </p>
               </div>
               <div class="mt-1 flex justify-end">
-                <UButton size="xs" variant="ghost" color="neutral" data-test="canvas-add-cancel" @click="cancelAddAfter()">
+                <UButton
+                  size="xs"
+                  variant="ghost"
+                  color="neutral"
+                  data-test="canvas-add-cancel"
+                  @click="cancelAddAfter()"
+                >
                   Cancel
                 </UButton>
               </div>

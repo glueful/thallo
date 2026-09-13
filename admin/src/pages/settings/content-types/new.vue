@@ -168,7 +168,6 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                 </div>
               </div>
             </UCard>
-
           </div>
 
           <div class="lg:col-span-2">
@@ -184,7 +183,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
                     square
                     aria-label="Preview the entry form"
                     data-test="open-preview"
-                    @click="() => { previewOpen = true }"
+                    @click="
+                      () => {
+                        previewOpen = true
+                      }
+                    "
                   />
                 </div>
               </template>

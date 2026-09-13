@@ -96,7 +96,11 @@ function windowText(d: CommerceDiscount): string {
 
   <UTable v-else :data="rows" :columns="columns" :ui="{ td: 'align-middle' }">
     <template #code-cell="{ row }">
-      <span data-test="discount-row" :data-uuid="row.original.uuid" class="font-medium text-default">
+      <span
+        data-test="discount-row"
+        :data-uuid="row.original.uuid"
+        class="font-medium text-default"
+      >
         {{ row.original.code }}
       </span>
     </template>
@@ -109,15 +113,24 @@ function windowText(d: CommerceDiscount): string {
     </template>
 
     <template #usage-cell="{ row }">
-      <span data-test="discount-usage" class="text-sm text-muted">{{ usageText(row.original) }}</span>
+      <span data-test="discount-usage" class="text-sm text-muted">{{
+        usageText(row.original)
+      }}</span>
     </template>
 
     <template #window-cell="{ row }">
-      <span data-test="discount-window" class="text-sm text-muted">{{ windowText(row.original) }}</span>
+      <span data-test="discount-window" class="text-sm text-muted">{{
+        windowText(row.original)
+      }}</span>
     </template>
 
     <template #status-cell="{ row }">
-      <UBadge :color="statusColor(row.original.status)" variant="subtle" size="sm" data-test="discount-status">
+      <UBadge
+        :color="statusColor(row.original.status)"
+        variant="subtle"
+        size="sm"
+        data-test="discount-status"
+      >
         {{ row.original.status }}
       </UBadge>
     </template>

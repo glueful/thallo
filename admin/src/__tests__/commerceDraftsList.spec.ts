@@ -162,7 +162,9 @@ describe('drafts list page', () => {
 
   it('shows created/updated timestamps', async () => {
     draftsPage.value = page({
-      drafts: [draft({ uuid: 'd1', created_at: '2026-01-01 00:00:00', updated_at: '2026-01-05 00:00:00' })],
+      drafts: [
+        draft({ uuid: 'd1', created_at: '2026-01-01 00:00:00', updated_at: '2026-01-05 00:00:00' }),
+      ],
     })
     const wrapper = mount(DraftsList, { global: { stubs: pageStubs } })
     await flushPromises()

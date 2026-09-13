@@ -273,7 +273,11 @@ async function save(): Promise<void> {
             v-if="enabled"
             icon="i-lucide-plus"
             data-test="nav-menu-new"
-            @click="() => { createOpen = true }"
+            @click="
+              () => {
+                createOpen = true
+              }
+            "
           >
             New menu
           </UButton>
@@ -321,7 +325,11 @@ async function save(): Promise<void> {
               v-for="(menu, i) in menuOrder"
               :key="menu.slug"
               class="group flex items-center gap-1 rounded pr-1"
-              :class="selected === menu.slug ? 'bg-elevated border-l-2 border-primary' : 'hover:bg-elevated border-l-2 border-transparent'"
+              :class="
+                selected === menu.slug
+                  ? 'bg-elevated border-l-2 border-primary'
+                  : 'hover:bg-elevated border-l-2 border-transparent'
+              "
             >
               <UButton
                 size="xs"
@@ -351,14 +359,37 @@ async function save(): Promise<void> {
                 :items="[
                   [{ label: 'Rename', icon: 'i-lucide-pencil', onSelect: () => openRename(menu) }],
                   [
-                    { label: 'Move up', icon: 'i-lucide-arrow-up', disabled: i === 0, onSelect: () => moveMenu(i, -1) },
-                    { label: 'Move down', icon: 'i-lucide-arrow-down', disabled: i === menuOrder.length - 1, onSelect: () => moveMenu(i, 1) },
+                    {
+                      label: 'Move up',
+                      icon: 'i-lucide-arrow-up',
+                      disabled: i === 0,
+                      onSelect: () => moveMenu(i, -1),
+                    },
+                    {
+                      label: 'Move down',
+                      icon: 'i-lucide-arrow-down',
+                      disabled: i === menuOrder.length - 1,
+                      onSelect: () => moveMenu(i, 1),
+                    },
                   ],
-                  [{ label: 'Delete', icon: 'i-lucide-trash-2', color: 'error', onSelect: () => openDelete(menu) }],
+                  [
+                    {
+                      label: 'Delete',
+                      icon: 'i-lucide-trash-2',
+                      color: 'error',
+                      onSelect: () => openDelete(menu),
+                    },
+                  ],
                 ]"
                 data-test="nav-menu-menu"
               >
-                <UButton size="xs" variant="ghost" color="neutral" icon="i-lucide-ellipsis-vertical" aria-label="Menu actions" />
+                <UButton
+                  size="xs"
+                  variant="ghost"
+                  color="neutral"
+                  icon="i-lucide-ellipsis-vertical"
+                  aria-label="Menu actions"
+                />
               </UDropdownMenu>
             </div>
           </VueDraggable>
@@ -367,7 +398,9 @@ async function save(): Promise<void> {
           <div v-if="menusLoading" class="space-y-2 px-1 py-2" data-testid="nav-menus-loading">
             <USkeleton v-for="n in 3" :key="n" class="h-9 w-full" />
           </div>
-          <p v-else-if="menuOrder.length === 0" class="text-muted px-3 py-2 text-sm">No menus yet.</p>
+          <p v-else-if="menuOrder.length === 0" class="text-muted px-3 py-2 text-sm">
+            No menus yet.
+          </p>
         </aside>
 
         <div class="min-w-0 flex-1">
@@ -381,7 +414,11 @@ async function save(): Promise<void> {
                   size="xs"
                   :variant="locale === code ? 'solid' : 'ghost'"
                   data-test="nav-locale-tab"
-                  @click="() => { locale = code }"
+                  @click="
+                    () => {
+                      locale = code
+                    }
+                  "
                 >
                   {{ code }}
                 </UButton>
@@ -395,7 +432,18 @@ async function save(): Promise<void> {
                 size="sm"
                 variant="outline"
                 data-test="tree-add-root"
-                @click="() => { working.push({ kind: 'url', url: '/', labels: {}, descriptions: {}, children: [] }); dirty = true }"
+                @click="
+                  () => {
+                    working.push({
+                      kind: 'url',
+                      url: '/',
+                      labels: {},
+                      descriptions: {},
+                      children: [],
+                    })
+                    dirty = true
+                  }
+                "
               >
                 Add link
               </UButton>
@@ -404,12 +452,18 @@ async function save(): Promise<void> {
                 variant="outline"
                 icon="i-lucide-file-text"
                 data-test="tree-add-page"
-                @click="() => { addPageOpen = !addPageOpen }"
+                @click="
+                  () => {
+                    addPageOpen = !addPageOpen
+                  }
+                "
               >
                 Add page
               </UButton>
               <span class="grow" />
-              <UButton size="sm" :disabled="!dirty" data-test="tree-save" @click="save">Save</UButton>
+              <UButton size="sm" :disabled="!dirty" data-test="tree-save" @click="save"
+                >Save</UButton
+              >
             </div>
 
             <div
@@ -426,7 +480,10 @@ async function save(): Promise<void> {
                   data-test="add-page-type"
                 />
               </UFormField>
-              <UFormField label="Page" hint="The menu label follows the page title until you override it.">
+              <UFormField
+                label="Page"
+                hint="The menu label follows the page title until you override it."
+              >
                 <ReferencePicker
                   v-if="addPageType"
                   v-model="pickedEntry"
@@ -443,8 +500,18 @@ async function save(): Promise<void> {
           <div v-else class="flex h-full flex-col items-center justify-center gap-3 text-muted">
             <template v-if="!menusLoading">
               <UIcon name="i-lucide-list-tree" class="size-8" />
-              <p class="text-sm">{{ menuOrder.length === 0 ? 'No menus yet.' : 'Select a menu.' }}</p>
-              <UButton v-if="menuOrder.length === 0" icon="i-lucide-plus" @click="() => { createOpen = true }">
+              <p class="text-sm">
+                {{ menuOrder.length === 0 ? 'No menus yet.' : 'Select a menu.' }}
+              </p>
+              <UButton
+                v-if="menuOrder.length === 0"
+                icon="i-lucide-plus"
+                @click="
+                  () => {
+                    createOpen = true
+                  }
+                "
+              >
                 New menu
               </UButton>
             </template>
@@ -457,7 +524,12 @@ async function save(): Promise<void> {
            slot suppresses them. Enter in either input submits (real form); footer buttons remain. -->
       <UModal v-model:open="createOpen" title="New menu">
         <template #body>
-          <form id="nav-create-form" data-test="nav-menu-create" class="space-y-3" @submit.prevent="createMenu">
+          <form
+            id="nav-create-form"
+            data-test="nav-menu-create"
+            class="space-y-3"
+            @submit.prevent="createMenu"
+          >
             <UFormField label="Slug">
               <UInput v-model="newSlug" placeholder="slug (e.g. main)" class="w-full" />
             </UFormField>
@@ -469,11 +541,17 @@ async function save(): Promise<void> {
         </template>
         <template #footer>
           <div class="flex w-full justify-end gap-2">
-            <UButton color="neutral" variant="ghost" @click="() => { createOpen = false }">Cancel</UButton>
             <UButton
-              :disabled="newSlug.trim() === '' || newName.trim() === ''"
-              @click="createMenu"
+              color="neutral"
+              variant="ghost"
+              @click="
+                () => {
+                  createOpen = false
+                }
+              "
+              >Cancel</UButton
             >
+            <UButton :disabled="newSlug.trim() === '' || newName.trim() === ''" @click="createMenu">
               Create
             </UButton>
           </div>
@@ -493,7 +571,16 @@ async function save(): Promise<void> {
         </template>
         <template #footer>
           <div class="flex w-full justify-end gap-2">
-            <UButton color="neutral" variant="ghost" @click="() => { renameOpen = false }">Cancel</UButton>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              @click="
+                () => {
+                  renameOpen = false
+                }
+              "
+              >Cancel</UButton
+            >
             <UButton
               :disabled="renameName.trim() === ''"
               data-test="nav-menu-rename-save"
@@ -510,14 +597,25 @@ async function save(): Promise<void> {
       <UModal v-model:open="deleteOpen" title="Delete menu">
         <template #body>
           <p class="text-sm text-muted">
-            Delete the menu “<span class="text-default font-medium">{{ deleteName }}</span>”? This removes the
-            menu and all of its items. This can’t be undone.
+            Delete the menu “<span class="text-default font-medium">{{ deleteName }}</span
+            >”? This removes the menu and all of its items. This can’t be undone.
           </p>
         </template>
         <template #footer>
           <div class="flex w-full justify-end gap-2">
-            <UButton color="neutral" variant="ghost" @click="() => { deleteOpen = false }">Cancel</UButton>
-            <UButton color="error" data-test="nav-menu-delete" @click="confirmDelete">Delete</UButton>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              @click="
+                () => {
+                  deleteOpen = false
+                }
+              "
+              >Cancel</UButton
+            >
+            <UButton color="error" data-test="nav-menu-delete" @click="confirmDelete"
+              >Delete</UButton
+            >
           </div>
         </template>
       </UModal>

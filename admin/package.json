@@ -2,7 +2,6 @@
   "name": "admin",
   "version": "0.0.0",
   "private": true,
-  "packageManager": "pnpm@11.8.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -65,5 +64,6 @@
   },
   "engines": {
     "node": "^22.18.0 || >=24.12.0"
-  }
+  },
+  "packageManager": "pnpm@11.8.0"
 }

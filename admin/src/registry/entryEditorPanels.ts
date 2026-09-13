@@ -1,4 +1,11 @@
-import { computed, defineAsyncComponent, ref, type Component, type ComputedRef, type Ref } from 'vue'
+import {
+  computed,
+  defineAsyncComponent,
+  ref,
+  type Component,
+  type ComputedRef,
+  type Ref,
+} from 'vue'
 import { useCapabilitiesStore } from '@/stores/capabilities'
 import { useCommerceLinkGate } from '@/queries/commerceLinking'
 

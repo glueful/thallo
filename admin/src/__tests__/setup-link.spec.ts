@@ -8,7 +8,9 @@ import SetupPage from '@/pages/setup.vue'
 // header the unauthenticated POST /admin/setup requires in production.
 
 vi.mock('@/runtime/config', () => ({ runtimeConfig: { installed: false, defaultLocale: 'en' } }))
-vi.mock('@/composables/useNotify', () => ({ useNotify: () => ({ error: vi.fn(), success: vi.fn() }) }))
+vi.mock('@/composables/useNotify', () => ({
+  useNotify: () => ({ error: vi.fn(), success: vi.fn() }),
+}))
 
 const fetchMock = vi.fn()
 

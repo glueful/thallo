@@ -127,7 +127,15 @@ async function onCreate(event: FormSubmitEvent<Schema>) {
     <template #header>
       <UDashboardNavbar title="Languages">
         <template #right>
-          <UButton icon="i-lucide-plus" @click="() => { showAdd = true }">Add language</UButton>
+          <UButton
+            icon="i-lucide-plus"
+            @click="
+              () => {
+                showAdd = true
+              }
+            "
+            >Add language</UButton
+          >
         </template>
       </UDashboardNavbar>
     </template>
@@ -185,7 +193,15 @@ async function onCreate(event: FormSubmitEvent<Schema>) {
             description="Add a language to start localizing content."
           >
             <template #actions>
-              <UButton icon="i-lucide-plus" @click="() => { showAdd = true }">Add language</UButton>
+              <UButton
+                icon="i-lucide-plus"
+                @click="
+                  () => {
+                    showAdd = true
+                  }
+                "
+                >Add language</UButton
+              >
             </template>
           </UEmpty>
         </template>
@@ -225,7 +241,11 @@ async function onCreate(event: FormSubmitEvent<Schema>) {
           variant="ghost"
           label="Cancel"
           :disabled="update.isLoading.value"
-          @click="() => { pendingDisable = null }"
+          @click="
+            () => {
+              pendingDisable = null
+            }
+          "
         />
         <UButton
           color="error"
@@ -261,7 +281,16 @@ async function onCreate(event: FormSubmitEvent<Schema>) {
 
     <template #footer>
       <div class="flex justify-end gap-2 w-full">
-        <UButton color="neutral" variant="ghost" @click="() => { showAdd = false }">Cancel</UButton>
+        <UButton
+          color="neutral"
+          variant="ghost"
+          @click="
+            () => {
+              showAdd = false
+            }
+          "
+          >Cancel</UButton
+        >
         <UButton type="submit" form="add-locale" :loading="create.isLoading.value">
           Add language
         </UButton>

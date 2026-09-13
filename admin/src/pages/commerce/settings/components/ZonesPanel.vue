@@ -179,7 +179,9 @@ const locationsError = ref<string | null>(null)
  * server is the sole validator); narrow it back to the closed UI vocabulary here, falling back to
  * `country` for anything unrecognized rather than producing a `USelect` with no matching item. */
 function toLocationKind(kind: string): ShippingLocationKind {
-  return (SHIPPING_LOCATION_KINDS as readonly string[]).includes(kind) ? (kind as ShippingLocationKind) : 'country'
+  return (SHIPPING_LOCATION_KINDS as readonly string[]).includes(kind)
+    ? (kind as ShippingLocationKind)
+    : 'country'
 }
 
 function openLocationsEditor(zone: CommerceShippingZone) {
@@ -279,7 +281,9 @@ function openEditMethod(zone: CommerceShippingZone, method: CommerceShippingMeth
     enabled: method.enabled,
     positionInput: String(method.position),
     amountInput:
-      typeof config.amount === 'number' ? minorToDecimalString(config.amount, currencyExponent.value) : '',
+      typeof config.amount === 'number'
+        ? minorToDecimalString(config.amount, currencyExponent.value)
+        : '',
     freeOverInput:
       typeof config.free_over === 'number'
         ? minorToDecimalString(config.free_over, currencyExponent.value)
@@ -290,7 +294,8 @@ function openEditMethod(zone: CommerceShippingZone, method: CommerceShippingMeth
         : '',
     classRows: Object.entries(classes).map(([slug, amount]) => ({
       slug,
-      amountInput: typeof amount === 'number' ? minorToDecimalString(amount, currencyExponent.value) : '',
+      amountInput:
+        typeof amount === 'number' ? minorToDecimalString(amount, currencyExponent.value) : '',
     })),
   }
   methodFormError.value = null
@@ -432,7 +437,8 @@ function methodRateSummary(method: CommerceShippingMethod): string {
     const freeOver = typeof config.free_over === 'number' ? money(config.free_over) : '—'
     return `${amount}, free over ${freeOver}`
   }
-  const defaultAmount = typeof config.default_amount === 'number' ? money(config.default_amount) : '—'
+  const defaultAmount =
+    typeof config.default_amount === 'number' ? money(config.default_amount) : '—'
   return `Default ${defaultAmount}`
 }
 </script>
@@ -494,7 +500,9 @@ function methodRateSummary(method: CommerceShippingMethod): string {
 
           <span data-test="zone-name" class="font-medium text-default">{{ zone.name }}</span>
           <UBadge color="neutral" variant="subtle" size="sm">position {{ zone.position }}</UBadge>
-          <span data-test="zone-locations-summary" class="text-sm text-muted">{{ locationsSummary(zone) }}</span>
+          <span data-test="zone-locations-summary" class="text-sm text-muted">{{
+            locationsSummary(zone)
+          }}</span>
           <UBadge color="neutral" variant="subtle" size="sm" data-test="zone-methods-count">
             {{ zone.methods.length }} method{{ zone.methods.length === 1 ? '' : 's' }}
           </UBadge>
@@ -526,7 +534,11 @@ function methodRateSummary(method: CommerceShippingMethod): string {
               icon="i-lucide-trash-2"
               aria-label="Delete zone"
               data-test="zone-delete"
-              @click="() => { pendingDeleteZone = zone }"
+              @click="
+                () => {
+                  pendingDeleteZone = zone
+                }
+              "
             />
           </div>
         </div>
@@ -557,7 +569,9 @@ function methodRateSummary(method: CommerceShippingMethod): string {
               >
                 {{ loc.kind }}: {{ loc.value }}
               </UBadge>
-              <span v-if="zone.locations.length === 0" class="text-sm text-muted">Everywhere (no locations set)</span>
+              <span v-if="zone.locations.length === 0" class="text-sm text-muted"
+                >Everywhere (no locations set)</span
+              >
             </div>
 
             <form
@@ -637,7 +651,9 @@ function methodRateSummary(method: CommerceShippingMethod): string {
           <!-- Methods ------------------------------------------------------------------------- -->
           <section class="space-y-3">
             <div class="flex items-center justify-between">
-              <h3 class="text-xs font-medium tracking-wide text-muted uppercase">Shipping methods</h3>
+              <h3 class="text-xs font-medium tracking-wide text-muted uppercase">
+                Shipping methods
+              </h3>
               <UButton
                 v-if="props.canManage"
                 size="xs"
@@ -665,10 +681,21 @@ function methodRateSummary(method: CommerceShippingMethod): string {
               :data-uuid="method.uuid"
               class="flex flex-wrap items-center gap-3 rounded-md border border-default p-3"
             >
-              <span data-test="method-label" class="font-medium text-default">{{ method.label }}</span>
-              <UBadge color="neutral" variant="subtle" size="sm" data-test="method-kind">{{ method.kind }}</UBadge>
-              <span data-test="method-rate" class="text-sm text-muted">{{ methodRateSummary(method) }}</span>
-              <UBadge :color="method.enabled ? 'success' : 'neutral'" variant="subtle" size="sm" data-test="method-enabled">
+              <span data-test="method-label" class="font-medium text-default">{{
+                method.label
+              }}</span>
+              <UBadge color="neutral" variant="subtle" size="sm" data-test="method-kind">{{
+                method.kind
+              }}</UBadge>
+              <span data-test="method-rate" class="text-sm text-muted">{{
+                methodRateSummary(method)
+              }}</span>
+              <UBadge
+                :color="method.enabled ? 'success' : 'neutral'"
+                variant="subtle"
+                size="sm"
+                data-test="method-enabled"
+              >
                 {{ method.enabled ? 'Enabled' : 'Disabled' }}
               </UBadge>
 
@@ -689,7 +716,11 @@ function methodRateSummary(method: CommerceShippingMethod): string {
                   icon="i-lucide-trash-2"
                   aria-label="Delete method"
                   data-test="method-delete"
-                  @click="() => { pendingDeleteMethod = { zoneUuid: zone.uuid, method } }"
+                  @click="
+                    () => {
+                      pendingDeleteMethod = { zoneUuid: zone.uuid, method }
+                    }
+                  "
                 />
               </div>
             </div>
@@ -712,20 +743,48 @@ function methodRateSummary(method: CommerceShippingMethod): string {
                   />
                 </UFormField>
                 <UFormField label="Label" name="label" required>
-                  <UInput v-model="methodForm.label" class="w-full" data-test="method-label-input" />
+                  <UInput
+                    v-model="methodForm.label"
+                    class="w-full"
+                    data-test="method-label-input"
+                  />
                 </UFormField>
               </div>
 
-              <UFormField v-if="methodForm.kind === 'flat'" label="Rate" name="amount" help="e.g. 5.00">
-                <UInput v-model="methodForm.amountInput" placeholder="0.00" class="w-full" data-test="method-amount-input" />
+              <UFormField
+                v-if="methodForm.kind === 'flat'"
+                label="Rate"
+                name="amount"
+                help="e.g. 5.00"
+              >
+                <UInput
+                  v-model="methodForm.amountInput"
+                  placeholder="0.00"
+                  class="w-full"
+                  data-test="method-amount-input"
+                />
               </UFormField>
 
               <template v-else-if="methodForm.kind === 'free_over'">
                 <UFormField label="Rate" name="amount" help="e.g. 5.00">
-                  <UInput v-model="methodForm.amountInput" placeholder="0.00" class="w-full" data-test="method-amount-input" />
+                  <UInput
+                    v-model="methodForm.amountInput"
+                    placeholder="0.00"
+                    class="w-full"
+                    data-test="method-amount-input"
+                  />
                 </UFormField>
-                <UFormField label="Free over" name="freeOver" help="Order subtotal above which shipping is free">
-                  <UInput v-model="methodForm.freeOverInput" placeholder="0.00" class="w-full" data-test="method-free-over-input" />
+                <UFormField
+                  label="Free over"
+                  name="freeOver"
+                  help="Order subtotal above which shipping is free"
+                >
+                  <UInput
+                    v-model="methodForm.freeOverInput"
+                    placeholder="0.00"
+                    class="w-full"
+                    data-test="method-free-over-input"
+                  />
                 </UFormField>
               </template>
 
@@ -758,8 +817,18 @@ function methodRateSummary(method: CommerceShippingMethod): string {
                     data-test="method-class-row"
                     class="flex items-center gap-2"
                   >
-                    <UInput v-model="row.slug" placeholder="class slug" class="flex-1" data-test="method-class-slug-input" />
-                    <UInput v-model="row.amountInput" placeholder="0.00" class="w-28" data-test="method-class-amount-input" />
+                    <UInput
+                      v-model="row.slug"
+                      placeholder="class slug"
+                      class="flex-1"
+                      data-test="method-class-slug-input"
+                    />
+                    <UInput
+                      v-model="row.amountInput"
+                      placeholder="0.00"
+                      class="w-28"
+                      data-test="method-class-amount-input"
+                    />
                     <UButton
                       color="neutral"
                       variant="ghost"
@@ -774,10 +843,19 @@ function methodRateSummary(method: CommerceShippingMethod): string {
               </template>
 
               <UFormField label="Position" name="position">
-                <UInput v-model="methodForm.positionInput" placeholder="Auto" class="w-32" data-test="method-position-input" />
+                <UInput
+                  v-model="methodForm.positionInput"
+                  placeholder="Auto"
+                  class="w-32"
+                  data-test="method-position-input"
+                />
               </UFormField>
 
-              <UCheckbox v-model="methodForm.enabled" label="Enabled" data-test="method-enabled-checkbox" />
+              <UCheckbox
+                v-model="methodForm.enabled"
+                label="Enabled"
+                data-test="method-enabled-checkbox"
+              />
 
               <UAlert
                 v-if="methodFormError"
@@ -825,7 +903,11 @@ function methodRateSummary(method: CommerceShippingMethod): string {
     :open="zoneFormOpen"
     :title="editingZone ? 'Edit zone' : 'Create zone'"
     :ui="{ content: 'sm:max-w-md' }"
-    @update:open="(v: boolean) => { if (!v) closeZoneForm() }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) closeZoneForm()
+      }
+    "
   >
     <template #body>
       <form id="zone-form" class="space-y-4" @submit.prevent="submitZoneForm">
@@ -833,7 +915,12 @@ function methodRateSummary(method: CommerceShippingMethod): string {
           <UInput v-model="zoneNameInput" class="w-full" data-test="zone-name-input" />
         </UFormField>
         <UFormField label="Position" name="position" help="Lower positions are evaluated first.">
-          <UInput v-model="zonePositionInput" type="number" class="w-full" data-test="zone-position-input" />
+          <UInput
+            v-model="zonePositionInput"
+            type="number"
+            class="w-full"
+            data-test="zone-position-input"
+          />
         </UFormField>
       </form>
     </template>
@@ -861,12 +948,16 @@ function methodRateSummary(method: CommerceShippingMethod): string {
   <UModal
     :open="pendingDeleteZone !== null"
     title="Delete zone"
-    @update:open="(v: boolean) => { if (!v) pendingDeleteZone = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) pendingDeleteZone = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
-        Delete <span class="text-default">“{{ pendingDeleteZone?.name }}”</span>? This also removes its
-        locations and shipping methods. This can’t be undone.
+        Delete <span class="text-default">“{{ pendingDeleteZone?.name }}”</span>? This also removes
+        its locations and shipping methods. This can’t be undone.
       </p>
     </template>
     <template #footer>
@@ -876,7 +967,11 @@ function methodRateSummary(method: CommerceShippingMethod): string {
           variant="ghost"
           label="Cancel"
           :disabled="deleteZone.isLoading.value"
-          @click="() => { pendingDeleteZone = null }"
+          @click="
+            () => {
+              pendingDeleteZone = null
+            }
+          "
         />
         <UButton
           color="error"
@@ -894,12 +989,16 @@ function methodRateSummary(method: CommerceShippingMethod): string {
   <UModal
     :open="pendingDeleteMethod !== null"
     title="Delete shipping method"
-    @update:open="(v: boolean) => { if (!v) pendingDeleteMethod = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) pendingDeleteMethod = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
-        Delete <span class="text-default">“{{ pendingDeleteMethod?.method.label }}”</span>? This can’t be
-        undone.
+        Delete <span class="text-default">“{{ pendingDeleteMethod?.method.label }}”</span>? This
+        can’t be undone.
       </p>
     </template>
     <template #footer>
@@ -909,7 +1008,11 @@ function methodRateSummary(method: CommerceShippingMethod): string {
           variant="ghost"
           label="Cancel"
           :disabled="deleteMethod.isLoading.value"
-          @click="() => { pendingDeleteMethod = null }"
+          @click="
+            () => {
+              pendingDeleteMethod = null
+            }
+          "
         />
         <UButton
           color="error"

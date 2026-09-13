@@ -103,17 +103,26 @@ function fmtTime(v?: string | null): string {
             <div class="text-xs text-muted">Active users</div>
             <div class="text-xl font-semibold text-highlighted">{{ homeActiveUsers }}</div>
           </RouterLink>
-          <RouterLink to="/analytics" class="rounded-lg border border-default p-3 hover:bg-elevated">
+          <RouterLink
+            to="/analytics"
+            class="rounded-lg border border-default p-3 hover:bg-elevated"
+          >
             <div class="text-xs text-muted">Logins</div>
             <div class="text-xl font-semibold text-highlighted">{{ homeKpi('auth.login') }}</div>
           </RouterLink>
-          <RouterLink to="/analytics" class="rounded-lg border border-default p-3 hover:bg-elevated">
+          <RouterLink
+            to="/analytics"
+            class="rounded-lg border border-default p-3 hover:bg-elevated"
+          >
             <div class="text-xs text-muted">Entries created</div>
             <div class="text-xl font-semibold text-highlighted">
               {{ homeKpi('content.entry.created') }}
             </div>
           </RouterLink>
-          <RouterLink to="/analytics" class="rounded-lg border border-default p-3 hover:bg-elevated">
+          <RouterLink
+            to="/analytics"
+            class="rounded-lg border border-default p-3 hover:bg-elevated"
+          >
             <div class="text-xs text-muted">Rows created</div>
             <div class="text-xl font-semibold text-highlighted">
               {{ homeKpi('collections.row.created') }}

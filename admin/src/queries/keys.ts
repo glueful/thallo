@@ -52,7 +52,8 @@ export const qk = {
   commerceProducts: () => ['commerce-products'] as const,
   commerceProduct: (uuid: string) => ['commerce-product', uuid] as const,
   commerceProductAddons: (productUuid: string) => ['commerce-product-addons', productUuid] as const,
-  commerceVariantDownloads: (variantUuid: string) => ['commerce-variant-downloads', variantUuid] as const,
+  commerceVariantDownloads: (variantUuid: string) =>
+    ['commerce-variant-downloads', variantUuid] as const,
   commerceProductSection: (uuid: string, section: CommerceProductSection) =>
     ['commerce-product-section', uuid, section] as const,
   commerceCategories: () => ['commerce-categories'] as const,
@@ -79,21 +80,25 @@ export const qk = {
   // Task 15 (admin-order-creation cycle 2): the drafts LIST view (`GET /orders/drafts`, 'view'-
   // graded server-side) — its own prefix, distinct from `commerceDraft()` above (a single draft)
   // and from `commerceOrderSearch()` (the finalized-order list, which stays draft-blind).
-  commerceDraftsList: (page: number, perPage: number) => ['commerce-drafts-list', page, perPage] as const,
+  commerceDraftsList: (page: number, perPage: number) =>
+    ['commerce-drafts-list', page, perPage] as const,
   commerceOrderPayments: (orderUuid: string) => ['commerce-order-payments', orderUuid] as const,
   // Payment links Task 13: the order's payment-link STATUS read (`GET /orders/{uuid}/payment-link`).
   // Its own prefix — a link's lifecycle is independent of the payment/attempt history above it,
   // and the one-time minted URL is never cached under this (or any) key.
-  commerceOrderPaymentLink: (orderUuid: string) => ['commerce-order-payment-link', orderUuid] as const,
+  commerceOrderPaymentLink: (orderUuid: string) =>
+    ['commerce-order-payment-link', orderUuid] as const,
   commerceOrderRefunds: (orderUuid: string) => ['commerce-order-refunds', orderUuid] as const,
   commerceRefunds: () => ['commerce-refunds'] as const,
   commerceOrderNotes: (orderUuid: string) => ['commerce-order-notes', orderUuid] as const,
-  commerceOrderInvoiceData: (orderUuid: string) => ['commerce-order-invoice-data', orderUuid] as const,
+  commerceOrderInvoiceData: (orderUuid: string) =>
+    ['commerce-order-invoice-data', orderUuid] as const,
   commerceDiscounts: () => ['commerce-discounts'] as const,
   commerceDiscount: (uuid: string) => ['commerce-discount', uuid] as const,
   commerceShippingZones: () => ['commerce-shipping-zones'] as const,
   commerceShippingZone: (uuid: string) => ['commerce-shipping-zone', uuid] as const,
-  commerceShippingZoneMethods: (zoneUuid: string) => ['commerce-shipping-zone-methods', zoneUuid] as const,
+  commerceShippingZoneMethods: (zoneUuid: string) =>
+    ['commerce-shipping-zone-methods', zoneUuid] as const,
   commerceShippingClasses: () => ['commerce-shipping-classes'] as const,
   commerceShippingClass: (uuid: string) => ['commerce-shipping-class', uuid] as const,
   commerceTaxRates: () => ['commerce-tax-rates'] as const,

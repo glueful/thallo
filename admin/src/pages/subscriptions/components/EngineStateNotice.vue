@@ -10,9 +10,12 @@
 // audience is a `billing.manage` delegate who may hold no platform authority at all and would
 // hit that route's own capability boundary. Defaults to `true` (unchanged behavior for existing
 // callers); the workspace Billing page passes `false`.
-withDefaults(defineProps<{ state: 'engine_disabled' | 'schema_not_ready'; showAction?: boolean }>(), {
-  showAction: true,
-})
+withDefaults(
+  defineProps<{ state: 'engine_disabled' | 'schema_not_ready'; showAction?: boolean }>(),
+  {
+    showAction: true,
+  },
+)
 </script>
 
 <template>

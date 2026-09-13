@@ -14,18 +14,13 @@ import type { CommerceProduct } from '@/queries/commerceCatalog'
 const props = defineProps<{ product: CommerceProduct; storefrontUrl: string | null }>()
 
 const manualRefresh = ref(0)
-const frameKey = computed(
-  () => `${props.product.updated_at ?? ''}-${manualRefresh.value}`,
-)
+const frameKey = computed(() => `${props.product.updated_at ?? ''}-${manualRefresh.value}`)
 
 const showFrame = computed(() => props.product.status === 'active' && props.storefrontUrl !== null)
 </script>
 
 <template>
-  <div
-    class="overflow-hidden rounded-lg border border-default bg-default"
-    data-test="live-mirror"
-  >
+  <div class="overflow-hidden rounded-lg border border-default bg-default" data-test="live-mirror">
     <div
       class="flex items-center justify-between gap-3 border-b border-default bg-elevated/40 px-3 py-2 text-xs text-muted"
     >

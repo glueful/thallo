@@ -184,9 +184,8 @@ const ModalStub = {
  * `client` singleton captures the stub rather than whatever `fetch` was global before this test's
  * `beforeEach` ran. Must be called after `vi.stubGlobal('fetch', ...)` in every test. */
 async function mountHarness() {
-  const { default: OrderPaymentLinkCard } = await import(
-    '@/pages/commerce/orders/components/OrderPaymentLinkCard.vue'
-  )
+  const { default: OrderPaymentLinkCard } =
+    await import('@/pages/commerce/orders/components/OrderPaymentLinkCard.vue')
   const Harness = defineComponent({
     setup() {
       caches.mutation = useMutationCache()

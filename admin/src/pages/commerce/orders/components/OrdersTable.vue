@@ -129,7 +129,10 @@ async function confirmDelete() {
     // The engine's ONE typed refusal (`order_not_deletable`) carries the remedy in its message
     // ("Cancel this draft before deleting it." / "…has been placed and can never be deleted.") —
     // surfaced verbatim, never restated in copy that could drift from the server's rule.
-    notifyError(e, isOrderNotDeletable(e) ? 'This order can’t be deleted' : 'Couldn’t delete this order')
+    notifyError(
+      e,
+      isOrderNotDeletable(e) ? 'This order can’t be deleted' : 'Couldn’t delete this order',
+    )
   } finally {
     deleteInFlight.value = false
     deleteTarget.value = null
@@ -181,7 +184,12 @@ async function confirmDelete() {
     </template>
 
     <template #status-cell="{ row }">
-      <UBadge :color="statusColor(row.original.status)" variant="subtle" size="sm" data-test="order-status">
+      <UBadge
+        :color="statusColor(row.original.status)"
+        variant="subtle"
+        size="sm"
+        data-test="order-status"
+      >
         {{ row.original.status }}
       </UBadge>
     </template>
@@ -261,7 +269,11 @@ async function confirmDelete() {
   <UModal
     :open="deleteTarget !== null"
     title="Delete this draft permanently"
-    @update:open="(v: boolean) => { if (!v) deleteTarget = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) deleteTarget = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm" data-test="order-artifact-delete-dialog">

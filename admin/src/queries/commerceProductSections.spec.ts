@@ -60,7 +60,9 @@ describe('commerce product sections query layer', () => {
   // ── Tags ─────────────────────────────────────────────────────────────────
 
   it('tags: parses a valid envelope and normalizes items', async () => {
-    mockResponse({ data: { revision: 2, items: [{ uuid: 'tag1', name: 'Summer', slug: 'summer' }] } })
+    mockResponse({
+      data: { revision: 2, items: [{ uuid: 'tag1', name: 'Summer', slug: 'summer' }] },
+    })
 
     const { fetchProductTagsSection } = await import('@/queries/commerceProductSections')
     const envelope = await fetchProductTagsSection('prod1')
@@ -164,7 +166,14 @@ describe('commerce product sections query layer', () => {
       data: {
         revision: 3,
         items: [
-          { uuid: 'med1', blob_uuid: 'blob1', role: 'cover', position: 0, alt: null, variant_uuid: null },
+          {
+            uuid: 'med1',
+            blob_uuid: 'blob1',
+            role: 'cover',
+            position: 0,
+            alt: null,
+            variant_uuid: null,
+          },
         ],
       },
     })
@@ -173,7 +182,14 @@ describe('commerce product sections query layer', () => {
     const envelope = await fetchProductMediaSection('prod1')
 
     expect(envelope.items).toEqual([
-      { uuid: 'med1', blob_uuid: 'blob1', role: 'cover', position: 0, alt: null, variant_uuid: null },
+      {
+        uuid: 'med1',
+        blob_uuid: 'blob1',
+        role: 'cover',
+        position: 0,
+        alt: null,
+        variant_uuid: null,
+      },
     ])
   })
 
@@ -182,7 +198,14 @@ describe('commerce product sections query layer', () => {
       data: {
         revision: 1,
         items: [
-          { uuid: 'med1', blob_uuid: 'blob1', role: 'gallery', position: 0, alt: null, variant_uuid: 5 },
+          {
+            uuid: 'med1',
+            blob_uuid: 'blob1',
+            role: 'gallery',
+            position: 0,
+            alt: null,
+            variant_uuid: 5,
+          },
         ],
       },
     })
@@ -200,8 +223,22 @@ describe('commerce product sections query layer', () => {
       data: {
         revision: 9,
         items: [
-          { uuid: 'child1', name: 'Bundle part', slug: 'bundle-part', status: 'active', deleted: false, position: 0 },
-          { uuid: 'child2', name: 'Retired part', slug: 'retired-part', status: 'archived', deleted: true, position: 1 },
+          {
+            uuid: 'child1',
+            name: 'Bundle part',
+            slug: 'bundle-part',
+            status: 'active',
+            deleted: false,
+            position: 0,
+          },
+          {
+            uuid: 'child2',
+            name: 'Retired part',
+            slug: 'retired-part',
+            status: 'archived',
+            deleted: true,
+            position: 1,
+          },
         ],
       },
     })
@@ -224,7 +261,14 @@ describe('commerce product sections query layer', () => {
       data: {
         revision: 1,
         items: [
-          { uuid: 'child1', name: 'Bundle part', slug: 'bundle-part', status: 'active', deleted: 0, position: 0 },
+          {
+            uuid: 'child1',
+            name: 'Bundle part',
+            slug: 'bundle-part',
+            status: 'active',
+            deleted: 0,
+            position: 0,
+          },
         ],
       },
     })

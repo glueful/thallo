@@ -41,7 +41,9 @@ const files = ref<File[] | null>(null)
 const singleFile = ref<File | null>(null)
 const upload = useUploadMedia()
 const uploading = ref(false)
-const fileCount = computed(() => (props.multiple ? (files.value?.length ?? 0) : singleFile.value ? 1 : 0))
+const fileCount = computed(() =>
+  props.multiple ? (files.value?.length ?? 0) : singleFile.value ? 1 : 0,
+)
 
 async function uploadSelected(): Promise<void> {
   const list = props.multiple ? (files.value ?? []) : singleFile.value ? [singleFile.value] : []
@@ -51,7 +53,10 @@ async function uploadSelected(): Promise<void> {
   // there's no reason to spend the round-trip on a file the Library tab wouldn't even show back.
   const rejected = list.find((f) => !isAcceptedMediaFile(f, props.mediaType))
   if (rejected) {
-    notifyError(new Error(`“${rejected.name}” isn’t a supported file type.`), 'Unsupported file type')
+    notifyError(
+      new Error(`“${rejected.name}” isn’t a supported file type.`),
+      'Unsupported file type',
+    )
     return
   }
   uploading.value = true

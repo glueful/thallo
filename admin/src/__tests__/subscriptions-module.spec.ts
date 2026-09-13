@@ -18,7 +18,10 @@ describe('subscriptions admin module gating (thallo.subscriptions capability)', 
   })
 
   it('contributes Subscriptions → Plans, Billing, Workspace billing when thallo.subscriptions IS visible', () => {
-    const [main, utilities] = visibleNav((id) => id === 'thallo.subscriptions', [subscriptionsModule])
+    const [main, utilities] = visibleNav(
+      (id) => id === 'thallo.subscriptions',
+      [subscriptionsModule],
+    )
     expect(utilities).toEqual([])
     expect(main).toEqual([
       {

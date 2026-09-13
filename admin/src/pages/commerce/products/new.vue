@@ -33,7 +33,6 @@ const { data: meta } = useCommerceMeta()
 /** external/grouped products reject variants server-side — no SKU/price to collect. */
 const PURCHASABLE_TYPES = ['physical', 'digital'] as const
 
-
 const state = reactive({
   text: '',
   type: 'physical' as (typeof PRODUCT_TYPES)[number],

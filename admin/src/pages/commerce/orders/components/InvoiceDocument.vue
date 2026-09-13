@@ -40,9 +40,7 @@ function money(minor: number): string {
 function fmtDate(v: string | null): string {
   if (!v) return '—'
   const d = new Date(v.replace(' ', 'T'))
-  return Number.isNaN(d.getTime())
-    ? '—'
-    : d.toLocaleDateString(undefined, { dateStyle: 'medium' })
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString(undefined, { dateStyle: 'medium' })
 }
 
 /** Sanitized addon echo → one display string per addon — never variant options, never a
@@ -50,7 +48,8 @@ function fmtDate(v: string | null): string {
  * name/value/choice_label server-side; this only picks the best available label. */
 function addonLabel(addon: CommerceOrderLineAddon): string {
   const value =
-    addon.choice_label ?? (addon.value !== undefined && addon.value !== null ? String(addon.value) : null)
+    addon.choice_label ??
+    (addon.value !== undefined && addon.value !== null ? String(addon.value) : null)
   return value ? `${addon.name}: ${value}` : addon.name
 }
 
@@ -94,7 +93,12 @@ function addressLines(address: Record<string, unknown>): string[] {
 </script>
 
 <template>
-  <div class="invoice-document" :class="presetClass" :data-preset="preset" data-test="invoice-document">
+  <div
+    class="invoice-document"
+    :class="presetClass"
+    :data-preset="preset"
+    data-test="invoice-document"
+  >
     <!-- Header: logo (server-derived URL only) + seller identity — always printed (core). -->
     <header class="invoice-header">
       <img v-if="logoUrl" :src="logoUrl" alt="" class="invoice-logo" data-test="invoice-logo" />
@@ -154,7 +158,11 @@ function addressLines(address: Record<string, unknown>): string[] {
         <tr v-for="(line, i) in invoice.lines" :key="i" data-test="invoice-line">
           <td>
             <span data-test="invoice-line-name">{{ line.name }}</span>
-            <div v-if="line.addons.length > 0" class="invoice-line-addons" data-test="invoice-line-addons">
+            <div
+              v-if="line.addons.length > 0"
+              class="invoice-line-addons"
+              data-test="invoice-line-addons"
+            >
               {{ addonsText(line.addons) }}
             </div>
           </td>
@@ -208,6 +216,8 @@ function addressLines(address: Record<string, unknown>): string[] {
     <!-- Footer — optional (commerce.invoice.footer_text), always escaped: plain text
          interpolation only (never a raw-HTML directive), regardless of what save-time
          validation already refused (rendering is not the security boundary). -->
-    <footer v-if="footerText" class="invoice-footer" data-test="invoice-footer">{{ footerText }}</footer>
+    <footer v-if="footerText" class="invoice-footer" data-test="invoice-footer">
+      {{ footerText }}
+    </footer>
   </div>
 </template>

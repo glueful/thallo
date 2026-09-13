@@ -475,8 +475,8 @@ watch(selectedUuid, (next) => {
       <div class="space-y-4">
         <p class="text-sm text-muted">
           Disable <span class="text-default">“{{ pendingBuiltinDisable?.name }}”</span> for this
-          workspace? It disappears from role pickers and member signup; its definition and any
-          saved permission changes are kept and apply again if you re-enable it.
+          workspace? It disappears from role pickers and member signup; its definition and any saved
+          permission changes are kept and apply again if you re-enable it.
         </p>
         <UFormField
           label="Reassign members to"

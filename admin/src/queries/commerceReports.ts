@@ -256,7 +256,9 @@ function normalizeStockItem(raw: Record<string, unknown>): StockReportItem {
 // ── Fetchers ─────────────────────────────────────────────────────────────────
 
 /** `GET /commerce/reports/sales` — `ReportWindowQuery`'s exact param set is `{from, to, group}`. */
-export async function fetchCommerceReportSales(filters: SalesReportFilters = {}): Promise<SalesReport> {
+export async function fetchCommerceReportSales(
+  filters: SalesReportFilters = {},
+): Promise<SalesReport> {
   const { data, error, response } = await client.GET('/commerce/reports/sales', {
     params: { query: { from: filters.from, to: filters.to, group: filters.group } },
   })
@@ -266,7 +268,9 @@ export async function fetchCommerceReportSales(filters: SalesReportFilters = {})
     currency: str(raw.currency, 'USD'),
     window: normalizeWindow(raw),
     summary: normalizeSalesSummary(asRecord(raw.summary)),
-    series: Array.isArray(raw.series) ? raw.series.map((p) => normalizeSalesSeriesPoint(asRecord(p))) : [],
+    series: Array.isArray(raw.series)
+      ? raw.series.map((p) => normalizeSalesSeriesPoint(asRecord(p)))
+      : [],
   }
 }
 
@@ -321,7 +325,9 @@ export async function fetchCommerceReportCustomers(
 
 /** `GET /commerce/reports/stock` — `StockReportQuery`'s exact param set is
  * `{status, threshold, page, per_page}`. Point-in-time: no `from`/`to` at all. */
-export async function fetchCommerceReportStock(filters: StockReportFilters = {}): Promise<StockReportPage> {
+export async function fetchCommerceReportStock(
+  filters: StockReportFilters = {},
+): Promise<StockReportPage> {
   const { data, error, response } = await client.GET('/commerce/reports/stock', {
     params: {
       query: {

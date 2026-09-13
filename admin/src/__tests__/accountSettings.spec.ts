@@ -4,7 +4,11 @@ const authFetch = vi.fn()
 vi.mock('@/api/authFetch', () => ({ authFetch: (...a: unknown[]) => authFetch(...a) }))
 vi.mock('@/runtime/config', () => ({ runtimeConfig: { apiBase: '/v1/admin' } }))
 
-import { fetchAccountSettings, saveAccountRedirects, isSafeReturnPath } from '@/queries/accountSettings'
+import {
+  fetchAccountSettings,
+  saveAccountRedirects,
+  isSafeReturnPath,
+} from '@/queries/accountSettings'
 
 describe('account settings query layer', () => {
   beforeEach(() => authFetch.mockReset())

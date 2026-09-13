@@ -90,7 +90,11 @@ const actionItems = computed(() => [
           variant="ghost"
           size="xs"
           :disabled="page <= 1"
-          @click="() => { page-- }"
+          @click="
+            () => {
+              page--
+            }
+          "
         />
         <UButton
           icon="i-lucide-chevron-right"
@@ -98,7 +102,11 @@ const actionItems = computed(() => [
           variant="ghost"
           size="xs"
           :disabled="page >= totalPages"
-          @click="() => { page++ }"
+          @click="
+            () => {
+              page++
+            }
+          "
         />
       </div>
     </div>

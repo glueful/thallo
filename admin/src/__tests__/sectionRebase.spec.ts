@@ -140,9 +140,9 @@ describe('rebaseStructured', () => {
   it('returns silent when R deep-equals B item-wise, regardless of key order', () => {
     const B = [{ name: 'Widget', values: ['a', 'b'], visible: true }]
     const R = [{ visible: true, values: ['a', 'b'], name: 'Widget' }]
-    expect(rebaseStructured(B, [{ name: 'Widget (local edit)', values: [], visible: true }], R)).toBe(
-      'silent',
-    )
+    expect(
+      rebaseStructured(B, [{ name: 'Widget (local edit)', values: [], visible: true }], R),
+    ).toBe('silent')
   })
 
   it('returns silent for nested item structures with reordered keys at every level', () => {

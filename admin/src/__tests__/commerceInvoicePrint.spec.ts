@@ -32,13 +32,24 @@ function invoice(overrides: Partial<CommerceInvoiceData> = {}): CommerceInvoiceD
     },
     order: {
       number: 'ORD-2002',
-      dates: { placed_at: '2026-01-01 00:00:00', created_at: '2026-01-01 00:00:00', updated_at: null },
+      dates: {
+        placed_at: '2026-01-01 00:00:00',
+        created_at: '2026-01-01 00:00:00',
+        updated_at: null,
+      },
       currency: 'USD',
       currency_exponent: 2,
       status: 'paid',
     },
     lines: [
-      { name: 'Widget', sku: 'SKU-1', quantity: 2, unit_minor: 1000, subtotal_minor: 2000, addons: [] },
+      {
+        name: 'Widget',
+        sku: 'SKU-1',
+        quantity: 2,
+        unit_minor: 1000,
+        subtotal_minor: 2000,
+        addons: [],
+      },
     ],
     totals: {
       subtotal_minor: 2000,
@@ -67,9 +78,8 @@ describe('InvoiceDocument', () => {
   it.each(['a4', 'thermal_80', 'thermal_58'] as const)(
     'renders the %s preset with the document content intact',
     async (preset) => {
-      const { default: InvoiceDocument } = await import(
-        '@/pages/commerce/orders/components/InvoiceDocument.vue'
-      )
+      const { default: InvoiceDocument } =
+        await import('@/pages/commerce/orders/components/InvoiceDocument.vue')
       const wrapper = mount(InvoiceDocument, {
         props: { invoice: invoice(), preset, ...baseDocumentProps },
       })
@@ -92,9 +102,8 @@ describe('InvoiceDocument', () => {
   // ACTUALLY renders and looks that exact string up as a real selector in print.css itself,
   // joining the two sides the way a browser would.
   it('the class each preset actually renders has a matching real selector in print.css', async () => {
-    const { default: InvoiceDocument } = await import(
-      '@/pages/commerce/orders/components/InvoiceDocument.vue'
-    )
+    const { default: InvoiceDocument } =
+      await import('@/pages/commerce/orders/components/InvoiceDocument.vue')
     const { INVOICE_PAPER_PRESETS } = await import('@/queries/commerceSettings')
     const cssRaw = readFileSync(join(ROOT, 'src/assets/print.css'), 'utf8')
     const css = cssRaw.replace(/\/\*[\s\S]*?\*\//g, '')
@@ -124,9 +133,8 @@ describe('InvoiceDocument', () => {
       for (const showAddresses of bools) {
         for (const showTaxId of bools) {
           it(`keeps core content when showSku=${showSku} showAddresses=${showAddresses} showTaxId=${showTaxId}`, async () => {
-            const { default: InvoiceDocument } = await import(
-              '@/pages/commerce/orders/components/InvoiceDocument.vue'
-            )
+            const { default: InvoiceDocument } =
+              await import('@/pages/commerce/orders/components/InvoiceDocument.vue')
             const wrapper = mount(InvoiceDocument, {
               props: {
                 invoice: invoice(),
@@ -139,8 +147,12 @@ describe('InvoiceDocument', () => {
               },
             })
             expect(wrapper.find('[data-test="invoice-order-number"]').text()).toContain('ORD-2002')
-            expect(wrapper.find('[data-test="invoice-order-status"]').text()).toBe('Order status: paid')
-            expect(wrapper.find('[data-test="invoice-buyer-email"]').text()).toBe('buyer@example.com')
+            expect(wrapper.find('[data-test="invoice-order-status"]').text()).toBe(
+              'Order status: paid',
+            )
+            expect(wrapper.find('[data-test="invoice-buyer-email"]').text()).toBe(
+              'buyer@example.com',
+            )
             expect(wrapper.find('[data-test="invoice-line-name"]').text()).toBe('Widget')
             expect(wrapper.find('[data-test="invoice-line-qty"]').text()).toBe('2')
             expect(wrapper.find('[data-test="invoice-line-unit"]').text()).toBe('$10.00')
@@ -156,9 +168,8 @@ describe('InvoiceDocument', () => {
 
   // ── Nullable buyer email (Task 14: admin-order-creation walk-in orders) ────────────────────
   it('renders "Walk-in customer" instead of a bare placeholder when buyer.email is null', async () => {
-    const { default: InvoiceDocument } = await import(
-      '@/pages/commerce/orders/components/InvoiceDocument.vue'
-    )
+    const { default: InvoiceDocument } =
+      await import('@/pages/commerce/orders/components/InvoiceDocument.vue')
     const wrapper = mount(InvoiceDocument, {
       props: {
         invoice: invoice({ buyer: { email: null, addresses: null } }),
@@ -171,9 +182,8 @@ describe('InvoiceDocument', () => {
 
   describe('optional sections respond to their own toggle', () => {
     it('shows the SKU column only when showSku is true', async () => {
-      const { default: InvoiceDocument } = await import(
-        '@/pages/commerce/orders/components/InvoiceDocument.vue'
-      )
+      const { default: InvoiceDocument } =
+        await import('@/pages/commerce/orders/components/InvoiceDocument.vue')
       const shown = mount(InvoiceDocument, {
         props: { invoice: invoice(), preset: 'a4', ...baseDocumentProps, showSku: true },
       })
@@ -186,9 +196,8 @@ describe('InvoiceDocument', () => {
     })
 
     it('shows buyer addresses only when showAddresses is true', async () => {
-      const { default: InvoiceDocument } = await import(
-        '@/pages/commerce/orders/components/InvoiceDocument.vue'
-      )
+      const { default: InvoiceDocument } =
+        await import('@/pages/commerce/orders/components/InvoiceDocument.vue')
       const shown = mount(InvoiceDocument, {
         props: { invoice: invoice(), preset: 'a4', ...baseDocumentProps, showAddresses: true },
       })
@@ -201,9 +210,8 @@ describe('InvoiceDocument', () => {
     })
 
     it('shows the seller tax id only when showTaxId is true', async () => {
-      const { default: InvoiceDocument } = await import(
-        '@/pages/commerce/orders/components/InvoiceDocument.vue'
-      )
+      const { default: InvoiceDocument } =
+        await import('@/pages/commerce/orders/components/InvoiceDocument.vue')
       const shown = mount(InvoiceDocument, {
         props: { invoice: invoice(), preset: 'a4', ...baseDocumentProps, showTaxId: true },
       })
@@ -216,9 +224,8 @@ describe('InvoiceDocument', () => {
     })
 
     it('renders the logo only when logoUrl is set, using it verbatim as the <img> src', async () => {
-      const { default: InvoiceDocument } = await import(
-        '@/pages/commerce/orders/components/InvoiceDocument.vue'
-      )
+      const { default: InvoiceDocument } =
+        await import('@/pages/commerce/orders/components/InvoiceDocument.vue')
       const withLogo = mount(InvoiceDocument, {
         props: {
           invoice: invoice(),
@@ -246,11 +253,15 @@ describe('InvoiceDocument', () => {
     })
 
     it('renders footer text only when non-empty', async () => {
-      const { default: InvoiceDocument } = await import(
-        '@/pages/commerce/orders/components/InvoiceDocument.vue'
-      )
+      const { default: InvoiceDocument } =
+        await import('@/pages/commerce/orders/components/InvoiceDocument.vue')
       const withFooter = mount(InvoiceDocument, {
-        props: { invoice: invoice(), preset: 'a4', ...baseDocumentProps, footerText: 'Thanks for shopping!' },
+        props: {
+          invoice: invoice(),
+          preset: 'a4',
+          ...baseDocumentProps,
+          footerText: 'Thanks for shopping!',
+        },
       })
       expect(withFooter.find('[data-test="invoice-footer"]').text()).toBe('Thanks for shopping!')
 
@@ -263,9 +274,8 @@ describe('InvoiceDocument', () => {
 
   describe('hostile footer text is always escaped', () => {
     it('renders a hostile footer as plain text, never injecting real markup', async () => {
-      const { default: InvoiceDocument } = await import(
-        '@/pages/commerce/orders/components/InvoiceDocument.vue'
-      )
+      const { default: InvoiceDocument } =
+        await import('@/pages/commerce/orders/components/InvoiceDocument.vue')
       const hostile = '<img src=x onerror="alert(1)">'
       const wrapper = mount(InvoiceDocument, {
         props: { invoice: invoice(), preset: 'a4', ...baseDocumentProps, footerText: hostile },
@@ -286,9 +296,8 @@ describe('InvoiceDocument', () => {
   })
 
   it('renders sanitized addon labels, never variant option values, thumbnails, or links', async () => {
-    const { default: InvoiceDocument } = await import(
-      '@/pages/commerce/orders/components/InvoiceDocument.vue'
-    )
+    const { default: InvoiceDocument } =
+      await import('@/pages/commerce/orders/components/InvoiceDocument.vue')
     const wrapper = mount(InvoiceDocument, {
       props: {
         invoice: invoice({
@@ -313,12 +322,13 @@ describe('InvoiceDocument', () => {
   })
 
   it('renders refund rows with exact money and method', async () => {
-    const { default: InvoiceDocument } = await import(
-      '@/pages/commerce/orders/components/InvoiceDocument.vue'
-    )
+    const { default: InvoiceDocument } =
+      await import('@/pages/commerce/orders/components/InvoiceDocument.vue')
     const wrapper = mount(InvoiceDocument, {
       props: {
-        invoice: invoice({ refunds: [{ date: '2026-01-15 10:00:00', amount_minor: 500, method: 'original' }] }),
+        invoice: invoice({
+          refunds: [{ date: '2026-01-15 10:00:00', amount_minor: 500, method: 'original' }],
+        }),
         preset: 'a4',
         ...baseDocumentProps,
       },
@@ -329,9 +339,8 @@ describe('InvoiceDocument', () => {
   })
 
   it('renders JPY amounts with no decimal places (currency_exponent 0)', async () => {
-    const { default: InvoiceDocument } = await import(
-      '@/pages/commerce/orders/components/InvoiceDocument.vue'
-    )
+    const { default: InvoiceDocument } =
+      await import('@/pages/commerce/orders/components/InvoiceDocument.vue')
     const wrapper = mount(InvoiceDocument, {
       props: {
         invoice: invoice({
@@ -343,7 +352,14 @@ describe('InvoiceDocument', () => {
             status: 'paid',
           },
           lines: [
-            { name: 'Widget', sku: 'SKU-1', quantity: 1, unit_minor: 500, subtotal_minor: 500, addons: [] },
+            {
+              name: 'Widget',
+              sku: 'SKU-1',
+              quantity: 1,
+              unit_minor: 500,
+              subtotal_minor: 500,
+              addons: [],
+            },
           ],
           totals: {
             subtotal_minor: 500,
@@ -464,15 +480,21 @@ describe('invoice.vue print page', () => {
   it('marks the on-screen toolbar as print chrome', async () => {
     const wrapper = mount(InvoicePage)
     await flushPromises()
-    expect(wrapper.find('[data-test="invoice-toolbar"]').attributes('data-print-chrome')).not.toBeUndefined()
+    expect(
+      wrapper.find('[data-test="invoice-toolbar"]').attributes('data-print-chrome'),
+    ).not.toBeUndefined()
   })
 
   it('initializes the segmented preset control from commerce.invoice.paper_preset', async () => {
     invoiceSettingsValue.value = settings({ paperPreset: 'thermal_80' })
     const wrapper = mount(InvoicePage)
     await flushPromises()
-    expect(wrapper.find('[data-test="invoice-document"]').attributes('data-preset')).toBe('thermal_80')
-    expect(wrapper.find('[data-test="invoice-preset-thermal_80"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.find('[data-test="invoice-document"]').attributes('data-preset')).toBe(
+      'thermal_80',
+    )
+    expect(wrapper.find('[data-test="invoice-preset-thermal_80"]').attributes('aria-pressed')).toBe(
+      'true',
+    )
   })
 
   it('changes the rendered preset locally on click WITHOUT writing back to settings', async () => {
@@ -483,7 +505,9 @@ describe('invoice.vue print page', () => {
     await wrapper.find('[data-test="invoice-preset-thermal_58"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-test="invoice-document"]').attributes('data-preset')).toBe('thermal_58')
+    expect(wrapper.find('[data-test="invoice-document"]').attributes('data-preset')).toBe(
+      'thermal_58',
+    )
     // The underlying settings value stays exactly as loaded — proves no save mutation ran.
     expect(invoiceSettingsValue.value?.paperPreset).toBe('a4')
   })
@@ -548,7 +572,9 @@ describe('print.css is loaded globally', () => {
     expect(src).not.toMatch(/size:\s*80mm\s+auto/)
     expect(src).not.toMatch(/size:\s*58mm\s+auto/)
     // Both thermal presets select the SAME named page.
-    expect(src).toMatch(/\.invoice-thermal-80,\s*\n?\s*\.invoice-thermal-58\s*\{[^}]*page:\s*invoice-thermal/)
+    expect(src).toMatch(
+      /\.invoice-thermal-80,\s*\n?\s*\.invoice-thermal-58\s*\{[^}]*page:\s*invoice-thermal/,
+    )
     expect(src).toMatch(/\[data-print-chrome\]/)
     expect(src).toMatch(/\[data-print-shell\]/)
     expect(src).toMatch(/thead\s*\{[^}]*display:\s*table-header-group/)

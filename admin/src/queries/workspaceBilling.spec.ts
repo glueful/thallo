@@ -159,7 +159,9 @@ describe('workspace billing query layer', () => {
 
     it('a settled provider_observed replay carries a null checkout_url', async () => {
       const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-      fetchMock.mockResolvedValue(jsonResponse({ data: { status: 'provider_observed', checkout_url: null } }))
+      fetchMock.mockResolvedValue(
+        jsonResponse({ data: { status: 'provider_observed', checkout_url: null } }),
+      )
       const { startWorkspaceCheckout } = await import('@/queries/workspaceBilling')
       const result = await startWorkspaceCheckout('pro', 'a'.repeat(32))
       expect(result).toEqual({ status: 'provider_observed', checkout_url: null })

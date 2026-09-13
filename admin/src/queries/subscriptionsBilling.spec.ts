@@ -134,7 +134,9 @@ describe('subscriptions billing query layer', () => {
     it('GETs the exact /meta endpoint', async () => {
       const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
       fetchMock.mockResolvedValue(
-        jsonResponse({ data: { engine: 'ready', tenancy_enabled: false, default_tenant_uuid: 't1' } }),
+        jsonResponse({
+          data: { engine: 'ready', tenancy_enabled: false, default_tenant_uuid: 't1' },
+        }),
       )
       const { fetchSubscriptionsMeta } = await import('@/queries/subscriptionsBilling')
       await fetchSubscriptionsMeta()
@@ -175,7 +177,11 @@ describe('subscriptions billing query layer', () => {
               code: 409,
               timestamp: '2026-01-01T00:00:00Z',
               request_id: 'req_1',
-              details: { code: 'no_capable_gateway', reason: 'gateway_not_capable', gateway: 'paystack' },
+              details: {
+                code: 'no_capable_gateway',
+                reason: 'gateway_not_capable',
+                gateway: 'paystack',
+              },
             },
           },
           409,
@@ -247,7 +253,9 @@ describe('subscriptions billing query layer', () => {
 
   it('createPlan POSTs the exact CreatePlanInput body and normalizes the created plan', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(jsonResponse({ success: true, message: 'Plan created', data: planRow() }, 201))
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Plan created', data: planRow() }, 201),
+    )
 
     const { createPlan } = await import('@/queries/subscriptionsBilling')
     const plan = await createPlan({
@@ -316,14 +324,20 @@ describe('subscriptions billing query layer', () => {
 
     const { url, init } = lastCall(fetchMock)
     expect(init.method).toBe('POST')
-    expect(new URL(url, 'http://localhost').pathname).toBe('/v1/admin/subscriptions/plans/pro/archive')
+    expect(new URL(url, 'http://localhost').pathname).toBe(
+      '/v1/admin/subscriptions/plans/pro/archive',
+    )
     expect(plan.status).toBe('archived')
   })
 
   it('importPlansConfig POSTs /plans/import-config with the given body and normalizes imported plans', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: true, message: 'Plans imported', data: { plans: [planRow(), planRow({ plan_key: 'free' })] } }),
+      jsonResponse({
+        success: true,
+        message: 'Plans imported',
+        data: { plans: [planRow(), planRow({ plan_key: 'free' })] },
+      }),
     )
 
     const { importPlansConfig } = await import('@/queries/subscriptionsBilling')
@@ -331,7 +345,9 @@ describe('subscriptions billing query layer', () => {
 
     const { url, init } = lastCall(fetchMock)
     expect(init.method).toBe('POST')
-    expect(new URL(url, 'http://localhost').pathname).toBe('/v1/admin/subscriptions/plans/import-config')
+    expect(new URL(url, 'http://localhost').pathname).toBe(
+      '/v1/admin/subscriptions/plans/import-config',
+    )
     expect(bodyOf(init)).toEqual({ force: true, status: 'draft' })
     expect(imported).toHaveLength(2)
   })
@@ -371,7 +387,9 @@ describe('subscriptions billing query layer', () => {
   it('fetchPlans normalizes provider_identifiers as a plain string map', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       jsonResponse({
-        data: { plans: [planRow({ provider_identifiers: { stripe: 'price_123', paystack: 'PLN_abc' } })] },
+        data: {
+          plans: [planRow({ provider_identifiers: { stripe: 'price_123', paystack: 'PLN_abc' } })],
+        },
       }),
     )
     const { fetchPlans } = await import('@/queries/subscriptionsBilling')
@@ -391,7 +409,9 @@ describe('subscriptions billing query layer', () => {
   it('fetchPlans drops non-string values from a malformed provider_identifiers map', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
       jsonResponse({
-        data: { plans: [planRow({ provider_identifiers: { stripe: 'price_123', bad: 42, worse: null } })] },
+        data: {
+          plans: [planRow({ provider_identifiers: { stripe: 'price_123', bad: 42, worse: null } })],
+        },
       }),
     )
     const { fetchPlans } = await import('@/queries/subscriptionsBilling')
@@ -401,7 +421,9 @@ describe('subscriptions billing query layer', () => {
 
   it('createPlan sends provider_identifiers verbatim in the POST body', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(jsonResponse({ data: planRow({ provider_identifiers: { stripe: 'price_1' } }) }, 201))
+    fetchMock.mockResolvedValue(
+      jsonResponse({ data: planRow({ provider_identifiers: { stripe: 'price_1' } }) }, 201),
+    )
 
     const { createPlan } = await import('@/queries/subscriptionsBilling')
     await createPlan({
@@ -501,7 +523,12 @@ describe('subscriptions billing query layer', () => {
 
   it('fetchWorkspaces normalizes a null subscription to null (workspace with no subscription)', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      jsonResponse({ data: [{ tenant: tenantRow(), subscription: null }], total: 1, current_page: 1, per_page: 20 }),
+      jsonResponse({
+        data: [{ tenant: tenantRow(), subscription: null }],
+        total: 1,
+        current_page: 1,
+        per_page: 20,
+      }),
     )
     const { fetchWorkspaces } = await import('@/queries/subscriptionsBilling')
     const page = await fetchWorkspaces()
@@ -545,8 +572,22 @@ describe('subscriptions billing query layer', () => {
           tenant: tenantRow(),
           subscription: subscriptionSummary(),
           overrides: [
-            { entitlement: 'seats', value: 25, expires_at: '2099-01-01 00:00:00', reason: 'promo', created_at: '2026-01-01 00:00:00', updated_at: '2026-01-01 00:00:00' },
-            { entitlement: 'api', value: true, expires_at: '2020-01-01 00:00:00', reason: 'trial extension (expired)', created_at: '2019-01-01 00:00:00', updated_at: '2019-01-01 00:00:00' },
+            {
+              entitlement: 'seats',
+              value: 25,
+              expires_at: '2099-01-01 00:00:00',
+              reason: 'promo',
+              created_at: '2026-01-01 00:00:00',
+              updated_at: '2026-01-01 00:00:00',
+            },
+            {
+              entitlement: 'api',
+              value: true,
+              expires_at: '2020-01-01 00:00:00',
+              reason: 'trial extension (expired)',
+              created_at: '2019-01-01 00:00:00',
+              updated_at: '2019-01-01 00:00:00',
+            },
           ],
         },
       }),
@@ -584,7 +625,9 @@ describe('subscriptions billing query layer', () => {
 
   it('fetchWorkspace GETs the exact endpoint', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(jsonResponse({ data: { tenant: tenantRow(), subscription: null, overrides: [] } }))
+    fetchMock.mockResolvedValue(
+      jsonResponse({ data: { tenant: tenantRow(), subscription: null, overrides: [] } }),
+    )
     const { fetchWorkspace } = await import('@/queries/subscriptionsBilling')
     await fetchWorkspace('t1')
     const { url } = lastCall(fetchMock)
@@ -595,14 +638,18 @@ describe('subscriptions billing query layer', () => {
 
   it('setWorkspacePlan PUTs the exact {plan_key} body', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(jsonResponse({ success: true, message: 'Plan updated', data: { status: 'active' } }))
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Plan updated', data: { status: 'active' } }),
+    )
 
     const { setWorkspacePlan } = await import('@/queries/subscriptionsBilling')
     await setWorkspacePlan('t1', 'pro')
 
     const { url, init } = lastCall(fetchMock)
     expect(init.method).toBe('PUT')
-    expect(new URL(url, 'http://localhost').pathname).toBe('/v1/admin/subscriptions/workspaces/t1/plan')
+    expect(new URL(url, 'http://localhost').pathname).toBe(
+      '/v1/admin/subscriptions/workspaces/t1/plan',
+    )
     expect(bodyOf(init)).toEqual({ plan_key: 'pro' })
   })
 
@@ -611,7 +658,8 @@ describe('subscriptions billing query layer', () => {
       jsonResponse(
         {
           success: false,
-          message: 'this subscription is managed by a payment provider and cannot be changed locally',
+          message:
+            'this subscription is managed by a payment provider and cannot be changed locally',
           error: {
             code: 409,
             timestamp: '2026-01-01T00:00:00Z',
@@ -645,7 +693,9 @@ describe('subscriptions billing query layer', () => {
 
     const { url, init } = lastCall(fetchMock)
     expect(init.method).toBe('POST')
-    expect(new URL(url, 'http://localhost').pathname).toBe('/v1/admin/subscriptions/workspaces/t1/cancel')
+    expect(new URL(url, 'http://localhost').pathname).toBe(
+      '/v1/admin/subscriptions/workspaces/t1/cancel',
+    )
     expect(bodyOf(init)).toEqual({ at_period_end: true })
   })
 
@@ -683,7 +733,9 @@ describe('subscriptions billing query layer', () => {
       caught = e
     }
     expect(apiErrorCode(caught)).toBe('default_workspace_missing')
-    expect((caught as InstanceType<typeof ApiError>).message).toBe('no default workspace is established yet')
+    expect((caught as InstanceType<typeof ApiError>).message).toBe(
+      'no default workspace is established yet',
+    )
   })
 
   // ── Overrides: upsert / delete ───────────────────────────────────────────────
@@ -728,7 +780,9 @@ describe('subscriptions billing query layer', () => {
 
   it('deleteWorkspaceOverride DELETEs the exact endpoint', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-    fetchMock.mockResolvedValue(jsonResponse({ success: true, message: 'Override removed', data: [] }))
+    fetchMock.mockResolvedValue(
+      jsonResponse({ success: true, message: 'Override removed', data: [] }),
+    )
 
     const { deleteWorkspaceOverride } = await import('@/queries/subscriptionsBilling')
     await deleteWorkspaceOverride('t1', 'seats')

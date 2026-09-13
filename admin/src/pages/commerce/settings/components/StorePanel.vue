@@ -59,9 +59,13 @@ function hydrate(): void {
   })
 }
 
-watch(settings, () => {
-  if (!dirty.value) hydrate()
-}, { immediate: true })
+watch(
+  settings,
+  () => {
+    if (!dirty.value) hydrate()
+  },
+  { immediate: true },
+)
 
 watch(form, () => {
   if (!syncing) dirty.value = true
@@ -120,7 +124,8 @@ const currencyReinterprets = computed(
 function defaultHelp(key: string): string | undefined {
   const entry = settings.value?.settings[key]
   if (!entry || entry.overridden) return undefined
-  const shown = key === 'commerce.tax.flat_rate_bps' ? `${Number(entry.default) / 100}%` : entry.default
+  const shown =
+    key === 'commerce.tax.flat_rate_bps' ? `${Number(entry.default) / 100}%` : entry.default
   return `Default: ${shown} — from server config`
 }
 
@@ -131,7 +136,6 @@ function overridden(key: string): boolean {
 const numberFormatPreview = computed(() =>
   form.numberFormat.includes('{seq}') ? form.numberFormat.replace('{seq}', '1042') : null,
 )
-
 
 const fieldErrors = reactive<Record<string, string>>({})
 
@@ -149,8 +153,10 @@ async function submit(): Promise<void> {
   const body: StoreSettingsSave = {
     'commerce.currency': form.currency.trim() === '' ? null : form.currency.trim().toUpperCase(),
     'commerce.tax.flat_rate_bps': bps,
-    'commerce.orders.number_format': form.numberFormat.trim() === '' ? null : form.numberFormat.trim(),
-    'commerce.orders.expiry_minutes': form.expiryMinutes.trim() === '' ? null : form.expiryMinutes.trim(),
+    'commerce.orders.number_format':
+      form.numberFormat.trim() === '' ? null : form.numberFormat.trim(),
+    'commerce.orders.expiry_minutes':
+      form.expiryMinutes.trim() === '' ? null : form.expiryMinutes.trim(),
     'commerce.cart.ttl_days': form.cartTtlDays.trim() === '' ? null : form.cartTtlDays.trim(),
     'commerce.reports.low_stock_threshold':
       form.lowStockThreshold.trim() === '' ? null : form.lowStockThreshold.trim(),
@@ -182,7 +188,11 @@ function resetField(field: keyof typeof form): void {
 </script>
 
 <template>
-  <div v-if="status === 'pending'" class="flex justify-center py-10" data-test="store-settings-loading">
+  <div
+    v-if="status === 'pending'"
+    class="flex justify-center py-10"
+    data-test="store-settings-loading"
+  >
     <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
   </div>
 
@@ -246,7 +256,11 @@ function resetField(field: keyof typeof form): void {
           :disabled="!canManage"
           data-test="store-number-format-input"
         />
-        <p v-if="numberFormatPreview" class="mt-1 text-xs text-muted" data-test="store-number-format-preview">
+        <p
+          v-if="numberFormatPreview"
+          class="mt-1 text-xs text-muted"
+          data-test="store-number-format-preview"
+        >
           Preview: {{ numberFormatPreview }}
         </p>
       </UFormField>
@@ -296,7 +310,10 @@ function resetField(field: keyof typeof form): void {
       <UFormField
         label="Download link lifetime (seconds)"
         :error="fieldErrors['commerce.downloads.url_ttl']"
-        :help="defaultHelp('commerce.downloads.url_ttl') ?? 'Signed download URLs expire after this many seconds (60–604800).'"
+        :help="
+          defaultHelp('commerce.downloads.url_ttl') ??
+          'Signed download URLs expire after this many seconds (60–604800).'
+        "
       >
         <UInput
           v-model="form.downloadsUrlTtl"

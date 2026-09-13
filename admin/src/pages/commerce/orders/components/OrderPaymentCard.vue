@@ -37,7 +37,10 @@ watch(
   status,
   (s) => {
     if (s === 'error') {
-      notifyError(new Error("Couldn't load this order's payment details."), "Couldn't load payments")
+      notifyError(
+        new Error("Couldn't load this order's payment details."),
+        "Couldn't load payments",
+      )
     }
   },
   { immediate: true },
@@ -77,7 +80,11 @@ const isEmpty = computed(
       <h3 class="text-sm font-medium">Payments</h3>
     </template>
 
-    <div v-if="status === 'pending'" class="flex justify-center py-6" data-test="order-payments-loading">
+    <div
+      v-if="status === 'pending'"
+      class="flex justify-center py-6"
+      data-test="order-payments-loading"
+    >
       <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin text-muted" />
     </div>
 
@@ -127,7 +134,11 @@ const isEmpty = computed(
                 </UBadge>
                 <span class="flex items-center gap-1 text-muted">
                   <span data-test="order-payment-reference">{{ p.reference }}</span>
-                  <CopyButton :value="p.reference" label="Copy payment reference" data-test="order-payment-reference-copy" />
+                  <CopyButton
+                    :value="p.reference"
+                    label="Copy payment reference"
+                    data-test="order-payment-reference-copy"
+                  />
                 </span>
                 <span v-if="p.gateway_transaction_id" class="flex items-center gap-1 text-muted">
                   <span data-test="order-payment-txn">{{ p.gateway_transaction_id }}</span>
@@ -153,9 +164,16 @@ const isEmpty = computed(
               class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"
             >
               <div class="flex flex-wrap items-center gap-2">
-                <span class="font-medium text-default">{{ money(intent.amount, intent.currency) }}</span>
+                <span class="font-medium text-default">{{
+                  money(intent.amount, intent.currency)
+                }}</span>
                 <UBadge color="neutral" variant="subtle" size="sm">{{ intent.gateway }}</UBadge>
-                <UBadge color="neutral" variant="subtle" size="sm" data-test="order-payment-intent-status">
+                <UBadge
+                  color="neutral"
+                  variant="subtle"
+                  size="sm"
+                  data-test="order-payment-intent-status"
+                >
                   {{ intent.status }}
                 </UBadge>
                 <span class="flex items-center gap-1 text-muted">
@@ -175,8 +193,14 @@ const isEmpty = computed(
 
       <!-- Order-level aggregate — a `commerce_orders.refunded_total` echo, not a Payvia concept,
            shown regardless of the classification above so it's never confused with a gateway row. -->
-      <p class="mt-4 border-t border-default pt-3 text-sm" data-test="order-payments-refunded-total">
-        Refunded (order total): <span class="font-medium text-default">{{ money(data.refund.refunded_total, meta?.currency ?? '') }}</span>
+      <p
+        class="mt-4 border-t border-default pt-3 text-sm"
+        data-test="order-payments-refunded-total"
+      >
+        Refunded (order total):
+        <span class="font-medium text-default">{{
+          money(data.refund.refunded_total, meta?.currency ?? '')
+        }}</span>
       </p>
     </template>
   </UCard>
