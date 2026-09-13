@@ -20,6 +20,10 @@ as the next release, never a mutated tag.
   ends like a file, so the common static-file location took it. The production guide's location
   rule covers `/v1/` and `/api-docs/` now, and `thallo:doctor` probes an API path that ends like
   a file (`api-routing`) next to the theme-asset probe.
+- **SVG thumbnails in the media library answered 422.** The list asked for a 160px variant of
+  every `image/*` blob, and the framework's resizer refuses vector images (its raster validator
+  knows JPEG, PNG, GIF and WebP only). The thumbnail URL is the original for anything but those
+  four formats now; framework 1.85.6 also serves an SVG's original when a width is requested.
 
 ### Added
 - **Code block** (website plan, phase 1): a snippet with a language label and a Copy button,
