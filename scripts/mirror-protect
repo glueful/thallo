@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# mirror-protect — make the 15 mirror repositories read-only for everyone but the release pusher.
+#
+# Nobody commits to a mirror (RELEASING.md): the split overwrites `main` on every release, so a
+# commit landing there is lost and never reaches the code base. GitHub has no single read-only
+# switch that still lets the release pushes through, so per repository this applies:
+#   1. a branch ruleset on the default branch: no creation/update/deletion, no force pushes;
+#   2. a tag ruleset on every tag: no creation/update/deletion;
+#   3. features off: issues, wiki, projects, discussions (pull requests cannot be disabled,
+#      but with 1. nobody can merge one);
+# with "Repository admin" on the bypass list — the owner who runs `release-split --push`.
+#
+# Usage: GITHUB_TOKEN=<fine-grained token: Administration read+write on the mirrors> \
+#        scripts/mirror-protect [--dry-run] [--owner glueful]
+# Idempotent: a ruleset that already exists (by name) is updated, not duplicated.
+set -euo pipefail
+
+OWNER=glueful; DRY=0
+while [[ $# -gt 0 ]]; do case "$1" in --dry-run) DRY=1 ;; --owner) OWNER="$2"; shift ;; *) echo "unknown option $1" >&2; exit 2 ;; esac; shift; done
+if [[ "$DRY" -eq 0 && -z "${GITHUB_TOKEN:-}" ]]; then
+  echo "mirror-protect: set GITHUB_TOKEN (fine-grained, Administration: read and write on the mirrors), or pass --dry-run." >&2
+  exit 2
+fi
+
+MIRRORS=(thallo-skeleton thallo-core thallo-contracts thallo-account thallo-analytics thallo-collections
+         thallo-commerce thallo-importers thallo-navigation thallo-render thallo-search thallo-seo
+         thallo-subscriptions thallo-tenancy thallo-workflow)
+
+API=https://api.github.com
+api() { # method path [json]
+  local method="$1" path="$2" body="${3:-}"
+  if [[ "$DRY" -eq 1 ]]; then echo "  $method $path ${body:+$body}"; return 0; fi
+  curl -sS -X "$method" "$API$path" \
+    -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" \
+    -H "X-GitHub-Api-Version: 2022-11-28" ${body:+-d "$body"}
+}
+
+# Bypass: RepositoryRole 5 = admin (the owner). Rules: creation/update/deletion + non_fast_forward.
+BRANCH_RULESET='{"name":"read-only mirror: default branch","target":"branch","enforcement":"active","bypass_actors":[{"actor_id":5,"actor_type":"RepositoryRole","bypass_mode":"always"}],"conditions":{"ref_name":{"include":["~DEFAULT_BRANCH"],"exclude":[]}},"rules":[{"type":"creation"},{"type":"update"},{"type":"deletion"},{"type":"non_fast_forward"}]}'
+TAG_RULESET='{"name":"read-only mirror: tags","target":"tag","enforcement":"active","bypass_actors":[{"actor_id":5,"actor_type":"RepositoryRole","bypass_mode":"always"}],"conditions":{"ref_name":{"include":["~ALL"],"exclude":[]}},"rules":[{"type":"creation"},{"type":"update"},{"type":"deletion"}]}'
+FEATURES='{"has_issues":false,"has_wiki":false,"has_projects":false,"has_discussions":false}'
+
+upsert_ruleset() { # repo json
+  local repo="$1" json="$2" name id
+  name="$(printf '%s' "$json" | php -r '$j=json_decode(stream_get_contents(STDIN),true);echo $j["name"];')"
+  if [[ "$DRY" -eq 1 ]]; then api POST "/repos/$OWNER/$repo/rulesets" "$json"; return 0; fi
+  id="$(api GET "/repos/$OWNER/$repo/rulesets" | php -r '$n=$argv[1];foreach(json_decode(stream_get_contents(STDIN),true)?:[] as $r){if(($r["name"]??"")===$n){echo $r["id"];break;}}' "$name")"
+  if [[ -n "$id" ]]; then api PUT "/repos/$OWNER/$repo/rulesets/$id" "$json" >/dev/null; echo "  updated ruleset '$name'"
+  else api POST "/repos/$OWNER/$repo/rulesets" "$json" >/dev/null; echo "  created ruleset '$name'"; fi
+}
+
+for repo in "${MIRRORS[@]}"; do
+  echo "== $OWNER/$repo =="
+  upsert_ruleset "$repo" "$BRANCH_RULESET"
+  upsert_ruleset "$repo" "$TAG_RULESET"
+  if [[ "$DRY" -eq 1 ]]; then api PATCH "/repos/$OWNER/$repo" "$FEATURES"; else api PATCH "/repos/$OWNER/$repo" "$FEATURES" >/dev/null; echo "  features off: issues, wiki, projects, discussions"; fi
+done
+echo "== mirror-protect: ${#MIRRORS[@]} mirrors $([[ "$DRY" -eq 1 ]] && echo 'planned (dry run)' || echo 'protected') =="
