@@ -26,11 +26,21 @@ vi.mock('@/stores/session', () => ({
 }))
 
 function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'content-type': 'application/json' },
+  })
 }
 
 function emptySearchBody() {
-  return { success: true, message: 'Orders retrieved', data: [], current_page: 1, per_page: 24, total: 0 }
+  return {
+    success: true,
+    message: 'Orders retrieved',
+    data: [],
+    current_page: 1,
+    per_page: 24,
+    total: 0,
+  }
 }
 
 /** `fetch` is shared by BOTH `useOrderSearch()`'s list query and `cancelOrder()`'s mutation now

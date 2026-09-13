@@ -57,7 +57,9 @@ const { success, error: notifyError } = useNotify()
 const selfServeMutation = useSelfServeCheckoutMutation()
 const selfServeEnabled = computed(() => meta.value?.self_serve_checkout_enabled ?? false)
 const selfServeGatewayCapable = computed(() => meta.value?.self_serve_gateway_capable ?? false)
-const selfServeSwitchDisabled = computed(() => !selfServeEnabled.value && !selfServeGatewayCapable.value)
+const selfServeSwitchDisabled = computed(
+  () => !selfServeEnabled.value && !selfServeGatewayCapable.value,
+)
 const selfServeError = ref<string | null>(null)
 
 // Names the blocking gateway concretely wherever we can -- both the standing "why is this
@@ -191,7 +193,11 @@ async function onToggleSelfServe(next: boolean) {
           <div v-else-if="workspacesStatus === 'error'" data-test="workspaces-error">
             <UAlert color="error" variant="subtle" title="Couldn't load workspaces." />
           </div>
-          <div v-else-if="rows.length === 0" data-test="workspaces-empty" class="text-sm text-muted">
+          <div
+            v-else-if="rows.length === 0"
+            data-test="workspaces-empty"
+            class="text-sm text-muted"
+          >
             No workspaces yet.
           </div>
           <table v-else class="w-full text-left text-sm" data-test="workspaces-table">
@@ -254,6 +260,10 @@ async function onToggleSelfServe(next: boolean) {
     v-if="selectedUuid"
     :uuid="selectedUuid"
     :open="selectedUuid !== null"
-    @update:open="(v: boolean) => { if (!v) selectedUuid = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) selectedUuid = null
+      }
+    "
   />
 </template>

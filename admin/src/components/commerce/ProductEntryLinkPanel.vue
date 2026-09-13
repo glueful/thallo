@@ -113,7 +113,8 @@ function resetPickers() {
 // ── Labels for the relink confirm step ──────────────────────────────────────────────────────
 const currentLabel = computed(() => {
   if (isProductMode.value) {
-    if (knownEntry.value && knownEntry.value.uuid === currentEntryUuid.value) return knownEntry.value.title
+    if (knownEntry.value && knownEntry.value.uuid === currentEntryUuid.value)
+      return knownEntry.value.title
     return currentEntryUuid.value ? `entry ${currentEntryUuid.value}` : 'nothing'
   }
   if (linkedProduct.value) return linkedProduct.value.name
@@ -135,10 +136,16 @@ async function submitFirstLink() {
   mutationError.value = null
   try {
     if (isProductMode.value && selectedEntry.value) {
-      await link.mutateAsync({ productUuid: productUuid.value, entryUuid: selectedEntry.value.uuid })
+      await link.mutateAsync({
+        productUuid: productUuid.value,
+        entryUuid: selectedEntry.value.uuid,
+      })
       knownEntry.value = selectedEntry.value
     } else if (isEntryMode.value && selectedProduct.value) {
-      await link.mutateAsync({ productUuid: selectedProduct.value.uuid, entryUuid: entryUuid.value })
+      await link.mutateAsync({
+        productUuid: selectedProduct.value.uuid,
+        entryUuid: entryUuid.value,
+      })
     }
     resetPickers()
     success('Linked', 'The product and entry are now linked.')
@@ -180,9 +187,15 @@ async function confirmRelink() {
       // unlinks the current product first, then links the new one. A failure AFTER the
       // unlink succeeded is a distinct partial state (the entry is now unlinked, the move
       // did not complete) and must be messaged as such — never as a concurrent-change 409.
-      await unlink.mutateAsync({ productUuid: currentProductUuid.value, entryUuid: entryUuid.value })
+      await unlink.mutateAsync({
+        productUuid: currentProductUuid.value,
+        entryUuid: entryUuid.value,
+      })
       try {
-        await link.mutateAsync({ productUuid: selectedProduct.value.uuid, entryUuid: entryUuid.value })
+        await link.mutateAsync({
+          productUuid: selectedProduct.value.uuid,
+          entryUuid: entryUuid.value,
+        })
       } catch (linkError) {
         pendingRelink.value = false
         moveIncomplete.value = selectedProduct.value?.name ?? 'the selected product'
@@ -222,9 +235,15 @@ async function confirmUnlink() {
   mutationError.value = null
   try {
     if (isProductMode.value) {
-      await unlink.mutateAsync({ productUuid: productUuid.value, entryUuid: currentEntryUuid.value ?? undefined })
+      await unlink.mutateAsync({
+        productUuid: productUuid.value,
+        entryUuid: currentEntryUuid.value ?? undefined,
+      })
     } else if (currentProductUuid.value) {
-      await unlink.mutateAsync({ productUuid: currentProductUuid.value, entryUuid: entryUuid.value })
+      await unlink.mutateAsync({
+        productUuid: currentProductUuid.value,
+        entryUuid: entryUuid.value,
+      })
     }
     knownEntry.value = null
     pendingUnlink.value = false
@@ -276,16 +295,23 @@ async function confirmUnlink() {
             </span>
             <span v-else data-test="link-current-unknown">entry {{ currentLink.entry_uuid }}</span>
           </p>
-          <p v-else class="text-sm text-muted" data-test="link-none">Not linked to any entry yet.</p>
+          <p v-else class="text-sm text-muted" data-test="link-none">
+            Not linked to any entry yet.
+          </p>
         </template>
         <template v-else>
           <p v-if="currentLink" data-test="link-current">
             Linked to
-            <RouterLink :to="`/commerce/products/${currentLink.product_uuid}`" data-test="link-product-detail">
+            <RouterLink
+              :to="`/commerce/products/${currentLink.product_uuid}`"
+              data-test="link-product-detail"
+            >
               {{ linkedProduct?.name ?? currentLink.product_uuid }}
             </RouterLink>
           </p>
-          <p v-else class="text-sm text-muted" data-test="link-none">Not linked to any product yet.</p>
+          <p v-else class="text-sm text-muted" data-test="link-none">
+            Not linked to any product yet.
+          </p>
         </template>
       </div>
 
@@ -309,7 +335,9 @@ async function confirmUnlink() {
         data-test="link-conflict"
       >
         <template #actions>
-          <UButton size="xs" data-test="link-conflict-refresh" @click="refreshLink">Refresh</UButton>
+          <UButton size="xs" data-test="link-conflict-refresh" @click="refreshLink"
+            >Refresh</UButton
+          >
         </template>
       </UAlert>
 
@@ -323,7 +351,11 @@ async function confirmUnlink() {
       />
 
       <!-- Search + link/relink/unlink controls — manage only; view-only keeps state + preview. -->
-      <section v-if="canManage" class="space-y-3 border-t border-default pt-4" data-test="link-search-section">
+      <section
+        v-if="canManage"
+        class="space-y-3 border-t border-default pt-4"
+        data-test="link-search-section"
+      >
         <UInput
           v-model="searchTerm"
           icon="i-lucide-search"
@@ -395,10 +427,16 @@ async function confirmUnlink() {
         </div>
 
         <!-- Relink confirm — explicit, shows what will be replaced BEFORE submitting. -->
-        <div v-if="pendingRelink" class="rounded-md border border-warning p-3 text-sm" data-test="relink-confirm">
+        <div
+          v-if="pendingRelink"
+          class="rounded-md border border-warning p-3 text-sm"
+          data-test="relink-confirm"
+        >
           <p>
-            This will replace <strong data-test="relink-confirm-current">{{ currentLabel }}</strong> with
-            <strong data-test="relink-confirm-next">{{ nextLabel }}</strong>.
+            This will replace
+            <strong data-test="relink-confirm-current">{{ currentLabel }}</strong> with
+            <strong data-test="relink-confirm-next">{{ nextLabel }}</strong
+            >.
           </p>
           <div class="mt-2 flex gap-2">
             <UButton
@@ -410,12 +448,18 @@ async function confirmUnlink() {
             >
               Confirm relink
             </UButton>
-            <UButton size="xs" color="neutral" variant="ghost" @click="cancelRelink">Cancel</UButton>
+            <UButton size="xs" color="neutral" variant="ghost" @click="cancelRelink"
+              >Cancel</UButton
+            >
           </div>
         </div>
 
         <!-- Unlink confirm. -->
-        <div v-if="pendingUnlink" class="rounded-md border border-error p-3 text-sm" data-test="unlink-confirm">
+        <div
+          v-if="pendingUnlink"
+          class="rounded-md border border-error p-3 text-sm"
+          data-test="unlink-confirm"
+        >
           <p>Unlink this {{ isProductMode ? 'entry' : 'product' }}?</p>
           <div class="mt-2 flex gap-2">
             <UButton
@@ -427,7 +471,9 @@ async function confirmUnlink() {
             >
               Confirm unlink
             </UButton>
-            <UButton size="xs" color="neutral" variant="ghost" @click="cancelUnlink">Cancel</UButton>
+            <UButton size="xs" color="neutral" variant="ghost" @click="cancelUnlink"
+              >Cancel</UButton
+            >
           </div>
         </div>
       </section>

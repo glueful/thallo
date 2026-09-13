@@ -228,7 +228,11 @@ function fmtDate(v?: string | null): string {
         color="error"
         variant="soft"
         block
-        @click="() => { pendingDelete = true }"
+        @click="
+          () => {
+            pendingDelete = true
+          }
+        "
       />
     </div>
 
@@ -289,7 +293,11 @@ function fmtDate(v?: string | null): string {
             variant="ghost"
             label="Cancel"
             :disabled="remove.isLoading.value"
-            @click="() => { pendingDelete = false }"
+            @click="
+              () => {
+                pendingDelete = false
+              }
+            "
           />
           <UButton
             color="error"

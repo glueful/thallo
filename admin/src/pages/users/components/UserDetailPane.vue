@@ -79,7 +79,11 @@ function fmtDate(v?: string | null): string {
             icon="i-lucide-trash-2"
             :disabled="isSelf"
             :title="isSelf ? 'You cannot delete your own account' : undefined"
-            @click="() => { pendingDelete = true }"
+            @click="
+              () => {
+                pendingDelete = true
+              }
+            "
           />
         </div>
       </header>
@@ -105,7 +109,11 @@ function fmtDate(v?: string | null): string {
               variant="ghost"
               label="Cancel"
               :disabled="remove.isLoading.value"
-              @click="() => { pendingDelete = false }"
+              @click="
+                () => {
+                  pendingDelete = false
+                }
+              "
             />
             <UButton
               color="error"

@@ -148,9 +148,7 @@ const sendReasons = computed<string[]>(() => {
   if (emailSettingsFailed.value) {
     reasons.push('Couldn’t check this store’s email settings. Reload and try again.')
   } else if (!paymentRequestEnabled.value) {
-    reasons.push(
-      'The payment request email is switched off for this store (Settings → Emails).',
-    )
+    reasons.push('The payment request email is switched off for this store (Settings → Emails).')
   }
   return reasons
 })
@@ -316,7 +314,9 @@ async function runSend(mode: 'current' | 'regenerate') {
     const idempotencyKey = keyFor(mode)
     const envelope = await sendOrderPaymentLink(
       props.order.uuid,
-      token !== null ? { mode: 'current', token } : { mode: 'regenerate', ttl_days: effectiveTtl.value },
+      token !== null
+        ? { mode: 'current', token }
+        : { mode: 'regenerate', ttl_days: effectiveTtl.value },
       idempotencyKey,
     )
     sendEnvelope.value = envelope
@@ -342,7 +342,11 @@ async function runSend(mode: 'current' | 'regenerate') {
       <h3 class="text-sm font-medium">Payment link</h3>
     </template>
 
-    <div v-if="status === 'pending'" class="flex justify-center py-6" data-test="payment-link-loading">
+    <div
+      v-if="status === 'pending'"
+      class="flex justify-center py-6"
+      data-test="payment-link-loading"
+    >
       <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin text-muted" />
     </div>
 
@@ -365,8 +369,14 @@ async function runSend(mode: 'current' | 'regenerate') {
         data-test="payment-link-url-surface"
       >
         <div class="flex items-center gap-1">
-          <code class="break-all text-sm text-default" data-test="payment-link-url">{{ visibleUrl }}</code>
-          <CopyButton :value="visibleUrl" label="Copy payment link" data-test="payment-link-url-copy" />
+          <code class="break-all text-sm text-default" data-test="payment-link-url">{{
+            visibleUrl
+          }}</code>
+          <CopyButton
+            :value="visibleUrl"
+            label="Copy payment link"
+            data-test="payment-link-url-copy"
+          />
         </div>
         <p class="text-xs text-muted" data-test="payment-link-url-once">
           This address is shown once. Copy it now — it can’t be shown again, and the only way to get
@@ -431,11 +441,7 @@ async function runSend(mode: 'current' | 'regenerate') {
              stock. Once one HAS been exposed, cancelling the order stops being automatic — it
              needs the late-payment risk acknowledged — so the copy changes rather than staying
              quietly reassuring. -->
-        <p
-          v-if="!sessionExposed"
-          class="text-sm text-muted"
-          data-test="payment-link-reserved"
-        >
+        <p v-if="!sessionExposed" class="text-sm text-muted" data-test="payment-link-reserved">
           Stock reserved until {{ expiresDisplay }}.
         </p>
         <UAlert
@@ -521,7 +527,11 @@ async function runSend(mode: 'current' | 'regenerate') {
               {{ reason }}
             </li>
           </ul>
-          <p v-if="currentSendReason" class="text-xs text-muted" data-test="payment-link-current-reason">
+          <p
+            v-if="currentSendReason"
+            class="text-xs text-muted"
+            data-test="payment-link-current-reason"
+          >
             {{ currentSendReason }}
           </p>
         </div>
@@ -565,7 +575,11 @@ async function runSend(mode: 'current' | 'regenerate') {
           Failure code:
           <code class="text-default">{{ sendEnvelope.receipt.error_code }}</code>
         </p>
-        <p v-if="deliveryFailed && visibleUrl" class="text-muted" data-test="payment-link-failure-note">
+        <p
+          v-if="deliveryFailed && visibleUrl"
+          class="text-muted"
+          data-test="payment-link-failure-note"
+        >
           The link is still active — only the email failed. Copy the address above and send it to
           the customer yourself.
         </p>

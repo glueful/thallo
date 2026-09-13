@@ -107,7 +107,9 @@ function customerOrder(overrides: Partial<CommerceCustomerOrder> = {}): Commerce
   }
 }
 
-function customerAddress(overrides: Partial<CommerceCustomerAddress> = {}): CommerceCustomerAddress {
+function customerAddress(
+  overrides: Partial<CommerceCustomerAddress> = {},
+): CommerceCustomerAddress {
   return {
     uuid: 'addr1',
     label: 'Home',
@@ -169,8 +171,21 @@ beforeEach(() => {
 
 describe('CustomersTable', () => {
   const rows = [
-    customer({ key: 'usercustu001', key_type: 'user', email: 'ada@example.com', orders_count: 3, total_spent_minor: 5900 }),
-    customer({ key: 'guest@example.com', key_type: 'email', user_uuid: null, email: 'guest@example.com', orders_count: 1, total_spent_minor: 1200 }),
+    customer({
+      key: 'usercustu001',
+      key_type: 'user',
+      email: 'ada@example.com',
+      orders_count: 3,
+      total_spent_minor: 5900,
+    }),
+    customer({
+      key: 'guest@example.com',
+      key_type: 'email',
+      user_uuid: null,
+      email: 'guest@example.com',
+      orders_count: 1,
+      total_spent_minor: 1200,
+    }),
   ]
 
   it('renders one row per customer with identity, orders count, exact total, and last-order date', () => {
@@ -293,7 +308,12 @@ describe('commerce customers list page', () => {
   })
 
   it('renders the customers table with the fetched rows', async () => {
-    customersPage.value = { customers: [customer({ key: 'usercustu001' })], total: 1, current_page: 1, per_page: 24 }
+    customersPage.value = {
+      customers: [customer({ key: 'usercustu001' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     const wrapper = mount(CustomersIndex, { global: { stubs: pageStubs } })
     await flushPromises()
 
@@ -411,8 +431,18 @@ describe('commerce customer detail page', () => {
   it('renders each saved address with its label and default flags', async () => {
     singleCustomer.value = customerDetail({
       addresses: [
-        customerAddress({ uuid: 'a1', label: 'Home', is_default_shipping: true, is_default_billing: false }),
-        customerAddress({ uuid: 'a2', label: null, is_default_shipping: false, is_default_billing: true }),
+        customerAddress({
+          uuid: 'a1',
+          label: 'Home',
+          is_default_shipping: true,
+          is_default_billing: false,
+        }),
+        customerAddress({
+          uuid: 'a2',
+          label: null,
+          is_default_shipping: false,
+          is_default_billing: true,
+        }),
       ],
     })
     const wrapper = mount(CustomerDetail, { global: { stubs: pageStubs } })
@@ -438,7 +468,12 @@ describe('commerce customer detail page', () => {
     singleCustomer.value = customerDetail({
       orders: [
         customerOrder({ uuid: 'o1', order_number: 'ORD-1001', status: 'paid', grand_total: 5900 }),
-        customerOrder({ uuid: 'o2', order_number: 'ORD-1002', status: 'fulfilled', grand_total: 1200 }),
+        customerOrder({
+          uuid: 'o2',
+          order_number: 'ORD-1002',
+          status: 'fulfilled',
+          grand_total: 1200,
+        }),
       ],
     })
     const wrapper = mount(CustomerDetail, { global: { stubs: pageStubs } })

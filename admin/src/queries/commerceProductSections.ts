@@ -164,7 +164,9 @@ function normalizeSectionEnvelope<T>(
   const envelope = body as Record<string, unknown>
   const revision = envelope.revision
   if (typeof revision !== 'number' || !Number.isInteger(revision) || revision < 0) {
-    throw new Error(`Malformed product ${section} response: 'revision' must be a non-negative integer.`)
+    throw new Error(
+      `Malformed product ${section} response: 'revision' must be a non-negative integer.`,
+    )
   }
   if (!Array.isArray(envelope.items)) {
     throw new Error(`Malformed product ${section} response: 'items' must be an array.`)
@@ -250,7 +252,9 @@ export async function fetchProductCategoriesSection(
   return normalizeSectionEnvelope(data, 'categories', normalizeAssignedCategory)
 }
 
-export async function fetchProductTagsSection(productUuid: string): Promise<SectionEnvelope<AssignedTag>> {
+export async function fetchProductTagsSection(
+  productUuid: string,
+): Promise<SectionEnvelope<AssignedTag>> {
   const { data, error, response } = await client.GET('/commerce/products/{uuid}/tags', {
     params: { path: { uuid: productUuid } },
   })
@@ -288,7 +292,9 @@ export async function fetchProductChildrenSection(
   return normalizeSectionEnvelope(data, 'children', normalizeProductChildItem)
 }
 
-export async function fetchProductStockSection(productUuid: string): Promise<SectionEnvelope<VariantStock>> {
+export async function fetchProductStockSection(
+  productUuid: string,
+): Promise<SectionEnvelope<VariantStock>> {
   const { data, error, response } = await client.GET('/commerce/products/{uuid}/stock', {
     params: { path: { uuid: productUuid } },
   })

@@ -67,7 +67,10 @@ async function submitSetPlan() {
   }
   try {
     await setPlan.mutateAsync({ uuid: props.uuid, planKey: selectedPlanKey.value })
-    success('Plan set', hasSubscription.value ? 'The workspace plan was changed.' : 'The subscription was started.')
+    success(
+      'Plan set',
+      hasSubscription.value ? 'The workspace plan was changed.' : 'The subscription was started.',
+    )
   } catch (e) {
     const err = toApiError(e)
     setPlanError.value = err.message
@@ -199,18 +202,31 @@ function describeValue(value: unknown): string {
         <p class="text-sm text-muted" data-test="workspace-slug">{{ detail.tenant.slug }}</p>
       </div>
 
-      <div class="space-y-3 rounded-lg border border-default p-4" data-test="workspace-subscription">
+      <div
+        class="space-y-3 rounded-lg border border-default p-4"
+        data-test="workspace-subscription"
+      >
         <template v-if="detail.subscription">
           <div class="flex items-center justify-between">
             <span class="font-medium" data-test="subscription-plan-name">
               {{ detail.subscription.plan_display_name ?? detail.subscription.plan_key }}
             </span>
-            <span class="text-sm text-muted" data-test="subscription-status">{{ detail.subscription.status }}</span>
+            <span class="text-sm text-muted" data-test="subscription-status">{{
+              detail.subscription.status
+            }}</span>
           </div>
-          <p v-if="detail.subscription.trial_ends_at" class="text-xs text-muted" data-test="subscription-trial-ends">
+          <p
+            v-if="detail.subscription.trial_ends_at"
+            class="text-xs text-muted"
+            data-test="subscription-trial-ends"
+          >
             Trial ends {{ detail.subscription.trial_ends_at }}
           </p>
-          <p v-if="detail.subscription.grace_ends_at" class="text-xs text-muted" data-test="subscription-grace-ends">
+          <p
+            v-if="detail.subscription.grace_ends_at"
+            class="text-xs text-muted"
+            data-test="subscription-grace-ends"
+          >
             Grace ends {{ detail.subscription.grace_ends_at }}
           </p>
           <UAlert
@@ -247,7 +263,12 @@ function describeValue(value: unknown): string {
         </div>
 
         <div v-if="hasSubscription" class="flex items-end gap-2">
-          <UCheckbox v-model="atPeriodEnd" label="At period end" :disabled="providerManaged" data-test="workspace-cancel-at-period-end" />
+          <UCheckbox
+            v-model="atPeriodEnd"
+            label="At period end"
+            :disabled="providerManaged"
+            data-test="workspace-cancel-at-period-end"
+          />
           <UButton
             color="error"
             variant="soft"
@@ -269,7 +290,11 @@ function describeValue(value: unknown): string {
 
       <div class="space-y-3">
         <p class="font-medium">Entitlement overrides</p>
-        <p v-if="detail.overrides.length === 0" class="text-sm text-muted" data-test="overrides-empty">
+        <p
+          v-if="detail.overrides.length === 0"
+          class="text-sm text-muted"
+          data-test="overrides-empty"
+        >
           No overrides set.
         </p>
         <ul v-else class="space-y-2">
@@ -280,18 +305,34 @@ function describeValue(value: unknown): string {
             data-test="override-row"
           >
             <div>
-              <p class="font-mono text-sm" data-test="override-entitlement">{{ row.entitlement }}</p>
-              <p class="text-xs text-muted" data-test="override-value">{{ describeValue(row.value) }}</p>
+              <p class="font-mono text-sm" data-test="override-entitlement">
+                {{ row.entitlement }}
+              </p>
+              <p class="text-xs text-muted" data-test="override-value">
+                {{ describeValue(row.value) }}
+              </p>
               <p v-if="row.expires_at" class="text-xs text-muted" data-test="override-expires-at">
                 Expires {{ row.expires_at }}
-                <span v-if="isOverrideExpired(row)" class="text-error" data-test="override-expired-badge">
+                <span
+                  v-if="isOverrideExpired(row)"
+                  class="text-error"
+                  data-test="override-expired-badge"
+                >
                   (expired)
                 </span>
               </p>
-              <p v-if="row.reason" class="text-xs text-muted" data-test="override-reason">{{ row.reason }}</p>
+              <p v-if="row.reason" class="text-xs text-muted" data-test="override-reason">
+                {{ row.reason }}
+              </p>
             </div>
             <div class="flex gap-1">
-              <UButton size="xs" variant="ghost" label="Edit" data-test="override-edit" @click="editOverride(row)" />
+              <UButton
+                size="xs"
+                variant="ghost"
+                label="Edit"
+                data-test="override-edit"
+                @click="editOverride(row)"
+              />
               <UButton
                 size="xs"
                 color="error"
@@ -304,7 +345,10 @@ function describeValue(value: unknown): string {
           </li>
         </ul>
 
-        <form class="space-y-2 rounded-lg border border-default p-3" @submit.prevent="submitOverride">
+        <form
+          class="space-y-2 rounded-lg border border-default p-3"
+          @submit.prevent="submitOverride"
+        >
           <div class="flex gap-2">
             <UInput
               v-model="overrideForm.entitlement"
@@ -332,7 +376,12 @@ function describeValue(value: unknown): string {
             />
           </div>
           <div class="flex gap-2">
-            <UInput v-model="overrideForm.expiresAt" type="date" class="flex-1" data-test="override-expires-input" />
+            <UInput
+              v-model="overrideForm.expiresAt"
+              type="date"
+              class="flex-1"
+              data-test="override-expires-input"
+            />
             <UInput
               v-model="overrideForm.reason"
               placeholder="reason (optional)"

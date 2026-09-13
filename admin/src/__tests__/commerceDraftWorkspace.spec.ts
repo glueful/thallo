@@ -199,11 +199,20 @@ function variant(overrides: Partial<CommerceVariant> = {}): CommerceVariant {
   }
 }
 
-function conflictError(conflict: string, extra: Record<string, unknown> = {}, message = 'Conflict'): ApiError {
+function conflictError(
+  conflict: string,
+  extra: Record<string, unknown> = {},
+  message = 'Conflict',
+): ApiError {
   const body = {
     success: false,
     message,
-    error: { code: 409, timestamp: '2026-01-01T00:00:00Z', request_id: 'r1', details: { conflict, ...extra } },
+    error: {
+      code: 409,
+      timestamp: '2026-01-01T00:00:00Z',
+      request_id: 'r1',
+      details: { conflict, ...extra },
+    },
   }
   return new ApiError(message, 409, {}, body)
 }
@@ -281,7 +290,11 @@ describe('route custody', () => {
 
   it('shows a loading state while the one-time creation is in flight', async () => {
     let resolveCreate: (d: CommerceDraft) => void = () => {}
-    createDraftMock.mockReturnValue(new Promise((resolve) => { resolveCreate = resolve }))
+    createDraftMock.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCreate = resolve
+      }),
+    )
     routeState.query = {}
     const wrapper = mount(DraftOrderCreate, { global: { stubs: pageStubs } })
     await flushPromises()
@@ -297,7 +310,9 @@ describe('route custody', () => {
     routeState.query = {}
     const wrapper = mount(DraftOrderCreate, { global: { stubs: pageStubs } })
     await flushPromises()
-    expect(wrapper.find('[data-test="draft-create-error"]').text()).toContain('Could not start a new order.')
+    expect(wrapper.find('[data-test="draft-create-error"]').text()).toContain(
+      'Could not start a new order.',
+    )
   })
 })
 
@@ -503,7 +518,11 @@ describe('idempotency-key custody in the finalize flow', () => {
     draftData.value = draft({ uuid: 'd1', draft_revision: 0 })
     sessionStorage.setItem('thallo:commerce:draft-finalize-key:d1:0', 'rejected-key')
     finalizeDraftMock.mockRejectedValueOnce(
-      conflictError('idempotency_key', {}, 'This idempotency key was already used with a different request.'),
+      conflictError(
+        'idempotency_key',
+        {},
+        'This idempotency key was already used with a different request.',
+      ),
     )
     const wrapper = mount(DraftOrderCreate, { global: { stubs: pageStubs } })
     await flushPromises()
@@ -622,25 +641,35 @@ describe('finalize conflict rendering', () => {
     ['digital', 'Digital product — cannot be sold in a walk-in order.'],
     ['marketplace', 'Marketplace-seller product — cannot be sold in a walk-in order.'],
     ['unavailable', 'No longer available.'],
-  ])('renders an honest remove-only message for the "%s" line conflict, with no "Refresh prices" action', async (reason, label) => {
-    routeState.query = { draft: 'd1' }
-    draftData.value = draft({ uuid: 'd1', draft_revision: 0 })
-    finalizeDraftMock.mockRejectedValue(
-      conflictError('line_conflicts', {
-        lines: [
-          { line_uuid: 'l1', variant_uuid: 'v1', sku: 'SKU-1', product_name: 'Widget', quantity: 1, reason },
-        ],
-      }),
-    )
-    const wrapper = mount(DraftOrderCreate, { global: { stubs: pageStubs } })
-    await flushPromises()
-    await wrapper.find('[data-test="draft-finalize"]').trigger('click')
-    await flushPromises()
+  ])(
+    'renders an honest remove-only message for the "%s" line conflict, with no "Refresh prices" action',
+    async (reason, label) => {
+      routeState.query = { draft: 'd1' }
+      draftData.value = draft({ uuid: 'd1', draft_revision: 0 })
+      finalizeDraftMock.mockRejectedValue(
+        conflictError('line_conflicts', {
+          lines: [
+            {
+              line_uuid: 'l1',
+              variant_uuid: 'v1',
+              sku: 'SKU-1',
+              product_name: 'Widget',
+              quantity: 1,
+              reason,
+            },
+          ],
+        }),
+      )
+      const wrapper = mount(DraftOrderCreate, { global: { stubs: pageStubs } })
+      await flushPromises()
+      await wrapper.find('[data-test="draft-finalize"]').trigger('click')
+      await flushPromises()
 
-    expect(wrapper.find('[data-test="draft-line-conflict-row"]').text()).toContain(label)
-    expect(wrapper.find('[data-test="draft-conflict-refresh-prices"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="draft-line-conflict-remove-hint"]').exists()).toBe(true)
-  })
+      expect(wrapper.find('[data-test="draft-line-conflict-row"]').text()).toContain(label)
+      expect(wrapper.find('[data-test="draft-conflict-refresh-prices"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="draft-line-conflict-remove-hint"]').exists()).toBe(true)
+    },
+  )
 
   it('shows "Refresh prices" and no remove hint when every conflicting line is fixable by recalculate', async () => {
     routeState.query = { draft: 'd1' }
@@ -648,7 +677,14 @@ describe('finalize conflict rendering', () => {
     finalizeDraftMock.mockRejectedValue(
       conflictError('line_conflicts', {
         lines: [
-          { line_uuid: 'l1', variant_uuid: 'v1', sku: 'SKU-1', product_name: 'Widget', quantity: 1, reason: 'drift' },
+          {
+            line_uuid: 'l1',
+            variant_uuid: 'v1',
+            sku: 'SKU-1',
+            product_name: 'Widget',
+            quantity: 1,
+            reason: 'drift',
+          },
         ],
       }),
     )
@@ -665,7 +701,11 @@ describe('finalize conflict rendering', () => {
     routeState.query = { draft: 'd1' }
     draftData.value = draft({ uuid: 'd1' })
     finalizeDraftMock.mockRejectedValue(
-      conflictError('idempotency_key', {}, 'This idempotency key was already used with a different request.'),
+      conflictError(
+        'idempotency_key',
+        {},
+        'This idempotency key was already used with a different request.',
+      ),
     )
     const wrapper = mount(DraftOrderCreate, { global: { stubs: pageStubs } })
     await flushPromises()
@@ -743,21 +783,28 @@ describe('DraftLineItemsCard: product-eligibility rendering', () => {
     ['digital', 'Digital product — cannot be added to a walk-in order.'],
     ['marketplace', 'Marketplace seller product — cannot be added.'],
     ['unavailable', 'Unavailable.'],
-  ])('renders the closed reason "%s" and offers no select action for an ineligible product', async (reason, label) => {
-    productSearchPage.value = {
-      products: [
-        product({ uuid: 'p1', admin_draft_eligible: false, admin_draft_ineligible_reason: reason as never }),
-      ],
-      total: 1,
-      current_page: 1,
-      per_page: 8,
-    }
-    const wrapper = mount(DraftLineItemsCard, { props: { draft: draft() } })
-    await flushPromises()
+  ])(
+    'renders the closed reason "%s" and offers no select action for an ineligible product',
+    async (reason, label) => {
+      productSearchPage.value = {
+        products: [
+          product({
+            uuid: 'p1',
+            admin_draft_eligible: false,
+            admin_draft_ineligible_reason: reason as never,
+          }),
+        ],
+        total: 1,
+        current_page: 1,
+        per_page: 8,
+      }
+      const wrapper = mount(DraftLineItemsCard, { props: { draft: draft() } })
+      await flushPromises()
 
-    expect(wrapper.find('[data-test="draft-product-select"]').exists()).toBe(false)
-    expect(wrapper.find('[data-test="draft-product-ineligible-reason"]').text()).toBe(label)
-  })
+      expect(wrapper.find('[data-test="draft-product-select"]').exists()).toBe(false)
+      expect(wrapper.find('[data-test="draft-product-ineligible-reason"]').text()).toBe(label)
+    },
+  )
 
   it('selecting an eligible product then a variant adds a line with the exact payload, including expected_revision', async () => {
     productSearchPage.value = {
@@ -766,9 +813,14 @@ describe('DraftLineItemsCard: product-eligibility rendering', () => {
       current_page: 1,
       per_page: 8,
     }
-    selectedProductData.value = product({ uuid: 'p1', variants: [variant({ uuid: 'v1', sku: 'SKU-1', price: 1500 })] })
+    selectedProductData.value = product({
+      uuid: 'p1',
+      variants: [variant({ uuid: 'v1', sku: 'SKU-1', price: 1500 })],
+    })
     addLineMock.mockResolvedValue(draft())
-    const wrapper = mount(DraftLineItemsCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 3 }) } })
+    const wrapper = mount(DraftLineItemsCard, {
+      props: { draft: draft({ uuid: 'd1', draft_revision: 3 }) },
+    })
     await flushPromises()
 
     await wrapper.find('[data-test="draft-product-select"]').trigger('click')
@@ -873,17 +925,29 @@ describe('user-attachment picker: zero /v1/users requests unless can_attach_user
 describe('nullable customer identity in the workspace', () => {
   it('seeds the email/phone/name fields to blank — never the literal string "null" — when the draft has none', () => {
     const wrapper = mount(DraftCustomerCard, {
-      props: { draft: draft({ email: null, phone_display: null, customer_name: null }), canAttachUser: false },
+      props: {
+        draft: draft({ email: null, phone_display: null, customer_name: null }),
+        canAttachUser: false,
+      },
     })
-    expect((wrapper.find('[data-test="draft-customer-email"]').element as HTMLInputElement).value).toBe('')
-    expect((wrapper.find('[data-test="draft-customer-phone"]').element as HTMLInputElement).value).toBe('')
-    expect((wrapper.find('[data-test="draft-customer-name"]').element as HTMLInputElement).value).toBe('')
+    expect(
+      (wrapper.find('[data-test="draft-customer-email"]').element as HTMLInputElement).value,
+    ).toBe('')
+    expect(
+      (wrapper.find('[data-test="draft-customer-phone"]').element as HTMLInputElement).value,
+    ).toBe('')
+    expect(
+      (wrapper.find('[data-test="draft-customer-name"]').element as HTMLInputElement).value,
+    ).toBe('')
   })
 
   it('saving blank fields sends explicit nulls (clearing), never empty strings', async () => {
     updateMock.mockResolvedValue(draft())
     const wrapper = mount(DraftCustomerCard, {
-      props: { draft: draft({ uuid: 'd1', draft_revision: 1, email: 'old@example.com' }), canAttachUser: false },
+      props: {
+        draft: draft({ uuid: 'd1', draft_revision: 1, email: 'old@example.com' }),
+        canAttachUser: false,
+      },
     })
     await wrapper.find('[data-test="draft-customer-email"]').setValue('')
     await wrapper.find('[data-test="draft-customer-save"]').trigger('click')
@@ -891,13 +955,21 @@ describe('nullable customer identity in the workspace', () => {
 
     expect(updateMock).toHaveBeenCalledWith({
       uuid: 'd1',
-      input: { email: null, phone: null, customer_name: null, user_uuid: null, expected_revision: 1 },
+      input: {
+        email: null,
+        phone: null,
+        customer_name: null,
+        user_uuid: null,
+        expected_revision: 1,
+      },
     })
   })
 
   it('the phone field posts the raw typed input verbatim (no trimming/reshaping)', async () => {
     updateMock.mockResolvedValue(draft())
-    const wrapper = mount(DraftCustomerCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 0 }), canAttachUser: false } })
+    const wrapper = mount(DraftCustomerCard, {
+      props: { draft: draft({ uuid: 'd1', draft_revision: 0 }), canAttachUser: false },
+    })
     await wrapper.find('[data-test="draft-customer-phone"]').setValue('+1 (555) 010-9999')
     await wrapper.find('[data-test="draft-customer-save"]').trigger('click')
     await flushPromises()
@@ -929,8 +1001,16 @@ describe('nullable customer identity in the workspace', () => {
 
 describe('DraftCustomerCard: message-level save error for non-field failures', () => {
   it('shows a message-level banner (and no field errors) for a non-field 409 conflict', async () => {
-    updateMock.mockRejectedValue(conflictError('stale_revision', {}, 'This draft changed since you loaded it; reload the draft and retry.'))
-    const wrapper = mount(DraftCustomerCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 0 }), canAttachUser: false } })
+    updateMock.mockRejectedValue(
+      conflictError(
+        'stale_revision',
+        {},
+        'This draft changed since you loaded it; reload the draft and retry.',
+      ),
+    )
+    const wrapper = mount(DraftCustomerCard, {
+      props: { draft: draft({ uuid: 'd1', draft_revision: 0 }), canAttachUser: false },
+    })
     await wrapper.find('[data-test="draft-customer-save"]').trigger('click')
     await flushPromises()
 
@@ -941,7 +1021,9 @@ describe('DraftCustomerCard: message-level save error for non-field failures', (
 
   it('re-seeding the card (a genuinely different draft) clears any prior save error', async () => {
     updateMock.mockRejectedValue(conflictError('stale_revision', {}, 'Reload and retry.'))
-    const wrapper = mount(DraftCustomerCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 0 }), canAttachUser: false } })
+    const wrapper = mount(DraftCustomerCard, {
+      props: { draft: draft({ uuid: 'd1', draft_revision: 0 }), canAttachUser: false },
+    })
     await wrapper.find('[data-test="draft-customer-save"]').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-test="draft-customer-save-error"]').exists()).toBe(true)
@@ -953,12 +1035,22 @@ describe('DraftCustomerCard: message-level save error for non-field failures', (
 
 describe('DraftFulfillmentCard: message-level save error for non-field failures', () => {
   it('shows a message-level banner for a non-field 409 conflict (in_store save)', async () => {
-    updateMock.mockRejectedValue(conflictError('currency', {}, 'This draft is priced in USD but the store currency is now EUR; cancel it and start a new draft.'))
-    const wrapper = mount(DraftFulfillmentCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 0 }) } })
+    updateMock.mockRejectedValue(
+      conflictError(
+        'currency',
+        {},
+        'This draft is priced in USD but the store currency is now EUR; cancel it and start a new draft.',
+      ),
+    )
+    const wrapper = mount(DraftFulfillmentCard, {
+      props: { draft: draft({ uuid: 'd1', draft_revision: 0 }) },
+    })
     await wrapper.find('[data-test="draft-fulfillment-save"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-test="draft-fulfillment-save-error"]').text()).toContain('store currency is now EUR')
+    expect(wrapper.find('[data-test="draft-fulfillment-save-error"]').text()).toContain(
+      'store currency is now EUR',
+    )
   })
 
   // A field-shaped error while staying in `in_store` mode: `save()`'s own logic (shared with
@@ -971,7 +1063,9 @@ describe('DraftFulfillmentCard: message-level save error for non-field failures'
     updateMock.mockRejectedValue(
       new ApiError('Validation failed', 422, { fulfillment_mode: 'Invalid fulfillment mode.' }, {}),
     )
-    const wrapper = mount(DraftFulfillmentCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 0 }) } })
+    const wrapper = mount(DraftFulfillmentCard, {
+      props: { draft: draft({ uuid: 'd1', draft_revision: 0 }) },
+    })
     await wrapper.find('[data-test="draft-fulfillment-save"]').trigger('click')
     await flushPromises()
 
@@ -989,12 +1083,20 @@ describe('DraftFulfillmentCard: message-level save error for non-field failures'
 describe('DraftFulfillmentCard: shipping-method USelect placeholder', () => {
   it('switching to delivery mode mounts the shipping-method select without throwing', async () => {
     zonesPage.value = {
-      zones: [{ uuid: 'z1', name: 'Domestic', methods: [{ uuid: 'm1', label: 'Standard', enabled: true }] }] as never[],
+      zones: [
+        {
+          uuid: 'z1',
+          name: 'Domestic',
+          methods: [{ uuid: 'm1', label: 'Standard', enabled: true }],
+        },
+      ] as never[],
       total: 1,
       current_page: 1,
       per_page: 100,
     }
-    const wrapper = mount(DraftFulfillmentCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 0 }) } })
+    const wrapper = mount(DraftFulfillmentCard, {
+      props: { draft: draft({ uuid: 'd1', draft_revision: 0 }) },
+    })
 
     await wrapper.find('[data-test="draft-mode-delivery"]').trigger('click')
     await flushPromises()
@@ -1004,7 +1106,9 @@ describe('DraftFulfillmentCard: shipping-method USelect placeholder', () => {
 
   it('an unset shipping method still saves as null (no method chosen)', async () => {
     updateMock.mockResolvedValue(draft({ uuid: 'd1', draft_revision: 1 }))
-    const wrapper = mount(DraftFulfillmentCard, { props: { draft: draft({ uuid: 'd1', draft_revision: 0 }) } })
+    const wrapper = mount(DraftFulfillmentCard, {
+      props: { draft: draft({ uuid: 'd1', draft_revision: 0 }) },
+    })
 
     await wrapper.find('[data-test="draft-mode-delivery"]').trigger('click')
     await flushPromises()
@@ -1019,13 +1123,26 @@ describe('DraftFulfillmentCard: shipping-method USelect placeholder', () => {
   it('an existing shipping_method on the draft round-trips through the select unchanged on save', async () => {
     updateMock.mockResolvedValue(draft({ uuid: 'd1', draft_revision: 1 }))
     zonesPage.value = {
-      zones: [{ uuid: 'z1', name: 'Domestic', methods: [{ uuid: 'm1', label: 'Standard', enabled: true }] }] as never[],
+      zones: [
+        {
+          uuid: 'z1',
+          name: 'Domestic',
+          methods: [{ uuid: 'm1', label: 'Standard', enabled: true }],
+        },
+      ] as never[],
       total: 1,
       current_page: 1,
       per_page: 100,
     }
     const wrapper = mount(DraftFulfillmentCard, {
-      props: { draft: draft({ uuid: 'd1', draft_revision: 0, fulfillment_mode: 'delivery', shipping_method: 'm1' }) },
+      props: {
+        draft: draft({
+          uuid: 'd1',
+          draft_revision: 0,
+          fulfillment_mode: 'delivery',
+          shipping_method: 'm1',
+        }),
+      },
     })
     await flushPromises()
 

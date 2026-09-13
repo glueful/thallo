@@ -15,7 +15,10 @@ vi.mock('@/queries/contentTypes', () => ({
   useContentTypes: () => ({ data: ref([{ slug: 'page', schema: [] }]) }),
 }))
 vi.mock('@/queries/drafts', () => ({
-  useDraft: () => ({ data: ref({ fields: { title: 'Home' }, lock_version: 0 }), status: ref('success') }),
+  useDraft: () => ({
+    data: ref({ fields: { title: 'Home' }, lock_version: 0 }),
+    status: ref('success'),
+  }),
   useSaveDraft: () => ({ mutateAsync: saveDraft, isLoading: ref(false) }),
 }))
 vi.mock('@/queries/publish', () => ({

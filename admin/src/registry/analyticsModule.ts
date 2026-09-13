@@ -12,4 +12,8 @@ const main: NavigationMenuItem[] = [
   },
 ]
 
-export const analyticsModule: AdminModule = { id: 'analytics', requires: ['thallo.analytics'], nav: { main } }
+export const analyticsModule: AdminModule = {
+  id: 'analytics',
+  requires: ['thallo.analytics'],
+  nav: { main },
+}

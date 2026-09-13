@@ -372,7 +372,11 @@ function fmtTime(v?: string | null): string {
                 capability is on (format adapters are also filtered from the dropdown above
                 when the capability is off, so needsWizard will always be false then too).
               -->
-              <div v-if="caps.isEnabled('thallo.importers')" data-test="format-import" class="space-y-4">
+              <div
+                v-if="caps.isEnabled('thallo.importers')"
+                data-test="format-import"
+                class="space-y-4"
+              >
                 <UFormField
                   v-if="needsWizard"
                   label="Content type"
@@ -529,7 +533,11 @@ function fmtTime(v?: string | null): string {
                   variant="ghost"
                   size="xs"
                   icon="i-lucide-triangle-alert"
-                  @click="() => { errorsJob = job }"
+                  @click="
+                    () => {
+                      errorsJob = job
+                    }
+                  "
                 />
                 <UButton
                   v-if="job.type === 'export' && job.status === 'completed'"

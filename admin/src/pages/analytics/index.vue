@@ -37,12 +37,22 @@ const activityTrend = computed<LineSeries[]>(() => {
   if (!scoped.value) {
     series.push({ key: 'logins', label: 'Logins', color: 'var(--ui-primary)', points: pts(logins) })
   }
-  series.push({ key: 'entries', label: 'Entries', color: 'var(--ui-success)', points: pts(entries) })
+  series.push({
+    key: 'entries',
+    label: 'Entries',
+    color: 'var(--ui-success)',
+    points: pts(entries),
+  })
   series.push({ key: 'rows', label: 'Rows', color: 'var(--ui-warning)', points: pts(rows) })
   return series
 })
 const activeUsersTrend = computed<LineSeries[]>(() => [
-  { key: 'active', label: 'Active users', color: 'var(--ui-primary)', points: pts(activeUsersSeries) },
+  {
+    key: 'active',
+    label: 'Active users',
+    color: 'var(--ui-primary)',
+    points: pts(activeUsersSeries),
+  },
 ])
 const authHealth = computed<LineSeries[]>(() => [
   { key: 'ok', label: 'Login', color: 'var(--ui-success)', points: pts(logins) },
@@ -142,7 +152,7 @@ function setSegment(seg: BreakdownSegment): void {
           <div class="mb-2 flex items-center justify-between">
             <h2 class="text-sm font-medium text-highlighted">Most active</h2>
             <div class="flex gap-1" role="group" aria-label="Breakdown dimension">
-               <UButton
+              <UButton
                 data-test="seg-types"
                 size="xs"
                 :variant="segment === 'types' ? 'solid' : 'ghost'"

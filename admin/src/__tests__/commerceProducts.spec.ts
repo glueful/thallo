@@ -163,9 +163,9 @@ vi.mock('@/queries/commerceOrders', () => ({
 // storefront_url; the Linked-content panel itself stays stubbed in these suites (its own
 // behavior is covered by commerceLinkPanel.spec.ts) — this mock only has to satisfy the
 // module's import surface.
-const productLinkData = ref<{ product_uuid: string; storefront_url: string; link: null } | undefined>(
-  undefined,
-)
+const productLinkData = ref<
+  { product_uuid: string; storefront_url: string; link: null } | undefined
+>(undefined)
 vi.mock('@/queries/commerceLinking', () => ({
   useProductLink: () => ({ data: productLinkData, status: ref('success'), refetch: vi.fn() }),
   useEntryLink: () => ({ data: ref(undefined), status: ref('success'), refetch: vi.fn() }),
@@ -520,7 +520,7 @@ const RichTextStub = {
   emits: ['update:modelValue'],
   template:
     '<textarea data-test="richtext-stub" :value="modelValue ?? \'\'" :disabled="editable === false"' +
-    " @input=\"$emit('update:modelValue', $event.target.value)\"></textarea>",
+    ' @input="$emit(\'update:modelValue\', $event.target.value)"></textarea>',
 }
 
 const pageStubs = {
@@ -985,7 +985,9 @@ describe('ProductForm', () => {
     const { wrapper, getState } = mountForm(p)
 
     // Editing through the RichText model marks the section dirty and the HTML rides the payload.
-    await wrapper.find('[data-test="richtext-stub"]').setValue('<p>Bright <strong>lamp</strong></p>')
+    await wrapper
+      .find('[data-test="richtext-stub"]')
+      .setValue('<p>Bright <strong>lamp</strong></p>')
     expect(getState().dirty.value).toBe(true)
     await wrapper.find('form').trigger('submit')
     await flushPromises()
@@ -1013,9 +1015,7 @@ describe('ProductForm', () => {
     const digitalCard = wrapper.find('[data-test="type-card-digital"]')
     expect(digitalCard.attributes('aria-checked')).toBe('true')
     expect(digitalCard.attributes('disabled')).toBeDefined()
-    expect(
-      wrapper.find('[data-test="type-card-physical"]').attributes('disabled'),
-    ).toBeDefined()
+    expect(wrapper.find('[data-test="type-card-physical"]').attributes('disabled')).toBeDefined()
     expect(wrapper.find('[data-test="product-type-note"]').text()).toContain('variants')
 
     // Clicking a disabled card changes nothing — the payload still never carries type.
@@ -1038,9 +1038,7 @@ describe('ProductForm', () => {
     const { wrapper } = mountForm(p)
 
     // Cards are live on a variant-free product.
-    expect(
-      wrapper.find('[data-test="type-card-physical"]').attributes('disabled'),
-    ).toBeUndefined()
+    expect(wrapper.find('[data-test="type-card-physical"]').attributes('disabled')).toBeUndefined()
 
     // Unchanged type stays OUT of the payload — an ever-present key would 422 unrelated saves
     // the moment the product gains a strandable reference.
@@ -1410,9 +1408,7 @@ describe('product create page — Omnibox Launcher', () => {
     expect(wrapper.find('[data-test="chip-no-price"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="chip-external"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="chip-link-required"]').exists()).toBe(true)
-    expect(
-      wrapper.find('[data-test="product-create-submit"]').attributes('disabled'),
-    ).toBeDefined()
+    expect(wrapper.find('[data-test="product-create-submit"]').attributes('disabled')).toBeDefined()
 
     await wrapper.find('[data-test="external-url-input"]').setValue('https://partner.example/desk')
     await flushPromises()
@@ -1503,9 +1499,9 @@ describe('product create page — Omnibox Launcher', () => {
     expect(wrapper.find('[data-test="product-create-error"]').text()).toContain(
       'Slug already in use.',
     )
-    expect(
-      (wrapper.find('[data-test="omnibox-input"]').element as HTMLInputElement).value,
-    ).toBe('Aurora Desk Lamp $89')
+    expect((wrapper.find('[data-test="omnibox-input"]').element as HTMLInputElement).value).toBe(
+      'Aurora Desk Lamp $89',
+    )
   })
 
   it('a server 422 on the external link lands on the Link field', async () => {
@@ -1802,7 +1798,10 @@ describe('commerce product detail page', () => {
 
   it('shows the real Grouped products (ChildrenCard) only for grouped products, and nowhere inside Pricing & stock (Task C8)', async () => {
     singleProduct.value = product({ uuid: 'p1', name: 'Widget', type: 'grouped' })
-    childrenSectionData.value = { revision: 3, items: [childItem({ uuid: 'child1', name: 'Child One' })] }
+    childrenSectionData.value = {
+      revision: 3,
+      items: [childItem({ uuid: 'child1', name: 'Child One' })],
+    }
     const wrapper = mount(ProductDetail, { global: { stubs: detailStubs } })
     await flushPromises()
 
@@ -1873,7 +1872,12 @@ describe('commerce product detail page', () => {
       .mockImplementation(() => undefined)
 
     // Active product; media present, NO categories, tracked stock at the low threshold.
-    singleProduct.value = product({ uuid: 'p1', name: 'Widget', status: 'active', variants: [variant()] })
+    singleProduct.value = product({
+      uuid: 'p1',
+      name: 'Widget',
+      status: 'active',
+      variants: [variant()],
+    })
     mediaSectionData.value = { revision: 1, items: [mediaItem({ uuid: 'm1' })] }
     categoriesSectionData.value = { revision: 1, items: [] }
     stockSectionData.value = {
@@ -3322,7 +3326,10 @@ describe('ChildrenCard', () => {
   // ── Picker: never offers a tombstone/non-purchasable product, self, or an already-drafted uuid ─
 
   it('the add picker excludes non-purchasable types, the product being edited itself, and children already in the draft', async () => {
-    childrenSectionData.value = { revision: 0, items: [childItem({ uuid: 'c1', name: 'Child One' })] }
+    childrenSectionData.value = {
+      revision: 0,
+      items: [childItem({ uuid: 'c1', name: 'Child One' })],
+    }
     const { wrapper } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
     await flushPromises()
 
@@ -3340,7 +3347,10 @@ describe('ChildrenCard', () => {
   })
 
   it('adding a picked product appends it to the draft and marks the section dirty, without calling setChildren', async () => {
-    childrenSectionData.value = { revision: 0, items: [childItem({ uuid: 'c1', name: 'Child One' })] }
+    childrenSectionData.value = {
+      revision: 0,
+      items: [childItem({ uuid: 'c1', name: 'Child One' })],
+    }
     const { wrapper, getState } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
     await flushPromises()
     const state = getState()
@@ -3392,9 +3402,9 @@ describe('ChildrenCard', () => {
     await flushPromises()
     const state = getState()
 
-    const ghostRow = wrapper.findAll('[data-test="children-row"]').find(
-      (r) => r.attributes('data-uuid') === 'c2',
-    )!
+    const ghostRow = wrapper
+      .findAll('[data-test="children-row"]')
+      .find((r) => r.attributes('data-uuid') === 'c2')!
     await ghostRow.find('[data-test="children-remove"]').trigger('click')
 
     expect(state.dirty.value).toBe(true)
@@ -3416,7 +3426,9 @@ describe('ChildrenCard', () => {
       items: [childItem({ uuid: 'c1' }), childItem({ uuid: 'c2', name: 'Child Two', position: 1 })],
     }
     setChildrenMock.mockResolvedValue([])
-    const { wrapper, getCoordinator, getState } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    const { wrapper, getCoordinator, getState } = mountCard(
+      product({ uuid: 'p1', type: 'grouped' }),
+    )
     await flushPromises()
     const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
     const state = getState()
@@ -3438,7 +3450,10 @@ describe('ChildrenCard', () => {
   it('wipe-parallel: adding ONE new child still submits every originally hydrated child, never just the touched one', async () => {
     childrenSectionData.value = {
       revision: 2,
-      items: [childItem({ uuid: 'c1', name: 'Child One' }), childItem({ uuid: 'c2', name: 'Child Two', position: 1 })],
+      items: [
+        childItem({ uuid: 'c1', name: 'Child One' }),
+        childItem({ uuid: 'c2', name: 'Child Two', position: 1 }),
+      ],
     }
     setChildrenMock.mockResolvedValue([])
     const { wrapper } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
@@ -3462,7 +3477,9 @@ describe('ChildrenCard', () => {
       items: [childItem({ uuid: 'c1' }), childItem({ uuid: 'c2', name: 'Child Two', position: 1 })],
     }
     setChildrenMock.mockRejectedValue(new ApiError('Validation failed', 422, {}, {}))
-    const { wrapper, getCoordinator, getState } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    const { wrapper, getCoordinator, getState } = mountCard(
+      product({ uuid: 'p1', type: 'grouped' }),
+    )
     await flushPromises()
     const afterMutationSpy = vi.spyOn(getCoordinator(), 'afterMutation')
     const state = getState()
@@ -3479,12 +3496,17 @@ describe('ChildrenCard', () => {
 
   // ── 409 conflict: refresh FIRST, structured review, no automatic retry ─────────────────────
 
-  async function mountReorderedAndConflicted(remoteItems: ProductChildItem[], remoteRevision: number) {
+  async function mountReorderedAndConflicted(
+    remoteItems: ProductChildItem[],
+    remoteRevision: number,
+  ) {
     childrenSectionData.value = {
       revision: 0,
       items: [childItem({ uuid: 'c1' }), childItem({ uuid: 'c2', name: 'Child Two', position: 1 })],
     }
-    const { wrapper, getCoordinator, getState } = mountCard(product({ uuid: 'p1', type: 'grouped' }))
+    const { wrapper, getCoordinator, getState } = mountCard(
+      product({ uuid: 'p1', type: 'grouped' }),
+    )
     await flushPromises()
 
     await wrapper.find('[data-test="children-move-down"]').trigger('click')
@@ -3561,7 +3583,10 @@ describe('ChildrenCard', () => {
   })
 
   it('a silent rebase (remote items unchanged, revision only advanced) keeps the local draft, clears the error, and shows no conflict', async () => {
-    const unchanged = [childItem({ uuid: 'c1' }), childItem({ uuid: 'c2', name: 'Child Two', position: 1 })]
+    const unchanged = [
+      childItem({ uuid: 'c1' }),
+      childItem({ uuid: 'c2', name: 'Child Two', position: 1 }),
+    ]
     const { wrapper, getState } = await mountReorderedAndConflicted(unchanged, 7)
     const state = getState()
 
@@ -6697,7 +6722,11 @@ describe('DownloadsPanel', () => {
   // passes, proving the `coordinator?.afterMutation()` calls are no-ops without one.
 
   function mountPanelWithCoordinator(
-    p: CommerceProduct = product({ uuid: 'p1', type: 'digital', variants: [variant({ uuid: 'v1' })] }),
+    p: CommerceProduct = product({
+      uuid: 'p1',
+      type: 'digital',
+      variants: [variant({ uuid: 'v1' })],
+    }),
   ) {
     return mountWithEditorContext(
       DownloadsPanel,

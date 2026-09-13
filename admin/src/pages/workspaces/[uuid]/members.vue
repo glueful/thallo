@@ -130,7 +130,9 @@ function statusColor(status: string): 'success' | 'warning' | 'info' | 'neutral'
               <UIcon name="i-lucide-users" class="size-5 text-dimmed" />
             </div>
             <p class="text-sm font-medium text-default">No members yet</p>
-            <p class="text-sm text-muted">Add someone by email to give them access to this workspace.</p>
+            <p class="text-sm text-muted">
+              Add someone by email to give them access to this workspace.
+            </p>
           </div>
 
           <!-- List -->

@@ -95,7 +95,10 @@ describe('commerce discounts query layer', () => {
     await fetchDiscounts({})
 
     const requested = fetchMock.mock.calls[0]![0]
-    const url = new URL(typeof requested === 'string' ? requested : (requested as Request).url, 'http://localhost')
+    const url = new URL(
+      typeof requested === 'string' ? requested : (requested as Request).url,
+      'http://localhost',
+    )
     expect(url.searchParams.has('status')).toBe(false)
     expect(url.searchParams.has('q')).toBe(false)
   })
@@ -211,7 +214,11 @@ describe('commerce discounts query layer', () => {
 
   it('fetches and normalizes a single discount', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      jsonResponse({ success: true, message: 'Discount retrieved', data: discountBody({ uuid: 'd1' }) }),
+      jsonResponse({
+        success: true,
+        message: 'Discount retrieved',
+        data: discountBody({ uuid: 'd1' }),
+      }),
     )
 
     const { fetchDiscount } = await import('@/queries/commerceDiscounts')
@@ -236,7 +243,10 @@ describe('commerce discounts query layer', () => {
   it('createDiscount posts the exact CreateDiscountData body and normalizes the created discount', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: true, message: 'Discount created', data: discountBody({ uuid: 'd5' }) }, 201),
+      jsonResponse(
+        { success: true, message: 'Discount created', data: discountBody({ uuid: 'd5' }) },
+        201,
+      ),
     )
 
     const { createDiscount } = await import('@/queries/commerceDiscounts')
@@ -310,7 +320,11 @@ describe('commerce discounts query layer', () => {
   it('updateDiscount PATCHes the exact endpoint with the given body and normalizes the result', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: true, message: 'Discount updated', data: discountBody({ uuid: 'd1', status: 'inactive' }) }),
+      jsonResponse({
+        success: true,
+        message: 'Discount updated',
+        data: discountBody({ uuid: 'd1', status: 'inactive' }),
+      }),
     )
 
     const { updateDiscount } = await import('@/queries/commerceDiscounts')
@@ -318,7 +332,9 @@ describe('commerce discounts query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('PATCH')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/discounts/d1')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/discounts/d1',
+    )
     expect(await request.clone().json()).toEqual({ status: 'inactive' })
     expect(discount.status).toBe('inactive')
   })
@@ -344,7 +360,9 @@ describe('commerce discounts query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('DELETE')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/discounts/d1')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/discounts/d1',
+    )
   })
 
   it('deleteDiscount surfaces the server 409 message verbatim for a redeemed discount', async () => {
@@ -352,7 +370,8 @@ describe('commerce discounts query layer', () => {
       jsonResponse(
         {
           success: false,
-          message: 'This discount has been redeemed and cannot be deleted. Disable it via status instead.',
+          message:
+            'This discount has been redeemed and cannot be deleted. Disable it via status instead.',
           error: { code: 409, timestamp: '2026-01-01T00:00:00Z', request_id: 'req_1' },
         },
         409,

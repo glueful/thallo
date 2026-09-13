@@ -45,8 +45,10 @@ const groupedBlockTypes = computed<{ category: string; items: BlockType[] }[]>((
 async function toggleActive(slug: string, active: boolean) {
   try {
     await setActive.mutateAsync({ slug, active })
-    success(active ? 'Block type activated' : 'Block type deactivated',
-      active ? 'It appears in the block picker again.' : 'Existing content keeps rendering.')
+    success(
+      active ? 'Block type activated' : 'Block type deactivated',
+      active ? 'It appears in the block picker again.' : 'Existing content keeps rendering.',
+    )
   } catch (e) {
     notifyError(e, 'Couldn’t update the block type')
   }
@@ -73,7 +75,10 @@ async function toggleActive(slug: string, active: boolean) {
     </template>
 
     <template #body>
-      <div v-if="status === 'pending'" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div
+        v-if="status === 'pending'"
+        class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+      >
         <USkeleton v-for="n in 8" :key="n" class="h-32" />
       </div>
       <UEmpty
@@ -109,7 +114,9 @@ async function toggleActive(slug: string, active: boolean) {
             >
               <!-- Visual header: tinted panel with the enlarged block icon; the
                    activate toggle overlays the top-right corner. -->
-              <div class="relative flex h-24 items-center justify-center border-b border-default bg-elevated">
+              <div
+                class="relative flex h-24 items-center justify-center border-b border-default bg-elevated"
+              >
                 <UIcon :name="t.icon || 'i-lucide-box'" class="size-9 text-muted" />
                 <USwitch
                   class="absolute end-2 top-2"
@@ -125,9 +132,13 @@ async function toggleActive(slug: string, active: boolean) {
                   <p class="truncate text-sm font-medium text-default">{{ t.label }}</p>
                   <p class="truncate font-mono text-xs text-muted">{{ t.slug }}</p>
                 </div>
-                <p v-if="t.description" class="line-clamp-2 text-xs text-muted">{{ t.description }}</p>
+                <p v-if="t.description" class="line-clamp-2 text-xs text-muted">
+                  {{ t.description }}
+                </p>
                 <div class="mt-auto flex items-center gap-1.5 pt-1">
-                  <UBadge v-if="!t.active" size="xs" color="warning" variant="subtle">inactive</UBadge>
+                  <UBadge v-if="!t.active" size="xs" color="warning" variant="subtle"
+                    >inactive</UBadge
+                  >
                   <UButton
                     class="ms-auto"
                     size="xs"

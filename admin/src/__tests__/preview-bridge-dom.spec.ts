@@ -23,7 +23,10 @@ function sendToBridge(data: Record<string, unknown>, origin = 'https://admin.tes
   window.dispatchEvent(new MessageEvent('message', { data: { nonce: NONCE, ...data }, origin }))
 }
 
-function wrapper(id: string, inner = `<section><a href="/x">link ${id}</a></section>`): HTMLElement {
+function wrapper(
+  id: string,
+  inner = `<section><a href="/x">link ${id}</a></section>`,
+): HTMLElement {
   const el = document.createElement('div')
   el.className = 'thallo-preview-block'
   el.setAttribute('data-thallo-block', id)
@@ -455,10 +458,18 @@ describe('edit-in-place session', () => {
     w.querySelector('p .thallo-edit-region')!.dispatchEvent(
       new MouseEvent('dblclick', { bubbles: true }),
     )
-    expect(lastPost('thallo:edit-request')).toMatchObject({ id: 'es-a-0000001', field: 'body_text' })
+    expect(lastPost('thallo:edit-request')).toMatchObject({
+      id: 'es-a-0000001',
+      field: 'body_text',
+    })
 
     // Grant for ONE of two same-block regions edits exactly that region.
-    sendToBridge({ type: 'thallo:edit-grant', id: 'es-a-0000001', field: 'body_text', kind: 'text' })
+    sendToBridge({
+      type: 'thallo:edit-grant',
+      id: 'es-a-0000001',
+      field: 'body_text',
+      kind: 'text',
+    })
     const region = w.querySelector('[data-thallo-edit-field="body_text"]')!
     expect(region.getAttribute('contenteditable')).not.toBeNull()
     expect(
@@ -490,7 +501,12 @@ describe('edit-in-place session', () => {
   it('string kind: Enter commits-and-exits with the TEXT payload (markup never persists)', () => {
     const w = stringWrapper('es-d-0000001')
     document.body.appendChild(w)
-    sendToBridge({ type: 'thallo:edit-grant', id: 'es-d-0000001', field: 'heading', kind: 'string' })
+    sendToBridge({
+      type: 'thallo:edit-grant',
+      id: 'es-d-0000001',
+      field: 'heading',
+      kind: 'string',
+    })
     const region = w.querySelector('.thallo-edit-region')!
     expect(['plaintext-only', 'true']).toContain(region.getAttribute('contenteditable'))
 
@@ -522,7 +538,12 @@ describe('edit-in-place session', () => {
   it('text kind: Enter does NOT exit; commit carries the text payload', () => {
     const w = stringWrapper('es-e-0000001', 'body_text', 'line')
     document.body.appendChild(w)
-    sendToBridge({ type: 'thallo:edit-grant', id: 'es-e-0000001', field: 'body_text', kind: 'text' })
+    sendToBridge({
+      type: 'thallo:edit-grant',
+      id: 'es-e-0000001',
+      field: 'body_text',
+      kind: 'text',
+    })
     const region = w.querySelector('.thallo-edit-region')!
     const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
     region.dispatchEvent(enter)
@@ -783,9 +804,13 @@ describe('free drag', () => {
     posted.mockClear()
 
     // The post-drag click: swallowed (no select), exactly once.
-    a.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    a.querySelector('a')!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
     expect(lastPost('thallo:block-select')).toBeUndefined()
-    a.querySelector('a')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+    a.querySelector('a')!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true }),
+    )
     expect(lastPost('thallo:block-select')).toMatchObject({ id: 'fd-a-0000001' })
   })
 })
@@ -1625,7 +1650,14 @@ describe('bubble active-state (polish batch §1)', () => {
           return this
         },
         getBoundingClientRect: () => ({
-          left: 100, top: 200, width: 50, height: 20, bottom: 220, right: 150, x: 100, y: 200,
+          left: 100,
+          top: 200,
+          width: 50,
+          height: 20,
+          bottom: 220,
+          right: 150,
+          x: 100,
+          y: 200,
         }),
       }),
       removeAllRanges: vi.fn(),

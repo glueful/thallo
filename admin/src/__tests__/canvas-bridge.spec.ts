@@ -140,7 +140,12 @@ describe('useCanvasBridge', () => {
     expect(add).toHaveBeenCalledWith('b2', null)
     window.dispatchEvent(
       new MessageEvent('message', {
-        data: { type: 'thallo:block-add-after', id: 'b3', rect: { x: 12, y: 34 }, nonce: bridge.nonce },
+        data: {
+          type: 'thallo:block-add-after',
+          id: 'b3',
+          rect: { x: 12, y: 34 },
+          nonce: bridge.nonce,
+        },
       }),
     )
     expect(add).toHaveBeenCalledWith('b3', { x: 12, y: 34 })
@@ -207,7 +212,13 @@ describe('useCanvasBridge', () => {
 
     bridge.editGrant('b1', 'heading', 'string')
     expect(postSpy).toHaveBeenCalledWith(
-      { type: 'thallo:edit-grant', id: 'b1', field: 'heading', kind: 'string', nonce: bridge.nonce },
+      {
+        type: 'thallo:edit-grant',
+        id: 'b1',
+        field: 'heading',
+        kind: 'string',
+        nonce: bridge.nonce,
+      },
       'https://site.test',
     )
 

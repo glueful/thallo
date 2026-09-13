@@ -50,10 +50,7 @@ const showConfirm = computed(
 </script>
 
 <template>
-  <section
-    class="rounded-lg border border-default px-5 py-4"
-    aria-labelledby="enablement-heading"
-  >
+  <section class="rounded-lg border border-default px-5 py-4" aria-labelledby="enablement-heading">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div class="min-w-0">
         <h2 id="enablement-heading" class="text-sm font-semibold text-highlighted">

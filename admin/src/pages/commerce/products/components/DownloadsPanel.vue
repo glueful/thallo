@@ -80,7 +80,13 @@ interface DownloadFormState {
 }
 
 function blankState(): DownloadFormState {
-  return { name: '', downloadLimitInput: '', expiryDaysInput: '', positionInput: '', status: 'active' }
+  return {
+    name: '',
+    downloadLimitInput: '',
+    expiryDaysInput: '',
+    positionInput: '',
+    status: 'active',
+  }
 }
 
 const formOpen = ref(false)
@@ -287,7 +293,11 @@ function requestDelete(download: CommerceDownload, variant: CommerceVariant) {
             />
           </div>
 
-          <div v-if="status === 'pending'" class="flex justify-center py-4" data-test="downloads-loading">
+          <div
+            v-if="status === 'pending'"
+            class="flex justify-center py-4"
+            data-test="downloads-loading"
+          >
             <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin text-muted" />
           </div>
           <UAlert
@@ -316,14 +326,26 @@ function requestDelete(download: CommerceDownload, variant: CommerceVariant) {
           >
             <div class="flex flex-wrap items-center gap-3">
               <span class="font-medium text-default">{{ download.name }}</span>
-              <UBadge :color="download.status === 'active' ? 'success' : 'neutral'" variant="subtle" size="sm">
+              <UBadge
+                :color="download.status === 'active' ? 'success' : 'neutral'"
+                variant="subtle"
+                size="sm"
+              >
                 {{ download.status }}
               </UBadge>
               <span class="text-xs text-muted" data-test="download-limit">
-                {{ download.download_limit === null ? 'Unlimited downloads' : `${download.download_limit} download(s)` }}
+                {{
+                  download.download_limit === null
+                    ? 'Unlimited downloads'
+                    : `${download.download_limit} download(s)`
+                }}
               </span>
               <span class="text-xs text-muted" data-test="download-expiry">
-                {{ download.expiry_days === null ? 'Never expires' : `Expires ${download.expiry_days} day(s) after purchase` }}
+                {{
+                  download.expiry_days === null
+                    ? 'Never expires'
+                    : `Expires ${download.expiry_days} day(s) after purchase`
+                }}
               </span>
 
               <div v-if="canManage" class="ml-auto flex gap-1">
@@ -376,7 +398,11 @@ function requestDelete(download: CommerceDownload, variant: CommerceVariant) {
                   data-test="download-choose-file"
                   @click="pickerOpen = true"
                 />
-                <span v-if="pendingBlobUuid" class="text-xs text-muted" data-test="download-chosen-blob">
+                <span
+                  v-if="pendingBlobUuid"
+                  class="text-xs text-muted"
+                  data-test="download-chosen-blob"
+                >
                   Selected: {{ pendingBlobUuid }}
                 </span>
               </div>
@@ -386,18 +412,35 @@ function requestDelete(download: CommerceDownload, variant: CommerceVariant) {
                   <UInput v-model="state.name" class="w-full" data-test="download-name-input" />
                 </UFormField>
                 <UFormField label="Download limit" name="downloadLimit" help="Blank = unlimited">
-                  <UInput v-model="state.downloadLimitInput" class="w-full" data-test="download-limit-input" />
+                  <UInput
+                    v-model="state.downloadLimitInput"
+                    class="w-full"
+                    data-test="download-limit-input"
+                  />
                 </UFormField>
                 <UFormField label="Expiry (days)" name="expiryDays" help="Blank = never">
-                  <UInput v-model="state.expiryDaysInput" class="w-full" data-test="download-expiry-input" />
+                  <UInput
+                    v-model="state.expiryDaysInput"
+                    class="w-full"
+                    data-test="download-expiry-input"
+                  />
                 </UFormField>
                 <UFormField label="Position" name="position" help="Blank = append">
-                  <UInput v-model="state.positionInput" class="w-full" data-test="download-position-input" />
+                  <UInput
+                    v-model="state.positionInput"
+                    class="w-full"
+                    data-test="download-position-input"
+                  />
                 </UFormField>
               </div>
 
               <UFormField v-if="editingUuid" label="Status" name="status" class="max-w-48">
-                <USelect v-model="state.status" :items="statusItems" class="w-full" data-test="download-status-input" />
+                <USelect
+                  v-model="state.status"
+                  :items="statusItems"
+                  class="w-full"
+                  data-test="download-status-input"
+                />
               </UFormField>
 
               <div class="flex gap-2">
@@ -408,7 +451,13 @@ function requestDelete(download: CommerceDownload, variant: CommerceVariant) {
                   :label="editingUuid ? 'Save' : 'Attach'"
                   data-test="download-form-submit"
                 />
-                <UButton size="xs" color="neutral" variant="ghost" label="Cancel" @click="closeForm" />
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  label="Cancel"
+                  @click="closeForm"
+                />
               </div>
             </form>
           </template>
@@ -416,13 +465,22 @@ function requestDelete(download: CommerceDownload, variant: CommerceVariant) {
       </div>
     </section>
 
-    <MediaPickerModal v-model:open="pickerOpen" visibility="private" media-type="" @select="handlePicked" />
+    <MediaPickerModal
+      v-model:open="pickerOpen"
+      visibility="private"
+      media-type=""
+      @select="handlePicked"
+    />
   </div>
 
   <UModal
     :open="pendingDelete !== null"
     title="Detach download"
-    @update:open="(v: boolean) => { if (!v) pendingDelete = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) pendingDelete = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
@@ -437,7 +495,11 @@ function requestDelete(download: CommerceDownload, variant: CommerceVariant) {
           variant="ghost"
           label="Cancel"
           :disabled="removeDownload.isLoading.value"
-          @click="() => { pendingDelete = null }"
+          @click="
+            () => {
+              pendingDelete = null
+            }
+          "
         />
         <UButton
           color="error"

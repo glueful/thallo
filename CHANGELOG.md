@@ -7,6 +7,29 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+## [1.0.0-beta.23] - 2026-09-13
+
+A small release after beta.22's install gate: the documented install command works as written,
+the admin tells you when nothing is ticking the scheduler, and the admin code base is formatted
+and gated. Framework 1.85.4 required.
+
+### Added
+- Health reports a **Scheduler** check: the scheduled-publishing runner leaves a heartbeat in
+  the system flags every tick, and the check is ok while it is recent, a warning naming the
+  cron line (`* * * * * php /path/to/site/glueful queue:scheduler run`) when it is stale or
+  has never happened. A missing cron entry is now visible in the admin instead of showing up
+  as publishing that never fires.
+
+### Changed
+- The documented install command carries `--stability=beta` (`create-project` defaults to
+  stable, and Thallo is beta-only), and `./thallo update-check` maps to `thallo:update:check`.
+- The admin is formatted with oxfmt in one whitespace-only commit, and CI's admin job lints,
+  format-checks and tests before it builds.
+
+### Upgrade Notes
+- `composer update && php glueful thallo:provision`, then check Utilities → Health: the new
+  Scheduler check should be green within a minute if your cron entry is in place.
+
 ## [1.0.0-beta.22] - 2026-09-12
 
 The first release installable from Packagist as the split, and the first that tells you when

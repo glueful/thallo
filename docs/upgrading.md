@@ -24,7 +24,7 @@ the sequence above applies forever:
 1. Install the template beside the old site (the version you are moving to):
 
    ```bash
-   composer create-project --prefer-dist --no-dev glueful/thallo new-site 1.0.0-beta.21
+   composer create-project --prefer-dist --no-dev --stability=beta glueful/thallo new-site
    ```
 
 2. Carry your files across:

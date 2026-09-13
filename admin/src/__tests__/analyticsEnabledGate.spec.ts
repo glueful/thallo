@@ -13,7 +13,10 @@ import { useAnalyticsSummary } from '@/queries/analytics'
 function mountWith(enabled: boolean) {
   const Comp = defineComponent({
     setup() {
-      useAnalyticsSummary(() => ({ from: '2025-06-01', to: '2025-06-30' }), () => enabled)
+      useAnalyticsSummary(
+        () => ({ from: '2025-06-01', to: '2025-06-30' }),
+        () => enabled,
+      )
       return () => h('div')
     },
   })
@@ -23,7 +26,9 @@ function mountWith(enabled: boolean) {
 
 describe('useAnalyticsSummary enabled gate', () => {
   beforeEach(() => {
-    authFetch.mockReset().mockResolvedValue({ data: { from: 'a', to: 'b', totals: {}, active_users: 0 } })
+    authFetch
+      .mockReset()
+      .mockResolvedValue({ data: { from: 'a', to: 'b', totals: {}, active_users: 0 } })
   })
 
   it('does NOT hit the backend when disabled', async () => {

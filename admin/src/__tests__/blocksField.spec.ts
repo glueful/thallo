@@ -35,7 +35,9 @@ const defaultTypes = (): BlockType[] => [
     category: 'Layout',
     description: null,
     active: true,
-    schema: [{ name: 'heading', type: 'string', required: true, localized: false, filterable: false }],
+    schema: [
+      { name: 'heading', type: 'string', required: true, localized: false, filterable: false },
+    ],
   },
   {
     uuid: 'bt2',
@@ -104,7 +106,9 @@ const tabsTypes = (): BlockType[] => [
     category: 'Items',
     description: null,
     active: true,
-    schema: [{ name: 'label', type: 'string', required: true, localized: false, filterable: false }],
+    schema: [
+      { name: 'label', type: 'string', required: true, localized: false, filterable: false },
+    ],
   },
 ]
 
@@ -251,14 +255,16 @@ describe('BlocksField', () => {
         description: null,
         category: null,
         active: true,
-        schema: [{
-          name: 'author',
-          type: 'reference',
-          required: false,
-          localized: false,
-          filterable: false,
-          reference_type: 'blog',
-        }],
+        schema: [
+          {
+            name: 'author',
+            type: 'reference',
+            required: false,
+            localized: false,
+            filterable: false,
+            reference_type: 'blog',
+          },
+        ],
       },
     ]
     const wrapper = mount(BlocksField, {
@@ -272,7 +278,7 @@ describe('BlocksField', () => {
     expect((nested.props('field') as { referenceType?: string }).referenceType).toBe('blog')
   })
 
-  it('nested insert menus use the REGION\'s own allowlist, not the root field\'s', async () => {
+  it("nested insert menus use the REGION's own allowlist, not the root field's", async () => {
     // A `section` whose content region declares its OWN block_types allowlist
     // (stage-toolbar spec §5) — local fixture so other tests keep the open region.
     blockTypes.value = defaultTypes().map((t) =>
@@ -377,11 +383,12 @@ describe('BlocksField', () => {
     await wrapper.setProps({ modelValue: model })
 
     // pickerTypesFor at the root list: all active types (open root allowlist).
-    expect(api.pickerTypesFor('bbb000000002').map((t) => t.slug).sort()).toEqual([
-      'hero',
-      'quote',
-      'section',
-    ])
+    expect(
+      api
+        .pickerTypesFor('bbb000000002')
+        .map((t) => t.slug)
+        .sort(),
+    ).toEqual(['hero', 'quote', 'section'])
 
     // deleteBlock: true then the block is gone; unknown id -> false.
     expect(api.deleteBlock('bbb000000002')).toBe(true)
@@ -499,8 +506,13 @@ describe('BlocksField', () => {
     blockTypes.value = [
       ...defaultTypes(),
       {
-        uuid: 'bt9', slug: 'navigation', label: 'Navigation', icon: null,
-        category: 'Layout', description: null, active: true,
+        uuid: 'bt9',
+        slug: 'navigation',
+        label: 'Navigation',
+        icon: null,
+        category: 'Layout',
+        description: null,
+        active: true,
         schema: [
           { name: 'menu', type: 'string', required: true, localized: false, filterable: false },
         ],
@@ -553,9 +565,30 @@ describe('BlocksField', () => {
         active: true,
         schema: [
           { name: 'title', type: 'string', required: false, localized: false, filterable: false },
-          { name: 'bg', type: 'string', required: false, localized: false, filterable: false, group: 'Style' },
-          { name: 'pad', type: 'number', required: false, localized: false, filterable: false, group: 'Style' },
-          { name: 'link_url', type: 'string', required: false, localized: false, filterable: false, group: 'Style' },
+          {
+            name: 'bg',
+            type: 'string',
+            required: false,
+            localized: false,
+            filterable: false,
+            group: 'Style',
+          },
+          {
+            name: 'pad',
+            type: 'number',
+            required: false,
+            localized: false,
+            filterable: false,
+            group: 'Style',
+          },
+          {
+            name: 'link_url',
+            type: 'string',
+            required: false,
+            localized: false,
+            filterable: false,
+            group: 'Style',
+          },
         ],
       },
     ]
@@ -590,7 +623,11 @@ describe('BlocksField', () => {
       { id: 'h1', type: 'hero', data: { heading: 'H' } },
     ])
     const flatWrapper = mount(BlocksField, {
-      props: { field, modelValue: flat.value, 'onUpdate:modelValue': (v: typeof flat.value) => (flat.value = v) },
+      props: {
+        field,
+        modelValue: flat.value,
+        'onUpdate:modelValue': (v: typeof flat.value) => (flat.value = v),
+      },
     })
     await flushPromises()
     await flatWrapper.find('[data-test="block-toggle-h1"]').trigger('click')

@@ -15,4 +15,8 @@ const site: NavigationMenuItem[] = [
   },
 ]
 
-export const templatesModule: AdminModule = { id: 'templates', requires: ['thallo.render'], nav: { site } }
+export const templatesModule: AdminModule = {
+  id: 'templates',
+  requires: ['thallo.render'],
+  nav: { site },
+}

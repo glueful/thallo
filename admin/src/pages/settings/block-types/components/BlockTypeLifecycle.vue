@@ -30,7 +30,8 @@ const { data: usage, status: usageStatus } = useBlockTypeUsage(() => props.slug)
 const { data: migrations } = useBlockTypeMigrations(() => props.slug)
 
 const activeMigration = computed(
-  () => (migrations.value ?? []).find((m) => m.status === 'running' || m.status === 'failed') ?? null,
+  () =>
+    (migrations.value ?? []).find((m) => m.status === 'running' || m.status === 'failed') ?? null,
 )
 defineExpose({ activeMigration })
 
@@ -106,7 +107,9 @@ const opsValid = computed(
 
 async function declareMigration() {
   const ops: BlockMigrationOp[] = opRows.value.map((r) =>
-    r.op === 'delete' ? { op: 'delete', name: r.from } : { op: 'rename', from: r.from, to: r.to.trim() },
+    r.op === 'delete'
+      ? { op: 'delete', name: r.from }
+      : { op: 'rename', from: r.from, to: r.to.trim() },
   )
   declaring.value = true
   try {
@@ -136,9 +139,9 @@ async function declareMigration() {
       <div v-if="usageStatus === 'pending'"><USkeleton class="h-8" /></div>
       <template v-else-if="usage">
         <p class="text-sm text-muted" data-testid="block-usage-total">
-          Used in <strong>{{ usage.total }}</strong> current draft{{ usage.total === 1 ? '' : 's' }}/publication{{
+          Used in <strong>{{ usage.total }}</strong> current draft{{
             usage.total === 1 ? '' : 's'
-          }}.
+          }}/publication{{ usage.total === 1 ? '' : 's' }}.
         </p>
         <ul v-if="usage.per_type.length" class="space-y-1 text-sm">
           <li v-for="row in usage.per_type" :key="row.type">
@@ -171,7 +174,9 @@ async function declareMigration() {
         <p class="text-muted">
           Entries containing this block cannot be saved or published until it completes.
           <span v-if="activeMigration.status === 'failed'">
-            Re-drive it with <code>php glueful thallo:blocks:migration:backfill {{ activeMigration.uuid }}</code>.
+            Re-drive it with
+            <code>php glueful thallo:blocks:migration:backfill {{ activeMigration.uuid }}</code
+            >.
           </span>
         </p>
       </div>
@@ -206,18 +211,27 @@ async function declareMigration() {
         data-testid="block-delete-confirm"
       >
         <p class="mb-2">
-          Permanently delete “{{ slug }}”? This cannot be undone — versions that referenced it can no
-          longer be restored. Deactivating is the reversible alternative.
+          Permanently delete “{{ slug }}”? This cannot be undone — versions that referenced it can
+          no longer be restored. Deactivating is the reversible alternative.
         </p>
         <div class="flex gap-2">
-          <UButton color="error" size="xs" data-testid="block-delete-confirm-yes" @click="confirmDelete">
+          <UButton
+            color="error"
+            size="xs"
+            data-testid="block-delete-confirm-yes"
+            @click="confirmDelete"
+          >
             Delete permanently
           </UButton>
           <UButton variant="ghost" color="neutral" size="xs" @click="cancelDelete">Cancel</UButton>
         </div>
       </div>
 
-      <div v-if="migrateOpen" class="space-y-3 rounded border border-default p-3" data-testid="block-migrate-dialog">
+      <div
+        v-if="migrateOpen"
+        class="space-y-3 rounded border border-default p-3"
+        data-testid="block-migrate-dialog"
+      >
         <p class="text-sm text-muted">
           Declare rename/delete operations. The schema flips immediately and a background backfill
           rewrites every current draft and publication; affected entries are locked until it
@@ -252,7 +266,9 @@ async function declareMigration() {
           />
         </div>
         <div class="flex gap-2">
-          <UButton variant="ghost" size="xs" icon="i-lucide-plus" @click="addOpRow">Add operation</UButton>
+          <UButton variant="ghost" size="xs" icon="i-lucide-plus" @click="addOpRow"
+            >Add operation</UButton
+          >
         </div>
         <div class="flex gap-2">
           <UButton

@@ -62,7 +62,8 @@ const sideTabItems = computed(() => [
 // toggles off mid-session). Built-in tabs are never affected — only reset away from a
 // panel id that just dropped out of the visible list, so stale panel content never renders.
 watch(visiblePanels, (panels) => {
-  const builtIn = sideTab.value === 'publishing' || sideTab.value === 'seo' || sideTab.value === 'versions'
+  const builtIn =
+    sideTab.value === 'publishing' || sideTab.value === 'seo' || sideTab.value === 'versions'
   if (!builtIn && !panels.some((p) => p.id === sideTab.value)) {
     sideTab.value = 'publishing'
   }
@@ -223,7 +224,7 @@ async function onPublish() {
   if (!(await onSave({ quiet: true }))) return // never publish past a failed save
   // The route shown in the Publishing panel is part of what "publish" means: an unsaved slug
   // (the title suggestion on a new page) is saved first, or the page goes live with no URL.
-  if (!(await publishPanel.value?.saveRouteIfDirty() ?? true)) return
+  if (!((await publishPanel.value?.saveRouteIfDirty()) ?? true)) return
   try {
     await publish.mutateAsync('publish')
     success(isPublished.value ? 'Updated' : 'Published')
@@ -359,11 +360,7 @@ async function onSave({ quiet = false }: { quiet?: boolean } = {}): Promise<bool
               }
             "
           />
-          <UButton
-            :loading="publish.isLoading.value"
-            data-test="navbar-publish"
-            @click="onPublish"
-          >
+          <UButton :loading="publish.isLoading.value" data-test="navbar-publish" @click="onPublish">
             {{ isPublished ? 'Update' : 'Publish' }}
           </UButton>
         </template>

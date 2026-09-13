@@ -10,10 +10,15 @@ const enabled = ref(true)
 const h = vi.hoisted(() => ({ summaryEnabled: null as unknown }))
 
 vi.mock('@/stores/capabilities', () => ({
-  useCapabilitiesStore: () => ({ isEnabled: (id: string) => (id === 'thallo.analytics' ? enabled.value : true) }),
+  useCapabilitiesStore: () => ({
+    isEnabled: (id: string) => (id === 'thallo.analytics' ? enabled.value : true),
+  }),
 }))
 vi.mock('@/queries/home', () => ({
-  useHomeOverview: () => ({ data: ref({ types: [], recent: [], total_entries: 0 }), status: ref('success') }),
+  useHomeOverview: () => ({
+    data: ref({ types: [], recent: [], total_entries: 0 }),
+    status: ref('success'),
+  }),
 }))
 vi.mock('@/queries/entries', () => ({ useCreateEntry: () => ({ mutateAsync: vi.fn() }) }))
 vi.mock('@/queries/analytics', () => ({
@@ -26,7 +31,9 @@ vi.mock('@/queries/analytics', () => ({
     }
   },
 }))
-vi.mock('@/composables/useNotify', () => ({ useNotify: () => ({ error: vi.fn(), success: vi.fn() }) }))
+vi.mock('@/composables/useNotify', () => ({
+  useNotify: () => ({ error: vi.fn(), success: vi.fn() }),
+}))
 vi.mock('@/stores/session', () => ({ useSessionStore: () => ({ user: { name: 'Test' } }) }))
 
 import HomePage from '@/pages/index.vue'

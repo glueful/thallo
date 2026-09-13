@@ -48,7 +48,9 @@ describe('navigation query layer', () => {
   })
 
   it('reorderMenus POSTs the full slug list to /menus/reorder and unwraps data.menus', async () => {
-    authFetch.mockResolvedValue({ data: { menus: [{ slug: 'c', name: 'C', item_count: 0, lock_version: 0 }] } })
+    authFetch.mockResolvedValue({
+      data: { menus: [{ slug: 'c', name: 'C', item_count: 0, lock_version: 0 }] },
+    })
     const out = await reorderMenus(['c', 'a', 'b'])
     const [url, init] = authFetch.mock.calls[0] as [string, { method: string; body: string }]
     expect(url).toBe('/v1/admin/navigation/menus/reorder')

@@ -87,9 +87,8 @@ const bridge = vi.hoisted(() => {
         cb: (id: string, neighbor: { beforeId: string } | { afterId: string }) => void,
       ) => (callbacks.moveTo = cb),
       onBlockDuplicate: (cb: (id: string) => void) => (callbacks.duplicate = cb),
-      onBlockDeleteRequest: (
-        cb: (id: string, anchor?: { x: number; y: number } | null) => void,
-      ) => (callbacks.deleteRequest = cb),
+      onBlockDeleteRequest: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
+        (callbacks.deleteRequest = cb),
       onBlockAddAfter: (cb: (id: string, anchor?: { x: number; y: number } | null) => void) =>
         (callbacks.addAfter = cb),
       onEditRequest: (cb: (id: string, field: string) => void) => (callbacks.editRequest = cb),
@@ -437,10 +436,18 @@ describe('canvas page', () => {
   it('Apply surfaces the migration 409 with the editor-mirror banner', async () => {
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
     applyMock.mockRejectedValueOnce(
-      new ApiError("block type 'card' has a migration in progress", 409, {}, {
-        success: false,
-        error: { code: 409, details: { code: 'BLOCK_MIGRATION_IN_PROGRESS', block_type: 'card' } },
-      }),
+      new ApiError(
+        "block type 'card' has a migration in progress",
+        409,
+        {},
+        {
+          success: false,
+          error: {
+            code: 409,
+            details: { code: 'BLOCK_MIGRATION_IN_PROGRESS', block_type: 'card' },
+          },
+        },
+      ),
     )
     const wrapper = mountPage()
     await flushPromises()
@@ -460,9 +467,7 @@ describe('canvas page', () => {
     // reload DIRECTLY (dom-patching spec §1): stageRefresh is asserted
     // uncalled at the end of this test.
     mintMock.mockResolvedValue({ token: 'tok1', themeUrl: 'https://site.test/_preview/tok1' })
-    applyMock.mockRejectedValueOnce(
-      new ApiError('validation failed', 422, {}, { success: false }),
-    )
+    applyMock.mockRejectedValueOnce(new ApiError('validation failed', 422, {}, { success: false }))
     const wrapper = mountPage()
     await flushPromises()
     const before = wrapper.find('[data-test="canvas-iframe"]').element
@@ -506,16 +511,21 @@ describe('canvas page', () => {
     saveMock.mockRejectedValueOnce(new ApiError('conflict', 409, {}, { success: false }))
     await wrapper.find('[data-test="canvas-save"]').trigger('click')
     await flushPromises()
-    expect(notify.warning).toHaveBeenCalledWith(
-      'This draft changed elsewhere',
-      expect.any(String),
-    )
+    expect(notify.warning).toHaveBeenCalledWith('This draft changed elsewhere', expect.any(String))
 
     saveMock.mockRejectedValueOnce(
-      new ApiError("block type 'card' has a migration in progress", 409, {}, {
-        success: false,
-        error: { code: 409, details: { code: 'BLOCK_MIGRATION_IN_PROGRESS', block_type: 'card' } },
-      }),
+      new ApiError(
+        "block type 'card' has a migration in progress",
+        409,
+        {},
+        {
+          success: false,
+          error: {
+            code: 409,
+            details: { code: 'BLOCK_MIGRATION_IN_PROGRESS', block_type: 'card' },
+          },
+        },
+      ),
     )
     await wrapper.find('[data-test="canvas-save"]').trigger('click')
     await flushPromises()
@@ -592,16 +602,13 @@ describe('canvas page', () => {
     // Cmd+D: duplicate through the shared handler; selection follows the clone.
     await row().trigger('keydown', { key: 'd', metaKey: true })
     await flushPromises()
-    expect(bridge.instance.mirrorDuplicate).toHaveBeenCalledWith(
-      'blockaaa0001',
-      expect.any(Object),
-    )
+    expect(bridge.instance.mirrorDuplicate).toHaveBeenCalledWith('blockaaa0001', expect.any(Object))
     const idMap = (bridge.instance.mirrorDuplicate as ReturnType<typeof vi.fn>).mock
       .calls[0][1] as Record<string, string>
     const newId = idMap['blockaaa0001']
-    expect(
-      wrapper.find(`[data-test="canvas-outline-item-${newId}"]`).classes(),
-    ).toContain('bg-elevated')
+    expect(wrapper.find(`[data-test="canvas-outline-item-${newId}"]`).classes()).toContain(
+      'bg-elevated',
+    )
 
     // Escape: parent state clears AND the stage ring clears via highlight('').
     ;(bridge.instance.highlight as ReturnType<typeof vi.fn>).mockClear()
@@ -609,9 +616,9 @@ describe('canvas page', () => {
       key: 'Escape',
     })
     expect(bridge.instance.highlight).toHaveBeenCalledWith('')
-    expect(
-      wrapper.find(`[data-test="canvas-outline-item-${newId}"]`).classes(),
-    ).not.toContain('bg-elevated')
+    expect(wrapper.find(`[data-test="canvas-outline-item-${newId}"]`).classes()).not.toContain(
+      'bg-elevated',
+    )
     wrapper.unmount()
   })
 
@@ -1010,7 +1017,8 @@ describe('editor page Design action', () => {
           // Shallow resolves auto-imported Nuxt UI names WITHOUT the U prefix.
           DashboardPanel: { template: '<div><slot name="header" /><slot name="body" /></div>' },
           DashboardNavbar: {
-            template: '<div><slot name="leading" /><slot name="title" /><slot name="right" /></div>',
+            template:
+              '<div><slot name="leading" /><slot name="title" /><slot name="right" /></div>',
           },
         },
       },

@@ -58,7 +58,8 @@ the mirrors. Nobody commits to a mirror.
 7. **Clean-machine gate** — after publication, in an empty directory with no sibling
    repositories, BOTH:
 
-       composer create-project --prefer-dist --no-dev glueful/thallo t-gate vX.Y.Z-beta.N
+       composer create-project --prefer-dist --no-dev --stability=beta glueful/thallo t-gate vX.Y.Z-beta.N
+       # and read Packagist through repo.packagist.org/p2/glueful/<name>.json — the packages API is cached
        # and, in an install of the PREVIOUS tag:
        composer update && php glueful thallo:provision
 

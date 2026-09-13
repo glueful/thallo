@@ -106,7 +106,8 @@ async function save() {
               phone: phone.value.trim() || undefined,
             },
           },
-          shipping_method: shippingMethod.value === NO_SHIPPING_METHOD ? null : shippingMethod.value,
+          shipping_method:
+            shippingMethod.value === NO_SHIPPING_METHOD ? null : shippingMethod.value,
           expected_revision: props.draft.draft_revision,
         },
       })
@@ -177,7 +178,10 @@ async function save() {
         <UFormField label="Shipping method" :error="fieldErrors.shipping_method">
           <USelect
             v-model="shippingMethod"
-            :items="[{ label: 'Choose a method…', value: NO_SHIPPING_METHOD }, ...shippingMethodItems]"
+            :items="[
+              { label: 'Choose a method…', value: NO_SHIPPING_METHOD },
+              ...shippingMethodItems,
+            ]"
             class="w-full"
             data-test="draft-shipping-method"
           />
@@ -197,7 +201,9 @@ async function save() {
         <UButton :loading="update.isLoading.value" data-test="draft-fulfillment-save" @click="save">
           Save fulfillment
         </UButton>
-        <span v-if="saved" class="text-sm text-success" data-test="draft-fulfillment-saved">Saved</span>
+        <span v-if="saved" class="text-sm text-success" data-test="draft-fulfillment-saved"
+          >Saved</span
+        >
       </div>
     </div>
   </UCard>

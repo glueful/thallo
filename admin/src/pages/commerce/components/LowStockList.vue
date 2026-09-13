@@ -63,7 +63,9 @@ const columns = computed<TableColumn<StockReportItem>[]>(() => [
   <UTable v-else :data="rows" :columns="columns" :ui="{ td: 'align-middle' }">
     <template #product_name-cell="{ row }">
       <div data-test="low-stock-row" class="flex flex-col">
-        <span class="font-medium text-default" data-test="low-stock-name">{{ row.original.product_name }}</span>
+        <span class="font-medium text-default" data-test="low-stock-name">{{
+          row.original.product_name
+        }}</span>
         <span class="text-xs text-muted">{{ row.original.sku }}</span>
       </div>
     </template>
@@ -73,7 +75,12 @@ const columns = computed<TableColumn<StockReportItem>[]>(() => [
     </template>
 
     <template #status-cell="{ row }">
-      <UBadge :color="severity(row.original).color" variant="subtle" size="sm" data-test="low-stock-badge">
+      <UBadge
+        :color="severity(row.original).color"
+        variant="subtle"
+        size="sm"
+        data-test="low-stock-badge"
+      >
         {{ severity(row.original).label }}
       </UBadge>
     </template>

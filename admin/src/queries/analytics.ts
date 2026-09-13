@@ -40,7 +40,11 @@ export function rangeFor(days: RangePreset, today: Date = new Date()): DateRange
   return { from: fmt(from), to: fmt(to) }
 }
 
-export async function fetchSeries(metric: string, from: string, to: string): Promise<SeriesPoint[]> {
+export async function fetchSeries(
+  metric: string,
+  from: string,
+  to: string,
+): Promise<SeriesPoint[]> {
   const qs = new URLSearchParams({ metric, from, to })
   const json = await authFetch(`${base()}/series?${qs.toString()}`)
   const data = (json.data ?? json) as { series?: SeriesPoint[] }

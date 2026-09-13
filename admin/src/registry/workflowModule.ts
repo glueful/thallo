@@ -12,4 +12,8 @@ const main: NavigationMenuItem[] = [
   },
 ]
 
-export const workflowModule: AdminModule = { id: 'workflow', requires: ['thallo.workflow'], nav: { main } }
+export const workflowModule: AdminModule = {
+  id: 'workflow',
+  requires: ['thallo.workflow'],
+  nav: { main },
+}

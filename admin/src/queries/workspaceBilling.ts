@@ -98,7 +98,8 @@ export async function fetchWorkspaceBillingMeta(): Promise<WorkspaceBillingMeta>
     subscription: normalizeSubscription(raw.subscription ?? null),
     origination: normalizeOrigination(raw.origination ?? null),
     operator_contact_required: raw.operator_contact_required === true,
-    operator_contact_reason: typeof raw.operator_contact_reason === 'string' ? raw.operator_contact_reason : null,
+    operator_contact_reason:
+      typeof raw.operator_contact_reason === 'string' ? raw.operator_contact_reason : null,
     purchasable_plans: normalizePurchasablePlans(raw.purchasable_plans),
   }
 }
@@ -246,7 +247,10 @@ export interface CheckoutResult {
 /** `POST /checkout` -- the `Idempotency-Key` header carries the caller's per-attempt token
  * verbatim (never trimmed; the controller validates the raw value). A 202 `initializing` body
  * resolves this promise normally (authFetch only throws on a non-2xx status). */
-export async function startWorkspaceCheckout(planKey: string, idempotencyKey: string): Promise<CheckoutResult> {
+export async function startWorkspaceCheckout(
+  planKey: string,
+  idempotencyKey: string,
+): Promise<CheckoutResult> {
   const json = await authFetch(`${base()}/checkout`, {
     method: 'POST',
     headers: { 'Idempotency-Key': idempotencyKey },

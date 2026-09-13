@@ -63,7 +63,11 @@ async function toggle(ext: InstalledExtension) {
           type="button"
           class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors"
           :class="ext.name === selectedName ? 'bg-elevated' : 'hover:bg-elevated/50'"
-          @click="() => { selectedName = ext.name }"
+          @click="
+            () => {
+              selectedName = ext.name
+            }
+          "
         >
           <UIcon name="i-lucide-package-check" class="size-5 shrink-0 text-muted" />
           <div class="min-w-0 flex-1">
@@ -113,7 +117,11 @@ async function toggle(ext: InstalledExtension) {
           size="xs"
           icon="i-lucide-arrow-left"
           label="Back"
-          @click="() => { selectedName = undefined }"
+          @click="
+            () => {
+              selectedName = undefined
+            }
+          "
         />
         <header class="flex items-start justify-between gap-3">
           <div class="flex items-center gap-3">

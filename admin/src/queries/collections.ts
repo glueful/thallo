@@ -338,8 +338,7 @@ export function useCollectionMutations() {
       onSettled: (_d, _e, vars) => invalidate(vars.name),
     }),
     truncate: useMutation({
-      mutation: (vars: { name: string; confirm?: string }) =>
-        truncateRows(vars.name, vars.confirm),
+      mutation: (vars: { name: string; confirm?: string }) => truncateRows(vars.name, vars.confirm),
       onSettled: (_d, _e, vars) => {
         invalidate(vars.name)
         cache.invalidateQueries({ key: qk.collectionRows(vars.name) })

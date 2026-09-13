@@ -69,9 +69,8 @@ function draft(overrides: Partial<CommerceDraft> = {}): CommerceDraft {
 async function mountCard(draftValue: CommerceDraft) {
   const pinia = createPinia()
   setActivePinia(pinia)
-  const { default: DraftCustomerCard } = await import(
-    '@/pages/commerce/orders/components/DraftCustomerCard.vue'
-  )
+  const { default: DraftCustomerCard } =
+    await import('@/pages/commerce/orders/components/DraftCustomerCard.vue')
   return mount(DraftCustomerCard as typeof DraftCustomerCardType, {
     global: { plugins: [pinia, PiniaColada] },
     props: { draft: draftValue, canAttachUser: false },
@@ -147,7 +146,9 @@ describe('DraftCustomerCard: real wire-envelope error normalization (no mocked c
       ),
     )
 
-    const wrapper = await mountCard(draft({ uuid: 'd1', draft_revision: 0, email: 'old@example.com' }))
+    const wrapper = await mountCard(
+      draft({ uuid: 'd1', draft_revision: 0, email: 'old@example.com' }),
+    )
     await wrapper.find('[data-test="draft-customer-save"]').trigger('click')
 
     await waitFor(() => {
@@ -166,7 +167,9 @@ describe('DraftCustomerCard: real wire-envelope error normalization (no mocked c
   it('renders a message-level banner for a bare 500 (non-JSON body)', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(new Response('<html>Internal Server Error</html>', { status: 500 })),
+      vi
+        .fn()
+        .mockResolvedValue(new Response('<html>Internal Server Error</html>', { status: 500 })),
     )
 
     const wrapper = await mountCard(draft({ uuid: 'd1', draft_revision: 0 }))

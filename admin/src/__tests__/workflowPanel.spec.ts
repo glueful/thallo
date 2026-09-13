@@ -88,7 +88,11 @@ describe('WorkflowPanel', () => {
     await confirm.trigger('click')
     expect(mutate.requestChanges).not.toHaveBeenCalled()
 
-    await wrapper.find('[data-test="workflow-request-changes-note"] textarea, textarea[data-test="workflow-request-changes-note"]').setValue('tighten the intro')
+    await wrapper
+      .find(
+        '[data-test="workflow-request-changes-note"] textarea, textarea[data-test="workflow-request-changes-note"]',
+      )
+      .setValue('tighten the intro')
     await wrapper.find('[data-test="workflow-request-changes-confirm"]').trigger('click')
     expect(mutate.requestChanges).toHaveBeenCalledWith('tighten the intro')
   })

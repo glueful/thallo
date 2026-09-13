@@ -81,7 +81,12 @@ export function createBlockListOps(regionsOf: RegionResolver) {
     id: string,
     parentId: string | null = null,
     region: string | null = null,
-  ): { parentId: string | null; region: string | null; index: number; list: BlockInstance[] } | null {
+  ): {
+    parentId: string | null
+    region: string | null
+    index: number
+    list: BlockInstance[]
+  } | null {
     const index = tree.findIndex((b) => b.id === id)
     if (index >= 0) return { parentId, region, index, list: tree }
     for (const block of tree) {
@@ -111,7 +116,11 @@ export function createBlockListOps(regionsOf: RegionResolver) {
     return map
   }
 
-  function insertAt(tree: BlockInstance[], target: InsertTarget, block: BlockInstance): BlockInstance[] {
+  function insertAt(
+    tree: BlockInstance[],
+    target: InsertTarget,
+    block: BlockInstance,
+  ): BlockInstance[] {
     return mapLists(tree, (list, parentId, region) => {
       if (parentId !== target.parentId || region !== target.region) return list
       const next = [...list]
@@ -156,7 +165,12 @@ export function createBlockListOps(regionsOf: RegionResolver) {
     })
   }
 
-  function patchDataById(tree: BlockInstance[], id: string, name: string, value: unknown): BlockInstance[] {
+  function patchDataById(
+    tree: BlockInstance[],
+    id: string,
+    name: string,
+    value: unknown,
+  ): BlockInstance[] {
     return mapLists(tree, (list) =>
       list.some((b) => b.id === id)
         ? list.map((b) => (b.id === id ? { ...b, data: { ...b.data, [name]: value } } : b))

@@ -45,7 +45,9 @@ function choose(preset: string): void {
       <span
         class="flex h-7 w-12 items-center gap-0.5 rounded border bg-default p-0.5 transition-colors"
         :class="
-          p === selected ? 'border-primary ring-2 ring-primary' : 'border-accented group-hover:border-primary'
+          p === selected
+            ? 'border-primary ring-2 ring-primary'
+            : 'border-accented group-hover:border-primary'
         "
       >
         <span

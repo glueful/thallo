@@ -21,7 +21,10 @@ vi.mock('@/composables/useNotify', () => ({
 vi.mock('@/fields/components/BlocksField.vue', () => ({
   default: defineComponent({
     name: 'BlocksField',
-    props: { field: { type: Object, required: true }, modelValue: { type: Array, default: () => [] } },
+    props: {
+      field: { type: Object, required: true },
+      modelValue: { type: Array, default: () => [] },
+    },
     setup(props) {
       return () =>
         h('div', {
@@ -144,7 +147,10 @@ describe('regions page (Header & footer)', () => {
 
     // Server refetch arrives with different data — the dirty header must keep its edit.
     regionsData.value = [
-      { ...region('header', ['logo'], ['sticky', 'width']), settings: { sticky: false, width: 'full' } },
+      {
+        ...region('header', ['logo'], ['sticky', 'width']),
+        settings: { sticky: false, width: 'full' },
+      },
       region('footer', ['logo'], ['width']),
     ]
     await flushPromises()

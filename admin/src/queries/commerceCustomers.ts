@@ -152,7 +152,10 @@ function normalizeCustomerAddress(raw: Record<string, unknown>): CommerceCustome
   return {
     uuid: String(raw.uuid ?? ''),
     label: typeof raw.label === 'string' ? raw.label : null,
-    address: typeof address === 'object' && address !== null && !Array.isArray(address) ? (address as Record<string, unknown>) : {},
+    address:
+      typeof address === 'object' && address !== null && !Array.isArray(address)
+        ? (address as Record<string, unknown>)
+        : {},
     is_default_shipping: raw.is_default_shipping === true,
     is_default_billing: raw.is_default_billing === true,
     created_at: typeof raw.created_at === 'string' ? raw.created_at : null,
@@ -185,7 +188,9 @@ function normalizeCustomerDetail(raw: Record<string, unknown>): CommerceCustomer
   return {
     ...normalizeCustomer(raw),
     orders: orders.map((o) => normalizeCustomerOrder(asRecord(o))),
-    addresses: Array.isArray(addresses) ? addresses.map((a) => normalizeCustomerAddress(asRecord(a))) : null,
+    addresses: Array.isArray(addresses)
+      ? addresses.map((a) => normalizeCustomerAddress(asRecord(a)))
+      : null,
   }
 }
 

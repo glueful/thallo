@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { refDebounced } from '@vueuse/core'
-import { useCommerceCustomers, type CommerceCustomer, type CommerceCustomerSort } from '@/queries/commerceCustomers'
+import {
+  useCommerceCustomers,
+  type CommerceCustomer,
+  type CommerceCustomerSort,
+} from '@/queries/commerceCustomers'
 import TablePagination from '@/components/TablePagination.vue'
 import CustomersTable from './components/CustomersTable.vue'
 

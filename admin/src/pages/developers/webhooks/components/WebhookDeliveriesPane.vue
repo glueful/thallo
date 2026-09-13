@@ -52,7 +52,11 @@ function openDelivery(uuid: string) {
         class="rounded-lg"
         :color="status === f.value ? 'primary' : 'neutral'"
         :variant="status === f.value ? 'solid' : 'soft'"
-        @click="() => { status = f.value }"
+        @click="
+          () => {
+            status = f.value
+          }
+        "
       />
     </div>
 
@@ -94,7 +98,11 @@ function openDelivery(uuid: string) {
         variant="ghost"
         size="xs"
         :disabled="page <= 1"
-        @click="() => { page-- }"
+        @click="
+          () => {
+            page--
+          }
+        "
       />
       <UButton
         icon="i-lucide-chevron-right"
@@ -102,7 +110,11 @@ function openDelivery(uuid: string) {
         variant="ghost"
         size="xs"
         :disabled="page >= totalPages"
-        @click="() => { page++ }"
+        @click="
+          () => {
+            page++
+          }
+        "
       />
     </div>
 

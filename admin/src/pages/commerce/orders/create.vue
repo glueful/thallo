@@ -108,7 +108,10 @@ async function applyDiscount() {
 async function doRecalculate() {
   if (!draft.value) return
   try {
-    await recalculate.mutateAsync({ uuid: draft.value.uuid, expectedRevision: draft.value.draft_revision })
+    await recalculate.mutateAsync({
+      uuid: draft.value.uuid,
+      expectedRevision: draft.value.draft_revision,
+    })
   } catch {
     // Recalculate is forgiving server-side (it drops/refreshes whatever no longer resolves rather
     // than failing outright) — a rejection here just means the draft is now more stale than a
@@ -156,7 +159,15 @@ interface DraftLineConflict {
 
 type FinalizeConflict =
   | { type: 'line_conflicts'; lines: DraftLineConflict[] }
-  | { type: 'stale_revision' | 'currency' | 'idempotency_key' | 'not_draft' | 'shipping_method' | 'discount' }
+  | {
+      type:
+        | 'stale_revision'
+        | 'currency'
+        | 'idempotency_key'
+        | 'not_draft'
+        | 'shipping_method'
+        | 'discount'
+    }
   | { type: 'error'; message: string }
 
 // Review fix (round 1, minor): the closed per-line reasons split into two genuinely different
@@ -287,7 +298,11 @@ async function finalize() {
         data-test="draft-create-error"
       />
 
-      <div v-else-if="draftStatus === 'pending'" class="flex justify-center py-10" data-test="draft-loading">
+      <div
+        v-else-if="draftStatus === 'pending'"
+        class="flex justify-center py-10"
+        data-test="draft-loading"
+      >
         <UIcon name="i-lucide-loader-circle" class="size-6 animate-spin text-muted" />
       </div>
 
@@ -315,13 +330,20 @@ async function finalize() {
             <UFormField label="Discount code" :error="discountError ?? undefined">
               <div class="flex gap-2">
                 <UInput v-model="discountCode" class="w-full" data-test="draft-discount-code" />
-                <UButton :loading="update.isLoading.value" data-test="draft-discount-apply" @click="applyDiscount">
+                <UButton
+                  :loading="update.isLoading.value"
+                  data-test="draft-discount-apply"
+                  @click="applyDiscount"
+                >
                   Apply
                 </UButton>
               </div>
             </UFormField>
 
-            <div class="flex items-center justify-between gap-2 rounded-md border border-default p-3" data-test="draft-totals-badge">
+            <div
+              class="flex items-center justify-between gap-2 rounded-md border border-default p-3"
+              data-test="draft-totals-badge"
+            >
               <div class="text-sm">
                 <p class="text-muted">Estimated total (recalculate for the latest pricing)</p>
                 <p class="text-lg font-semibold text-default">{{ money(draft.grand_total) }}</p>
@@ -345,8 +367,14 @@ async function finalize() {
               <template v-if="finalizeConflict.type === 'line_conflicts'">
                 <p class="mb-2 font-medium">Some items changed since this draft was started.</p>
                 <ul class="mb-2 flex flex-col gap-1">
-                  <li v-for="l in finalizeConflict.lines" :key="l.line_uuid" data-test="draft-line-conflict-row">
-                    <span>{{ l.product_name }} ({{ l.sku }}) — {{ lineConflictLabel(l.reason) }}</span>
+                  <li
+                    v-for="l in finalizeConflict.lines"
+                    :key="l.line_uuid"
+                    data-test="draft-line-conflict-row"
+                  >
+                    <span
+                      >{{ l.product_name }} ({{ l.sku }}) — {{ lineConflictLabel(l.reason) }}</span
+                    >
                     <span v-if="l.reason === 'stock'" data-test="draft-line-conflict-available">
                       Available: {{ l.available }}
                     </span>
@@ -356,7 +384,11 @@ async function finalize() {
                      only remedy is removing them (Items card above already has that control), so
                      this hint replaces "Refresh prices" for those rather than sitting alongside a
                      button that would do nothing for them. -->
-                <p v-if="hasRemoveOnlyLineConflicts" class="mb-2" data-test="draft-line-conflict-remove-hint">
+                <p
+                  v-if="hasRemoveOnlyLineConflicts"
+                  class="mb-2"
+                  data-test="draft-line-conflict-remove-hint"
+                >
                   Remove the affected line(s) above (Items) to continue.
                 </p>
                 <UButton
@@ -370,33 +402,67 @@ async function finalize() {
               </template>
 
               <template v-else-if="finalizeConflict.type === 'stale_revision'">
-                <p class="mb-2">This draft changed elsewhere. Reload it to see the latest before finalizing.</p>
-                <UButton size="sm" data-test="draft-conflict-reload" @click="() => { void refetchDraft() }">
+                <p class="mb-2">
+                  This draft changed elsewhere. Reload it to see the latest before finalizing.
+                </p>
+                <UButton
+                  size="sm"
+                  data-test="draft-conflict-reload"
+                  @click="
+                    () => {
+                      void refetchDraft()
+                    }
+                  "
+                >
                   Reload draft
                 </UButton>
               </template>
 
               <template v-else-if="finalizeConflict.type === 'not_draft'">
-                <p class="mb-2">This draft is no longer open — it may already be finalized or canceled.</p>
-                <UButton size="sm" data-test="draft-conflict-reload" @click="() => { void refetchDraft() }">
+                <p class="mb-2">
+                  This draft is no longer open — it may already be finalized or canceled.
+                </p>
+                <UButton
+                  size="sm"
+                  data-test="draft-conflict-reload"
+                  @click="
+                    () => {
+                      void refetchDraft()
+                    }
+                  "
+                >
                   Reload draft
                 </UButton>
               </template>
 
               <template v-else-if="finalizeConflict.type === 'currency'">
-                <p class="mb-2">The store currency changed since this draft was started. Cancel this draft and start a new order.</p>
-                <UButton size="sm" color="error" data-test="draft-conflict-cancel" @click="cancelPending = true">
+                <p class="mb-2">
+                  The store currency changed since this draft was started. Cancel this draft and
+                  start a new order.
+                </p>
+                <UButton
+                  size="sm"
+                  color="error"
+                  data-test="draft-conflict-cancel"
+                  @click="cancelPending = true"
+                >
                   Cancel draft
                 </UButton>
               </template>
 
               <template v-else-if="finalizeConflict.type === 'idempotency_key'">
                 <p data-test="draft-conflict-idempotency">
-                  This finalize attempt conflicts with a previous one for this draft. Reload and try again.
+                  This finalize attempt conflicts with a previous one for this draft. Reload and try
+                  again.
                 </p>
               </template>
 
-              <template v-else-if="finalizeConflict.type === 'shipping_method' || finalizeConflict.type === 'discount'">
+              <template
+                v-else-if="
+                  finalizeConflict.type === 'shipping_method' ||
+                  finalizeConflict.type === 'discount'
+                "
+              >
                 <p data-test="draft-finalize-error">
                   {{
                     finalizeConflict.type === 'shipping_method'
@@ -415,23 +481,49 @@ async function finalize() {
               {{ cancelError }}
             </div>
 
-            <div v-if="cancelPending" class="rounded-md border border-error p-3 text-sm" data-test="draft-cancel-panel">
+            <div
+              v-if="cancelPending"
+              class="rounded-md border border-error p-3 text-sm"
+              data-test="draft-cancel-panel"
+            >
               <p>Cancel this draft? This can’t be undone.</p>
               <div class="mt-2 flex gap-2">
-                <UButton size="xs" color="error" :loading="cancel.isLoading.value" data-test="draft-cancel-confirm" @click="confirmCancel">
+                <UButton
+                  size="xs"
+                  color="error"
+                  :loading="cancel.isLoading.value"
+                  data-test="draft-cancel-confirm"
+                  @click="confirmCancel"
+                >
                   Confirm cancel
                 </UButton>
-                <UButton size="xs" color="neutral" variant="ghost" data-test="draft-cancel-dismiss" @click="cancelPending = false">
+                <UButton
+                  size="xs"
+                  color="neutral"
+                  variant="ghost"
+                  data-test="draft-cancel-dismiss"
+                  @click="cancelPending = false"
+                >
                   Dismiss
                 </UButton>
               </div>
             </div>
 
             <div class="flex justify-between gap-2">
-              <UButton color="error" variant="outline" data-test="draft-cancel" @click="cancelPending = true">
+              <UButton
+                color="error"
+                variant="outline"
+                data-test="draft-cancel"
+                @click="cancelPending = true"
+              >
                 Cancel draft
               </UButton>
-              <UButton color="primary" :loading="finalizing" data-test="draft-finalize" @click="finalize">
+              <UButton
+                color="primary"
+                :loading="finalizing"
+                data-test="draft-finalize"
+                @click="finalize"
+              >
                 Finalize order
               </UButton>
             </div>

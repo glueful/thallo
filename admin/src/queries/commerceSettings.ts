@@ -256,7 +256,9 @@ export async function setShippingZoneLocations(
 /** `GET /commerce/shipping/zones/{uuid}/methods` — wired up for parity with the endpoint contract;
  * ZonesPanel reads methods off the zone's own embedded `methods` array instead (same "no extra
  * round trip needed" reasoning as `fetchShippingZone()` above). */
-export async function fetchShippingZoneMethods(zoneUuid: string): Promise<CommerceShippingMethod[]> {
+export async function fetchShippingZoneMethods(
+  zoneUuid: string,
+): Promise<CommerceShippingMethod[]> {
   const { data, error, response } = await client.GET('/commerce/shipping/zones/{uuid}/methods', {
     params: { path: { uuid: zoneUuid } },
   })
@@ -758,7 +760,13 @@ export function useCommerceTaxRates(filters: MaybeRefOrGetter<TaxRateListFilters
   return useQuery({
     key: () => {
       const f = toValue(filters)
-      return [...qk.commerceTaxRates(), f.country ?? '', f.class ?? '', f.page ?? 1, f.perPage ?? 24]
+      return [
+        ...qk.commerceTaxRates(),
+        f.country ?? '',
+        f.class ?? '',
+        f.page ?? 1,
+        f.perPage ?? 24,
+      ]
     },
     query: () => fetchTaxRates(toValue(filters)),
   })
@@ -791,7 +799,8 @@ export function useCommerceTaxRateMutations() {
       onSettled: invalidateList,
     }),
     updateRate: useMutation({
-      mutation: (vars: { uuid: string; input: UpdateTaxRateInput }) => updateTaxRate(vars.uuid, vars.input),
+      mutation: (vars: { uuid: string; input: UpdateTaxRateInput }) =>
+        updateTaxRate(vars.uuid, vars.input),
       onSettled: (_d, _e, vars) => invalidateRate(vars.uuid),
     }),
     deleteRate: useMutation({
@@ -871,9 +880,7 @@ export const INVOICE_PAPER_PRESETS = ['a4', 'thermal_80', 'thermal_58'] as const
 export type InvoicePaperPreset = (typeof INVOICE_PAPER_PRESETS)[number]
 
 function isInvoicePaperPreset(value: unknown): value is InvoicePaperPreset {
-  return (
-    typeof value === 'string' && (INVOICE_PAPER_PRESETS as readonly string[]).includes(value)
-  )
+  return typeof value === 'string' && (INVOICE_PAPER_PRESETS as readonly string[]).includes(value)
 }
 
 /** The three invoice toggle keys carry a genuine `boolean` on the SAVE side too (Task 6's
@@ -1042,7 +1049,11 @@ function normalizeEmailSettings(raw: unknown): CommerceEmailSettings {
   return {
     templates: templates.map((t) => {
       const row = (t ?? {}) as Record<string, unknown>
-      const enabled = (row.enabled ?? {}) as { value?: unknown; default?: unknown; overridden?: unknown }
+      const enabled = (row.enabled ?? {}) as {
+        value?: unknown
+        default?: unknown
+        overridden?: unknown
+      }
       return {
         template: String(row.template ?? ''),
         key: String(row.key ?? ''),
@@ -1169,7 +1180,9 @@ export async function fetchMarketplaceSettings(): Promise<MarketplaceSettings> {
   return normalizeMarketplace((data as { data?: unknown } | undefined)?.data)
 }
 
-export async function activateMarketplace(defaultSellerUuid: string | null): Promise<MarketplaceSettings> {
+export async function activateMarketplace(
+  defaultSellerUuid: string | null,
+): Promise<MarketplaceSettings> {
   const { data, error, response } = await client.POST('/commerce/marketplace/activate', {
     body: { default_seller_uuid: defaultSellerUuid } as never,
   })

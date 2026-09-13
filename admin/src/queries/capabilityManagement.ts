@@ -55,7 +55,8 @@ export function useCapabilityStateMutations() {
   }
 
   const setState = useMutation({
-    mutation: ({ id, enabled }: { id: string; enabled: boolean }) => setCapabilityState(id, enabled),
+    mutation: ({ id, enabled }: { id: string; enabled: boolean }) =>
+      setCapabilityState(id, enabled),
     onSettled: converge,
   })
 

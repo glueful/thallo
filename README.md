@@ -22,7 +22,7 @@ PHP framework with a Vue 3 admin.
 ## Quickstart
 
 ```bash
-composer create-project --prefer-dist glueful/thallo my-site
+composer create-project --prefer-dist --stability=beta glueful/thallo my-site
 cd my-site
 createdb thallo                   # or create a database with your PostgreSQL tool
 php glueful thallo:provision      # confirms/prompts for the database; writes .env, keys, migrations, cache

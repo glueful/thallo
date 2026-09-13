@@ -9,7 +9,9 @@ import type { FieldDef } from '../types'
 defineProps<{ field: FieldDef }>()
 const model = defineModel<string>()
 
-const swatch = computed<string>(() => (model.value && /^#[0-9a-fA-F]{6}$/.test(model.value) ? model.value : '#000000'))
+const swatch = computed<string>(() =>
+  model.value && /^#[0-9a-fA-F]{6}$/.test(model.value) ? model.value : '#000000',
+)
 </script>
 
 <template>

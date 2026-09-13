@@ -55,19 +55,25 @@ const updateClassMock = vi.hoisted(() => vi.fn())
 const deleteClassMock = vi.hoisted(() => vi.fn())
 
 // Store settings (store-settings spec §3.5): query/mutation mocks for StorePanel.
-const storeSettingsData = ref<import('@/queries/commerceSettings').StoreSettings | undefined>(undefined)
+const storeSettingsData = ref<import('@/queries/commerceSettings').StoreSettings | undefined>(
+  undefined,
+)
 const storeSettingsStatus = ref<'pending' | 'error' | 'success'>('success')
 const saveStoreSettingsMock = vi.hoisted(() => vi.fn())
 
 // Order-email switches (store-settings spec §4.2 follow-up): mocks for EmailsPanel. Template
 // CONTENT comes from @/queries/email (mocked below); the switches from /commerce/emails.
-const emailSettingsData = ref<import('@/queries/commerceSettings').CommerceEmailSettings | undefined>(undefined)
+const emailSettingsData = ref<
+  import('@/queries/commerceSettings').CommerceEmailSettings | undefined
+>(undefined)
 const emailSettingsStatus = ref<'pending' | 'error' | 'success'>('success')
 const saveEmailSettingsMock = vi.hoisted(() => vi.fn())
 const fetchEmailTemplatesMock = vi.hoisted(() => vi.fn())
 
 // Marketplace settings (store-settings spec §3.6): query/mutation mocks for MarketplacePanel.
-const marketplaceData = ref<import('@/queries/commerceSettings').MarketplaceSettings | undefined>(undefined)
+const marketplaceData = ref<import('@/queries/commerceSettings').MarketplaceSettings | undefined>(
+  undefined,
+)
 const marketplaceStatus = ref<'pending' | 'error' | 'success'>('success')
 const activateMarketplaceMock = vi.hoisted(() => vi.fn())
 const deactivateMarketplaceMock = vi.hoisted(() => vi.fn())
@@ -120,7 +126,10 @@ vi.mock('@/queries/commerceSettings', async (importOriginal) => {
     useStoreSettings: () => ({ data: storeSettingsData, status: storeSettingsStatus }),
     useSaveStoreSettings: () => ({ mutateAsync: saveStoreSettingsMock, isLoading: ref(false) }),
     useCommerceEmailSettings: () => ({ data: emailSettingsData, status: emailSettingsStatus }),
-    useSaveCommerceEmailSettings: () => ({ mutateAsync: saveEmailSettingsMock, isLoading: ref(false) }),
+    useSaveCommerceEmailSettings: () => ({
+      mutateAsync: saveEmailSettingsMock,
+      isLoading: ref(false),
+    }),
     useMarketplaceSettings: () => ({ data: marketplaceData, status: marketplaceStatus }),
     useMarketplaceMutations: () => ({
       activate: { mutateAsync: activateMarketplaceMock, isLoading: ref(false) },
@@ -215,7 +224,10 @@ function taxRate(overrides: Partial<CommerceTaxRate> = {}): CommerceTaxRate {
 
 // USlideover/UModal teleport their body/footer out of the wrapper — stub both to render the slots
 // inline (mirrors commerceOrders.spec.ts/commerceProducts.spec.ts's established pattern).
-const SlideoverStub = { props: ['open'], template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>' }
+const SlideoverStub = {
+  props: ['open'],
+  template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>',
+}
 const pageStubs = { Slideover: SlideoverStub, Modal: SlideoverStub }
 
 /** Find the Reka SelectRoot ancestor of a USelect carrying `dataTest` at the given occurrence (for
@@ -227,7 +239,8 @@ function selectRootByTestId(wrapper: ReturnType<typeof mount>, dataTest: string,
     .findAllComponents({ name: 'SelectRoot' })
     .filter((r) => r.element.querySelector?.(`[data-test="${dataTest}"]`))
   const root = roots[occurrence]
-  if (!root) throw new Error(`No SelectRoot found for [data-test="${dataTest}"] at occurrence ${occurrence}`)
+  if (!root)
+    throw new Error(`No SelectRoot found for [data-test="${dataTest}"] at occurrence ${occurrence}`)
   return root
 }
 
@@ -282,7 +295,14 @@ function mountRatesPanel(canManage = true) {
 describe('ZonesPanel: zones list', () => {
   it('renders a row per zone with name, locations summary, and methods count', async () => {
     zonesPage.value = {
-      zones: [zone({ uuid: 'z1', name: 'Domestic', locations: [location({ value: 'US' })], methods: [method()] })],
+      zones: [
+        zone({
+          uuid: 'z1',
+          name: 'Domestic',
+          locations: [location({ value: 'US' })],
+          methods: [method()],
+        }),
+      ],
       total: 1,
       current_page: 1,
       per_page: 24,
@@ -306,12 +326,22 @@ describe('ZonesPanel: zones list', () => {
   })
 
   it('shows a shadow warning badge only when shadows_later_zones is true', async () => {
-    zonesPage.value = { zones: [zone({ shadows_later_zones: true })], total: 1, current_page: 1, per_page: 24 }
+    zonesPage.value = {
+      zones: [zone({ shadows_later_zones: true })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     const wrapper = mountPanel()
     await flushPromises()
     expect(wrapper.find('[data-test="zone-shadow-warning"]').exists()).toBe(true)
 
-    zonesPage.value = { zones: [zone({ shadows_later_zones: false })], total: 1, current_page: 1, per_page: 24 }
+    zonesPage.value = {
+      zones: [zone({ shadows_later_zones: false })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     const wrapper2 = mountPanel()
     await flushPromises()
     expect(wrapper2.find('[data-test="zone-shadow-warning"]').exists()).toBe(false)
@@ -377,7 +407,9 @@ describe('ZonesPanel: zone CRUD', () => {
 
     await wrapper.find('[data-test="zone-edit"]').trigger('click')
     await flushPromises()
-    expect((wrapper.find('[data-test="zone-name-input"]').element as HTMLInputElement).value).toBe('Domestic')
+    expect((wrapper.find('[data-test="zone-name-input"]').element as HTMLInputElement).value).toBe(
+      'Domestic',
+    )
 
     await wrapper.find('[data-test="zone-name-input"]').setValue('Domestic Shipping')
     await wrapper.find('[data-test="zone-position-input"]').setValue('5')
@@ -443,7 +475,14 @@ describe('ZonesPanel: locations editing', () => {
 
   it('pre-fills the current locations when opening the editor', async () => {
     zonesPage.value = {
-      zones: [zone({ locations: [location({ kind: 'country', value: 'US' }), location({ kind: 'country', value: 'CA' })] })],
+      zones: [
+        zone({
+          locations: [
+            location({ kind: 'country', value: 'US' }),
+            location({ kind: 'country', value: 'CA' }),
+          ],
+        }),
+      ],
       total: 1,
       current_page: 1,
       per_page: 24,
@@ -518,7 +557,8 @@ describe('ZonesPanel: locations editing', () => {
         timestamp: '2026-01-01T00:00:00Z',
         request_id: 'req_1',
         details: {
-          locations: 'A zone with postcode_pattern locations must also include at least one country location.',
+          locations:
+            'A zone with postcode_pattern locations must also include at least one country location.',
         },
       },
     })
@@ -562,7 +602,13 @@ describe('ZonesPanel: nested method editing', () => {
 
   it('renders a row per method with label, kind, exact rate, and enabled state', async () => {
     zonesPage.value = {
-      zones: [zone({ methods: [method({ kind: 'flat', label: 'Standard', config: { amount: 1234 }, enabled: true })] })],
+      zones: [
+        zone({
+          methods: [
+            method({ kind: 'flat', label: 'Standard', config: { amount: 1234 }, enabled: true }),
+          ],
+        }),
+      ],
       total: 1,
       current_page: 1,
       per_page: 24,
@@ -587,7 +633,9 @@ describe('ZonesPanel: nested method editing', () => {
   })
 
   it('creates a flat method, converting "5.00" to exact minor units (500)', async () => {
-    createMethodMock.mockResolvedValue(method({ uuid: 'm2', kind: 'flat', config: { amount: 500 }, warnings: [] }))
+    createMethodMock.mockResolvedValue(
+      method({ uuid: 'm2', kind: 'flat', config: { amount: 500 }, warnings: [] }),
+    )
     const wrapper = mountPanel()
     await flushPromises()
     await expandZone(wrapper)
@@ -601,7 +649,13 @@ describe('ZonesPanel: nested method editing', () => {
 
     expect(createMethodMock).toHaveBeenCalledWith({
       zoneUuid: 'z1',
-      input: { kind: 'flat', label: 'Standard', config: { amount: 500 }, position: null, enabled: true },
+      input: {
+        kind: 'flat',
+        label: 'Standard',
+        config: { amount: 500 },
+        position: null,
+        enabled: true,
+      },
     })
   })
 
@@ -642,7 +696,10 @@ describe('ZonesPanel: nested method editing', () => {
 
     await wrapper.find('[data-test="method-add"]').trigger('click')
     await flushPromises()
-    selectRootByTestId(wrapper, 'method-kind-input').vm.$emit('update:modelValue', 'per_class_table')
+    selectRootByTestId(wrapper, 'method-kind-input').vm.$emit(
+      'update:modelValue',
+      'per_class_table',
+    )
     await flushPromises()
 
     await wrapper.find('[data-test="method-label-input"]').setValue('By class')
@@ -668,7 +725,11 @@ describe('ZonesPanel: nested method editing', () => {
 
   it('shows a warning toast when the server returns unknown-class-slug warnings', async () => {
     createMethodMock.mockResolvedValue(
-      method({ uuid: 'm5', kind: 'per_class_table', warnings: ['Unknown shipping class slug: fragile'] }),
+      method({
+        uuid: 'm5',
+        kind: 'per_class_table',
+        warnings: ['Unknown shipping class slug: fragile'],
+      }),
     )
     const wrapper = mountPanel()
     await flushPromises()
@@ -676,7 +737,10 @@ describe('ZonesPanel: nested method editing', () => {
 
     await wrapper.find('[data-test="method-add"]').trigger('click')
     await flushPromises()
-    selectRootByTestId(wrapper, 'method-kind-input').vm.$emit('update:modelValue', 'per_class_table')
+    selectRootByTestId(wrapper, 'method-kind-input').vm.$emit(
+      'update:modelValue',
+      'per_class_table',
+    )
     await flushPromises()
     await wrapper.find('[data-test="method-label-input"]').setValue('By class')
     await wrapper.find('[data-test="method-default-amount-input"]').setValue('5.00')
@@ -705,20 +769,32 @@ describe('ZonesPanel: nested method editing', () => {
 
   it('pre-fills the edit form from the existing method (kind locked) and submits an update', async () => {
     zonesPage.value = {
-      zones: [zone({ methods: [method({ uuid: 'm1', kind: 'flat', label: 'Standard', config: { amount: 500 } })] })],
+      zones: [
+        zone({
+          methods: [
+            method({ uuid: 'm1', kind: 'flat', label: 'Standard', config: { amount: 500 } }),
+          ],
+        }),
+      ],
       total: 1,
       current_page: 1,
       per_page: 24,
     }
-    updateMethodMock.mockResolvedValue(method({ uuid: 'm1', label: 'Standard Shipping', config: { amount: 700 } }))
+    updateMethodMock.mockResolvedValue(
+      method({ uuid: 'm1', label: 'Standard Shipping', config: { amount: 700 } }),
+    )
     const wrapper = mountPanel()
     await flushPromises()
     await expandZone(wrapper)
 
     await wrapper.find('[data-test="method-edit"]').trigger('click')
     await flushPromises()
-    expect((wrapper.find('[data-test="method-label-input"]').element as HTMLInputElement).value).toBe('Standard')
-    expect((wrapper.find('[data-test="method-amount-input"]').element as HTMLInputElement).value).toBe('5.00')
+    expect(
+      (wrapper.find('[data-test="method-label-input"]').element as HTMLInputElement).value,
+    ).toBe('Standard')
+    expect(
+      (wrapper.find('[data-test="method-amount-input"]').element as HTMLInputElement).value,
+    ).toBe('5.00')
     const kindSelect = selectRootByTestId(wrapper, 'method-kind-input')
     expect(kindSelect.props('disabled')).toBe(true)
 
@@ -958,7 +1034,16 @@ describe('ClassesPanel: read-only state', () => {
 describe('TaxRatesPanel: rates list', () => {
   it('renders a row per rate with label, country, percent, class, and priority', async () => {
     ratesPage.value = {
-      rates: [taxRate({ uuid: 'r1', country: 'US', label: 'Sales Tax', rate_bps: 875, class: 'standard', priority: 3 })],
+      rates: [
+        taxRate({
+          uuid: 'r1',
+          country: 'US',
+          label: 'Sales Tax',
+          rate_bps: 875,
+          class: 'standard',
+          priority: 3,
+        }),
+      ],
       total: 1,
       current_page: 1,
       per_page: 24,
@@ -976,21 +1061,36 @@ describe('TaxRatesPanel: rates list', () => {
   })
 
   it('shows an integer percent without a trailing fraction (1000 bps -> "10%")', async () => {
-    ratesPage.value = { rates: [taxRate({ rate_bps: 1000 })], total: 1, current_page: 1, per_page: 24 }
+    ratesPage.value = {
+      rates: [taxRate({ rate_bps: 1000 })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     const wrapper = mountRatesPanel()
     await flushPromises()
     expect(wrapper.find('[data-test="rate-percent"]').text()).toBe('10%')
   })
 
   it('shows the exact fractional percent for a non-round bps value (875 -> "8.75%")', async () => {
-    ratesPage.value = { rates: [taxRate({ rate_bps: 875 })], total: 1, current_page: 1, per_page: 24 }
+    ratesPage.value = {
+      rates: [taxRate({ rate_bps: 875 })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     const wrapper = mountRatesPanel()
     await flushPromises()
     expect(wrapper.find('[data-test="rate-percent"]').text()).toBe('8.75%')
   })
 
   it('shows the 100% boundary exactly (10000 bps -> "100%")', async () => {
-    ratesPage.value = { rates: [taxRate({ rate_bps: 10000 })], total: 1, current_page: 1, per_page: 24 }
+    ratesPage.value = {
+      rates: [taxRate({ rate_bps: 10000 })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     const wrapper = mountRatesPanel()
     await flushPromises()
     expect(wrapper.find('[data-test="rate-percent"]').text()).toBe('100%')
@@ -1008,19 +1108,34 @@ describe('TaxRatesPanel: rates list', () => {
     expect(wrapper.find('[data-test="rate-location"]').text()).toContain('US:CA')
     expect(wrapper.find('[data-test="rate-location"]').text()).toContain('90*')
 
-    ratesPage.value = { rates: [taxRate({ state: null, postcode_pattern: null })], total: 1, current_page: 1, per_page: 24 }
+    ratesPage.value = {
+      rates: [taxRate({ state: null, postcode_pattern: null })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     const wrapper2 = mountRatesPanel()
     await flushPromises()
     expect(wrapper2.find('[data-test="rate-location"]').exists()).toBe(false)
   })
 
   it('shows a shipping-taxable badge only when true', async () => {
-    ratesPage.value = { rates: [taxRate({ shipping_taxable: true })], total: 1, current_page: 1, per_page: 24 }
+    ratesPage.value = {
+      rates: [taxRate({ shipping_taxable: true })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     const wrapper = mountRatesPanel()
     await flushPromises()
     expect(wrapper.find('[data-test="rate-shipping-taxable"]').exists()).toBe(true)
 
-    ratesPage.value = { rates: [taxRate({ shipping_taxable: false })], total: 1, current_page: 1, per_page: 24 }
+    ratesPage.value = {
+      rates: [taxRate({ shipping_taxable: false })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     const wrapper2 = mountRatesPanel()
     await flushPromises()
     expect(wrapper2.find('[data-test="rate-shipping-taxable"]').exists()).toBe(false)
@@ -1048,7 +1163,9 @@ describe('TaxRatesPanel: rates list', () => {
 
 describe('TaxRatesPanel: rate create/edit', () => {
   it('creates a rate, converting the entered percent to exact bps', async () => {
-    createRateMock.mockResolvedValue(taxRate({ uuid: 'r2', country: 'CA', rate_bps: 500, label: 'GST' }))
+    createRateMock.mockResolvedValue(
+      taxRate({ uuid: 'r2', country: 'CA', rate_bps: 500, label: 'GST' }),
+    )
     const wrapper = mountRatesPanel()
     await flushPromises()
 
@@ -1107,7 +1224,9 @@ describe('TaxRatesPanel: rate create/edit', () => {
     // UCheckbox's root is a Reka UI CheckboxRoot (a <button>, not a native input) — drive it
     // directly, same as `selectRootByTestId()`'s reasoning for USelect elsewhere in this file
     // (mirrors commerceProducts.spec.ts's established `CheckboxRoot` + `update:modelValue` pattern).
-    await wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]!.vm.$emit('update:modelValue', true)
+    await wrapper
+      .findAllComponents({ name: 'CheckboxRoot' })[0]!
+      .vm.$emit('update:modelValue', true)
     await wrapper.find('form#rate-form').trigger('submit')
     await flushPromises()
 
@@ -1194,13 +1313,27 @@ describe('TaxRatesPanel: rate create/edit', () => {
     await wrapper.find('[data-test="rate-edit"]').trigger('click')
     await flushPromises()
 
-    expect((wrapper.find('[data-test="rate-country-input"]').element as HTMLInputElement).value).toBe('US')
-    expect((wrapper.find('[data-test="rate-state-input"]').element as HTMLInputElement).value).toBe('US:CA')
-    expect((wrapper.find('[data-test="rate-postcode-input"]').element as HTMLInputElement).value).toBe('90*')
-    expect((wrapper.find('[data-test="rate-percent-input"]').element as HTMLInputElement).value).toBe('8.75')
-    expect((wrapper.find('[data-test="rate-label-input"]').element as HTMLInputElement).value).toBe('Sales Tax')
-    expect((wrapper.find('[data-test="rate-priority-input"]').element as HTMLInputElement).value).toBe('5')
-    expect((wrapper.find('[data-test="rate-class-input"]').element as HTMLInputElement).value).toBe('reduced')
+    expect(
+      (wrapper.find('[data-test="rate-country-input"]').element as HTMLInputElement).value,
+    ).toBe('US')
+    expect((wrapper.find('[data-test="rate-state-input"]').element as HTMLInputElement).value).toBe(
+      'US:CA',
+    )
+    expect(
+      (wrapper.find('[data-test="rate-postcode-input"]').element as HTMLInputElement).value,
+    ).toBe('90*')
+    expect(
+      (wrapper.find('[data-test="rate-percent-input"]').element as HTMLInputElement).value,
+    ).toBe('8.75')
+    expect((wrapper.find('[data-test="rate-label-input"]').element as HTMLInputElement).value).toBe(
+      'Sales Tax',
+    )
+    expect(
+      (wrapper.find('[data-test="rate-priority-input"]').element as HTMLInputElement).value,
+    ).toBe('5')
+    expect((wrapper.find('[data-test="rate-class-input"]').element as HTMLInputElement).value).toBe(
+      'reduced',
+    )
     // See the "captures optional ... fields" test above for why CheckboxRoot is driven directly.
     expect(wrapper.findAllComponents({ name: 'CheckboxRoot' })[0]!.props('modelValue')).toBe(true)
 
@@ -1224,13 +1357,20 @@ describe('TaxRatesPanel: rate create/edit', () => {
   })
 
   it('round-trips the 100% boundary (10000 bps) through the edit form without float drift', async () => {
-    ratesPage.value = { rates: [taxRate({ rate_bps: 10000 })], total: 1, current_page: 1, per_page: 24 }
+    ratesPage.value = {
+      rates: [taxRate({ rate_bps: 10000 })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     const wrapper = mountRatesPanel()
     await flushPromises()
 
     await wrapper.find('[data-test="rate-edit"]').trigger('click')
     await flushPromises()
-    expect((wrapper.find('[data-test="rate-percent-input"]').element as HTMLInputElement).value).toBe('100.00')
+    expect(
+      (wrapper.find('[data-test="rate-percent-input"]').element as HTMLInputElement).value,
+    ).toBe('100.00')
   })
 
   it('clears state and postcode_pattern when left blank on an edit that previously had them', async () => {
@@ -1252,7 +1392,9 @@ describe('TaxRatesPanel: rate create/edit', () => {
     await flushPromises()
 
     expect(updateRateMock).toHaveBeenCalledWith(
-      expect.objectContaining({ input: expect.objectContaining({ state: null, postcode_pattern: null }) }),
+      expect.objectContaining({
+        input: expect.objectContaining({ state: null, postcode_pattern: null }),
+      }),
     )
   })
 
@@ -1489,7 +1631,11 @@ function storeSettings(
     settings: {
       'commerce.currency': { value: 'USD', default: 'USD', overridden: false },
       'commerce.tax.flat_rate_bps': { value: 0, default: 0, overridden: false },
-      'commerce.orders.number_format': { value: 'ORD-{seq}', default: 'ORD-{seq}', overridden: false },
+      'commerce.orders.number_format': {
+        value: 'ORD-{seq}',
+        default: 'ORD-{seq}',
+        overridden: false,
+      },
       'commerce.orders.expiry_minutes': { value: 60, default: 60, overridden: false },
       'commerce.cart.ttl_days': { value: 30, default: 30, overridden: false },
       'commerce.reports.low_stock_threshold': { value: 2, default: 2, overridden: false },
@@ -1538,7 +1684,9 @@ describe('StorePanel', () => {
     // The currency control is a USelect now — the trigger renders the selected item's label.
     expect(wrapper.find('[data-test="store-currency-input"]').text()).toContain('GHS')
     // 750 bps reads as 7.5 (%).
-    expect((wrapper.find('[data-test="store-tax-input"]').element as HTMLInputElement).value).toBe('7.5')
+    expect((wrapper.find('[data-test="store-tax-input"]').element as HTMLInputElement).value).toBe(
+      '7.5',
+    )
     expect(
       (wrapper.find('[data-test="store-number-format-input"]').element as HTMLInputElement).value,
     ).toBe('ORD-{seq}')
@@ -1641,9 +1789,7 @@ describe('StorePanel', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="store-settings-save"]').exists()).toBe(false)
-    expect(
-      wrapper.find('[data-test="store-tax-input"]').attributes('disabled'),
-    ).toBeDefined()
+    expect(wrapper.find('[data-test="store-tax-input"]').attributes('disabled')).toBeDefined()
   })
 })
 
@@ -1716,9 +1862,10 @@ describe('InvoicesPanel', () => {
     const wrapper = mountInvoices()
     await flushPromises()
 
-    await wrapper.find('[data-test="invoices-footer-input"]').setValue('Thank you for your business.')
-    switchRootByTestId(wrapper, 'invoices-toggle-sku')
-      .vm.$emit('update:modelValue', false)
+    await wrapper
+      .find('[data-test="invoices-footer-input"]')
+      .setValue('Thank you for your business.')
+    switchRootByTestId(wrapper, 'invoices-toggle-sku').vm.$emit('update:modelValue', false)
     selectRootByTestId(wrapper, 'invoices-paper-preset').vm.$emit('update:modelValue', 'thermal_80')
     await flushPromises()
     await wrapper.find('[data-test="invoices-settings-save"]').trigger('click')
@@ -1795,7 +1942,10 @@ describe('InvoicesPanel', () => {
     const wrapper = mountInvoices()
     await flushPromises()
 
-    await dropOnLogoField(wrapper, new File(['x'], 'malware.exe', { type: 'application/octet-stream' }))
+    await dropOnLogoField(
+      wrapper,
+      new File(['x'], 'malware.exe', { type: 'application/octet-stream' }),
+    )
 
     expect(uploadMediaMock).not.toHaveBeenCalled()
     expect(notify.error).toHaveBeenCalledTimes(1)
@@ -1809,8 +1959,12 @@ describe('InvoicesPanel', () => {
     expect(wrapper.find('[data-test="asset-dropzone-open"]').exists()).toBe(false)
     expect(wrapper.find('[data-test="invoices-footer-input"]').attributes('disabled')).toBeDefined()
     expect(wrapper.find('[data-test="invoices-toggle-sku"]').attributes('disabled')).toBeDefined()
-    expect(wrapper.find('[data-test="invoices-toggle-addresses"]').attributes('disabled')).toBeDefined()
-    expect(wrapper.find('[data-test="invoices-toggle-tax-id"]').attributes('disabled')).toBeDefined()
+    expect(
+      wrapper.find('[data-test="invoices-toggle-addresses"]').attributes('disabled'),
+    ).toBeDefined()
+    expect(
+      wrapper.find('[data-test="invoices-toggle-tax-id"]').attributes('disabled'),
+    ).toBeDefined()
   })
 })
 
@@ -1829,10 +1983,26 @@ function emailSwitches(
 ): import('@/queries/commerceSettings').CommerceEmailSettings {
   return {
     templates: overrides.templates ?? [
-      { template: 'order_confirmation', key: 'commerce.order_confirmation', enabled: { value: true, default: true, overridden: false } },
-      { template: 'order_paid', key: 'commerce.order_paid', enabled: { value: true, default: true, overridden: false } },
-      { template: 'order_fulfilled', key: 'commerce.order_fulfilled', enabled: { value: true, default: true, overridden: false } },
-      { template: 'order_canceled', key: 'commerce.order_canceled', enabled: { value: false, default: true, overridden: true } },
+      {
+        template: 'order_confirmation',
+        key: 'commerce.order_confirmation',
+        enabled: { value: true, default: true, overridden: false },
+      },
+      {
+        template: 'order_paid',
+        key: 'commerce.order_paid',
+        enabled: { value: true, default: true, overridden: false },
+      },
+      {
+        template: 'order_fulfilled',
+        key: 'commerce.order_fulfilled',
+        enabled: { value: true, default: true, overridden: false },
+      },
+      {
+        template: 'order_canceled',
+        key: 'commerce.order_canceled',
+        enabled: { value: false, default: true, overridden: true },
+      },
     ],
     commerce_mailer_active: overrides.commerce_mailer_active ?? false,
   }

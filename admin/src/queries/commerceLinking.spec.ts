@@ -30,7 +30,11 @@ describe('commerce linking query layer', () => {
       jsonResponse({
         success: true,
         message: 'Success',
-        data: { product_uuid: 'p1', storefront_url: 'https://shop.test/shop/products/widget', link: null },
+        data: {
+          product_uuid: 'p1',
+          storefront_url: 'https://shop.test/shop/products/widget',
+          link: null,
+        },
       }),
     )
 
@@ -140,7 +144,15 @@ describe('commerce linking query layer', () => {
       jsonResponse({
         success: true,
         message: 'Entries retrieved.',
-        data: [{ uuid: 'entry1', title: 'About Us', content_type: 'page', status: 'draft', locale: 'en' }],
+        data: [
+          {
+            uuid: 'entry1',
+            title: 'About Us',
+            content_type: 'page',
+            status: 'draft',
+            locale: 'en',
+          },
+        ],
       }),
     )
 
@@ -160,7 +172,10 @@ describe('commerce linking query layer', () => {
     await searchLinkEntries('widget')
 
     const requested = fetchMock.mock.calls[0]![0]
-    const url = new URL(typeof requested === 'string' ? requested : (requested as Request).url, 'http://localhost')
+    const url = new URL(
+      typeof requested === 'string' ? requested : (requested as Request).url,
+      'http://localhost',
+    )
     expect(url.searchParams.get('q')).toBe('widget')
   })
 
@@ -183,7 +198,13 @@ describe('commerce linking query layer', () => {
         {
           success: true,
           message: 'Success',
-          data: { uuid: 'link1', product_uuid: 'p1', entry_uuid: 'entry1', created_at: null, updated_at: null },
+          data: {
+            uuid: 'link1',
+            product_uuid: 'p1',
+            entry_uuid: 'entry1',
+            created_at: null,
+            updated_at: null,
+          },
         },
         201,
       ),
@@ -203,7 +224,13 @@ describe('commerce linking query layer', () => {
       jsonResponse({
         success: true,
         message: 'Success',
-        data: { uuid: 'link2', product_uuid: 'p1', entry_uuid: 'entry2', created_at: null, updated_at: null },
+        data: {
+          uuid: 'link2',
+          product_uuid: 'p1',
+          entry_uuid: 'entry2',
+          created_at: null,
+          updated_at: null,
+        },
       }),
     )
 
@@ -211,12 +238,21 @@ describe('commerce linking query layer', () => {
     await setProductLink('p1', { entryUuid: 'entry2', expectedEntryUuid: 'entry1' })
 
     const req = fetchMock.mock.calls[0]![0] as Request
-    expect(await req.clone().json()).toEqual({ entry_uuid: 'entry2', expected_entry_uuid: 'entry1' })
+    expect(await req.clone().json()).toEqual({
+      entry_uuid: 'entry2',
+      expected_entry_uuid: 'entry1',
+    })
   })
 
   it('surfaces a 409 LinkConflictException as a typed ApiError', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      jsonResponse({ success: false, message: 'expected_entry_uuid does not match the product’s current link.' }, 409),
+      jsonResponse(
+        {
+          success: false,
+          message: 'expected_entry_uuid does not match the product’s current link.',
+        },
+        409,
+      ),
     )
 
     const { setProductLink } = await import('@/queries/commerceLinking')
@@ -244,7 +280,13 @@ describe('commerce linking query layer', () => {
 
   it('throws ApiError when unlink fails', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      jsonResponse({ message: 'Could not unlink product: the link kept changing under concurrent modification.' }, 409),
+      jsonResponse(
+        {
+          message:
+            'Could not unlink product: the link kept changing under concurrent modification.',
+        },
+        409,
+      ),
     )
 
     const { unlinkProduct } = await import('@/queries/commerceLinking')

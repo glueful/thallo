@@ -226,7 +226,12 @@ describe('SalesSummaryCards', () => {
 
   it('shows the sales loading state independent of the customers section', () => {
     const wrapper = mount(SalesSummaryCards, {
-      props: { sales: undefined, salesStatus: 'pending', customers: customersReport(), customersStatus: 'success' },
+      props: {
+        sales: undefined,
+        salesStatus: 'pending',
+        customers: customersReport(),
+        customersStatus: 'success',
+      },
     })
     expect(wrapper.find('[data-test="sales-summary-loading"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="sales-summary-cards"]').exists()).toBe(false)
@@ -235,14 +240,24 @@ describe('SalesSummaryCards', () => {
 
   it('shows the sales error state', () => {
     const wrapper = mount(SalesSummaryCards, {
-      props: { sales: undefined, salesStatus: 'error', customers: customersReport(), customersStatus: 'success' },
+      props: {
+        sales: undefined,
+        salesStatus: 'error',
+        customers: customersReport(),
+        customersStatus: 'success',
+      },
     })
     expect(wrapper.find('[data-test="sales-summary-error"]').exists()).toBe(true)
   })
 
   it('shows the customers loading state independent of the sales section', () => {
     const wrapper = mount(SalesSummaryCards, {
-      props: { sales: salesReport(), salesStatus: 'success', customers: undefined, customersStatus: 'pending' },
+      props: {
+        sales: salesReport(),
+        salesStatus: 'success',
+        customers: undefined,
+        customersStatus: 'pending',
+      },
     })
     expect(wrapper.find('[data-test="customers-summary-loading"]').exists()).toBe(true)
     expect(wrapper.find('[data-test="sales-summary-cards"]').exists()).toBe(true)
@@ -250,7 +265,12 @@ describe('SalesSummaryCards', () => {
 
   it('shows the customers error state', () => {
     const wrapper = mount(SalesSummaryCards, {
-      props: { sales: salesReport(), salesStatus: 'success', customers: undefined, customersStatus: 'error' },
+      props: {
+        sales: salesReport(),
+        salesStatus: 'success',
+        customers: undefined,
+        customersStatus: 'error',
+      },
     })
     expect(wrapper.find('[data-test="customers-summary-error"]').exists()).toBe(true)
   })
@@ -261,7 +281,10 @@ describe('SalesSummaryCards', () => {
 describe('TopProductsTable', () => {
   it('renders one row per product with sku, quantity, and exact revenue/refunded money', () => {
     const wrapper = mount(TopProductsTable, {
-      props: { rows: [productItem({ revenue_minor: 123456, attributed_refunded_minor: 100 })], status: 'success' },
+      props: {
+        rows: [productItem({ revenue_minor: 123456, attributed_refunded_minor: 100 })],
+        status: 'success',
+      },
     })
 
     expect(wrapper.findAll('[data-test="top-product-row"]')).toHaveLength(1)
@@ -313,7 +336,11 @@ describe('LowStockList', () => {
 
   it('renders product identity and quantity', () => {
     const wrapper = mount(LowStockList, {
-      props: { rows: [stockItem({ product_name: 'Gadget', sku: 'SKU-9', quantity: 1 })], status: 'success', threshold: 3 },
+      props: {
+        rows: [stockItem({ product_name: 'Gadget', sku: 'SKU-9', quantity: 1 })],
+        status: 'success',
+        threshold: 3,
+      },
     })
     expect(wrapper.find('[data-test="low-stock-name"]').text()).toBe('Gadget')
     expect(wrapper.find('[data-test="low-stock-quantity"]').text()).toBe('1')
@@ -368,7 +395,11 @@ describe('commerce overview page', () => {
     const expected = rangeFor(7)
     const sales = toValue(lastSalesFilters.current) as { from?: string; to?: string }
     const customersAgg = toValue(lastCustomersAggFilters.current) as { from?: string; to?: string }
-    const products = toValue(lastProductsFilters.current) as { from?: string; to?: string; sort?: string }
+    const products = toValue(lastProductsFilters.current) as {
+      from?: string
+      to?: string
+      sort?: string
+    }
     expect(sales.from).toBe(expected.from)
     expect(sales.to).toBe(expected.to)
     expect(customersAgg.from).toBe(expected.from)
@@ -413,7 +444,12 @@ describe('commerce overview page', () => {
   })
 
   it('renders the low-stock list with the fetched rows, flagged against the live threshold', async () => {
-    stockPage.value = { items: [stockItem({ quantity: 3 })], total: 1, current_page: 1, per_page: 10 }
+    stockPage.value = {
+      items: [stockItem({ quantity: 3 })],
+      total: 1,
+      current_page: 1,
+      per_page: 10,
+    }
     metaData.value = { ...metaData.value, low_stock_threshold: 3 }
     const wrapper = mount(CommerceOverview, { global: { stubs: pageStubs } })
     await flushPromises()

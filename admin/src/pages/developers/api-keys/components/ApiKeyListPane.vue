@@ -45,7 +45,16 @@ function onCreated(result: SecretResult) {
   <div class="flex h-full min-h-0 w-full flex-col gap-3 lg:w-85 lg:shrink-0">
     <div class="flex items-center justify-between gap-2">
       <h2 class="text-lg font-semibold text-highlighted">API Keys</h2>
-      <UButton icon="i-lucide-plus" size="sm" class="rounded-xl px-3" @click="() => { showCreate = true }" />
+      <UButton
+        icon="i-lucide-plus"
+        size="sm"
+        class="rounded-xl px-3"
+        @click="
+          () => {
+            showCreate = true
+          }
+        "
+      />
     </div>
 
     <UInput v-model="search" icon="i-lucide-search" placeholder="Search by name…" />
@@ -59,7 +68,11 @@ function onCreated(result: SecretResult) {
         class="rounded-lg"
         :color="status === f.value ? 'primary' : 'neutral'"
         :variant="status === f.value ? 'solid' : 'soft'"
-        @click="() => { status = f.value }"
+        @click="
+          () => {
+            status = f.value
+          }
+        "
       />
     </div>
 
@@ -112,7 +125,11 @@ function onCreated(result: SecretResult) {
           variant="ghost"
           size="xs"
           :disabled="page <= 1"
-          @click="() => { page-- }"
+          @click="
+            () => {
+              page--
+            }
+          "
         />
         <UButton
           icon="i-lucide-chevron-right"
@@ -120,7 +137,11 @@ function onCreated(result: SecretResult) {
           variant="ghost"
           size="xs"
           :disabled="page >= totalPages"
-          @click="() => { page++ }"
+          @click="
+            () => {
+              page++
+            }
+          "
         />
       </div>
     </div>

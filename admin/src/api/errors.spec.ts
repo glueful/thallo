@@ -41,7 +41,10 @@ describe('toApiError field-error extraction', () => {
       {
         success: false,
         message: 'Validation failed',
-        error: { code: 422, details: { product_uuid: "Cannot add variants to a 'grouped' product." } },
+        error: {
+          code: 422,
+          details: { product_uuid: "Cannot add variants to a 'grouped' product." },
+        },
       },
       new Response(null, { status: 422 }),
     )
@@ -58,7 +61,10 @@ describe('toApiError field-error extraction', () => {
     )
     expect(err.fieldErrors).toEqual({})
     expect(apiErrorCode(err)).toBe('BLOCK_MIGRATION_IN_PROGRESS')
-    expect(apiErrorDetails(err)).toEqual({ code: 'BLOCK_MIGRATION_IN_PROGRESS', block_type: 'card' })
+    expect(apiErrorDetails(err)).toEqual({
+      code: 'BLOCK_MIGRATION_IN_PROGRESS',
+      block_type: 'card',
+    })
   })
 
   it('prefers the top-level `errors` map over `error.details` when both are present', () => {
@@ -133,7 +139,9 @@ describe('responseError field-error extraction (raw-fetch path, e.g. authFetch)'
           code: 422,
           timestamp: '2026-01-01T00:00:00Z',
           request_id: 'req_1',
-          details: { phone: 'phone must be a phone number in international format, e.g. +15550109999.' },
+          details: {
+            phone: 'phone must be a phone number in international format, e.g. +15550109999.',
+          },
         },
       }),
       { status: 422 },
@@ -147,7 +155,11 @@ describe('responseError field-error extraction (raw-fetch path, e.g. authFetch)'
 
   it('extracts fieldErrors from the top-level `errors` map shape too', async () => {
     const res = new Response(
-      JSON.stringify({ success: false, message: 'Validation failed', errors: { email: ['Invalid email.'] } }),
+      JSON.stringify({
+        success: false,
+        message: 'Validation failed',
+        errors: { email: ['Invalid email.'] },
+      }),
       { status: 422 },
     )
     const err = await responseError(res)
@@ -191,10 +203,15 @@ describe('apiErrorDetails/apiErrorCode across a duplicated module graph', () => 
     // The duplication is real: same source, different class identity.
     expect(duplicate.ApiError).not.toBe(ApiError)
 
-    const foreign = new duplicate.ApiError('Conflict.', 409, {}, {
-      success: false,
-      error: { code: 409, details: { code: 'BLOCK_MIGRATION_IN_PROGRESS', block_type: 'card' } },
-    })
+    const foreign = new duplicate.ApiError(
+      'Conflict.',
+      409,
+      {},
+      {
+        success: false,
+        error: { code: 409, details: { code: 'BLOCK_MIGRATION_IN_PROGRESS', block_type: 'card' } },
+      },
+    )
     expect(foreign instanceof ApiError).toBe(false)
 
     expect(apiErrorCode(foreign)).toBe('BLOCK_MIGRATION_IN_PROGRESS')
@@ -206,12 +223,22 @@ describe('apiErrorDetails/apiErrorCode across a duplicated module graph', () => 
 
   it('reads the draft `conflict` discriminator and the payment-link `reason` off a foreign error', async () => {
     const duplicate = await vi.importActual<typeof import('@/api/errors')>('@/api/errors')
-    const stale = new duplicate.ApiError('Stale.', 409, {}, {
-      error: { details: { conflict: 'stale_revision' } },
-    })
-    const refusal = new duplicate.ApiError('Risk.', 409, {}, {
-      error: { details: { reason: 'payment_session_risk_unacknowledged' } },
-    })
+    const stale = new duplicate.ApiError(
+      'Stale.',
+      409,
+      {},
+      {
+        error: { details: { conflict: 'stale_revision' } },
+      },
+    )
+    const refusal = new duplicate.ApiError(
+      'Risk.',
+      409,
+      {},
+      {
+        error: { details: { reason: 'payment_session_risk_unacknowledged' } },
+      },
+    )
 
     expect(apiErrorDetails(stale)?.conflict).toBe('stale_revision')
     expect(apiErrorDetails(refusal)?.reason).toBe('payment_session_risk_unacknowledged')
@@ -236,6 +263,8 @@ describe('apiErrorDetails/apiErrorCode across a duplicated module graph', () => 
     // An object with a body but no HTTP status is not an error this layer produced.
     expect(apiErrorDetails({ body: { error: { details: { code: 'X' } } } })).toBeNull()
     expect(apiErrorDetails(new ApiError('x', 409, {}, { success: false }))).toBeNull()
-    expect(apiErrorCode(new ApiError('x', 409, {}, { error: { details: { block_type: 'card' } } }))).toBeNull()
+    expect(
+      apiErrorCode(new ApiError('x', 409, {}, { error: { details: { block_type: 'card' } } })),
+    ).toBeNull()
   })
 })

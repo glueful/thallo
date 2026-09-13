@@ -36,7 +36,11 @@ const tabs = [
         class="rounded-lg"
         :color="variant === t.value ? 'primary' : 'neutral'"
         :variant="variant === t.value ? 'solid' : 'ghost'"
-        @click="() => { variant = t.value }"
+        @click="
+          () => {
+            variant = t.value
+          }
+        "
       />
     </div>
 

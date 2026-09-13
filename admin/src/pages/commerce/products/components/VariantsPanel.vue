@@ -405,7 +405,10 @@ async function applyStockAdjust() {
             data-test="variant-status-input"
           />
         </UFormField>
-        <UFormField label="Original price" help="Shown crossed out beside the price, marking a sale">
+        <UFormField
+          label="Original price"
+          help="Shown crossed out beside the price, marking a sale"
+        >
           <UInput
             v-model="addState.compareAtPriceInput"
             inputmode="decimal"
@@ -534,7 +537,10 @@ async function applyStockAdjust() {
               data-test="variant-edit-status-input"
             />
           </UFormField>
-          <UFormField label="Original price" help="Shown crossed out beside the price, marking a sale">
+          <UFormField
+            label="Original price"
+            help="Shown crossed out beside the price, marking a sale"
+          >
             <UInput
               v-model="editState.compareAtPriceInput"
               inputmode="decimal"

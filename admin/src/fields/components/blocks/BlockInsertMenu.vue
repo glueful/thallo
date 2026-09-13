@@ -69,23 +69,25 @@ function onFilterKeydown(event: KeyboardEvent): void {
     <!-- Internal scroll: 30 seeded types would otherwise grow the menu past
          the viewport; the filter input stays pinned above. -->
     <div class="max-h-72 overflow-y-auto overscroll-contain" data-test="block-picker-scroll">
-    <!-- One flat tile grid (no category headings); category still orders the
+      <!-- One flat tile grid (no category headings); category still orders the
          tiles and the description moves into the tooltip. -->
-    <div class="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-1">
-      <button
-        v-for="t in ordered"
-        :key="t.slug"
-        class="flex flex-col items-center gap-1 rounded px-2 py-1.5 text-center text-xs hover:bg-elevated"
-        type="button"
-        :title="t.description ?? undefined"
-        :data-test="`picker-item-${t.slug}`"
-        @click="emit('select', t)"
-      >
-        <UIcon :name="t.icon || 'i-lucide-box'" class="size-4 text-muted" />
-        <span class="w-full truncate font-medium">{{ t.label }}</span>
-      </button>
-    </div>
-    <p v-if="!filtered.length" class="px-2 py-1.5 text-sm text-muted">No block types available.</p>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-1">
+        <button
+          v-for="t in ordered"
+          :key="t.slug"
+          class="flex flex-col items-center gap-1 rounded px-2 py-1.5 text-center text-xs hover:bg-elevated"
+          type="button"
+          :title="t.description ?? undefined"
+          :data-test="`picker-item-${t.slug}`"
+          @click="emit('select', t)"
+        >
+          <UIcon :name="t.icon || 'i-lucide-box'" class="size-4 text-muted" />
+          <span class="w-full truncate font-medium">{{ t.label }}</span>
+        </button>
+      </div>
+      <p v-if="!filtered.length" class="px-2 py-1.5 text-sm text-muted">
+        No block types available.
+      </p>
     </div>
   </div>
 </template>

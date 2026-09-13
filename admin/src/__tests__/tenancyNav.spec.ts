@@ -100,7 +100,13 @@ describe('tenancy navigation shaping', () => {
     })
 
     it('a workspace-only admin (manage_members only) does not see Settings -> Payments', () => {
-      const shaped = shapeTenancyNav(base, { ...none, manage_members: true }, 'tenant000001', true, true)
+      const shaped = shapeTenancyNav(
+        base,
+        { ...none, manage_members: true },
+        'tenant000001',
+        true,
+        true,
+      )
       const settings = shaped.find((item) => item.label === 'Settings')
       expect(settings?.children?.map((child) => child.to)).not.toContain('/settings/payments')
     })
@@ -158,7 +164,10 @@ describe('tenancy navigation shaping', () => {
     it('platform-only operator (manage_platform only) sees ONLY the platform Plans/Billing pages', () => {
       const shaped = shapeTenancyNav(base, { ...none, manage_platform: true }, null, true, true)
       const group = shaped.find((item) => item.label === 'Subscriptions')
-      expect(group?.children?.map((c) => c.to)).toEqual(['/subscriptions/plans', '/subscriptions/billing'])
+      expect(group?.children?.map((c) => c.to)).toEqual([
+        '/subscriptions/plans',
+        '/subscriptions/billing',
+      ])
     })
 
     it('neither authority: the Subscriptions group is dropped entirely', () => {

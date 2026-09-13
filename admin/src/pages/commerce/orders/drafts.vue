@@ -16,7 +16,11 @@
 // user has nothing legal to do with either action anyway (the workspace's own mutations would
 // 403, and cancel is a manage-graded endpoint outright).
 import { computed, ref } from 'vue'
-import { useDraftsList, useCommerceDraftMutations, type CommerceDraft } from '@/queries/commerceDrafts'
+import {
+  useDraftsList,
+  useCommerceDraftMutations,
+  type CommerceDraft,
+} from '@/queries/commerceDrafts'
 import { useCommerceMeta } from '@/queries/commerceMeta'
 import { useMoney } from '@/composables/useMoney'
 import { toApiError } from '@/api/errors'
@@ -130,7 +134,12 @@ async function confirmCancel() {
 
       <template v-else>
         <ul class="flex flex-col divide-y divide-default" data-test="drafts-list">
-          <li v-for="d in rows" :key="d.uuid" data-test="draft-row" class="flex flex-col gap-2 py-3">
+          <li
+            v-for="d in rows"
+            :key="d.uuid"
+            data-test="draft-row"
+            class="flex flex-col gap-2 py-3"
+          >
             <div class="flex flex-wrap items-center justify-between gap-2">
               <div class="flex items-center gap-2">
                 <!-- Drafts carry no order_number (migration 022 relaxed it to nullable for

@@ -6,7 +6,11 @@
 // ('orders.notes.store' -> 'manage'), so only the add-note form (never the list) is hidden for a
 // view-only user — the one "mutation control" this component owns.
 import { ref } from 'vue'
-import { useOrderNotes, useCommerceOrderMutations, type CreateOrderNoteInput } from '@/queries/commerceOrders'
+import {
+  useOrderNotes,
+  useCommerceOrderMutations,
+  type CreateOrderNoteInput,
+} from '@/queries/commerceOrders'
 import { toApiError } from '@/api/errors'
 
 const props = defineProps<{
@@ -55,7 +59,11 @@ async function submit() {
       <h3 class="text-sm font-medium">Notes</h3>
     </template>
 
-    <div v-if="status === 'pending'" class="flex justify-center py-6" data-test="order-notes-loading">
+    <div
+      v-if="status === 'pending'"
+      class="flex justify-center py-6"
+      data-test="order-notes-loading"
+    >
       <UIcon name="i-lucide-loader-circle" class="size-5 animate-spin text-muted" />
     </div>
     <UAlert
@@ -74,7 +82,12 @@ async function submit() {
       data-test="order-notes-empty"
     />
     <ul v-else class="flex flex-col divide-y divide-default">
-      <li v-for="n in notes" :key="n.uuid" data-test="order-note" class="flex flex-col gap-1 p-3 text-sm">
+      <li
+        v-for="n in notes"
+        :key="n.uuid"
+        data-test="order-note"
+        class="flex flex-col gap-1 p-3 text-sm"
+      >
         <p class="text-default" data-test="order-note-body">{{ n.body }}</p>
         <div class="flex items-center gap-2 text-xs text-muted">
           <UBadge color="neutral" variant="subtle" size="sm">{{ n.visibility }}</UBadge>

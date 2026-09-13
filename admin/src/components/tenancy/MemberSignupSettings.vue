@@ -78,12 +78,7 @@ onMounted(load)
     <div class="flex flex-col gap-1 border-b border-default px-5 py-4">
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-sm font-semibold text-highlighted">Member signup</h2>
-        <UBadge
-          v-if="!loading"
-          :color="enabled ? 'success' : 'neutral'"
-          variant="subtle"
-          size="sm"
-        >
+        <UBadge v-if="!loading" :color="enabled ? 'success' : 'neutral'" variant="subtle" size="sm">
           {{ enabled ? 'On' : 'Off' }}
         </UBadge>
       </div>

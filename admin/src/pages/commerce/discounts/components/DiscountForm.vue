@@ -278,11 +278,21 @@ async function submit() {
     <template #body>
       <form id="discount-form" class="space-y-4" @submit.prevent="submit">
         <UFormField label="Code" name="code" required :error="codeError ?? undefined">
-          <UInput v-model="state.code" placeholder="e.g. SAVE10" class="w-full" data-test="discount-code-input" />
+          <UInput
+            v-model="state.code"
+            placeholder="e.g. SAVE10"
+            class="w-full"
+            data-test="discount-code-input"
+          />
         </UFormField>
 
         <UFormField label="Type" name="type">
-          <USelect v-model="state.type" :items="typeItems" class="w-full" data-test="discount-type-input" />
+          <USelect
+            v-model="state.type"
+            :items="typeItems"
+            class="w-full"
+            data-test="discount-type-input"
+          />
         </UFormField>
 
         <UFormField
@@ -292,7 +302,12 @@ async function submit() {
           :error="valueError ?? undefined"
           :help="state.type === 'percentage' ? 'e.g. 10 for 10% off' : 'e.g. 5.00 off the order'"
         >
-          <UInput v-model="state.valueInput" placeholder="0.00" class="w-full" data-test="discount-value-input" />
+          <UInput
+            v-model="state.valueInput"
+            placeholder="0.00"
+            class="w-full"
+            data-test="discount-value-input"
+          />
         </UFormField>
 
         <UFormField
@@ -330,15 +345,30 @@ async function submit() {
         />
 
         <UFormField label="Status" name="status">
-          <USelect v-model="state.status" :items="statusItems" class="w-full" data-test="discount-status-input" />
+          <USelect
+            v-model="state.status"
+            :items="statusItems"
+            class="w-full"
+            data-test="discount-status-input"
+          />
         </UFormField>
 
         <div class="grid grid-cols-2 gap-4">
           <UFormField label="Starts" name="startsAt" :error="datesError ?? undefined">
-            <UInput v-model="state.startsAt" type="date" class="w-full" data-test="discount-starts-at-input" />
+            <UInput
+              v-model="state.startsAt"
+              type="date"
+              class="w-full"
+              data-test="discount-starts-at-input"
+            />
           </UFormField>
           <UFormField label="Ends" name="endsAt">
-            <UInput v-model="state.endsAt" type="date" class="w-full" data-test="discount-ends-at-input" />
+            <UInput
+              v-model="state.endsAt"
+              type="date"
+              class="w-full"
+              data-test="discount-ends-at-input"
+            />
           </UFormField>
         </div>
 

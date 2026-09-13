@@ -44,7 +44,11 @@ const detailFields = computed(() => {
   if (!d) return []
   return d.fields_snapshot.map((f) => {
     const raw = d.values[f.key]
-    return { key: f.key, label: f.label, value: typeof raw === 'boolean' ? (raw ? 'Yes' : 'No') : String(raw ?? '') }
+    return {
+      key: f.key,
+      label: f.label,
+      value: typeof raw === 'boolean' ? (raw ? 'Yes' : 'No') : String(raw ?? ''),
+    }
   })
 })
 
@@ -116,13 +120,21 @@ const filters: { label: string; value: '' | SubmissionStatus; test: string }[] =
               :variant="statusFilter === f.value ? 'solid' : 'ghost'"
               :aria-pressed="statusFilter === f.value ? 'true' : 'false'"
               :data-test="f.test"
-              @click="() => { statusFilter = f.value }"
+              @click="
+                () => {
+                  statusFilter = f.value
+                }
+              "
             >
               {{ f.label }}
             </UButton>
           </div>
 
-          <p v-if="rows.length === 0" class="py-8 text-center text-sm text-muted" data-test="submissions-empty">
+          <p
+            v-if="rows.length === 0"
+            class="py-8 text-center text-sm text-muted"
+            data-test="submissions-empty"
+          >
             No submissions yet.
           </p>
 
@@ -145,7 +157,10 @@ const filters: { label: string; value: '' | SubmissionStatus; test: string }[] =
                 />
                 <span v-else class="mt-1.5 size-2 shrink-0" />
                 <span class="min-w-0 flex-1">
-                  <span class="block truncate font-medium" :class="{ 'font-semibold': row.status === 'unread' }">
+                  <span
+                    class="block truncate font-medium"
+                    :class="{ 'font-semibold': row.status === 'unread' }"
+                  >
                     {{ row.form_name }}
                   </span>
                   <span class="block truncate text-xs text-muted">{{ row.submitted_at }}</span>
@@ -184,8 +199,12 @@ const filters: { label: string; value: '' | SubmissionStatus; test: string }[] =
 
             <dl class="grid gap-3">
               <div v-for="f in detailFields" :key="f.key" class="grid gap-0.5">
-                <dt class="text-xs font-medium uppercase tracking-wide text-muted">{{ f.label }}</dt>
-                <dd class="whitespace-pre-wrap break-words" data-test="submission-value">{{ f.value }}</dd>
+                <dt class="text-xs font-medium uppercase tracking-wide text-muted">
+                  {{ f.label }}
+                </dt>
+                <dd class="whitespace-pre-wrap break-words" data-test="submission-value">
+                  {{ f.value }}
+                </dd>
               </div>
             </dl>
 
@@ -206,8 +225,19 @@ const filters: { label: string; value: '' | SubmissionStatus; test: string }[] =
         </template>
         <template #footer>
           <div class="flex justify-end gap-2">
-            <UButton color="neutral" variant="ghost" @click="() => { deleteOpen = false }">Cancel</UButton>
-            <UButton color="error" data-test="submission-delete" @click="confirmDelete">Delete</UButton>
+            <UButton
+              color="neutral"
+              variant="ghost"
+              @click="
+                () => {
+                  deleteOpen = false
+                }
+              "
+              >Cancel</UButton
+            >
+            <UButton color="error" data-test="submission-delete" @click="confirmDelete"
+              >Delete</UButton
+            >
           </div>
         </template>
       </UModal>

@@ -20,7 +20,14 @@ describe('form submissions query layer', () => {
     authFetch.mockResolvedValue({
       data: {
         submissions: [
-          { uuid: 'u1', form_key: 'k1', form_name: 'Contact', source_url: '/c', status: 'unread', submitted_at: 't' },
+          {
+            uuid: 'u1',
+            form_key: 'k1',
+            form_name: 'Contact',
+            source_url: '/c',
+            status: 'unread',
+            submitted_at: 't',
+          },
         ],
       },
     })
@@ -36,7 +43,9 @@ describe('form submissions query layer', () => {
   })
 
   it('fetchSubmission unwraps data.submission', async () => {
-    authFetch.mockResolvedValue({ data: { submission: { uuid: 'u1', values: { email: 'a@b.test' } } } })
+    authFetch.mockResolvedValue({
+      data: { submission: { uuid: 'u1', values: { email: 'a@b.test' } } },
+    })
     const detail = await fetchSubmission('u1')
     expect(detail.values.email).toBe('a@b.test')
     expect(authFetch.mock.calls[0][0]).toBe('/v1/admin/form-submissions/u1')
@@ -65,7 +74,9 @@ describe('form submissions query layer', () => {
   })
 
   it('submissionsExportUrl builds the CSV URL with filters', () => {
-    expect(submissionsExportUrl({ formKey: 'k1' })).toBe('/v1/admin/form-submissions/export.csv?form_key=k1')
+    expect(submissionsExportUrl({ formKey: 'k1' })).toBe(
+      '/v1/admin/form-submissions/export.csv?form_key=k1',
+    )
     expect(submissionsExportUrl()).toBe('/v1/admin/form-submissions/export.csv')
   })
 })

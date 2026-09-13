@@ -25,7 +25,10 @@ describe('commerce reports query layer', () => {
 
   function requestedUrl(fetchMock: ReturnType<typeof vi.fn>): URL {
     const requested = fetchMock.mock.calls[0]![0]
-    return new URL(typeof requested === 'string' ? requested : (requested as Request).url, 'http://localhost')
+    return new URL(
+      typeof requested === 'string' ? requested : (requested as Request).url,
+      'http://localhost',
+    )
   }
 
   // ── fetchCommerceReportSales: envelope, params ────────────────────────────────────────────────
@@ -187,7 +190,9 @@ describe('commerce reports query layer', () => {
 
     it('sends from/to/sort/page/per_page as query params (the exact ProductsReportQuery shape)', async () => {
       const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-      fetchMock.mockResolvedValue(jsonResponse({ data: [], current_page: 1, per_page: 10, total: 0 }))
+      fetchMock.mockResolvedValue(
+        jsonResponse({ data: [], current_page: 1, per_page: 10, total: 0 }),
+      )
 
       const { fetchCommerceReportProducts } = await import('@/queries/commerceReports')
       await fetchCommerceReportProducts({
@@ -236,7 +241,9 @@ describe('commerce reports query layer', () => {
     })
 
     it('throws ApiError on failure', async () => {
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ message: 'Forbidden' }, 403))
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        jsonResponse({ message: 'Forbidden' }, 403),
+      )
 
       const { fetchCommerceReportProducts } = await import('@/queries/commerceReports')
       const { ApiError } = await import('@/api/errors')
@@ -264,7 +271,11 @@ describe('commerce reports query layer', () => {
       const report = await fetchCommerceReportCustomers({ from: '2026-06-24', to: '2026-07-22' })
 
       expect(report.window).toEqual({ from: '2026-06-24', to: '2026-07-22', group: 'day' })
-      expect(report.summary).toEqual({ new_customers: 12, returning_customers: 8, total_customers: 20 })
+      expect(report.summary).toEqual({
+        new_customers: 12,
+        returning_customers: 8,
+        total_customers: 20,
+      })
       expect(report.series).toHaveLength(1)
       expect(report).not.toHaveProperty('currency')
     })
@@ -290,12 +301,18 @@ describe('commerce reports query layer', () => {
       const report = await fetchCommerceReportCustomers()
 
       expect(report.window).toEqual({ from: '', to: '', group: 'day' })
-      expect(report.summary).toEqual({ new_customers: 0, returning_customers: 0, total_customers: 0 })
+      expect(report.summary).toEqual({
+        new_customers: 0,
+        returning_customers: 0,
+        total_customers: 0,
+      })
       expect(report.series).toEqual([])
     })
 
     it('throws ApiError on failure', async () => {
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ message: 'Forbidden' }, 403))
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        jsonResponse({ message: 'Forbidden' }, 403),
+      )
 
       const { fetchCommerceReportCustomers } = await import('@/queries/commerceReports')
       const { ApiError } = await import('@/api/errors')
@@ -323,7 +340,10 @@ describe('commerce reports query layer', () => {
         jsonResponse({
           success: true,
           message: 'Stock report retrieved',
-          data: [stockBody(), stockBody({ variant_uuid: 'var2', quantity: 0, status: 'out_of_stock' })],
+          data: [
+            stockBody(),
+            stockBody({ variant_uuid: 'var2', quantity: 0, status: 'out_of_stock' }),
+          ],
           current_page: 1,
           per_page: 10,
           total: 2,
@@ -342,7 +362,9 @@ describe('commerce reports query layer', () => {
 
     it('sends status/threshold/page/per_page as query params, omitting absent ones', async () => {
       const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-      fetchMock.mockResolvedValue(jsonResponse({ data: [], current_page: 1, per_page: 10, total: 0 }))
+      fetchMock.mockResolvedValue(
+        jsonResponse({ data: [], current_page: 1, per_page: 10, total: 0 }),
+      )
 
       const { fetchCommerceReportStock } = await import('@/queries/commerceReports')
       await fetchCommerceReportStock({ status: 'out_of_stock', threshold: 5, page: 1, perPage: 10 })
@@ -357,7 +379,9 @@ describe('commerce reports query layer', () => {
 
     it('omits status/threshold entirely when neither is set (point-in-time, no from/to ever sent)', async () => {
       const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
-      fetchMock.mockResolvedValue(jsonResponse({ data: [], current_page: 1, per_page: 10, total: 0 }))
+      fetchMock.mockResolvedValue(
+        jsonResponse({ data: [], current_page: 1, per_page: 10, total: 0 }),
+      )
 
       const { fetchCommerceReportStock } = await import('@/queries/commerceReports')
       await fetchCommerceReportStock()
@@ -371,7 +395,12 @@ describe('commerce reports query layer', () => {
 
     it('normalizes an unrecognized status to the low_stock fallback', async () => {
       ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-        jsonResponse({ data: [stockBody({ status: 'weird' })], current_page: 1, per_page: 10, total: 1 }),
+        jsonResponse({
+          data: [stockBody({ status: 'weird' })],
+          current_page: 1,
+          per_page: 10,
+          total: 1,
+        }),
       )
 
       const { fetchCommerceReportStock } = await import('@/queries/commerceReports')
@@ -392,7 +421,9 @@ describe('commerce reports query layer', () => {
     })
 
     it('throws ApiError on failure', async () => {
-      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse({ message: 'Forbidden' }, 403))
+      ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+        jsonResponse({ message: 'Forbidden' }, 403),
+      )
 
       const { fetchCommerceReportStock } = await import('@/queries/commerceReports')
       const { ApiError } = await import('@/api/errors')

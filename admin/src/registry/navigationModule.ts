@@ -13,4 +13,8 @@ const site: NavigationMenuItem[] = [
   },
 ]
 
-export const navigationModule: AdminModule = { id: 'navigation', requires: ['thallo.navigation'], nav: { site } }
+export const navigationModule: AdminModule = {
+  id: 'navigation',
+  requires: ['thallo.navigation'],
+  nav: { site },
+}

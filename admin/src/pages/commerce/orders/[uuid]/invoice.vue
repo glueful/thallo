@@ -84,11 +84,19 @@ async function retry(): Promise<void> {
       </button>
     </div>
 
-    <div v-if="invoiceStatus === 'pending'" class="flex justify-center py-10" data-test="invoice-loading">
+    <div
+      v-if="invoiceStatus === 'pending'"
+      class="flex justify-center py-10"
+      data-test="invoice-loading"
+    >
       Loading…
     </div>
 
-    <div v-else-if="invoiceStatus === 'error' || !invoice" class="flex flex-col items-start gap-2" data-test="invoice-error">
+    <div
+      v-else-if="invoiceStatus === 'error' || !invoice"
+      class="flex flex-col items-start gap-2"
+      data-test="invoice-error"
+    >
       <p>Couldn’t load this invoice. Try again.</p>
       <button type="button" data-test="invoice-retry" @click="retry">Retry</button>
     </div>

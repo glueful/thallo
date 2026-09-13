@@ -5,8 +5,17 @@ import { publishFailureNotice } from '@/utils/publishNotice'
 // A blocked publish used to surface as "Couldn't publish" with the server sentence underneath,
 // which reads as a fault. It is a workflow state: say so, and say what to do next.
 
-function apiError(status: number, message: string, details: Record<string, unknown> = {}): ApiError {
-  return new ApiError(message, status, {}, { success: false, message, error: { code: status, details } })
+function apiError(
+  status: number,
+  message: string,
+  details: Record<string, unknown> = {},
+): ApiError {
+  return new ApiError(
+    message,
+    status,
+    {},
+    { success: false, message, error: { code: status, details } },
+  )
 }
 
 describe('publishFailureNotice', () => {

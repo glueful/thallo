@@ -72,7 +72,11 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             :aria-label="showPassword ? 'Hide password' : 'Show password'"
             :aria-pressed="showPassword"
             aria-controls="password"
-            @click="() => { showPassword = !showPassword }"
+            @click="
+              () => {
+                showPassword = !showPassword
+              }
+            "
           />
         </template>
       </UInput>

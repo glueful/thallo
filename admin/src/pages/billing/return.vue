@@ -126,7 +126,12 @@ onBeforeUnmount(stopPolling)
             data-test="return-refresh"
             @click="refetchMeta()"
           />
-          <UButton to="/billing" variant="ghost" label="Go to Billing" data-test="return-to-billing" />
+          <UButton
+            to="/billing"
+            variant="ghost"
+            label="Go to Billing"
+            data-test="return-to-billing"
+          />
         </div>
       </div>
     </template>

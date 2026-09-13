@@ -178,7 +178,11 @@ async function confirmDelete() {
             color="neutral"
             variant="ghost"
             label="Clear"
-            @click="() => { selected = [] }"
+            @click="
+              () => {
+                selected = []
+              }
+            "
           />
           <USelect
             v-model="bulkTarget"
@@ -204,7 +208,11 @@ async function confirmDelete() {
           :selected="selected"
           @toggle-select="toggleSelect"
           @toggle-select-all="selectAllVisible"
-          @delete-request="(row) => { pendingDelete = row }"
+          @delete-request="
+            (row) => {
+              pendingDelete = row
+            }
+          "
         />
 
         <TablePagination
@@ -227,7 +235,11 @@ async function confirmDelete() {
   <UModal
     :open="pendingDelete !== null"
     title="Delete product"
-    @update:open="(v: boolean) => { if (!v) pendingDelete = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) pendingDelete = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
@@ -241,7 +253,11 @@ async function confirmDelete() {
           variant="ghost"
           label="Cancel"
           :disabled="remove.isLoading.value"
-          @click="() => { pendingDelete = null }"
+          @click="
+            () => {
+              pendingDelete = null
+            }
+          "
         />
         <UButton
           color="error"

@@ -39,10 +39,16 @@ function emitSplit(editor: Editor, slug: string): void {
   const fullHtml = editor.getHTML()
   const pos = editor.state.selection.from
   const end = editor.state.doc.content.size
-  editor.chain().deleteRange({ from: Math.min(pos, end), to: end }).run()
+  editor
+    .chain()
+    .deleteRange({ from: Math.min(pos, end), to: end })
+    .run()
   const beforeHtml = editor.getHTML()
   editor.commands.setContent(fullHtml)
-  editor.chain().deleteRange({ from: 0, to: Math.min(pos, editor.state.doc.content.size) }).run()
+  editor
+    .chain()
+    .deleteRange({ from: 0, to: Math.min(pos, editor.state.doc.content.size) })
+    .run()
   const afterHtml = editor.getHTML()
   editor.commands.setContent(beforeHtml)
   emit('insert-block', { slug, beforeHtml, afterHtml })

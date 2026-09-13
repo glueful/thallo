@@ -9,8 +9,18 @@ type Phase = 'hosts' | 'map' | 'verify' | 'rebuild' | 'restart' | 'live'
 
 const PHASES: { value: Phase; title: string; icon: string; run: string }[] = [
   { value: 'hosts', title: 'Set your hosts', icon: 'i-lucide-pencil-line', run: '' },
-  { value: 'map', title: 'Map hosts to the workspace', icon: 'i-lucide-map-pin', run: 'Mapping your hosts…' },
-  { value: 'verify', title: 'Check the hosts resolve', icon: 'i-lucide-globe', run: 'Checking DNS…' },
+  {
+    value: 'map',
+    title: 'Map hosts to the workspace',
+    icon: 'i-lucide-map-pin',
+    run: 'Mapping your hosts…',
+  },
+  {
+    value: 'verify',
+    title: 'Check the hosts resolve',
+    icon: 'i-lucide-globe',
+    run: 'Checking DNS…',
+  },
   { value: 'rebuild', title: 'Rebuild routes', icon: 'i-lucide-route', run: 'Rebuilding routes…' },
   { value: 'restart', title: 'Restart to finish', icon: 'i-lucide-rotate-cw', run: '' },
   { value: 'live', title: 'Live', icon: 'i-lucide-check', run: '' },
@@ -135,7 +145,11 @@ const runningLabel = computed(() => PHASES.find((p) => p.value === phase.value)?
           description="The routes are rebuilt. Restart the app, then continue — this is the only restart."
           class="mb-4"
         />
-        <p v-else-if="failed && (status.failure || error)" class="mb-4 text-sm text-error" role="alert">
+        <p
+          v-else-if="failed && (status.failure || error)"
+          class="mb-4 text-sm text-error"
+          role="alert"
+        >
           {{ error ?? status.failure }}
         </p>
         <div v-else-if="running" class="mb-4 flex items-center gap-2.5 text-sm text-highlighted">

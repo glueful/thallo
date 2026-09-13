@@ -98,7 +98,11 @@ async function confirmDelete() {
               size="xs"
               icon="i-lucide-trash-2"
               aria-label="Delete"
-              @click="() => { pendingDelete = row.original }"
+              @click="
+                () => {
+                  pendingDelete = row.original
+                }
+              "
             />
           </div>
         </template>
@@ -144,7 +148,11 @@ async function confirmDelete() {
           variant="ghost"
           label="Cancel"
           :disabled="remove.isLoading.value"
-          @click="() => { pendingDelete = null }"
+          @click="
+            () => {
+              pendingDelete = null
+            }
+          "
         />
         <UButton
           color="error"

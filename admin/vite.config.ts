@@ -82,9 +82,9 @@ export default defineConfig(({ mode }) => {
             sizeLimitKb: 0,
             // Still scan admin source: any non-lucide icon a component names is embedded too.
             scan: {
-              globInclude: ['**/*.{vue,ts,jsx,tsx,md,mdc,mdx,yml,yaml}']
+              globInclude: ['**/*.{vue,ts,jsx,tsx,md,mdc,mdx,yml,yaml}'],
             },
-          }
+          },
         },
 
         ui: {
@@ -93,7 +93,7 @@ export default defineConfig(({ mode }) => {
             primary: 'mirage',
             // Success = the design mock's emerald green (Nuxt UI's default success is a limier green).
             success: 'emerald',
-            neutral: 'slate'
+            neutral: 'slate',
           },
           modal: {
             slots: {

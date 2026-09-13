@@ -93,7 +93,10 @@ const groups = computed(() =>
     .filter((f) => f.type === 'blocks')
     .map((f) => ({
       field: f.name,
-      rows: rowsOf(((props.fields[f.name] as BlockInstance[] | undefined) ?? []) as BlockInstance[], 0),
+      rows: rowsOf(
+        ((props.fields[f.name] as BlockInstance[] | undefined) ?? []) as BlockInstance[],
+        0,
+      ),
     })),
 )
 </script>

@@ -5,10 +5,7 @@
 // subject/body editor the global email page uses — TemplateRow is reused verbatim against the
 // email-notification extension's /email/templates API, filtered to this pack's owner.
 import { computed, ref } from 'vue'
-import {
-  useCommerceEmailSettings,
-  useSaveCommerceEmailSettings,
-} from '@/queries/commerceSettings'
+import { useCommerceEmailSettings, useSaveCommerceEmailSettings } from '@/queries/commerceSettings'
 import { fetchEmailTemplates, type EmailTemplateRow } from '@/queries/email'
 import TemplateRow from '@/pages/settings/email/components/TemplateRow.vue'
 import { useNotify } from '@/composables/useNotify'

@@ -70,7 +70,6 @@ async function onImageSelected(event: Event) {
   }
 }
 
-
 // Fixed toolbar — always visible at the top of the editor.
 const toolbarItems = [
   [
@@ -97,7 +96,6 @@ const toolbarItems = [
     { kind: 'horizontalRule', icon: 'i-lucide-minus' },
   ],
 ] satisfies EditorToolbarItem[][]
-
 </script>
 
 <template>

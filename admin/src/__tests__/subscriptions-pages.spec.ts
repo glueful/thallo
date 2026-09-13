@@ -22,7 +22,10 @@ import { switchRootByTestId } from './support/switch'
 // stubs). A REAL router is installed on every page mount: `EngineStateNotice`'s `UButton :to`
 // (RouterLink) calls `useLink()`, which needs an injected router even when never navigated
 // (mirrors `contentTypeEditor.spec.ts`'s identical rationale).
-const teleportStub = { props: ['open'], template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>' }
+const teleportStub = {
+  props: ['open'],
+  template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>',
+}
 const pageStubs = { Slideover: teleportStub, Modal: teleportStub }
 
 function testRouter() {
@@ -87,7 +90,10 @@ vi.mock('@/queries/subscriptionsBilling', async (importOriginal) => {
       upsertOverride: { mutateAsync: upsertOverrideMock, isLoading: ref(false) },
       deleteOverride: { mutateAsync: deleteOverrideMock, isLoading: ref(false) },
     }),
-    useSelfServeCheckoutMutation: () => ({ mutateAsync: selfServeMutateMock, isLoading: ref(false) }),
+    useSelfServeCheckoutMutation: () => ({
+      mutateAsync: selfServeMutateMock,
+      isLoading: ref(false),
+    }),
   }
 })
 
@@ -163,7 +169,15 @@ beforeEach(() => {
   plansData.value = []
   plansStatus.value = 'success'
   usePlansEnabledSeen.value = []
-  workspacesData.value = { rows: [], total: 0, current_page: 1, per_page: 20, total_pages: 0, has_next_page: false, has_previous_page: false }
+  workspacesData.value = {
+    rows: [],
+    total: 0,
+    current_page: 1,
+    per_page: 20,
+    total_pages: 0,
+    has_next_page: false,
+    has_previous_page: false,
+  }
   workspacesStatus.value = 'success'
   workspaceDetailData.value = undefined
   workspaceDetailStatus.value = 'success'
@@ -212,7 +226,10 @@ describe('subscriptions/plans page', () => {
   })
 
   it('renders the plan list once the engine is ready', async () => {
-    plansData.value = [plan({ plan_key: 'pro', display_name: 'Pro' }), plan({ uuid: 'p2', plan_key: 'free', display_name: 'Free' })]
+    plansData.value = [
+      plan({ plan_key: 'pro', display_name: 'Pro' }),
+      plan({ uuid: 'p2', plan_key: 'free', display_name: 'Free' }),
+    ]
     const wrapper = mountPage(PlansIndex)
     await flushPromises()
 
@@ -248,7 +265,12 @@ describe('subscriptions/plans page', () => {
     await flushPromises()
 
     expect(createPlanMock).toHaveBeenCalledWith(
-      expect.objectContaining({ plan_key: 'growth', display_name: 'Growth', status: 'draft', entitlements: {} }),
+      expect.objectContaining({
+        plan_key: 'growth',
+        display_name: 'Growth',
+        status: 'draft',
+        entitlements: {},
+      }),
     )
   })
 
@@ -292,7 +314,9 @@ describe('subscriptions/plans page', () => {
     })
 
     it('pre-fills existing provider_identifiers rows in edit mode and PATCHes the full replacement map', async () => {
-      plansData.value = [plan({ plan_key: 'pro', provider_identifiers: { stripe: 'price_1', paystack: 'PLN_1' } })]
+      plansData.value = [
+        plan({ plan_key: 'pro', provider_identifiers: { stripe: 'price_1', paystack: 'PLN_1' } }),
+      ]
       const wrapper = mountPage(PlansIndex)
       await flushPromises()
 
@@ -309,7 +333,9 @@ describe('subscriptions/plans page', () => {
       expect(updatePlanMock).toHaveBeenCalledWith(
         expect.objectContaining({
           planKey: 'pro',
-          input: expect.objectContaining({ provider_identifiers: { stripe: 'price_1', paystack: 'PLN_1' } }),
+          input: expect.objectContaining({
+            provider_identifiers: { stripe: 'price_1', paystack: 'PLN_1' },
+          }),
         }),
       )
     })
@@ -353,7 +379,9 @@ describe('subscriptions/plans page', () => {
       await editor.find('#plan-form').trigger('submit')
       await flushPromises()
 
-      expect(wrapper.text()).toContain('provider_identifiers.stripe must be at most 191 characters.')
+      expect(wrapper.text()).toContain(
+        'provider_identifiers.stripe must be at most 191 characters.',
+      )
       expect(editor.props('open')).toBe(true)
     })
   })
@@ -479,7 +507,11 @@ describe('subscriptions/billing page', () => {
   })
 
   it('tenancy OFF with a real default uuid: renders "This site\'s plan" via the SAME WorkspaceDrawer, embedded', async () => {
-    metaData.value = meta({ engine: 'ready', tenancy_enabled: false, default_tenant_uuid: 't_default' })
+    metaData.value = meta({
+      engine: 'ready',
+      tenancy_enabled: false,
+      default_tenant_uuid: 't_default',
+    })
     const wrapper = mountPage(BillingIndex)
     await flushPromises()
 
@@ -517,8 +549,14 @@ describe('subscriptions/billing page', () => {
   it('renders each workspace lifecycle status in the directory', async () => {
     workspacesData.value = {
       rows: [
-        { tenant: tenant({ uuid: 't1', name: 'Acme Co', status: 'active' }), subscription: subscriptionSummary() },
-        { tenant: tenant({ uuid: 't2', name: 'Paused Ltd', status: 'suspended' }), subscription: null },
+        {
+          tenant: tenant({ uuid: 't1', name: 'Acme Co', status: 'active' }),
+          subscription: subscriptionSummary(),
+        },
+        {
+          tenant: tenant({ uuid: 't2', name: 'Paused Ltd', status: 'suspended' }),
+          subscription: null,
+        },
       ],
       total: 2,
       current_page: 1,
@@ -530,7 +568,9 @@ describe('subscriptions/billing page', () => {
     const wrapper = mountPage(BillingIndex)
     await flushPromises()
 
-    const statuses = wrapper.findAll('[data-test="workspace-row-tenant-status"]').map((n) => n.text())
+    const statuses = wrapper
+      .findAll('[data-test="workspace-row-tenant-status"]')
+      .map((n) => n.text())
     expect(statuses).toEqual(['active', 'suspended'])
   })
 
@@ -575,7 +615,9 @@ describe('subscriptions/billing page: self-serve checkout switch', () => {
     expect((toggle.props() as { modelValue?: boolean }).modelValue).toBe(false)
     expect(isSwitchDisabled(wrapper)).toBe(true)
     expect(wrapper.find('[data-test="self-serve-unavailable-reason"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('The configured default gateway (paystack) does not support subscription checkout')
+    expect(wrapper.text()).toContain(
+      'The configured default gateway (paystack) does not support subscription checkout',
+    )
     expect(wrapper.text()).toContain('configure a capable gateway such as Stripe')
   })
 
@@ -589,7 +631,9 @@ describe('subscriptions/billing page: self-serve checkout switch', () => {
     const wrapper = mountPage(BillingIndex)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('The configured default gateway (some-other-gateway) does not support subscription checkout')
+    expect(wrapper.text()).toContain(
+      'The configured default gateway (some-other-gateway) does not support subscription checkout',
+    )
   })
 
   it('renders the payvia_unavailable explanation distinctly from gateway_not_capable', async () => {
@@ -661,9 +705,14 @@ describe('subscriptions/billing page: self-serve checkout switch', () => {
   // explanation names the specific gateway even when the write itself (not just the standing meta
   // read) is what surfaced the refusal.
   function noCapableGatewayError(reason: string, gateway: string | null): ApiError {
-    return new ApiError('no gateway capable of subscription checkout is configured', 409, {}, {
-      error: { details: { code: 'no_capable_gateway', reason, gateway } },
-    })
+    return new ApiError(
+      'no gateway capable of subscription checkout is configured',
+      409,
+      {},
+      {
+        error: { details: { code: 'no_capable_gateway', reason, gateway } },
+      },
+    )
   }
 
   it('renders the specific gateway name from the 409 details on a refused enable, without flipping the displayed state', async () => {
@@ -675,7 +724,9 @@ describe('subscriptions/billing page: self-serve checkout switch', () => {
     selfServeSwitch(wrapper).vm.$emit('update:modelValue', true)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('The configured default gateway (paystack) does not support subscription checkout')
+    expect(wrapper.text()).toContain(
+      'The configured default gateway (paystack) does not support subscription checkout',
+    )
     expect(notify.error).toHaveBeenCalled()
     // The mocked meta ref never changes on failure -- still reflects the pre-toggle server state.
     expect((selfServeSwitch(wrapper).props() as { modelValue?: boolean }).modelValue).toBe(false)
@@ -719,7 +770,8 @@ describe('WorkspaceDetailPanel', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="provider-managed-notice"]').exists()).toBe(true)
-    const setPlanButton = wrapper.find('[data-test="workspace-set-plan"]').element as HTMLButtonElement
+    const setPlanButton = wrapper.find('[data-test="workspace-set-plan"]')
+      .element as HTMLButtonElement
     const cancelButton = wrapper.find('[data-test="workspace-cancel"]').element as HTMLButtonElement
     expect(setPlanButton.disabled).toBe(true)
     expect(cancelButton.disabled).toBe(true)
@@ -769,7 +821,9 @@ describe('WorkspaceDetailPanel', () => {
     await wrapper.find('[data-test="workspace-set-plan"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('this workspace is suspended and its billing cannot be changed')
+    expect(wrapper.text()).toContain(
+      'this workspace is suspended and its billing cannot be changed',
+    )
   })
 
   it('shows BOTH active and expired overrides, with expiry and reason intact', async () => {
@@ -777,8 +831,22 @@ describe('WorkspaceDetailPanel', () => {
       tenant: tenant(),
       subscription: subscriptionSummary(),
       overrides: [
-        { entitlement: 'seats', value: 25, expires_at: '2099-01-01 00:00:00', reason: 'promo', created_at: null, updated_at: null },
-        { entitlement: 'api', value: true, expires_at: '2000-01-01 00:00:00', reason: 'legacy trial', created_at: null, updated_at: null },
+        {
+          entitlement: 'seats',
+          value: 25,
+          expires_at: '2099-01-01 00:00:00',
+          reason: 'promo',
+          created_at: null,
+          updated_at: null,
+        },
+        {
+          entitlement: 'api',
+          value: true,
+          expires_at: '2000-01-01 00:00:00',
+          reason: 'legacy trial',
+          created_at: null,
+          updated_at: null,
+        },
       ],
     }
     const wrapper = mount(WorkspaceDetailPanel, { props: { uuid: 't1' } })
@@ -797,7 +865,14 @@ describe('WorkspaceDetailPanel', () => {
       tenant: tenant(),
       subscription: subscriptionSummary(),
       overrides: [
-        { entitlement: 'seats', value: 25, expires_at: '2099-01-01', reason: 'promo', created_at: null, updated_at: null },
+        {
+          entitlement: 'seats',
+          value: 25,
+          expires_at: '2099-01-01',
+          reason: 'promo',
+          created_at: null,
+          updated_at: null,
+        },
       ],
     }
     const wrapper = mount(WorkspaceDetailPanel, { props: { uuid: 't1' } })
@@ -806,9 +881,9 @@ describe('WorkspaceDetailPanel', () => {
     await wrapper.find('[data-test="override-edit"]').trigger('click')
     await flushPromises()
 
-    expect((wrapper.find('[data-test="override-entitlement-input"]').element as HTMLInputElement).value).toBe(
-      'seats',
-    )
+    expect(
+      (wrapper.find('[data-test="override-entitlement-input"]').element as HTMLInputElement).value,
+    ).toBe('seats')
 
     await wrapper.find('[data-test="override-limit-input"]').setValue('50')
     // Submit the form directly rather than clicking the button -- mirrors the same
@@ -817,7 +892,11 @@ describe('WorkspaceDetailPanel', () => {
     await flushPromises()
 
     expect(upsertOverrideMock).toHaveBeenCalledWith(
-      expect.objectContaining({ uuid: 't1', entitlement: 'seats', input: expect.objectContaining({ value: 50 }) }),
+      expect.objectContaining({
+        uuid: 't1',
+        entitlement: 'seats',
+        input: expect.objectContaining({ value: 50 }),
+      }),
     )
   })
 
@@ -826,7 +905,14 @@ describe('WorkspaceDetailPanel', () => {
       tenant: tenant(),
       subscription: subscriptionSummary(),
       overrides: [
-        { entitlement: 'seats', value: 25, expires_at: null, reason: null, created_at: null, updated_at: null },
+        {
+          entitlement: 'seats',
+          value: 25,
+          expires_at: null,
+          reason: null,
+          created_at: null,
+          updated_at: null,
+        },
       ],
     }
     const wrapper = mount(WorkspaceDetailPanel, { props: { uuid: 't1' } })

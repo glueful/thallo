@@ -18,7 +18,7 @@ describe('core module declaration', () => {
 })
 
 describe('core module: Developers › API Reference', () => {
-  it('links to the running site\'s API-docs path from runtime config, never a hardcoded host', async () => {
+  it("links to the running site's API-docs path from runtime config, never a hardcoded host", async () => {
     const { runtimeConfig } = await import('@/runtime/config')
     const { coreModule: core } = await import('@/registry/coreModule')
     const developers = (core.nav?.main ?? []).find((i) => i.label === 'Developers')

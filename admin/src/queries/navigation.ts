@@ -136,8 +136,12 @@ export function useNavigationMutations() {
       onSettled: invalidate,
     }),
     save: useMutation({
-      mutation: (input: { slug: string; lockVersion: number; items: NavTreeItem[]; locale: string }) =>
-        saveTree(input.slug, input.lockVersion, input.items, input.locale),
+      mutation: (input: {
+        slug: string
+        lockVersion: number
+        items: NavTreeItem[]
+        locale: string
+      }) => saveTree(input.slug, input.lockVersion, input.items, input.locale),
       onSettled: invalidate,
     }),
     reorder: useMutation({

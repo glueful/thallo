@@ -205,7 +205,13 @@ export function useCommerceReviews(filters: MaybeRefOrGetter<ReviewListFilters>)
   return useQuery({
     key: () => {
       const f = toValue(filters)
-      return [...qk.commerceReviews(), f.status ?? '', f.product ?? '', f.page ?? 1, f.perPage ?? 24]
+      return [
+        ...qk.commerceReviews(),
+        f.status ?? '',
+        f.product ?? '',
+        f.page ?? 1,
+        f.perPage ?? 24,
+      ]
     },
     query: () => fetchReviews(toValue(filters)),
   })

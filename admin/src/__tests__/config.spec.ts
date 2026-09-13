@@ -29,9 +29,11 @@ describe('runtime config loader', () => {
   it('falls back to the framework default API-docs path when the backend omits it', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ apiBase: '/v1/admin', installed: true }), { status: 200 }),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ apiBase: '/v1/admin', installed: true }), { status: 200 }),
+        ),
     )
     const { loadRuntimeConfig } = await import('@/runtime/config')
     expect((await loadRuntimeConfig()).apiDocsPath).toBe('/api-docs')

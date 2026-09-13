@@ -40,7 +40,8 @@ watch(text, (v) => {
 watch(model, (v) => {
   const incoming = toText(v)
   try {
-    if (text.value.trim() !== '' && JSON.stringify(JSON.parse(text.value)) === JSON.stringify(v)) return
+    if (text.value.trim() !== '' && JSON.stringify(JSON.parse(text.value)) === JSON.stringify(v))
+      return
   } catch {
     return // buffer mid-edit (invalid): never clobber typing
   }

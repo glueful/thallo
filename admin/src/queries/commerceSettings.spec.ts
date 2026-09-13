@@ -196,7 +196,14 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
   it('createShippingZone posts the exact CreateZoneData body and normalizes the created zone', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: true, message: 'Shipping zone created', data: zoneBody({ locations: [], methods: [] }) }, 201),
+      jsonResponse(
+        {
+          success: true,
+          message: 'Shipping zone created',
+          data: zoneBody({ locations: [], methods: [] }),
+        },
+        201,
+      ),
     )
 
     const { createShippingZone } = await import('@/queries/commerceSettings')
@@ -204,7 +211,9 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('POST')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/shipping/zones')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/shipping/zones',
+    )
     expect(await request.clone().json()).toEqual({ name: 'Domestic', position: null })
     expect(zone.uuid).toBe('z1')
   })
@@ -259,7 +268,9 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('PATCH')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/shipping/zones/z1')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/shipping/zones/z1',
+    )
     expect(await request.clone().json()).toEqual({ name: 'Domestic Shipping', position: 5 })
     expect(zone.name).toBe('Domestic Shipping')
     expect(zone.position).toBe(5)
@@ -272,7 +283,12 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
         {
           success: false,
           message: 'Validation failed',
-          error: { code: 422, timestamp: '2026-01-01T00:00:00Z', request_id: 'req_1', details: { name: 'Name already in use.' } },
+          error: {
+            code: 422,
+            timestamp: '2026-01-01T00:00:00Z',
+            request_id: 'req_1',
+            details: { name: 'Name already in use.' },
+          },
         },
         422,
       ),
@@ -304,7 +320,9 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('DELETE')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/shipping/zones/z1')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/shipping/zones/z1',
+    )
   })
 
   // ── setShippingZoneLocations: exact PUT body + postcode/country validation responses ────────
@@ -356,7 +374,8 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
             timestamp: '2026-01-01T00:00:00Z',
             request_id: 'req_1',
             details: {
-              locations: 'A zone with postcode_pattern locations must also include at least one country location.',
+              locations:
+                'A zone with postcode_pattern locations must also include at least one country location.',
             },
           },
         },
@@ -416,7 +435,10 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
       jsonResponse({
         success: true,
         message: 'Shipping methods retrieved',
-        data: [methodBody({ uuid: 'm-first', label: 'First', position: 0 }), methodBody({ uuid: 'm-second', label: 'Second', position: 1 })],
+        data: [
+          methodBody({ uuid: 'm-first', label: 'First', position: 0 }),
+          methodBody({ uuid: 'm-second', label: 'Second', position: 1 }),
+        ],
       }),
     )
 
@@ -465,15 +487,18 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
 
   it('createShippingMethod normalizes warnings from an unknown per_class_table slug', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      jsonResponse({
-        success: true,
-        message: 'Shipping method created',
-        data: methodBody({
-          kind: 'per_class_table',
-          config: { default_amount: 500, classes: { fragile: 1000 } },
-          warnings: ['Unknown shipping class slug: fragile'],
-        }),
-      }, 201),
+      jsonResponse(
+        {
+          success: true,
+          message: 'Shipping method created',
+          data: methodBody({
+            kind: 'per_class_table',
+            config: { default_amount: 500, classes: { fragile: 1000 } },
+            warnings: ['Unknown shipping class slug: fragile'],
+          }),
+        },
+        201,
+      ),
     )
 
     const { createShippingMethod } = await import('@/queries/commerceSettings')
@@ -532,7 +557,11 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
 
   it('fetches and normalizes a single method', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      jsonResponse({ success: true, message: 'Shipping method retrieved', data: methodBody({ uuid: 'm1' }) }),
+      jsonResponse({
+        success: true,
+        message: 'Shipping method retrieved',
+        data: methodBody({ uuid: 'm1' }),
+      }),
     )
 
     const { fetchShippingMethod } = await import('@/queries/commerceSettings')
@@ -557,7 +586,11 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
   it('updateShippingMethod PATCHes the exact endpoint with only the given keys and normalizes the result', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: true, message: 'Shipping method updated', data: methodBody({ enabled: false }) }),
+      jsonResponse({
+        success: true,
+        message: 'Shipping method updated',
+        data: methodBody({ enabled: false }),
+      }),
     )
 
     const { updateShippingMethod } = await import('@/queries/commerceSettings')
@@ -565,7 +598,9 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('PATCH')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/shipping/methods/m1')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/shipping/methods/m1',
+    )
     expect(await request.clone().json()).toEqual({ enabled: false })
     expect(method.enabled).toBe(false)
   })
@@ -576,7 +611,12 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
         {
           success: false,
           message: 'Validation failed',
-          error: { code: 422, timestamp: '2026-01-01T00:00:00Z', request_id: 'req_1', details: { 'config.amount': 'config.amount must be a non-negative integer.' } },
+          error: {
+            code: 422,
+            timestamp: '2026-01-01T00:00:00Z',
+            request_id: 'req_1',
+            details: { 'config.amount': 'config.amount must be a non-negative integer.' },
+          },
         },
         422,
       ),
@@ -584,7 +624,9 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
 
     const { updateShippingMethod } = await import('@/queries/commerceSettings')
     const { ApiError } = await import('@/api/errors')
-    await expect(updateShippingMethod('m1', { config: { amount: -5 } })).rejects.toBeInstanceOf(ApiError)
+    await expect(updateShippingMethod('m1', { config: { amount: -5 } })).rejects.toBeInstanceOf(
+      ApiError,
+    )
   })
 
   it('updateShippingMethod surfaces a 404 for an unknown method', async () => {
@@ -594,7 +636,9 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
 
     const { updateShippingMethod } = await import('@/queries/commerceSettings')
     const { ApiError } = await import('@/api/errors')
-    await expect(updateShippingMethod('missing', { enabled: false })).rejects.toBeInstanceOf(ApiError)
+    await expect(updateShippingMethod('missing', { enabled: false })).rejects.toBeInstanceOf(
+      ApiError,
+    )
   })
 
   // ── deleteShippingMethod: exact DELETE endpoint ─────────────────────────────────────────────
@@ -608,7 +652,9 @@ describe('commerce settings (shipping zones/locations/methods) query layer', () 
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('DELETE')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/shipping/methods/m1')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/shipping/methods/m1',
+    )
   })
 
   // ── Normalization edge cases: strict types, no Number() coercion of amounts ─────────────────
@@ -794,7 +840,9 @@ describe('commerce settings (shipping classes) query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('POST')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/shipping/classes')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/shipping/classes',
+    )
     expect(await request.clone().json()).toEqual({ slug: 'fragile', name: 'Fragile' })
     expect(cls.uuid).toBe('c1')
   })
@@ -914,7 +962,8 @@ describe('commerce settings (shipping classes) query layer', () => {
       jsonResponse(
         {
           success: false,
-          message: 'This shipping class is still assigned to one or more variants. Detach it first.',
+          message:
+            'This shipping class is still assigned to one or more variants. Detach it first.',
           error: { code: 409, timestamp: '2026-01-01T00:00:00Z', request_id: 'req_1' },
         },
         409,
@@ -987,7 +1036,15 @@ describe('commerce settings (tax rates) query layer', () => {
       jsonResponse({
         success: true,
         message: 'Tax rates retrieved',
-        data: [rateBody({ state: 'US:CA', postcode_pattern: '90*', priority: 5, shipping_taxable: true, class: 'reduced' })],
+        data: [
+          rateBody({
+            state: 'US:CA',
+            postcode_pattern: '90*',
+            priority: 5,
+            shipping_taxable: true,
+            class: 'reduced',
+          }),
+        ],
         current_page: 1,
         per_page: 24,
         total: 1,
@@ -1207,7 +1264,8 @@ describe('commerce settings (tax rates) query layer', () => {
             timestamp: '2026-01-01T00:00:00Z',
             request_id: 'req_1',
             details: {
-              postcode_pattern: 'postcode_pattern must be an exact value or end with a single trailing wildcard (*).',
+              postcode_pattern:
+                'postcode_pattern must be an exact value or end with a single trailing wildcard (*).',
             },
           },
         },
@@ -1245,7 +1303,9 @@ describe('commerce settings (tax rates) query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('PATCH')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/tax/rates/r1')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/tax/rates/r1',
+    )
     expect(await request.clone().json()).toEqual({ rate_bps: 750, label: 'Updated Tax' })
     expect(rate.rate_bps).toBe(750)
     expect(rate.label).toBe('Updated Tax')
@@ -1314,7 +1374,9 @@ describe('commerce settings (tax rates) query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('DELETE')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/tax/rates/r1')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/tax/rates/r1',
+    )
   })
 
   it('deleteTaxRate surfaces a 404 for an unknown rate', async () => {
@@ -1346,7 +1408,11 @@ describe('commerce store settings (invoice & receipt branding) query layer', () 
         settings: {
           'commerce.currency': { value: 'USD', default: 'USD', overridden: false },
           'commerce.tax.flat_rate_bps': { value: 0, default: 0, overridden: false },
-          'commerce.orders.number_format': { value: 'ORD-{seq}', default: 'ORD-{seq}', overridden: false },
+          'commerce.orders.number_format': {
+            value: 'ORD-{seq}',
+            default: 'ORD-{seq}',
+            overridden: false,
+          },
           'commerce.orders.expiry_minutes': { value: 60, default: 60, overridden: false },
           'commerce.cart.ttl_days': { value: 30, default: 30, overridden: false },
           'commerce.reports.low_stock_threshold': { value: 2, default: 2, overridden: false },
@@ -1354,8 +1420,16 @@ describe('commerce store settings (invoice & receipt branding) query layer', () 
           'commerce.seller.name': { value: 'Acme Supply Co.', default: '', overridden: true },
           'commerce.seller.address': { value: '', default: '', overridden: false },
           'commerce.seller.tax_id': { value: '', default: '', overridden: false },
-          'commerce.invoice.logo_blob_uuid': { value: 'blob-uuid-1', default: '', overridden: true },
-          'commerce.invoice.footer_text': { value: 'Thanks for shopping!', default: '', overridden: true },
+          'commerce.invoice.logo_blob_uuid': {
+            value: 'blob-uuid-1',
+            default: '',
+            overridden: true,
+          },
+          'commerce.invoice.footer_text': {
+            value: 'Thanks for shopping!',
+            default: '',
+            overridden: true,
+          },
           'commerce.invoice.show_sku': { value: true, default: true, overridden: false },
           'commerce.invoice.show_addresses': { value: true, default: true, overridden: false },
           'commerce.invoice.show_tax_id': { value: false, default: true, overridden: true },
@@ -1371,7 +1445,9 @@ describe('commerce store settings (invoice & receipt branding) query layer', () 
   }
 
   it('normalizes the six invoice/receipt branding keys, including real booleans', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse(storeSettingsBody()))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(storeSettingsBody()),
+    )
 
     const { fetchStoreSettings } = await import('@/queries/commerceSettings')
     const settings = await fetchStoreSettings()
@@ -1389,7 +1465,9 @@ describe('commerce store settings (invoice & receipt branding) query layer', () 
   })
 
   it('carries the derived invoice_logo_url alongside — never synthesized from the stored uuid', async () => {
-    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(jsonResponse(storeSettingsBody()))
+    ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
+      jsonResponse(storeSettingsBody()),
+    )
 
     const { fetchStoreSettings } = await import('@/queries/commerceSettings')
     const settings = await fetchStoreSettings()

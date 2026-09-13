@@ -54,11 +54,17 @@ describe('F4 publishing queries', () => {
 
   it('set-as-homepage PUTs homepage_entry; explicit empty string clears', async () => {
     // homepage-setting spec §1: both admin surfaces drive this one mutation.
-    PUT.mockResolvedValue({ data: { data: { settings: { homepage_entry: 'e1' } } }, error: undefined })
+    PUT.mockResolvedValue({
+      data: { data: { settings: { homepage_entry: 'e1' } } },
+      error: undefined,
+    })
     await updateGeneralSettings({ homepage_entry: 'e1' })
     expect(PUT).toHaveBeenCalledWith('/settings/general', { body: { homepage_entry: 'e1' } })
 
-    PUT.mockResolvedValue({ data: { data: { settings: { homepage_entry: '' } } }, error: undefined })
+    PUT.mockResolvedValue({
+      data: { data: { settings: { homepage_entry: '' } } },
+      error: undefined,
+    })
     await updateGeneralSettings({ homepage_entry: '' })
     expect(PUT).toHaveBeenLastCalledWith('/settings/general', { body: { homepage_entry: '' } })
   })

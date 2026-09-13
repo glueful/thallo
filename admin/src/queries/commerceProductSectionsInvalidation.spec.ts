@@ -82,17 +82,36 @@ describe('commerce product-section invalidation matrix (Task C1)', () => {
     ['setChildren', { productUuid: 'prod00000001', childUuids: ['prod00000002'] }],
     [
       'stockAdjust',
-      { variantUuid: 'var00000001', productUuid: 'prod00000001', input: { delta: -5, reason: 'damaged' } },
+      {
+        variantUuid: 'var00000001',
+        productUuid: 'prod00000001',
+        input: { delta: -5, reason: 'damaged' },
+      },
     ],
     ['attachMedia', { productUuid: 'prod00000001', input: { blob_uuid: 'blob00000001' } }],
-    ['updateMedia', { uuid: 'media0000001', productUuid: 'prod00000001', input: { alt: 'Updated' } }],
+    [
+      'updateMedia',
+      { uuid: 'media0000001', productUuid: 'prod00000001', input: { alt: 'Updated' } },
+    ],
     ['detachMedia', { uuid: 'media0000001', productUuid: 'prod00000001' }],
-    ['reorderMedia', { productUuid: 'prod00000001', orderedUuids: ['media0000001', 'media0000002'] }],
+    [
+      'reorderMedia',
+      { productUuid: 'prod00000001', orderedUuids: ['media0000001', 'media0000002'] },
+    ],
     ['setCategories', { productUuid: 'prod00000001', categoryUuids: ['cat00000001'] }],
     ['setTags', { productUuid: 'prod00000001', tagUuids: ['tag00000001'] }],
-    ['setAttributes', { productUuid: 'prod00000001', rows: [{ attribute_uuid: 'attr00000001', values: ['red'] }] }],
-    ['createAddon', { productUuid: 'prod00000001', input: { name: 'Gift wrap', field_type: 'checkbox' } }],
-    ['updateAddon', { uuid: 'addon0000001', productUuid: 'prod00000001', input: { name: 'Deluxe gift wrap' } }],
+    [
+      'setAttributes',
+      { productUuid: 'prod00000001', rows: [{ attribute_uuid: 'attr00000001', values: ['red'] }] },
+    ],
+    [
+      'createAddon',
+      { productUuid: 'prod00000001', input: { name: 'Gift wrap', field_type: 'checkbox' } },
+    ],
+    [
+      'updateAddon',
+      { uuid: 'addon0000001', productUuid: 'prod00000001', input: { name: 'Deluxe gift wrap' } },
+    ],
     ['removeAddon', { uuid: 'addon0000001', productUuid: 'prod00000001' }],
   ] as const)(
     '%s invalidates qk.commerceProduct(uuid) and all six section keys',
@@ -100,7 +119,9 @@ describe('commerce product-section invalidation matrix (Task C1)', () => {
       const { mutations, qk, COMMERCE_PRODUCT_SECTIONS } = await bundle()
       mutations[name].onSettled?.(undefined, undefined, vars)
 
-      expect(cacheInvalidate.mock.calls).toContainEqual([{ key: qk.commerceProduct('prod00000001') }])
+      expect(cacheInvalidate.mock.calls).toContainEqual([
+        { key: qk.commerceProduct('prod00000001') },
+      ])
       for (const section of COMMERCE_PRODUCT_SECTIONS) {
         expect(cacheInvalidate.mock.calls).toContainEqual([
           { key: qk.commerceProductSection('prod00000001', section) },
@@ -137,7 +158,9 @@ describe('commerce product-section invalidation matrix (Task C1)', () => {
 
       mutations[name].onSettled?.(undefined, undefined, varsByName[name])
 
-      expect(cacheInvalidate.mock.calls).toContainEqual([{ key: qk.commerceProduct('prod00000001') }])
+      expect(cacheInvalidate.mock.calls).toContainEqual([
+        { key: qk.commerceProduct('prod00000001') },
+      ])
       for (const section of COMMERCE_PRODUCT_SECTIONS) {
         expect(cacheInvalidate.mock.calls).toContainEqual([
           { key: qk.commerceProductSection('prod00000001', section) },
@@ -153,7 +176,9 @@ describe('commerce product-section invalidation matrix (Task C1)', () => {
       input: { blob_uuid: 'blob00000001', name: 'Ebook (PDF)' },
     })
 
-    expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceVariantDownloads('var00000001') }]])
+    expect(cacheInvalidate.mock.calls).toEqual([
+      [{ key: qk.commerceVariantDownloads('var00000001') }],
+    ])
   })
 
   it('create never touches any section key — no product uuid exists yet', async () => {
@@ -228,7 +253,9 @@ describe('commerce product-section invalidation matrix (Task C1)', () => {
       [{ key: qk.commerceLink('prod00000001') }],
       [{ key: qk.commerceLinkByEntry('entry0000001') }],
     ])
-    expect(cacheInvalidate.mock.calls).not.toContainEqual([{ key: qk.commerceProduct('prod00000001') }])
+    expect(cacheInvalidate.mock.calls).not.toContainEqual([
+      { key: qk.commerceProduct('prod00000001') },
+    ])
     for (const section of COMMERCE_PRODUCT_SECTIONS) {
       expect(cacheInvalidate.mock.calls).not.toContainEqual([
         { key: qk.commerceProductSection('prod00000001', section) },
@@ -253,7 +280,9 @@ describe('commerce product-section invalidation matrix (Task C1)', () => {
       [{ key: qk.commerceLink('prod00000001') }],
       [{ key: qk.commerceLinkByEntry('entry0000001') }],
     ])
-    expect(cacheInvalidate.mock.calls).not.toContainEqual([{ key: qk.commerceProduct('prod00000001') }])
+    expect(cacheInvalidate.mock.calls).not.toContainEqual([
+      { key: qk.commerceProduct('prod00000001') },
+    ])
     for (const section of COMMERCE_PRODUCT_SECTIONS) {
       expect(cacheInvalidate.mock.calls).not.toContainEqual([
         { key: qk.commerceProductSection('prod00000001', section) },

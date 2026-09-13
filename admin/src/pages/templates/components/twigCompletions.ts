@@ -122,7 +122,7 @@ const SNIPPETS: Completion[] = [
     detail: 'assignment',
     type: 'keyword',
   }),
-  snippetCompletion("{% block ${name} %}\n\t${}\n{% endblock %}", {
+  snippetCompletion('{% block ${name} %}\n\t${}\n{% endblock %}', {
     label: '{% block %}',
     detail: 'template block',
     type: 'keyword',

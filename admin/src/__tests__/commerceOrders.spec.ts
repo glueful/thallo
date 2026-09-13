@@ -5,7 +5,11 @@ import { setActivePinia, createPinia } from 'pinia'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref, toValue } from 'vue'
 import type { CommerceOrder } from '@/queries/commerceOrders'
-import { ORDER_SEARCH_DEFAULTS, type OrderSearchFilters, type OrderSearchPage } from '@/queries/commerceOrderSearch'
+import {
+  ORDER_SEARCH_DEFAULTS,
+  type OrderSearchFilters,
+  type OrderSearchPage,
+} from '@/queries/commerceOrderSearch'
 
 // Orders-invoices-receipts plan: this file covers the orders LIST page (table, search/filters,
 // URL contract, CSV export) only — every order-DETAIL spec (header band, lifecycle actions,
@@ -112,7 +116,10 @@ function order(overrides: Partial<CommerceOrder> = {}): CommerceOrder {
 const RouterLinkStub = { props: ['to'], template: '<a :href="to"><slot /></a>' }
 // USlideover/UModal teleport their body/footer out of the wrapper — stub both to render the
 // slots inline (mirrors commerceProducts.spec.ts's identical Modal + Slideover teleport stubs).
-const SlideoverStub = { props: ['open'], template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>' }
+const SlideoverStub = {
+  props: ['open'],
+  template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>',
+}
 const pageStubs = { RouterLink: RouterLinkStub, Slideover: SlideoverStub, Modal: SlideoverStub }
 
 /** Find the Reka SelectRoot ancestor of a USelect carrying `dataTest`, and drive it directly —
@@ -135,7 +142,8 @@ function selectByTestId(wrapper: ReturnType<typeof mount>, dataTest: string) {
     (wrapper.element as Element).querySelectorAll<HTMLElement>('button[role="combobox"]'),
   )
   const index = triggers.findIndex((el) => el.getAttribute('data-test') === dataTest)
-  if (index === -1 || !roots[index]) throw new Error(`No SelectRoot found for [data-test="${dataTest}"]`)
+  if (index === -1 || !roots[index])
+    throw new Error(`No SelectRoot found for [data-test="${dataTest}"]`)
   return roots[index]
 }
 
@@ -310,7 +318,12 @@ describe('commerce orders list page', () => {
   })
 
   it('renders the orders table with the fetched rows', async () => {
-    orderSearchPage.value = { orders: [order({ uuid: 'o1' })], total: 1, current_page: 1, per_page: 24 }
+    orderSearchPage.value = {
+      orders: [order({ uuid: 'o1' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     const wrapper = mount(OrdersIndex, { global: { stubs: pageStubs } })
     await flushPromises()
 
@@ -361,13 +374,18 @@ describe('commerce orders list page', () => {
     [{ placed_to: '2026-13-01' }, 'placedTo', null],
     [{ page: '0' }, 'page', 1],
     [{ per_page: '101' }, 'perPage', 25],
-  ])('discards an invalid %j from the URL, falling back to the default', async (query, field, expected) => {
-    routeState.query = query as Record<string, string>
-    mount(OrdersIndex, { global: { stubs: pageStubs } })
-    await flushPromises()
+  ])(
+    'discards an invalid %j from the URL, falling back to the default',
+    async (query, field, expected) => {
+      routeState.query = query as Record<string, string>
+      mount(OrdersIndex, { global: { stubs: pageStubs } })
+      await flushPromises()
 
-    expect((resolvedFilters() as unknown as Record<string, unknown>)[field as string]).toBe(expected)
-  })
+      expect((resolvedFilters() as unknown as Record<string, unknown>)[field as string]).toBe(
+        expected,
+      )
+    },
+  )
 
   it('preserves a hydrated non-default page across watcher installation', async () => {
     routeState.query = { page: '3' }

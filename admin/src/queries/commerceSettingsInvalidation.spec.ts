@@ -31,7 +31,13 @@ describe('useCommerceShippingZoneMutations invalidation', () => {
     const { useCommerceShippingZoneMutations } = await import('@/queries/commerceSettings')
     const { qk } = await import('@/queries/keys')
     const mutations = useCommerceShippingZoneMutations() as unknown as Record<
-      'createZone' | 'updateZone' | 'deleteZone' | 'setLocations' | 'createMethod' | 'updateMethod' | 'deleteMethod',
+      | 'createZone'
+      | 'updateZone'
+      | 'deleteZone'
+      | 'setLocations'
+      | 'createMethod'
+      | 'updateMethod'
+      | 'deleteMethod',
       { onSettled?: (d?: unknown, e?: unknown, vars?: unknown) => void }
     >
     return { mutations, qk }
@@ -48,7 +54,10 @@ describe('useCommerceShippingZoneMutations invalidation', () => {
 
   it('updateZone invalidates the zone detail AND the list', async () => {
     const { mutations, qk } = await bundle()
-    mutations.updateZone.onSettled?.(undefined, undefined, { uuid: 'z1', input: { name: 'Domestic Shipping' } })
+    mutations.updateZone.onSettled?.(undefined, undefined, {
+      uuid: 'z1',
+      input: { name: 'Domestic Shipping' },
+    })
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceShippingZone('z1') }],
@@ -220,7 +229,10 @@ describe('useCommerceShippingClassMutations invalidation', () => {
 
   it('updateClass invalidates the class detail AND the list', async () => {
     const { mutations, qk } = await classBundle()
-    mutations.updateClass.onSettled?.(undefined, undefined, { uuid: 'c1', input: { name: 'Extra Fragile' } })
+    mutations.updateClass.onSettled?.(undefined, undefined, {
+      uuid: 'c1',
+      input: { name: 'Extra Fragile' },
+    })
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceShippingClass('c1') }],
@@ -290,14 +302,21 @@ describe('useCommerceTaxRateMutations invalidation', () => {
 
   it('createRate invalidates ONLY the rates list', async () => {
     const { mutations, qk } = await rateBundle()
-    mutations.createRate.onSettled?.(undefined, undefined, { country: 'US', rate_bps: 875, label: 'Sales Tax' })
+    mutations.createRate.onSettled?.(undefined, undefined, {
+      country: 'US',
+      rate_bps: 875,
+      label: 'Sales Tax',
+    })
 
     expect(cacheInvalidate.mock.calls).toEqual([[{ key: qk.commerceTaxRates() }]])
   })
 
   it('updateRate invalidates the rate detail AND the list', async () => {
     const { mutations, qk } = await rateBundle()
-    mutations.updateRate.onSettled?.(undefined, undefined, { uuid: 'r1', input: { label: 'Updated Tax' } })
+    mutations.updateRate.onSettled?.(undefined, undefined, {
+      uuid: 'r1',
+      input: { label: 'Updated Tax' },
+    })
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceTaxRate('r1') }],
@@ -307,10 +326,14 @@ describe('useCommerceTaxRateMutations invalidation', () => {
 
   it('updateRate still invalidates both keys when the mutation itself failed (a stranded-state 422, say)', async () => {
     const { mutations, qk } = await rateBundle()
-    mutations.updateRate.onSettled?.(undefined, new Error("state's country prefix must equal this rate's country."), {
-      uuid: 'r2',
-      input: { country: 'CA' },
-    })
+    mutations.updateRate.onSettled?.(
+      undefined,
+      new Error("state's country prefix must equal this rate's country."),
+      {
+        uuid: 'r2',
+        input: { country: 'CA' },
+      },
+    )
 
     expect(cacheInvalidate.mock.calls).toEqual([
       [{ key: qk.commerceTaxRate('r2') }],

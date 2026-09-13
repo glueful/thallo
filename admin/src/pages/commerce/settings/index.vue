@@ -67,7 +67,14 @@ function goToStore(): void {
         </span>
       </p>
 
-      <UTabs v-model="tab" variant="link" :items="tabItems" :content="false" class="mb-4" data-test="settings-tabs" />
+      <UTabs
+        v-model="tab"
+        variant="link"
+        :items="tabItems"
+        :content="false"
+        class="mb-4"
+        data-test="settings-tabs"
+      />
 
       <template v-if="tab === 'store'">
         <StorePagesCard />

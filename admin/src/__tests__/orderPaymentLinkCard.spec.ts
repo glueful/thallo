@@ -45,7 +45,17 @@ vi.mock('@/queries/commerceMeta', () => ({
 // The `payment_request` switch rides the existing order-email settings surface (default OFF
 // server-side — it emails a live bearer credential).
 const emailSettingsStatus = ref<'pending' | 'error' | 'success'>('success')
-const emailSettings = ref<undefined | { templates: { template: string; key: string; enabled: { value: boolean; default: boolean; overridden: boolean } }[]; commerce_mailer_active: boolean }>({
+const emailSettings = ref<
+  | undefined
+  | {
+      templates: {
+        template: string
+        key: string
+        enabled: { value: boolean; default: boolean; overridden: boolean }
+      }[]
+      commerce_mailer_active: boolean
+    }
+>({
   templates: [
     {
       template: 'payment_request',
@@ -92,7 +102,10 @@ vi.mock('@/queries/commercePaymentLinks', async (importOriginal) => {
 })
 
 // ── Order-detail page mocks (gating matrix only) ───────────────────────────────────────────────
-const routeState = vi.hoisted(() => ({ params: {} as Record<string, string>, query: {} as Record<string, string> }))
+const routeState = vi.hoisted(() => ({
+  params: {} as Record<string, string>,
+  query: {} as Record<string, string>,
+}))
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
   useRoute: () => routeState,
@@ -113,7 +126,12 @@ vi.mock('@/queries/commerceOrders', async (importOriginal) => {
     useOrderRefunds: () => ({ data: ref([]), status: ref('success') }),
     useOrderNotes: () => ({ data: ref([]), status: ref('success') }),
     useOrderPayments: () => ({
-      data: ref({ available: true, payments: [], intents: [], refund: { refunded_total: 0, refund_revision: 0 } }),
+      data: ref({
+        available: true,
+        payments: [],
+        intents: [],
+        refund: { refunded_total: 0, refund_revision: 0 },
+      }),
       status: ref('success'),
     }),
     useCommerceOrderMutations: () => ({
@@ -127,11 +145,17 @@ vi.mock('@/queries/commerceOrders', async (importOriginal) => {
 })
 vi.mock('@/queries/commerceInvoice', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceInvoice')>()
-  return { ...actual, useOrderInvoiceData: () => ({ data: ref(undefined), status: ref('success') }) }
+  return {
+    ...actual,
+    useOrderInvoiceData: () => ({ data: ref(undefined), status: ref('success') }),
+  }
 })
 vi.mock('@/queries/commerceDrafts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/queries/commerceDrafts')>()
-  return { ...actual, useCompleteSaleMutation: () => ({ mutateAsync: vi.fn(), isLoading: ref(false) }) }
+  return {
+    ...actual,
+    useCompleteSaleMutation: () => ({ mutateAsync: vi.fn(), isLoading: ref(false) }),
+  }
 })
 
 import OrderPaymentLinkCard from '@/pages/commerce/orders/components/OrderPaymentLinkCard.vue'
@@ -256,7 +280,14 @@ beforeEach(() => {
     ],
     commerce_mailer_active: false,
   }
-  linkStatus.value = status({ link: null, exposure: { reason: 'none', blocks_automatic_cancellation: false, requires_risk_acknowledgement: false } })
+  linkStatus.value = status({
+    link: null,
+    exposure: {
+      reason: 'none',
+      blocks_automatic_cancellation: false,
+      requires_risk_acknowledgement: false,
+    },
+  })
   linkStatusState.value = 'success'
   metaStatus.value = 'success'
   emailSettingsStatus.value = 'success'
@@ -327,7 +358,9 @@ describe('payment-link create and one-time custody', () => {
   it('offers create with the default 7-day TTL when the order has no link', () => {
     const wrapper = mountCard()
     expect(wrapper.find('[data-test="payment-link-empty"]').exists()).toBe(true)
-    expect((wrapper.find('[data-test="payment-link-ttl"]').element as HTMLInputElement).value).toBe('7')
+    expect((wrapper.find('[data-test="payment-link-ttl"]').element as HTMLInputElement).value).toBe(
+      '7',
+    )
   })
 
   it('creates with the entered TTL', async () => {
@@ -346,14 +379,18 @@ describe('payment-link create and one-time custody', () => {
 
     await wrapper.find('[data-test="payment-link-ttl"]').setValue('99')
     await wrapper.find('[data-test="payment-link-ttl"]').trigger('blur')
-    expect((wrapper.find('[data-test="payment-link-ttl"]').element as HTMLInputElement).value).toBe('30')
+    expect((wrapper.find('[data-test="payment-link-ttl"]').element as HTMLInputElement).value).toBe(
+      '30',
+    )
     await wrapper.find('[data-test="payment-link-create"]').trigger('click')
     await flushPromises()
     expect(createMock).toHaveBeenLastCalledWith('o1', 30)
 
     await wrapper.find('[data-test="payment-link-ttl"]').setValue('0')
     await wrapper.find('[data-test="payment-link-ttl"]').trigger('blur')
-    expect((wrapper.find('[data-test="payment-link-ttl"]').element as HTMLInputElement).value).toBe('1')
+    expect((wrapper.find('[data-test="payment-link-ttl"]').element as HTMLInputElement).value).toBe(
+      '1',
+    )
     await wrapper.find('[data-test="payment-link-create"]').trigger('click')
     await flushPromises()
     expect(createMock).toHaveBeenLastCalledWith('o1', 1)
@@ -426,7 +463,9 @@ describe('payment-link create and one-time custody', () => {
   })
 
   it('surfaces a create refusal inline', async () => {
-    createMock.mockRejectedValue(new Error('This store has no public payment-link address configured.'))
+    createMock.mockRejectedValue(
+      new Error('This store has no public payment-link address configured.'),
+    )
     const wrapper = mountCard()
     await wrapper.find('[data-test="payment-link-create"]').trigger('click')
     await flushPromises()
@@ -445,7 +484,9 @@ describe('payment-link live state copy', () => {
     const wrapper = mountCard()
 
     expect(wrapper.find('[data-test="payment-link-status"]').text()).toContain('active')
-    expect(wrapper.find('[data-test="payment-link-reserved"]').text()).toMatch(/Stock reserved until/)
+    expect(wrapper.find('[data-test="payment-link-reserved"]').text()).toMatch(
+      /Stock reserved until/,
+    )
     expect(wrapper.find('[data-test="payment-link-reserved"]').text()).toContain('2026')
     expect(wrapper.find('[data-test="payment-link-exposed-warning"]').exists()).toBe(false)
   })
@@ -567,21 +608,29 @@ describe('payment-link send preconditions', () => {
 
   it('enables Send when the order has an email, the toggle is on, and email is available', () => {
     const wrapper = mountCard()
-    expect(wrapper.find('[data-test="payment-link-send-regenerate"]').attributes('disabled')).toBeUndefined()
+    expect(
+      wrapper.find('[data-test="payment-link-send-regenerate"]').attributes('disabled'),
+    ).toBeUndefined()
     expect(wrapper.findAll('[data-test="payment-link-send-reason"]')).toHaveLength(0)
   })
 
   it('disables Send with its OWN reason for each missing precondition', async () => {
     const noEmail = mountCard({ email: null })
-    expect(noEmail.find('[data-test="payment-link-send-regenerate"]').attributes('disabled')).toBeDefined()
+    expect(
+      noEmail.find('[data-test="payment-link-send-regenerate"]').attributes('disabled'),
+    ).toBeDefined()
     expect(noEmail.findAll('[data-test="payment-link-send-reason"]')).toHaveLength(1)
     expect(noEmail.find('[data-test="payment-link-send-reason"]').text()).toMatch(/email address/i)
 
     metaData.value = { ...metaData.value, email_available: false }
     const noChannel = mountCard()
-    expect(noChannel.find('[data-test="payment-link-send-regenerate"]').attributes('disabled')).toBeDefined()
+    expect(
+      noChannel.find('[data-test="payment-link-send-regenerate"]').attributes('disabled'),
+    ).toBeDefined()
     expect(noChannel.findAll('[data-test="payment-link-send-reason"]')).toHaveLength(1)
-    expect(noChannel.find('[data-test="payment-link-send-reason"]').text()).toMatch(/email channel/i)
+    expect(noChannel.find('[data-test="payment-link-send-reason"]').text()).toMatch(
+      /email channel/i,
+    )
     metaData.value = { ...metaData.value, email_available: true }
 
     emailSettings.value = {
@@ -595,9 +644,13 @@ describe('payment-link send preconditions', () => {
       ],
     }
     const toggledOff = mountCard()
-    expect(toggledOff.find('[data-test="payment-link-send-regenerate"]').attributes('disabled')).toBeDefined()
+    expect(
+      toggledOff.find('[data-test="payment-link-send-regenerate"]').attributes('disabled'),
+    ).toBeDefined()
     expect(toggledOff.findAll('[data-test="payment-link-send-reason"]')).toHaveLength(1)
-    expect(toggledOff.find('[data-test="payment-link-send-reason"]').text()).toMatch(/switched off/i)
+    expect(toggledOff.find('[data-test="payment-link-send-reason"]').text()).toMatch(
+      /switched off/i,
+    )
   })
 
   it('lists all three reasons independently when all three are missing', () => {
@@ -618,10 +671,13 @@ describe('payment-link send preconditions', () => {
   it.each([
     ['meta', () => (metaData.value = undefined)],
     ['email settings', () => (emailSettings.value = undefined)],
-    ['both', () => {
-      metaData.value = undefined
-      emailSettings.value = undefined
-    }],
+    [
+      'both',
+      () => {
+        metaData.value = undefined
+        emailSettings.value = undefined
+      },
+    ],
   ])('says it is still checking (and asserts nothing) while %s is loading', (_label, unresolve) => {
     metaStatus.value = 'pending'
     emailSettingsStatus.value = 'pending'
@@ -630,8 +686,12 @@ describe('payment-link send preconditions', () => {
 
     expect(wrapper.find('[data-test="payment-link-send-checking"]').exists()).toBe(true)
     expect(wrapper.findAll('[data-test="payment-link-send-reason"]')).toHaveLength(0)
-    expect(wrapper.find('[data-test="payment-link-send-regenerate"]').attributes('disabled')).toBeDefined()
-    expect(wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled')).toBeDefined()
+    expect(
+      wrapper.find('[data-test="payment-link-send-regenerate"]').attributes('disabled'),
+    ).toBeDefined()
+    expect(
+      wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled'),
+    ).toBeDefined()
   })
 
   it('reports a FAILED probe as its own reason rather than checking forever', () => {
@@ -645,7 +705,9 @@ describe('payment-link send preconditions', () => {
     const reasons = wrapper.findAll('[data-test="payment-link-send-reason"]').map((r) => r.text())
     expect(reasons).toHaveLength(2)
     expect(reasons.join(' ')).toMatch(/couldn’t check/i)
-    expect(wrapper.find('[data-test="payment-link-send-regenerate"]').attributes('disabled')).toBeDefined()
+    expect(
+      wrapper.find('[data-test="payment-link-send-regenerate"]').attributes('disabled'),
+    ).toBeDefined()
   })
 })
 
@@ -668,7 +730,9 @@ describe('payment-link send: current', () => {
 
   it('is disabled with a reason while no URL is visible', () => {
     const wrapper = mountCard()
-    expect(wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled')).toBeDefined()
+    expect(
+      wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled'),
+    ).toBeDefined()
     expect(wrapper.find('[data-test="payment-link-current-reason"]').text()).toMatch(/shown once/i)
   })
 
@@ -688,14 +752,20 @@ describe('payment-link send: current', () => {
 
   it('disables current-send when the visible URL is malformed, and says why', async () => {
     const wrapper = await withVisibleUrl('not-a-url-at-all')
-    expect(wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled')).toBeDefined()
-    expect(wrapper.find('[data-test="payment-link-current-reason"]').text()).toMatch(/can’t be read|cannot be read/i)
+    expect(
+      wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled'),
+    ).toBeDefined()
+    expect(wrapper.find('[data-test="payment-link-current-reason"]').text()).toMatch(
+      /can’t be read|cannot be read/i,
+    )
     expect(sendMock).not.toHaveBeenCalled()
   })
 
   it('disables current-send when the visible URL’s final segment is not a 64-hex token', async () => {
     const wrapper = await withVisibleUrl('https://shop.test/pay/NOT-A-TOKEN')
-    expect(wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled')).toBeDefined()
+    expect(
+      wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled'),
+    ).toBeDefined()
     expect(wrapper.find('[data-test="payment-link-current-reason"]').exists()).toBe(true)
   })
 
@@ -800,7 +870,12 @@ describe('payment-link send: current', () => {
       envelope({
         http_status: 502,
         message: 'Replayed: the payment link could not be emailed.',
-        receipt: { ...envelope().receipt, status: 'failed', error_code: 'send_failed', replayed: true },
+        receipt: {
+          ...envelope().receipt,
+          status: 'failed',
+          error_code: 'send_failed',
+          replayed: true,
+        },
         link: null,
         recovery: 'use_a_new_idempotency_key_or_regenerate',
       }),
@@ -810,14 +885,21 @@ describe('payment-link send: current', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-test="payment-link-send-replayed"]').exists()).toBe(true)
-    expect(wrapper.find('[data-test="payment-link-send-recovery"]').text()).toMatch(/new .*key|regenerate/i)
+    expect(wrapper.find('[data-test="payment-link-send-recovery"]').text()).toMatch(
+      /new .*key|regenerate/i,
+    )
   })
 
   it('surfaces a refusal (payment_link_changed) inline and drops the now-dead visible URL', async () => {
     sendMock.mockRejectedValue(
-      new ApiError('This payment link is no longer the order’s current one.', 409, {}, {
-        error: { details: { reason: 'payment_link_changed' } },
-      }),
+      new ApiError(
+        'This payment link is no longer the order’s current one.',
+        409,
+        {},
+        {
+          error: { details: { reason: 'payment_link_changed' } },
+        },
+      ),
     )
     const wrapper = await withVisibleUrl()
     await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
@@ -829,7 +911,9 @@ describe('payment-link send: current', () => {
     // The server just said this address is not the order's link — it must stop being offered.
     expect(wrapper.find('[data-test="payment-link-url"]').exists()).toBe(false)
     expect(wrapper.html()).not.toContain(TOKEN)
-    expect(wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled')).toBeDefined()
+    expect(
+      wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled'),
+    ).toBeDefined()
   })
 })
 
@@ -863,8 +947,14 @@ describe('payment-link send: regenerate', () => {
     sendMock.mockResolvedValue(
       envelope({
         http_status: 502,
-        message: 'the payment link was created but could not be emailed; copy the link and send it manually.',
-        receipt: { ...envelope().receipt, mode: 'regenerate', status: 'failed', error_code: 'send_failed' },
+        message:
+          'the payment link was created but could not be emailed; copy the link and send it manually.',
+        receipt: {
+          ...envelope().receipt,
+          mode: 'regenerate',
+          status: 'failed',
+          error_code: 'send_failed',
+        },
         url: URL_2,
       }),
     )
@@ -951,7 +1041,9 @@ describe('payment-link delivery failure: the machine code is on screen', () => {
     await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
     await flushPromises()
 
-    expect(wrapper.find('[data-test="payment-link-send-error-code"]').text()).toContain('send_failed')
+    expect(wrapper.find('[data-test="payment-link-send-error-code"]').text()).toContain(
+      'send_failed',
+    )
   })
 
   it('renders NO code element for a successful delivery, and none when the receipt carries no code', async () => {
@@ -1035,7 +1127,9 @@ describe('payment-link send: current re-reads the link status first', () => {
       // The dead address stops being offered — the same custody drop `payment_link_changed` does.
       expect(wrapper.find('[data-test="payment-link-url"]').exists()).toBe(false)
       expect(wrapper.html()).not.toContain(TOKEN)
-      expect(wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled')).toBeDefined()
+      expect(
+        wrapper.find('[data-test="payment-link-send-current"]').attributes('disabled'),
+      ).toBeDefined()
       // And the card's own view of the order is refreshed rather than left stating the old truth.
       expect(invalidateMock).toHaveBeenCalledWith('o1')
     },
@@ -1045,14 +1139,23 @@ describe('payment-link send: current re-reads the link status first', () => {
     sendMock.mockResolvedValue(envelope())
     const wrapper = await withVisibleUrl()
     fetchStatusMock.mockResolvedValue(
-      status({ link: null, exposure: { reason: 'none', blocks_automatic_cancellation: false, requires_risk_acknowledgement: false } }),
+      status({
+        link: null,
+        exposure: {
+          reason: 'none',
+          blocks_automatic_cancellation: false,
+          requires_risk_acknowledgement: false,
+        },
+      }),
     )
 
     await wrapper.find('[data-test="payment-link-send-current"]').trigger('click')
     await flushPromises()
 
     expect(sendMock).not.toHaveBeenCalled()
-    expect(wrapper.find('[data-test="payment-link-action-error"]').text()).toMatch(/no longer active/i)
+    expect(wrapper.find('[data-test="payment-link-action-error"]').text()).toMatch(
+      /no longer active/i,
+    )
   })
 
   it('leaves the send intent unburnt: the refused attempt consumed no idempotency key', async () => {

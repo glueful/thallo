@@ -31,7 +31,9 @@ const { format } = useMoney()
 
 const exponent = computed(() => meta.value?.currency_exponent ?? 2)
 // UX guidance only (see module docblock) — the server remains authoritative on the real ceiling.
-const ceilingMinor = computed(() => Math.max(0, props.order.grand_total - props.order.refunded_total))
+const ceilingMinor = computed(() =>
+  Math.max(0, props.order.grand_total - props.order.refunded_total),
+)
 
 // useMoney().format() throws until /commerce/meta resolves — guard so an unsettled meta query
 // never crashes the render (mirrors OrderDetail's identical `money()` helper).
@@ -122,7 +124,10 @@ async function submit() {
       },
       idempotencyKey: idempotencyKey.value,
     })
-    success('Refund recorded', `Refunded ${money(amountMinor)} on order ${props.order.order_number}.`)
+    success(
+      'Refund recorded',
+      `Refunded ${money(amountMinor)} on order ${props.order.order_number}.`,
+    )
     emit('update:open', false)
   } catch (e) {
     // Response::validation() puts the SPECIFIC reason under error.details (-> fieldErrors.refund /

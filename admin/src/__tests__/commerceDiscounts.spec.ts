@@ -69,7 +69,10 @@ function discount(overrides: Partial<CommerceDiscount> = {}): CommerceDiscount {
 
 // USlideover/UModal teleport their body/footer out of the wrapper — stub both to render the
 // slots inline (mirrors commerceOrders.spec.ts's identical Slideover + Modal teleport stubs).
-const teleportStub = { props: ['open'], template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>' }
+const teleportStub = {
+  props: ['open'],
+  template: '<div v-if="open"><slot name="body" /><slot name="footer" /></div>',
+}
 const pageStubs = { Slideover: teleportStub, Modal: teleportStub }
 
 /** Find the Reka SelectRoot ancestor of a USelect carrying `dataTest`, and drive it directly —
@@ -108,7 +111,14 @@ beforeEach(() => {
 
 describe('DiscountsTable', () => {
   const rows = [
-    discount({ uuid: 'd1', code: 'SAVE10', type: 'percentage', value: 1000, usage_count: 2, usage_limit: 10 }),
+    discount({
+      uuid: 'd1',
+      code: 'SAVE10',
+      type: 'percentage',
+      value: 1000,
+      usage_count: 2,
+      usage_limit: 10,
+    }),
     discount({
       uuid: 'd2',
       code: 'FLAT5',
@@ -143,12 +153,16 @@ describe('DiscountsTable', () => {
   })
 
   it('shows the loading state', () => {
-    const wrapper = mount(DiscountsTable, { props: { rows: [], status: 'pending', canManage: true } })
+    const wrapper = mount(DiscountsTable, {
+      props: { rows: [], status: 'pending', canManage: true },
+    })
     expect(wrapper.find('[data-test="discounts-loading"]').exists()).toBe(true)
   })
 
   it('shows the empty state', () => {
-    const wrapper = mount(DiscountsTable, { props: { rows: [], status: 'success', canManage: true } })
+    const wrapper = mount(DiscountsTable, {
+      props: { rows: [], status: 'success', canManage: true },
+    })
     expect(wrapper.find('[data-test="discounts-empty"]').exists()).toBe(true)
   })
 
@@ -215,7 +229,9 @@ describe('commerce discounts list page', () => {
   // ── Create flow: type-dependent value entry (percentage bps vs fixed minor units) ────────────
 
   it('creates a PERCENTAGE discount, converting the typed percent into exact basis points', async () => {
-    createMock.mockResolvedValue(discount({ uuid: 'new-1', code: 'TEN', type: 'percentage', value: 1000 }))
+    createMock.mockResolvedValue(
+      discount({ uuid: 'new-1', code: 'TEN', type: 'percentage', value: 1000 }),
+    )
     const wrapper = mount(DiscountsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
 
@@ -241,7 +257,9 @@ describe('commerce discounts list page', () => {
   })
 
   it('creates a FIXED discount, converting the typed decimal amount into exact minor units (the SAME discipline as RefundSlideover)', async () => {
-    createMock.mockResolvedValue(discount({ uuid: 'new-2', code: 'FIVEOFF', type: 'fixed', value: 500 }))
+    createMock.mockResolvedValue(
+      discount({ uuid: 'new-2', code: 'FIVEOFF', type: 'fixed', value: 500 }),
+    )
     const wrapper = mount(DiscountsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
 
@@ -345,7 +363,9 @@ describe('commerce discounts list page', () => {
   })
 
   it('surfaces a 422 duplicate-code rejection instead of vanishing it', async () => {
-    createMock.mockRejectedValue(new ApiError('Validation failed', 422, { code: 'Code already in use.' }, {}))
+    createMock.mockRejectedValue(
+      new ApiError('Validation failed', 422, { code: 'Code already in use.' }, {}),
+    )
     const wrapper = mount(DiscountsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
     await wrapper.find('[data-test="new-discount"]').trigger('click')
@@ -356,7 +376,9 @@ describe('commerce discounts list page', () => {
     await wrapper.find('#discount-form').trigger('submit')
     await flushPromises()
 
-    expect(wrapper.find('[data-test="discount-form-error"]').text()).toContain('Code already in use.')
+    expect(wrapper.find('[data-test="discount-form-error"]').text()).toContain(
+      'Code already in use.',
+    )
   })
 
   // ── Edit flow: pre-populates from the row, submits the exact update payload ─────────────────
@@ -388,12 +410,18 @@ describe('commerce discounts list page', () => {
     await wrapper.find('[data-test="discount-edit"]').trigger('click')
     await flushPromises()
 
-    expect((wrapper.find('[data-test="discount-code-input"]').element as HTMLInputElement).value).toBe('SAVE10')
-    expect((wrapper.find('[data-test="discount-value-input"]').element as HTMLInputElement).value).toBe('10.00')
-    expect((wrapper.find('[data-test="discount-min-subtotal-input"]').element as HTMLInputElement).value).toBe(
-      '20.00',
-    )
-    expect((wrapper.find('[data-test="discount-usage-limit-input"]').element as HTMLInputElement).value).toBe('5')
+    expect(
+      (wrapper.find('[data-test="discount-code-input"]').element as HTMLInputElement).value,
+    ).toBe('SAVE10')
+    expect(
+      (wrapper.find('[data-test="discount-value-input"]').element as HTMLInputElement).value,
+    ).toBe('10.00')
+    expect(
+      (wrapper.find('[data-test="discount-min-subtotal-input"]').element as HTMLInputElement).value,
+    ).toBe('20.00')
+    expect(
+      (wrapper.find('[data-test="discount-usage-limit-input"]').element as HTMLInputElement).value,
+    ).toBe('5')
 
     await wrapper.find('#discount-form').trigger('submit')
     await flushPromises()
@@ -417,7 +445,12 @@ describe('commerce discounts list page', () => {
   // ── Delete flow: requires confirmation ──────────────────────────────────────────────────────
 
   it('requires confirmation before deleting a discount', async () => {
-    discountsPage.value = { discounts: [discount({ uuid: 'd1', code: 'SAVE10' })], total: 1, current_page: 1, per_page: 24 }
+    discountsPage.value = {
+      discounts: [discount({ uuid: 'd1', code: 'SAVE10' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     removeMock.mockResolvedValue(undefined)
     const wrapper = mount(DiscountsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
@@ -435,9 +468,19 @@ describe('commerce discounts list page', () => {
   })
 
   it('surfaces the 409 redeemed-discount message on delete instead of vanishing it', async () => {
-    discountsPage.value = { discounts: [discount({ uuid: 'd1', code: 'SAVE10' })], total: 1, current_page: 1, per_page: 24 }
+    discountsPage.value = {
+      discounts: [discount({ uuid: 'd1', code: 'SAVE10' })],
+      total: 1,
+      current_page: 1,
+      per_page: 24,
+    }
     removeMock.mockRejectedValue(
-      new ApiError('This discount has been redeemed and cannot be deleted. Disable it via status instead.', 409, {}, {}),
+      new ApiError(
+        'This discount has been redeemed and cannot be deleted. Disable it via status instead.',
+        409,
+        {},
+        {},
+      ),
     )
     const wrapper = mount(DiscountsIndex, { global: { stubs: pageStubs } })
     await flushPromises()
@@ -448,7 +491,10 @@ describe('commerce discounts list page', () => {
     await flushPromises()
 
     expect(notify.error).toHaveBeenCalledWith(
-      expect.objectContaining({ message: 'This discount has been redeemed and cannot be deleted. Disable it via status instead.' }),
+      expect.objectContaining({
+        message:
+          'This discount has been redeemed and cannot be deleted. Disable it via status instead.',
+      }),
       'Couldn’t delete discount',
     )
   })

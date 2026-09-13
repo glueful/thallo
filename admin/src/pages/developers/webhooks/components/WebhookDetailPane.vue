@@ -173,7 +173,11 @@ async function confirmDelete() {
         color="error"
         variant="soft"
         block
-        @click="() => { pendingDelete = true }"
+        @click="
+          () => {
+            pendingDelete = true
+          }
+        "
       />
     </div>
 
@@ -197,7 +201,11 @@ async function confirmDelete() {
             variant="ghost"
             label="Cancel"
             :disabled="remove.isLoading.value"
-            @click="() => { pendingDelete = false }"
+            @click="
+              () => {
+                pendingDelete = false
+              }
+            "
           />
           <UButton
             color="error"

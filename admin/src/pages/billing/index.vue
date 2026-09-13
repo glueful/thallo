@@ -176,7 +176,9 @@ function planLabelFor(m: WorkspaceBillingMeta | undefined, planKey: string | nul
   const found = m?.purchasable_plans.find((p) => p.plan_key === planKey)
   return found?.name ?? planKey
 }
-const activePlanLabel = computed(() => planLabelFor(meta.value, subscription.value?.plan_key ?? null))
+const activePlanLabel = computed(() =>
+  planLabelFor(meta.value, subscription.value?.plan_key ?? null),
+)
 </script>
 
 <template>
@@ -219,12 +221,18 @@ const activePlanLabel = computed(() => planLabelFor(meta.value, subscription.val
           variant="subtle"
           icon="i-lucide-headset"
           title="This workspace's billing needs operator attention"
-          :description="meta.operator_contact_reason ?? 'Contact your platform operator to resolve this before trying again.'"
+          :description="
+            meta.operator_contact_reason ??
+            'Contact your platform operator to resolve this before trying again.'
+          "
           data-test="billing-blocked-banner"
         />
 
         <template v-if="view === 'initializing'">
-          <div class="flex items-center gap-3 rounded-lg border border-default p-4" data-test="checkout-initializing">
+          <div
+            class="flex items-center gap-3 rounded-lg border border-default p-4"
+            data-test="checkout-initializing"
+          >
             <UIcon name="i-lucide-loader-2" class="size-5 animate-spin text-muted" />
             <div>
               <p class="font-medium">Preparing your checkout…</p>
@@ -243,7 +251,10 @@ const activePlanLabel = computed(() => planLabelFor(meta.value, subscription.val
           </div>
         </template>
 
-        <CheckoutPendingPanel v-else-if="view === 'pending'" :checkout-url="origination?.checkout_url ?? null" />
+        <CheckoutPendingPanel
+          v-else-if="view === 'pending'"
+          :checkout-url="origination?.checkout_url ?? null"
+        />
 
         <template v-else-if="view === 'switch_off' || view === 'plan_picker'">
           <UAlert
@@ -274,19 +285,29 @@ const activePlanLabel = computed(() => planLabelFor(meta.value, subscription.val
         </template>
 
         <template v-else-if="view === 'non_renewing'">
-          <div class="space-y-2 rounded-lg border border-default p-4" data-test="subscription-non-renewing">
+          <div
+            class="space-y-2 rounded-lg border border-default p-4"
+            data-test="subscription-non-renewing"
+          >
             <p class="font-medium">{{ subscription?.plan_key }}</p>
             <p class="text-sm text-muted">
               Access continues until
-              <span data-test="subscription-access-until">{{ subscription?.current_period_end }}</span>
+              <span data-test="subscription-access-until">{{
+                subscription?.current_period_end
+              }}</span>
               — this subscription will not renew.
             </p>
-            <p class="text-xs text-muted">Cancel first or contact your platform operator to change plans.</p>
+            <p class="text-xs text-muted">
+              Cancel first or contact your platform operator to change plans.
+            </p>
           </div>
         </template>
 
         <template v-else-if="view === 'provider_managed_elsewhere'">
-          <div class="space-y-2 rounded-lg border border-default p-4" data-test="provider-managed-elsewhere">
+          <div
+            class="space-y-2 rounded-lg border border-default p-4"
+            data-test="provider-managed-elsewhere"
+          >
             <p class="font-medium">{{ subscription?.plan_key }}</p>
             <p class="text-sm text-muted">{{ subscription?.status }}</p>
             <UAlert
@@ -299,16 +320,27 @@ const activePlanLabel = computed(() => planLabelFor(meta.value, subscription.val
         </template>
 
         <template v-else-if="view === 'active'">
-          <div class="space-y-3 rounded-lg border border-default p-4" data-test="subscription-active">
+          <div
+            class="space-y-3 rounded-lg border border-default p-4"
+            data-test="subscription-active"
+          >
             <div class="flex items-center justify-between">
               <p class="font-medium" data-test="subscription-plan">{{ subscription?.plan_key }}</p>
-              <span class="text-sm text-muted" data-test="subscription-status">{{ subscription?.status }}</span>
+              <span class="text-sm text-muted" data-test="subscription-status">{{
+                subscription?.status
+              }}</span>
             </div>
             <p v-if="subscription?.current_period_end" class="text-sm text-muted">
               Renews {{ subscription.current_period_end }}
             </p>
             <div class="flex items-center gap-2">
-              <UButton color="error" variant="soft" label="Cancel subscription" data-test="billing-cancel" @click="cancelOpen = true" />
+              <UButton
+                color="error"
+                variant="soft"
+                label="Cancel subscription"
+                data-test="billing-cancel"
+                @click="cancelOpen = true"
+              />
               <UButton
                 disabled
                 color="neutral"
@@ -318,7 +350,9 @@ const activePlanLabel = computed(() => planLabelFor(meta.value, subscription.val
                 data-test="billing-change-plan-disabled"
               />
             </div>
-            <p class="text-xs text-muted">Cancel first or contact your platform operator to change plans.</p>
+            <p class="text-xs text-muted">
+              Cancel first or contact your platform operator to change plans.
+            </p>
           </div>
         </template>
       </div>

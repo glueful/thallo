@@ -91,7 +91,10 @@ describe('commerce reviews query layer', () => {
     await fetchReviews({})
 
     const requested = fetchMock.mock.calls[0]![0]
-    const url = new URL(typeof requested === 'string' ? requested : (requested as Request).url, 'http://localhost')
+    const url = new URL(
+      typeof requested === 'string' ? requested : (requested as Request).url,
+      'http://localhost',
+    )
     expect(url.searchParams.has('status')).toBe(false)
     expect(url.searchParams.has('product')).toBe(false)
   })
@@ -179,7 +182,11 @@ describe('commerce reviews query layer', () => {
 
   it('fetches and normalizes a single review', async () => {
     ;(globalThis.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(
-      jsonResponse({ success: true, message: 'Review retrieved', data: reviewBody({ uuid: 'r1' }) }),
+      jsonResponse({
+        success: true,
+        message: 'Review retrieved',
+        data: reviewBody({ uuid: 'r1' }),
+      }),
     )
 
     const { fetchReview } = await import('@/queries/commerceReviews')
@@ -204,7 +211,10 @@ describe('commerce reviews query layer', () => {
   it('createReview posts the exact CreateReviewData body and normalizes the created review', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: true, message: 'Review created', data: reviewBody({ uuid: 'r5' }) }, 201),
+      jsonResponse(
+        { success: true, message: 'Review created', data: reviewBody({ uuid: 'r5' }) },
+        201,
+      ),
     )
 
     const { createReview } = await import('@/queries/commerceReviews')
@@ -272,7 +282,11 @@ describe('commerce reviews query layer', () => {
   it('approveReview POSTs the exact endpoint and normalizes the approved review', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: true, message: 'Review approved', data: reviewBody({ uuid: 'r1', status: 'approved' }) }),
+      jsonResponse({
+        success: true,
+        message: 'Review approved',
+        data: reviewBody({ uuid: 'r1', status: 'approved' }),
+      }),
     )
 
     const { approveReview } = await import('@/queries/commerceReviews')
@@ -280,7 +294,9 @@ describe('commerce reviews query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('POST')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/reviews/r1/approve')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/reviews/r1/approve',
+    )
     expect(review.status).toBe('approved')
   })
 
@@ -306,13 +322,19 @@ describe('commerce reviews query layer', () => {
     }
     expect(caught).toBeInstanceOf(ApiError)
     expect((caught as InstanceType<typeof ApiError>).status).toBe(409)
-    expect((caught as InstanceType<typeof ApiError>).message).toBe("Review status is 'approved'; expected pending.")
+    expect((caught as InstanceType<typeof ApiError>).message).toBe(
+      "Review status is 'approved'; expected pending.",
+    )
   })
 
   it('spamReview POSTs the exact endpoint and normalizes the spammed review', async () => {
     const fetchMock = globalThis.fetch as ReturnType<typeof vi.fn>
     fetchMock.mockResolvedValue(
-      jsonResponse({ success: true, message: 'Review marked as spam', data: reviewBody({ uuid: 'r1', status: 'spam' }) }),
+      jsonResponse({
+        success: true,
+        message: 'Review marked as spam',
+        data: reviewBody({ uuid: 'r1', status: 'spam' }),
+      }),
     )
 
     const { spamReview } = await import('@/queries/commerceReviews')
@@ -320,7 +342,9 @@ describe('commerce reviews query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('POST')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/reviews/r1/spam')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/reviews/r1/spam',
+    )
     expect(review.status).toBe('spam')
   })
 
@@ -389,7 +413,9 @@ describe('commerce reviews query layer', () => {
 
     const request = fetchMock.mock.calls[0]![0] as Request
     expect(request.method).toBe('POST')
-    expect(new URL(request.url, 'http://localhost').pathname).toBe('/v1/admin/commerce/reviews/bulk')
+    expect(new URL(request.url, 'http://localhost').pathname).toBe(
+      '/v1/admin/commerce/reviews/bulk',
+    )
     expect(await request.clone().json()).toEqual({ action: 'approve', uuids: ['r1', 'r2', 'r3'] })
     expect(result).toEqual({ applied: ['r1', 'r2'], failed: [{ uuid: 'r3', reason: 'not_found' }] })
   })

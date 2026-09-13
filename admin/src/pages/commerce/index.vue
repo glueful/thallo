@@ -60,7 +60,8 @@ const topCustomersFilters = computed(() => ({
   page: 1,
   perPage: 10,
 }))
-const { data: topCustomersPage, status: topCustomersStatus } = useCommerceCustomers(topCustomersFilters)
+const { data: topCustomersPage, status: topCustomersStatus } =
+  useCommerceCustomers(topCustomersFilters)
 const topCustomers = computed<CommerceCustomer[]>(() => topCustomersPage.value?.customers ?? [])
 
 // Point-in-time — `StockReportQuery` has no `from`/`to` either.
@@ -97,7 +98,9 @@ const lowStockThreshold = computed(() => meta.value?.low_stock_threshold ?? 0)
     <template #body>
       <div class="flex flex-col gap-6 p-4">
         <section data-test="overview-sales-section">
-          <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Sales summary</h2>
+          <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
+            Sales summary
+          </h2>
           <SalesSummaryCards
             :sales="sales"
             :sales-status="salesStatus"
@@ -107,12 +110,16 @@ const lowStockThreshold = computed(() => meta.value?.low_stock_threshold ?? 0)
         </section>
 
         <section data-test="overview-products-section">
-          <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Top products</h2>
+          <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
+            Top products
+          </h2>
           <TopProductsTable :rows="topProducts" :status="productsStatus" />
         </section>
 
         <section data-test="overview-customers-section">
-          <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Top customers</h2>
+          <h2 class="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">
+            Top customers
+          </h2>
           <CustomersTable :rows="topCustomers" :status="topCustomersStatus" />
         </section>
 

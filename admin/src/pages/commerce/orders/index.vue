@@ -87,7 +87,8 @@ watch(filters, (f) => {
   const current = route.query as Record<string, string | undefined>
   const currentKeys = Object.keys(current).filter((k) => current[k] !== undefined)
   const nextKeys = Object.keys(next)
-  const same = currentKeys.length === nextKeys.length && nextKeys.every((k) => current[k] === next[k])
+  const same =
+    currentKeys.length === nextKeys.length && nextKeys.every((k) => current[k] === next[k])
   if (!same) router.replace({ query: next })
 })
 
@@ -237,12 +238,20 @@ async function exportCsv(): Promise<void> {
           <UInputDate
             v-model="placedFromDate"
             data-test="order-placed-from"
-            @update:model-value="() => { datePreset = 'custom' }"
+            @update:model-value="
+              () => {
+                datePreset = 'custom'
+              }
+            "
           />
           <UInputDate
             v-model="placedToDate"
             data-test="order-placed-to"
-            @update:model-value="() => { datePreset = 'custom' }"
+            @update:model-value="
+              () => {
+                datePreset = 'custom'
+              }
+            "
           />
           <UButton
             v-if="canView"

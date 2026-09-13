@@ -146,7 +146,17 @@ async function confirmBulkDelete() {
         data-test="review-bulk-bar"
       >
         <span class="text-sm text-muted">{{ selected.length }} selected</span>
-        <UButton size="xs" color="neutral" variant="ghost" label="Clear" @click="() => { selected = [] }" />
+        <UButton
+          size="xs"
+          color="neutral"
+          variant="ghost"
+          label="Clear"
+          @click="
+            () => {
+              selected = []
+            }
+          "
+        />
         <UButton
           size="sm"
           color="success"
@@ -172,7 +182,11 @@ async function confirmBulkDelete() {
           icon="i-lucide-trash-2"
           data-test="review-bulk-delete"
           :loading="bulk.isLoading.value"
-          @click="() => { showBulkDeleteConfirm = true }"
+          @click="
+            () => {
+              showBulkDeleteConfirm = true
+            }
+          "
         />
       </div>
 
@@ -184,7 +198,9 @@ async function confirmBulkDelete() {
           data-test="review-select-all"
           @click="selectAllVisible"
         >
-          {{ rows.every((r) => selected.includes(r.uuid)) ? 'Clear selection' : 'Select all on page' }}
+          {{
+            rows.every((r) => selected.includes(r.uuid)) ? 'Clear selection' : 'Select all on page'
+          }}
         </UButton>
       </div>
 
@@ -198,7 +214,11 @@ async function confirmBulkDelete() {
         @toggle-select="toggleSelect"
         @approve-request="onApprove"
         @spam-request="onSpam"
-        @delete-request="(row) => { pendingDelete = row }"
+        @delete-request="
+          (row) => {
+            pendingDelete = row
+          }
+        "
       />
 
       <TablePagination
@@ -214,12 +234,16 @@ async function confirmBulkDelete() {
   <UModal
     :open="pendingDelete !== null"
     title="Delete review"
-    @update:open="(v: boolean) => { if (!v) pendingDelete = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) pendingDelete = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
-        Delete the review by <span class="text-default">“{{ pendingDelete?.author_name }}”</span>? This can’t be
-        undone.
+        Delete the review by <span class="text-default">“{{ pendingDelete?.author_name }}”</span>?
+        This can’t be undone.
       </p>
     </template>
     <template #footer>
@@ -229,7 +253,11 @@ async function confirmBulkDelete() {
           variant="ghost"
           label="Cancel"
           :disabled="remove.isLoading.value"
-          @click="() => { pendingDelete = null }"
+          @click="
+            () => {
+              pendingDelete = null
+            }
+          "
         />
         <UButton
           color="error"
@@ -246,11 +274,16 @@ async function confirmBulkDelete() {
   <UModal
     :open="showBulkDeleteConfirm"
     title="Delete reviews"
-    @update:open="(v: boolean) => { showBulkDeleteConfirm = v }"
+    @update:open="
+      (v: boolean) => {
+        showBulkDeleteConfirm = v
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
-        Delete <span class="text-default">{{ selected.length }}</span> selected review(s)? This can’t be undone.
+        Delete <span class="text-default">{{ selected.length }}</span> selected review(s)? This
+        can’t be undone.
       </p>
     </template>
     <template #footer>
@@ -260,7 +293,11 @@ async function confirmBulkDelete() {
           variant="ghost"
           label="Cancel"
           :disabled="bulk.isLoading.value"
-          @click="() => { showBulkDeleteConfirm = false }"
+          @click="
+            () => {
+              showBulkDeleteConfirm = false
+            }
+          "
         />
         <UButton
           color="error"

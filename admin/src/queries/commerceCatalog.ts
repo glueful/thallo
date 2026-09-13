@@ -1410,7 +1410,9 @@ export function useProductSearchForChildren(q: MaybeRefOrGetter<string>) {
   return useQuery({
     key: () => ['commerce-product-search-for-children', toValue(q)] as const,
     query: () =>
-      fetchProducts({ q: toValue(q), page: 1, perPage: 10 }).then((page): CommerceProduct[] => page.products),
+      fetchProducts({ q: toValue(q), page: 1, perPage: 10 }).then(
+        (page): CommerceProduct[] => page.products,
+      ),
     enabled: () => toValue(q).trim().length >= 2,
   })
 }

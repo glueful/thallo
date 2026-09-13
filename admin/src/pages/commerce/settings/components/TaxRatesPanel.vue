@@ -55,7 +55,9 @@ function percentText(rate: CommerceTaxRate): string {
 }
 
 function locationSummary(rate: CommerceTaxRate): string | null {
-  const parts = [rate.state, rate.postcode_pattern].filter((v): v is string => v !== null && v !== '')
+  const parts = [rate.state, rate.postcode_pattern].filter(
+    (v): v is string => v !== null && v !== '',
+  )
   return parts.length > 0 ? parts.join(' · ') : null
 }
 
@@ -225,12 +227,7 @@ async function confirmDelete() {
   <div class="space-y-4">
     <div class="flex items-center justify-between">
       <h2 class="text-sm font-medium text-default">Tax rates</h2>
-      <UButton
-        v-if="props.canManage"
-        icon="i-lucide-plus"
-        data-test="new-rate"
-        @click="openCreate"
-      >
+      <UButton v-if="props.canManage" icon="i-lucide-plus" data-test="new-rate" @click="openCreate">
         New rate
       </UButton>
     </div>
@@ -266,13 +263,21 @@ async function confirmDelete() {
         class="flex flex-wrap items-center gap-3 rounded-md border border-default p-3"
       >
         <span data-test="rate-label" class="font-medium text-default">{{ rate.label }}</span>
-        <UBadge color="neutral" variant="subtle" size="sm" data-test="rate-country">{{ rate.country }}</UBadge>
+        <UBadge color="neutral" variant="subtle" size="sm" data-test="rate-country">{{
+          rate.country
+        }}</UBadge>
         <span v-if="locationSummary(rate)" data-test="rate-location" class="text-sm text-muted">
           {{ locationSummary(rate) }}
         </span>
-        <UBadge color="primary" variant="subtle" size="sm" data-test="rate-percent">{{ percentText(rate) }}</UBadge>
-        <UBadge color="neutral" variant="subtle" size="sm" data-test="rate-class">{{ rate.class }}</UBadge>
-        <UBadge color="neutral" variant="subtle" size="sm" data-test="rate-priority">priority {{ rate.priority }}</UBadge>
+        <UBadge color="primary" variant="subtle" size="sm" data-test="rate-percent">{{
+          percentText(rate)
+        }}</UBadge>
+        <UBadge color="neutral" variant="subtle" size="sm" data-test="rate-class">{{
+          rate.class
+        }}</UBadge>
+        <UBadge color="neutral" variant="subtle" size="sm" data-test="rate-priority"
+          >priority {{ rate.priority }}</UBadge
+        >
         <UBadge
           v-if="rate.shipping_taxable"
           color="neutral"
@@ -300,7 +305,11 @@ async function confirmDelete() {
             icon="i-lucide-trash-2"
             aria-label="Delete rate"
             data-test="rate-delete"
-            @click="() => { pendingDelete = rate }"
+            @click="
+              () => {
+                pendingDelete = rate
+              }
+            "
           />
         </div>
       </div>
@@ -320,7 +329,11 @@ async function confirmDelete() {
     :open="formOpen"
     :title="editingRate ? 'Edit tax rate' : 'Create tax rate'"
     :ui="{ content: 'sm:max-w-md' }"
-    @update:open="(v: boolean) => { if (!v) closeForm() }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) closeForm()
+      }
+    "
   >
     <template #body>
       <form id="rate-form" class="space-y-4" @submit.prevent="submitForm">
@@ -329,7 +342,12 @@ async function confirmDelete() {
             <UInput v-model="form.countryInput" class="w-full" data-test="rate-country-input" />
           </UFormField>
           <UFormField label="Rate" name="rate" required help="Percent, e.g. 8.75 for 8.75%">
-            <UInput v-model="form.percentInput" placeholder="0.00" class="w-full" data-test="rate-percent-input" />
+            <UInput
+              v-model="form.percentInput"
+              placeholder="0.00"
+              class="w-full"
+              data-test="rate-percent-input"
+            />
           </UFormField>
         </div>
 
@@ -339,9 +357,18 @@ async function confirmDelete() {
             name="state"
             help="Optional — COUNTRY:REGION, e.g. US:CA. Country prefix must match above."
           >
-            <UInput v-model="form.stateInput" placeholder="US:CA" class="w-full" data-test="rate-state-input" />
+            <UInput
+              v-model="form.stateInput"
+              placeholder="US:CA"
+              class="w-full"
+              data-test="rate-state-input"
+            />
           </UFormField>
-          <UFormField label="Postcode pattern" name="postcode" help="Optional — exact or trailing *, e.g. 90*">
+          <UFormField
+            label="Postcode pattern"
+            name="postcode"
+            help="Optional — exact or trailing *, e.g. 90*"
+          >
             <UInput
               v-model="form.postcodeInput"
               placeholder="90210"
@@ -357,7 +384,12 @@ async function confirmDelete() {
 
         <div class="grid grid-cols-2 gap-3">
           <UFormField label="Priority" name="priority" help="Lower priority is evaluated first.">
-            <UInput v-model="form.priorityInput" type="number" class="w-full" data-test="rate-priority-input" />
+            <UInput
+              v-model="form.priorityInput"
+              type="number"
+              class="w-full"
+              data-test="rate-priority-input"
+            />
           </UFormField>
           <UFormField label="Class" name="class" help="Optional — defaults to “standard”.">
             <UInput
@@ -409,7 +441,11 @@ async function confirmDelete() {
   <UModal
     :open="pendingDelete !== null"
     title="Delete tax rate"
-    @update:open="(v: boolean) => { if (!v) pendingDelete = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) pendingDelete = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
@@ -423,7 +459,11 @@ async function confirmDelete() {
           variant="ghost"
           label="Cancel"
           :disabled="deleteRate.isLoading.value"
-          @click="() => { pendingDelete = null }"
+          @click="
+            () => {
+              pendingDelete = null
+            }
+          "
         />
         <UButton
           color="error"

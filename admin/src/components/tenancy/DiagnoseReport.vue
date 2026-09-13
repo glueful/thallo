@@ -13,10 +13,7 @@ function color(status: string): 'success' | 'warning' | 'error' | 'neutral' {
 </script>
 
 <template>
-  <section
-    class="rounded-lg border border-default px-5 py-4"
-    aria-labelledby="diagnostics-heading"
-  >
+  <section class="rounded-lg border border-default px-5 py-4" aria-labelledby="diagnostics-heading">
     <div class="flex items-start justify-between gap-4">
       <div class="min-w-0">
         <h2 id="diagnostics-heading" class="text-sm font-semibold text-highlighted">Diagnostics</h2>

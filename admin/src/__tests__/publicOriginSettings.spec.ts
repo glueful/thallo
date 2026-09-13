@@ -69,10 +69,10 @@ describe('PublicOriginSettings', () => {
   it('freezes the form and disables save while resolution is activating', async () => {
     const wrapper = await render({ step: 'mapping_hosts' })
     expect(wrapper.find('[data-testid="public-origin-frozen"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="public-origin-save"]').attributes('disabled')).toBeDefined()
     expect(
-      wrapper.get('[data-testid="public-origin-save"]').attributes('disabled'),
+      wrapper.get('[data-testid="public-origin-base-domain"]').attributes('disabled'),
     ).toBeDefined()
-    expect(wrapper.get('[data-testid="public-origin-base-domain"]').attributes('disabled')).toBeDefined()
   })
 
   it('shows the restart note when a restart is required', async () => {
@@ -92,9 +92,9 @@ describe('PublicOriginSettings', () => {
   it('prefills the inputs with the current host when nothing is persisted yet', async () => {
     // jsdom serves the page from http://localhost, so window.location.hostname === 'localhost'.
     const wrapper = await render({ base_domain: null, default_hosts: [] })
-    const base = wrapper.get('[data-testid="public-origin-base-domain"]').element as HTMLInputElement
-    const hosts = wrapper.get('[data-testid="public-origin-hosts"]')
-      .element as HTMLTextAreaElement
+    const base = wrapper.get('[data-testid="public-origin-base-domain"]')
+      .element as HTMLInputElement
+    const hosts = wrapper.get('[data-testid="public-origin-hosts"]').element as HTMLTextAreaElement
     expect(base.value).toBe('localhost')
     expect(hosts.value).toBe('localhost')
   })

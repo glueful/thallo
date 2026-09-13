@@ -46,7 +46,7 @@ vi.mock('@/fields/components/AssetField.vue', () => ({
     emits: ['update:modelValue'],
     template:
       '<button type="button" data-test="stub-logo-pick" ' +
-      '@click="$emit(\'update:modelValue\', \'blob00000042\')">{{ modelValue }}</button>',
+      "@click=\"$emit('update:modelValue', 'blob00000042')\">{{ modelValue }}</button>",
   },
 }))
 vi.mock('@/fields/components/ReferencePicker.vue', () => ({
@@ -97,9 +97,7 @@ describe('general settings page — site logo', () => {
     await wrapper.find('[data-test="stub-logo-pick"]').trigger('click')
 
     // Save the form; the payload carries the picked asset uuid.
-    const saveBtn = wrapper
-      .findAll('button')
-      .find((b) => b.text().includes('Save'))
+    const saveBtn = wrapper.findAll('button').find((b) => b.text().includes('Save'))
     expect(saveBtn).toBeTruthy()
     await saveBtn!.trigger('click')
     await flushPromises()

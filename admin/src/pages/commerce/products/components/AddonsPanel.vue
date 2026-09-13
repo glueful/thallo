@@ -162,7 +162,9 @@ function openEdit(addon: CommerceAddon) {
     : 'active'
   state.positionInput = String(addon.position)
   state.priceDeltaInput =
-    state.fieldType === 'select' ? '' : minorToDecimalString(addon.price_delta, currencyExponent.value)
+    state.fieldType === 'select'
+      ? ''
+      : minorToDecimalString(addon.price_delta, currencyExponent.value)
 
   choices.splice(0, choices.length)
   for (const choice of addon.choices ?? []) {
@@ -235,7 +237,10 @@ async function submitForm() {
       seenKeys.add(key)
 
       const rawDelta = row.priceDeltaInput.trim()
-      const minor = parseSignedMajorAmountToMinorUnits(rawDelta === '' ? '0' : rawDelta, currencyExponent.value)
+      const minor = parseSignedMajorAmountToMinorUnits(
+        rawDelta === '' ? '0' : rawDelta,
+        currencyExponent.value,
+      )
       if (minor === null) {
         choicesError.value = `Enter a valid price delta for “${label}”.`
         return
@@ -244,7 +249,10 @@ async function submitForm() {
     }
   } else {
     const rawDelta = state.priceDeltaInput.trim()
-    const minor = parseSignedMajorAmountToMinorUnits(rawDelta === '' ? '0' : rawDelta, currencyExponent.value)
+    const minor = parseSignedMajorAmountToMinorUnits(
+      rawDelta === '' ? '0' : rawDelta,
+      currencyExponent.value,
+    )
     if (minor === null) {
       formError.value =
         currencyExponent.value === 0
@@ -359,7 +367,11 @@ async function confirmDelete() {
           <span class="font-medium text-default">{{ addon.name }}</span>
           <UBadge color="neutral" variant="subtle" size="sm">{{ addon.field_type }}</UBadge>
           <UBadge v-if="addon.required" color="primary" variant="subtle" size="sm">Required</UBadge>
-          <UBadge :color="addon.status === 'active' ? 'success' : 'neutral'" variant="subtle" size="sm">
+          <UBadge
+            :color="addon.status === 'active' ? 'success' : 'neutral'"
+            variant="subtle"
+            size="sm"
+          >
             {{ addon.status }}
           </UBadge>
           <span v-if="addon.field_type !== 'select'" data-test="addon-price" class="text-default">
@@ -383,7 +395,11 @@ async function confirmDelete() {
               icon="i-lucide-trash-2"
               aria-label="Delete add-on"
               data-test="addon-delete"
-              @click="() => { pendingDelete = addon }"
+              @click="
+                () => {
+                  pendingDelete = addon
+                }
+              "
             />
           </div>
         </div>
@@ -424,10 +440,28 @@ async function confirmDelete() {
             <UInput v-model="state.name" class="w-full" data-test="addon-name-input" />
           </UFormField>
           <UFormField label="Field type" name="fieldType">
-            <USelect v-model="state.fieldType" :items="fieldTypeItems" class="w-full" data-test="addon-field-type-input" />
+            <USelect
+              v-model="state.fieldType"
+              :items="fieldTypeItems"
+              class="w-full"
+              data-test="addon-field-type-input"
+            />
           </UFormField>
-          <UFormField label="Status" name="status" :help="state.status === 'inactive' ? 'Hidden from new selections; past orders keep it.' : undefined">
-            <USelect v-model="state.status" :items="statusItems" class="w-full" data-test="addon-status-input" />
+          <UFormField
+            label="Status"
+            name="status"
+            :help="
+              state.status === 'inactive'
+                ? 'Hidden from new selections; past orders keep it.'
+                : undefined
+            "
+          >
+            <USelect
+              v-model="state.status"
+              :items="statusItems"
+              class="w-full"
+              data-test="addon-status-input"
+            />
           </UFormField>
           <UFormField label="Position" name="position" help="Optional — leave blank to append.">
             <UInput v-model="state.positionInput" class="w-full" data-test="addon-position-input" />
@@ -442,7 +476,12 @@ async function confirmDelete() {
           name="priceDelta"
           help="Signed amount, e.g. -2.00 or 3.50. Leave blank for 0."
         >
-          <UInput v-model="state.priceDeltaInput" placeholder="0.00" class="w-full" data-test="addon-price-delta-input" />
+          <UInput
+            v-model="state.priceDeltaInput"
+            placeholder="0.00"
+            class="w-full"
+            data-test="addon-price-delta-input"
+          />
         </UFormField>
 
         <div v-else class="space-y-3">
@@ -519,12 +558,16 @@ async function confirmDelete() {
   <UModal
     :open="pendingDelete !== null"
     title="Delete add-on"
-    @update:open="(v: boolean) => { if (!v) pendingDelete = null }"
+    @update:open="
+      (v: boolean) => {
+        if (!v) pendingDelete = null
+      }
+    "
   >
     <template #body>
       <p class="text-sm text-muted">
-        Delete <span class="text-default">“{{ pendingDelete?.name }}”</span>? This can’t be undone. Existing
-        cart and order lines that used it keep their own saved snapshot.
+        Delete <span class="text-default">“{{ pendingDelete?.name }}”</span>? This can’t be undone.
+        Existing cart and order lines that used it keep their own saved snapshot.
       </p>
     </template>
     <template #footer>
@@ -534,7 +577,11 @@ async function confirmDelete() {
           variant="ghost"
           label="Cancel"
           :disabled="removeAddon.isLoading.value"
-          @click="() => { pendingDelete = null }"
+          @click="
+            () => {
+              pendingDelete = null
+            }
+          "
         />
         <UButton
           color="error"

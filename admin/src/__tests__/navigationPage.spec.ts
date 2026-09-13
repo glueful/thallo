@@ -67,7 +67,7 @@ vi.mock('@/fields/components/ReferencePicker.vue', () => ({
     emits: ['picked', 'update:modelValue'],
     template:
       '<button type="button" data-test="stub-pick" ' +
-      '@click="$emit(\'picked\', { uuid: \'e-9\', title: \'Hello Page\' })">pick</button>',
+      "@click=\"$emit('picked', { uuid: 'e-9', title: 'Hello Page' })\">pick</button>",
   },
 }))
 
@@ -313,7 +313,11 @@ describe('navigation page', () => {
     await flushPromises()
 
     expect(saveMock).toHaveBeenCalledTimes(1)
-    const arg = saveMock.mock.calls[0]![0] as { slug: string; lockVersion: number; items: unknown[] }
+    const arg = saveMock.mock.calls[0]![0] as {
+      slug: string
+      lockVersion: number
+      items: unknown[]
+    }
     expect(arg.slug).toBe('main')
     expect(arg.lockVersion).toBe(1)
     expect(arg.items).toHaveLength(2)

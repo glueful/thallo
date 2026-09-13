@@ -42,7 +42,16 @@ function host(url: string): string {
   <div class="flex h-full min-h-0 w-full flex-col gap-3 lg:w-85 lg:shrink-0">
     <div class="flex items-center justify-between gap-2">
       <h2 class="text-lg font-semibold text-highlighted">Webhooks</h2>
-      <UButton icon="i-lucide-plus" size="sm" class="rounded-xl px-3" @click="() => { showCreate = true }" />
+      <UButton
+        icon="i-lucide-plus"
+        size="sm"
+        class="rounded-xl px-3"
+        @click="
+          () => {
+            showCreate = true
+          }
+        "
+      />
     </div>
 
     <USwitch v-model="activeOnly" label="Active only" size="sm" />
@@ -98,7 +107,11 @@ function host(url: string): string {
           variant="ghost"
           size="xs"
           :disabled="page <= 1"
-          @click="() => { page-- }"
+          @click="
+            () => {
+              page--
+            }
+          "
         />
         <UButton
           icon="i-lucide-chevron-right"
@@ -106,7 +119,11 @@ function host(url: string): string {
           variant="ghost"
           size="xs"
           :disabled="page >= totalPages"
-          @click="() => { page++ }"
+          @click="
+            () => {
+              page++
+            }
+          "
         />
       </div>
     </div>
