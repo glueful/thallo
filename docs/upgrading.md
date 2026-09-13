@@ -6,7 +6,8 @@
 composer update && php glueful thallo:provision
 ```
 
-then reload PHP-FPM. Thallo is installed as `glueful/thallo-core` in `vendor/` (with the
+then, only if OPcache runs with `opcache.validate_timestamps=0`, reload PHP-FPM. Thallo is
+installed as `glueful/thallo-core` in `vendor/` (with the
 capability packs alongside it), so `composer update` moves Thallo the way it moves the framework,
 and `thallo:provision` finishes the job: pending migrations, install-role grants, starter block
 types, the extension cache, and the release's admin bundle published into `public/admin`. Read
@@ -70,7 +71,10 @@ website runs, and every release is exercised there by the exact upgrade every op
   table (a stale one keeps serving the previous release's routes) and the rendered pages. A
   deploy that skips provision runs `route:cache:clear` and `render:cache:clear` itself. The
   compiled container is signed by its definitions and recompiles itself.
-- **A PHP-FPM reload**, so OPcache drops the previous release's classes.
+- **A PHP-FPM reload only when OPcache has timestamp validation off**
+  (`opcache.validate_timestamps=0`, a common production tuning): OPcache then never re-reads
+  changed files and keeps serving the previous release's classes. With PHP's default
+  (validation on), nothing to do. Provision cannot do this for you: the CLI has its own OPcache.
 - **The release's Upgrade Notes** in [CHANGELOG.md](../CHANGELOG.md).
 
 **Why the cache clears matter:** a compiled artifact from a previous release can construct

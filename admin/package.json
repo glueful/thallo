@@ -13,7 +13,7 @@
     "lint:fix": "oxlint --fix",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
-    "gen:api": "node scripts/gen-api.mjs",
+    "gen:api": "node scripts/gen-api.mjs && oxfmt src/api/schema.d.ts src/api/core-schema.d.ts",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "format": "oxfmt src/"

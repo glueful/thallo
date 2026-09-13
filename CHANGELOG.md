@@ -7,6 +7,19 @@ as the next release, never a mutated tag.
 
 ## [Unreleased]
 
+### Added
+- The user menu shows the Thallo version this admin runs ("Thallo 1.0.0-beta.25"; "development
+  checkout" in the development repository) and, when a newer one is published, an "Update
+  available" entry that leads to the Home card. `GET /v1/admin/update-status` is readable by
+  any signed-in admin user now, operator-only before; it stays off the anonymous `/admin/config`.
+
+### Changed
+- The upgrade guide, the template README and the update card ask for a PHP-FPM reload only when
+  OPcache runs with `opcache.validate_timestamps=0`; with PHP's default, changed files are
+  picked up without one.
+- `pnpm gen:api` formats the generated schema files, so regenerating the typed client no
+  longer fails the admin's format check.
+
 ## [1.0.0-beta.25] - 2026-09-13
 
 The first upgrade release: provision now finishes an upgrade completely, and the website's

@@ -29,6 +29,13 @@ export function shouldShowNotice(
   return status.latest !== dismissed
 }
 
+/** The user menu's version line: what this admin runs, or that it is a development checkout. */
+export function versionLabel(status: UpdateStatus | null | undefined): string | null {
+  if (!status) return null
+  if (status.development) return 'Thallo — development checkout'
+  return status.current ? `Thallo ${status.current}` : null
+}
+
 export function useUpdateNotice() {
   const { data: status } = useUpdateStatus()
   const dismissed = ref(readDismissed())

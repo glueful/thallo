@@ -35,7 +35,8 @@ and a queue worker handles background jobs such as mail: `php glueful queue:work
 composer update && php glueful thallo:provision
 ```
 
-then reload PHP-FPM. Read the release's Upgrade Notes in the
+then, only if OPcache runs with `opcache.validate_timestamps=0`, reload PHP-FPM. Read the
+release's Upgrade Notes in the
 [changelog](https://github.com/glueful/thallo/blob/main/CHANGELOG.md).
 
 ## What is yours
