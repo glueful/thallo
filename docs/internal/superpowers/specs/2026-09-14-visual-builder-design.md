@@ -35,6 +35,20 @@ Invariants, each named once and used verbatim throughout:
 11. **Whole-candidate-tree legality** before any structural commit.
 12. **Envelope dependency resolution**: nothing crosses a site boundary by name alone.
 
+### 0.1 Versions and generations
+
+| counter | scope | changes when | used for |
+|---|---|---|---|
+| `settings_schema_version` | stored settings | the settings representation changes | conversion, import |
+| block schema version | one block type | its data schema changes | block migration |
+| `format_version` | envelope | the envelope protocol changes | paste, import, export |
+| vocabulary schema version | platform | the baseline contract changes | theme validation, artifact hash |
+| compiler version | renderer | CSS emission changes | artifact hash |
+| class `version` | one style class | that class is saved | optimistic concurrency |
+| site style generation | site | any style class is saved | cache and editor invalidation |
+| document revision (local, accepted, displayed) | editing session | a working document is accepted or shown | apply protocol |
+| converter version | migration tool | conversion semantics change | decisions-file validity |
+
 What exists today and is reused unchanged: the iframe stage at `/_preview/{token}?canvas=1`, the
 `thallo-preview-block` wrappers, the in-iframe toolbar and bridge, `editable_text` inline editing,
 the outline, the ephemeral apply with its working-copy stash, the debounced scheduler, and the
@@ -52,7 +66,7 @@ A managed value is a typed object. Each setting definition declares the kinds it
 | `token` | `{type:"token", value:"spacing.lg"}` | a platform vocabulary reference |
 | `choice` | `{type:"choice", value:"hidden"}` | a closed enum |
 | `identifier` | `{type:"identifier", value:"pricing"}` | a validated slug |
-| `reset` | `{type:"reset"}` | ignore reusable classes for this property at this breakpoint and expose the theme's computed rules |
+| `reset` | `{type:"reset"}` | ignore lower-precedence managed declarations for this property at the applicable scope and expose the theme's computed rules; for a responsive property the scope is the breakpoint, for a non-responsive property it is the property itself |
 | `literal` | reserved | accepted by the type grammar, rejected by validation until a schema version admits it |
 
 `reset` is accepted by every managed style property. Deleting an override (returning to the
@@ -109,6 +123,13 @@ revert-layer`.
 list), `attributes` (allowlisted `data-*` names with string values; the whole `data-thallo-*`
 prefix is reserved and rejected), `accessibility.label`. `accessibility.role` is out of v1.
 
+Anchor uniqueness is page-wide, including header and footer regions. Fresh block ids do not
+make copied anchors unique, so every operation that copies blocks (duplicate, preset insertion,
+saved-section insertion, paste) runs collision handling: a colliding anchor is renamed with a
+numeric suffix, fragment links inside the copied subtree that pointed at the old anchor are
+remapped to the new one, links outside the subtree are untouched, and the rename is shown to the
+author as a diagnostic before commit.
+
 ### 1.5 Responsiveness
 
 A responsive property holds a sparse map over `base`, `md`, `lg`; any subset is valid.
@@ -118,17 +139,21 @@ state (§3.4); the viewport width is presentation.
 
 ### 1.6 The breakpoint-first cascade
 
-Layers in rising precedence: theme default, then each reusable class in list order, then the
-instance. For target breakpoint B:
+Managed layers in rising precedence are each reusable class in list order, then the instance.
+The theme default is not a declaration in the resolver: it is the fallback outside the managed
+declarations, exposed by the browser through `@layer theme` (and `revert-layer`) when no managed
+declaration resolves or when reset terminates resolution. The resolver therefore returns either
+a managed value or the sentinel `theme-default`, never a concrete theme value, because neither
+runtime can know what variant-specific theme CSS computes. For target breakpoint B:
 
 ```
 for bp in [B, …, base]:
-    declarations = every layer's declaration made exactly at bp
+    declarations = every managed layer's declaration made exactly at bp
     if declarations is not empty:
         take the highest-precedence layer's declaration
-        if it is reset: effective = theme default; stop
+        if it is reset: effective = theme-default; stop
         effective = its value; stop
-effective = theme default
+effective = theme-default
 ```
 
 Consequence, stated as a product rule: a lower-breakpoint declaration in a higher-precedence
@@ -161,10 +186,18 @@ capabilities and a capability mapped to a target of the wrong kind (`alignment.t
 text target; `alignment.content` a row target). A setting on an absent optional target is valid
 and dormant.
 
+Independently styled parts of one block (animated text's prefix, rotating text and suffix
+colours; a carousel's transition speed) are block semantics, not settings: they stay in `data`
+as fields of kind `token` or `choice` drawn from the same vocabulary, and the template applies
+them through `token_class(property, value)`, which emits the same utilities the compiler uses.
+They take no part in `settings.classes` or the cascade. Raw hex and numeric presentation fields
+are retired under §7.2.
+
 Proof blocks: heading (one text root: spacing, alignment.text, typography, colors.text,
 visibility), button (root row: spacing, alignment.content, anchor, attributes; control: radius,
 colors, typography, accessibility.label), columns with nested blocks (independent nested
-styling, width inside tracks), hero with and without media (optional target).
+styling, width inside tracks), hero with and without media (optional target), animated text
+(per-part token fields in data).
 
 ### 1.8 Conversion of existing style fields
 
@@ -222,9 +255,12 @@ blocks the switch.
 Lifecycle: publish the artifact, activate, purge rendered pages. Previous artifacts are retained
 (last three, minimum 24 hours) so HTML already in browsers can still fetch its stylesheet. The
 artifact hash joins the render cache's appearance fingerprint, so an in-flight render cannot
-repopulate the cache under the new key with old HTML. Recompiling the artifact, saving a reusable
-style class (§4.3), and switching or updating a theme each purge the render page cache through
-the existing tag.
+repopulate the cache under the new key with old HTML. Recompiling the artifact and switching or updating a theme purge
+the render page cache through the existing tag. A style-class save does **not** rebuild the
+compiled style artifact: classes contain only baseline vocabulary the artifact already
+represents. It increments the site style generation (§4.3), which is a separate invalidation
+path: the artifact is unchanged, the page HTML's classes may change, and rendered-page caches are
+purged.
 
 ### 2.5 Template helpers and lint
 
@@ -232,7 +268,9 @@ the existing tag.
 returns only the attributes that target owns, escaped centrally. The shipped-templates lint gate
 checks: every declared target appears in the template; no undeclared target is used; every
 capability maps to a valid target of the right kind; each advanced capability has one owner; no
-template emits a `style=` attribute; theme sheets contain no unmanaged `@import`. The canvas
+template emits a `style=` attribute; theme sheets contain no unmanaged `@import`; no theme
+declaration on a managed property of a styling target carries `!important` (the rule is
+property-aware: `!important` elsewhere in a theme is not the lint's concern). The canvas
 wrapper is unchanged (`display: contents`, outside the block root).
 
 ### 2.6 Browser floor and proofs
@@ -244,9 +282,24 @@ secondary-variant reset, a responsive padding reset with base override, md reset
 run in Chromium, Firefox and WebKit through Playwright; the tested matrix is stated next to the
 declared floor.
 
-The managed settings system never emits inline styles. The four templates that do today
-(heading colour, container background and max width, image, animated text) are converted in the
-same release. The theme colours block remains the one inline style.
+The managed settings system never emits inline styles. Every style source in the current
+checkout has a disposition in the same release:
+
+| source | today | disposition |
+|---|---|---|
+| heading `color` | `style="color:…"` from a hex field | field retired; `colors.text` setting |
+| animated text per-part colours | `style="color:…"` from hex fields | `token` fields in data via `token_class()` (§1.7) |
+| image | inline sizing style | converted to classes from typed fields |
+| container background colour, overlay colour and opacity, max width, padding, margin, radius, border, shadow | inline `--container-*` variables and freeform values | settings properties; overlay becomes a choice (`none, light, dark`) plus an opacity step |
+| container background image | inline `background-image: url()` | rendered as a positioned `<img>` layer with srcset and lazy loading, like the existing video layer |
+| carousel `transition_duration` | inline `--carousel-duration` from a number | `choice` (`slow, normal, fast`) mapped to classes |
+| style block scope | inline `<style>` of variables from `theme_style_scope()` | permitted: variables only, listed |
+| theme colours and design tokens | inline `<style>` of variables | permitted: variables only, listed |
+| `font_faces_style()` | inline `<style>` of `@font-face` | permitted: no selectors, listed |
+| storefront stylesheet (`shop_styles_url()`) and any package stylesheet | separate `<link>` | delivered inside `@layer theme` through the render contribution registry |
+
+The lint gate forbids `style=` attributes and selector-bearing inline style elements; the three
+permitted variable-only or `@font-face` elements are the enumerated exceptions.
 
 ## 3. Editing architecture
 
@@ -259,7 +312,9 @@ the op, ids are allocated once and reused on redo, absent is distinct from null,
 `SetSetting`, `SetAdvanced`, `ApplyStyleClass`, `RemoveStyleClass`, `ReorderStyleClasses`,
 `DetachStyleClass`, `InsertBlock`, `InsertBlocks`, `RemoveBlock`, `MoveBlock`, `DuplicateBlock`,
 `SetPageSettings` (the persisted page fields; editor state never enters history). One pure
-applier per operation; the existing pure list operations become appliers.
+applier per operation; the existing pure list operations become appliers. `InsertBlocks` is
+first-class because a composition is intrinsically one insertion intent; multi-selection remains
+a transaction of primitives.
 
 ### 3.2 Transactions and history
 
@@ -300,15 +355,28 @@ state; a style-generation change forces re-resolution before inherited values ar
 Apply validation failure is never presented as accepted; fragment render failure after a
 successful apply recovers by refresh.
 
-The server is authoritative for render roots: an operation yields affected blocks, the
-render-scope resolver yields minimal roots (self for field and setting changes; parent for
-insert, remove and duplicate; both parents for moves), ancestors absorb descendants so swaps
-never overlap. The whole-page path is forced by: a root-level structural change, an entry field
-outside block wrappers, any block on the page declaring a page dependency, a fragment needing an
-asset not yet loaded, or a template not verified for fragments. In v1 only the default theme's
-entry template is verified, by a test that renders every fixture block-by-block and whole-page
-and diffs them. The bridge keeps its protections during typing and dragging, validates targets
-before swapping, restores selection and handles runtime teardown after.
+The server is authoritative for render roots. An operation yields affected blocks and the
+render-scope resolver yields minimal roots:
+
+| operation | root |
+|---|---|
+| `SetField`, `SetSetting`, `SetAdvanced`, class operations | self, lifted to the parent when the parent renders child data inline |
+| `InsertBlock`, `InsertBlocks`, `RemoveBlock`, `DuplicateBlock` | parent |
+| `MoveBlock` | old parent and new parent |
+
+Ancestors absorb descendants so swaps never overlap. A block type whose template renders its
+children's data outside the children's wrappers declares `renders_children_inline` (today:
+accordion, tabs, stepper, gallery, pricing table, carousel), which lifts a child's root to that
+parent. Blocks that call `claim_priority_image()` (hero, image, blog posts) depend on page
+order; any operation touching one of them takes the whole-page path in v1. The whole-page path
+is also forced by: a root-level structural change, an entry field outside block wrappers, any
+block on the page declaring a page dependency, a fragment needing an asset not yet loaded, or a
+template not verified for fragments. In v1 only the default theme's entry template is verified,
+by a test that renders every fixture block-by-block and whole-page and diffs them, including
+nested tabs, a pricing table and a page with several image-bearing blocks; the verification
+record carries the participating templates' hashes and is invalidated when any changes. The
+bridge keeps its protections during typing and dragging, validates targets before swapping,
+restores selection and handles runtime teardown after.
 
 Debounce defaults: 150 ms for settings and structure, 800 ms for text, with a maximum wait.
 The fragment system ships complete but disabled behind a flag. Activation requires, measured on
@@ -317,9 +385,23 @@ median under 300 ms, p95 under 600 ms, median at most half the whole-page median
 frequency recorded. Failure of this gate does not block the builder's functional release; the
 disabled subsystem still has implementation and maintenance cost.
 
-A state-transition contract (edit → apply → patch → acknowledge) is written with tests for undo
-during an in-flight apply, stale responses, root insertion, cross-container moves and validation
-failure.
+State transitions of the three revisions (L local, A accepted, D displayed):
+
+| event | L | A | D |
+|---|---|---|---|
+| edit committed | advances | unchanged | unchanged |
+| apply accepted (revision r) | unchanged | r | unchanged until patched |
+| patch applied for r on baseline D | unchanged | unchanged | r |
+| apply validation failure | unchanged (edit stays local, reported) | unchanged | unchanged |
+| stale response (r < A) | unchanged | unchanged | unchanged, response dropped |
+| patch failure or baseline mismatch | unchanged | unchanged | refresh to A |
+| save | saved position = L | unchanged | unchanged |
+| token renewal | unchanged | unchanged | unchanged, next apply uses the new token |
+
+Invariant: the document revision and the site style generation in a response describe the same
+rendering snapshot; the server reads dependencies and generation once per render. Tests cover
+undo during an in-flight apply, stale responses, root insertion, cross-container moves and
+validation failure.
 
 ## 4. Global styles
 
@@ -501,9 +583,11 @@ the result and requires acceptance and counts it as lossy.
 ### 7.3 The conversion command
 
 `thallo:blocks:convert-settings` on the block-migration machinery (the admin's in-progress gate
-holds while it runs). Scope: drafts, published documents, regions, retained revisions, and once
-they exist, saved sections and presets; historical versions stay restorable because the converter
-also stamps and converts them. Dry run writes the diagnostics report: entry, locale, block id,
+holds while it runs). Scope invariant: every persisted block-bearing resource registered with the
+block-migration system participates in conversion; at Phase A those are drafts, published
+documents, regions and retained revisions, and later resources (saved sections, presets) join by
+registering, never by a hard-coded list. Historical versions stay restorable because the
+converter also stamps and converts them. Dry run writes the diagnostics report: entry, locale, block id,
 field, old value, status, reason, plus the source document revision hash and converter version.
 Decisions (choose a token, transform, discard) are recorded in a durable decisions file keyed by
 that hash; the live run consumes the file, refuses to complete while any diagnostic is unresolved,
@@ -534,7 +618,11 @@ theming guide documents the vocabulary, target and layer contracts.
 
 Every phase: full PHP suite, admin lint, type-check, format and vitest, the cross-engine proof
 suite, phpcs by exit code, boundaries, distribution smoke, skeleton smoke, clean-machine install
-from Packagist, and a thallo.dev upgrade or install. A phase does not start until the previous one
+from Packagist, and a thallo.dev upgrade or install. Because thallo.dev takes the fresh-install
+path, a separate mandatory gate rehearses the upgrade: a populated beta.28 fixture (drafts,
+published content, regions, retained revisions, unmappable values) is upgraded under the §7.4
+contract in CI, exercising stale decisions, an interrupted conversion with retry, and restoration
+from backup. A phase does not start until the previous one
 has been dogfooded on thallo.dev with its gap list filed.
 
 Each published beta is internally complete: the beta that removes a field also ships its
