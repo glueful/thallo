@@ -227,6 +227,55 @@ final class RegionAdminApiTest extends AppTestCase
         self::assertNull((new RegionRepository($this->connection()))->find('header'));
     }
 
+    /**
+     * Website plan phase 1b: the chrome preview must look like the live page — it loads the
+     * operator's theme colours/design tokens and the site's custom CSS, which it skipped.
+     */
+    public function testPreviewLoadsThemeColoursAndCustomCssLikeTheLivePage(): void
+    {
+        $this->container()->get(\Thallo\Core\Settings\GeneralSettings::class)
+            ->save(['theme_accent' => 'emerald', 'theme_radius' => 'sharp']);
+        // The appearance source memoises for the request's lifetime; the shared test boot
+        // has already rendered with the defaults, so drop its memo as a new request would.
+        $source = $this->container()->get(\Thallo\Render\ThemeAppearanceSource::class);
+        foreach (['accentMemo', 'neutralMemo', 'radiusMemo', 'fontMemo', 'backgroundMemo'] as $memo) {
+            $prop = new \ReflectionProperty($source, $memo);
+            $prop->setValue($source, null);
+        }
+        $put = \Symfony\Component\HttpFoundation\Request::create(
+            '/x',
+            'PUT',
+            [],
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            (string) json_encode(['source' => '.site-header { border-bottom: 2px solid red; }']),
+        );
+        $put->attributes->set('user', ['uuid' => 'user00000001']);
+        $saved = $this->container()->get(\Thallo\Render\Http\Controllers\TemplatesAdminController::class)
+            ->save($put, 'custom.css');
+        self::assertSame(200, $saved->getStatusCode(), (string) $saved->getContent());
+
+        $resp = $this->controller()->preview($this->previewDto([
+            'regions' => ['header' => ['blocks' => [
+                ['id' => 'prevhdrnav02', 'type' => 'navigation', 'data' => ['menu' => 'main']],
+            ], 'settings' => []]],
+        ]), \Symfony\Component\HttpFoundation\Request::create('https://admin.test/v1/admin/regions/preview'));
+        self::assertSame(200, $resp->getStatusCode(), (string) $resp->getContent());
+        $html = json_decode((string) $resp->getContent(), true)['data']['html'];
+
+        self::assertStringContainsString('--accent:#047857', $html, 'the operator\'s accent');
+        self::assertStringContainsString('--radius:4px', $html, 'the operator\'s design tokens');
+        self::assertMatchesRegularExpression('~<link rel="stylesheet" href="[^"]*/custom\.css\?v=~', $html, 'the site custom CSS');
+
+        // Leave the shared boot as we found it.
+        $this->container()->get(\Thallo\Core\Settings\GeneralSettings::class)
+            ->save(['theme_accent' => 'blue', 'theme_radius' => 'round']);
+        foreach (['accentMemo', 'neutralMemo', 'radiusMemo', 'fontMemo', 'backgroundMemo'] as $memo) {
+            (new \ReflectionProperty($source, $memo))->setValue($source, null);
+        }
+    }
+
     public function testPreviewFallsBackToTheSavedRowForAnUnpostedRegion(): void
     {
         $controller = $this->controller(); // seeds block types
